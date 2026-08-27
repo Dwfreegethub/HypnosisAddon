@@ -26,10 +26,13 @@ const ROW_HEIGHT = 90;
 const ROW_TOP_START = 250;
 const ROW_SPACING = 110;
 
-const BACK_LEFT = 1720;
-const BACK_TOP = 40;
-const BACK_WIDTH = 220;
-const BACK_HEIGHT = 80;
+// Exact position/size BC's own screens use for this (confirmed in Dialog.js and
+// Wardrobe.js: DrawButton(1895, 15, 90, 90, "", "White", "Icons/Exit.png", ...)) —
+// matches the convention DW pointed out rather than an approximated spot.
+const BACK_LEFT = 1895;
+const BACK_TOP = 15;
+const BACK_WIDTH = 90;
+const BACK_HEIGHT = 90;
 
 function rowTop(index: number): number {
 	return ROW_TOP_START + index * ROW_SPACING;
@@ -52,8 +55,10 @@ export function installMenu(): void {
 			DrawText("BC Hypnosis Add-on — test menu", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
 			// BC draws nothing of its own — including no back button — while our
 			// subscreen is active (confirmed in PreferenceSubscreenExtensionsRun), so
-			// without this there is no way to leave the screen at all.
-			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "Back", "White");
+			// without this there is no way to leave the screen at all. BCX draws its own
+			// copy of this same icon in the same spot for the same reason, rather than
+			// there being a native one that carries over automatically.
+			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
 				const top = rowTop(i);
