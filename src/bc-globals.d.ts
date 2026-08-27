@@ -7,3 +7,4 @@ declare function ServerSend(message: string, data: any): void;
 declare function ChatRoomCharacterUpdate(character: any): void;
 declare function ServerPlayerIsInChatRoom(): boolean;
 declare function ServerPlayerExtensionSettingsSync(name: string): void;
+declare function CommandCombine(add: any): void;

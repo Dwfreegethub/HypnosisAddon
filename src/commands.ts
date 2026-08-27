@@ -3,10 +3,6 @@ import { applyEffect, removeEffect } from "./effects";
 import { bumpTrust, listTrust } from "./storage";
 import { sendHiddenMessage } from "./messaging";
 
-// Stage 2 is deliberately command/response only, per the doc's roadmap — no menus yet.
-// Typed in the normal chat box as "/hypno <subcommand> ...", swallowed before it sends.
-const PREFIX = "/hypno";
-
 let suppressNextAction = false;
 let wardrobeBlocked = false;
 
@@ -26,83 +22,83 @@ function findCharacter(memberId: number): any {
 	);
 }
 
-function handleCommand(raw: string): boolean {
-	const trimmed = raw.trim();
-	if (!trimmed.toLowerCase().startsWith(PREFIX)) return false;
-
-	const [sub, ...args] = trimmed
-		.slice(PREFIX.length)
-		.trim()
-		.split(/\s+/)
-		.filter(Boolean);
-
-	switch ((sub ?? "").toLowerCase()) {
-		case "freeze":
-			log(applyEffect("Freeze") ? "Freeze applied" : "Freeze failed — no Emoticon item found");
-			break;
-
-		case "unfreeze":
-			log(removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied");
-			break;
-
-		case "suppress":
-			suppressNextAction = true;
-			log("armed: next incoming Action-type message will be logged and suppressed");
-			break;
-
-		case "wardrobeblock":
-			wardrobeBlocked = (args[0] ?? "").toLowerCase() !== "off";
-			log(`wardrobe block ${wardrobeBlocked ? "ON" : "OFF"}`);
-			break;
-
-		case "ping": {
-			const target = Number(args[0]);
-			if (!target) {
-				log("usage: /hypno ping <memberNumber>");
-				break;
-			}
-			sendHiddenMessage({ type: "ping", at: Date.now() }, target);
-			log(`sent ping to ${target}`);
-			break;
-		}
-
-		case "bumptrust": {
-			const target = Number(args[0]);
-			const delta = Number(args[1] ?? "5");
-			if (!target) {
-				log("usage: /hypno bumptrust <memberNumber> <delta>");
-				break;
-			}
-			const entry = bumpTrust(target, findCharacter(target)?.Name ?? `#${target}`, delta);
-			log(`trust with ${entry.memberName}: ${entry.relationshipTrust}`);
-			break;
-		}
-
-		case "logtrust": {
-			const all = listTrust();
-			if (!all.length) {
-				log("no trust data stored yet");
-				break;
-			}
-			all.forEach((t) => log(`${t.memberName} [${t.memberId}]: ${t.relationshipTrust}`));
-			break;
-		}
-
-		default:
-			log(`unknown command: ${sub}`);
-	}
-	return true;
+function firstWord(args: string): string {
+	return (args ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
-export function installCommandHook(modApi: any): void {
-	modApi.hookFunction(
-		"CommandParse",
-		1000,
-		((args: [string], next: (args: [string]) => string) => {
-			if (typeof args[0] === "string" && handleCommand(args[0])) {
-				return "";
-			}
-			return next(args);
-		}) as any,
-	);
+// Registered via BC's own command registry (Screens/Online/ChatRoom/Commands.js),
+// not by hooking CommandParse — that runs BEFORE registry lookup and would still hit
+// BC's "no such command" path for anything we didn't recognize ourselves, fighting the
+// game's own validation instead of using the extension point it already provides.
+export function installCommands(): void {
+	CommandCombine({
+		Tag: "hypno",
+		Description: "BC Hypnosis Add-on test commands (Stage 2)",
+		Action: () =>
+			log(
+				"subcommands: freeze, unfreeze, suppress, wardrobeblock <on|off>, ping <memberNumber>, bumptrust <memberNumber> <delta>, logtrust",
+			),
+		Subcommands: [
+			{
+				Tag: "freeze",
+				Action: () =>
+					log(applyEffect("Freeze") ? "Freeze applied" : "Freeze failed — no Emoticon item found"),
+			},
+			{
+				Tag: "unfreeze",
+				Action: () => log(removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"),
+			},
+			{
+				Tag: "suppress",
+				Action: () => {
+					suppressNextAction = true;
+					log("armed: next incoming Action-type message will be logged and suppressed");
+				},
+			},
+			{
+				Tag: "wardrobeblock",
+				Action: (args: string) => {
+					wardrobeBlocked = firstWord(args).toLowerCase() !== "off";
+					log(`wardrobe block ${wardrobeBlocked ? "ON" : "OFF"}`);
+				},
+			},
+			{
+				Tag: "ping",
+				Action: (args: string) => {
+					const target = Number(firstWord(args));
+					if (!target) {
+						log("usage: /hypno ping <memberNumber>");
+						return;
+					}
+					sendHiddenMessage({ type: "ping", at: Date.now() }, target);
+					log(`sent ping to ${target}`);
+				},
+			},
+			{
+				Tag: "bumptrust",
+				Action: (args: string) => {
+					const [rawTarget, rawDelta] = args.trim().split(/\s+/);
+					const target = Number(rawTarget);
+					const delta = Number(rawDelta ?? "5");
+					if (!target) {
+						log("usage: /hypno bumptrust <memberNumber> <delta>");
+						return;
+					}
+					const entry = bumpTrust(target, findCharacter(target)?.Name ?? `#${target}`, delta);
+					log(`trust with ${entry.memberName}: ${entry.relationshipTrust}`);
+				},
+			},
+			{
+				Tag: "logtrust",
+				Action: () => {
+					const all = listTrust();
+					if (!all.length) {
+						log("no trust data stored yet");
+						return;
+					}
+					all.forEach((t) => log(`${t.memberName} [${t.memberId}]: ${t.relationshipTrust}`));
+				},
+			},
+		],
+	});
 }

@@ -1,11 +1,11 @@
 import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
-import { installCommandHook, isWardrobeBlocked, consumeSuppressFlag } from "./commands";
+import { installCommands, isWardrobeBlocked, consumeSuppressFlag } from "./commands";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
-	el.textContent = "Hypnosis Add-on: loaded";
+	el.textContent = `Hypnosis Add-on v${__VERSION__} loaded`;
 	Object.assign(el.style, {
 		position: "fixed",
 		bottom: "4px",
@@ -25,7 +25,7 @@ function showIndicator(): void {
 const modApi = bcModSdk.registerMod({
 	name: "HypnosisAddon",
 	fullName: "BC Hypnosis Add-on",
-	version: "0.2.0",
+	version: __VERSION__,
 	repository: "https://github.com/Dwfreegethub/HypnosisAddon",
 });
 
@@ -60,7 +60,7 @@ modApi.hookFunction(
 	}) as any,
 );
 
-installCommandHook(modApi);
+installCommands();
 
-log("script loaded");
+log(`script loaded (v${__VERSION__})`);
 showIndicator();
