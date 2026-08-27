@@ -1,6 +1,5 @@
 import { log } from "./log";
 import { getFeatures } from "./storage";
-import { applyEffect } from "./effects";
 
 // Our namespace tag on the shared Type:"Hidden" ChatRoomChat channel — BCX uses
 // "BCXMsg", LSCG uses "LSCGMsg". Ours must differ so we don't misparse (or get
@@ -12,33 +11,16 @@ export interface HypnoMessage {
 	[key: string]: unknown;
 }
 
-export type RemoteFeature = "movement" | "clothing";
+type Handler = (sender: number, message: HypnoMessage) => void;
+const handlers = new Map<string, Handler>();
 
-// Subject-authoritative, per the design doc: a remote request is only ever a request —
-// this client decides for itself whether to honor it, based on its OWN locally-stored
-// permission settings, never anything the requester's client asserts about itself.
-function handleRemoteRequest(sender: number, message: HypnoMessage): void {
-	const feature = message.feature as RemoteFeature;
-	const features = getFeatures();
-	if (!features.hypnoEnabled) {
-		log(`remote request (${feature}) from ${sender} denied — Hypnosis Enabled is off`);
-		return;
-	}
-	if (feature === "movement") {
-		if (!features.movementRestriction) {
-			log(`remote request (movement) from ${sender} denied — not permitted`);
-			return;
-		}
-		applyEffect("Freeze");
-		ChatRoomSendLocal(`${sender} triggers a movement restriction on you.`);
-	} else if (feature === "clothing") {
-		if (!features.clothingRestriction) {
-			log(`remote request (clothing) from ${sender} denied — not permitted`);
-			return;
-		}
-		applyEffect("BlockWardrobe");
-		ChatRoomSendLocal(`${sender} triggers a clothing restriction on you.`);
-	}
+/** Register what happens when a message of this `type` arrives on our channel. Kept as
+ * a plain dispatch table here (rather than each feature's own module reaching into
+ * ChatRoomMessage directly) so messaging.ts stays a pure transport layer — feature
+ * modules (remote.ts, etc.) register into it instead of it needing to import them back,
+ * which would be circular since they already import sendHiddenMessage from here. */
+export function registerHiddenHandler(type: string, handler: Handler): void {
+	handlers.set(type, handler);
 }
 
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
@@ -59,9 +41,11 @@ export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
 		if (!getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const message = data?.Dictionary?.[0]?.message as HypnoMessage | undefined;
-		if (message?.type === "remote-request") {
-			handleRemoteRequest(data.Sender, message);
-		} else if (message) {
+		if (!message) return true;
+		const handler = handlers.get(message.type);
+		if (handler) {
+			handler(data.Sender, message);
+		} else {
 			log(`hidden message from ${data.Sender}:`, message);
 			// Visible on the receiving screen too — console-only here would make a
 			// successful round trip look identical to a message that never arrived.
