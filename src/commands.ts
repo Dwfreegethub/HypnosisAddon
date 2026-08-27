@@ -4,11 +4,6 @@ import { bumpTrust, listTrust } from "./storage";
 import { sendHiddenMessage } from "./messaging";
 
 let suppressNextAction = false;
-let wardrobeBlocked = false;
-
-export function isWardrobeBlocked(): boolean {
-	return wardrobeBlocked;
-}
 
 export function consumeSuppressFlag(): boolean {
 	if (!suppressNextAction) return false;
@@ -66,8 +61,9 @@ export function installCommands(): void {
 			{
 				Tag: "wardrobeblock",
 				Action: (args: string) => {
-					wardrobeBlocked = firstWord(args).toLowerCase() !== "off";
-					reply(`wardrobe block ${wardrobeBlocked ? "ON" : "OFF"}`);
+					const on = firstWord(args).toLowerCase() !== "off";
+					const ok = on ? applyEffect("BlockWardrobe") : removeEffect("BlockWardrobe");
+					reply(ok ? `wardrobe block ${on ? "ON" : "OFF"}` : "wardrobe block failed — no Emoticon item found");
 				},
 			},
 			{

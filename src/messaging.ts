@@ -23,7 +23,12 @@ export function sendHiddenMessage(message: HypnoMessage, target?: number): void 
 export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
 		const message = data?.Dictionary?.[0]?.message;
-		if (message) log(`hidden message from ${data.Sender}:`, message);
+		if (message) {
+			log(`hidden message from ${data.Sender}:`, message);
+			// Visible on the receiving screen too — console-only here would make a
+			// successful round trip look identical to a message that never arrived.
+			ChatRoomSendLocal(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`, 5_000);
+		}
 		return true;
 	}
 	return false;

@@ -1,7 +1,7 @@
 import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
-import { installCommands, isWardrobeBlocked, consumeSuppressFlag } from "./commands";
+import { installCommands, consumeSuppressFlag } from "./commands";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
@@ -71,15 +71,11 @@ safely("ChatRoomMessage hook", () => {
 	);
 });
 
-safely("wardrobe block hook", () => {
-	modApi.hookFunction(
-		"Player.CanChangeClothesOn",
-		10,
-		((args: [any], next: (args: [any]) => boolean) => {
-			if (isWardrobeBlocked()) return false;
-			return next(args);
-		}) as any,
-	);
-});
+// No hook for wardrobe blocking — Player.CanChangeClothesOn is a method on the global
+// Player object, and Player gets reassigned wholesale at login (CharacterCreatePlayer in
+// Character.js replaces the pre-login placeholder with a fresh object). A hook applied at
+// script-load time patches the placeholder and goes silently stale the moment you log in.
+// wardrobeblock uses the native BlockWardrobe effect instead (see commands.ts) — same
+// live-Player-reference technique Freeze already uses, so it can't go stale the same way.
 
 safely("/hypno command registration", installCommands);
