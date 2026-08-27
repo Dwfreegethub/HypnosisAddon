@@ -23,3 +23,5 @@ declare function DrawCheckbox(
 ): void;
 declare function DrawText(text: string, x: number, y: number, color: string, backColor?: string): void;
 declare function MouseIn(left: number, top: number, width: number, height: number): boolean;
+declare const MainCanvas: CanvasRenderingContext2D;
+declare const MainCanvasWidth: number;

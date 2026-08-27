@@ -42,10 +42,21 @@ export function installMenu(): void {
 		ButtonText: "Hypnosis Add-on",
 		load: () => {},
 		run: () => {
-			DrawText("BC Hypnosis Add-on — test menu", ROW_LEFT, ROW_TOP_START - 60, "White", "Black");
+			// Default canvas text alignment is centered — fine for this title (centered
+			// on the canvas midpoint), wrong for the checkbox labels below.
+			DrawText("BC Hypnosis Add-on — test menu", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
-				DrawCheckbox(ROW_LEFT, rowTop(i), ROW_WIDTH, ROW_HEIGHT, row.label, features[row.key]);
+				const top = rowTop(i);
+				// Empty label here — DrawCheckbox centers its own label at a fixed offset
+				// regardless of Width, which overlaps the box for anything but very short
+				// text (confirmed: that's exactly what produced the overlap DW saw).
+				// Draw the label ourselves, left-aligned, clear of the box instead.
+				DrawCheckbox(ROW_LEFT, top, ROW_WIDTH, ROW_HEIGHT, "", features[row.key]);
+				MainCanvas.save();
+				MainCanvas.textAlign = "left";
+				DrawText(row.label, ROW_LEFT + ROW_WIDTH + 20, top + 33, "Black", "Gray");
+				MainCanvas.restore();
 			});
 		},
 		click: () => {
