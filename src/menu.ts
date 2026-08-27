@@ -26,11 +26,13 @@ const ROW_HEIGHT = 90;
 const ROW_TOP_START = 250;
 const ROW_SPACING = 110;
 
-// Exact position/size BC's own screens use for this (confirmed in Dialog.js and
-// Wardrobe.js: DrawButton(1895, 15, 90, 90, "", "White", "Icons/Exit.png", ...)) —
-// matches the convention DW pointed out rather than an approximated spot.
-const BACK_LEFT = 1895;
-const BACK_TOP = 15;
+// Dialog.js/Wardrobe.js draw this same icon on a raw canvas at (1895,15) — but the
+// Preferences screen's own native exit button turned out to be a DOM/CSS-positioned
+// element (ElementMenu, direction "rtl" in Element.js), not a canvas draw at those
+// coordinates. So there's no exact source position to copy here; nudged down-left from
+// the Dialog/Wardrobe spot to approximate it visually per DW's "a little high and right".
+const BACK_LEFT = 1850;
+const BACK_TOP = 55;
 const BACK_WIDTH = 90;
 const BACK_HEIGHT = 90;
 
