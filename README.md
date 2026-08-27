@@ -378,6 +378,25 @@ Buttons gray out if the target hasn't granted that permission — but unlike eff
 
 The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-level testing independent of either screen.
 
+**Known issue, pick up here first next session:** the v0.6.0 toggle (apply ↔ release) and gray-out (permitted vs. not) behavior on the remote panel doesn't quite work right yet. Not diagnosed yet — start by opening the remote panel on the test account and watching the console (`F12`) for whatever `log()` lines actually fire (or don't) when clicking a feature button, then compare against what `remote.ts`'s `clickFeatureButton`/`drawFeatureButton` expect the `state-query`/`state-response` round trip to have produced.
+
 ---
 
-*Last updated: 2026-08-26*
+## Lessons Learned (BC API gotchas — quick reference)
+
+Full detail on each is inline above where relevant; this is just an index so nothing gets rediscovered the hard way twice.
+
+- **`Player` gets wholesale-replaced at login** (`CharacterCreatePlayer` in `Scripts/Character.js`) — never hook a method hanging off `Player` specifically (it'll silently go stale); hook a real top-level global (`ChatRoomMessage`, `CommandCombine`) or read `Player`'s state live at call time instead.
+- **BC has a real command registry** (`CommandCombine`, `Screens/Online/ChatRoom/Commands.js`) — don't hook `CommandParse` to add a command; it runs before registry lookup and you'll fight BC's own "no such command" validation.
+- **`bcModSdk.registerMod(info, options)`** — `allowReplace` is `options`' own field, a *separate second argument*, not a field on `info`.
+- **Canvas text is center-aligned by default** (`MainCanvas.textAlign`) — `DrawText`'s X is a center point. `DrawCheckbox`'s built-in label overlaps the box for anything but very short text; draw your own label left-aligned instead (`save()` / `textAlign = "left"` / `DrawText` / `restore()`).
+- **`PreferenceRegisterExtensionSetting`'s `exit()` isn't validated at registration but is required at runtime** — `PreferenceSubscreenExtensionsExit` calls it with no `?.` guard; omitting it throws the first time someone backs out of your screen.
+- **A `PreferenceRegisterExtensionSetting` subscreen must draw its own exit control** — BC draws none of its own chrome while a specific extension's screen is active.
+- **The Preferences screen's own native exit icon is DOM/CSS-positioned**, not a canvas coordinate — there's nothing exact to copy for it; `Dialog.js`/`Wardrobe.js`'s raw-canvas convention (`DrawButton(1895, 15, 90, 90, "", "White", "Icons/Exit.png")`) is a reasonable visual approximation, not the real value.
+- **`InformationSheetRun`/`Click`/`Exit` take zero arguments** — they read the module-level `InformationSheetSelection` global directly, not a hook argument.
+- **`character.HasEffect("Name")` works for free on anyone you can see** (synced Appearance data) — but **`ExtensionSettings` does NOT sync to other players** (confirmed absent from `CharacterLoadOnline`); reading someone else's permission state needs an explicit query/response, not a passive read.
+- **WebFetch summarizes pages through a small model before you see them** — good enough for "does X exist," too lossy to implement against directly. Download the real file and read it yourself for anything you're about to write code against.
+
+---
+
+*Last updated: 2026-08-27*
