@@ -26,7 +26,9 @@ function firstWord(args: string): string {
 // function BC's own command system uses for its "no such command" message.
 function reply(message: string): void {
 	log(message);
-	ChatRoomSendLocal(message, 5_000);
+	// No timeout arg — ChatRoomSendLocal only auto-removes when Timeout is a positive
+	// number (confirmed in ChatRoom.js), so omitting it keeps this in the log permanently.
+	ChatRoomSendLocal(message);
 }
 
 // Registered via BC's own command registry (Screens/Online/ChatRoom/Commands.js),

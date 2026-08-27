@@ -27,7 +27,8 @@ export function handleIncomingHidden(data: any): boolean {
 			log(`hidden message from ${data.Sender}:`, message);
 			// Visible on the receiving screen too — console-only here would make a
 			// successful round trip look identical to a message that never arrived.
-			ChatRoomSendLocal(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`, 5_000);
+			// No timeout — stays in the log rather than fading after a few seconds.
+			ChatRoomSendLocal(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
 		}
 		return true;
 	}
