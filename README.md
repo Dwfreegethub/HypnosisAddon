@@ -362,13 +362,17 @@ Verified against the live R131 client source: the socket instance is the global 
 
 Persistence, hooking (`bondage-club-mod-sdk`), and the Hidden-message envelope all follow the conventions confirmed from BCX/LSCG's own source (see Prior Art above). Two-account testing: install the built script on both, then run these from either side — `ping`/`bumptrust` need a real member number, get it from `/hypno logtrust` after a `bumptrust` or from the game's own UI.
 
-**Stage 3 (in progress):** a real settings screen via `PreferenceRegisterExtensionSetting` (Preferences → Extensions → "Hypnosis Add-on"), verified against the live `Preference.js`/`Drawing.js`/`Mouse.js` source rather than assumed. Four checkboxes, all off by default, persisted the same way as trust data:
-- **Hypnosis Enabled** — master switch. Turning it off actively suspends Movement/Clothing Restriction if either is on (matches the design doc's hard-floor philosophy); turning it on doesn't auto-reapply them.
-- **Movement Restriction** — Freeze effect, applied/removed immediately on toggle.
-- **Clothing Restriction** — BlockWardrobe effect *and* clothing-message suppression together (grouped to match the design doc's "Clothing Confusion" feature) — the `ChatRoomMessage` hook reads this flag directly, in addition to (not instead of) the one-shot `/hypno suppress` test command.
-- **Hidden Activities** — gates the Hidden-message cross-client channel (`messaging.ts`) for both sending and receiving, including the `/hypno ping` test command.
+**Stage 3 (in progress):** two screens now, both verified against the live client source rather than assumed.
 
-The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-level testing independent of the menu.
+**Settings (Preferences → Extensions → "Hypnosis Add-on")**, via `PreferenceRegisterExtensionSetting`. Four checkboxes, all off by default, persisted the same way as trust data — these are **permission** settings ("do I allow this to be done to me"), not self-triggers; checking one never applies an effect to yourself:
+- **Hypnosis Enabled** — master switch/hard floor. Turning it off immediately releases Movement/Clothing Restriction if either is currently active (matches the design doc's "clears active trance, suspends all effects"); turning it back on doesn't auto-reapply anything.
+- **Movement Restriction** — permission for a remote request to apply Freeze. Unchecking it releases Freeze immediately if it's currently active.
+- **Clothing Restriction** — permission for a remote request to apply BlockWardrobe, *and* gates clothing-message suppression (grouped to match the design doc's "Clothing Confusion" feature) — the `ChatRoomMessage` hook reads this flag directly, in addition to (not instead of) the one-shot `/hypno suppress` test command.
+- **Hidden Activities** — gates the Hidden-message cross-client channel (`messaging.ts`) for both sending and receiving.
+
+**Remote control (another player's Information Sheet)**, via hooking `InformationSheetRun`/`Click`/`Exit` (`Screens/Character/InformationSheet/InformationSheet.js`) — same mechanism LSCG's own remote uses (technique only, not their code — see `remote.ts`). Viewing someone else's sheet shows a small "H" icon directly below LSCG's own remote icon; clicking it opens a subscreen with Movement Restriction / Clothing Restriction buttons. Clicking one sends a `remote-request` over the Hidden channel — **the request only ever asks**; the receiving client decides for itself whether to honor it, checking its own Hypnosis Enabled + the specific permission locally (subject-authoritative, per the design doc — never trust what the requester's client claims). No custom icon asset exists yet, hence the plain letter.
+
+The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-level testing independent of either screen.
 
 ---
 

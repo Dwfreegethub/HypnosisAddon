@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, removeEffect } from "./effects";
+import { removeEffect } from "./effects";
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -41,33 +41,27 @@ const BACK_TOP = 55;
 const BACK_WIDTH = 90;
 const BACK_HEIGHT = 90;
 
-// hypnoEnabled is the master switch — turning it off actively suspends the other two
-// live effects rather than just leaving them running with a stale checkbox, matching
-// the design doc's hard-floor philosophy ("clears active trance, suspends all effects").
-// Turning it on does NOT auto-reapply them — they need their own checkbox re-checked.
+// These are PERMISSION settings now, not self-triggers — "do I allow someone else to do
+// this to me", checked in messaging.ts when a remote request comes in over the Hidden
+// channel (see remote.ts). Checking a box here never applies an effect to yourself;
+// unchecking one DOES immediately release that effect if it's currently active (revoking
+// consent mid-effect should end it, not just block future requests), and hypnoEnabled
+// off is a hard floor that releases both regardless of their own permission state —
+// matching the design doc's philosophy ("clears active trance, suspends all effects").
+// hypnoEnabled back on does NOT restore an effect that was released this way.
 function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 	switch (key) {
 		case "hypnoEnabled":
 			if (!enabled) {
-				if (getFeatures().movementRestriction) {
-					setFeature("movementRestriction", false);
-					removeEffect("Freeze");
-				}
-				if (getFeatures().clothingRestriction) {
-					setFeature("clothingRestriction", false);
-					removeEffect("BlockWardrobe");
-				}
+				removeEffect("Freeze");
+				removeEffect("BlockWardrobe");
 			}
 			break;
 		case "movementRestriction":
-			if (enabled) applyEffect("Freeze");
-			else removeEffect("Freeze");
+			if (!enabled) removeEffect("Freeze");
 			break;
 		case "clothingRestriction":
-			// Message suppression itself is read directly off this same flag in
-			// main.ts's ChatRoomMessage hook — nothing else to do for that half here.
-			if (enabled) applyEffect("BlockWardrobe");
-			else removeEffect("BlockWardrobe");
+			if (!enabled) removeEffect("BlockWardrobe");
 			break;
 		case "hiddenActivities":
 			// No direct effect — messaging.ts reads this flag itself before

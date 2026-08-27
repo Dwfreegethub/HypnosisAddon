@@ -3,6 +3,7 @@ import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
 import { installMenu } from "./menu";
+import { installRemote } from "./remote";
 import { getFeatures } from "./storage";
 
 function showIndicator(): void {
@@ -82,3 +83,4 @@ safely("ChatRoomMessage hook", () => {
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);
+safely("remote (Information Sheet) registration", () => installRemote(modApi));

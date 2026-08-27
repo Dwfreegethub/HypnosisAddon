@@ -41,3 +41,6 @@ declare function DrawButton(
 // own back button entirely while PreferenceExtensionsCurrent is set, so without calling
 // this from our own UI there is no way out of the screen at all.
 declare function PreferenceSubscreenExtensionsClear(): Promise<void>;
+// The character currently shown on the Information Sheet screen (module-level global in
+// Screens/Character/InformationSheet/InformationSheet.js, not a hook argument).
+declare const InformationSheetSelection: any;
