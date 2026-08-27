@@ -26,6 +26,14 @@ function firstWord(args: string): string {
 	return (args ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
+// Visible in-game feedback, not just console.log — command/response testing is only
+// useful if the response is actually visible without needing DevTools open. Same
+// function BC's own command system uses for its "no such command" message.
+function reply(message: string): void {
+	log(message);
+	ChatRoomSendLocal(message, 5_000);
+}
+
 // Registered via BC's own command registry (Screens/Online/ChatRoom/Commands.js),
 // not by hooking CommandParse — that runs BEFORE registry lookup and would still hit
 // BC's "no such command" path for anything we didn't recognize ourselves, fighting the
@@ -35,31 +43,31 @@ export function installCommands(): void {
 		Tag: "hypno",
 		Description: "BC Hypnosis Add-on test commands (Stage 2)",
 		Action: () =>
-			log(
+			reply(
 				"subcommands: freeze, unfreeze, suppress, wardrobeblock <on|off>, ping <memberNumber>, bumptrust <memberNumber> <delta>, logtrust",
 			),
 		Subcommands: [
 			{
 				Tag: "freeze",
 				Action: () =>
-					log(applyEffect("Freeze") ? "Freeze applied" : "Freeze failed — no Emoticon item found"),
+					reply(applyEffect("Freeze") ? "Freeze applied" : "Freeze failed — no Emoticon item found"),
 			},
 			{
 				Tag: "unfreeze",
-				Action: () => log(removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"),
+				Action: () => reply(removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"),
 			},
 			{
 				Tag: "suppress",
 				Action: () => {
 					suppressNextAction = true;
-					log("armed: next incoming Action-type message will be logged and suppressed");
+					reply("armed: next incoming Action-type message will be logged and suppressed");
 				},
 			},
 			{
 				Tag: "wardrobeblock",
 				Action: (args: string) => {
 					wardrobeBlocked = firstWord(args).toLowerCase() !== "off";
-					log(`wardrobe block ${wardrobeBlocked ? "ON" : "OFF"}`);
+					reply(`wardrobe block ${wardrobeBlocked ? "ON" : "OFF"}`);
 				},
 			},
 			{
@@ -67,11 +75,11 @@ export function installCommands(): void {
 				Action: (args: string) => {
 					const target = Number(firstWord(args));
 					if (!target) {
-						log("usage: /hypno ping <memberNumber>");
+						reply("usage: /hypno ping <memberNumber>");
 						return;
 					}
 					sendHiddenMessage({ type: "ping", at: Date.now() }, target);
-					log(`sent ping to ${target}`);
+					reply(`sent ping to ${target}`);
 				},
 			},
 			{
@@ -81,11 +89,11 @@ export function installCommands(): void {
 					const target = Number(rawTarget);
 					const delta = Number(rawDelta ?? "5");
 					if (!target) {
-						log("usage: /hypno bumptrust <memberNumber> <delta>");
+						reply("usage: /hypno bumptrust <memberNumber> <delta>");
 						return;
 					}
 					const entry = bumpTrust(target, findCharacter(target)?.Name ?? `#${target}`, delta);
-					log(`trust with ${entry.memberName}: ${entry.relationshipTrust}`);
+					reply(`trust with ${entry.memberName}: ${entry.relationshipTrust}`);
 				},
 			},
 			{
@@ -93,10 +101,10 @@ export function installCommands(): void {
 				Action: () => {
 					const all = listTrust();
 					if (!all.length) {
-						log("no trust data stored yet");
+						reply("no trust data stored yet");
 						return;
 					}
-					all.forEach((t) => log(`${t.memberName} [${t.memberId}]: ${t.relationshipTrust}`));
+					all.forEach((t) => reply(`${t.memberName} [${t.memberId}]: ${t.relationshipTrust}`));
 				},
 			},
 		],

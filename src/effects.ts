@@ -15,6 +15,13 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 		log(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
 		return false;
 	}
+	// Both steps are required — LSCG's real technique pushes the effect onto the asset's
+	// AllowEffect allow-list as well as the item's Property.Effect. Property.Effect alone
+	// gets silently dropped if BC's recompute filters it against that allow-list.
+	item.Asset.AllowEffect ??= [];
+	if (!item.Asset.AllowEffect.includes(effectName)) {
+		item.Asset.AllowEffect.push(effectName);
+	}
 	item.Property ??= {};
 	item.Property.Effect ??= [];
 	if (!item.Property.Effect.includes(effectName)) {
