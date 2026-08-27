@@ -22,6 +22,8 @@ Drugs and arousal can influence the process but cannot substitute for real trust
 
 Rather than fixed tiers, trust is a percentage. Each feature has a **player-adjustable threshold** — the trust % required for that feature to become accessible. In the zone near the threshold, outcomes are probabilistic (resistance mechanic applies). Well above the threshold, effects are near-certain.
 
+**Two access paths, not one.** Long-term depth is always relationship-trust-gated — that part is never bypassed. But arousal and drugs open a second, bounded path: a **chemical access floor** that lets someone with *zero* relationship trust still reach shallow, session-only effects, capped by a player-set ceiling ("Stranger ceiling," see Player Settings). Effective access for a threshold check is `max(relationshipTrust, chemicalFloor)` — a floor, not a multiplier, since a multiplier on zero trust is still zero and wouldn't give a stranger anything. Deep/persistent features stay out of the chemical floor's reach entirely (see Feature Thresholds below), consistent with the existing rule that drugs/arousal can't write anything permanent.
+
 ---
 
 ## What Builds Trust
@@ -39,15 +41,15 @@ Rather than fixed tiers, trust is a percentage. Each feature has a **player-adju
 - Pre-written induction scripts can be triggered by command — the add-on speaks them in chat
 
 ### 3. Arousal (real-time modifier)
-- BC arousal level acts as a temporary multiplier on effective trust
-- Higher arousal = lower inhibitions = hypnotist can go slightly deeper than base trust would allow
-- Effect is temporary and session-only; does not permanently increase trust
+- BC arousal level raises the **chemical access floor** (see Core Mechanic above), capped by the player's "Stranger ceiling" setting — a floor, not a multiplier, so it also helps an established relationship push slightly past where relationship trust alone would sit
+- Higher arousal = lower inhibitions = deeper momentary access, regardless of relationship history
+- Effect is temporary and session-only; never touches stored relationship trust, and never reaches persistent/deep features
 
 ### 4. Drugs (temporary blunt instrument)
-- Can shift effective trust **up or down** temporarily
+- Can raise **or lower** the same chemical access floor temporarily, same "Stranger ceiling" cap
 - Player-adjustable: character can be set as "drugs relax my guard" or "drugs make me paranoid"
 - **Hard rule:** drugs cannot be used to plant triggers or lasting suggestions
-- Drugs open or close the door temporarily; they cannot write anything permanent
+- Drugs open or close the door temporarily; they cannot write anything permanent — the floor they raise never applies to persistent/deep features, only session-only ones
 
 ---
 
@@ -116,6 +118,8 @@ Each feature has a player-adjustable trust % threshold. Example defaults (placeh
 **In the zone (near threshold):** outcome is probabilistic, resistance mechanic applies.
 **Well above threshold:** near-certain success.
 **Below threshold:** blocked entirely.
+
+**Chemical floor applies only to session-only rows** (mood suggestions, behavioral suggestions, hypnotic immobilization, follow/leash, remove clothes, both illusions) — never to persistent triggers or hypnotist-only-removable triggers, no matter how high a player sets their Stranger ceiling. Those two stay relationship-trust-only.
 
 ---
 
@@ -234,6 +238,7 @@ Result: subject believes they are bound; to everyone else they look like a free 
 | IC stance | RP flavor: resistant / neutral / open |
 | OOC preference | Whether mechanics actually work |
 | Feature thresholds | Per-feature trust % required (adjustable) |
+| Stranger ceiling | Max chemical access floor for someone with zero relationship trust (session-only effects only) |
 
 ---
 
@@ -346,6 +351,15 @@ To test against the live client: install the script in Tampermonkey from a `file
 Verified against the live R131 client source: the socket instance is the global `ServerSocket`, incoming events are consumed via `ServerSocket.on("ChatRoomMessage", ...)`, and BC already has a `Type: "Hidden"` message convention (sent through `ServerSend("ChatRoomChat", { Content, Type: "Hidden", Target })`) that's delivered but never rendered in the visible chat log — this is the channel the "Sync between players" section above is planned to use.
 
 **Stage 1 (done):** userscript loads, logs to console, shows a small on-screen indicator, and logs every incoming `ChatRoomMessage` event.
+
+**Stage 2 (done):** command/response testing via `/hypno <subcommand>`, typed in the normal chat box and swallowed before it sends:
+- `/hypno freeze` / `/hypno unfreeze` — apply/remove a Freeze effect via the invisible Emoticon-item technique (the same one LSCG uses) — no physical item needed
+- `/hypno wardrobeblock on|off` — hook-blocks `Player.CanChangeClothesOn`
+- `/hypno suppress` — arms a one-shot filter that logs and swallows the next incoming Action-type chat message instead of letting it render
+- `/hypno ping <memberNumber>` — round-trips a Hidden message using our own `Content: "HypnoMsg"` tag; the receiving client logs it
+- `/hypno bumptrust <memberNumber> <delta>` / `/hypno logtrust` — manually adjust and read back a per-member trust value, persisted via `Player.ExtensionSettings.HypnosisAddon`
+
+Persistence, hooking (`bondage-club-mod-sdk`), and the Hidden-message envelope all follow the conventions confirmed from BCX/LSCG's own source (see Prior Art above). Two-account testing: install the built script on both, then run these from either side — `ping`/`bumptrust` need a real member number, get it from `/hypno logtrust` after a `bumptrust` or from the game's own UI.
 
 ---
 

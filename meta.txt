@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.1.0
+// @version      0.2.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // @match        *://*.bondageprojects.elementfx.com/*
