@@ -11,13 +11,24 @@ export interface TrustEntry {
 	lastUpdated: number;
 }
 
+export interface FeatureToggles {
+	freeze: boolean;
+	wardrobeBlock: boolean;
+	suppressClothingMessages: boolean;
+}
+
 interface HypnoAddonSettings {
 	version: string;
 	trust: TrustEntry[];
+	features: FeatureToggles;
+}
+
+function defaultFeatures(): FeatureToggles {
+	return { freeze: false, wardrobeBlock: false, suppressClothingMessages: false };
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.2.0", trust: [] };
+	return { version: "0.3.0", trust: [], features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -36,6 +47,10 @@ function loadSettings(): HypnoAddonSettings {
 		log("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
+	// Backfill for settings blobs saved before a field existed (e.g. `features` didn't
+	// exist in 0.2.x) — without this, an old stored blob would have `features`
+	// undefined and every checkbox read/write would throw.
+	if (cached && !cached.features) cached.features = defaultFeatures();
 	return cached as HypnoAddonSettings;
 }
 
@@ -68,4 +83,13 @@ export function bumpTrust(memberId: number, memberName: string, delta: number): 
 
 export function listTrust(): TrustEntry[] {
 	return loadSettings().trust;
+}
+
+export function getFeatures(): FeatureToggles {
+	return loadSettings().features;
+}
+
+export function setFeature(key: keyof FeatureToggles, value: boolean): void {
+	loadSettings().features[key] = value;
+	saveSettings();
 }

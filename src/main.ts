@@ -2,6 +2,8 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
+import { installMenu } from "./menu";
+import { getFeatures } from "./storage";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
@@ -61,7 +63,7 @@ safely("ChatRoomMessage hook", () => {
 			if (handleIncomingHidden(data)) {
 				return next(args);
 			}
-			if (data?.Type === "Action" && consumeSuppressFlag()) {
+			if (data?.Type === "Action" && (getFeatures().suppressClothingMessages || consumeSuppressFlag())) {
 				log("suppressed Action message:", JSON.stringify(data));
 				return undefined;
 			}
@@ -79,3 +81,4 @@ safely("ChatRoomMessage hook", () => {
 // live-Player-reference technique Freeze already uses, so it can't go stale the same way.
 
 safely("/hypno command registration", installCommands);
+safely("preference menu registration", installMenu);
