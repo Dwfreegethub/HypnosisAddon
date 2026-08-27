@@ -25,3 +25,19 @@ declare function DrawText(text: string, x: number, y: number, color: string, bac
 declare function MouseIn(left: number, top: number, width: number, height: number): boolean;
 declare const MainCanvas: CanvasRenderingContext2D;
 declare const MainCanvasWidth: number;
+declare function DrawButton(
+	left: number,
+	top: number,
+	width: number,
+	height: number,
+	label: string,
+	color: string,
+	image?: string | null,
+	hoveringText?: string | null,
+	disabled?: boolean,
+): void;
+// The documented, intended way for an extension's own subscreen to exit itself back to
+// the Extensions list (Screens/Character/Preference/Extensions.js) — BC suppresses its
+// own back button entirely while PreferenceExtensionsCurrent is set, so without calling
+// this from our own UI there is no way out of the screen at all.
+declare function PreferenceSubscreenExtensionsClear(): Promise<void>;

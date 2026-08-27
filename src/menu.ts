@@ -26,6 +26,11 @@ const ROW_HEIGHT = 90;
 const ROW_TOP_START = 250;
 const ROW_SPACING = 110;
 
+const BACK_LEFT = 1720;
+const BACK_TOP = 40;
+const BACK_WIDTH = 220;
+const BACK_HEIGHT = 80;
+
 function rowTop(index: number): number {
 	return ROW_TOP_START + index * ROW_SPACING;
 }
@@ -45,6 +50,10 @@ export function installMenu(): void {
 			// Default canvas text alignment is centered — fine for this title (centered
 			// on the canvas midpoint), wrong for the checkbox labels below.
 			DrawText("BC Hypnosis Add-on — test menu", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
+			// BC draws nothing of its own — including no back button — while our
+			// subscreen is active (confirmed in PreferenceSubscreenExtensionsRun), so
+			// without this there is no way to leave the screen at all.
+			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "Back", "White");
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
 				const top = rowTop(i);
@@ -60,6 +69,10 @@ export function installMenu(): void {
 			});
 		},
 		click: () => {
+			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT)) {
+				PreferenceSubscreenExtensionsClear();
+				return;
+			}
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
 				if (MouseIn(ROW_LEFT, rowTop(i), ROW_WIDTH, ROW_HEIGHT)) {
