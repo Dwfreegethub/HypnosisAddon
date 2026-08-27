@@ -243,17 +243,38 @@ Result: subject believes they are bound; to everyone else they look like a free 
 - Subject stores: trust per hypnotist, personal settings, hard limits, active triggers, trigger strength/decay
 - Hypnotist stores: global skill, per-subject familiarity, planted trigger records
 - Data must persist across sessions
+- **Confirmed mechanism** (BCX and LSCG both do this — established convention, not one dev's preference): one LZString-compressed JSON blob written to `Player.ExtensionSettings.<Name>`, pushed via BC's real `ServerPlayerExtensionSettingsSync(name)` API, mirrored to `localStorage` as an offline backup. Use this rather than inventing our own storage/sync path.
 
 ### Sync between players
-- Communication via BC's Hidden chat message system (same pattern as BCX/LSCG)
+- Communication via BC's Hidden chat message system (same pattern as BCX/LSCG) — confirmed against the live client: `Type: "Hidden"` on a `ChatRoomChat` message is delivered through the normal `ChatRoomMessage` event but never rendered in the visible chat log
+- **The channel is shared.** BCX tags its traffic `Content: "BCXMsg"`, LSCG uses `Content: "LSCGMsg"`. We need our own tag (placeholder: `Content: "HypnoAddonMsg"`) from the start so we don't collide with either
 - Trust values are subject-authoritative — subject's client is source of truth
 - Hypnotist's commands are requests; subject's add-on decides whether they succeed
 
+### Effect hooking
+- Adopt `bondage-club-mod-sdk` (MIT license, by Jomshir98 — one of BC's own coders) for wrapping/intercepting BC's own functions, rather than writing our own hook utility. Both BCX and LSCG build on this same package.
+
 ### Add-on loader compatibility
 - Ship as standalone Tampermonkey userscript
-- Structure for FUSAM compatibility
+- **FUSAM, corrected:** the real project is `gitlab.com/sidiousious/bc-addon-loader`. It needs no code-level integration — getting listed is a `manifest.json` entry (short ID, long name, description, author, script URL) submitted via merge request or the BC Scripting Community Discord, once we have a stable published script URL. It's a listing step to do whenever we're ready to publish, not a Stage 3 engineering task.
 
 ---
+
+## Prior Art: LSCG's HypnoModule
+
+LSCG (a mature, popular BC add-on) already ships a mechanic close to ours — read in full from its source, not summarized secondhand. A per-hypnotist "influence" score, 0–100:
+- Suggestion strength = the *installer's* stored influence plus the *current speaker's* stored influence (each halved, then summed), doubled if the subject is already in trance, capped at 100
+- Successful compulsion raises influence for both the speaker and (if different) whoever originally installed the suggestion; successful resistance lowers both — a self-reinforcing loop, control begets more control
+- Passive decay independent of that loop: every 10 minutes, logarithmic (`ceil(log10(influence))`), so it trends toward zero without contact but slows down as it gets low
+- Below-certainty suggestions trigger a resistance mini-game: a random 0–100 roll compared against the influence score, full-screen blur/tint scaling with it, plus an instant "Submit" button as a conscious-allow that skips the roll entirely
+- A separate post-wake cooldown, independent of influence, blocks immediate re-triggering
+- Trigger words auto-rotate periodically and can be hidden from the subject entirely unless overridden
+
+This validates the shape of our trust mechanic — we're implementing our own, not depending on LSCG's, and we're deliberately differing from it, including in how it's presented to the player, not just internally:
+- Per-feature trust thresholds (our table above) vs. LSCG's single all-purpose influence number
+- OOC preference layer (genuine resistance / cosmetic RP resistance / hard no) — no equivalent in LSCG
+- Architect/ownership as a role distinct from raw trust — LSCG only checks BC's native owner/lover relationship for suggestion-editing rights
+- Open question carried forward: do we want LSCG's full-screen blur/tint resistance takeover, or something quieter?
 
 ## Development Stages
 
@@ -301,7 +322,8 @@ Result: subject believes they are bound; to everyone else they look like a free 
 ## Open Questions
 
 - Global skill vs per-subject familiarity — interaction mechanics
-- Trigger reinforcement — how often, how much decay per day
+- Trigger reinforcement — how often, how much decay per day (LSCG's logarithmic-every-10-minutes is a reasonable starting reference, not necessarily our final formula)
+- Trigger word visibility — LSCG hides + periodically rotates the subject's own trigger word unless overridden; do we want that, or keep triggers always known to the subject?
 - Induction script library — ship with defaults, allow user-created?
 - Clothing illusion interaction with BC's existing blindfold/sensory systems
 - Collateral effect range in map rooms — everyone, or distance-limited?
