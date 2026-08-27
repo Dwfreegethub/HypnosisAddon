@@ -258,6 +258,7 @@ Result: subject believes they are bound; to everyone else they look like a free 
 
 ### Effect hooking
 - Adopt `bondage-club-mod-sdk` (MIT license, by Jomshir98 — one of BC's own coders) for wrapping/intercepting BC's own functions, rather than writing our own hook utility. Both BCX and LSCG build on this same package.
+- **Gotcha, confirmed against the live client:** `Player` is not stable — `CharacterCreatePlayer()` in `Scripts/Character.js` reassigns the whole global `Player` object at login (`Player = CharacterCreate(...)`), replacing a pre-login placeholder. A `hookFunction("Player.<method>", ...)` call made before that point patches the placeholder and goes silently stale the moment the real object replaces it — no error, the hook just stops firing. Don't hook methods hanging off `Player` specifically; either hook a real top-level global function (`ChatRoomMessage`, `CommandCombine` — neither gets reassigned, both confirmed working), or read/write `Player`'s current state live at call time the way the effect-injection technique already does (works regardless of reassignment since it re-reads `Player` fresh every call, never caches a reference).
 
 ### Add-on loader compatibility
 - Ship as standalone Tampermonkey userscript
@@ -354,7 +355,7 @@ Verified against the live R131 client source: the socket instance is the global 
 
 **Stage 2 (done):** command/response testing via `/hypno <subcommand>`, typed in the normal chat box and swallowed before it sends:
 - `/hypno freeze` / `/hypno unfreeze` — apply/remove a Freeze effect via the invisible Emoticon-item technique (the same one LSCG uses) — no physical item needed
-- `/hypno wardrobeblock on|off` — hook-blocks `Player.CanChangeClothesOn`
+- `/hypno wardrobeblock on|off` — applies/removes BC's native `BlockWardrobe` effect (same Emoticon-item technique as Freeze — a function hook on `Player.CanChangeClothesOn` doesn't work here, see Technical Architecture Notes)
 - `/hypno suppress` — arms a one-shot filter that logs and swallows the next incoming Action-type chat message instead of letting it render
 - `/hypno ping <memberNumber>` — round-trips a Hidden message using our own `Content: "HypnoMsg"` tag; the receiving client logs it
 - `/hypno bumptrust <memberNumber> <delta>` / `/hypno logtrust` — manually adjust and read back a per-member trust value, persisted via `Player.ExtensionSettings.HypnosisAddon`
