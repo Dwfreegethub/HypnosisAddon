@@ -309,4 +309,22 @@ Result: subject believes they are bound; to everyone else they look like a free 
 
 ---
 
+## Development
+
+Stack: TypeScript, bundled with esbuild into a single `.user.js` (Tampermonkey only loads one file, so unlike the Node bots in this workspace this needs a bundler, not just `tsc`).
+
+```bash
+npm install
+npm run watch     # rebuilds dist/HypnosisAddon.user.js on save
+npm run typecheck # tsc --noEmit
+```
+
+To test against the live client: install the script in Tampermonkey from a `file://` URL pointing at `dist/HypnosisAddon.user.js` (enable "Allow access to file URLs" for the extension), then just refresh the BC tab after each rebuild to pick up changes. `@match` targets `*://*.bondageprojects.elementfx.com/*` — update it if the hosting domain changes.
+
+Verified against the live R131 client source: the socket instance is the global `ServerSocket`, incoming events are consumed via `ServerSocket.on("ChatRoomMessage", ...)`, and BC already has a `Type: "Hidden"` message convention (sent through `ServerSend("ChatRoomChat", { Content, Type: "Hidden", Target })`) that's delivered but never rendered in the visible chat log — this is the channel the "Sync between players" section above is planned to use.
+
+**Stage 1 (done):** userscript loads, logs to console, shows a small on-screen indicator, and logs every incoming `ChatRoomMessage` event.
+
+---
+
 *Last updated: 2026-08-26*
