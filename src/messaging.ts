@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { getFeatures } from "./storage";
 
 // Our namespace tag on the shared Type:"Hidden" ChatRoomChat channel — BCX uses
 // "BCXMsg", LSCG uses "LSCGMsg". Ours must differ so we don't misparse (or get
@@ -11,6 +12,10 @@ export interface HypnoMessage {
 }
 
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
+	if (!getFeatures().hiddenActivities) {
+		log("Hidden Activities is off — not sending", message);
+		return;
+	}
 	ServerSend("ChatRoomChat", {
 		Content: HIDDEN_TAG,
 		Type: "Hidden",
@@ -22,6 +27,7 @@ export function sendHiddenMessage(message: HypnoMessage, target?: number): void 
 /** Returns true if this was one of ours (handled), false if the hook should keep looking. */
 export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
+		if (!getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const message = data?.Dictionary?.[0]?.message;
 		if (message) {
 			log(`hidden message from ${data.Sender}:`, message);

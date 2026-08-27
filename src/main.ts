@@ -63,7 +63,7 @@ safely("ChatRoomMessage hook", () => {
 			if (handleIncomingHidden(data)) {
 				return next(args);
 			}
-			if (data?.Type === "Action" && (getFeatures().suppressClothingMessages || consumeSuppressFlag())) {
+			if (data?.Type === "Action" && (getFeatures().clothingRestriction || consumeSuppressFlag())) {
 				log("suppressed Action message:", JSON.stringify(data));
 				return undefined;
 			}

@@ -11,13 +11,13 @@ import { getFeatures, setFeature, FeatureToggles } from "./storage";
 interface Row {
 	key: keyof FeatureToggles;
 	label: string;
-	effectName?: string;
 }
 
 const ROWS: Row[] = [
-	{ key: "freeze", label: "Freeze (test)", effectName: "Freeze" },
-	{ key: "wardrobeBlock", label: "Block Wardrobe (test)", effectName: "BlockWardrobe" },
-	{ key: "suppressClothingMessages", label: "Suppress Clothing Messages (test)" },
+	{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
+	{ key: "movementRestriction", label: "Movement Restriction" },
+	{ key: "clothingRestriction", label: "Clothing Restriction" },
+	{ key: "hiddenActivities", label: "Hidden Activities" },
 ];
 
 const ROW_LEFT = 200;
@@ -26,24 +26,54 @@ const ROW_HEIGHT = 90;
 const ROW_TOP_START = 250;
 const ROW_SPACING = 110;
 
-// Dialog.js/Wardrobe.js draw this same icon on a raw canvas at (1895,15) — but the
-// Preferences screen's own native exit button turned out to be a DOM/CSS-positioned
-// element (ElementMenu, direction "rtl" in Element.js), not a canvas draw at those
-// coordinates. So there's no exact source position to copy here; nudged down-left from
-// the Dialog/Wardrobe spot to approximate it visually per DW's "a little high and right".
+function rowTop(index: number): number {
+	return ROW_TOP_START + index * ROW_SPACING;
+}
+
+// ADJUST-ME — exit icon position. Increase BACK_LEFT to move right, BACK_TOP to move
+// down. There's no exact source value to copy for this screen specifically: Dialog.js
+// and Wardrobe.js draw this same icon at a fixed canvas coordinate (1895,15), but the
+// Preferences screen's own native exit button turned out to be DOM/CSS-positioned
+// (ElementMenu in Element.js) rather than a canvas draw, so these four numbers are DW's
+// own eyeballed best-fit against the native one, not a verified value — nudge freely.
 const BACK_LEFT = 1850;
 const BACK_TOP = 55;
 const BACK_WIDTH = 90;
 const BACK_HEIGHT = 90;
 
-function rowTop(index: number): number {
-	return ROW_TOP_START + index * ROW_SPACING;
-}
-
-function applyToggle(row: Row, enabled: boolean): void {
-	if (!row.effectName) return;
-	if (enabled) applyEffect(row.effectName);
-	else removeEffect(row.effectName);
+// hypnoEnabled is the master switch — turning it off actively suspends the other two
+// live effects rather than just leaving them running with a stale checkbox, matching
+// the design doc's hard-floor philosophy ("clears active trance, suspends all effects").
+// Turning it on does NOT auto-reapply them — they need their own checkbox re-checked.
+function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
+	switch (key) {
+		case "hypnoEnabled":
+			if (!enabled) {
+				if (getFeatures().movementRestriction) {
+					setFeature("movementRestriction", false);
+					removeEffect("Freeze");
+				}
+				if (getFeatures().clothingRestriction) {
+					setFeature("clothingRestriction", false);
+					removeEffect("BlockWardrobe");
+				}
+			}
+			break;
+		case "movementRestriction":
+			if (enabled) applyEffect("Freeze");
+			else removeEffect("Freeze");
+			break;
+		case "clothingRestriction":
+			// Message suppression itself is read directly off this same flag in
+			// main.ts's ChatRoomMessage hook — nothing else to do for that half here.
+			if (enabled) applyEffect("BlockWardrobe");
+			else removeEffect("BlockWardrobe");
+			break;
+		case "hiddenActivities":
+			// No direct effect — messaging.ts reads this flag itself before
+			// sending/processing anything on the Hidden channel.
+			break;
+	}
 }
 
 export function installMenu(): void {
@@ -52,22 +82,14 @@ export function installMenu(): void {
 		ButtonText: "Hypnosis Add-on",
 		load: () => {},
 		run: () => {
-			// Default canvas text alignment is centered — fine for this title (centered
-			// on the canvas midpoint), wrong for the checkbox labels below.
-			DrawText("BC Hypnosis Add-on — test menu", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
-			// BC draws nothing of its own — including no back button — while our
-			// subscreen is active (confirmed in PreferenceSubscreenExtensionsRun), so
-			// without this there is no way to leave the screen at all. BCX draws its own
-			// copy of this same icon in the same spot for the same reason, rather than
-			// there being a native one that carries over automatically.
+			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
 				const top = rowTop(i);
 				// Empty label here — DrawCheckbox centers its own label at a fixed offset
 				// regardless of Width, which overlaps the box for anything but very short
-				// text (confirmed: that's exactly what produced the overlap DW saw).
-				// Draw the label ourselves, left-aligned, clear of the box instead.
+				// text. Draw the label ourselves, left-aligned, clear of the box instead.
 				DrawCheckbox(ROW_LEFT, top, ROW_WIDTH, ROW_HEIGHT, "", features[row.key]);
 				MainCanvas.save();
 				MainCanvas.textAlign = "left";
@@ -85,7 +107,7 @@ export function installMenu(): void {
 				if (MouseIn(ROW_LEFT, rowTop(i), ROW_WIDTH, ROW_HEIGHT)) {
 					const next = !features[row.key];
 					setFeature(row.key, next);
-					applyToggle(row, next);
+					onToggle(row.key, next);
 					log(`${row.key} set to ${next}`);
 				}
 			});

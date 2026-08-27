@@ -12,9 +12,17 @@ export interface TrustEntry {
 }
 
 export interface FeatureToggles {
-	freeze: boolean;
-	wardrobeBlock: boolean;
-	suppressClothingMessages: boolean;
+	/** Master switch — see menu.ts's onToggle for the "turning this off suspends the
+	 * others" behavior, matching the design doc's hard-floor philosophy. */
+	hypnoEnabled: boolean;
+	/** Freeze effect. */
+	movementRestriction: boolean;
+	/** BlockWardrobe effect + clothing-change message suppression together — grouped to
+	 * match the design doc's "Clothing Confusion" feature. */
+	clothingRestriction: boolean;
+	/** Gates the Hidden-message cross-client channel (see messaging.ts) — both sending
+	 * and receiving. */
+	hiddenActivities: boolean;
 }
 
 interface HypnoAddonSettings {
@@ -24,11 +32,16 @@ interface HypnoAddonSettings {
 }
 
 function defaultFeatures(): FeatureToggles {
-	return { freeze: false, wardrobeBlock: false, suppressClothingMessages: false };
+	return {
+		hypnoEnabled: false,
+		movementRestriction: false,
+		clothingRestriction: false,
+		hiddenActivities: false,
+	};
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.3.0", trust: [], features: defaultFeatures() };
+	return { version: "0.4.0", trust: [], features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;

@@ -362,7 +362,13 @@ Verified against the live R131 client source: the socket instance is the global 
 
 Persistence, hooking (`bondage-club-mod-sdk`), and the Hidden-message envelope all follow the conventions confirmed from BCX/LSCG's own source (see Prior Art above). Two-account testing: install the built script on both, then run these from either side — `ping`/`bumptrust` need a real member number, get it from `/hypno logtrust` after a `bumptrust` or from the game's own UI.
 
-**Stage 3 (in progress):** a real settings screen via `PreferenceRegisterExtensionSetting` (Preferences → Extensions → "Hypnosis Add-on"), verified against the live `Preference.js`/`Drawing.js`/`Mouse.js` source rather than assumed. Three checkboxes so far, all off by default, persisted the same way as trust data: Freeze, Block Wardrobe (both apply/remove their effect immediately on toggle), and Suppress Clothing Messages (now a persistent setting the `ChatRoomMessage` hook checks, in addition to — not instead of — the one-shot `/hypno suppress` test command).
+**Stage 3 (in progress):** a real settings screen via `PreferenceRegisterExtensionSetting` (Preferences → Extensions → "Hypnosis Add-on"), verified against the live `Preference.js`/`Drawing.js`/`Mouse.js` source rather than assumed. Four checkboxes, all off by default, persisted the same way as trust data:
+- **Hypnosis Enabled** — master switch. Turning it off actively suspends Movement/Clothing Restriction if either is on (matches the design doc's hard-floor philosophy); turning it on doesn't auto-reapply them.
+- **Movement Restriction** — Freeze effect, applied/removed immediately on toggle.
+- **Clothing Restriction** — BlockWardrobe effect *and* clothing-message suppression together (grouped to match the design doc's "Clothing Confusion" feature) — the `ChatRoomMessage` hook reads this flag directly, in addition to (not instead of) the one-shot `/hypno suppress` test command.
+- **Hidden Activities** — gates the Hidden-message cross-client channel (`messaging.ts`) for both sending and receiving, including the `/hypno ping` test command.
+
+The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-level testing independent of the menu.
 
 ---
 
