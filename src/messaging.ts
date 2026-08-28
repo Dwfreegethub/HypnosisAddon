@@ -23,14 +23,16 @@ export function registerHiddenHandler(type: string, handler: Handler): void {
 	handlers.set(type, handler);
 }
 
-// Bookkeeping message types the remote-control UI needs to function at all, exempted
-// from the Hidden Activities gate below. A state-query/state-response only reports a
-// player's own permission flags back to someone already looking at their profile, and
-// never applies any effect by itself — the real consent boundary is enforced per-feature
-// inside remote.ts's "remote-request" handler regardless of this exemption. Without this,
-// turning Hidden Activities off (a legitimate choice on its own) silently breaks the
-// remote panel's gray-out for every OTHER feature too, since it never learns their state.
-const ALWAYS_ALLOWED_TYPES = new Set(["state-query", "state-response"]);
+// Message types exempted from the Hidden Activities gate below. state-query/state-response
+// only report a player's own permission flags to someone already looking at their profile
+// and never apply anything by themselves. remote-request already carries its own specific
+// consent check (hypnoEnabled + the matching movementRestriction/clothingRestriction flag,
+// enforced target-side in remote.ts's handler) — gating it here too meant a VIEWER's own
+// unrelated Hidden Activities setting silently dropped their outbound click before it ever
+// reached the target, which is why "restrict" appeared to do nothing. Right now this means
+// Hidden Activities doesn't gate anything yet — every message type that exists today is
+// exempt — but it stays in place for whatever future covert-content feature needs it.
+const ALWAYS_ALLOWED_TYPES = new Set(["state-query", "state-response", "remote-request"]);
 
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
 	if (!ALWAYS_ALLOWED_TYPES.has(message.type) && !getFeatures().hiddenActivities) {
