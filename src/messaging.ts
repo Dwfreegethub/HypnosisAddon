@@ -23,8 +23,17 @@ export function registerHiddenHandler(type: string, handler: Handler): void {
 	handlers.set(type, handler);
 }
 
+// Bookkeeping message types the remote-control UI needs to function at all, exempted
+// from the Hidden Activities gate below. A state-query/state-response only reports a
+// player's own permission flags back to someone already looking at their profile, and
+// never applies any effect by itself — the real consent boundary is enforced per-feature
+// inside remote.ts's "remote-request" handler regardless of this exemption. Without this,
+// turning Hidden Activities off (a legitimate choice on its own) silently breaks the
+// remote panel's gray-out for every OTHER feature too, since it never learns their state.
+const ALWAYS_ALLOWED_TYPES = new Set(["state-query", "state-response"]);
+
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
-	if (!getFeatures().hiddenActivities) {
+	if (!ALWAYS_ALLOWED_TYPES.has(message.type) && !getFeatures().hiddenActivities) {
 		log("Hidden Activities is off — not sending", message);
 		return;
 	}
@@ -39,9 +48,9 @@ export function sendHiddenMessage(message: HypnoMessage, target?: number): void 
 /** Returns true if this was one of ours (handled), false if the hook should keep looking. */
 export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
-		if (!getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const message = data?.Dictionary?.[0]?.message as HypnoMessage | undefined;
 		if (!message) return true;
+		if (!ALWAYS_ALLOWED_TYPES.has(message.type) && !getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const handler = handlers.get(message.type);
 		if (handler) {
 			handler(data.Sender, message);
