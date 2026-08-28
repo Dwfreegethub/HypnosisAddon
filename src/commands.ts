@@ -1,7 +1,8 @@
 import { log } from "./log";
 import { applyEffect, removeEffect } from "./effects";
-import { bumpTrust, listTrust } from "./storage";
+import { bumpTrust, listTrust, setTrust } from "./storage";
 import { sendHiddenMessage } from "./messaging";
+import { answerPrompt, selfWake, safeword, describeSession } from "./session";
 
 let suppressNextAction = false;
 
@@ -41,9 +42,35 @@ export function installCommands(): void {
 		Description: "BC Hypnosis Add-on test commands (Stage 2)",
 		Action: () =>
 			reply(
-				"subcommands: freeze, unfreeze, suppress, wardrobeblock <on|off>, ping <memberNumber>, bumptrust <memberNumber> <delta>, logtrust",
+				"session: agree | ignore | fight (answer a prompt), wake, safeword, session. " +
+					"testing: freeze, unfreeze, suppress, wardrobeblock <on|off>, ping <memberNumber>, " +
+					"settrust <memberNumber> <0-100>, bumptrust <memberNumber> <delta>, logtrust",
 			),
 		Subcommands: [
+			// --- Session flow. These stay usable in any state; safeword especially must
+			// never be conditional on anything (design doc's hard floor). ---
+			{ Tag: "agree", Action: () => answerPrompt("agree") },
+			{ Tag: "ignore", Action: () => answerPrompt("ignore") },
+			{ Tag: "fight", Action: () => answerPrompt("fight") },
+			{ Tag: "wake", Action: () => selfWake() },
+			{ Tag: "safeword", Action: () => safeword() },
+			{ Tag: "session", Action: () => reply(describeSession()) },
+			{
+				// Stub for the trust engine that doesn't exist yet — without this there's no
+				// way to get a roll above the induction threshold and test the flow at all.
+				Tag: "settrust",
+				Action: (args: string) => {
+					const [rawTarget, rawValue] = args.trim().split(/\s+/);
+					const target = Number(rawTarget);
+					const value = Number(rawValue);
+					if (!target || !Number.isFinite(value)) {
+						reply("usage: /hypno settrust <memberNumber> <0-100>");
+						return;
+					}
+					const entry = setTrust(target, findCharacter(target)?.Name ?? `#${target}`, value);
+					reply(`trust with ${entry.memberName} set to ${entry.relationshipTrust}`);
+				},
+			},
 			{
 				Tag: "freeze",
 				Action: () =>

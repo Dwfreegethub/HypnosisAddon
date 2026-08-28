@@ -2,6 +2,16 @@ import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
 import { applyEffect, removeEffect } from "./effects";
+import {
+	getSessionView,
+	countdownRemaining,
+	requestAttempt,
+	requestContinue,
+	requestWake,
+	querySession,
+	isSessionActiveWith,
+	SessionView,
+} from "./session";
 
 // Mechanism learned from reading LSCG's src/Modules/remoteUI.ts (technique only, not
 // copied — see memory: hypnosis-addon-dev-practices): hook the Information Sheet screen
@@ -29,8 +39,10 @@ const SUB_EXIT_SIZE = 90;
 const FEATURE_BUTTON_LEFT = 400;
 const FEATURE_BUTTON_WIDTH = 500;
 const FEATURE_BUTTON_HEIGHT = 90;
-const MOVEMENT_BUTTON_TOP = 300;
-const CLOTHING_BUTTON_TOP = 420;
+const SESSION_BUTTON_TOP = 290;
+const MOVEMENT_BUTTON_TOP = 440;
+const CLOTHING_BUTTON_TOP = 560;
+const STATUS_LINE_Y = 245;
 
 let activeTarget: any = null;
 
@@ -69,27 +81,124 @@ function getViewedOtherCharacter(): any {
 	return C;
 }
 
+/** Feature buttons are session-scoped: outside an established trance they do nothing at
+ * all, per the design doc ("locked until a session is successfully established"). Both
+ * conditions have to hold, and the subject re-checks both itself before acting. */
+function featureUnlocked(view: SessionView | undefined, state: RemoteState | undefined, feature: RemoteFeature): boolean {
+	return view?.phase === "Hypnotized" && isPermitted(state, feature);
+}
+
 function drawFeatureButton(top: number, baseLabel: string, feature: RemoteFeature, target: any): void {
 	const state = knownState.get(target.MemberNumber);
-	const permitted = isPermitted(state, feature);
+	const view = getSessionView(target.MemberNumber);
+	const unlocked = featureUnlocked(view, state, feature);
 	const active = !!target.HasEffect?.(effectNameFor(feature));
 	const label = !state ? `${baseLabel} (checking…)` : `${active ? "Release" : "Apply"} ${baseLabel}`;
-	const tooltip = !state ? "Waiting for their status" : permitted ? "" : "Not permitted";
-	DrawButton(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, label, permitted ? "White" : "#ddd", "", tooltip, !permitted);
+	const tooltip = !state
+		? "Waiting for their status"
+		: view?.phase !== "Hypnotized"
+			? "Requires an active session"
+			: isPermitted(state, feature)
+				? ""
+				: "Not permitted";
+	DrawButton(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, label, unlocked ? "White" : "#ddd", "", tooltip, !unlocked);
+}
+
+function seconds(ms: number): number {
+	return Math.ceil(ms / 1000);
+}
+
+/** The one contextual button that drives the whole session state machine — label and
+ * action both follow the subject's reported phase, so there's never more than one
+ * meaningful session action on screen at a time. */
+function sessionButton(view: SessionView | undefined): { label: string; enabled: boolean; tooltip: string } {
+	if (!view) return { label: "Checking…", enabled: false, tooltip: "Waiting for their status" };
+	switch (view.phase) {
+		case "AttemptMade":
+			return { label: "Waiting for them…", enabled: false, tooltip: "They're deciding how to respond" };
+		case "InductionInProgress":
+			return {
+				label: `Induction… (${seconds(countdownRemaining(view, "windowRemaining"))}s)`,
+				enabled: false,
+				tooltip: "Roleplay the induction while this runs",
+			};
+		case "AttemptFailed":
+			return {
+				label: `Continue Trying (${view.attempts}/${view.maxAttempts})`,
+				enabled: true,
+				tooltip: "Try another induction",
+			};
+		case "Hypnotized":
+			return { label: "Wake Up", enabled: true, tooltip: "End the session" };
+		case "CooldownRequired":
+			return {
+				label: `Cooldown (${seconds(countdownRemaining(view, "cooldownRemaining"))}s)`,
+				enabled: false,
+				tooltip: "They can't be attempted again yet",
+			};
+		default:
+			return { label: "Attempt Hypnosis", enabled: true, tooltip: "Begin an induction" };
+	}
+}
+
+function statusLine(view: SessionView | undefined): string {
+	if (!view) return "Checking their status…";
+	if (view.refusedReason) return view.refusedReason;
+	switch (view.phase) {
+		case "AttemptMade":
+			return "They're deciding how to respond.";
+		case "InductionInProgress":
+			return "Induction underway — speak to them.";
+		case "AttemptFailed":
+			// The band is all the hypnotist ever gets: enough to feel progress, never the
+			// number, and never which way the subject chose to respond.
+			return `Not yet — they seem ${view.progressBand ?? "unchanged"}.`;
+		case "Hypnotized":
+			return `Under your influence — ${view.depthBand ?? "in trance"}.`;
+		case "CooldownRequired":
+			return "They've resisted enough for now.";
+		default:
+			return "Not in a session.";
+	}
 }
 
 function drawSubscreen(target: any): void {
-	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 200, "Black");
+	const view = getSessionView(target.MemberNumber);
+	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
+	DrawText(statusLine(view), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
+	const session = sessionButton(view);
+	DrawButton(
+		FEATURE_BUTTON_LEFT,
+		SESSION_BUTTON_TOP,
+		FEATURE_BUTTON_WIDTH,
+		FEATURE_BUTTON_HEIGHT,
+		session.label,
+		session.enabled ? "White" : "#ddd",
+		"",
+		session.tooltip,
+		!session.enabled,
+	);
 	drawFeatureButton(MOVEMENT_BUTTON_TOP, "Movement Restriction", "movement", target);
 	drawFeatureButton(CLOTHING_BUTTON_TOP, "Clothing Restriction", "clothing", target);
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
 }
 
+function clickSessionButton(target: any): boolean {
+	if (!MouseIn(FEATURE_BUTTON_LEFT, SESSION_BUTTON_TOP, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
+	const view = getSessionView(target.MemberNumber);
+	const { enabled } = sessionButton(view);
+	if (!enabled) return true;
+	if (view?.phase === "Hypnotized") requestWake(target.MemberNumber);
+	else if (view?.phase === "AttemptFailed") requestContinue(target.MemberNumber);
+	else requestAttempt(target.MemberNumber);
+	return true;
+}
+
 function clickFeatureButton(top: number, feature: RemoteFeature, target: any): boolean {
 	if (!MouseIn(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
 	const state = knownState.get(target.MemberNumber);
-	if (!isPermitted(state, feature)) {
-		log(`${feature} not permitted (or not yet known) for ${target.MemberNumber}, ignoring click`);
+	if (!featureUnlocked(getSessionView(target.MemberNumber), state, feature)) {
+		log(`${feature} locked for ${target.MemberNumber} (no session, or not permitted), ignoring click`);
 		return true;
 	}
 	const active = !!target.HasEffect?.(effectNameFor(feature));
@@ -103,6 +212,7 @@ function clickSubscreen(target: any): void {
 		activeTarget = null;
 		return;
 	}
+	if (clickSessionButton(target)) return;
 	if (clickFeatureButton(MOVEMENT_BUTTON_TOP, "movement", target)) return;
 	clickFeatureButton(CLOTHING_BUTTON_TOP, "clothing", target);
 }
@@ -110,7 +220,10 @@ function clickSubscreen(target: any): void {
 function openRemoteFor(target: any): void {
 	activeTarget = target;
 	knownState.delete(target.MemberNumber);
+	// Two independent asks: permissions (what they allow at all) and session state (what's
+	// currently possible). Neither is inferable from the other.
 	sendHiddenMessage({ type: "state-query" }, target.MemberNumber);
+	querySession(target.MemberNumber);
 }
 
 export function installRemote(modApi: any): void {
@@ -155,6 +268,12 @@ export function installRemote(modApi: any): void {
 		}
 		if (!isPermitted(features, feature)) {
 			log(`remote request (${feature}) from ${sender} denied — not permitted`);
+			return;
+		}
+		// The session gate, re-checked here rather than trusting the sender's UI to have
+		// grayed the button out — a modified client can send this whenever it likes.
+		if (!isSessionActiveWith(sender)) {
+			log(`remote request (${feature}) from ${sender} denied — no active session with them`);
 			return;
 		}
 		applyEffect(effectName);

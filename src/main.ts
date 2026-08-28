@@ -5,6 +5,7 @@ import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList } from "./effects";
 import { installMenu } from "./menu";
 import { installRemote } from "./remote";
+import { installSession } from "./session";
 import { getFeatures } from "./storage";
 
 function showIndicator(): void {
@@ -85,6 +86,10 @@ safely("ChatRoomMessage hook", () => {
 // Before anything that could receive an appearance sync — BC strips our injected effects
 // out of any incoming sync unless this client's own asset allow-list already permits them.
 safely("effect allow-list", installEffectAllowList);
+
+// Before the command and remote registrations — both call into the session module, so its
+// hidden-message handlers need to already be listening.
+safely("session state machine", installSession);
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);

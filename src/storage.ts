@@ -98,6 +98,22 @@ export function listTrust(): TrustEntry[] {
 	return loadSettings().trust;
 }
 
+/** Set trust to an absolute value. Exists mainly so the session flow is testable before
+ * the real trust engine lands — see /hypno settrust. */
+export function setTrust(memberId: number, memberName: string, value: number): TrustEntry {
+	const settings = loadSettings();
+	let entry = settings.trust.find((t) => t.memberId === memberId);
+	if (!entry) {
+		entry = { memberId, memberName, relationshipTrust: 0, lastUpdated: Date.now() };
+		settings.trust.push(entry);
+	}
+	entry.relationshipTrust = Math.max(0, Math.min(100, value));
+	entry.memberName = memberName;
+	entry.lastUpdated = Date.now();
+	saveSettings();
+	return entry;
+}
+
 export function getFeatures(): FeatureToggles {
 	return loadSettings().features;
 }

@@ -23,19 +23,23 @@ export function registerHiddenHandler(type: string, handler: Handler): void {
 	handlers.set(type, handler);
 }
 
-// Message types exempted from the Hidden Activities gate below. state-query/state-response
-// only report a player's own permission flags to someone already looking at their profile
-// and never apply anything by themselves. remote-request already carries its own specific
-// consent check (hypnoEnabled + the matching movementRestriction/clothingRestriction flag,
-// enforced target-side in remote.ts's handler) — gating it here too meant a VIEWER's own
-// unrelated Hidden Activities setting silently dropped their outbound click before it ever
-// reached the target, which is why "restrict" appeared to do nothing. Right now this means
-// Hidden Activities doesn't gate anything yet — every message type that exists today is
-// exempt — but it stays in place for whatever future covert-content feature needs it.
-const ALWAYS_ALLOWED_TYPES = new Set(["state-query", "state-response", "remote-request"]);
+// Message types gated behind the Hidden Activities setting. Deliberately EMPTY right now.
+//
+// This started as a blanket gate on the whole channel and caused two separate bugs before
+// being narrowed to nothing: it silently swallowed the state-query/state-response
+// handshake (so the remote panel's gray-out hung forever against anyone with the setting
+// off), and it dropped a VIEWER's own outbound remote-request before it was ever sent.
+//
+// The lesson is that this channel carries *protocol*, and protocol must not be gated by a
+// content preference. Every consent decision already lives where it belongs: per-feature
+// permission flags plus an active session, both enforced on the subject's own client at
+// the point of effect. A future covert-content feature — something whose *existence*
+// should be hideable, not merely refusable — is what this set is for. Add types here only
+// if you can say why refusing them target-side isn't enough.
+const GATED_TYPES = new Set<string>();
 
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
-	if (!ALWAYS_ALLOWED_TYPES.has(message.type) && !getFeatures().hiddenActivities) {
+	if (GATED_TYPES.has(message.type) && !getFeatures().hiddenActivities) {
 		log("Hidden Activities is off — not sending", message);
 		return;
 	}
@@ -52,7 +56,7 @@ export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
 		const message = data?.Dictionary?.[0]?.message as HypnoMessage | undefined;
 		if (!message) return true;
-		if (!ALWAYS_ALLOWED_TYPES.has(message.type) && !getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
+		if (GATED_TYPES.has(message.type) && !getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const handler = handlers.get(message.type);
 		if (handler) {
 			handler(data.Sender, message);
