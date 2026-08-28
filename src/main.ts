@@ -6,6 +6,7 @@ import { installEffectAllowList } from "./effects";
 import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
+import { handleSpokenLine } from "./voice";
 import { getFeatures } from "./storage";
 
 function showIndicator(): void {
@@ -65,6 +66,16 @@ safely("ChatRoomMessage hook", () => {
 			const data = args[0];
 			if (handleIncomingHidden(data)) {
 				return next(args);
+			}
+			// Spoken suggestions: ordinary chat we can hear from someone running a session
+			// on us. Never consumes the message — the line is still said out loud, and the
+			// effect (if any) lands alongside it.
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && typeof data?.Content === "string") {
+				try {
+					handleSpokenLine(data.Sender, data.Content);
+				} catch (err) {
+					log("suggestion parsing failed:", err);
+				}
 			}
 			if (data?.Type === "Action" && (getFeatures().clothingRestriction || consumeSuppressFlag())) {
 				log("suppressed Action message:", JSON.stringify(data));

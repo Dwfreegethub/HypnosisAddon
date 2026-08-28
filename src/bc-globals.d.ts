@@ -49,3 +49,7 @@ declare function PreferenceSubscreenExtensionsClear(): Promise<void>;
 // The character currently shown on the Information Sheet screen (module-level global in
 // Screens/Character/InformationSheet/InformationSheet.js, not a hook argument).
 declare const InformationSheetSelection: any;
+// Pose control (Scripts/Pose.js via Character.js). Passing null resets to the base pose.
+// Only sets the pose locally — the room is told separately via
+// ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose }).
+declare function CharacterSetActivePose(character: any, poseName: string | null, forceChange?: boolean): void;
