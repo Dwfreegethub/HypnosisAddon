@@ -189,6 +189,14 @@ export function installRemote(modApi: any): void {
 				clickSubscreen(activeTarget);
 				return;
 			}
+			// Temporary — logs where every click on this screen actually lands, so you can
+			// click near anything of interest (BC's own native Back button included) and
+			// read off its real coordinate instead of eyeballing. Never blocks the click —
+			// next([]) still runs below either way, so native buttons keep working
+			// normally even as this logs. Remove once the layout work it's for is done.
+			const coordMsg = `Information Sheet click at MouseX=${MouseX}, MouseY=${MouseY}`;
+			log(coordMsg);
+			ChatRoomSendLocal(coordMsg);
 			const C = getViewedOtherCharacter();
 			if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE)) {
 				openRemoteFor(C);

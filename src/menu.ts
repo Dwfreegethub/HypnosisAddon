@@ -41,16 +41,6 @@ const BACK_TOP = 55;
 const BACK_WIDTH = 90;
 const BACK_HEIGHT = 90;
 
-// Temporary — blank calibration button, directly below the exit icon. Click it and the
-// exact click position (MainCanvas coordinates, confirmed real globals: MouseX/MouseY in
-// Scripts/Mouse.js) gets logged and echoed to chat, for reading off real coordinates
-// against whatever's actually on screen rather than eyeballing/nudging blind. Remove once
-// the layout work it's for is done.
-const CALIBRATION_LEFT = BACK_LEFT;
-const CALIBRATION_TOP = BACK_TOP + BACK_HEIGHT + 20;
-const CALIBRATION_WIDTH = 90;
-const CALIBRATION_HEIGHT = 90;
-
 // These are PERMISSION settings now, not self-triggers — "do I allow someone else to do
 // this to me", checked in messaging.ts when a remote request comes in over the Hidden
 // channel (see remote.ts). Checking a box here never applies an effect to yourself;
@@ -88,7 +78,6 @@ export function installMenu(): void {
 		run: () => {
 			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
-			DrawButton(CALIBRATION_LEFT, CALIBRATION_TOP, CALIBRATION_WIDTH, CALIBRATION_HEIGHT, "?", "White", "", "Calibration — logs click position, remove when done");
 			const features = getFeatures();
 			ROWS.forEach((row, i) => {
 				const top = rowTop(i);
@@ -105,12 +94,6 @@ export function installMenu(): void {
 		click: () => {
 			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT)) {
 				PreferenceSubscreenExtensionsClear();
-				return;
-			}
-			if (MouseIn(CALIBRATION_LEFT, CALIBRATION_TOP, CALIBRATION_WIDTH, CALIBRATION_HEIGHT)) {
-				const msg = `calibration click at MouseX=${MouseX}, MouseY=${MouseY} (button drawn at ${CALIBRATION_LEFT},${CALIBRATION_TOP})`;
-				log(msg);
-				ChatRoomSendLocal(msg);
 				return;
 			}
 			const features = getFeatures();
