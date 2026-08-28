@@ -2,6 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
+import { installEffectAllowList } from "./effects";
 import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { getFeatures } from "./storage";
@@ -80,6 +81,10 @@ safely("ChatRoomMessage hook", () => {
 // script-load time patches the placeholder and goes silently stale the moment you log in.
 // wardrobeblock uses the native BlockWardrobe effect instead (see commands.ts) — same
 // live-Player-reference technique Freeze already uses, so it can't go stale the same way.
+
+// Before anything that could receive an appearance sync — BC strips our injected effects
+// out of any incoming sync unless this client's own asset allow-list already permits them.
+safely("effect allow-list", installEffectAllowList);
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);

@@ -3,6 +3,9 @@
 declare const ServerSocket: any;
 declare const Player: any;
 declare const ChatRoomCharacter: any[];
+// BC's shared asset definitions. Item.Asset points into this array, so mutating an entry
+// affects that asset on every character at once (see effects.ts's ensureEffectsAllowed).
+declare const Asset: any[];
 declare function ServerSend(message: string, data: any): void;
 declare function ChatRoomCharacterUpdate(character: any): void;
 declare function ServerPlayerIsInChatRoom(): boolean;

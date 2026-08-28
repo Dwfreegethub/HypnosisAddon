@@ -5,8 +5,66 @@ import { log } from "./log";
 // a real physical restraint. Works for a suggestion-driven effect with no item involved.
 const EMOTICON_ASSET_NAME = "Emoticon";
 
+// Every effect we inject onto the Emoticon item must be listed here. BC's own validation
+// (ValidationSanitizeEffects in Validation.js) filters an item's Property.Effect down to
+// what the *asset* permits, dropping anything not in Asset.Effect or Asset.AllowEffect.
+const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe"];
+
 function findEmoticonItem(character: any): any {
 	return character?.Appearance?.find((a: any) => a?.Asset?.Name === EMOTICON_ASSET_NAME);
+}
+
+/** Add our effects to the shared Emoticon asset definition. Returns false if BC's assets
+ * aren't loaded yet (so the caller can retry).
+ *
+ * This has to happen on EVERY client, not just one applying an effect. Traced through the
+ * live client source: an incoming appearance sync runs ChatRoomSyncCharacter ->
+ * CharacterLoadOnline -> CharacterOnlineRefresh -> ServerAppearanceLoadFromBundle ->
+ * ValidationResolveAppearanceDiff -> ValidationSanitizeProperties -> ValidationSanitizeEffects,
+ * which strips any Property.Effect entry missing from that client's own copy of the
+ * asset's AllowEffect. Asset.AllowEffect is a client-local definition and is NOT part of
+ * the synced appearance bundle, so a sender patching it locally (as applyEffect used to do
+ * on its own) only ever fixed their own view: the subject felt the effect, but every
+ * *viewer* silently dropped it, leaving HasEffect() false for them forever. That's what
+ * made the remote panel's buttons never flip to "Release".
+ *
+ * Patching the asset is safe for the room at large — the sanitize-and-correct path in
+ * ServerAppearanceLoadFromBundle only rebroadcasts for `C.IsPlayer()`, so players without
+ * this add-on drop the effect from their local copy without correcting it back for anyone. */
+export function ensureEffectsAllowed(): boolean {
+	if (typeof Asset === "undefined" || !Array.isArray(Asset) || Asset.length === 0) return false;
+	// Item.Asset points into this shared global array, so patching the definition here
+	// covers the Emoticon item on every character at once, including remote ones.
+	const assets = Asset.filter((a: any) => a?.Name === EMOTICON_ASSET_NAME);
+	if (assets.length === 0) return false;
+	for (const asset of assets) {
+		asset.AllowEffect ??= [];
+		for (const effect of MANAGED_EFFECTS) {
+			if (!asset.AllowEffect.includes(effect)) asset.AllowEffect.push(effect);
+		}
+	}
+	return true;
+}
+
+/** Patch the allow-list as early as possible, retrying until BC's assets exist. Must win
+ * this race before the first appearance sync arrives, or that sync's effects get stripped
+ * on the way in (a later sync re-delivers them, so a slow patch self-corrects). */
+export function installEffectAllowList(): void {
+	if (ensureEffectsAllowed()) {
+		log("Emoticon effect allow-list patched");
+		return;
+	}
+	let tries = 0;
+	const timer = setInterval(() => {
+		tries += 1;
+		if (ensureEffectsAllowed()) {
+			clearInterval(timer);
+			log(`Emoticon effect allow-list patched after ${tries} retries`);
+		} else if (tries >= 60) {
+			clearInterval(timer);
+			log("gave up patching Emoticon effect allow-list — BC assets never appeared");
+		}
+	}, 500);
 }
 
 export function applyEffect(effectName: string, character: any = Player): boolean {
@@ -15,13 +73,9 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 		log(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
 		return false;
 	}
-	// Both steps are required — LSCG's real technique pushes the effect onto the asset's
-	// AllowEffect allow-list as well as the item's Property.Effect. Property.Effect alone
-	// gets silently dropped if BC's recompute filters it against that allow-list.
-	item.Asset.AllowEffect ??= [];
-	if (!item.Asset.AllowEffect.includes(effectName)) {
-		item.Asset.AllowEffect.push(effectName);
-	}
+	// Defensive: normally already done at startup, but an effect applied before the
+	// retry loop succeeded would otherwise be stripped from our own appearance too.
+	ensureEffectsAllowed();
 	item.Property ??= {};
 	item.Property.Effect ??= [];
 	if (!item.Property.Effect.includes(effectName)) {
