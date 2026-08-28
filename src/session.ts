@@ -291,7 +291,12 @@ export function safeword(): void {
 }
 
 export function describeSession(): string {
-	if (session.phase === "Idle") return "session: Idle";
+	// Permissions are reported alongside the session because a suggestion needs BOTH, and
+	// "nothing happened" never says which one was missing.
+	const f = getFeatures();
+	const granted = (Object.keys(f) as (keyof typeof f)[]).filter((k) => f[k]).join(", ") || "none";
+	const perms = `permissions: ${granted}`;
+	if (session.phase === "Idle") return `session: Idle | ${perms}`;
 	const bits = [`session: ${session.phase}`];
 	if (session.hypnotistId != null) bits.push(`hypnotist=${session.hypnotistId}`);
 	if (session.choice) bits.push(`choice=${session.choice}`);
@@ -300,7 +305,7 @@ export function describeSession(): string {
 	if (session.phase === "AttemptFailed") bits.push(`progress=${session.progress.toFixed(1)}`);
 	if (session.cooldownUntil > Date.now())
 		bits.push(`cooldown=${Math.ceil((session.cooldownUntil - Date.now()) / 1000)}s`);
-	return bits.join(" ");
+	return `${bits.join(" ")} | ${perms}`;
 }
 
 /** The gate for every session-scoped remote feature: is this specific person currently

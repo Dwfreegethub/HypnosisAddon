@@ -165,11 +165,19 @@ export function matchSuggestion(content: string): string | null {
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
  * person currently running a session on us. */
 export function handleSpokenLine(sender: number, content: string): void {
-	if (!isSessionActiveWith(sender)) return;
+	// Match BEFORE the session check, so a line that WOULD have done something can say why
+	// it didn't. Checking the session first was silent — an unmatched line and a matched
+	// line with no session looked identical from the outside, which is exactly the case
+	// that needed telling apart.
 	const id = matchSuggestion(content);
 	if (!id) return;
 	const suggestion = SUGGESTIONS.find((s) => s.id === id);
 	if (!suggestion) return;
+
+	if (!isSessionActiveWith(sender)) {
+		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
+		return;
+	}
 
 	const features = getFeatures();
 	// Re-checked even though the session gate already passed: permission and session are
