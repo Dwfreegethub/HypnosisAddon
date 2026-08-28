@@ -64,11 +64,21 @@ function loadSettings(): HypnoAddonSettings {
 		log("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
-	// Backfill for settings blobs saved before a field existed (`features` didn't exist at
-	// all in 0.2.x; individual toggles get added as features land). Merging over the
-	// defaults covers both cases at once, so a newly-added toggle reads as a real `false`
-	// rather than `undefined` on anyone's existing saved settings.
-	if (cached) cached.features = { ...defaultFeatures(), ...(cached.features ?? {}) };
+	// Reconcile stored toggles against the current schema. Start from the defaults and copy
+	// across only keys that still exist, which does three jobs at once: a blob saved before
+	// `features` existed at all (0.2.x) gets one; a newly-added toggle reads as a real
+	// `false` rather than `undefined`; and toggles from an older schema (`wardrobeBlock`,
+	// `suppressClothingMessages`) are dropped instead of riding along forever. A plain
+	// spread of stored-over-defaults kept those dead keys, which then showed up as granted
+	// permissions in diagnostics — confusing exactly when you're trying to read them.
+	if (cached) {
+		const stored = (cached.features ?? {}) as Partial<FeatureToggles>;
+		const merged = defaultFeatures();
+		for (const key of Object.keys(merged) as (keyof FeatureToggles)[]) {
+			if (typeof stored[key] === "boolean") merged[key] = stored[key];
+		}
+		cached.features = merged;
+	}
 	return cached as HypnoAddonSettings;
 }
 
