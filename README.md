@@ -378,7 +378,11 @@ Buttons gray out if the target hasn't granted that permission — but unlike eff
 
 The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-level testing independent of either screen.
 
-**Known issue, pick up here first next session:** the v0.6.0 toggle (apply ↔ release) and gray-out (permitted vs. not) behavior on the remote panel doesn't quite work right yet. Not diagnosed yet — start by opening the remote panel on the test account and watching the console (`F12`) for whatever `log()` lines actually fire (or don't) when clicking a feature button, then compare against what `remote.ts`'s `clickFeatureButton`/`drawFeatureButton` expect the `state-query`/`state-response` round trip to have produced.
+**Toggle + gray-out are working as of v0.6.7** (tested with both accounts). Getting there took three separate fixes worth remembering, since two of them were self-inflicted and the third is a genuine BC trap:
+
+1. **v0.6.3** — `state-query`/`state-response` were gated behind the Hidden Activities toggle, so a target with that unchecked never replied and the buttons hung on "(checking…)" forever.
+2. **v0.6.4** — `remote-request` was gated the same way, but on the *viewer's own* flag, silently dropping their click before it was ever sent. `remote-request` already carries its own real consent check target-side, so the extra gate was pure bug. (Net effect: Hidden Activities currently gates nothing — every message type in use is exempt. It stays for future covert-content features.)
+3. **v0.6.6, the real one** — see the allow-list entry in Lessons Learned below. The effect applied and worked on the subject, but was stripped from every *viewer's* copy on arrival, so `HasEffect()` was permanently false for them and the button could never flip to "Release".
 
 ---
 
@@ -395,8 +399,10 @@ Full detail on each is inline above where relevant; this is just an index so not
 - **The Preferences screen's own native exit icon is DOM/CSS-positioned**, not a canvas coordinate — there's nothing exact to copy for it; `Dialog.js`/`Wardrobe.js`'s raw-canvas convention (`DrawButton(1895, 15, 90, 90, "", "White", "Icons/Exit.png")`) is a reasonable visual approximation, not the real value.
 - **`InformationSheetRun`/`Click`/`Exit` take zero arguments** — they read the module-level `InformationSheetSelection` global directly, not a hook argument.
 - **`character.HasEffect("Name")` works for free on anyone you can see** (synced Appearance data) — but **`ExtensionSettings` does NOT sync to other players** (confirmed absent from `CharacterLoadOnline`); reading someone else's permission state needs an explicit query/response, not a passive read.
+- **Injected effects must be added to `Asset.AllowEffect` on EVERY client, not just the sender.** BC validates incoming appearance data and `ValidationSanitizeEffects` (`Scripts/Validation.js`) filters an item's `Property.Effect` down to what that client's own copy of the asset permits via `Asset.Effect`/`Asset.AllowEffect`, logging `Filtering out invalid Effect entry on <asset>: <effect>`. **`Asset.AllowEffect` is a client-local definition and is not carried in the synced appearance bundle** — so patching it only where the effect is applied fixes only that client's view. The full strip path on arrival is `ChatRoomSyncCharacter` → `CharacterLoadOnline` → `CharacterOnlineRefresh` → `ServerAppearanceLoadFromBundle` → `ValidationResolveAppearanceDiff` → `ValidationSanitizeProperties` → `ValidationSanitizeEffects`. Symptom to recognize: the effect visibly works on the subject but `HasEffect()` is permanently false for everyone else. Patching the shared asset is safe for non-addon players in the room — the sanitize-and-correct rebroadcast in `ServerAppearanceLoadFromBundle` only fires for `C.IsPlayer()`, so they drop it locally without correcting it back for anyone else.
+- **`ChatRoomCharacterUpdate` is a silent no-op unless `ChatRoomAllowCharacterUpdate` is true** (and it doesn't write to the server DB — that needs `CharacterRefresh` or `ServerPlayerAppearanceSync`). Not a problem in practice, but worth knowing before debugging a sync that seems to vanish.
 - **WebFetch summarizes pages through a small model before you see them** — good enough for "does X exist," too lossy to implement against directly. Download the real file and read it yourself for anything you're about to write code against.
 
 ---
 
-*Last updated: 2026-08-27*
+*Last updated: 2026-08-27 (v0.6.7)*
