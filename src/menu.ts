@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { removeEffect } from "./effects";
+import { removeEffect, clearSuggestedPose } from "./effects";
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -17,6 +17,7 @@ const ROWS: Row[] = [
 	{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
 	{ key: "movementRestriction", label: "Movement Restriction" },
 	{ key: "clothingRestriction", label: "Clothing Restriction" },
+	{ key: "postureControl", label: "Posture Control (kneel / stand)" },
 	{ key: "hiddenActivities", label: "Hidden Activities" },
 ];
 
@@ -57,6 +58,7 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) {
 				removeEffect("Freeze");
 				removeEffect("BlockWardrobe");
+				clearSuggestedPose();
 			}
 			break;
 		case "movementRestriction":
@@ -64,6 +66,9 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "clothingRestriction":
 			if (!enabled) removeEffect("BlockWardrobe");
+			break;
+		case "postureControl":
+			if (!enabled) clearSuggestedPose();
 			break;
 		case "hiddenActivities":
 			// No direct effect — messaging.ts reads this flag itself before

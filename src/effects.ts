@@ -67,6 +67,32 @@ export function installEffectAllowList(): void {
 	}, 500);
 }
 
+// --- Pose ----------------------------------------------------------------------------
+// Lives here rather than in voice.ts so session.ts can reset a suggested pose when a
+// session ends without the two modules importing each other in a cycle (voice.ts already
+// depends on session.ts for the session gate).
+
+/** Whether the player's current pose was put there by a suggestion rather than chosen. */
+let poseSetBySuggestion = false;
+
+/** Set (or with null, clear) the player's pose, following BC's own kneel/stand sequence
+ * from ChatRoom.js: PoseSetActive only changes the pose locally — the room is told
+ * separately via ChatRoomCharacterPoseUpdate. */
+export function setSuggestedPose(pose: string | null): void {
+	CharacterSetActivePose(Player, pose);
+	if (ServerPlayerIsInChatRoom()) {
+		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+	}
+	poseSetBySuggestion = pose !== null;
+}
+
+/** Undo a pose a suggestion put the player in. Deliberately leaves a pose they chose
+ * themselves alone — ending a session shouldn't yank someone out of their own kneel. */
+export function clearSuggestedPose(): void {
+	if (!poseSetBySuggestion) return;
+	setSuggestedPose(null);
+}
+
 export function applyEffect(effectName: string, character: any = Player): boolean {
 	const item = findEmoticonItem(character);
 	if (!item) {

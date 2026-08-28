@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, getTrust } from "./storage";
-import { removeEffect } from "./effects";
+import { removeEffect, clearSuggestedPose } from "./effects";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -158,6 +158,7 @@ function endSession(reason: string, quiet = false): void {
 	// never leave an effect stranded with no way to reach it.
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
+	clearSuggestedPose();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
@@ -276,6 +277,7 @@ export function safeword(): void {
 	const hypnotist = session.hypnotistId;
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
+	clearSuggestedPose();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

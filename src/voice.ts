@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, removeEffect } from "./effects";
+import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { getFeatures, FeatureToggles } from "./storage";
 import { isSessionActiveWith } from "./session";
 
@@ -44,14 +44,6 @@ interface Suggestion {
 	/** What the subject sees when it lands. */
 	feedback: string;
 	run: () => void;
-}
-
-function setPose(pose: string | null): void {
-	// Exactly BC's own kneel/stand sequence (ChatRoom.js's PoseChangeStatus.ALWAYS branch):
-	// set the pose locally, then push it with ChatRoomCharacterPoseUpdate. PoseSetActive
-	// itself only calls CharacterRefresh(C, false) — it does not tell the room anything.
-	CharacterSetActivePose(Player, pose);
-	ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 }
 
 // ORDER MATTERS: releases are listed before their matching restrictions, because a release
@@ -118,10 +110,8 @@ const SUGGESTIONS: Suggestion[] = [
 		run: () => applyEffect("BlockWardrobe"),
 	},
 	{
-		// Posture rides on the movement permission for now rather than adding a fifth
-		// checkbox for a stub. Split it out if kneeling should be separately refusable.
 		id: "stand",
-		permission: "movementRestriction",
+		permission: "postureControl",
 		// "get up" is guarded against the infinitive/first-person forms that show up in
 		// ordinary conversation ("I need to get up early") — see isSelfReferential too.
 		patterns: [
@@ -132,11 +122,11 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bon your feet\b/,
 		],
 		feedback: "You rise to your feet.",
-		run: () => setPose(null),
+		run: () => setSuggestedPose(null),
 	},
 	{
 		id: "kneel",
-		permission: "movementRestriction",
+		permission: "postureControl",
 		// Guarded so the hypnotist narrating their own action ("I kneel beside you") doesn't
 		// put the subject on the floor. "I want you to kneel" still lands — the guard is on
 		// the pronoun immediately before the verb, not anywhere in the line.
@@ -147,7 +137,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bdrop to your knees\b/,
 		],
 		feedback: "Your knees fold under you.",
-		run: () => setPose("Kneel"),
+		run: () => setSuggestedPose("Kneel"),
 	},
 ];
 

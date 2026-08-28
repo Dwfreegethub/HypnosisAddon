@@ -20,6 +20,9 @@ export interface FeatureToggles {
 	/** BlockWardrobe effect + clothing-change message suppression together — grouped to
 	 * match the design doc's "Clothing Confusion" feature. */
 	clothingRestriction: boolean;
+	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
+	 * being posed and being unable to move are quite different things to consent to. */
+	postureControl: boolean;
 	/** Gates the Hidden-message cross-client channel (see messaging.ts) — both sending
 	 * and receiving. */
 	hiddenActivities: boolean;
@@ -36,6 +39,7 @@ function defaultFeatures(): FeatureToggles {
 		hypnoEnabled: false,
 		movementRestriction: false,
 		clothingRestriction: false,
+		postureControl: false,
 		hiddenActivities: false,
 	};
 }
@@ -60,10 +64,11 @@ function loadSettings(): HypnoAddonSettings {
 		log("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
-	// Backfill for settings blobs saved before a field existed (e.g. `features` didn't
-	// exist in 0.2.x) — without this, an old stored blob would have `features`
-	// undefined and every checkbox read/write would throw.
-	if (cached && !cached.features) cached.features = defaultFeatures();
+	// Backfill for settings blobs saved before a field existed (`features` didn't exist at
+	// all in 0.2.x; individual toggles get added as features land). Merging over the
+	// defaults covers both cases at once, so a newly-added toggle reads as a real `false`
+	// rather than `undefined` on anyone's existing saved settings.
+	if (cached) cached.features = { ...defaultFeatures(), ...(cached.features ?? {}) };
 	return cached as HypnoAddonSettings;
 }
 
