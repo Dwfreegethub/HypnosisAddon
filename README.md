@@ -384,6 +384,32 @@ The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-l
 2. **v0.6.4** — `remote-request` was gated the same way, but on the *viewer's own* flag, silently dropping their click before it was ever sent. `remote-request` already carries its own real consent check target-side, so the extra gate was pure bug. (Net effect: Hidden Activities currently gates nothing — every message type in use is exempt. It stays for future covert-content features.)
 3. **v0.6.6, the real one** — see the allow-list entry in Lessons Learned below. The effect applied and worked on the subject, but was stripped from every *viewer's* copy on arrival, so `HasEffect()` was permanently false for them and the button could never flip to "Release".
 
+Since v0.7.0 these buttons are **session-gated**: outside an established trance they draw disabled and the subject refuses the request anyway. A third row (Kneel / Stand) was added in v0.8.2, which is why the panel's hardcoded rows became a `FEATURES` table — posture isn't an effect, so "is it currently on" reads `IsKneeling()` rather than `HasEffect()`, and each row now carries its own active/apply/release.
+
+---
+
+## Stage 4 — Session flow (`session.ts`, v0.7.0)
+
+The subject's client owns the only real session state and pushes a lossy view to the hypnotist — bands, never numbers, never the private Agree/Ignore/Fight choice. That's a structural guarantee rather than an agreement: a modified hypnotist client has nothing to read.
+
+Flow: *Attempt Hypnosis* → private prompt (60s, silence counts as Ignore) → 60s induction window for RP → roll of `trust + choice modifier (+25/0/−25) + spread` vs. threshold 50 → `Hypnotized` with depth fixed at entry, or `AttemptFailed` with a vague progress band. Three attempts, then a 10-minute cooldown.
+
+Exits, ascending: hypnotist's Wake Up button; `/hypno wake` (shallow trance only); 30-minute timeout; `/hypno safeword`, which always works from any state. Two deviations from the design doc's state machine are documented at the top of `session.ts`.
+
+Trust is a **stub** — `/hypno settrust <member> <0-100>` — deliberately, so the real engine lands behind an interface that already has live consumers.
+
+## Stage 5 — Spoken suggestions (`voice.ts`, `flavor.ts`, v0.8.0–v0.9.1)
+
+During a session the subject's client parses the hypnotist's ordinary chat. Most of the wording flexibility comes from normalising *first* — contractions expanded, punctuation stripped, case folded — so each pattern describes one canonical phrasing instead of every variant.
+
+Three guards keep ordinary conversation inert: the hypnotist must **address the subject by name** (Name or Nickname); a line starting "I"/"we" with no "you" is ignored; and bare imperatives carry lookbehind guards so "I kneel beside you" and "I can't stand it" don't fire.
+
+Matching is split into a pure `matchSuggestion()`, exercised by a 60-case suite in the scratchpad covering phrasings, name-gate substring probes, and false positives. It has caught four real bugs before they shipped — adverbs breaking `you are completely frozen`, `get up` firing on everyday chat, and bare `stand`/`rise` never matching at all. **Worth keeping: every pattern change should be run through it.**
+
+`flavor.ts` is shared between the spoken path and the panel buttons, so the subject can't tell from the wording which was used — flavor belongs to the effect, not the delivery mechanism.
+
+**Diagnostics that earned their place:** `/hypno session` (phase + granted permissions in one line), `/hypno match <phrase>` (pattern result and name gate reported separately), `/hypno kneel` / `/hypno stand` (call BC's pose API directly, bypassing all gating). Between them they bisect "nothing happened" to matching, permissions, session, or the underlying API in a single test — which is how the last three bugs were found.
+
 ---
 
 ## Lessons Learned (BC API gotchas — quick reference)
@@ -405,4 +431,9 @@ Full detail on each is inline above where relevant; this is just an index so not
 
 ---
 
-*Last updated: 2026-08-27 (v0.6.7)*
+- **A silent rejection is a bug in its own right.** The spoken-suggestion path checked the session before matching, so "line didn't match" and "line matched but no session" looked identical from outside — the exact pair that needed telling apart. Matching first, then logging which gate stopped it, turned a guessing game into one test. Same lesson as the diagnostics above: when something can fail for several reasons, make it say which.
+- **Reconcile stored settings against the current schema, don't merge over it.** Spreading stored settings over the defaults preserves keys that no longer exist, and they resurface later as real-looking values (dead toggles reported as granted permissions). Start from the defaults and copy across only keys that still exist.
+
+---
+
+*Last updated: 2026-08-27 (v0.9.1)*
