@@ -20,10 +20,10 @@ const ICON_LEFT = 90;
 const ICON_TOP = 130;
 const ICON_SIZE = 60;
 
-// Reusing the same exit convention as our Preferences screen (menu.ts) for this
-// subscreen's own back control, rather than a second meaning for the entry icon's spot.
-const SUB_EXIT_LEFT = 1850;
-const SUB_EXIT_TOP = 55;
+// Same verified coordinate as menu.ts's exit icon now (see there for how it was
+// confirmed) — reusing it here too rather than a second guessed spot.
+const SUB_EXIT_LEFT = 1815;
+const SUB_EXIT_TOP = 75;
 const SUB_EXIT_SIZE = 90;
 
 const FEATURE_BUTTON_LEFT = 400;

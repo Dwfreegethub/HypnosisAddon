@@ -31,13 +31,15 @@ function rowTop(index: number): number {
 }
 
 // ADJUST-ME — exit icon position. Increase BACK_LEFT to move right, BACK_TOP to move
-// down. There's no exact source value to copy for this screen specifically: Dialog.js
-// and Wardrobe.js draw this same icon at a fixed canvas coordinate (1895,15), but the
-// Preferences screen's own native exit button turned out to be DOM/CSS-positioned
-// (ElementMenu in Element.js) rather than a canvas draw, so these four numbers are DW's
-// own eyeballed best-fit against the native one, not a verified value — nudge freely.
-const BACK_LEFT = 1850;
-const BACK_TOP = 55;
+// down. The Preferences screen's own native exit button is DOM/CSS-positioned
+// (ElementMenu in Element.js), not a canvas draw, so there's still no exact value for
+// THIS specific screen — but this now matches the verified InformationSheetClick()
+// native Back button coordinate (MouseIn(1815, 75, 90, 90) in InformationSheet.js),
+// corroborated by DW's own click-testing (bottom-right corner measured within ~4px of
+// 1905,165 = 1815+90,75+90), and it's the same 90x90 size Dialog.js/Wardrobe.js use for
+// this icon everywhere else — a reasonable cross-screen convention, not a blind guess.
+const BACK_LEFT = 1815;
+const BACK_TOP = 75;
 const BACK_WIDTH = 90;
 const BACK_HEIGHT = 90;
 
