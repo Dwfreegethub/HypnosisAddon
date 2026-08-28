@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
-import { applyEffect, removeEffect } from "./effects";
+import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import {
 	getSessionView,
 	countdownRemaining,
@@ -21,7 +21,7 @@ import {
 // module-level `InformationSheetSelection` global directly rather than receiving the
 // viewed character as a parameter (verified against the live client, not assumed).
 
-export type RemoteFeature = "movement" | "clothing";
+export type RemoteFeature = "movement" | "clothing" | "posture";
 
 // LSCG draws its own remote icon at DrawButton(90, 60, 60, 60, ...) on this same screen
 // — ours sits directly below it, same size, small gap. ADJUST-ME if it doesn't line up:
@@ -40,8 +40,8 @@ const FEATURE_BUTTON_LEFT = 400;
 const FEATURE_BUTTON_WIDTH = 500;
 const FEATURE_BUTTON_HEIGHT = 90;
 const SESSION_BUTTON_TOP = 290;
-const MOVEMENT_BUTTON_TOP = 440;
-const CLOTHING_BUTTON_TOP = 560;
+const FIRST_FEATURE_TOP = 430;
+const FEATURE_SPACING = 115;
 const STATUS_LINE_Y = 245;
 
 let activeTarget: any = null;
@@ -50,13 +50,70 @@ interface RemoteState {
 	hypnoEnabled: boolean;
 	movementRestriction: boolean;
 	clothingRestriction: boolean;
+	postureControl: boolean;
 }
 
 // FeatureToggles (storage.ts, our own local settings) and RemoteState (above, someone
 // else's settings as last reported to us) happen to share this same shape — one
 // function checks either, since "is this feature permitted" means the same thing for
 // both, just read from a different source.
-type PermissionSource = { hypnoEnabled: boolean; movementRestriction: boolean; clothingRestriction: boolean };
+type PermissionSource = {
+	hypnoEnabled: boolean;
+	movementRestriction: boolean;
+	clothingRestriction: boolean;
+	postureControl: boolean;
+};
+
+/** One row of the panel. Posture is the reason this is a table rather than a pair of
+ * if/elses: it isn't an effect at all, so "is it currently on" and "turn it on" differ
+ * per feature and can't be derived from a single effect name any more. */
+interface FeatureDef {
+	key: RemoteFeature;
+	permission: keyof PermissionSource;
+	applyLabel: string;
+	releaseLabel: string;
+	/** Read on the VIEWER's client, off synced character data. */
+	isActive: (target: any) => boolean;
+	/** Run on the SUBJECT's client when a request is honored. */
+	apply: () => void;
+	release: () => void;
+}
+
+const FEATURES: FeatureDef[] = [
+	{
+		key: "movement",
+		permission: "movementRestriction",
+		applyLabel: "Apply Movement Restriction",
+		releaseLabel: "Release Movement Restriction",
+		isActive: (t) => !!t.HasEffect?.("Freeze"),
+		apply: () => applyEffect("Freeze"),
+		release: () => removeEffect("Freeze"),
+	},
+	{
+		key: "clothing",
+		permission: "clothingRestriction",
+		applyLabel: "Apply Clothing Restriction",
+		releaseLabel: "Release Clothing Restriction",
+		isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
+		apply: () => applyEffect("BlockWardrobe"),
+		release: () => removeEffect("BlockWardrobe"),
+	},
+	{
+		key: "posture",
+		permission: "postureControl",
+		applyLabel: "Kneel",
+		releaseLabel: "Stand",
+		// Not HasEffect — IsKneeling() reads PoseMapping.BodyLower, which is derived from
+		// the synced ActivePose, so it's readable for anyone we can see.
+		isActive: (t) => !!t.IsKneeling?.(),
+		apply: () => setSuggestedPose("Kneel"),
+		release: () => setSuggestedPose(null),
+	},
+];
+
+function featureTop(index: number): number {
+	return FIRST_FEATURE_TOP + index * FEATURE_SPACING;
+}
 
 // Populated by asking the target directly when we open their panel. There's no
 // automatic sync of another character's permission settings to gray out against —
@@ -66,13 +123,9 @@ type PermissionSource = { hypnoEnabled: boolean; movementRestriction: boolean; c
 // trying to keep every room member's state pre-synced.
 const knownState = new Map<number, RemoteState>();
 
-function effectNameFor(feature: RemoteFeature): string {
-	return feature === "movement" ? "Freeze" : "BlockWardrobe";
-}
-
-function isPermitted(state: PermissionSource | undefined, feature: RemoteFeature): boolean {
+function isPermitted(state: PermissionSource | undefined, feature: FeatureDef): boolean {
 	if (!state || !state.hypnoEnabled) return false;
-	return feature === "movement" ? state.movementRestriction : state.clothingRestriction;
+	return !!state[feature.permission];
 }
 
 function getViewedOtherCharacter(): any {
@@ -84,16 +137,19 @@ function getViewedOtherCharacter(): any {
 /** Feature buttons are session-scoped: outside an established trance they do nothing at
  * all, per the design doc ("locked until a session is successfully established"). Both
  * conditions have to hold, and the subject re-checks both itself before acting. */
-function featureUnlocked(view: SessionView | undefined, state: RemoteState | undefined, feature: RemoteFeature): boolean {
+function featureUnlocked(view: SessionView | undefined, state: RemoteState | undefined, feature: FeatureDef): boolean {
 	return view?.phase === "Hypnotized" && isPermitted(state, feature);
 }
 
-function drawFeatureButton(top: number, baseLabel: string, feature: RemoteFeature, target: any): void {
+function drawFeatureButton(index: number, feature: FeatureDef, target: any): void {
 	const state = knownState.get(target.MemberNumber);
 	const view = getSessionView(target.MemberNumber);
 	const unlocked = featureUnlocked(view, state, feature);
-	const active = !!target.HasEffect?.(effectNameFor(feature));
-	const label = !state ? `${baseLabel} (checking…)` : `${active ? "Release" : "Apply"} ${baseLabel}`;
+	const label = !state
+		? `${feature.applyLabel} (checking…)`
+		: feature.isActive(target)
+			? feature.releaseLabel
+			: feature.applyLabel;
 	const tooltip = !state
 		? "Waiting for their status"
 		: view?.phase !== "Hypnotized"
@@ -101,7 +157,17 @@ function drawFeatureButton(top: number, baseLabel: string, feature: RemoteFeatur
 			: isPermitted(state, feature)
 				? ""
 				: "Not permitted";
-	DrawButton(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, label, unlocked ? "White" : "#ddd", "", tooltip, !unlocked);
+	DrawButton(
+		FEATURE_BUTTON_LEFT,
+		featureTop(index),
+		FEATURE_BUTTON_WIDTH,
+		FEATURE_BUTTON_HEIGHT,
+		label,
+		unlocked ? "White" : "#ddd",
+		"",
+		tooltip,
+		!unlocked,
+	);
 }
 
 function seconds(ms: number): number {
@@ -178,8 +244,7 @@ function drawSubscreen(target: any): void {
 		session.tooltip,
 		!session.enabled,
 	);
-	drawFeatureButton(MOVEMENT_BUTTON_TOP, "Movement Restriction", "movement", target);
-	drawFeatureButton(CLOTHING_BUTTON_TOP, "Clothing Restriction", "clothing", target);
+	FEATURES.forEach((feature, i) => drawFeatureButton(i, feature, target));
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
 }
 
@@ -194,16 +259,16 @@ function clickSessionButton(target: any): boolean {
 	return true;
 }
 
-function clickFeatureButton(top: number, feature: RemoteFeature, target: any): boolean {
-	if (!MouseIn(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
+function clickFeatureButton(index: number, feature: FeatureDef, target: any): boolean {
+	if (!MouseIn(FEATURE_BUTTON_LEFT, featureTop(index), FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
 	const state = knownState.get(target.MemberNumber);
 	if (!featureUnlocked(getSessionView(target.MemberNumber), state, feature)) {
-		log(`${feature} locked for ${target.MemberNumber} (no session, or not permitted), ignoring click`);
+		log(`${feature.key} locked for ${target.MemberNumber} (no session, or not permitted), ignoring click`);
 		return true;
 	}
-	const active = !!target.HasEffect?.(effectNameFor(feature));
-	sendHiddenMessage({ type: "remote-request", feature, enable: !active }, target.MemberNumber);
-	log(`sent remote request (${feature}, enable=${!active}) to ${target.MemberNumber}`);
+	const active = feature.isActive(target);
+	sendHiddenMessage({ type: "remote-request", feature: feature.key, enable: !active }, target.MemberNumber);
+	log(`sent remote request (${feature.key}, enable=${!active}) to ${target.MemberNumber}`);
 	return true;
 }
 
@@ -213,8 +278,7 @@ function clickSubscreen(target: any): void {
 		return;
 	}
 	if (clickSessionButton(target)) return;
-	if (clickFeatureButton(MOVEMENT_BUTTON_TOP, "movement", target)) return;
-	clickFeatureButton(CLOTHING_BUTTON_TOP, "clothing", target);
+	FEATURES.some((feature, i) => clickFeatureButton(i, feature, target));
 }
 
 function openRemoteFor(target: any): void {
@@ -237,6 +301,7 @@ export function installRemote(modApi: any): void {
 				hypnoEnabled: features.hypnoEnabled,
 				movementRestriction: features.movementRestriction,
 				clothingRestriction: features.clothingRestriction,
+				postureControl: features.postureControl,
 			},
 			sender,
 		);
@@ -247,37 +312,38 @@ export function installRemote(modApi: any): void {
 			hypnoEnabled: !!message.hypnoEnabled,
 			movementRestriction: !!message.movementRestriction,
 			clothingRestriction: !!message.clothingRestriction,
+			postureControl: !!message.postureControl,
 		});
 	});
 
 	registerHiddenHandler("remote-request", (sender, message) => {
-		const feature = message.feature as RemoteFeature;
+		const feature = FEATURES.find((f) => f.key === message.feature);
+		if (!feature) return;
 		const enable = !!message.enable;
-		const effectName = effectNameFor(feature);
 		if (!enable) {
 			// Releasing is always honored regardless of permission state — consent can
 			// make it harder to restrict someone, never harder to release them.
-			removeEffect(effectName);
+			feature.release();
 			ChatRoomSendLocal(`${sender} releases you.`);
 			return;
 		}
 		const features = getFeatures();
 		if (!features.hypnoEnabled) {
-			log(`remote request (${feature}) from ${sender} denied — Hypnosis Enabled is off`);
+			log(`remote request (${feature.key}) from ${sender} denied — Hypnosis Enabled is off`);
 			return;
 		}
 		if (!isPermitted(features, feature)) {
-			log(`remote request (${feature}) from ${sender} denied — not permitted`);
+			log(`remote request (${feature.key}) from ${sender} denied — not permitted`);
 			return;
 		}
 		// The session gate, re-checked here rather than trusting the sender's UI to have
 		// grayed the button out — a modified client can send this whenever it likes.
 		if (!isSessionActiveWith(sender)) {
-			log(`remote request (${feature}) from ${sender} denied — no active session with them`);
+			log(`remote request (${feature.key}) from ${sender} denied — no active session with them`);
 			return;
 		}
-		applyEffect(effectName);
-		ChatRoomSendLocal(`${sender} triggers a ${feature} restriction on you.`);
+		feature.apply();
+		ChatRoomSendLocal(`${sender} triggers ${feature.key} on you.`);
 	});
 
 	// --- Information Sheet hooks: this client as the VIEWER ---

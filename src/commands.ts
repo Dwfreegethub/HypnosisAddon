@@ -1,5 +1,6 @@
 import { log } from "./log";
-import { applyEffect, removeEffect } from "./effects";
+import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
+import { matchSuggestion } from "./voice";
 import { bumpTrust, listTrust, setTrust } from "./storage";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession } from "./session";
@@ -43,6 +44,7 @@ export function installCommands(): void {
 		Action: () =>
 			reply(
 				"session: agree | ignore | fight (answer a prompt), wake, safeword, session. " +
+					"diagnostics: kneel, stand, match <phrase>. " +
 					"testing: freeze, unfreeze, suppress, wardrobeblock <on|off>, ping <memberNumber>, " +
 					"settrust <memberNumber> <0-100>, bumptrust <memberNumber> <delta>, logtrust",
 			),
@@ -55,6 +57,41 @@ export function installCommands(): void {
 			{ Tag: "wake", Action: () => selfWake() },
 			{ Tag: "safeword", Action: () => safeword() },
 			{ Tag: "session", Action: () => reply(describeSession()) },
+			{
+				// Bypasses matching, permissions and the session entirely — calls BC's pose
+				// API directly. If this works but saying "kneel" doesn't, the problem is in
+				// our gating; if this fails too, it's the pose API itself.
+				Tag: "kneel",
+				Action: () => {
+					setSuggestedPose("Kneel");
+					reply(
+						`pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} ` +
+							`PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`,
+					);
+				},
+			},
+			{
+				Tag: "stand",
+				Action: () => {
+					setSuggestedPose(null);
+					reply(
+						`pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} ` +
+							`PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`,
+					);
+				},
+			},
+			{
+				// Reports what the parser makes of a phrase without needing a live session,
+				// so a line that "does nothing" can be pinned on matching vs. permissions.
+				Tag: "match",
+				Action: (args: string) => {
+					if (!args.trim()) {
+						reply("usage: /hypno match <phrase to test>");
+						return;
+					}
+					reply(`"${args.trim()}" → ${matchSuggestion(args) ?? "no match"}`);
+				},
+			},
 			{
 				// Stub for the trust engine that doesn't exist yet — without this there's no
 				// way to get a roll above the induction threshold and test the flow at all.
