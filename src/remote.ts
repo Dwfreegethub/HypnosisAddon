@@ -73,7 +73,10 @@ function drawFeatureButton(top: number, baseLabel: string, feature: RemoteFeatur
 	const state = knownState.get(target.MemberNumber);
 	const permitted = isPermitted(state, feature);
 	const active = !!target.HasEffect?.(effectNameFor(feature));
-	const label = !state ? `${baseLabel} (checking…)` : active ? `Release ${baseLabel}` : `Apply ${baseLabel}`;
+	// TEMPORARY — [active=...] tells us whether HasEffect ever flips true on the
+	// viewer's own copy of the target after an apply. Diagnostic for the "doesn't
+	// toggle" issue; remove once we know which side of the sync it's failing on.
+	const label = !state ? `${baseLabel} (checking…)` : `${active ? "Release" : "Apply"} ${baseLabel} [active=${active}]`;
 	const tooltip = !state ? "Waiting for their status" : permitted ? "" : "Not permitted";
 	DrawButton(FEATURE_BUTTON_LEFT, top, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, label, permitted ? "White" : "#ddd", "", tooltip, !permitted);
 }
