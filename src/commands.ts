@@ -1,6 +1,6 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { matchSuggestion } from "./voice";
+import { describeMatch } from "./voice";
 import { bumpTrust, listTrust, setTrust } from "./storage";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession } from "./session";
@@ -89,7 +89,7 @@ export function installCommands(): void {
 						reply("usage: /hypno match <phrase to test>");
 						return;
 					}
-					reply(`"${args.trim()}" → ${matchSuggestion(args) ?? "no match"}`);
+					reply(`"${args.trim()}" → ${describeMatch(args)}`);
 				},
 			},
 			{

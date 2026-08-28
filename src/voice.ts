@@ -2,6 +2,7 @@ import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { getFeatures, FeatureToggles } from "./storage";
 import { isSessionActiveWith } from "./session";
+import { flavor, FlavorKey } from "./flavor";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
 // fallback" approach, in stub form with three suggestions.
@@ -37,12 +38,11 @@ function normalize(text: string): string {
 // --- The pattern library -------------------------------------------------------------
 
 interface Suggestion {
-	id: string;
+	/** Doubles as the flavor-text key — the two lists are deliberately kept in step. */
+	id: FlavorKey;
 	/** Which permission toggle the subject must have granted. */
 	permission: keyof FeatureToggles;
 	patterns: RegExp[];
-	/** What the subject sees when it lands. */
-	feedback: string;
 	run: () => void;
 }
 
@@ -61,7 +61,6 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bmove (again|freely)\b/,
 			/\byour body is your own\b/,
 		],
-		feedback: "Your body feels like your own again.",
 		run: () => removeEffect("Freeze"),
 	},
 	{
@@ -79,7 +78,6 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byour body (will not|does not|cannot) (move|respond|obey)\b/,
 			/\byou (cannot|will not) move (a muscle|an inch|at all)\b/,
 		],
-		feedback: "You find you cannot move.",
 		run: () => applyEffect("Freeze"),
 	},
 	{
@@ -91,7 +89,6 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (can|may) (dress|undress)\b/,
 			/\byour (clothes|clothing|outfit) are yours again\b/,
 		],
-		feedback: "You could change your clothes now, if you wanted.",
 		run: () => removeEffect("BlockWardrobe"),
 	},
 	{
@@ -106,7 +103,6 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bleave your (clothes|clothing|outfit) alone\b/,
 			/\byou have forgotten how to (dress|undress|change)\b/,
 		],
-		feedback: "The thought of changing your clothes slips away.",
 		run: () => applyEffect("BlockWardrobe"),
 	},
 	{
@@ -121,7 +117,6 @@ const SUGGESTIONS: Suggestion[] = [
 			/\b(get|rise) to your feet\b/,
 			/\bon your feet\b/,
 		],
-		feedback: "You rise to your feet.",
 		run: () => setSuggestedPose(null),
 	},
 	{
@@ -136,16 +131,12 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bon your knees\b/,
 			/\bdrop to your knees\b/,
 		],
-		feedback: "Your knees fold under you.",
 		run: () => setSuggestedPose("Kneel"),
 	},
 ];
 
 // --- Entry point ---------------------------------------------------------------------
 
-/** The pure half of this module: text in, suggestion id out. Split from handleSpokenLine
- * so the pattern library can be exercised directly against a phrase list without needing a
- * live session, a chat room, or the BC globals. */
 /** A line the speaker is plainly saying about themselves, not to the subject — "I need to
  * get up early". Cheap guard against ordinary conversation tripping a suggestion; the
  * presence of "you" anywhere is enough to treat the line as addressed outward again. */
@@ -153,13 +144,49 @@ function isSelfReferential(text: string): boolean {
 	return /^(i|we)\b/.test(text) && !/\byou\b/.test(text);
 }
 
-export function matchSuggestion(content: string): string | null {
+/** Does this line address the subject by name? Required for any suggestion to land, so
+ * that ordinary conversation — even conversation that happens to contain a trigger phrase —
+ * stays inert unless the hypnotist deliberately names who they're talking to.
+ *
+ * Pure and name-injected rather than reading Player directly, so it can be tested. */
+export function mentionsAnyName(content: string, names: string[]): boolean {
+	const text = normalize(content);
+	// Normalising the names the same way means punctuation and case can't cause a miss:
+	// "Missy," and "MISSY" both reduce to the same thing the text did.
+	const cleaned = names.map((n) => normalize(String(n ?? ""))).filter((n) => n.length > 0);
+	// No usable name to check against → refuse rather than fall open. A name gate that
+	// silently stops gating is worse than one that stops working.
+	if (cleaned.length === 0) return false;
+	return cleaned.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text));
+}
+
+/** The names the subject answers to. Nickname included because that's what BC shows other
+ * players when it's set, so it's what a hypnotist would naturally type. */
+function playerNames(): string[] {
+	return [Player?.Name, Player?.Nickname].filter(Boolean) as string[];
+}
+
+/** The pure half of this module: text in, suggestion id out. Split from handleSpokenLine
+ * so the pattern library can be exercised directly against a phrase list without needing a
+ * live session, a chat room, or the BC globals. Deliberately does NOT apply the name gate —
+ * /hypno match stays useful for checking a phrasing on its own. */
+export function matchSuggestion(content: string): FlavorKey | null {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return null;
 	for (const suggestion of SUGGESTIONS) {
 		if (suggestion.patterns.some((p) => p.test(text))) return suggestion.id;
 	}
 	return null;
+}
+
+/** Human-readable verdict on a phrase for /hypno match — reports the pattern result and
+ * the name gate separately, since a phrase can match perfectly and still be ignored. */
+export function describeMatch(content: string): string {
+	const id = matchSuggestion(content);
+	if (!id) return "no match";
+	return mentionsAnyName(content, playerNames())
+		? `${id} — would fire`
+		: `${id} — but your name isn't in the line, so it would be ignored`;
 }
 
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
@@ -179,6 +206,11 @@ export function handleSpokenLine(sender: number, content: string): void {
 		return;
 	}
 
+	if (!mentionsAnyName(content, playerNames())) {
+		log(`heard "${id}" from ${sender} but they didn't say your name — ignoring`);
+		return;
+	}
+
 	const features = getFeatures();
 	// Re-checked even though the session gate already passed: permission and session are
 	// independent, and a spoken suggestion is just another way to reach the same effect a
@@ -189,5 +221,5 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
 	suggestion.run();
-	ChatRoomSendLocal(suggestion.feedback);
+	ChatRoomSendLocal(flavor(id));
 }

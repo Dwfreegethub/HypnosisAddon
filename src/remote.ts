@@ -2,6 +2,7 @@ import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
+import { flavor, FlavorKey } from "./flavor";
 import {
 	getSessionView,
 	countdownRemaining,
@@ -77,6 +78,10 @@ interface FeatureDef {
 	/** Run on the SUBJECT's client when a request is honored. */
 	apply: () => void;
 	release: () => void;
+	/** Shared with the spoken-suggestion path, so a button and the equivalent spoken line
+	 * are indistinguishable from the subject's side. */
+	applyFlavor: FlavorKey;
+	releaseFlavor: FlavorKey;
 }
 
 const FEATURES: FeatureDef[] = [
@@ -88,6 +93,8 @@ const FEATURES: FeatureDef[] = [
 		isActive: (t) => !!t.HasEffect?.("Freeze"),
 		apply: () => applyEffect("Freeze"),
 		release: () => removeEffect("Freeze"),
+		applyFlavor: "movement-block",
+		releaseFlavor: "movement-release",
 	},
 	{
 		key: "clothing",
@@ -97,6 +104,8 @@ const FEATURES: FeatureDef[] = [
 		isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
 		apply: () => applyEffect("BlockWardrobe"),
 		release: () => removeEffect("BlockWardrobe"),
+		applyFlavor: "clothing-block",
+		releaseFlavor: "clothing-release",
 	},
 	{
 		key: "posture",
@@ -108,6 +117,8 @@ const FEATURES: FeatureDef[] = [
 		isActive: (t) => !!t.IsKneeling?.(),
 		apply: () => setSuggestedPose("Kneel"),
 		release: () => setSuggestedPose(null),
+		applyFlavor: "kneel",
+		releaseFlavor: "stand",
 	},
 ];
 
@@ -324,7 +335,9 @@ export function installRemote(modApi: any): void {
 			// Releasing is always honored regardless of permission state — consent can
 			// make it harder to restrict someone, never harder to release them.
 			feature.release();
-			ChatRoomSendLocal(`${sender} releases you.`);
+			// Flavor rather than "N releases you" — the sender is unambiguous during a
+			// session, and it's still in the console for testing.
+			ChatRoomSendLocal(flavor(feature.releaseFlavor));
 			return;
 		}
 		const features = getFeatures();
@@ -342,8 +355,9 @@ export function installRemote(modApi: any): void {
 			log(`remote request (${feature.key}) from ${sender} denied — no active session with them`);
 			return;
 		}
+		log(`remote request (${feature.key}) from ${sender} honored`);
 		feature.apply();
-		ChatRoomSendLocal(`${sender} triggers ${feature.key} on you.`);
+		ChatRoomSendLocal(flavor(feature.applyFlavor));
 	});
 
 	// --- Information Sheet hooks: this client as the VIEWER ---
