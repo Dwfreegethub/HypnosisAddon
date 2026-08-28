@@ -108,11 +108,14 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "stand",
 		permission: "postureControl",
-		// "get up" is guarded against the infinitive/first-person forms that show up in
-		// ordinary conversation ("I need to get up early") — see isSelfReferential too.
+		// Bare "stand" and "rise" are matched now that a suggestion also has to name the
+		// subject — that gate does most of the false-positive work, so these no longer have
+		// to be excluded wholesale. The narrow guards that remain cover what the name gate
+		// doesn't: "I can't stand it, Missy" (normalised to "cannot stand") and the
+		// hypnotist narrating themselves ("I stand beside you, Missy").
 		patterns: [
-			/\bstand up\b/,
-			/\byou (can|may) stand\b/,
+			/(?<!cannot )(?<!\bi )(?<!\bwe )\bstand\b/,
+			/(?<!\bi )(?<!\bwe )\brise\b/,
 			/(?<!\bto )(?<!\bi )(?<!\bwe )\bget up\b/,
 			/\b(get|rise) to your feet\b/,
 			/\bon your feet\b/,
