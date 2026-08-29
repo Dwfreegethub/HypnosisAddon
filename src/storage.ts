@@ -23,9 +23,29 @@ export interface FeatureToggles {
 	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
 	 * being posed and being unable to move are quite different things to consent to. */
 	postureControl: boolean;
+	/** Silencing suggestions ("you cannot speak"). */
+	speechRestriction: boolean;
 	/** Gates the Hidden-message cross-client channel (see messaging.ts) — both sending
 	 * and receiving. */
 	hiddenActivities: boolean;
+
+	// --- Trance state defaults -------------------------------------------------------
+	// A different KIND of setting from the permissions above, and the defaults are
+	// inverted for a reason. The permissions answer "may someone else do this to me",
+	// so they start off. These answer "what is being under actually like for me" — the
+	// baseline experience of a trance the player already consented to by accepting an
+	// induction — so per the design doc they start ON.
+	//
+	// They gate on hypnoEnabled only, NOT on the matching permission above: the
+	// permissions govern what a hypnotist can reach for on demand, while these describe
+	// the state itself. A player who wants trance to feel like nothing can switch them off.
+
+	/** Freeze on entering trance. */
+	tranceCannotMove: boolean;
+	/** Block outgoing room chat while under. */
+	tranceCannotSpeak: boolean;
+	/** Dreamlike veil over the screen while under. */
+	tranceScreenFade: boolean;
 }
 
 interface HypnoAddonSettings {
@@ -40,7 +60,12 @@ function defaultFeatures(): FeatureToggles {
 		movementRestriction: false,
 		clothingRestriction: false,
 		postureControl: false,
+		speechRestriction: false,
 		hiddenActivities: false,
+		// On by default — see the note on the interface.
+		tranceCannotMove: true,
+		tranceCannotSpeak: true,
+		tranceScreenFade: true,
 	};
 }
 

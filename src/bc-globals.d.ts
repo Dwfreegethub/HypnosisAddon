@@ -30,6 +30,7 @@ declare const MouseX: number;
 declare const MouseY: number;
 declare const MainCanvas: CanvasRenderingContext2D;
 declare const MainCanvasWidth: number;
+declare const MainCanvasHeight: number;
 declare function DrawButton(
 	left: number,
 	top: number,

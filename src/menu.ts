@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { removeEffect, clearSuggestedPose } from "./effects";
+import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -13,22 +13,59 @@ interface Row {
 	label: string;
 }
 
-const ROWS: Row[] = [
-	{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
-	{ key: "movementRestriction", label: "Movement Restriction" },
-	{ key: "clothingRestriction", label: "Clothing Restriction" },
-	{ key: "postureControl", label: "Posture Control (kneel / stand)" },
-	{ key: "hiddenActivities", label: "Hidden Activities" },
+interface Column {
+	left: number;
+	heading: string;
+	subheading: string;
+	rows: Row[];
+}
+
+// Two columns because nine rows in one won't fit: at 110px spacing the ninth would land at
+// y=1130 on a 1000-tall canvas. The split is also meaningful — the two groups answer
+// different questions and have opposite defaults (see FeatureToggles in storage.ts).
+const COLUMNS: Column[] = [
+	{
+		left: 180,
+		heading: "Permissions",
+		subheading: "what others may do to you",
+		rows: [
+			{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
+			{ key: "movementRestriction", label: "Movement Restriction" },
+			{ key: "clothingRestriction", label: "Clothing Restriction" },
+			{ key: "postureControl", label: "Posture Control (kneel / stand)" },
+			{ key: "speechRestriction", label: "Speech Restriction" },
+			{ key: "hiddenActivities", label: "Hidden Activities" },
+		],
+	},
+	{
+		left: 1080,
+		heading: "In trance",
+		subheading: "what being under is like — on by default",
+		rows: [
+			{ key: "tranceCannotMove", label: "Cannot Move" },
+			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
+			{ key: "tranceScreenFade", label: "Screen Fade" },
+		],
+	},
 ];
 
-const ROW_LEFT = 200;
 const ROW_WIDTH = 90;
 const ROW_HEIGHT = 90;
-const ROW_TOP_START = 250;
+const ROW_TOP_START = 300;
 const ROW_SPACING = 110;
+const HEADING_Y = 225;
+const SUBHEADING_Y = 262;
 
 function rowTop(index: number): number {
 	return ROW_TOP_START + index * ROW_SPACING;
+}
+
+/** Left-aligned text. BC's canvas defaults to centered, so every label needs this. */
+function drawLeftText(text: string, x: number, y: number, color = "Black"): void {
+	MainCanvas.save();
+	MainCanvas.textAlign = "left";
+	DrawText(text, x, y, color, "Gray");
+	MainCanvas.restore();
 }
 
 // ADJUST-ME — exit icon position. Increase BACK_LEFT to move right, BACK_TOP to move
@@ -59,6 +96,7 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 				removeEffect("Freeze");
 				removeEffect("BlockWardrobe");
 				clearSuggestedPose();
+				clearTranceStates();
 			}
 			break;
 		case "movementRestriction":
@@ -69,6 +107,16 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "postureControl":
 			if (!enabled) clearSuggestedPose();
+			break;
+		case "speechRestriction":
+		case "tranceCannotSpeak":
+			if (!enabled) setSpeechBlocked(false);
+			break;
+		case "tranceCannotMove":
+			if (!enabled) removeEffect("Freeze");
+			break;
+		case "tranceScreenFade":
+			if (!enabled) setScreenFade(0);
 			break;
 		case "hiddenActivities":
 			// No direct effect — messaging.ts reads this flag itself before
@@ -83,20 +131,21 @@ export function installMenu(): void {
 		ButtonText: "Hypnosis Add-on",
 		load: () => {},
 		run: () => {
-			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, ROW_TOP_START - 60, "Black");
+			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, 150, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
 			const features = getFeatures();
-			ROWS.forEach((row, i) => {
-				const top = rowTop(i);
-				// Empty label here — DrawCheckbox centers its own label at a fixed offset
-				// regardless of Width, which overlaps the box for anything but very short
-				// text. Draw the label ourselves, left-aligned, clear of the box instead.
-				DrawCheckbox(ROW_LEFT, top, ROW_WIDTH, ROW_HEIGHT, "", features[row.key]);
-				MainCanvas.save();
-				MainCanvas.textAlign = "left";
-				DrawText(row.label, ROW_LEFT + ROW_WIDTH + 20, top + 33, "Black", "Gray");
-				MainCanvas.restore();
-			});
+			for (const column of COLUMNS) {
+				drawLeftText(column.heading, column.left, HEADING_Y);
+				drawLeftText(column.subheading, column.left, SUBHEADING_Y, "Gray");
+				column.rows.forEach((row, i) => {
+					const top = rowTop(i);
+					// Empty label here — DrawCheckbox centers its own label at a fixed offset
+					// regardless of Width, which overlaps the box for anything but very short
+					// text. Draw the label ourselves, left-aligned, clear of the box instead.
+					DrawCheckbox(column.left, top, ROW_WIDTH, ROW_HEIGHT, "", features[row.key]);
+					drawLeftText(row.label, column.left + ROW_WIDTH + 20, top + 33);
+				});
+			}
 		},
 		click: () => {
 			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT)) {
@@ -104,14 +153,16 @@ export function installMenu(): void {
 				return;
 			}
 			const features = getFeatures();
-			ROWS.forEach((row, i) => {
-				if (MouseIn(ROW_LEFT, rowTop(i), ROW_WIDTH, ROW_HEIGHT)) {
-					const next = !features[row.key];
-					setFeature(row.key, next);
-					onToggle(row.key, next);
-					log(`${row.key} set to ${next}`);
-				}
-			});
+			for (const column of COLUMNS) {
+				column.rows.forEach((row, i) => {
+					if (MouseIn(column.left, rowTop(i), ROW_WIDTH, ROW_HEIGHT)) {
+						const next = !features[row.key];
+						setFeature(row.key, next);
+						onToggle(row.key, next);
+						log(`${row.key} set to ${next}`);
+					}
+				});
+			}
 		},
 		exit: () => true,
 	});

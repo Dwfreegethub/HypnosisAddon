@@ -1,7 +1,15 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, getTrust } from "./storage";
-import { removeEffect, clearSuggestedPose } from "./effects";
+import {
+	applyEffect,
+	removeEffect,
+	clearSuggestedPose,
+	setSpeechBlocked,
+	setScreenFade,
+	clearTranceStates,
+	TRANCE_FADE_OPACITY,
+} from "./effects";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -159,6 +167,7 @@ function endSession(reason: string, quiet = false): void {
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
 	clearSuggestedPose();
+	clearTranceStates();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
@@ -189,6 +198,7 @@ function runInductionRoll(): void {
 		session.depth = Math.min(100, Math.max(0, Math.round(score - SUCCESS_THRESHOLD)));
 		session.hypnotizedAt = Date.now();
 		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+		applyTranceState();
 		notify(`You slip under. (${depthBand(session.depth)})`);
 		log(`induction SUCCEEDED: score=${score.toFixed(1)} choice=${choice} depth=${session.depth}`);
 	} else if (session.attempts >= MAX_ATTEMPTS) {
@@ -204,6 +214,23 @@ function runInductionRoll(): void {
 		log(`induction failed: score=${score.toFixed(1)} choice=${choice} attempt=${session.attempts}`);
 	}
 	pushUpdate();
+}
+
+/** The baseline "you are hypnotized" state, applied the moment the induction lands.
+ *
+ * These read the trance-* settings, NOT the per-feature permissions: the permissions
+ * govern what a hypnotist may reach for on demand, while these describe what being under
+ * is like for this player — something they opted into by accepting the induction at all.
+ * They still answer to hypnoEnabled, and every exit path calls clearTranceStates(). */
+function applyTranceState(): void {
+	const f = getFeatures();
+	if (!f.hypnoEnabled) return;
+	if (f.tranceCannotMove) applyEffect("Freeze");
+	if (f.tranceCannotSpeak) setSpeechBlocked(true);
+	if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
+	log(
+		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade}`,
+	);
 }
 
 function beginInductionWindow(): void {
@@ -278,6 +305,7 @@ export function safeword(): void {
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
 	clearSuggestedPose();
+	clearTranceStates();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

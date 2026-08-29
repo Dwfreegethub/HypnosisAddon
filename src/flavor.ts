@@ -9,7 +9,17 @@
 // subject notices; intention arrives late or not at all. Releases keep the same register —
 // control returning is still something that happens to them, not something they did.
 
-export type FlavorKey = "movement-block" | "movement-release" | "clothing-block" | "clothing-release" | "kneel" | "stand";
+export type FlavorKey =
+	| "movement-block"
+	| "movement-release"
+	| "clothing-block"
+	| "clothing-release"
+	| "kneel"
+	| "stand"
+	| "speech-block"
+	| "speech-release"
+	/** Shown each time a silenced player actually tries to say something. */
+	| "speech-blocked-attempt";
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -41,6 +51,23 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You rise, without quite deciding to.",
 		"Something lifts you back onto your feet.",
 		"You are standing again. The floor lets you go.",
+	],
+	"speech-block": [
+		"You go to answer and find there is nothing to answer with.",
+		"The words are there. The way out of your mouth is not.",
+		"Speaking stops seeming like something you know how to do.",
+	],
+	"speech-release": [
+		"Your voice is handed back to you.",
+		"The way to your own words opens up again.",
+		"You could speak now. The thought arrives whole this time.",
+	],
+	// Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
+	"speech-blocked-attempt": [
+		"The words don't come.",
+		"Nothing comes out.",
+		"Your mouth doesn't cooperate.",
+		"The thought dissolves before it reaches your lips.",
 	],
 };
 

@@ -93,6 +93,42 @@ export function clearSuggestedPose(): void {
 	setSuggestedPose(null);
 }
 
+// --- Trance states -------------------------------------------------------------------
+// Unlike Freeze/BlockWardrobe these are NOT BC effects — they're purely local to this
+// client, enforced by hooks in main.ts. Nothing about them syncs, and nothing about them
+// is visible to anyone else. Kept here so session.ts and voice.ts can both reach them
+// without importing each other.
+
+let speechBlocked = false;
+/** Opacity of the trance veil, 0 = off. */
+let screenFade = 0;
+
+/** The design doc asks for "a soft white or grey veil at ~30% opacity — dreamlike without
+ * cutting off visual context". Player-adjustable later. */
+export const TRANCE_FADE_OPACITY = 0.3;
+
+export function setSpeechBlocked(blocked: boolean): void {
+	speechBlocked = blocked;
+}
+
+export function isSpeechBlocked(): boolean {
+	return speechBlocked;
+}
+
+export function setScreenFade(opacity: number): void {
+	screenFade = Math.max(0, Math.min(1, opacity));
+}
+
+export function getScreenFade(): number {
+	return screenFade;
+}
+
+/** Everything a trance turns on, turned back off. Called on every exit path. */
+export function clearTranceStates(): void {
+	speechBlocked = false;
+	screenFade = 0;
+}
+
 export function applyEffect(effectName: string, character: any = Player): boolean {
 	const item = findEmoticonItem(character);
 	if (!item) {

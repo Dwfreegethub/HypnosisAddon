@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
+import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { getFeatures, FeatureToggles } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { flavor, FlavorKey } from "./flavor";
@@ -104,6 +104,34 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou have forgotten how to (dress|undress|change)\b/,
 		],
 		run: () => applyEffect("BlockWardrobe"),
+	},
+	{
+		id: "speech-release",
+		permission: "speechRestriction",
+		patterns: [
+			/\byou (can|may) (speak|talk)\b/,
+			/\byou are (free|able|allowed) to (speak|talk)\b/,
+			/\byour voice (is back|returns|is yours)\b/,
+			/\b(speak|talk) (again|freely)\b/,
+			/\byou have your voice back\b/,
+		],
+		run: () => setSpeechBlocked(false),
+	},
+	{
+		id: "speech-block",
+		permission: "speechRestriction",
+		patterns: [
+			/\byou cannot (\w+ )?(speak|talk)\b/,
+			/\byou are (unable|not able) to (speak|talk)\b/,
+			/\b(do not|never) (speak|talk)\b/,
+			/\byou have (no voice|lost your voice)\b/,
+			/\byour voice is gone\b/,
+			/\b(stay|remain|be) (silent|quiet)\b/,
+			/\bnot a (word|sound)\b/,
+			/\byou have forgotten how to (speak|talk)\b/,
+			/(?<!\bi )(?<!\bwe )\bsilence\b/,
+		],
+		run: () => setSpeechBlocked(true),
 	},
 	{
 		id: "stand",

@@ -2,7 +2,8 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList } from "./effects";
+import { installEffectAllowList, isSpeechBlocked, getScreenFade } from "./effects";
+import { flavor } from "./flavor";
 import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
@@ -97,6 +98,44 @@ safely("ChatRoomMessage hook", () => {
 // Before anything that could receive an appearance sync — BC strips our injected effects
 // out of any incoming sync unless this client's own asset allow-list already permits them.
 safely("effect allow-list", installEffectAllowList);
+
+// Speech blocking. ChatRoomSendChatMessage is the right hook rather than ChatRoomSendChat:
+// it runs AFTER command parsing and after the emote and whisper branches, so being silenced
+// leaves /hypno safeword reachable, emotes usable, and whispers open as an OOC lifeline —
+// it only takes away ordinary room speech. BC blocks the same function for its own
+// BlockTalk owner rule, and a falsy return leaves the typed text in the input box.
+safely("speech-block hook", () => {
+	modApi.hookFunction(
+		"ChatRoomSendChatMessage",
+		10,
+		((args: [string], next: (args: [string]) => any) => {
+			if (!isSpeechBlocked()) return next(args);
+			log("speech blocked:", args[0]);
+			ChatRoomSendLocal(flavor("speech-blocked-attempt"));
+			return false;
+		}) as any,
+	);
+});
+
+// Trance veil. DrawProcess is BC's whole per-frame draw; painting after next() puts the
+// veil over everything, including the chat room and any menu on top of it.
+safely("screen-fade hook", () => {
+	modApi.hookFunction(
+		"DrawProcess",
+		10,
+		((args: [number], next: (args: [number]) => any) => {
+			const result = next(args);
+			const fade = getScreenFade();
+			if (fade > 0) {
+				MainCanvas.save();
+				MainCanvas.fillStyle = `rgba(255, 255, 255, ${fade})`;
+				MainCanvas.fillRect(0, 0, MainCanvasWidth, MainCanvasHeight);
+				MainCanvas.restore();
+			}
+			return result;
+		}) as any,
+	);
+});
 
 // Before the command and remote registrations — both call into the session module, so its
 // hidden-message handlers need to already be listening.
