@@ -1,5 +1,6 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import { log } from "./log";
+import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
 
 const SETTINGS_KEY = "HypnosisAddon";
 const BACKUP_KEY = `${SETTINGS_KEY}_Backup`;
@@ -7,7 +8,9 @@ const BACKUP_KEY = `${SETTINGS_KEY}_Backup`;
 export interface TrustEntry {
 	memberId: number;
 	memberName: string;
-	relationshipTrust: number;
+	/** Interaction COUNT, not a 0-100 value — see curve.ts for why. Derive the trust
+	 * value with `trustWith()`; never store one. */
+	interactions: number;
 	lastUpdated: number;
 }
 
@@ -68,6 +71,10 @@ export interface FeatureToggles {
 interface HypnoAddonSettings {
 	version: string;
 	trust: TrustEntry[];
+	/** Single pool, per DW: practice with hypnosis is one skill, and which way you point
+	 * it (cooperating or resisting) is a per-attempt choice rather than a separate stat.
+	 * Also a count, not a value. */
+	experience: number;
 	features: FeatureToggles;
 }
 
@@ -91,7 +98,7 @@ function defaultFeatures(): FeatureToggles {
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.4.0", trust: [], features: defaultFeatures() };
+	return { version: "0.4.0", trust: [], experience: 0, features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -124,6 +131,20 @@ function loadSettings(): HypnoAddonSettings {
 			if (typeof stored[key] === "boolean") merged[key] = stored[key];
 		}
 		cached.features = merged;
+		cached.experience ??= 0;
+		cached.trust ??= [];
+		// Migrate entries written before trust was stored as a count. The old field held a
+		// 0-100 value; convert it back through the curve so existing test data survives
+		// rather than silently resetting to zero.
+		for (const entry of cached.trust) {
+			const legacy = (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
+			if (typeof entry.interactions !== "number" && typeof legacy === "number") {
+				entry.interactions = countFromValue(legacy, H_TRUST);
+				delete (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
+				log(`migrated trust for ${entry.memberName}: value ${legacy} → ${entry.interactions.toFixed(1)} interactions`);
+			}
+			entry.interactions ??= 0;
+		}
 	}
 	return cached as HypnoAddonSettings;
 }
@@ -141,14 +162,37 @@ export function getTrust(memberId: number): TrustEntry | undefined {
 	return loadSettings().trust.find((t) => t.memberId === memberId);
 }
 
-export function bumpTrust(memberId: number, memberName: string, delta: number): TrustEntry {
+/** Trust with this person as a 0-100 value, derived from their interaction count. */
+export function trustWith(memberId: number): number {
+	return valueFromCount(getTrust(memberId)?.interactions ?? 0, H_TRUST);
+}
+
+/** Add (or with a negative delta, remove) interactions. The only way trust moves —
+ * conversation, the induction accelerator and decay all come through here. */
+export function addInteractions(memberId: number, memberName: string, delta: number): TrustEntry {
 	const settings = loadSettings();
 	let entry = settings.trust.find((t) => t.memberId === memberId);
 	if (!entry) {
-		entry = { memberId, memberName, relationshipTrust: 0, lastUpdated: Date.now() };
+		entry = { memberId, memberName, interactions: 0, lastUpdated: Date.now() };
 		settings.trust.push(entry);
 	}
-	entry.relationshipTrust = Math.max(0, Math.min(100, entry.relationshipTrust + delta));
+	entry.interactions = Math.max(0, entry.interactions + delta);
+	if (memberName) entry.memberName = memberName;
+	entry.lastUpdated = Date.now();
+	saveSettings();
+	return entry;
+}
+
+/** Set trust to an absolute 0-100 VALUE by back-solving the count it implies. Kept for
+ * testing — it's how you get to a given trust level without playing to it. */
+export function setTrustValue(memberId: number, memberName: string, value: number): TrustEntry {
+	const settings = loadSettings();
+	let entry = settings.trust.find((t) => t.memberId === memberId);
+	if (!entry) {
+		entry = { memberId, memberName, interactions: 0, lastUpdated: Date.now() };
+		settings.trust.push(entry);
+	}
+	entry.interactions = countFromValue(value, H_TRUST);
 	entry.memberName = memberName;
 	entry.lastUpdated = Date.now();
 	saveSettings();
@@ -159,20 +203,24 @@ export function listTrust(): TrustEntry[] {
 	return loadSettings().trust;
 }
 
-/** Set trust to an absolute value. Exists mainly so the session flow is testable before
- * the real trust engine lands — see /hypno settrust. */
-export function setTrust(memberId: number, memberName: string, value: number): TrustEntry {
+/** Subject experience as a 0-100 value. One pool: cooperating and resisting both build it,
+ * and the roll decides which direction it points based on the choice made. */
+export function experienceValue(): number {
+	return valueFromCount(loadSettings().experience, H_EXPERIENCE);
+}
+
+export function addExperience(delta: number): number {
 	const settings = loadSettings();
-	let entry = settings.trust.find((t) => t.memberId === memberId);
-	if (!entry) {
-		entry = { memberId, memberName, relationshipTrust: 0, lastUpdated: Date.now() };
-		settings.trust.push(entry);
-	}
-	entry.relationshipTrust = Math.max(0, Math.min(100, value));
-	entry.memberName = memberName;
-	entry.lastUpdated = Date.now();
+	settings.experience = Math.max(0, settings.experience + delta);
 	saveSettings();
-	return entry;
+	return experienceValue();
+}
+
+export function setExperienceValue(value: number): number {
+	const settings = loadSettings();
+	settings.experience = countFromValue(value, H_EXPERIENCE);
+	saveSettings();
+	return experienceValue();
 }
 
 export function getFeatures(): FeatureToggles {

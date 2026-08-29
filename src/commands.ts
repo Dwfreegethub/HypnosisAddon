@@ -1,9 +1,10 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch } from "./voice";
-import { bumpTrust, listTrust, setTrust } from "./storage";
+import { addInteractions, setTrustValue, setExperienceValue, trustWith } from "./storage";
+import { describeTrust } from "./trust";
 import { sendHiddenMessage } from "./messaging";
-import { answerPrompt, selfWake, safeword, describeSession } from "./session";
+import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
 
 let suppressNextAction = false;
 
@@ -157,12 +158,11 @@ const COMMANDS: HypnoCommand[] = [
 		},
 	},
 	{
-		// Stub for the trust engine that doesn't exist yet — without this there's no
-		// way to get a roll above the induction threshold and test the flow at all.
+		// Jumps straight to a trust level without playing to it. Back-solves the
+		// interaction count that produces the value, since counts are what's stored.
 		Tag: "settrust",
 		group: "Testing",
-		Description:
-			"<member> <0-100> — set trust directly (stub until the trust engine)",
+		Description: "<member> <0-100> — jump trust to a value without playing to it",
 		Action: (args: string) => {
 			const [rawTarget, rawValue] = args.trim().split(/\s+/);
 			const target = Number(rawTarget);
@@ -171,12 +171,37 @@ const COMMANDS: HypnoCommand[] = [
 				reply("usage: /hypno settrust <memberNumber> <0-100>");
 				return;
 			}
-			const entry = setTrust(
-				target,
-				findCharacter(target)?.Name ?? `#${target}`,
-				value,
+			const entry = setTrustValue(target, findCharacter(target)?.Name ?? `#${target}`, value);
+			reply(
+				`trust with ${entry.memberName} → ${trustWith(target).toFixed(1)} ` +
+					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
-			reply(`trust with ${entry.memberName} set to ${entry.relationshipTrust}`);
+		},
+	},
+	{
+		Tag: "setexp",
+		group: "Testing",
+		Description: "<0-100> — jump subject experience to a value",
+		Action: (args: string) => {
+			const value = Number(firstWord(args));
+			if (!Number.isFinite(value)) {
+				reply("usage: /hypno setexp <0-100>");
+				return;
+			}
+			reply(`experience → ${setExperienceValue(value).toFixed(1)}`);
+		},
+	},
+	{
+		Tag: "chance",
+		group: "Diagnostics",
+		Description: "<member> — show the induction chance for each choice against them",
+		Action: (args: string) => {
+			const target = Number(firstWord(args));
+			if (!target) {
+				reply("usage: /hypno chance <memberNumber>");
+				return;
+			}
+			describeChances(target).forEach(reply);
 		},
 	},
 	{
@@ -244,36 +269,26 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "bumptrust",
 		group: "Testing",
-		Description: "<member> <delta> — adjust stored trust by an amount",
+		Description: "<member> <n> — add n interactions (conversation is 1, an induction is 10)",
 		Action: (args: string) => {
-			const [rawTarget, rawDelta] = args.trim().split(/\s+/);
+			const [rawTarget, rawDelta] = args.trim().split(/s+/);
 			const target = Number(rawTarget);
-			const delta = Number(rawDelta ?? "5");
-			if (!target) {
-				reply("usage: /hypno bumptrust <memberNumber> <delta>");
+			const delta = Number(rawDelta ?? "1");
+			if (!target || !Number.isFinite(delta)) {
+				reply("usage: /hypno bumptrust <memberNumber> <interactions>");
 				return;
 			}
-			const entry = bumpTrust(
-				target,
-				findCharacter(target)?.Name ?? `#${target}`,
-				delta,
+			const entry = addInteractions(target, findCharacter(target)?.Name ?? `#${target}`, delta);
+			reply(
+				`trust with ${entry.memberName} → ${trustWith(target).toFixed(1)} ` +
+					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
-			reply(`trust with ${entry.memberName}: ${entry.relationshipTrust}`);
 		},
 	},
 	{
 		Tag: "logtrust",
 		group: "Testing",
-		Description: "List stored trust for everyone",
-		Action: () => {
-			const all = listTrust();
-			if (!all.length) {
-				reply("no trust data stored yet");
-				return;
-			}
-			all.forEach((t) =>
-				reply(`${t.memberName} [${t.memberId}]: ${t.relationshipTrust}`),
-			);
-		},
+		Description: "List stored trust and experience, with the counts behind them",
+		Action: () => describeTrust().forEach(reply),
 	},
 ];

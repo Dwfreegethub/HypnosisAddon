@@ -263,7 +263,7 @@ export function mentionsAnyName(content: string, names: string[]): boolean {
 
 /** The names the subject answers to. Nickname included because that's what BC shows other
  * players when it's set, so it's what a hypnotist would naturally type. */
-function playerNames(): string[] {
+export function playerOwnNames(): string[] {
 	return [Player?.Name, Player?.Nickname].filter(Boolean) as string[];
 }
 
@@ -337,7 +337,7 @@ export function matchBodyPartCommand(content: string): BodyPartCommand | null {
 export function describeMatch(content: string): string {
 	const id = matchSuggestion(content);
 	if (!id) return "no match";
-	return mentionsAnyName(content, playerNames())
+	return mentionsAnyName(content, playerOwnNames())
 		? `${id} — would fire`
 		: `${id} — but your name isn't in the line, so it would be ignored`;
 }
@@ -373,7 +373,7 @@ function handleWakeLine(sender: number, content: string): boolean {
 	}
 	// Named, like every other suggestion — otherwise "wake up" in ordinary room chat would
 	// end someone's session from across the room.
-	if (!mentionsAnyName(content, playerNames())) {
+	if (!mentionsAnyName(content, playerOwnNames())) {
 		log(`heard a wake keyword from ${sender} but they didn't say your name — ignoring`);
 		return true;
 	}
@@ -390,7 +390,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 		log(`heard "${label}" from ${sender} but no active session with them — ignoring`);
 		return true;
 	}
-	if (!mentionsAnyName(content, playerNames())) {
+	if (!mentionsAnyName(content, playerOwnNames())) {
 		log(`heard "${label}" from ${sender} but they didn't say your name — ignoring`);
 		return true;
 	}
@@ -431,7 +431,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 		return;
 	}
 
-	if (!mentionsAnyName(content, playerNames())) {
+	if (!mentionsAnyName(content, playerOwnNames())) {
 		log(`heard "${id}" from ${sender} but they didn't say your name — ignoring`);
 		return;
 	}

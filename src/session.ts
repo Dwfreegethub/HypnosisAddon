@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
-import { getFeatures, getTrust } from "./storage";
+import { getFeatures, trustWith, experienceValue } from "./storage";
+import { noteInductionSuccess } from "./trust";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import {
@@ -51,14 +52,19 @@ const INDUCTION_WINDOW_MS = 10_000;
 const MAX_ATTEMPTS = 3;
 const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;
-/** Roll must reach this to put the subject under. */
-const SUCCESS_THRESHOLD = 50;
+/** Floor and ceiling on the induction chance, so neither outcome is ever certain. The
+ * floor is what an actively resisting stranger still leaves open: 5% per attempt, ~14%
+ * across a session's three. DW's settled call; meant to become a player setting. */
+const RESISTANCE_FLOOR = 5;
+const CHANCE_CEILING = 95;
+/** How hard subject experience pulls the roll, in either direction. At experience 100 this
+ * is ±25 — the same magnitude as the choice modifier, which is probably too strong once
+ * hypnotist skill exists to compete with it. Tune against real play. */
+const EXPERIENCE_WEIGHT = 0.25;
 /** Above this depth the subject can no longer pull themselves out — only the hypnotist,
  * the session timeout, or the safeword. */
 const SELF_WAKE_MAX_DEPTH = 40;
 const CHOICE_MODIFIER: Record<SessionChoice, number> = { agree: 25, ignore: 0, fight: -25 };
-/** Random spread added to every roll, so a borderline attempt isn't deterministic. */
-const ROLL_SPREAD = 20;
 
 // --- Subject side: the real state ----------------------------------------------------
 
@@ -109,11 +115,13 @@ function notify(message: string): void {
 
 // --- Bands: what the hypnotist is allowed to see -------------------------------------
 
-function progressBand(score: number): string {
-	const shortfall = SUCCESS_THRESHOLD - score;
-	if (shortfall > 30) return "barely responsive";
-	if (shortfall > 15) return "slightly relaxed";
-	if (shortfall > 5) return "more relaxed";
+/** `progress` now holds the CHANCE the last attempt had, not a score against a threshold —
+ * so higher means closer, and the bands read straight off it. Still the only thing the
+ * hypnotist ever learns about how it went: a feel for direction, never a number. */
+function progressBand(chance: number): string {
+	if (chance < 15) return "barely responsive";
+	if (chance < 30) return "slightly relaxed";
+	if (chance < 50) return "more relaxed";
 	return "almost under";
 }
 
@@ -185,11 +193,48 @@ function endSession(reason: string, quiet = false): void {
 
 // --- Subject side: the roll ----------------------------------------------------------
 
-function effectiveTrust(memberId: number): number {
-	// Stub until the trust engine exists — currently only whatever /hypno settrust or
-	// bumptrust has stored. The arousal/drug chemical floor from the design doc
-	// (max(relationshipTrust, chemicalFloor)) belongs right here when it's built.
-	return getTrust(memberId)?.relationshipTrust ?? 0;
+// The arousal/drug chemical floor from the design doc — effective access is
+// `max(relationshipTrust, chemicalFloor)` — belongs inside inductionChance below, wrapping
+// the trust term. Not built yet; neither arousal nor drugs are wired up.
+
+/** The chance this attempt lands, 0-100. Read the number literally: 35 means a 35% chance.
+ *
+ * Replaces the old `score >= 50` threshold, which had almost no probabilistic zone — with
+ * only a 20-wide random term, outcomes swung from impossible to certain across a 20-point
+ * trust window (at trust 25 + Agree it was already 100%, at trust 25 + Ignore it was 0%).
+ *
+ * Experience is a SINGLE POOL whose sign follows the choice, per DW: practice with
+ * hypnosis is one skill, and cooperating or resisting is what you do with it. So it helps
+ * you go under when you agree and helps you resist when you fight, from the same number.
+ *
+ * The 5/95 clamps mean nothing is ever certain either way — a determined stranger keeps a
+ * sliver, and a deeply trusted hypnotist can still miss. The floor is DW's settled call
+ * and is meant to become a player setting. */
+function inductionChance(hypnotistId: number, choice: SessionChoice): number {
+	const trust = trustWith(hypnotistId);
+	const exp = experienceValue();
+	const experienceEffect = choice === "agree" ? exp * EXPERIENCE_WEIGHT : choice === "fight" ? -exp * EXPERIENCE_WEIGHT : 0;
+	// Hypnotist skill belongs in this sum too, but it lives on the HYPNOTIST's client and
+	// the roll runs here — see the design doc's step-2 note. Deliberately absent until
+	// that's resolved, rather than trusting a self-reported number.
+	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect;
+	return Math.max(RESISTANCE_FLOOR, Math.min(CHANCE_CEILING, raw));
+}
+
+/** What the roll would be against this person right now, for each choice. The single most
+ * useful thing to see while tuning: it exposes the inputs and the resulting chance without
+ * needing to run an induction and infer them from the outcome. */
+export function describeChances(memberId: number): string[] {
+	const trust = trustWith(memberId);
+	const exp = experienceValue();
+	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, MAX_ATTEMPTS));
+	return [
+		`vs [${memberId}] — trust ${trust.toFixed(1)}, experience ${exp.toFixed(1)}`,
+		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
+			const c = inductionChance(memberId, choice);
+			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${MAX_ATTEMPTS}`;
+		}),
+	];
 }
 
 function runInductionRoll(): void {
@@ -197,31 +242,43 @@ function runInductionRoll(): void {
 	if (session.phase !== "InductionInProgress" || session.hypnotistId == null) return;
 
 	const choice = session.choice ?? "ignore";
-	const score =
-		effectiveTrust(session.hypnotistId) + CHOICE_MODIFIER[choice] + Math.random() * ROLL_SPREAD;
+	const chance = inductionChance(session.hypnotistId, choice);
+	const roll = Math.random() * 100;
 	session.attempts += 1;
+	const detail = `chance=${chance.toFixed(1)} roll=${roll.toFixed(1)} choice=${choice} trust=${trustWith(session.hypnotistId).toFixed(1)} exp=${experienceValue().toFixed(1)}`;
 
-	if (score >= SUCCESS_THRESHOLD) {
+	if (roll < chance) {
 		session.phase = "Hypnotized";
-		session.depth = Math.min(100, Math.max(0, Math.round(score - SUCCESS_THRESHOLD)));
+		// Depth falls out of the same roll: a comfortable success goes deep, a squeaker
+		// leaves a shallow trance the subject can pull themselves out of.
+		session.depth = Math.min(100, Math.max(0, Math.round(chance - roll)));
 		session.hypnotizedAt = Date.now();
 		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
 		applyTranceState();
+		// The accelerator, and the practice. Both halves only on success.
+		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
 		notify(`You slip under. (${depthBand(session.depth)})`);
-		log(`induction SUCCEEDED: score=${score.toFixed(1)} choice=${choice} depth=${session.depth}`);
+		log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
 	} else if (session.attempts >= MAX_ATTEMPTS) {
 		session.phase = "CooldownRequired";
 		session.cooldownUntil = Date.now() + COOLDOWN_MS;
-		session.progress = score;
+		session.progress = chance;
 		notify("The attempt fades. You feel clear-headed, and harder to reach for a while.");
-		log(`induction FAILED (final): score=${score.toFixed(1)} choice=${choice}`);
+		log(`induction FAILED (final): ${detail}`);
 	} else {
 		session.phase = "AttemptFailed";
-		session.progress = score;
+		session.progress = chance;
 		notify("The attempt doesn't quite land.");
-		log(`induction failed: score=${score.toFixed(1)} choice=${choice} attempt=${session.attempts}`);
+		log(`induction failed: ${detail} attempt=${session.attempts}`);
 	}
 	pushUpdate();
+}
+
+function findCharacterName(memberId: number): string {
+	const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+		(x: any) => x?.MemberNumber === memberId,
+	);
+	return c?.Name ?? `#${memberId}`;
 }
 
 /** The baseline "you are hypnotized" state, applied the moment the induction lands.

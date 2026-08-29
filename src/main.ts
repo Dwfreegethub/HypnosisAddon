@@ -9,7 +9,8 @@ import { installRemote } from "./remote";
 import { installSession } from "./session";
 import { installSuppression } from "./suppression";
 import { installSelfTouch } from "./selftouch";
-import { handleSpokenLine } from "./voice";
+import { handleSpokenLine, mentionsAnyName, playerOwnNames } from "./voice";
+import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 
 function showIndicator(): void {
@@ -102,6 +103,17 @@ safely("ChatRoomMessage hook", () => {
 					handleSpokenLine(data.Sender, data.Content);
 				} catch (err) {
 					log("suggestion parsing failed:", err);
+				}
+				// Trust accrual, independent of any session — this is the slow path that
+				// runs during ordinary conversation, long before anyone tries anything.
+				try {
+					const sender = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === data.Sender);
+					// A whisper is aimed at us by definition; otherwise it counts as directed
+					// if they used our name. Same check the suggestion name-gate uses.
+					const directed = data.Type === "Whisper" || mentionsAnyName(data.Content, playerOwnNames());
+					noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
+				} catch (err) {
+					log("trust accrual failed:", err);
 				}
 			}
 			return result;
