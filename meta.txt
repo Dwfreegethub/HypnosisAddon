@@ -4,7 +4,13 @@
 // @version      0.2.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
+// Every host BC is served from needs its own @match or the script simply never runs
+// there — no error, it just isn't loaded. `*.host` also covers the bare domain.
+// bondageprojects.com was checked and does not serve the game, so it isn't listed.
 // @match        *://*.bondageprojects.elementfx.com/*
+// @match        *://bondageprojects.elementfx.com/*
+// @match        *://*.bondage-europe.com/*
+// @match        *://bondage-europe.com/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
