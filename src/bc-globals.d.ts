@@ -27,6 +27,7 @@ declare function DrawCheckbox(
 declare function DrawText(text: string, x: number, y: number, color: string, backColor?: string): void;
 declare function DrawRect(left: number, top: number, width: number, height: number, color: string): void;
 declare function DrawEmptyRect(left: number, top: number, width: number, height: number, color: string, thickness?: number): void;
+declare function DrawTextFit(text: string, x: number, y: number, width: number, color: string, backColor?: string): void;
 declare function MouseIn(left: number, top: number, width: number, height: number): boolean;
 declare const MouseX: number;
 declare const MouseY: number;

@@ -75,6 +75,9 @@ const PANEL_LEFT = 200;
 const PANEL_TOP = 262;
 const PANEL_WIDTH = 1600;
 const PANEL_HEIGHT = 640;
+/** Border thickness. Everything is a filled rect rather than a stroke so the tab-to-panel
+ * join lands on exact pixels — see drawTabsAndPanel. */
+const BORDER = 3;
 
 const BLURB_Y = 305;
 const BOX_LEFT = 260;
@@ -105,19 +108,44 @@ function drawLeftText(text: string, x: number, y: number, color = "Black"): void
 	MainCanvas.restore();
 }
 
-/** Tabs are DrawButtons sitting on the panel's top edge; the active one is painted the
- * same white as the panel and then has the border segment beneath it erased, so it reads
- * as continuous with the content rather than as a button floating above it. */
-function drawTabs(): void {
+/** Draw the tab strip and the content panel as one connected shape.
+ *
+ * The seam between the active tab and the panel is NEVER DRAWN, rather than drawn and
+ * then painted over. A first attempt erased it with a white rectangle and left a visible
+ * hairline: canvas strokes are anti-aliased and bleed sub-pixel past their nominal
+ * bounds, so a cover rectangle on exact integer coordinates always leaves faint edges.
+ *
+ * So: inactive tabs are ordinary DrawButtons (hover highlighting comes free), while the
+ * active tab is drawn by hand as a white fill plus three border segments — left, top,
+ * right, no bottom — and the panel's own top border is drawn in two pieces that stop
+ * either side of it. Every border is a filled DrawRect rather than a stroke, so nothing
+ * is anti-aliased and the joins are exact. */
+function drawTabsAndPanel(): void {
+	const activeLeft = tabLeft(activeTab);
+	const activeRight = activeLeft + TAB_WIDTH;
+	const panelRight = PANEL_LEFT + PANEL_WIDTH;
+	const panelBottom = PANEL_TOP + PANEL_HEIGHT;
+
+	// Panel interior, and the inactive tabs sitting on its edge.
+	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	TABS.forEach((tab, i) => {
-		const active = i === activeTab;
-		DrawButton(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT, tab.name, active ? "White" : "#d8d8d8");
-		if (active) {
-			// Erase the panel's top border under this tab. Inset by the 3px border width so
-			// the tab's own left and right edges survive.
-			DrawRect(tabLeft(i) + 3, PANEL_TOP - 2, TAB_WIDTH - 6, 6, "White");
-		}
+		if (i !== activeTab) DrawButton(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT, tab.name, "#d8d8d8");
 	});
+
+	// Active tab: white through to the panel interior, so no join is visible at all.
+	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, TAB_HEIGHT + BORDER, "White");
+	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, BORDER, "Black"); // top
+	DrawRect(activeLeft, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // left
+	DrawRect(activeRight - BORDER, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // right
+	DrawTextFit(TABS[activeTab].name, activeLeft + TAB_WIDTH / 2, TAB_TOP + TAB_HEIGHT / 2 + 1, TAB_WIDTH - 4, "black");
+
+	// Panel border: top in two pieces that stop either side of the active tab, then the
+	// other three sides whole. Widths clamp to 0 when the active tab is at either end.
+	DrawRect(PANEL_LEFT, PANEL_TOP, Math.max(0, activeLeft - PANEL_LEFT), BORDER, "Black");
+	DrawRect(activeRight, PANEL_TOP, Math.max(0, panelRight - activeRight), BORDER, "Black");
+	DrawRect(PANEL_LEFT, PANEL_TOP, BORDER, PANEL_HEIGHT, "Black");
+	DrawRect(panelRight - BORDER, PANEL_TOP, BORDER, PANEL_HEIGHT, "Black");
+	DrawRect(PANEL_LEFT, panelBottom - BORDER, PANEL_WIDTH, BORDER, "Black");
 }
 
 export function installMenu(): void {
@@ -133,9 +161,7 @@ export function installMenu(): void {
 			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 
-			DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
-			DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
-			drawTabs();
+			drawTabsAndPanel();
 
 			const tab = TABS[activeTab];
 			drawLeftText(tab.blurb, BOX_LEFT, BLURB_Y, "Gray");
