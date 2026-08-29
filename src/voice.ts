@@ -2,9 +2,19 @@ import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
-import { getFeatures, FeatureToggles } from "./storage";
+import { getFeatures, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, FlavorKey } from "./flavor";
+import {
+	isRecording,
+	cancelRecording,
+	commitRecording,
+	beginRecording,
+	recordAction,
+	triggersFiredBy,
+	triggersArmed,
+	installerHasSession,
+} from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
 // fallback" approach, in stub form with three suggestions.
@@ -342,6 +352,120 @@ export function describeMatch(content: string): string {
 		: `${id} — but your name isn't in the line, so it would be ignored`;
 }
 
+// --- Triggers ---------------------------------------------------------------------------
+// Recording control phrases, and firing. See triggers.ts for the gates and why they differ
+// from everything else.
+
+const TRIGGER_START = [
+	/\byour trigger (?:word|phrase) is (.+)$/,
+	/\bthe trigger (?:word|phrase) is (.+)$/,
+	/\byour (?:new )?trigger is (.+)$/,
+	/\bwhen (?:i say|you hear) (.+)$/,
+];
+const TRIGGER_COMMIT = [/\bremember (?:the |this |that )?trigger\b/, /\bthe trigger is set\b/, /\block (?:it |that )?in\b/];
+const TRIGGER_CANCEL = [/\b(?:forget|cancel|never mind|nevermind) (?:the |that |this )?trigger\b/];
+
+/** Strip the subject's own name out of a captured phrase.
+ *
+ * Needed because the name gate requires the name SOMEWHERE in the line, and the phrase is
+ * captured to end-of-line — so "your trigger word is sleepy, Missy" would otherwise store
+ * the trigger as "sleepy missy" and never fire when the hypnotist just says "sleepy". */
+function cleanPhrase(raw: string): string {
+	let phrase = raw.trim();
+	for (const name of playerOwnNames()) {
+		const n = normalize(String(name));
+		if (!n) continue;
+		phrase = phrase.replace(new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), " ");
+	}
+	return phrase.replace(/\s+/g, " ").trim();
+}
+
+export type TriggerControl = { kind: "start"; phrase: string } | { kind: "commit" } | { kind: "cancel" } | null;
+
+/** The pure half of trigger-control parsing: text in, intent out. Split from the handler
+ * so the phrase capture and name-stripping — the fiddly part — can be tested without a
+ * live session, exactly like matchSuggestion. */
+export function parseTriggerControl(content: string): TriggerControl {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return null;
+	if (TRIGGER_CANCEL.some((p) => p.test(text))) return { kind: "cancel" };
+	if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
+	for (const pattern of TRIGGER_START) {
+		const match = pattern.exec(text);
+		if (match) return { kind: "start", phrase: cleanPhrase(match[1]) };
+	}
+	return null;
+}
+
+/** Handle "your trigger word is X" / "remember trigger" / "forget the trigger".
+ * Returns true if the line was one of these. */
+function handleTriggerControl(sender: number, content: string): boolean {
+	const parsed = parseTriggerControl(content);
+	if (!parsed) return false;
+
+	// Control phrases only work mid-trance, from our hypnotist, with our name — planting
+	// something persistent shouldn't be reachable in ordinary conversation.
+	if (!isSessionActiveWith(sender) || !mentionsAnyName(content, playerOwnNames())) return false;
+
+	if (parsed.kind === "cancel") {
+		if (isRecording()) {
+			cancelRecording();
+			ChatRoomSendLocal("Whatever was being set aside comes apart again.");
+		}
+		return true;
+	}
+	if (parsed.kind === "commit") {
+		if (!isRecording()) return false;
+		const message = commitRecording();
+		if (message) ChatRoomSendLocal(message);
+		return true;
+	}
+	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
+	ChatRoomSendLocal(beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase));
+	return true;
+}
+
+/** Run a trigger's stored actions. Each one re-checks its own permission NOW, not when the
+ * trigger was planted — revoking a permission has to disarm that part of every trigger. */
+function fireTrigger(trigger: Trigger): void {
+	if (!triggersArmed()) {
+		log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
+		return;
+	}
+	const features = getFeatures();
+	let fired = 0;
+	for (const id of trigger.actions) {
+		const suggestion = SUGGESTIONS.find((s) => s.id === id);
+		if (!suggestion) continue;
+		if (!permitted(suggestion, features)) {
+			log(`trigger "${trigger.phrase}": ${id} skipped, permission not granted`);
+			continue;
+		}
+		suggestion.run();
+		ChatRoomSendLocal(flavor(suggestion.id));
+		fired++;
+	}
+	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
+}
+
+/** Returns true if a trigger fired on this line. */
+function handleTriggerFiring(sender: number, content: string): boolean {
+	const text = normalize(content);
+	if (!text) return false;
+	const matched = triggersFiredBy(sender, text);
+	if (!matched.length) return false;
+	// Don't double-fire while the installer already has us under and is speaking
+	// suggestions directly — the words would land twice.
+	for (const trigger of matched) {
+		if (installerHasSession(trigger)) {
+			log(`trigger "${trigger.phrase}" suppressed — installer already has a live session`);
+			continue;
+		}
+		fireTrigger(trigger);
+	}
+	return true;
+}
+
 // --- Wake ------------------------------------------------------------------------------
 // Checked before everything else. Ending a trance answers to no permission — same
 // principle as a remote release always being honored — so it doesn't belong in the
@@ -415,6 +539,11 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
  * person currently running a session on us. */
 export function handleSpokenLine(sender: number, content: string): void {
+	// Trigger control first, so "remember trigger" can't be read as anything else.
+	if (handleTriggerControl(sender, content)) return;
+	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
+	// trigger is that it works outside a trance.
+	if (handleTriggerFiring(sender, content)) return;
 	if (handleWakeLine(sender, content)) return;
 	if (handleBodyPartLine(sender, content)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
@@ -442,6 +571,14 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// button would have — so it answers to the same permission.
 	if (!features.hypnoEnabled || !permitted(suggestion, features)) {
 		log(`heard "${id}" from ${sender} but ${suggestion.permission} isn't granted`);
+		return;
+	}
+	// While recording a trigger, suggestions are stored rather than performed — otherwise
+	// building a "you cannot move" trigger freezes the subject mid-setup, and the
+	// hypnotist has to undo it before they can carry on.
+	if (recordAction(id)) {
+		log(`recorded "${id}" into the trigger being built`);
+		ChatRoomSendLocal("That settles into place, waiting.");
 		return;
 	}
 	log(`matched suggestion "${id}" in: ${content}`);

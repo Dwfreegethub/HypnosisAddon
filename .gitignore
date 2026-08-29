@@ -5,3 +5,4 @@ dist/
 .env
 src/secrets.ts
 test/voice-bundle.mjs
+test/harness-bundle.mjs

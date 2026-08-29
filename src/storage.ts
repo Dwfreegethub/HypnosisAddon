@@ -31,6 +31,18 @@ export interface TrustEntry {
 	lastUpdated: number;
 }
 
+/** A planted trigger. Persistent — this is the first thing the add-on stores that outlives
+ * a session, which is why the doc gates it on relationship trust alone. */
+export interface Trigger {
+	/** Normalised phrase, matched against normalised chat. */
+	phrase: string;
+	/** Suggestion ids to run, in the order they were spoken. */
+	actions: string[];
+	installedBy: number;
+	installedByName: string;
+	installedAt: number;
+}
+
 export interface FeatureToggles {
 	/** Master switch — see menu.ts's onToggle for the "turning this off suspends the
 	 * others" behavior, matching the design doc's hard-floor philosophy. */
@@ -48,6 +60,10 @@ export interface FeatureToggles {
 	postureControl: boolean;
 	/** Blocking the subject from touching themselves, or named body parts. */
 	selfTouchControl: boolean;
+	/** Letting a hypnotist plant persistent triggers. Separate from everything else
+	 * because a trigger outlives the session that created it — the individual actions a
+	 * trigger fires still answer to their own permissions when it goes off. */
+	triggerControl: boolean;
 	/** Silencing suggestions ("you cannot speak"). */
 	speechRestriction: boolean;
 	/** Permission to hide messages about clothing changes done to you. */
@@ -92,6 +108,7 @@ interface HypnoAddonSettings {
 	 * it (cooperating or resisting) is a per-attempt choice rather than a separate stat.
 	 * Also a count, not a value. */
 	experience: number;
+	triggers: Trigger[];
 	features: FeatureToggles;
 }
 
@@ -103,6 +120,7 @@ function defaultFeatures(): FeatureToggles {
 		postureControl: false,
 		speechRestriction: false,
 		selfTouchControl: false,
+		triggerControl: false,
 		suppressClothing: false,
 		suppressBondage: false,
 		suppressActivities: false,
@@ -115,7 +133,7 @@ function defaultFeatures(): FeatureToggles {
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.4.0", trust: [], experience: 0, features: defaultFeatures() };
+	return { version: "0.4.0", trust: [], experience: 0, triggers: [], features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -144,6 +162,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	}
 	s.features = merged;
 	s.experience ??= 0;
+	s.triggers ??= [];
 	s.trust ??= [];
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
@@ -367,4 +386,38 @@ export function setFeature(key: keyof FeatureToggles, value: boolean): void {
  * the value so the pace is legible — 1.25 per session says more about speed than "4.8". */
 export function rawExperience(): number {
 	return loadSettings().experience;
+}
+
+// --- Triggers ------------------------------------------------------------------------
+
+export function listTriggers(): Trigger[] {
+	return loadSettings().triggers;
+}
+
+/** Store a trigger, replacing any existing one with the same phrase from the same person
+ * — re-planting the same word should update it rather than stack duplicates. */
+export function saveTrigger(trigger: Trigger): void {
+	const settings = loadSettings();
+	settings.triggers = settings.triggers.filter(
+		(t) => !(t.phrase === trigger.phrase && t.installedBy === trigger.installedBy),
+	);
+	settings.triggers.push(trigger);
+	saveSettings();
+}
+
+/** Remove by phrase. Returns how many went. */
+export function forgetTrigger(phrase: string): number {
+	const settings = loadSettings();
+	const before = settings.triggers.length;
+	settings.triggers = settings.triggers.filter((t) => t.phrase !== phrase);
+	saveSettings();
+	return before - settings.triggers.length;
+}
+
+export function forgetAllTriggers(): number {
+	const settings = loadSettings();
+	const count = settings.triggers.length;
+	settings.triggers = [];
+	saveSettings();
+	return count;
 }

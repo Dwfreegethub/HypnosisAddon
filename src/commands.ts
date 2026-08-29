@@ -7,11 +7,15 @@ import {
 	setExperienceValue,
 	trustWith,
 	describeStorage,
+	listTriggers,
+	forgetTrigger,
+	forgetAllTriggers,
 	exportSettings,
 	importSettings,
 	resetSettings,
 } from "./storage";
 import { describeTrust } from "./trust";
+import { describeRecording } from "./triggers";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
 
@@ -304,6 +308,39 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			reply(resetSettings());
+		},
+	},
+	{
+		Tag: "triggers",
+		group: "Diagnostics",
+		Description: "List the triggers planted in you, and any being recorded",
+		Action: () => {
+			reply(describeRecording());
+			const all = listTriggers();
+			if (!all.length) {
+				reply("no triggers planted");
+				return;
+			}
+			all.forEach((t) =>
+				reply(`"${t.phrase}" → ${t.actions.join(", ")}  (by ${t.installedByName})`),
+			);
+		},
+	},
+	{
+		Tag: "forgettrigger",
+		group: "Data",
+		args: "<phrase|all>",
+		Description: "Remove a planted trigger by its phrase, or all of them",
+		Action: (args: string) => {
+			const phrase = args.trim().toLowerCase();
+			if (!phrase) {
+				reply("usage: /hypno forgettrigger <phrase|all>");
+				return;
+			}
+			// Always available, never gated: the subject can always take back something
+			// planted in them, the same principle as the safeword.
+			const gone = phrase === "all" ? forgetAllTriggers() : forgetTrigger(phrase);
+			reply(gone ? `forgot ${gone} trigger(s)` : `no trigger matching "${phrase}"`);
 		},
 	},
 	{
