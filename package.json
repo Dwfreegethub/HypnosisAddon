@@ -1,6 +1,6 @@
 {
   "name": "hypnosisaddon",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "BC Hypnosis Add-on — trust-based hypnosis mechanics for Bondage Club, shipped as a Tampermonkey userscript.",
   "scripts": {
     "build": "node build.mjs",

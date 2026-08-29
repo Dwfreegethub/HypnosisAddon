@@ -8,6 +8,7 @@ import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
 import { installSuppression } from "./suppression";
+import { installSelfTouch } from "./selftouch";
 import { handleSpokenLine } from "./voice";
 import { getFeatures } from "./storage";
 
@@ -164,6 +165,10 @@ safely("session state machine", installSession);
 // Registers into BC's own message-handler chain at a priority chosen so arousal still
 // applies — see suppression.ts for why 320 specifically.
 safely("message suppression", installSuppression);
+
+// Blocks self-directed activities outright (no arousal, no message) rather than hiding
+// them — see selftouch.ts for why ActivityRun and not the handler chain.
+safely("self-touch hook", () => installSelfTouch(modApi));
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);

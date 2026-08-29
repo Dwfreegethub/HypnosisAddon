@@ -26,6 +26,8 @@ export interface FeatureToggles {
 	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
 	 * being posed and being unable to move are quite different things to consent to. */
 	postureControl: boolean;
+	/** Blocking the subject from touching themselves, or named body parts. */
+	selfTouchControl: boolean;
 	/** Silencing suggestions ("you cannot speak"). */
 	speechRestriction: boolean;
 	/** Permission to hide messages about clothing changes done to you. */
@@ -71,6 +73,7 @@ function defaultFeatures(): FeatureToggles {
 		clothingRestriction: false,
 		postureControl: false,
 		speechRestriction: false,
+		selfTouchControl: false,
 		suppressClothing: false,
 		suppressBondage: false,
 		suppressActivities: false,

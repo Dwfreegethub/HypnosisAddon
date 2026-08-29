@@ -2,6 +2,7 @@ import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, getTrust } from "./storage";
 import { clearAllSuppression } from "./suppression";
+import { clearSelfTouchBlocks } from "./selftouch";
 import {
 	applyEffect,
 	removeEffect,
@@ -174,6 +175,7 @@ function endSession(reason: string, quiet = false): void {
 	clearSuggestedPose();
 	clearTranceStates();
 	clearAllSuppression();
+	clearSelfTouchBlocks();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
@@ -313,6 +315,7 @@ export function safeword(): void {
 	clearSuggestedPose();
 	clearTranceStates();
 	clearAllSuppression();
+	clearSelfTouchBlocks();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

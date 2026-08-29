@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed } from "./suppression";
+import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, FeatureToggles } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { flavor, FlavorKey } from "./flavor";
@@ -277,6 +278,58 @@ export function matchSuggestion(content: string): FlavorKey | null {
 	return null;
 }
 
+// --- Body-part commands --------------------------------------------------------------
+// "You cannot touch your breasts" needs to capture WHICH part, so it can't be a fixed entry
+// in SUGGESTIONS. Checked before that table, and deliberately falls through when the
+// captured word isn't a known body part — which is what keeps "you cannot touch your
+// clothes" reaching the clothing suggestion instead of being swallowed here.
+
+interface BodyPartCommand {
+	/** The word as spoken, reused in the flavor text. */
+	word: string;
+	groups: string[];
+	block: boolean;
+	/** "yourself" rather than a named part. */
+	all: boolean;
+}
+
+const PART_BLOCK = [
+	/\byou (?:cannot|will not|do not) touch your ([a-z]+)\b/,
+	/\b(?:do not|never) touch your ([a-z]+)\b/,
+];
+const PART_RELEASE = [
+	/\byou (?:can|may) touch your ([a-z]+)\b/,
+	/\byour ([a-z]+) (?:are|is) yours again\b/,
+];
+const SELF_BLOCK = [
+	/\byou (?:cannot|will not|do not) touch yourself\b/,
+	/\b(?:do not|never) touch yourself\b/,
+];
+const SELF_RELEASE = [/\byou (?:can|may) touch yourself\b/];
+
+export function matchBodyPartCommand(content: string): BodyPartCommand | null {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return null;
+
+	for (const re of SELF_RELEASE) if (re.test(text)) return { word: "yourself", groups: [], block: false, all: true };
+	for (const re of SELF_BLOCK) if (re.test(text)) return { word: "yourself", groups: [], block: true, all: true };
+
+	// Release before block, same reason as the main table: the phrasings overlap.
+	for (const [patterns, block] of [
+		[PART_RELEASE, false],
+		[PART_BLOCK, true],
+	] as [RegExp[], boolean][]) {
+		for (const re of patterns) {
+			const m = re.exec(text);
+			const word = m?.[1];
+			const groups = word ? BODY_PARTS[word] : undefined;
+			// Unknown word (e.g. "clothes") — not a body part, let the main table have it.
+			if (groups) return { word, groups, block, all: false };
+		}
+	}
+	return null;
+}
+
 /** Human-readable verdict on a phrase for /hypno match — reports the pattern result and
  * the name gate separately, since a phrase can match perfectly and still be ignored. */
 export function describeMatch(content: string): string {
@@ -287,9 +340,41 @@ export function describeMatch(content: string): string {
 		: `${id} — but your name isn't in the line, so it would be ignored`;
 }
 
+/** Returns true if the line was a body-part command and has been dealt with. */
+function handleBodyPartLine(sender: number, content: string): boolean {
+	const cmd = matchBodyPartCommand(content);
+	if (!cmd) return false;
+	const label = cmd.all ? "self-touch" : `touch:${cmd.word}`;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard "${label}" from ${sender} but no active session with them — ignoring`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerNames())) {
+		log(`heard "${label}" from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	const features = getFeatures();
+	if (!features.hypnoEnabled || !features.selfTouchControl) {
+		log(`heard "${label}" from ${sender} but selfTouchControl isn't granted`);
+		return true;
+	}
+	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
+	else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
+	log(`${cmd.block ? "blocked" : "released"} ${label}`);
+	ChatRoomSendLocal(
+		cmd.block
+			? cmd.all
+				? flavor("selftouch-blocked")
+				: flavor("selftouch-part-block")
+			: flavor("selftouch-part-release"),
+	);
+	return true;
+}
+
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
  * person currently running a session on us. */
 export function handleSpokenLine(sender: number, content: string): void {
+	if (handleBodyPartLine(sender, content)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched
 	// line with no session looked identical from the outside, which is exactly the case

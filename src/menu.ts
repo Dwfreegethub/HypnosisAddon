@@ -2,6 +2,7 @@ import { log } from "./log";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
+import { clearSelfTouchBlocks } from "./selftouch";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
 // Preference.js, PreferenceRegisterExtensionSetting) — adds one button into
@@ -39,6 +40,7 @@ const COLUMNS: Column[] = [
 			{ key: "clothingRestriction", label: "Clothing Restriction" },
 			{ key: "postureControl", label: "Posture Control (kneel / stand)" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
+			{ key: "selfTouchControl", label: "Self-Touch Control" },
 			{ key: "hiddenActivities", label: "Hidden Activities" },
 		],
 	},
@@ -120,6 +122,7 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 				clearSuggestedPose();
 				clearTranceStates();
 				clearAllSuppression();
+				clearSelfTouchBlocks();
 			}
 			break;
 		case "movementRestriction":
@@ -140,6 +143,9 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);
+			break;
+		case "selfTouchControl":
+			if (!enabled) clearSelfTouchBlocks();
 			break;
 		case "suppressClothing":
 			if (!enabled) setSuppressed("clothing", false);

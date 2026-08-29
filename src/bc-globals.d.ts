@@ -63,3 +63,6 @@ declare function ChatRoomRegisterMessageHandler(handler: {
 	Callback: (data: any, sender: any, msg: string, metadata: any) => boolean | object | undefined;
 }): void;
 declare function ChatRoomMessageInvolvesPlayer(data: any): boolean;
+// Activity.js — resolves a group to the one activities are actually mirrored from
+// (ItemNipples mirrors to ItemBreast), so a per-part block can't be sidestepped.
+declare function ActivityGetGroupOrMirror(family: string, groupName: string): any;

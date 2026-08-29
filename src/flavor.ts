@@ -23,7 +23,13 @@ export type FlavorKey =
 	| "awareness-block"
 	| "awareness-release"
 	| "touch-block"
-	| "touch-release";
+	| "touch-release"
+	/** Tried to touch themselves while frozen. */
+	| "selftouch-frozen"
+	/** Tried to touch themselves while blocked outright. */
+	| "selftouch-blocked"
+	| "selftouch-part-block"
+	| "selftouch-part-release";
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -88,6 +94,24 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your skin starts reporting back.",
 		"Touch reaches you again, arriving where it should.",
 	],
+	"selftouch-frozen": [
+		"Your hand doesn't move. Nothing of yours does.",
+		"You go to reach for yourself and find nothing answers.",
+		"Reaching would require moving, and you cannot move at all.",
+	],
+	"selftouch-blocked": [
+		"Your hands stay exactly where they are.",
+		"You were going to touch yourself. The impulse arrives and quietly leaves.",
+		"Touching yourself isn't among the things you're going to do.",
+	],
+	"selftouch-part-block": [
+		"You will leave that part of yourself alone now.",
+		"Some of you is off-limits to you. You accept this easily.",
+	],
+	"selftouch-part-release": [
+		"Your hands are your own again, all of you within reach.",
+		"Whatever was keeping you from yourself lets go.",
+	],
 	// Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
 	"speech-blocked-attempt": [
 		"The words don't come.",
@@ -99,5 +123,18 @@ const LINES: Record<FlavorKey, string[]> = {
 
 export function flavor(key: FlavorKey): string {
 	const options = LINES[key];
+	return options[Math.floor(Math.random() * options.length)];
+}
+
+/** Body-part refusals name the part, so they can't come from the static table. Uses the
+ * subject's hypnotist's own wording rather than a group name — being told "your breasts"
+ * and refused about "ItemBreast" would break the spell rather badly. */
+export function bodyPartFlavor(part: string): string {
+	const options = [
+		`Your hands move towards your ${part}, then you change your mind. You do not need to touch them.`,
+		`You reach for your ${part} and lose interest halfway there.`,
+		`Touching your ${part} stops seeming like something you were going to do.`,
+		`Your hands get as far as your ${part} before forgetting why.`,
+	];
 	return options[Math.floor(Math.random() * options.length)];
 }
