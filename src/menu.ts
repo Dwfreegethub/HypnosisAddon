@@ -43,16 +43,16 @@ interface Tab {
 const TABS: Tab[] = [
 	{
 		name: "Permissions",
-		blurb: "What others may do to you. All off by default.",
+		blurb: "What others may do to you. All off by default. Triggers are persistent and outlive the session.",
 		rows: [
 			{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
 			{ key: "movementRestriction", label: "Movement Restriction" },
 			{ key: "clothingRestriction", label: "Clothing Restriction" },
-			{ key: "postureControl", label: "Posture Control (kneel / stand)" },
+			{ key: "postureControl", label: "Posture Control" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
-			{ key: "triggerControl", label: "Triggers (persistent — needs trust 65)" },
-			{ key: "lockedWhileHypnotized", label: "Lock these settings while in trance" },
+			{ key: "triggerControl", label: "Triggers (needs trust 65)" },
+			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
 	},
 	{
@@ -223,8 +223,21 @@ function tabLeft(index: number): number {
 	return TAB_LEFT + index * (TAB_WIDTH + TAB_GAP);
 }
 
-function rowTop(index: number): number {
-	return ROW_TOP_START + index * ROW_SPACING;
+/** Only 7 rows fit between ROW_TOP_START and the panel floor, so a tab with more spills
+ * off the bottom invisibly — which is exactly what happened when Permissions reached 8 and
+ * the Lock row was drawn below the panel with no sign anything was missing. Past the
+ * threshold a tab splits into two columns instead. */
+const MAX_ROWS_PER_COLUMN = 6;
+const COLUMN_TWO_LEFT = 1000;
+
+function rowPosition(index: number, total: number): { left: number; top: number } {
+	const perColumn = total > MAX_ROWS_PER_COLUMN ? Math.ceil(total / 2) : total;
+	const column = Math.floor(index / perColumn);
+	const row = index % perColumn;
+	return {
+		left: column === 0 ? BOX_LEFT : COLUMN_TWO_LEFT,
+		top: ROW_TOP_START + row * ROW_SPACING,
+	};
 }
 
 /** Are the checkboxes currently frozen? Read live at draw and click time rather than
@@ -314,13 +327,14 @@ export function installMenu(): void {
 				return;
 			}
 			const features = getFeatures();
-			(tab.rows ?? []).forEach((row, i) => {
-				const top = rowTop(i);
+			const rows = tab.rows ?? [];
+			rows.forEach((row, i) => {
+				const { left, top } = rowPosition(i, rows.length);
 				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
 				// Width, which overlaps the box for anything but very short text. Draw the
 				// label ourselves, left-aligned and clear of the box.
-				DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-				drawLeftText(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, locked ? "Gray" : "Black");
+				DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+				drawLeftText(row.label, left + BOX_SIZE + 20, top + 26, locked ? "Gray" : "Black");
 			});
 		},
 		click: () => {
@@ -350,8 +364,10 @@ export function installMenu(): void {
 			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
-			(TABS[activeTab].rows ?? []).forEach((row, i) => {
-				if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
+			const clickRows = TABS[activeTab].rows ?? [];
+			clickRows.forEach((row, i) => {
+				const { left, top } = rowPosition(i, clickRows.length);
+				if (MouseIn(left, top, BOX_SIZE, BOX_SIZE)) {
 					const next = !features[row.key];
 					setFeature(row.key, next);
 					onToggle(row.key, next);
