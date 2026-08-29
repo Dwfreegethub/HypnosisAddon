@@ -69,7 +69,18 @@ safely("ChatRoomMessage hook", () => {
 				return next(args);
 			}
 			// Suppression has to come BEFORE next() — it works by never calling it.
-			if (data?.Type === "Action" && (getFeatures().clothingRestriction || consumeSuppressFlag())) {
+			//
+			// Deliberately NOT tied to the clothingRestriction permission any more. It used
+			// to be, on the reasoning that the design doc groups message suppression with
+			// wardrobe blocking under "Clothing Confusion" — but that was wrong twice over:
+			// it fired with no session active (so granting the permission silently ate
+			// messages during ordinary play, with no setting that admitted to doing it), and
+			// it swallowed EVERY Action message rather than only clothing ones.
+			//
+			// Until the three-way split exists (ignore clothing / ignore bondage / ignore
+			// activities done to me), the only thing that suppresses anything is the explicit
+			// /hypno suppress test command. Nothing suppresses by default.
+			if (data?.Type === "Action" && consumeSuppressFlag()) {
 				log("suppressed Action message:", JSON.stringify(data));
 				return undefined;
 			}

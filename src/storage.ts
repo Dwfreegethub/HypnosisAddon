@@ -17,8 +17,11 @@ export interface FeatureToggles {
 	hypnoEnabled: boolean;
 	/** Freeze effect. */
 	movementRestriction: boolean;
-	/** BlockWardrobe effect + clothing-change message suppression together — grouped to
-	 * match the design doc's "Clothing Confusion" feature. */
+	/** BlockWardrobe effect only. Message suppression used to ride on this flag too — the
+	 * design doc groups both under "Clothing Confusion" — but that made granting a
+	 * permission silently eat Action messages during ordinary play, outside any session,
+	 * with nothing in the settings admitting to it. Suppression is getting its own explicit
+	 * toggles; this is now just the wardrobe block. */
 	clothingRestriction: boolean;
 	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
 	 * being posed and being unable to move are quite different things to consent to. */
