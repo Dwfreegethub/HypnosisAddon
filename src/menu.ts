@@ -1,6 +1,15 @@
 import { log } from "./log";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
-import { getFeatures, setFeature, FeatureToggles, experienceValue, rawExperience } from "./storage";
+import {
+	getFeatures,
+	setFeature,
+	FeatureToggles,
+	experienceValue,
+	rawExperience,
+	exportSettings,
+	importSettings,
+	resetSettings,
+} from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { trustStatRows } from "./trust";
@@ -100,8 +109,81 @@ const STAT_NAME_X = BOX_LEFT;
 const STAT_VALUE_X = 900;
 const STAT_DETAIL_X = 1100;
 const STAT_LINE_HEIGHT = 40;
-/** Rows that fit between the first line and the panel floor. */
-const STAT_MAX_ROWS = 10;
+/** Rows that fit between the first line and the data buttons below. */
+const STAT_MAX_ROWS = 8;
+
+// Export / Import / Reset, along the bottom of the Stats tab.
+const DATA_BUTTON_TOP = 810;
+const DATA_BUTTON_WIDTH = 200;
+const DATA_BUTTON_HEIGHT = 60;
+const DATA_BUTTON_GAP = 20;
+const DATA_BUTTONS = ["Export", "Import", "Reset"] as const;
+
+/** Reset is two-click: the first arms it, the second within the window commits. Wiping
+ * every stat and toggle shouldn't be one misclick away, and a canvas screen has no
+ * confirmation dialog to lean on. */
+let resetArmedUntil = 0;
+const RESET_ARM_MS = 5000;
+
+function dataButtonLeft(index: number): number {
+	return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
+}
+
+function notifyLocal(message: string): void {
+	log(message);
+	ChatRoomSendLocal(message);
+}
+
+function clickDataButton(index: number): void {
+	const name = DATA_BUTTONS[index];
+	if (name === "Export") {
+		const blob = exportSettings();
+		// Clipboard first — a 470-character blob is miserable to select out of the chat
+		// log. Falls back to printing it, since clipboard access can be refused.
+		navigator.clipboard?.writeText(blob).then(
+			() => notifyLocal("Settings copied to clipboard. Keep it somewhere safe."),
+			() => {
+				notifyLocal("Could not reach the clipboard — copy the line below instead:");
+				notifyLocal(blob);
+			},
+		);
+		return;
+	}
+	if (name === "Import") {
+		navigator.clipboard?.readText().then(
+			(text) => {
+				const result = importSettings(text);
+				notifyLocal(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
+			},
+			() => notifyLocal("Could not read the clipboard — use /hypno import <blob> instead."),
+		);
+		return;
+	}
+	if (Date.now() > resetArmedUntil) {
+		resetArmedUntil = Date.now() + RESET_ARM_MS;
+		notifyLocal("Click Reset again within 5 seconds to erase all trust, experience and settings.");
+		return;
+	}
+	resetArmedUntil = 0;
+	notifyLocal(resetSettings());
+}
+
+function drawDataButtons(): void {
+	const armed = Date.now() < resetArmedUntil;
+	DATA_BUTTONS.forEach((name, i) => {
+		const isReset = name === "Reset";
+		DrawButton(
+			dataButtonLeft(i),
+			DATA_BUTTON_TOP,
+			DATA_BUTTON_WIDTH,
+			DATA_BUTTON_HEIGHT,
+			isReset && armed ? "Confirm?" : name,
+			isReset ? (armed ? "#ffb3b3" : "#ffe0e0") : "White",
+			"",
+			isReset ? "Erases everything — asks once first" : `${name} via clipboard`,
+		);
+	});
+}
 
 function drawStats(): void {
 	let y = ROW_TOP_START + 10;
@@ -119,12 +201,14 @@ function drawStats(): void {
 	const rows = trustStatRows();
 	if (!rows.length) {
 		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, y, "Gray");
+		drawDataButtons();
 		return;
 	}
 	for (const row of rows.slice(0, STAT_MAX_ROWS)) line(row.name, row.trust, row.detail);
 	if (rows.length > STAT_MAX_ROWS) {
 		drawLeftText(`…and ${rows.length - STAT_MAX_ROWS} more — /hypno logtrust lists everyone.`, STAT_NAME_X, y, "Gray");
 	}
+	drawDataButtons();
 }
 
 // Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
@@ -248,6 +332,16 @@ export function installMenu(): void {
 					activeTab = i;
 					return;
 				}
+			}
+			// Data buttons live on the Stats tab, which has no rows.
+			if (TABS[activeTab].render) {
+				for (let i = 0; i < DATA_BUTTONS.length; i++) {
+					if (MouseIn(dataButtonLeft(i), DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
+						clickDataButton(i);
+						return;
+					}
+				}
+				return;
 			}
 			// Checked here as well as at draw time, not just relied on visually: a greyed
 			// checkbox that still toggles when clicked is worse than no lock at all.

@@ -1,7 +1,16 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch } from "./voice";
-import { addInteractions, setTrustValue, setExperienceValue, trustWith, describeStorage } from "./storage";
+import {
+	addInteractions,
+	setTrustValue,
+	setExperienceValue,
+	trustWith,
+	describeStorage,
+	exportSettings,
+	importSettings,
+	resetSettings,
+} from "./storage";
 import { describeTrust } from "./trust";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
@@ -42,7 +51,7 @@ interface HypnoCommand {
 	* verbatim for externally-added commands (CommandsHelp._GetDescription checks
 	* `command.Description` before its own translation cache), so it needs no CSV entry. */
 	Description: string;
-	group: "Session" | "Diagnostics" | "Testing";
+	group: "Session" | "Diagnostics" | "Data" | "Testing";
 	Action: (args: string) => void;
 }
 
@@ -54,7 +63,7 @@ export function installCommands(): void {
 	// The bare `/hypno` summary is GENERATED from this list rather than written out
 	// separately. It was a hand-maintained string and had drifted behind the commands it
 	// described — which is what a duplicated source of truth always eventually does.
-	const summary = ["Session", "Diagnostics", "Testing"]
+	const summary = ["Session", "Diagnostics", "Data", "Testing"]
 		.map((g) => {
 			const inGroup = COMMANDS.filter((c) => c.group === g).map((c) => c.Tag);
 			return `${g}: ${inGroup.join(", ")}`;
@@ -189,6 +198,38 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			reply(`experience → ${setExperienceValue(value).toFixed(1)}`);
+		},
+	},
+	{
+		Tag: "export",
+		group: "Data",
+		Description: "Print your settings as a blob you can copy and keep",
+		Action: () => {
+			reply("Copy the line below. /hypno import <blob> restores it.");
+			reply(exportSettings());
+		},
+	},
+	{
+		Tag: "import",
+		group: "Data",
+		Description: "<blob> — replace all settings with a previously exported blob",
+		Action: (args: string) => {
+			const result = importSettings(args);
+			reply(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
+		},
+	},
+	{
+		// Two-step on purpose: this throws away every stat and toggle, and a single
+		// mistyped command shouldn't be able to do that.
+		Tag: "reset",
+		group: "Data",
+		Description: "Wipe all settings and stats back to defaults (asks first)",
+		Action: (args: string) => {
+			if (firstWord(args).toLowerCase() !== "confirm") {
+				reply("This erases all trust, experience and settings. Run: /hypno reset confirm");
+				return;
+			}
+			reply(resetSettings());
 		},
 	},
 	{

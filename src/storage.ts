@@ -3,7 +3,24 @@ import { log } from "./log";
 import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
 
 const SETTINGS_KEY = "HypnosisAddon";
-const BACKUP_KEY = `${SETTINGS_KEY}_Backup`;
+// The old un-keyed `HypnosisAddon_Backup` is abandoned rather than migrated: it was shared
+// by every account in the browser, so there is no way to tell whose data is in it. Left in
+// place rather than deleted, in case it's ever needed for forensics.
+
+/** The localStorage backup key for THIS account.
+ *
+ * localStorage is per-ORIGIN, not per-tab or per-account, so two characters open in two
+ * tabs of the same browser share it completely. With one fixed key they overwrote each
+ * other's stats and, worse, a tab reading before login would fall back to whatever the
+ * other character had just written and could then save that into its own account data.
+ * DW hit exactly this: both characters showed identical stats.
+ *
+ * Returns null before we know who we are — callers must then neither read nor write the
+ * backup, because a guess here silently corrupts real data. */
+function backupKey(): string | null {
+	const member = Player?.MemberNumber;
+	return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
+}
 
 export interface TrustEntry {
 	memberId: number;
@@ -109,6 +126,40 @@ let cachedFromAccount = false;
  * console line nobody saw. */
 let lastLoadError = "";
 
+/** Bring a settings blob up to the current schema. Shared by load and import, so a blob
+ * exported from an older version is migrated on the way in rather than later.
+ *
+ * Reconciles toggles by starting from the defaults and copying across only keys that still
+ * exist. That does three jobs at once: a blob saved before `features` existed (0.2.x) gets
+ * one; a newly-added toggle reads as a real `false` rather than `undefined`; and toggles
+ * from an older schema are dropped rather than riding along forever. A plain spread of
+ * stored-over-defaults kept dead keys, which then surfaced as granted permissions in
+ * diagnostics — confusing in exactly the place you go to read the truth. */
+function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
+	const s = settings ?? defaultSettings();
+	const stored = (s.features ?? {}) as Partial<FeatureToggles>;
+	const merged = defaultFeatures();
+	for (const key of Object.keys(merged) as (keyof FeatureToggles)[]) {
+		if (typeof stored[key] === "boolean") merged[key] = stored[key];
+	}
+	s.features = merged;
+	s.experience ??= 0;
+	s.trust ??= [];
+	// Migrate entries written before trust was stored as a count. The old field held a
+	// 0-100 value; convert it back through the curve so existing data survives rather than
+	// silently resetting to zero.
+	for (const entry of s.trust) {
+		const legacy = (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
+		if (typeof entry.interactions !== "number" && typeof legacy === "number") {
+			entry.interactions = countFromValue(legacy, H_TRUST);
+			delete (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
+			log(`migrated trust for ${entry.memberName}: value ${legacy} → ${entry.interactions.toFixed(1)} interactions`);
+		}
+		entry.interactions ??= 0;
+	}
+	return s;
+}
+
 function loadSettings(): HypnoAddonSettings {
 	const accountRaw = Player?.ExtensionSettings?.[SETTINGS_KEY];
 	const haveAccount = typeof accountRaw === "string" && accountRaw.length > 0;
@@ -128,7 +179,8 @@ function loadSettings(): HypnoAddonSettings {
 	}
 	if (cached) return cached;
 
-	const raw: string = accountRaw ?? localStorage.getItem(BACKUP_KEY) ?? "";
+	const key = backupKey();
+	const raw: string = accountRaw ?? (key ? (localStorage.getItem(key) ?? "") : "");
 	cachedFromAccount = haveAccount;
 	if (!raw) {
 		cached = defaultSettings();
@@ -142,44 +194,24 @@ function loadSettings(): HypnoAddonSettings {
 		log("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
-	// Reconcile stored toggles against the current schema. Start from the defaults and copy
-	// across only keys that still exist, which does three jobs at once: a blob saved before
-	// `features` existed at all (0.2.x) gets one; a newly-added toggle reads as a real
-	// `false` rather than `undefined`; and toggles from an older schema (`wardrobeBlock`,
-	// `suppressClothingMessages`) are dropped instead of riding along forever. A plain
-	// spread of stored-over-defaults kept those dead keys, which then showed up as granted
-	// permissions in diagnostics — confusing exactly when you're trying to read them.
-	if (cached) {
-		const stored = (cached.features ?? {}) as Partial<FeatureToggles>;
-		const merged = defaultFeatures();
-		for (const key of Object.keys(merged) as (keyof FeatureToggles)[]) {
-			if (typeof stored[key] === "boolean") merged[key] = stored[key];
-		}
-		cached.features = merged;
-		cached.experience ??= 0;
-		cached.trust ??= [];
-		// Migrate entries written before trust was stored as a count. The old field held a
-		// 0-100 value; convert it back through the curve so existing test data survives
-		// rather than silently resetting to zero.
-		for (const entry of cached.trust) {
-			const legacy = (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
-			if (typeof entry.interactions !== "number" && typeof legacy === "number") {
-				entry.interactions = countFromValue(legacy, H_TRUST);
-				delete (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
-				log(`migrated trust for ${entry.memberName}: value ${legacy} → ${entry.interactions.toFixed(1)} interactions`);
-			}
-			entry.interactions ??= 0;
-		}
-	}
-	return cached as HypnoAddonSettings;
+	cached = normalise(cached);
+	return cached;
 }
 
 function saveSettings(): void {
 	if (!cached) return;
+	// Refuse to save before we know which account we are. Saving here would write whatever
+	// was loaded from the shared/default state into a real account's data — the corruption
+	// path that made two characters share stats.
+	const key = backupKey();
+	if (!key) {
+		log("not saving — no MemberNumber yet, so this could belong to the wrong account");
+		return;
+	}
 	const encoded = compressToBase64(JSON.stringify(cached));
 	if (!Player.ExtensionSettings) Player.ExtensionSettings = {};
 	Player.ExtensionSettings[SETTINGS_KEY] = encoded;
-	localStorage.setItem(BACKUP_KEY, encoded);
+	localStorage.setItem(key, encoded);
 	ServerPlayerExtensionSettingsSync(SETTINGS_KEY);
 }
 
@@ -258,7 +290,8 @@ export function describeStorage(): string[] {
 	// state from before its own diagnostic ran — reliably one step out of date.
 	loadSettings();
 	const accountRaw = Player?.ExtensionSettings?.[SETTINGS_KEY];
-	const backupRaw = localStorage.getItem(BACKUP_KEY);
+	const key = backupKey();
+	const backupRaw = key ? localStorage.getItem(key) : null;
 	const summarise = (raw: unknown): string => {
 		if (typeof raw !== "string" || !raw) return "absent";
 		try {
@@ -271,12 +304,54 @@ export function describeStorage(): string[] {
 		}
 	};
 	return [
+		`account:      #${Player?.MemberNumber ?? "unknown"} (backup key ${backupKey() ?? "NONE — not saving yet"})`,
 		`loaded from: ${cachedFromAccount ? "account (ExtensionSettings)" : "localStorage backup or defaults"}`,
 		`account:      ${summarise(accountRaw)}`,
 		`localStorage: ${summarise(backupRaw)}`,
 		`in memory:    ${listTrust().length} people, exp ${experienceValue().toFixed(1)}`,
 		lastLoadError ? `LAST LOAD ERROR: ${lastLoadError}` : "no load errors",
 	];
+}
+
+// --- Export / import / reset ---------------------------------------------------------
+// The compressed blob IS the export format — it's exactly what's stored, so a round trip
+// can't lose anything, and there's no second serialiser to drift out of step.
+
+export function exportSettings(): string {
+	return compressToBase64(JSON.stringify(loadSettings()));
+}
+
+/** Replace everything with a previously exported blob. Validated before it's applied:
+ * a bad paste must fail cleanly rather than half-import and leave a mess. */
+export function importSettings(blob: string): { ok: boolean; message: string } {
+	const trimmed = (blob ?? "").trim();
+	if (!trimmed) return { ok: false, message: "nothing to import" };
+	let parsed: any;
+	try {
+		const json = decompressFromBase64(trimmed);
+		if (!json) return { ok: false, message: "not a valid export (could not decompress)" };
+		parsed = JSON.parse(json);
+	} catch (err) {
+		return { ok: false, message: `not a valid export (${err})` };
+	}
+	if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.trust)) {
+		return { ok: false, message: "not a valid export (missing trust data)" };
+	}
+	cached = normalise(parsed as HypnoAddonSettings);
+	cachedFromAccount = true;
+	saveSettings();
+	return {
+		ok: true,
+		message: `imported ${listTrust().length} people, experience ${experienceValue().toFixed(1)}`,
+	};
+}
+
+/** Back to factory defaults for this account. Trust, experience and every toggle. */
+export function resetSettings(): string {
+	cached = defaultSettings();
+	cachedFromAccount = true;
+	saveSettings();
+	return "settings reset to defaults";
 }
 
 export function getFeatures(): FeatureToggles {
