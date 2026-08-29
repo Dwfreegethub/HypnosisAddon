@@ -346,6 +346,25 @@ export function describeSession(): string {
 	return `${bits.join(" ")} | ${perms}`;
 }
 
+/** Spoken wake-up keyword, per the design doc's "wake-up keyword (spoken in chat) or a
+ * Wake Up button — always available". Same effect as the button.
+ *
+ * Deliberately ungated by any permission: ending a trance is always allowed, the same
+ * principle that makes a remote release always honored. Works from any live phase, so
+ * waking someone mid-induction cancels the attempt rather than being ignored.
+ * Returns false if this person isn't running a session on us. */
+export function wakeByHypnotist(sender: number): boolean {
+	if (session.hypnotistId !== sender || session.phase === "Idle") return false;
+	endSession("they woke you");
+	return true;
+}
+
+/** Is this person running a live session on us, in any phase? Broader than
+ * isSessionActiveWith, which means specifically "in trance". */
+export function hasLiveSessionWith(memberNumber: number): boolean {
+	return session.hypnotistId === memberNumber && session.phase !== "Idle";
+}
+
 /** The gate for every session-scoped remote feature: is this specific person currently
  * running a session on us? Read by remote.ts before honoring any effect request. */
 export function isSessionActiveWith(memberNumber: number): boolean {

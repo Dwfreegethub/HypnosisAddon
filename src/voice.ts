@@ -3,7 +3,7 @@ import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from ".
 import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, FeatureToggles } from "./storage";
-import { isSessionActiveWith } from "./session";
+import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, FlavorKey } from "./flavor";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -123,7 +123,9 @@ const SUGGESTIONS: Suggestion[] = [
 		patterns: [
 			/\byou notice (everything|things|them|it) again\b/,
 			/\byou (notice|feel) what (happens|is happening|is done) to you\b/,
-			/\byou are (aware|awake) (again|to it)\b/,
+			// "awake" deliberately NOT here — "you are awake again" should end the trance,
+			// not merely restore awareness of clothing changes. It belongs to wake.
+			/\byou are aware (again|to it)\b/,
 			/\byou (can|may) notice\b/,
 		],
 		run: () => {
@@ -340,6 +342,45 @@ export function describeMatch(content: string): string {
 		: `${id} — but your name isn't in the line, so it would be ignored`;
 }
 
+// --- Wake ------------------------------------------------------------------------------
+// Checked before everything else. Ending a trance answers to no permission — same
+// principle as a remote release always being honored — so it doesn't belong in the
+// permission-gated table, and it must not be shadowed by a suggestion that happens to
+// share a word with it.
+
+const WAKE_PATTERNS = [
+	/\bwake up\b/,
+	/\bwake now\b/,
+	/\byou (?:are|will be) (?:wide )?awake\b/,
+	/\byou (?:will |)wake (?:up )?(?:now|when|on)\b/,
+	/\bawaken\b/,
+	/\bcome back to me\b/,
+	/\bcome out of (?:it|trance|the trance)\b/,
+];
+
+export function isWakeLine(content: string): boolean {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return false;
+	return WAKE_PATTERNS.some((p) => p.test(text));
+}
+
+/** Returns true if the line was a wake-up keyword and has been dealt with. */
+function handleWakeLine(sender: number, content: string): boolean {
+	if (!isWakeLine(content)) return false;
+	if (!hasLiveSessionWith(sender)) {
+		log(`heard a wake keyword from ${sender} but they have no session with you`);
+		return true;
+	}
+	// Named, like every other suggestion — otherwise "wake up" in ordinary room chat would
+	// end someone's session from across the room.
+	if (!mentionsAnyName(content, playerNames())) {
+		log(`heard a wake keyword from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	wakeByHypnotist(sender);
+	return true;
+}
+
 /** Returns true if the line was a body-part command and has been dealt with. */
 function handleBodyPartLine(sender: number, content: string): boolean {
 	const cmd = matchBodyPartCommand(content);
@@ -374,6 +415,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
  * person currently running a session on us. */
 export function handleSpokenLine(sender: number, content: string): void {
+	if (handleWakeLine(sender, content)) return;
 	if (handleBodyPartLine(sender, content)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched
