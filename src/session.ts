@@ -41,7 +41,11 @@ export type SessionChoice = "agree" | "ignore" | "fight";
 // Eventually several of these become player settings (the doc has session duration and
 // max attempts as subject-set); constants until the flow itself is proven.
 const PROMPT_TIMEOUT_MS = 60_000;
-const INDUCTION_WINDOW_MS = 60_000;
+// TESTING VALUE — normally 60_000. Dropped to 10s so an induction can be exercised
+// repeatedly without a minute of dead time per attempt. PUT THIS BACK before any real
+// play: 10 seconds is far too short to actually roleplay an induction, which is the
+// entire point of this window existing.
+const INDUCTION_WINDOW_MS = 10_000;
 const MAX_ATTEMPTS = 3;
 const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;
