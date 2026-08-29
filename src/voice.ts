@@ -4,7 +4,7 @@ import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
-import { flavor, FlavorKey } from "./flavor";
+import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
 import {
 	isRecording,
 	cancelRecording,
@@ -315,6 +315,10 @@ interface BodyPartCommand {
 
 const PART_BLOCK = [
 	/\byou (?:cannot|will not|do not) touch your ([a-z]+)\b/,
+	// Future phrasing, the natural way to say it while building a trigger. Without this,
+	// "you will not be able to touch your breasts" matched nothing at all and looked like
+	// the command had simply been ignored.
+	/\byou will (?:not be able|be unable) to touch your ([a-z]+)\b/,
 	/\b(?:do not|never) touch your ([a-z]+)\b/,
 ];
 const PART_RELEASE = [
@@ -323,6 +327,7 @@ const PART_RELEASE = [
 ];
 const SELF_BLOCK = [
 	/\byou (?:cannot|will not|do not) touch yourself\b/,
+	/\byou will (?:not be able|be unable) to touch yourself\b/,
 	/\b(?:do not|never) touch yourself\b/,
 ];
 const SELF_RELEASE = [/\byou (?:can|may) touch yourself\b/];
@@ -443,6 +448,21 @@ function fireTrigger(trigger: Trigger): void {
 	const features = getFeatures();
 	let fired = 0;
 	for (const id of trigger.actions) {
+		// Body-part actions carry their parameter in the id ("touch:breasts"), since the
+		// pattern library can't hold a per-part entry for all 26 of them.
+		if (id.startsWith("touch:")) {
+			if (!features.selfTouchControl) {
+				log(`trigger "${trigger.phrase}": ${id} skipped, selfTouchControl not granted`);
+				continue;
+			}
+			const word = id.slice("touch:".length);
+			if (word === "all") setAllSelfTouchBlocked(true);
+			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], true);
+			else continue;
+			ChatRoomSendLocal(word === "all" ? flavor("selftouch-blocked") : bodyPartFlavor(word));
+			fired++;
+			continue;
+		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
 		if (!suggestion) continue;
 		if (!permitted(suggestion, features)) {
@@ -532,6 +552,14 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	const features = getFeatures();
 	if (!features.hypnoEnabled || !features.selfTouchControl) {
 		log(`heard "${label}" from ${sender} but selfTouchControl isn't granted`);
+		return true;
+	}
+	// Recordable into a trigger like any other suggestion. These take a different code
+	// path because they carry a parameter, and that's exactly why they were silently
+	// executing instead of being captured while a trigger was being built.
+	const recorded = recordAction(cmd.all ? "touch:all" : `touch:${cmd.word}`);
+	if (recorded) {
+		ChatRoomSendLocal(recorded);
 		return true;
 	}
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);

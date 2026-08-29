@@ -4,7 +4,16 @@ globalThis.Player = { MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, Aro
 globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }];
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
-globalThis.ServerSend = () => {};
+// Trigger setup feedback goes to the HYPNOTIST over the hidden channel, so capture it
+// rather than only watching what the subject sees.
+let sentToHypnotist = [];
+globalThis.ServerSend = (type, data) => {
+	if (type === "ChatRoomChat" && data?.Type === "Hidden") {
+		const m = data?.Dictionary?.[0]?.message;
+		if (m?.type === "trigger-status") sentToHypnotist.push(m.text);
+	}
+};
+const lastToHypnotist = () => sentToHypnotist[sentToHypnotist.length - 1] ?? "";
 globalThis.ServerPlayerIsInChatRoom = () => true;
 globalThis.CharacterSetActivePose = () => {};
 let said = [];
@@ -36,12 +45,14 @@ storage.setFeature("triggerControl", false);
 storage.setTrustValue(HYP, "GameBot", 70);
 // Refusals must name the actual problem — atmospheric text here left DW guessing why a
 // trigger wouldn't plant, so the assertions check for the specific cause.
-check("refused without permission", /not enabled "Triggers"/.test(triggers.beginRecording(HYP, "GameBot", "sleepy")), true);
+triggers.beginRecording(HYP, "GameBot", "sleepy");
+check("refused without permission", /not enabled "Triggers"/.test(lastToHypnotist()), true);
 check("  nothing recorded", triggers.isRecording(), false);
 
 storage.setFeature("triggerControl", true);
 storage.setTrustValue(HYP, "GameBot", 40);
-check("refused below trust 65", /needs trust 65.*you're at 40\.0/.test(triggers.beginRecording(HYP, "GameBot", "sleepy")), true);
+triggers.beginRecording(HYP, "GameBot", "sleepy");
+check("refused below trust 65", /needs trust 65.*at 40\.0/.test(lastToHypnotist()), true);
 check("  nothing recorded", triggers.isRecording(), false);
 
 // --- record and commit ---
@@ -103,5 +114,49 @@ check("bare wake", voice.isWakeLine("Missy wake"), true);
 check("wake up still works", voice.isWakeLine("Missy wake up"), true);
 check("first-person wake ignored", voice.isWakeLine("i wake early"), false);
 
+
+// --- body-part commands: future phrasing, and recordable into a trigger ---
+// Driven through the parser and recorder directly rather than handleSpokenLine, because
+// the body-part path requires a live trance and standing one up here would mean waiting
+// out a real induction window.
+check(
+	"future: unable to touch part",
+	voice.matchBodyPartCommand("you will not be able to touch your breasts")?.word,
+	"breasts",
+);
+check("plain: will not touch part", voice.matchBodyPartCommand("you will not touch your pussy")?.word, "pussy");
+check(
+	"future: unable to touch self",
+	voice.matchBodyPartCommand("you will not be able to touch yourself")?.all,
+	true,
+);
+
+storage.setFeature("selfTouchControl", true);
+storage.forgetAllTriggers();
+triggers.beginRecording(HYP, "GameBot", "no touchy");
+triggers.recordAction("touch:breasts");
+triggers.recordAction("touch:pussy");
+triggers.commitRecording();
+check("body parts stored as parameterised ids", storage.listTriggers()[0].actions, ["touch:breasts", "touch:pussy"]);
+
+// --- firing a body-part trigger ---
+said = [];
+voice.handleSpokenLine(HYP, "no touchy");
+check("body-part trigger fires both", said.length, 2);
+
+storage.setFeature("selfTouchControl", false);
+said = [];
+voice.handleSpokenLine(HYP, "no touchy");
+check("revoked self-touch disarms them", said.length, 0);
+storage.setFeature("selfTouchControl", true);
+
+// --- the phrase never reaches the subject ---
+// The subject sees atmosphere; the hypnotist gets the phrase. A subject who can read their
+// own trigger word can simply decide not to react to it.
+sentToHypnotist = [];
+const subjectLine = triggers.beginRecording(HYP, "GameBot", "secret word");
+check("subject line hides the phrase", /secret word/.test(subjectLine), false);
+check("hypnotist line has the phrase", /secret word/.test(lastToHypnotist()), true);
+triggers.cancelRecording();
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

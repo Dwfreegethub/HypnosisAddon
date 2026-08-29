@@ -313,34 +313,50 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "triggers",
 		group: "Diagnostics",
-		Description: "List the triggers planted in you, and any being recorded",
+		Description: "List the triggers planted in you (phrases stay hidden)",
 		Action: () => {
-			reply(describeRecording());
 			const all = listTriggers();
 			if (!all.length) {
 				reply("no triggers planted");
 				return;
 			}
-			all.forEach((t) =>
-				reply(`"${t.phrase}" → ${t.actions.join(", ")}  (by ${t.installedByName})`),
+			// Phrases are deliberately NOT shown. Per the design doc, trigger words can be
+			// hidden from the subject — and a subject who can read their own trigger word
+			// can simply decide not to react to it. You still see that a trigger exists,
+			// who planted it and what it does, so nothing is happening to you unseen.
+			all.forEach((t, i) =>
+				reply(`${i + 1}. [hidden phrase] → ${t.actions.join(", ")}  (by ${t.installedByName})`),
 			);
+			reply("Remove one with /hypno forgettrigger <number>, or all of them with 'all'.");
 		},
 	},
 	{
 		Tag: "forgettrigger",
 		group: "Data",
-		args: "<phrase|all>",
-		Description: "Remove a planted trigger by its phrase, or all of them",
+		args: "<number|all>",
+		Description: "Remove a planted trigger by its number from /hypno triggers, or all",
 		Action: (args: string) => {
-			const phrase = args.trim().toLowerCase();
-			if (!phrase) {
-				reply("usage: /hypno forgettrigger <phrase|all>");
+			const token = args.trim().toLowerCase();
+			if (!token) {
+				reply("usage: /hypno forgettrigger <number|all>  (see /hypno triggers)");
 				return;
 			}
 			// Always available, never gated: the subject can always take back something
-			// planted in them, the same principle as the safeword.
-			const gone = phrase === "all" ? forgetAllTriggers() : forgetTrigger(phrase);
-			reply(gone ? `forgot ${gone} trigger(s)` : `no trigger matching "${phrase}"`);
+			// planted in them, the same principle as the safeword. By INDEX rather than
+			// phrase, since the phrase is hidden from them — hiding it must not also take
+			// away the ability to remove it.
+			if (token === "all") {
+				reply(`forgot ${forgetAllTriggers()} trigger(s)`);
+				return;
+			}
+			const index = Number(token);
+			const all = listTriggers();
+			if (!Number.isInteger(index) || index < 1 || index > all.length) {
+				reply(`no trigger ${token} — you have ${all.length}. See /hypno triggers.`);
+				return;
+			}
+			const gone = forgetTrigger(all[index - 1].phrase);
+			reply(gone ? `forgot trigger ${index}` : "nothing removed");
 		},
 	},
 	{

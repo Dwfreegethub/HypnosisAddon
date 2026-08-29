@@ -1,6 +1,26 @@
 import { log } from "./log";
 import { getFeatures, trustWith, listTriggers, saveTrigger, Trigger } from "./storage";
 import { isSessionActiveWith } from "./session";
+import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
+
+/** Setup feedback goes to the HYPNOTIST, not the subject.
+ *
+ * It's the hypnotist who needs to know recording started, what was captured and that it
+ * saved — they're the one driving. Sending it to the subject was backwards, and worse, it
+ * showed them the trigger phrase, which the design doc explicitly wants hidden ("trigger
+ * words can be hidden from the subject entirely"). A subject who can read their own
+ * trigger word can simply avoid reacting to it. */
+function tellHypnotist(hypnotistId: number, text: string): void {
+	sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
+}
+
+/** The hypnotist's side: show status their subject sent us. */
+export function installTriggers(): void {
+	registerHiddenHandler("trigger-status", (sender, message) => {
+		const text = typeof message.text === "string" ? message.text : "";
+		if (text) ChatRoomSendLocal(text);
+	});
+}
 
 // Persistent triggers: a word planted during a trance that fires afterwards.
 //
@@ -62,6 +82,7 @@ export function describeRecording(): string {
 
 /** Begin recording. Returns a message to show the subject, or null if not allowed. */
 export function beginRecording(hypnotistId: number, hypnotistName: string, phrase: string): string {
+	const refuse = (why: string): string => { tellHypnotist(hypnotistId, why); return ""; };
 	// Refusals say plainly what's wrong rather than staying in fiction. A blocked trigger
 	// is almost always a SETUP problem — an unchecked box, not enough trust — and
 	// atmospheric text for that just leaves you guessing, which is exactly what happened
@@ -69,24 +90,29 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 	const features = getFeatures();
 	if (!features.hypnoEnabled) {
 		log("trigger plant refused: hypnoEnabled off");
-		return "[trigger] Refused — Hypnosis Enabled is off in your settings.";
+		return refuse("[trigger] Refused — they have not enabled Hypnosis.");
 	}
 	if (!features.triggerControl) {
 		log("trigger plant refused: triggerControl not granted");
-		return '[trigger] Refused — you have not enabled "Triggers" in the Hypnosis Add-on settings (Permissions tab).';
+		return refuse('[trigger] Refused — they have not enabled "Triggers" in their Hypnosis Add-on settings.');
 	}
 	// Relationship trust only — see the gate note above.
 	const trust = trustWith(hypnotistId);
 	if (trust < TRIGGER_TRUST_THRESHOLD) {
 		log(`trigger plant refused: trust ${trust.toFixed(1)} < ${TRIGGER_TRUST_THRESHOLD}`);
-		return `[trigger] Refused — planting needs trust ${TRIGGER_TRUST_THRESHOLD} with ${hypnotistName}; you're at ${trust.toFixed(1)}. Arousal doesn't count toward this.`;
+		return refuse(`[trigger] Refused — planting needs trust ${TRIGGER_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)} with them. Arousal does not count toward this.`);
 	}
 	if (phrase.length < MIN_PHRASE_LENGTH) {
-		return `[trigger] Refused — "${phrase}" is too short to use as a trigger.`;
+		return refuse(`[trigger] Refused — "${phrase}" is too short to use as a trigger.`);
 	}
 	recording = { hypnotistId, hypnotistName, phrase, actions: [] };
 	log(`recording trigger "${phrase}" for ${hypnotistName}`);
-	return `[trigger] RECORDING "${phrase}". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`;
+	tellHypnotist(
+		hypnotistId,
+		`[trigger] RECORDING "${phrase}". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`,
+	);
+	// The subject gets atmosphere with no phrase in it — see tellHypnotist.
+	return "Something is being set aside in you. You let it happen.";
 }
 
 /** Record a suggestion instead of running it. Returns the message to show, or null if
@@ -95,20 +121,25 @@ export function recordAction(id: string): string | null {
 	if (!recording) return null;
 	if (recording.actions.length >= MAX_ACTIONS) {
 		log(`trigger action ignored — already at the ${MAX_ACTIONS} action cap`);
-		return `[trigger] Ignored — "${recording.phrase}" is already at the ${MAX_ACTIONS} action limit.`;
+		tellHypnotist(recording.hypnotistId, `[trigger] Ignored — already at the ${MAX_ACTIONS} action limit.`);
+		return "Nothing more will fit.";
 	}
 	recording.actions.push(id);
 	log(`trigger "${recording.phrase}" now has ${recording.actions.length} action(s)`);
-	return `[trigger] Recorded ${id} into "${recording.phrase}" (${recording.actions.length} so far).`;
+	tellHypnotist(
+		recording.hypnotistId,
+		`[trigger] Recorded ${id} into "${recording.phrase}" (${recording.actions.length} so far).`,
+	);
+	return "That settles into place, waiting.";
 }
 
 /** Commit. Returns a message for the subject. */
 export function commitRecording(): string {
 	if (!recording) return "";
 	if (!recording.actions.length) {
-		const phrase = recording.phrase;
+		tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for "${recording.phrase}", so nothing was saved.`);
 		recording = null;
-		return `[trigger] Nothing was recorded for "${phrase}", so nothing was saved.`;
+		return "Whatever it was, it comes to nothing.";
 	}
 	const trigger: Trigger = {
 		phrase: recording.phrase,
@@ -120,11 +151,13 @@ export function commitRecording(): string {
 	saveTrigger(trigger);
 	const count = trigger.actions.length;
 	log(`trigger committed: "${trigger.phrase}" (${count} actions) by ${trigger.installedByName}`);
-	recording = null;
-	return (
+	tellHypnotist(
+		trigger.installedBy,
 		`[trigger] SAVED "${trigger.phrase}" — ${count} action(s): ${trigger.actions.join(", ")}. ` +
-		`${trigger.installedByName} saying it will now fire them.`
+			`Saying it will now fire them, in or out of trance.`,
 	);
+	recording = null;
+	return "It settles somewhere you won't think to look for it.";
 }
 
 /** Triggers this speaker could fire with this line. Matched on the normalised text so

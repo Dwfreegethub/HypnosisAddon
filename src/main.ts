@@ -8,6 +8,7 @@ import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
 import { installSuppression } from "./suppression";
+import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
 import { handleSpokenLine, mentionsAnyName, playerOwnNames } from "./voice";
 import { noteConversation } from "./trust";
@@ -173,6 +174,7 @@ safely("screen-fade hook", () => {
 // Before the command and remote registrations — both call into the session module, so its
 // hidden-message handlers need to already be listening.
 safely("session state machine", installSession);
+safely("trigger status channel", installTriggers);
 
 // Registers into BC's own message-handler chain at a priority chosen so arousal still
 // applies — see suppression.ts for why 320 specifically.
