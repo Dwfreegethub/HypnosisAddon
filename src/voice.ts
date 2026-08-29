@@ -1,5 +1,6 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
+import { setSuppressed } from "./suppression";
 import { getFeatures, FeatureToggles } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { flavor, FlavorKey } from "./flavor";
@@ -40,10 +41,17 @@ function normalize(text: string): string {
 interface Suggestion {
 	/** Doubles as the flavor-text key — the two lists are deliberately kept in step. */
 	id: FlavorKey;
-	/** Which permission toggle the subject must have granted. */
-	permission: keyof FeatureToggles;
+	/** Which permission(s) the subject must have granted. With several, ANY one grants the
+	 * suggestion — "you notice nothing" is worth saying if even one category is permitted,
+	 * and run() then applies only the categories actually allowed. */
+	permission: keyof FeatureToggles | (keyof FeatureToggles)[];
 	patterns: RegExp[];
 	run: () => void;
+}
+
+function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
+	const keys = Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission];
+	return keys.some((k) => features[k]);
 }
 
 // ORDER MATTERS: releases are listed before their matching restrictions, because a release
@@ -104,6 +112,65 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou have forgotten how to (dress|undress|change)\b/,
 		],
 		run: () => applyEffect("BlockWardrobe"),
+	},
+	{
+		// The broad one: clothing, bondage and touch together. Each category is still
+		// applied only if separately permitted — saying it doesn't override a box the
+		// subject left unchecked.
+		id: "awareness-release",
+		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
+		patterns: [
+			/\byou notice (everything|things|them|it) again\b/,
+			/\byou (notice|feel) what (happens|is happening|is done) to you\b/,
+			/\byou are (aware|awake) (again|to it)\b/,
+			/\byou (can|may) notice\b/,
+		],
+		run: () => {
+			setSuppressed("clothing", false);
+			setSuppressed("bondage", false);
+			setSuppressed("activity", false);
+		},
+	},
+	{
+		id: "awareness-block",
+		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
+		patterns: [
+			/\byou notice nothing\b/,
+			/\byou (do not|will not) notice\b/,
+			/\byou (cannot|do not) notice (anything|what)\b/,
+			/\bnothing (that happens|done) to you (matters|registers)\b/,
+			/\byou are (unaware|oblivious)\b/,
+		],
+		run: () => {
+			// Per-category permission check, not the any-of gate above.
+			const f = getFeatures();
+			if (f.suppressClothing) setSuppressed("clothing", true);
+			if (f.suppressBondage) setSuppressed("bondage", true);
+			if (f.suppressActivities) setSuppressed("activity", true);
+		},
+	},
+	{
+		id: "touch-release",
+		permission: "suppressActivities",
+		patterns: [
+			/\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
+			/\byou feel (my|his|her|their) (touch|touches) again\b/,
+			/\byou (can|may) feel (me|it) again\b/,
+			/\byou notice (my|his|her|their) (touch|touches) again\b/,
+		],
+		run: () => setSuppressed("activity", false),
+	},
+	{
+		id: "touch-block",
+		permission: "suppressActivities",
+		patterns: [
+			/\byou (will |)ignore (my|his|her|their) (touch|touches)\b/,
+			/\bignore (my|his|her|their) (touch|touches)\b/,
+			/\byou (cannot|do not) feel (my|his|her|their) (touch|touches|hands)\b/,
+			/\b(my|his|her|their) (touch|touches) (do not|does not) reach you\b/,
+			/\byou (cannot|do not) feel (me|my hands)\b/,
+		],
+		run: () => setSuppressed("activity", true),
 	},
 	{
 		id: "speech-release",
@@ -246,7 +313,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// Re-checked even though the session gate already passed: permission and session are
 	// independent, and a spoken suggestion is just another way to reach the same effect a
 	// button would have — so it answers to the same permission.
-	if (!features.hypnoEnabled || !features[suggestion.permission]) {
+	if (!features.hypnoEnabled || !permitted(suggestion, features)) {
 		log(`heard "${id}" from ${sender} but ${suggestion.permission} isn't granted`);
 		return;
 	}

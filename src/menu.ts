@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
+import { setSuppressed, clearAllSuppression } from "./suppression";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
 // Preference.js, PreferenceRegisterExtensionSetting) — adds one button into
@@ -17,12 +18,16 @@ interface Column {
 	left: number;
 	heading: string;
 	subheading: string;
+	/** Rows of vertical offset, so a second group can stack under one in the same column. */
+	topOffset?: number;
 	rows: Row[];
 }
 
-// Two columns because nine rows in one won't fit: at 110px spacing the ninth would land at
-// y=1130 on a 1000-tall canvas. The split is also meaningful — the two groups answer
-// different questions and have opposite defaults (see FeatureToggles in storage.ts).
+// Three groups in two columns — twelve rows won't fit in one, and the grouping is
+// meaningful rather than just spatial: the groups answer different questions and
+// "Permissions" defaults off while "In trance" defaults on (see FeatureToggles).
+// The right column stacks two groups via topOffset; "In trance" occupies rows 0-2 and
+// "Unaware of" rows 4-6, so array order here doesn't determine what appears where.
 const COLUMNS: Column[] = [
 	{
 		left: 180,
@@ -35,6 +40,17 @@ const COLUMNS: Column[] = [
 			{ key: "postureControl", label: "Posture Control (kneel / stand)" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "hiddenActivities", label: "Hidden Activities" },
+		],
+	},
+	{
+		left: 1080,
+		heading: "Unaware of",
+		subheading: "hides the message only — arousal still applies",
+		topOffset: 4,
+		rows: [
+			{ key: "suppressClothing", label: "Clothing Changes" },
+			{ key: "suppressBondage", label: "Bondage Changes" },
+			{ key: "suppressActivities", label: "Touches / Activities" },
 		],
 	},
 	{
@@ -52,12 +68,18 @@ const COLUMNS: Column[] = [
 const ROW_WIDTH = 90;
 const ROW_HEIGHT = 90;
 const ROW_TOP_START = 300;
-const ROW_SPACING = 110;
-const HEADING_Y = 225;
-const SUBHEADING_Y = 262;
+// 100 rather than 110: with three groups the tallest column runs 9 rows deep, and at 110
+// the last one would end at y=1050 on a 1000-tall canvas. 10px of breathing room between
+// 90px boxes is tight but legible.
+const ROW_SPACING = 100;
 
-function rowTop(index: number): number {
-	return ROW_TOP_START + index * ROW_SPACING;
+function rowTop(index: number, offset = 0): number {
+	return ROW_TOP_START + (index + offset) * ROW_SPACING;
+}
+
+/** Headings sit just above their group's first row, so a stacked group carries its own. */
+function headingY(offset = 0): number {
+	return rowTop(0, offset) - 75;
 }
 
 /** Left-aligned text. BC's canvas defaults to centered, so every label needs this. */
@@ -97,6 +119,7 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 				removeEffect("BlockWardrobe");
 				clearSuggestedPose();
 				clearTranceStates();
+				clearAllSuppression();
 			}
 			break;
 		case "movementRestriction":
@@ -118,6 +141,15 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);
 			break;
+		case "suppressClothing":
+			if (!enabled) setSuppressed("clothing", false);
+			break;
+		case "suppressBondage":
+			if (!enabled) setSuppressed("bondage", false);
+			break;
+		case "suppressActivities":
+			if (!enabled) setSuppressed("activity", false);
+			break;
 		case "hiddenActivities":
 			// No direct effect — messaging.ts reads this flag itself before
 			// sending/processing anything on the Hidden channel.
@@ -135,10 +167,11 @@ export function installMenu(): void {
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
 			const features = getFeatures();
 			for (const column of COLUMNS) {
-				drawLeftText(column.heading, column.left, HEADING_Y);
-				drawLeftText(column.subheading, column.left, SUBHEADING_Y, "Gray");
+				const offset = column.topOffset ?? 0;
+				drawLeftText(column.heading, column.left, headingY(offset));
+				drawLeftText(column.subheading, column.left, headingY(offset) + 37, "Gray");
 				column.rows.forEach((row, i) => {
-					const top = rowTop(i);
+					const top = rowTop(i, offset);
 					// Empty label here — DrawCheckbox centers its own label at a fixed offset
 					// regardless of Width, which overlaps the box for anything but very short
 					// text. Draw the label ourselves, left-aligned, clear of the box instead.
@@ -154,8 +187,9 @@ export function installMenu(): void {
 			}
 			const features = getFeatures();
 			for (const column of COLUMNS) {
+				const offset = column.topOffset ?? 0;
 				column.rows.forEach((row, i) => {
-					if (MouseIn(column.left, rowTop(i), ROW_WIDTH, ROW_HEIGHT)) {
+					if (MouseIn(column.left, rowTop(i, offset), ROW_WIDTH, ROW_HEIGHT)) {
 						const next = !features[row.key];
 						setFeature(row.key, next);
 						onToggle(row.key, next);

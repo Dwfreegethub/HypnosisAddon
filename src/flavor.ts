@@ -19,7 +19,11 @@ export type FlavorKey =
 	| "speech-block"
 	| "speech-release"
 	/** Shown each time a silenced player actually tries to say something. */
-	| "speech-blocked-attempt";
+	| "speech-blocked-attempt"
+	| "awareness-block"
+	| "awareness-release"
+	| "touch-block"
+	| "touch-release";
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -61,6 +65,28 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your voice is handed back to you.",
 		"The way to your own words opens up again.",
 		"You could speak now. The thought arrives whole this time.",
+	],
+	// Suppression flavor leans on absence rather than sensation — the point isn't that it
+	// feels different, it's that nothing arrives to be noticed in the first place.
+	"awareness-block": [
+		"Things are happening to you. None of them seem worth noticing.",
+		"Whatever is being done, it stops reaching you somewhere on the way.",
+		"You stop keeping track of what is being done to you. It was never important.",
+	],
+	"awareness-release": [
+		"You start noticing what's being done to you again.",
+		"The world reattaches itself to your body.",
+		"Details you had stopped collecting begin arriving again.",
+	],
+	"touch-block": [
+		"Hands on you stop registering as anything at all.",
+		"You are being touched. The information simply doesn't arrive.",
+		"Touch happens somewhere far away from wherever you are.",
+	],
+	"touch-release": [
+		"You can feel where you're being touched again.",
+		"Your skin starts reporting back.",
+		"Touch reaches you again, arriving where it should.",
 	],
 	// Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
 	"speech-blocked-attempt": [

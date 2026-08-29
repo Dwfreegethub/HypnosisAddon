@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, getTrust } from "./storage";
+import { clearAllSuppression } from "./suppression";
 import {
 	applyEffect,
 	removeEffect,
@@ -172,6 +173,7 @@ function endSession(reason: string, quiet = false): void {
 	removeEffect("BlockWardrobe");
 	clearSuggestedPose();
 	clearTranceStates();
+	clearAllSuppression();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
@@ -310,6 +312,7 @@ export function safeword(): void {
 	removeEffect("BlockWardrobe");
 	clearSuggestedPose();
 	clearTranceStates();
+	clearAllSuppression();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

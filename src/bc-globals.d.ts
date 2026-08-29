@@ -54,3 +54,12 @@ declare const InformationSheetSelection: any;
 // Only sets the pose locally — the room is told separately via
 // ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose }).
 declare function CharacterSetActivePose(character: any, poseName: string | null, forceChange?: boolean): void;
+// BC's own message-handler extension point (ChatRoom.js). Priority decides where in the
+// pipeline the callback runs; returning true stops processing and the message never
+// renders. See suppression.ts for the priorities that matter.
+declare function ChatRoomRegisterMessageHandler(handler: {
+	Description?: string;
+	Priority: number;
+	Callback: (data: any, sender: any, msg: string, metadata: any) => boolean | object | undefined;
+}): void;
+declare function ChatRoomMessageInvolvesPlayer(data: any): boolean;

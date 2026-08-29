@@ -7,6 +7,7 @@ import { flavor } from "./flavor";
 import { installMenu } from "./menu";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
+import { installSuppression } from "./suppression";
 import { handleSpokenLine } from "./voice";
 import { getFeatures } from "./storage";
 
@@ -159,6 +160,10 @@ safely("screen-fade hook", () => {
 // Before the command and remote registrations — both call into the session module, so its
 // hidden-message handlers need to already be listening.
 safely("session state machine", installSession);
+
+// Registers into BC's own message-handler chain at a priority chosen so arousal still
+// applies — see suppression.ts for why 320 specifically.
+safely("message suppression", installSuppression);
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);

@@ -28,6 +28,13 @@ export interface FeatureToggles {
 	postureControl: boolean;
 	/** Silencing suggestions ("you cannot speak"). */
 	speechRestriction: boolean;
+	/** Permission to hide messages about clothing changes done to you. */
+	suppressClothing: boolean;
+	/** Permission to hide messages about restraints applied to or removed from you. */
+	suppressBondage: boolean;
+	/** Permission to hide messages about activities done to you (touching, kissing).
+	 * Hides the message only — arousal still applies. */
+	suppressActivities: boolean;
 	/** Gates the Hidden-message cross-client channel (see messaging.ts) — both sending
 	 * and receiving. */
 	hiddenActivities: boolean;
@@ -64,6 +71,9 @@ function defaultFeatures(): FeatureToggles {
 		clothingRestriction: false,
 		postureControl: false,
 		speechRestriction: false,
+		suppressClothing: false,
+		suppressBondage: false,
+		suppressActivities: false,
 		hiddenActivities: false,
 		// On by default — see the note on the interface.
 		tranceCannotMove: true,
