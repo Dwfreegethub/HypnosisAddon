@@ -1,5 +1,13 @@
 import { log } from "./log";
-import { getFeatures, trustWith, listTriggers, saveTrigger, Trigger } from "./storage";
+import {
+	getFeatures,
+	trustWith,
+	listTriggers,
+	saveTrigger,
+	getTriggerScope,
+	Trigger,
+	TriggerScope,
+} from "./storage";
 import { isSessionActiveWith } from "./session";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 
@@ -165,9 +173,66 @@ export function commitRecording(): string {
  *
  * No name gate here, unlike suggestions — "reacts without thinking" means the word itself
  * is the key. The narrowing that keeps this safe is installer-only scope. */
+/** The scope options, in the order the dropdown shows them: tightest first.
+ *
+ * Deliberately mirrors BC's own item-permission ladder (AllowedInteractions in
+ * Character.js) so it reads familiar and behaves the way players already expect — the
+ * relationship checks below use BC's own helper methods rather than reimplementing what
+ * "owner" or "lover" means. The one addition is that the INSTALLER always counts,
+ * whatever the level: they're the one who put it there. */
+export const TRIGGER_SCOPES: { key: TriggerScope; label: string }[] = [
+	{ key: "hypnotist", label: "Hypnotist only" },
+	{ key: "owner", label: "Hypnotist and Owner" },
+	{ key: "lovers", label: "Hypnotist, Owner and Lovers" },
+	{ key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
+	{ key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
+	{ key: "notblack", label: "Hypnotist and everyone, except blacklist" },
+	{ key: "everyone", label: "Hypnotist and everyone, no exceptions" },
+];
+
+function characterFor(memberNumber: number): any {
+	return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+		(c: any) => c?.MemberNumber === memberNumber,
+	);
+}
+
+/** Does this speaker clear the subject's chosen scope?
+ *
+ * Follows the same order of tests as ServerChatRoomGetAllowItem: the owner is allowed at
+ * every level and is checked before the blacklist, and "Dominant" means within 25
+ * reputation points, both matching BC exactly rather than inventing our own reading. */
+function speakerAllowedByScope(speaker: number): boolean {
+	const scope = getTriggerScope();
+	if (scope === "hypnotist") return false;
+	const C = characterFor(speaker);
+	if (!C) return false;
+	if (Player?.IsOwnedByCharacter?.(C)) return true;
+	if (scope === "everyone") return true;
+	if (Player?.HasOnBlacklist?.(C)) return false;
+	if (scope === "notblack") return true;
+	if (scope === "owner") return false;
+	if (C.IsLoverOfCharacter?.(Player)) return true;
+	if (scope === "lovers") return false;
+	if (Player?.HasOnWhitelist?.(C)) return true;
+	if (scope === "whitelist") return false;
+	try {
+		return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
+	} catch {
+		return false;
+	}
+}
+
 export function triggersFiredBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
-	return listTriggers().filter((t) => t.installedBy === speaker && normalisedText.includes(t.phrase));
+	const allowedByScope = speakerAllowedByScope(speaker);
+	return listTriggers().filter(
+		(t) => normalisedText.includes(t.phrase) && (t.installedBy === speaker || allowedByScope),
+	);
+}
+
+/** For the settings screen and /hypno triggers. */
+export function describeScope(): string {
+	return TRIGGER_SCOPES.find((s) => s.key === getTriggerScope())?.label ?? "Hypnotist only";
 }
 
 /** Can this hypnotist still reach us at all? Firing needs Hypnosis Enabled and the trigger

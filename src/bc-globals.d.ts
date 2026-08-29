@@ -69,3 +69,20 @@ declare function ChatRoomMessageInvolvesPlayer(data: any): boolean;
 // Activity.js — resolves a group to the one activities are actually mirrored from
 // (ItemNipples mirrors to ItemBreast), so a per-part block can't be sidestepped.
 declare function ActivityGetGroupOrMirror(family: string, groupName: string): any;
+
+// DOM controls layered over the canvas (Scripts/Element.js). They are real elements in
+// document.body, positioned in CANVAS coordinates — X,Y is the element's CENTRE, and the
+// scaling to screen pixels is handled for us. They must be removed explicitly when the
+// screen goes away or they linger over whatever comes next.
+declare function ElementCreateDropdown(
+	id: string | null,
+	optionsList: readonly string[],
+	onChange: (this: HTMLSelectElement, event: Event) => any,
+	options?: null | { required?: boolean; multiple?: boolean; disabled?: boolean; size?: number; name?: string },
+	htmlOptions?: any,
+): HTMLSelectElement;
+declare function ElementPosition(elementOrId: any, x: number, y: number, w: number, h?: number): void;
+declare function ElementRemove(elementOrId: any): void;
+/** Reputation lookup, e.g. ReputationCharacterGet(C, "Dominant"). Used by BC's own
+ * permission ladder to decide who counts as dominant relative to whom. */
+declare function ReputationCharacterGet(character: any, type: string): number;

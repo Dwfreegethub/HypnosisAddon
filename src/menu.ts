@@ -9,10 +9,13 @@ import {
 	exportSettings,
 	importSettings,
 	resetSettings,
+	getTriggerScope,
+	setTriggerScope,
 } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { trustStatRows } from "./trust";
+import { TRIGGER_SCOPES } from "./triggers";
 import { isHypnotized } from "./session";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -187,6 +190,44 @@ function drawDataButtons(): void {
 	});
 }
 
+// --- Trigger scope dropdown ----------------------------------------------------------
+// The first control here that isn't a canvas checkbox. It's a real DOM <select> layered
+// over the canvas, which means a lifecycle the canvas widgets don't have: create it once,
+// reposition it every frame (so it survives window resizes), and REMOVE it whenever it
+// shouldn't be visible. Forget the removal and it hangs over whatever screen comes next.
+
+const SCOPE_ID = "HypnosisAddonTriggerScope";
+const SCOPE_LABEL_Y = 700;
+const SCOPE_CENTRE_X = 260 + 380;
+const SCOPE_CENTRE_Y = 745;
+const SCOPE_WIDTH = 760;
+const SCOPE_HEIGHT = 56;
+
+function removeScopeControl(): void {
+	if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
+}
+
+function drawScopeControl(locked: boolean): void {
+	drawLeftText("Who else can fire triggers planted in you:", 260, SCOPE_LABEL_Y, locked ? "Gray" : "Black");
+	let element = document.getElementById(SCOPE_ID) as HTMLSelectElement | null;
+	if (!element) {
+		element = ElementCreateDropdown(
+			SCOPE_ID,
+			TRIGGER_SCOPES.map((s) => s.label),
+			function () {
+				setTriggerScope(TRIGGER_SCOPES[this.selectedIndex]?.key ?? "hypnotist");
+				log(`trigger scope set to ${getTriggerScope()}`);
+			},
+		);
+	}
+	// Re-sync each frame rather than only on create: an import or a reset changes the
+	// stored value underneath us, and the control must not keep showing the old one.
+	const index = TRIGGER_SCOPES.findIndex((s) => s.key === getTriggerScope());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	ElementPosition(SCOPE_ID, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT);
+}
+
 function drawStats(): void {
 	let y = ROW_TOP_START + 10;
 	const line = (name: string, value: string, detail: string, color = "Black") => {
@@ -307,6 +348,7 @@ export function installMenu(): void {
 		// previous visit's navigation is disorienting.
 		load: () => {
 			activeTab = 0;
+			removeScopeControl();
 		},
 		run: () => {
 			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
@@ -322,6 +364,11 @@ export function installMenu(): void {
 				BLURB_Y,
 				"Gray",
 			);
+
+			// The scope dropdown belongs to Permissions only — remove it the moment any
+			// other tab is showing, or a DOM element sits over the Stats table.
+			if (tab.name === "Permissions") drawScopeControl(locked);
+			else removeScopeControl();
 
 			if (tab.render) {
 				tab.render();
@@ -376,7 +423,13 @@ export function installMenu(): void {
 				}
 			});
 		},
-		exit: () => true,
+		// Both exit paths matter: exit() for our own back button, unload() for BC tearing
+		// the screen down some other way. Missing either leaves the dropdown floating.
+		unload: () => removeScopeControl(),
+		exit: () => {
+			removeScopeControl();
+			return true;
+		},
 	});
 }
 

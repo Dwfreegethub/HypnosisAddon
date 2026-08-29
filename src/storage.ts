@@ -43,6 +43,15 @@ export interface Trigger {
 	installedAt: number;
 }
 
+export type TriggerScope =
+	| "hypnotist"
+	| "owner"
+	| "lovers"
+	| "whitelist"
+	| "dominants"
+	| "notblack"
+	| "everyone";
+
 export interface FeatureToggles {
 	/** Master switch — see menu.ts's onToggle for the "turning this off suspends the
 	 * others" behavior, matching the design doc's hard-floor philosophy. */
@@ -114,6 +123,9 @@ interface HypnoAddonSettings {
 	 * Also a count, not a value. */
 	experience: number;
 	triggers: Trigger[];
+	/** Who besides the installer may fire a trigger. Stored as a NAME rather than an index
+	 * so that reordering the dropdown can never silently change what someone chose. */
+	triggerScope: TriggerScope;
 	features: FeatureToggles;
 }
 
@@ -139,7 +151,7 @@ function defaultFeatures(): FeatureToggles {
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.4.0", trust: [], experience: 0, triggers: [], features: defaultFeatures() };
+	return { version: "0.4.0", trust: [], experience: 0, triggers: [], triggerScope: "hypnotist", features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -169,6 +181,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.features = merged;
 	s.experience ??= 0;
 	s.triggers ??= [];
+	s.triggerScope ??= "hypnotist";
 	s.trust ??= [];
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
@@ -426,4 +439,13 @@ export function forgetAllTriggers(): number {
 	settings.triggers = [];
 	saveSettings();
 	return count;
+}
+
+export function getTriggerScope(): TriggerScope {
+	return loadSettings().triggerScope;
+}
+
+export function setTriggerScope(scope: TriggerScope): void {
+	loadSettings().triggerScope = scope;
+	saveSettings();
 }
