@@ -359,6 +359,12 @@ export function wakeByHypnotist(sender: number): boolean {
 	return true;
 }
 
+/** Are we in trance at all, regardless of who put us there? Used by the settings screen's
+ * lock, which doesn't care which hypnotist is responsible. */
+export function isHypnotized(): boolean {
+	return session.phase === "Hypnotized";
+}
+
 /** Is this person running a live session on us, in any phase? Broader than
  * isSessionActiveWith, which means specifically "in trance". */
 export function hasLiveSessionWith(memberNumber: number): boolean {

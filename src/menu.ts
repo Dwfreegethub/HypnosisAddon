@@ -3,6 +3,7 @@ import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clea
 import { getFeatures, setFeature, FeatureToggles } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
+import { isHypnotized } from "./session";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
 // Preference.js, PreferenceRegisterExtensionSetting) — adds one button into
@@ -37,7 +38,7 @@ const TABS: Tab[] = [
 			{ key: "postureControl", label: "Posture Control (kneel / stand)" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
-			{ key: "hiddenActivities", label: "Hidden Activities" },
+			{ key: "lockedWhileHypnotized", label: "Lock these settings while in trance" },
 		],
 	},
 	{
@@ -98,6 +99,16 @@ function tabLeft(index: number): number {
 
 function rowTop(index: number): number {
 	return ROW_TOP_START + index * ROW_SPACING;
+}
+
+/** Are the checkboxes currently frozen? Read live at draw and click time rather than
+ * cached, so the lock lifts the instant a session ends without anything having to notice.
+ *
+ * Tabs stay clickable and the exit button still works — the screen is readable while
+ * locked, just not editable. `/hypno safeword` remains the way out in every case, and
+ * being a chat command it's untouched by any of this. */
+function settingsLocked(): boolean {
+	return getFeatures().lockedWhileHypnotized && isHypnotized();
 }
 
 /** Left-aligned text. BC's canvas defaults to centered, so every label needs this. */
@@ -164,7 +175,13 @@ export function installMenu(): void {
 			drawTabsAndPanel();
 
 			const tab = TABS[activeTab];
-			drawLeftText(tab.blurb, BOX_LEFT, BLURB_Y, "Gray");
+			const locked = settingsLocked();
+			drawLeftText(
+				locked ? "Locked while you are in trance. /hypno safeword always works." : tab.blurb,
+				BOX_LEFT,
+				BLURB_Y,
+				"Gray",
+			);
 
 			const features = getFeatures();
 			tab.rows.forEach((row, i) => {
@@ -172,8 +189,8 @@ export function installMenu(): void {
 				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
 				// Width, which overlaps the box for anything but very short text. Draw the
 				// label ourselves, left-aligned and clear of the box.
-				DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key]);
-				drawLeftText(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26);
+				DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+				drawLeftText(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, locked ? "Gray" : "Black");
 			});
 		},
 		click: () => {
@@ -187,6 +204,9 @@ export function installMenu(): void {
 					return;
 				}
 			}
+			// Checked here as well as at draw time, not just relied on visually: a greyed
+			// checkbox that still toggles when clicked is worse than no lock at all.
+			if (settingsLocked()) return;
 			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
@@ -253,9 +273,9 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 		case "suppressActivities":
 			if (!enabled) setSuppressed("activity", false);
 			break;
-		case "hiddenActivities":
-			// No direct effect — messaging.ts reads this flag itself before sending or
-			// processing anything on the Hidden channel.
+		case "lockedWhileHypnotized":
+			// No immediate effect — it only matters while a trance is running, and
+			// settingsLocked() reads it live at draw and click time.
 			break;
 	}
 }

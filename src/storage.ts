@@ -37,9 +37,14 @@ export interface FeatureToggles {
 	/** Permission to hide messages about activities done to you (touching, kissing).
 	 * Hides the message only — arousal still applies. */
 	suppressActivities: boolean;
-	/** Gates the Hidden-message cross-client channel (see messaging.ts) — both sending
-	 * and receiving. */
-	hiddenActivities: boolean;
+	/** Freeze this settings screen while in trance: every checkbox greys out and clicks are
+	 * ignored until the session ends. Replaced a "Hidden Activities" toggle that ended up
+	 * gating nothing (see messaging.ts).
+	 *
+	 * Deliberately locks ITSELF too — being able to switch the lock off mid-trance would
+	 * make it decorative. `/hypno safeword` is the way out, and it's a chat command rather
+	 * than a menu action, so this can never trap anyone. */
+	lockedWhileHypnotized: boolean;
 
 	// --- Trance state defaults -------------------------------------------------------
 	// A different KIND of setting from the permissions above, and the defaults are
@@ -77,7 +82,7 @@ function defaultFeatures(): FeatureToggles {
 		suppressClothing: false,
 		suppressBondage: false,
 		suppressActivities: false,
-		hiddenActivities: false,
+		lockedWhileHypnotized: false,
 		// On by default — see the note on the interface.
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,

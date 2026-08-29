@@ -1,5 +1,4 @@
 import { log } from "./log";
-import { getFeatures } from "./storage";
 
 // Our namespace tag on the shared Type:"Hidden" ChatRoomChat channel — BCX uses
 // "BCXMsg", LSCG uses "LSCGMsg". Ours must differ so we don't misparse (or get
@@ -23,26 +22,21 @@ export function registerHiddenHandler(type: string, handler: Handler): void {
 	handlers.set(type, handler);
 }
 
-// Message types gated behind the Hidden Activities setting. Deliberately EMPTY right now.
+// NOTHING ON THIS CHANNEL IS GATED BY A SETTING, on purpose.
 //
-// This started as a blanket gate on the whole channel and caused two separate bugs before
-// being narrowed to nothing: it silently swallowed the state-query/state-response
-// handshake (so the remote panel's gray-out hung forever against anyone with the setting
-// off), and it dropped a VIEWER's own outbound remote-request before it was ever sent.
+// There was a "Hidden Activities" toggle here that gated the whole channel, and it caused
+// two separate bugs before being narrowed to nothing and finally removed: it silently
+// swallowed the state-query/state-response handshake (so the remote panel's gray-out hung
+// forever against anyone with it off), and it dropped a VIEWER's own outbound
+// remote-request before it was ever sent.
 //
-// The lesson is that this channel carries *protocol*, and protocol must not be gated by a
-// content preference. Every consent decision already lives where it belongs: per-feature
+// The lesson: this channel carries *protocol*, and protocol must not answer to a content
+// preference. Every consent decision already lives where it belongs — per-feature
 // permission flags plus an active session, both enforced on the subject's own client at
-// the point of effect. A future covert-content feature — something whose *existence*
-// should be hideable, not merely refusable — is what this set is for. Add types here only
-// if you can say why refusing them target-side isn't enough.
-const GATED_TYPES = new Set<string>();
+// the point of effect. If a future covert-content feature genuinely needs its existence
+// hidden rather than merely refused, gate THAT feature, not the transport.
 
 export function sendHiddenMessage(message: HypnoMessage, target?: number): void {
-	if (GATED_TYPES.has(message.type) && !getFeatures().hiddenActivities) {
-		log("Hidden Activities is off — not sending", message);
-		return;
-	}
 	ServerSend("ChatRoomChat", {
 		Content: HIDDEN_TAG,
 		Type: "Hidden",
@@ -56,7 +50,6 @@ export function handleIncomingHidden(data: any): boolean {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
 		const message = data?.Dictionary?.[0]?.message as HypnoMessage | undefined;
 		if (!message) return true;
-		if (GATED_TYPES.has(message.type) && !getFeatures().hiddenActivities) return true; // ours, but disabled — consume silently
 		const handler = handlers.get(message.type);
 		if (handler) {
 			handler(data.Sender, message);
