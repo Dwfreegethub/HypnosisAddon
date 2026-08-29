@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch } from "./voice";
-import { addInteractions, setTrustValue, setExperienceValue, trustWith } from "./storage";
+import { addInteractions, setTrustValue, setExperienceValue, trustWith, describeStorage } from "./storage";
 import { describeTrust } from "./trust";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
@@ -190,6 +190,12 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			reply(`experience → ${setExperienceValue(value).toFixed(1)}`);
 		},
+	},
+	{
+		Tag: "storage",
+		group: "Diagnostics",
+		Description: "Where settings loaded from, and what each source holds",
+		Action: () => describeStorage().forEach(reply),
 	},
 	{
 		Tag: "chance",

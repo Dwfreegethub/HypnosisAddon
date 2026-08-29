@@ -102,10 +102,34 @@ function defaultSettings(): HypnoAddonSettings {
 }
 
 let cached: HypnoAddonSettings | null = null;
+/** Did the cache come from the account's own server-synced data, or only from the
+ * localStorage backup / defaults? See loadSettings. */
+let cachedFromAccount = false;
+/** Set when a load fell over, so /hypno storage can report it rather than it being a
+ * console line nobody saw. */
+let lastLoadError = "";
 
 function loadSettings(): HypnoAddonSettings {
+	const accountRaw = Player?.ExtensionSettings?.[SETTINGS_KEY];
+	const haveAccount = typeof accountRaw === "string" && accountRaw.length > 0;
+
+	// Re-read once the account's real data becomes available.
+	//
+	// This is a data-loss trap, not a nicety. `Player` is a placeholder until login and
+	// gets wholesale-replaced then (see CharacterCreatePlayer). If anything reads settings
+	// before that, we'd cache localStorage-or-defaults and keep them forever — and the
+	// next save would write that stale copy straight over the good server-side data. It
+	// bites hardest exactly when localStorage is empty but the account has data: a
+	// different browser, cleared site data, or a DIFFERENT BC HOST, since localStorage is
+	// per-origin and bondage-europe.com is a separate origin from bondageprojects.
+	if (cached && !cachedFromAccount && haveAccount) {
+		log("account settings became available after an early read — reloading");
+		cached = null;
+	}
 	if (cached) return cached;
-	const raw: string = Player?.ExtensionSettings?.[SETTINGS_KEY] ?? localStorage.getItem(BACKUP_KEY) ?? "";
+
+	const raw: string = accountRaw ?? localStorage.getItem(BACKUP_KEY) ?? "";
+	cachedFromAccount = haveAccount;
 	if (!raw) {
 		cached = defaultSettings();
 		return cached;
@@ -114,6 +138,7 @@ function loadSettings(): HypnoAddonSettings {
 		const json = decompressFromBase64(raw);
 		cached = json ? JSON.parse(json) : defaultSettings();
 	} catch (err) {
+		lastLoadError = String(err);
 		log("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
@@ -221,6 +246,33 @@ export function setExperienceValue(value: number): number {
 	settings.experience = countFromValue(value, H_EXPERIENCE);
 	saveSettings();
 	return experienceValue();
+}
+
+/** Where the current settings actually came from, and what each source holds. Exists
+ * because "my data vanished" has too many candidate causes to guess between — account vs
+ * localStorage vs a parse failure vs an early read — and each looks identical from the
+ * outside. */
+export function describeStorage(): string[] {
+	const accountRaw = Player?.ExtensionSettings?.[SETTINGS_KEY];
+	const backupRaw = localStorage.getItem(BACKUP_KEY);
+	const summarise = (raw: unknown): string => {
+		if (typeof raw !== "string" || !raw) return "absent";
+		try {
+			const parsed = JSON.parse(decompressFromBase64(raw) || "{}");
+			const people = (parsed.trust ?? []).length;
+			const total = (parsed.trust ?? []).reduce((s: number, t: any) => s + (t.interactions ?? 0), 0);
+			return `${raw.length} chars, ${people} people, ${total.toFixed(1)} interactions, exp ${parsed.experience ?? 0}`;
+		} catch (err) {
+			return `${raw.length} chars but UNREADABLE (${err})`;
+		}
+	};
+	return [
+		`loaded from: ${cachedFromAccount ? "account (ExtensionSettings)" : "localStorage backup or defaults"}`,
+		`account:      ${summarise(accountRaw)}`,
+		`localStorage: ${summarise(backupRaw)}`,
+		`in memory:    ${listTrust().length} people, exp ${experienceValue().toFixed(1)}`,
+		lastLoadError ? `LAST LOAD ERROR: ${lastLoadError}` : "no load errors",
+	];
 }
 
 export function getFeatures(): FeatureToggles {
