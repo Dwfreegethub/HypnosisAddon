@@ -70,6 +70,11 @@ export interface FeatureToggles {
 	suppressClothing: boolean;
 	/** Permission to hide messages about restraints applied to or removed from you. */
 	suppressBondage: boolean;
+	/** Hide the hypnotist's trigger-setup lines while a trigger is being planted, so the
+	 * subject knows something is being given but not what, and never sees the phrase.
+	 * Lives with the other awareness settings because it is the same kind of thing:
+	 * choosing not to be shown something that is happening to you. */
+	suppressTriggerSetup: boolean;
 	/** Permission to hide messages about activities done to you (touching, kissing).
 	 * Hides the message only — arousal still applies. */
 	suppressActivities: boolean;
@@ -124,6 +129,7 @@ function defaultFeatures(): FeatureToggles {
 		suppressClothing: false,
 		suppressBondage: false,
 		suppressActivities: false,
+		suppressTriggerSetup: false,
 		lockedWhileHypnotized: false,
 		// On by default — see the note on the interface.
 		tranceCannotMove: true,

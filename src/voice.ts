@@ -56,12 +56,15 @@ interface Suggestion {
 	 * suggestion — "you notice nothing" is worth saying if even one category is permitted,
 	 * and run() then applies only the categories actually allowed. */
 	permission: keyof FeatureToggles | (keyof FeatureToggles)[];
-	/** Undoes a restriction rather than applying one. Releases work OUTSIDE a session and
-	 * without a permission check: a trigger can fire out of trance, and if the only way to
-	 * undo it were another trance the subject would be stuck with the safeword as their
-	 * only exit. Undoing can never harm them, so it is always allowed — the same principle
-	 * that makes a remote release always honored. */
+	/** Undoes a restriction rather than applying one. Still needs a live trance like
+	 * everything else — releases briefly skipped that, which turned out to be too broad:
+	 * it left ordinary hypnosis wording working on someone who wasn't under. What it does
+	 * skip is the permission check, since a revoked permission must never leave an
+	 * already-applied effect stuck on. */
 	release?: boolean;
+	/** Reverses this suggestion. Used when a trigger is released by name — the release
+	 * has to undo exactly what that trigger applied, not everything of that kind. */
+	undo?: () => void;
 	patterns: RegExp[];
 	run: () => void;
 }
@@ -110,6 +113,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou will not move\b/,
 		],
 		run: () => applyEffect("Freeze"),
+		undo: () => removeEffect("Freeze"),
 	},
 	{
 		id: "clothing-release",
@@ -137,6 +141,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/,
 		],
 		run: () => applyEffect("BlockWardrobe"),
+		undo: () => removeEffect("BlockWardrobe"),
 	},
 	{
 		// The broad one: clothing, bondage and touch together. Each category is still
@@ -200,6 +205,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (cannot|do not) feel (me|my hands)\b/,
 		],
 		run: () => setSuppressed("activity", true),
+		undo: () => setSuppressed("activity", false),
 	},
 	{
 		id: "speech-release",
@@ -231,6 +237,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/(?<!\bi )(?<!\bwe )\bsilence\b/,
 		],
 		run: () => setSpeechBlocked(true),
+		undo: () => setSpeechBlocked(false),
 	},
 	{
 		id: "stand",
@@ -263,6 +270,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bdrop to your knees\b/,
 		],
 		run: () => setSuggestedPose("Kneel"),
+		undo: () => setSuggestedPose(null),
 	},
 ];
 
@@ -405,6 +413,24 @@ function cleanPhrase(raw: string): string {
 	return phrase.replace(/\s+/g, " ").trim();
 }
 
+/** Should this line be hidden from the subject entirely?
+ *
+ * While a trigger is being planted, the hypnotist's setup lines name the phrase and each
+ * suggestion in open chat — so a subject reading along learns their own trigger word and
+ * exactly what it does, which defeats the point. With the Awareness toggle on, those lines
+ * never render: you know something is being given, not what.
+ *
+ * Only the installer's lines, only during setup, and only what's actually part of it —
+ * ordinary conversation in the middle of a session still comes through. */
+export function isTriggerSetupLine(sender: number, content: string): boolean {
+	if (!getFeatures().suppressTriggerSetup) return false;
+	if (!isSessionActiveWith(sender)) return false;
+	// Covers the opening line too, which arrives before recording is technically running.
+	if (parseTriggerControl(content)) return true;
+	if (!isRecording()) return false;
+	return !!matchSuggestion(content) || !!matchBodyPartCommand(content);
+}
+
 export type TriggerControl = { kind: "start"; phrase: string } | { kind: "commit" } | { kind: "cancel" } | null;
 
 /** The pure half of trigger-control parsing: text in, intent out. Split from the handler
@@ -488,6 +514,49 @@ function fireTrigger(trigger: Trigger): void {
 	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
 }
 
+// Releasing a trigger by name: "Missy, you are released from frozen".
+//
+// This exists so that general release wording doesn't have to work outside a trance. A
+// trigger fires out of trance, so something must be able to undo it out of trance — but
+// making every release phrase work there meant ordinary hypnosis wording kept operating on
+// someone who wasn't under. Naming the trigger is narrow, needs knowledge of the phrase
+// (which only the hypnotist has), and undoes exactly what that trigger applied.
+const TRIGGER_RELEASE = [
+	/\byou are released from (.+)$/,
+	/\bi release you from (.+)$/,
+	/\brelease (?:the )?trigger (.+)$/,
+];
+
+/** Undo everything a named trigger applied. Ungated beyond installer-only: undoing can
+ * never harm the subject, and the safeword is the only other way out. */
+function handleTriggerRelease(sender: number, content: string): boolean {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return false;
+	for (const pattern of TRIGGER_RELEASE) {
+		const match = pattern.exec(text);
+		if (!match) continue;
+		const phrase = cleanPhrase(match[1]);
+		const trigger = triggersFiredBy(sender, phrase)[0];
+		if (!trigger) {
+			log(`release asked for "${phrase}" but no trigger of theirs matches`);
+			return true;
+		}
+		for (const id of trigger.actions) {
+			if (id.startsWith("touch:")) {
+				const word = id.slice("touch:".length);
+				if (word === "all") setAllSelfTouchBlocked(false);
+				else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
+				continue;
+			}
+			SUGGESTIONS.find((s) => s.id === id)?.undo?.();
+		}
+		log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
+		ChatRoomSendLocal("Whatever was holding you lets go.");
+		return true;
+	}
+	return false;
+}
+
 /** Returns true if a trigger fired on this line. */
 function handleTriggerFiring(sender: number, content: string): boolean {
 	const text = normalize(content);
@@ -553,9 +622,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	const cmd = matchBodyPartCommand(content);
 	if (!cmd) return false;
 	const label = cmd.all ? "self-touch" : `touch:${cmd.word}`;
-	// Same asymmetry as the suggestions above: "you can touch your breasts again" works
-	// out of trance, "you cannot" doesn't.
-	if (cmd.block && !isSessionActiveWith(sender)) {
+	if (!isSessionActiveWith(sender)) {
 		log(`heard "${label}" from ${sender} but no active session with them — ignoring`);
 		return true;
 	}
@@ -564,7 +631,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 		return true;
 	}
 	const features = getFeatures();
-	if (cmd.block && (!features.hypnoEnabled || !features.selfTouchControl)) {
+	if (!features.hypnoEnabled || !features.selfTouchControl) {
 		log(`heard "${label}" from ${sender} but selfTouchControl isn't granted`);
 		return true;
 	}
@@ -594,6 +661,9 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 export function handleSpokenLine(sender: number, content: string): void {
 	// Trigger control first, so "remember trigger" can't be read as anything else.
 	if (handleTriggerControl(sender, content)) return;
+	// Then release-by-name, before firing — otherwise "you are released from frozen"
+	// contains "frozen" and would set the trigger off instead of clearing it.
+	if (handleTriggerRelease(sender, content)) return;
 	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
 	// trigger is that it works outside a trance.
 	if (handleTriggerFiring(sender, content)) return;
@@ -608,9 +678,11 @@ export function handleSpokenLine(sender: number, content: string): void {
 	const suggestion = SUGGESTIONS.find((s) => s.id === id);
 	if (!suggestion) return;
 
-	// Releases skip the session gate. A trigger fires outside a trance, so if undoing what
-	// it did required being back under, the subject's only exit would be the safeword.
-	if (!suggestion.release && !isSessionActiveWith(sender)) {
+	// EVERY suggestion needs a live trance, releases included. Letting releases through
+	// outside one was too broad a fix for a narrow problem: it meant ordinary hypnosis
+	// wording kept working on someone who wasn't under. Undoing what a trigger did is
+	// handled by its own targeted phrase instead — "you are released from <trigger>".
+	if (!isSessionActiveWith(sender)) {
 		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
 		return;
 	}

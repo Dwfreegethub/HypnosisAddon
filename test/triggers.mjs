@@ -159,8 +159,10 @@ check("subject line hides the phrase", /secret word/.test(subjectLine), false);
 check("hypnotist line has the phrase", /secret word/.test(lastToHypnotist()), true);
 triggers.cancelRecording();
 
-// --- releases work OUTSIDE a session ---
-// A trigger fires out of trance, so undoing it must not require being back under.
+// --- releasing a trigger by name, out of trance ---
+// General release wording deliberately does NOT work outside a session; only the targeted
+// "you are released from <trigger>" does, so ordinary hypnosis phrasing never operates on
+// someone who isn't under.
 storage.setFeature("hypnoEnabled", true);
 storage.setFeature("movementRestriction", true);
 storage.forgetAllTriggers();
@@ -170,12 +172,20 @@ triggers.commitRecording();
 said = [];
 voice.handleSpokenLine(HYP, "frozen");
 check("trigger fires out of trance", said.length, 1);
+
 said = [];
 voice.handleSpokenLine(HYP, "Missy you can move again");
-check("release lands with no session", said.length, 1);
+check("general release does NOT work out of trance", said.length, 0);
 said = [];
 voice.handleSpokenLine(HYP, "Missy you cannot move");
-check("restriction still needs a session", said.length, 0);
+check("restriction does NOT work out of trance", said.length, 0);
+
+said = [];
+voice.handleSpokenLine(HYP, "Missy you are released from frozen");
+check("named release works out of trance", said.length, 1);
+said = [];
+voice.handleSpokenLine(OTHER, "Missy you are released from frozen");
+check("only the installer can release it", said.length, 0);
 
 // --- a second trigger does not overwrite the first ---
 triggers.beginRecording(HYP, "GameBot", "no touchy");

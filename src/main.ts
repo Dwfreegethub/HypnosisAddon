@@ -10,7 +10,7 @@ import { installSession } from "./session";
 import { installSuppression } from "./suppression";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
-import { handleSpokenLine, mentionsAnyName, playerOwnNames } from "./voice";
+import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 
@@ -89,6 +89,21 @@ safely("ChatRoomMessage hook", () => {
 				return undefined;
 			}
 			log("ChatRoomMessage", data);
+
+			// Trigger setup, hidden from the subject when they've asked for that. The line
+			// still has to be PROCESSED — it's how the trigger gets built — so react to it
+			// here and then don't call next(), rather than suppressing it wholesale.
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && typeof data?.Content === "string") {
+				try {
+					if (isTriggerSetupLine(data.Sender, data.Content)) {
+						handleSpokenLine(data.Sender, data.Content);
+						log("hid trigger setup line from the subject");
+						return undefined;
+					}
+				} catch (err) {
+					log("trigger-setup check failed:", err);
+				}
+			}
 
 			// Render the line FIRST, then react to it. Order matters: handleSpokenLine emits
 			// flavor text via ChatRoomSendLocal, so running it before next() put our reaction

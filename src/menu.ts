@@ -71,6 +71,7 @@ const TABS: Tab[] = [
 			{ key: "suppressClothing", label: "Clothing Changes" },
 			{ key: "suppressBondage", label: "Bondage Changes" },
 			{ key: "suppressActivities", label: "Touches / Activities" },
+			{ key: "suppressTriggerSetup", label: "Trigger setup (hide what is planted)" },
 		],
 	},
 	{
