@@ -7,33 +7,29 @@ import { clearSelfTouchBlocks } from "./selftouch";
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
 // Preference.js, PreferenceRegisterExtensionSetting) — adds one button into
 // Preferences > Extensions, same mechanism LSCG uses. All draw/click coordinates and
-// primitive signatures below (DrawCheckbox, DrawText, MouseIn) are verified against the
-// live client source, not guessed.
+// primitive signatures below (DrawCheckbox, DrawText, MouseIn, DrawRect, DrawEmptyRect)
+// are verified against the live client source, not guessed.
+//
+// LAYOUT: tabs across the top, one group of settings visible at a time. Replaced a
+// three-groups-in-two-columns sheet that was already at the edge of the canvas at twelve
+// rows; tabs mean the next group costs a tab rather than a redesign. The previous layout
+// is tagged `menu-checkbox-layout` in git if it needs to come back.
 
 interface Row {
 	key: keyof FeatureToggles;
 	label: string;
 }
 
-interface Column {
-	left: number;
-	heading: string;
-	subheading: string;
-	/** Rows of vertical offset, so a second group can stack under one in the same column. */
-	topOffset?: number;
+interface Tab {
+	name: string;
+	blurb: string;
 	rows: Row[];
 }
 
-// Three groups in two columns — twelve rows won't fit in one, and the grouping is
-// meaningful rather than just spatial: the groups answer different questions and
-// "Permissions" defaults off while "In trance" defaults on (see FeatureToggles).
-// The right column stacks two groups via topOffset; "In trance" occupies rows 0-2 and
-// "Unaware of" rows 4-6, so array order here doesn't determine what appears where.
-const COLUMNS: Column[] = [
+const TABS: Tab[] = [
 	{
-		left: 180,
-		heading: "Permissions",
-		subheading: "what others may do to you",
+		name: "Permissions",
+		blurb: "What others may do to you. All off by default.",
 		rows: [
 			{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
 			{ key: "movementRestriction", label: "Movement Restriction" },
@@ -45,43 +41,60 @@ const COLUMNS: Column[] = [
 		],
 	},
 	{
-		left: 1080,
-		heading: "Unaware of",
-		subheading: "hides the message only — arousal still applies",
-		topOffset: 4,
-		rows: [
-			{ key: "suppressClothing", label: "Clothing Changes" },
-			{ key: "suppressBondage", label: "Bondage Changes" },
-			{ key: "suppressActivities", label: "Touches / Activities" },
-		],
-	},
-	{
-		left: 1080,
-		heading: "In trance",
-		subheading: "what being under is like — on by default",
+		name: "Trance Defaults",
+		blurb: "What being under is like. On by default — this is the trance itself, not something granted.",
 		rows: [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "tranceScreenFade", label: "Screen Fade" },
 		],
 	},
+	{
+		name: "Awareness",
+		blurb: "What you can be made unaware of. Hides the message only — arousal still applies.",
+		rows: [
+			{ key: "suppressClothing", label: "Clothing Changes" },
+			{ key: "suppressBondage", label: "Bondage Changes" },
+			{ key: "suppressActivities", label: "Touches / Activities" },
+		],
+	},
 ];
 
-const ROW_WIDTH = 90;
-const ROW_HEIGHT = 90;
-const ROW_TOP_START = 300;
-// 100 rather than 110: with three groups the tallest column runs 9 rows deep, and at 110
-// the last one would end at y=1050 on a 1000-tall canvas. 10px of breathing room between
-// 90px boxes is tight but legible.
-const ROW_SPACING = 100;
+let activeTab = 0;
 
-function rowTop(index: number, offset = 0): number {
-	return ROW_TOP_START + (index + offset) * ROW_SPACING;
+// --- Geometry ------------------------------------------------------------------------
+const TITLE_Y = 110;
+
+const TAB_TOP = 190;
+const TAB_HEIGHT = 72;
+const TAB_LEFT = 200;
+const TAB_WIDTH = 340;
+const TAB_GAP = 8;
+
+const PANEL_LEFT = 200;
+const PANEL_TOP = 262;
+const PANEL_WIDTH = 1600;
+const PANEL_HEIGHT = 640;
+
+const BLURB_Y = 305;
+const BOX_LEFT = 260;
+const BOX_SIZE = 70;
+const ROW_TOP_START = 350;
+const ROW_SPACING = 78;
+
+// Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
+// button is MouseIn(1815, 75, 90, 90), and this screen has no canvas equivalent of its
+// own to copy (the Preferences exit is DOM-positioned via ElementMenu).
+const BACK_LEFT = 1815;
+const BACK_TOP = 75;
+const BACK_SIZE = 90;
+
+function tabLeft(index: number): number {
+	return TAB_LEFT + index * (TAB_WIDTH + TAB_GAP);
 }
 
-/** Headings sit just above their group's first row, so a stacked group carries its own. */
-function headingY(offset = 0): number {
-	return rowTop(0, offset) - 75;
+function rowTop(index: number): number {
+	return ROW_TOP_START + index * ROW_SPACING;
 }
 
 /** Left-aligned text. BC's canvas defaults to centered, so every label needs this. */
@@ -92,27 +105,85 @@ function drawLeftText(text: string, x: number, y: number, color = "Black"): void
 	MainCanvas.restore();
 }
 
-// ADJUST-ME — exit icon position. Increase BACK_LEFT to move right, BACK_TOP to move
-// down. The Preferences screen's own native exit button is DOM/CSS-positioned
-// (ElementMenu in Element.js), not a canvas draw, so there's still no exact value for
-// THIS specific screen — but this now matches the verified InformationSheetClick()
-// native Back button coordinate (MouseIn(1815, 75, 90, 90) in InformationSheet.js),
-// corroborated by DW's own click-testing (bottom-right corner measured within ~4px of
-// 1905,165 = 1815+90,75+90), and it's the same 90x90 size Dialog.js/Wardrobe.js use for
-// this icon everywhere else — a reasonable cross-screen convention, not a blind guess.
-const BACK_LEFT = 1815;
-const BACK_TOP = 75;
-const BACK_WIDTH = 90;
-const BACK_HEIGHT = 90;
+/** Tabs are DrawButtons sitting on the panel's top edge; the active one is painted the
+ * same white as the panel and then has the border segment beneath it erased, so it reads
+ * as continuous with the content rather than as a button floating above it. */
+function drawTabs(): void {
+	TABS.forEach((tab, i) => {
+		const active = i === activeTab;
+		DrawButton(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT, tab.name, active ? "White" : "#d8d8d8");
+		if (active) {
+			// Erase the panel's top border under this tab. Inset by the 3px border width so
+			// the tab's own left and right edges survive.
+			DrawRect(tabLeft(i) + 3, PANEL_TOP - 2, TAB_WIDTH - 6, 6, "White");
+		}
+	});
+}
 
-// These are PERMISSION settings now, not self-triggers — "do I allow someone else to do
-// this to me", checked in messaging.ts when a remote request comes in over the Hidden
-// channel (see remote.ts). Checking a box here never applies an effect to yourself;
-// unchecking one DOES immediately release that effect if it's currently active (revoking
-// consent mid-effect should end it, not just block future requests), and hypnoEnabled
-// off is a hard floor that releases both regardless of their own permission state —
-// matching the design doc's philosophy ("clears active trance, suspends all effects").
-// hypnoEnabled back on does NOT restore an effect that was released this way.
+export function installMenu(): void {
+	PreferenceRegisterExtensionSetting({
+		Identifier: "HypnosisAddon",
+		ButtonText: "Hypnosis Add-on",
+		// Always open on the first tab — coming back to a screen part-way through a
+		// previous visit's navigation is disorienting.
+		load: () => {
+			activeTab = 0;
+		},
+		run: () => {
+			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
+			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+
+			DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
+			DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
+			drawTabs();
+
+			const tab = TABS[activeTab];
+			drawLeftText(tab.blurb, BOX_LEFT, BLURB_Y, "Gray");
+
+			const features = getFeatures();
+			tab.rows.forEach((row, i) => {
+				const top = rowTop(i);
+				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
+				// Width, which overlaps the box for anything but very short text. Draw the
+				// label ourselves, left-aligned and clear of the box.
+				DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key]);
+				drawLeftText(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26);
+			});
+		},
+		click: () => {
+			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
+				PreferenceSubscreenExtensionsClear();
+				return;
+			}
+			for (let i = 0; i < TABS.length; i++) {
+				if (MouseIn(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT)) {
+					activeTab = i;
+					return;
+				}
+			}
+			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
+			// coordinates, so without this a single click would toggle one row per tab.
+			const features = getFeatures();
+			TABS[activeTab].rows.forEach((row, i) => {
+				if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
+					const next = !features[row.key];
+					setFeature(row.key, next);
+					onToggle(row.key, next);
+					log(`${row.key} set to ${next}`);
+				}
+			});
+		},
+		exit: () => true,
+	});
+}
+
+// These are PERMISSION settings, not self-triggers — "do I allow someone else to do this
+// to me", checked when a remote request or spoken suggestion arrives. Checking a box never
+// applies an effect to yourself; unchecking one DOES immediately release that effect if
+// it's currently active (revoking consent mid-effect should end it, not merely block future
+// requests), and hypnoEnabled off is a hard floor that releases everything regardless of
+// the individual flags — matching the design doc's "clears active trance, suspends all
+// effects". Turning hypnoEnabled back on does NOT restore what was released.
 function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 	switch (key) {
 		case "hypnoEnabled":
@@ -157,53 +228,8 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) setSuppressed("activity", false);
 			break;
 		case "hiddenActivities":
-			// No direct effect — messaging.ts reads this flag itself before
-			// sending/processing anything on the Hidden channel.
+			// No direct effect — messaging.ts reads this flag itself before sending or
+			// processing anything on the Hidden channel.
 			break;
 	}
-}
-
-export function installMenu(): void {
-	PreferenceRegisterExtensionSetting({
-		Identifier: "HypnosisAddon",
-		ButtonText: "Hypnosis Add-on",
-		load: () => {},
-		run: () => {
-			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, 150, "Black");
-			DrawButton(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT, "", "White", "Icons/Exit.png", "Exit");
-			const features = getFeatures();
-			for (const column of COLUMNS) {
-				const offset = column.topOffset ?? 0;
-				drawLeftText(column.heading, column.left, headingY(offset));
-				drawLeftText(column.subheading, column.left, headingY(offset) + 37, "Gray");
-				column.rows.forEach((row, i) => {
-					const top = rowTop(i, offset);
-					// Empty label here — DrawCheckbox centers its own label at a fixed offset
-					// regardless of Width, which overlaps the box for anything but very short
-					// text. Draw the label ourselves, left-aligned, clear of the box instead.
-					DrawCheckbox(column.left, top, ROW_WIDTH, ROW_HEIGHT, "", features[row.key]);
-					drawLeftText(row.label, column.left + ROW_WIDTH + 20, top + 33);
-				});
-			}
-		},
-		click: () => {
-			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_WIDTH, BACK_HEIGHT)) {
-				PreferenceSubscreenExtensionsClear();
-				return;
-			}
-			const features = getFeatures();
-			for (const column of COLUMNS) {
-				const offset = column.topOffset ?? 0;
-				column.rows.forEach((row, i) => {
-					if (MouseIn(column.left, rowTop(i, offset), ROW_WIDTH, ROW_HEIGHT)) {
-						const next = !features[row.key];
-						setFeature(row.key, next);
-						onToggle(row.key, next);
-						log(`${row.key} set to ${next}`);
-					}
-				});
-			}
-		},
-		exit: () => true,
-	});
 }
