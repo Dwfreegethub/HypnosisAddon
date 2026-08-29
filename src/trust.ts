@@ -24,8 +24,16 @@ const DIRECTED_MULTIPLIER = 2;
  * conversation stops mattering, lower it and inductions stop feeling like a shortcut. */
 const INDUCTION_INTERACTIONS = 10;
 
-/** What one completed induction is worth toward subject experience. Being hypnotized is
- * the practice, so it's one per session regardless of how it went. */
+// Experience from inductions. EVERY attempt grants some, because being the target of one
+// is the practice whether or not it lands — and under the single-pool model the subject
+// who fights an attempt off has to be able to get better at fighting. Granting only on
+// success meant resistance could never improve, since improving required going under,
+// which quietly contradicted the whole point of one shared pool.
+//
+// Success is worth more: three failed attempts total 0.75, a first-attempt success 1.25.
+/** Per attempt, win or lose. */
+const ATTEMPT_EXPERIENCE = 0.25;
+/** Additional, on success only. */
 const INDUCTION_EXPERIENCE = 1;
 
 /** memberNumber → when we last counted an interaction with them. In-memory only: a reload
@@ -48,8 +56,15 @@ export function noteConversation(sender: number, senderName: string, directed: b
 	);
 }
 
-/** Called once when an induction succeeds. Both halves of the accelerator: trust with that
- * specific hypnotist, and the subject's own general experience of being hypnotized. */
+/** Called for every induction roll, whichever way it goes. Deliberately grants no TRUST —
+ * an attempt that failed is not a relationship milestone, it's just practice. */
+export function noteInductionAttempt(): void {
+	const exp = addExperience(ATTEMPT_EXPERIENCE);
+	log(`attempt experience +${ATTEMPT_EXPERIENCE} → ${exp.toFixed(1)}`);
+}
+
+/** Called additionally when an induction succeeds. Both halves of the accelerator: trust
+ * with that specific hypnotist, and the deeper practice of actually going under. */
 export function noteInductionSuccess(hypnotistId: number, hypnotistName: string): void {
 	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS);
 	const exp = addExperience(INDUCTION_EXPERIENCE);

@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
-import { noteInductionSuccess } from "./trust";
+import { noteInductionSuccess, noteInductionAttempt } from "./trust";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import {
@@ -245,6 +245,9 @@ function runInductionRoll(): void {
 	const chance = inductionChance(session.hypnotistId, choice);
 	const roll = Math.random() * 100;
 	session.attempts += 1;
+	// Every attempt is practice, whichever way it goes — see trust.ts. Called before the
+	// branches so no exit path can miss it.
+	noteInductionAttempt();
 	const detail = `chance=${chance.toFixed(1)} roll=${roll.toFixed(1)} choice=${choice} trust=${trustWith(session.hypnotistId).toFixed(1)} exp=${experienceValue().toFixed(1)}`;
 
 	if (roll < chance) {
