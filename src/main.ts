@@ -68,6 +68,19 @@ safely("ChatRoomMessage hook", () => {
 			if (handleIncomingHidden(data)) {
 				return next(args);
 			}
+			// Suppression has to come BEFORE next() — it works by never calling it.
+			if (data?.Type === "Action" && (getFeatures().clothingRestriction || consumeSuppressFlag())) {
+				log("suppressed Action message:", JSON.stringify(data));
+				return undefined;
+			}
+			log("ChatRoomMessage", data);
+
+			// Render the line FIRST, then react to it. Order matters: handleSpokenLine emits
+			// flavor text via ChatRoomSendLocal, so running it before next() put our reaction
+			// above the line that caused it ("Your knees fold under you." printing before
+			// "GameBot: Missy Kneel"). Cause should read before effect.
+			const result = next(args);
+
 			// Spoken suggestions: ordinary chat we can hear from someone running a session
 			// on us. Never consumes the message — the line is still said out loud, and the
 			// effect (if any) lands alongside it.
@@ -78,12 +91,7 @@ safely("ChatRoomMessage hook", () => {
 					log("suggestion parsing failed:", err);
 				}
 			}
-			if (data?.Type === "Action" && (getFeatures().clothingRestriction || consumeSuppressFlag())) {
-				log("suppressed Action message:", JSON.stringify(data));
-				return undefined;
-			}
-			log("ChatRoomMessage", data);
-			return next(args);
+			return result;
 		}) as any,
 	);
 });
