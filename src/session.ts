@@ -61,6 +61,11 @@ const CHANCE_CEILING = 95;
  * is ±25 — the same magnitude as the choice modifier, which is probably too strong once
  * hypnotist skill exists to compete with it. Tune against real play. */
 const EXPERIENCE_WEIGHT = 0.25;
+/** How far arousal alone can carry someone with zero relationship trust — the design doc's
+ * "Stranger ceiling". Meant to be a player setting; a constant until the settings screen
+ * grows a control that isn't a checkbox. At 30, a fully aroused stranger reaches the same
+ * access as roughly an hour of conversation, and no further. */
+const STRANGER_CEILING = 30;
 /** Above this depth the subject can no longer pull themselves out — only the hypnotist,
  * the session timeout, or the safeword. */
 const SELF_WAKE_MAX_DEPTH = 40;
@@ -193,9 +198,39 @@ function endSession(reason: string, quiet = false): void {
 
 // --- Subject side: the roll ----------------------------------------------------------
 
-// The arousal/drug chemical floor from the design doc — effective access is
-// `max(relationshipTrust, chemicalFloor)` — belongs inside inductionChance below, wrapping
-// the trust term. Not built yet; neither arousal nor drugs are wired up.
+/** The design doc's chemical access floor, from arousal. Drugs will feed the same floor
+ * when they exist.
+ *
+ * Read off `Player.ArousalSettings.Progress` — OUR OWN arousal, on our own client. That's
+ * both correct and convenient: it's the subject's lowered guard that matters, the roll
+ * already runs here, and nothing has to be synced or trusted from anyone else.
+ *
+ * Verified against Activity.js: Progress is documented and clamped 0-100, and BC itself
+ * treats arousal as active only when `Active` is "Hybrid" or "Automatic" (the check in its
+ * own arousal handler). A player who turned the meter off gets no floor at all — their
+ * setting, respected.
+ *
+ * IMPORTANT, per the doc: this floor is for SESSION-ONLY effects. It must never reach
+ * persistent triggers or anything that writes lasting state, no matter how high the
+ * ceiling goes. Today its only consumer is the induction roll, which is session-only by
+ * definition — check this comment before wiring it anywhere else. */
+function chemicalFloor(): number {
+	const settings = Player?.ArousalSettings;
+	const active = settings?.Active === "Hybrid" || settings?.Active === "Automatic";
+	if (!active) return 0;
+	const progress = typeof settings?.Progress === "number" ? settings.Progress : 0;
+	return Math.max(0, Math.min(STRANGER_CEILING, progress));
+}
+
+/** Effective access for a threshold check: `max(relationshipTrust, chemicalFloor)`.
+ *
+ * A FLOOR, not a multiplier — deliberately, and the doc spells out why: a multiplier on
+ * zero trust is still zero, so it would give a stranger nothing, which is the one case the
+ * mechanic exists to serve. As a floor it also lets an established relationship push a
+ * little past where trust alone would sit. */
+export function effectiveAccess(memberId: number): number {
+	return Math.max(trustWith(memberId), chemicalFloor());
+}
 
 /** The chance this attempt lands, 0-100. Read the number literally: 35 means a 35% chance.
  *
@@ -211,7 +246,7 @@ function endSession(reason: string, quiet = false): void {
  * sliver, and a deeply trusted hypnotist can still miss. The floor is DW's settled call
  * and is meant to become a player setting. */
 function inductionChance(hypnotistId: number, choice: SessionChoice): number {
-	const trust = trustWith(hypnotistId);
+	const trust = effectiveAccess(hypnotistId);
 	const exp = experienceValue();
 	const experienceEffect = choice === "agree" ? exp * EXPERIENCE_WEIGHT : choice === "fight" ? -exp * EXPERIENCE_WEIGHT : 0;
 	// Hypnotist skill belongs in this sum too, but it lives on the HYPNOTIST's client and
@@ -226,10 +261,13 @@ function inductionChance(hypnotistId: number, choice: SessionChoice): number {
  * needing to run an induction and infer them from the outcome. */
 export function describeChances(memberId: number): string[] {
 	const trust = trustWith(memberId);
+	const floor = chemicalFloor();
+	const access = effectiveAccess(memberId);
 	const exp = experienceValue();
 	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, MAX_ATTEMPTS));
 	return [
-		`vs [${memberId}] — trust ${trust.toFixed(1)}, experience ${exp.toFixed(1)}`,
+		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
+			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
 		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
 			const c = inductionChance(memberId, choice);
 			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${MAX_ATTEMPTS}`;

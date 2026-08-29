@@ -18,11 +18,11 @@ const RATE_LIMIT_MS = 5 * 60_000;
  * still inside the same rate-limit window so it can't be farmed. */
 const DIRECTED_MULTIPLIER = 2;
 
-/** What one successful induction is worth, in interactions. At H_TRUST=25 this moves a
- * stranger from 0 to ~29 trust in a single session, which is the "significant accelerator"
- * the doc asks for. Trades directly against the conversation pace — raise it and
- * conversation stops mattering, lower it and inductions stop feeling like a shortcut. */
-const INDUCTION_INTERACTIONS = 10;
+/** What one successful induction is worth, in interactions. Lowered from 10 after real
+ * play: at 10 an induction was worth ~50 minutes of conversation, so two sessions took a
+ * near-stranger to 44 trust and talking stopped being worth doing. At 5 it is still a real
+ * shortcut (~25 min) without replacing the slow path it is meant to accelerate. */
+const INDUCTION_INTERACTIONS = 5;
 
 // Experience from inductions. EVERY attempt grants some, because being the target of one
 // is the practice whether or not it lands — and under the single-pool model the subject
