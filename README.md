@@ -412,6 +412,29 @@ Matching is split into a pure `matchSuggestion()`, exercised by a 60-case suite 
 
 ---
 
+## Stage 6 — Trance states, suppression, self-touch (v0.10.0–v0.13.1)
+
+**Where you intervene in BC's pipeline is the feature.** Three restrictions built this stage, each needing a different hook, and picking the wrong one would have silently broken the requirement:
+
+| Goal | Hook | Why there |
+|---|---|---|
+| Silence room speech | `ChatRoomSendChatMessage` | After command parsing and the emote/whisper branches — keeps `/hypno safeword`, emotes, whispers |
+| Trance veil | `DrawProcess` | Paint after `next()` to sit over everything, menus included |
+| Hide messages, **keep arousal** | `ChatRoomRegisterMessageHandler`, priority **320** | After Arousal Processing (210) and BC's own hiders (300/310), before Push-to-chat (500) |
+| Block self-touch **entirely** | `ActivityRun` | It applies arousal, runs the self-effect *and* sends the message — skipping it means nothing happened at all |
+
+The last two are deliberate opposites. Suppression lets everything happen and hides the message; self-touch blocking stops the activity outright. Suppressing in our `ChatRoomMessage` hook would have killed arousal, since that hook runs before BC processes anything.
+
+Self-touch is structurally self-only: `ActivityRun` executes on the *actor's* client.
+
+**Settings screen went tabbed** (v0.13.0) — Permissions / Trance Defaults / Awareness. The seam between active tab and panel is *never drawn* rather than drawn and erased; erasing left a hairline, because canvas strokes are anti-aliased and bleed past their nominal bounds. Previous layout tagged `menu-checkbox-layout`.
+
+**The pattern test suite has now caught six real bugs pre-ship**, including bare `stand` never matching, and `awareness-release` swallowing "you are awake again" — which would have made the wake keyword restore awareness while leaving the subject under. It lives in the scratchpad and does not survive the session; **move it into the repo before touching `voice.ts` again.**
+
+⚠ **`INDUCTION_WINDOW_MS` is at the 10-second testing value.** Restore to `60_000` before real play.
+
+---
+
 ## Lessons Learned (BC API gotchas — quick reference)
 
 Full detail on each is inline above where relevant; this is just an index so nothing gets rediscovered the hard way twice.
@@ -436,4 +459,12 @@ Full detail on each is inline above where relevant; this is just an index so not
 
 ---
 
-*Last updated: 2026-08-27 (v0.9.1)*
+- **BC's message pipeline has documented insertion points — use them instead of hooking `ChatRoomMessage`.** `ChatRoomRegisterMessageHandler({Priority, Callback})` runs handlers in priority order; returning `true` stops processing so the message never renders. Landmarks: **210** arousal processing, **300**/**310** BC's own hiders, **500** push-to-chat. Hooking `ChatRoomMessage` intervenes before all of it, which kills side effects you may want to keep.
+- **`ActivityRun` (Activity.js) is the single entry point for an activity** — it applies arousal, runs the actor's self-effect, then sends the chat message. Skip it and none of the three happen. It runs on the *actor's* client, so hooking it can only govern what the player does themselves.
+- **Never erase an anti-aliased stroke.** Canvas strokes bleed sub-pixel past their nominal bounds, so covering one with a rect on integer coordinates leaves a visible hairline. Draw borders as filled `DrawRect` segments and simply don't draw the part you don't want.
+- **A userscript with a non-matching `@match` fails completely silently.** BC is served from more than one host (`bondageprojects.elementfx.com`, `bondage-europe.com`); if the addon appears totally dead — no indicator, no console line — check the `@match` list first.
+- **Overlapping hit regions need an explicit active-view check.** Tabs share coordinates across their content; without gating clicks to the visible tab, one click toggles a row in *every* tab, mostly invisibly.
+
+---
+
+*Last updated: 2026-08-29 (v0.13.1)*

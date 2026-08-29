@@ -4,3 +4,4 @@ dist/
 *.log
 .env
 src/secrets.ts
+test/voice-bundle.mjs
