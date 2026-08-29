@@ -96,6 +96,11 @@ const SUGGESTIONS: Suggestion[] = [
 			/\b(stay|remain) where you are\b/,
 			/\byour body (will not|does not|cannot) (move|respond|obey)\b/,
 			/\byou (cannot|will not) move (a muscle|an inch|at all)\b/,
+			// Future phrasing, natural when building a trigger: "when I say sleepy time,
+			// you will not be able to move". Same effect either way — the tense is for the
+			// hypnotist's benefit, not a different mechanic.
+			/\byou will (not be able|be unable) to move\b/,
+			/\byou will not move\b/,
 		],
 		run: () => applyEffect("Freeze"),
 	},
@@ -121,6 +126,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\b(do not|never) (touch|change|remove|adjust) your (clothes|clothing|outfit)\b/,
 			/\bleave your (clothes|clothing|outfit) alone\b/,
 			/\byou have forgotten how to (dress|undress|change)\b/,
+			/\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/,
 		],
 		run: () => applyEffect("BlockWardrobe"),
 	},
@@ -209,6 +215,8 @@ const SUGGESTIONS: Suggestion[] = [
 			/\b(stay|remain|be) (silent|quiet)\b/,
 			/\bnot a (word|sound)\b/,
 			/\byou have forgotten how to (speak|talk)\b/,
+			/\byou will (not be able|be unable) to (speak|talk)\b/,
+			/\byou will not (speak|talk)\b/,
 			/(?<!\bi )(?<!\bwe )\bsilence\b/,
 		],
 		run: () => setSpeechBlocked(true),
@@ -473,6 +481,9 @@ function handleTriggerFiring(sender: number, content: string): boolean {
 // share a word with it.
 
 const WAKE_PATTERNS = [
+	// Bare "wake" included: DW tried "Missy wake" and nothing happened. Guarded against
+	// first-person the same way the other bare imperatives are.
+	/(?<!\bi )(?<!\bwe )\bwake\b/,
 	/\bwake up\b/,
 	/\bwake now\b/,
 	/\byou (?:are|will be) (?:wide )?awake\b/,
@@ -576,9 +587,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// While recording a trigger, suggestions are stored rather than performed — otherwise
 	// building a "you cannot move" trigger freezes the subject mid-setup, and the
 	// hypnotist has to undo it before they can carry on.
-	if (recordAction(id)) {
-		log(`recorded "${id}" into the trigger being built`);
-		ChatRoomSendLocal("That settles into place, waiting.");
+	const recorded = recordAction(id);
+	if (recorded) {
+		ChatRoomSendLocal(recorded);
 		return;
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
