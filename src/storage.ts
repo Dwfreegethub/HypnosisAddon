@@ -253,6 +253,10 @@ export function setExperienceValue(value: number): number {
  * localStorage vs a parse failure vs an early read — and each looks identical from the
  * outside. */
 export function describeStorage(): string[] {
+	// Force the load FIRST. Without this the "loaded from" line below read the flag before
+	// the later lines' listTrust() call triggered the account re-read, so it reported the
+	// state from before its own diagnostic ran — reliably one step out of date.
+	loadSettings();
 	const accountRaw = Player?.ExtensionSettings?.[SETTINGS_KEY];
 	const backupRaw = localStorage.getItem(BACKUP_KEY);
 	const summarise = (raw: unknown): string => {
