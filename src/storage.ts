@@ -287,3 +287,9 @@ export function setFeature(key: keyof FeatureToggles, value: boolean): void {
 	loadSettings().features[key] = value;
 	saveSettings();
 }
+
+/** The stored experience COUNT, not the derived value. Shown on the Stats tab alongside
+ * the value so the pace is legible — 1.25 per session says more about speed than "4.8". */
+export function rawExperience(): number {
+	return loadSettings().experience;
+}

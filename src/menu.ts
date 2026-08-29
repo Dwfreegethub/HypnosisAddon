@@ -1,8 +1,9 @@
 import { log } from "./log";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
-import { getFeatures, setFeature, FeatureToggles } from "./storage";
+import { getFeatures, setFeature, FeatureToggles, experienceValue, rawExperience } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
+import { trustStatRows } from "./trust";
 import { isHypnotized } from "./session";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -24,7 +25,10 @@ interface Row {
 interface Tab {
 	name: string;
 	blurb: string;
-	rows: Row[];
+	/** Checkbox tabs. Omitted for a tab that draws itself. */
+	rows?: Row[];
+	/** Read-only tabs supply their own drawing instead of a row list. */
+	render?: () => void;
 }
 
 const TABS: Tab[] = [
@@ -59,6 +63,11 @@ const TABS: Tab[] = [
 			{ key: "suppressActivities", label: "Touches / Activities" },
 		],
 	},
+	{
+		name: "Stats",
+		blurb: "Read-only. Interaction counts are shown because they're what's actually stored — and what makes the pace legible.",
+		render: drawStats,
+	},
 ];
 
 let activeTab = 0;
@@ -85,6 +94,38 @@ const BOX_LEFT = 260;
 const BOX_SIZE = 70;
 const ROW_TOP_START = 350;
 const ROW_SPACING = 78;
+
+/** Columns for the Stats tab. */
+const STAT_NAME_X = BOX_LEFT;
+const STAT_VALUE_X = 900;
+const STAT_DETAIL_X = 1100;
+const STAT_LINE_HEIGHT = 40;
+/** Rows that fit between the first line and the panel floor. */
+const STAT_MAX_ROWS = 10;
+
+function drawStats(): void {
+	let y = ROW_TOP_START + 10;
+	const line = (name: string, value: string, detail: string, color = "Black") => {
+		drawLeftText(name, STAT_NAME_X, y, color);
+		if (value) drawLeftText(value, STAT_VALUE_X, y, color);
+		if (detail) drawLeftText(detail, STAT_DETAIL_X, y, "Gray");
+		y += STAT_LINE_HEIGHT;
+	};
+
+	line("Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
+	y += 16;
+	line("Trust", "value", "detail", "Gray");
+
+	const rows = trustStatRows();
+	if (!rows.length) {
+		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, y, "Gray");
+		return;
+	}
+	for (const row of rows.slice(0, STAT_MAX_ROWS)) line(row.name, row.trust, row.detail);
+	if (rows.length > STAT_MAX_ROWS) {
+		drawLeftText(`…and ${rows.length - STAT_MAX_ROWS} more — /hypno logtrust lists everyone.`, STAT_NAME_X, y, "Gray");
+	}
+}
 
 // Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
 // button is MouseIn(1815, 75, 90, 90), and this screen has no canvas equivalent of its
@@ -183,8 +224,12 @@ export function installMenu(): void {
 				"Gray",
 			);
 
+			if (tab.render) {
+				tab.render();
+				return;
+			}
 			const features = getFeatures();
-			tab.rows.forEach((row, i) => {
+			(tab.rows ?? []).forEach((row, i) => {
 				const top = rowTop(i);
 				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
 				// Width, which overlaps the box for anything but very short text. Draw the
@@ -210,7 +255,7 @@ export function installMenu(): void {
 			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
-			TABS[activeTab].rows.forEach((row, i) => {
+			(TABS[activeTab].rows ?? []).forEach((row, i) => {
 				if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
 					const next = !features[row.key];
 					setFeature(row.key, next);

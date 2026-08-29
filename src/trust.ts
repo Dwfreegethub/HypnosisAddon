@@ -74,6 +74,38 @@ export function noteInductionSuccess(hypnotistId: number, hypnotistName: string)
 	);
 }
 
+export interface TrustStatRow {
+	name: string;
+	/** 0-100 value, already formatted. */
+	trust: string;
+	/** The count behind it, plus when it last moved — both matter for judging pace. */
+	detail: string;
+}
+
+function agoText(timestamp: number): string {
+	if (!timestamp) return "never";
+	const mins = Math.floor((Date.now() - timestamp) / 60_000);
+	if (mins < 1) return "just now";
+	if (mins < 60) return `${mins}m ago`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `${hours}h ago`;
+	return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Per-person rows for the settings screen's Stats tab, strongest first. Shows the
+ * interaction count next to the value deliberately: the count is what's actually stored
+ * and what makes the pace legible ("5.8 interactions" says more about speed than "18.8"). */
+export function trustStatRows(): TrustStatRow[] {
+	return listTrust()
+		.slice()
+		.sort((a, b) => b.interactions - a.interactions)
+		.map((t) => ({
+			name: `${t.memberName} [${t.memberId}]`,
+			trust: trustWith(t.memberId).toFixed(1),
+			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastUpdated)}`,
+		}));
+}
+
 /** Human-readable dump for /hypno logtrust. */
 export function describeTrust(): string[] {
 	const all = listTrust();
