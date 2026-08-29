@@ -86,3 +86,13 @@ declare function ElementRemove(elementOrId: any): void;
 /** Reputation lookup, e.g. ReputationCharacterGet(C, "Dominant"). Used by BC's own
  * permission ladder to decide who counts as dominant relative to whom. */
 declare function ReputationCharacterGet(character: any, type: string): number;
+declare function ElementCreateInput(
+	id: string | null,
+	type: string,
+	value?: string,
+	maxLength?: number,
+	form?: Node,
+): HTMLInputElement;
+/** BC's own clamp-on-blur for number inputs — respects the element's min/max/inputMode. */
+declare function ElementNumberInputBlur(this: HTMLInputElement, event: Event): void;
+declare function ElementNumberInputWheel(this: HTMLInputElement, event: Event): void;

@@ -2,9 +2,10 @@ import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
-import { getFeatures, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
+import { scheduleTimer, cancelTimer } from "./timers";
 import {
 	isRecording,
 	cancelRecording,
@@ -512,6 +513,7 @@ function fireTrigger(trigger: Trigger): void {
 		fired++;
 	}
 	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
+	if (fired) scheduleAutoRelease(trigger);
 }
 
 // Releasing a trigger by name: "Missy, you are released from frozen".
@@ -527,6 +529,41 @@ const TRIGGER_RELEASE = [
 	/\brelease (?:the )?trigger (.+)$/,
 ];
 
+/** Reverse everything a trigger applied. Shared by the named release, the timer, and
+ * anything else that needs to let go — one path, so they can't drift apart. */
+function undoTrigger(trigger: Trigger): void {
+	for (const id of trigger.actions) {
+		if (id.startsWith("touch:")) {
+			const word = id.slice("touch:".length);
+			if (word === "all") setAllSelfTouchBlocked(false);
+			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
+			continue;
+		}
+		SUGGESTIONS.find((s) => s.id === id)?.undo?.();
+	}
+	cancelTimer(timerKey(trigger));
+	log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
+}
+
+/** Keyed by installer AND phrase — two people can plant the same word, and one wearing
+ * off must not cancel the other's. */
+function timerKey(trigger: Trigger): string {
+	return `trigger:${trigger.installedBy}:${trigger.phrase}`;
+}
+
+/** Let a fired trigger wear off on its own. Re-firing restarts the clock rather than
+ * stacking a second timer — scheduleTimer replaces by key. */
+function scheduleAutoRelease(trigger: Trigger): void {
+	const minutes = getTriggerDuration();
+	cancelTimer(timerKey(trigger));
+	if (minutes <= 0) return; // 0 means it holds until released deliberately
+	scheduleTimer(timerKey(trigger), minutes * 60_000, () => {
+		undoTrigger(trigger);
+		ChatRoomSendLocal("Whatever was holding you loosens on its own.");
+	});
+	log(`trigger "${trigger.phrase}" will release itself in ${minutes} min`);
+}
+
 /** Undo everything a named trigger applied. Ungated beyond installer-only: undoing can
  * never harm the subject, and the safeword is the only other way out. */
 function handleTriggerRelease(sender: number, content: string): boolean {
@@ -541,16 +578,7 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 			log(`release asked for "${phrase}" but no trigger of theirs matches`);
 			return true;
 		}
-		for (const id of trigger.actions) {
-			if (id.startsWith("touch:")) {
-				const word = id.slice("touch:".length);
-				if (word === "all") setAllSelfTouchBlocked(false);
-				else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
-				continue;
-			}
-			SUGGESTIONS.find((s) => s.id === id)?.undo?.();
-		}
-		log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
+		undoTrigger(trigger);
 		ChatRoomSendLocal("Whatever was holding you lets go.");
 		return true;
 	}

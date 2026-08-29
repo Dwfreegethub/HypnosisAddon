@@ -11,6 +11,8 @@ import {
 	resetSettings,
 	getTriggerScope,
 	setTriggerScope,
+	getTriggerDuration,
+	setTriggerDuration,
 } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -41,6 +43,8 @@ interface Tab {
 	rows?: Row[];
 	/** Read-only tabs supply their own drawing instead of a row list. */
 	render?: () => void;
+	/** Drawn AFTER the rows, for a tab that has both checkboxes and other controls. */
+	extra?: () => void;
 }
 
 const TABS: Tab[] = [
@@ -54,7 +58,6 @@ const TABS: Tab[] = [
 			{ key: "postureControl", label: "Posture Control" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
-			{ key: "triggerControl", label: "Triggers (needs trust 65)" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
 	},
@@ -78,6 +81,15 @@ const TABS: Tab[] = [
 		],
 	},
 	{
+		// Triggers earned their own tab once there were three settings for them — a
+		// permission, a scope and a duration. DW asked where the duration belonged, and
+		// the honest answer was "nowhere yet".
+		name: "Triggers",
+		blurb: "Persistent words planted while you are under. Planting needs trust 65 — arousal does not count toward it.",
+		rows: [{ key: "triggerControl", label: "Allow triggers to be planted in you" }],
+		extra: drawTriggerControls,
+	},
+	{
 		name: "Stats",
 		blurb: "Read-only. Interaction counts are shown because they're what's actually stored — and what makes the pace legible.",
 		render: drawStats,
@@ -92,7 +104,9 @@ const TITLE_Y = 110;
 const TAB_TOP = 190;
 const TAB_HEIGHT = 72;
 const TAB_LEFT = 200;
-const TAB_WIDTH = 340;
+// 280 rather than 340: five tabs at 340 would end at x=1932 and run under the exit icon
+// at 1815. DrawButton shrinks its label to fit, so the names still read.
+const TAB_WIDTH = 280;
 const TAB_GAP = 8;
 
 const PANEL_LEFT = 200;
@@ -203,8 +217,55 @@ const SCOPE_CENTRE_Y = 745;
 const SCOPE_WIDTH = 760;
 const SCOPE_HEIGHT = 56;
 
+const DURATION_ID = "HypnosisAddonTriggerDuration";
+const DURATION_LABEL_Y = 830;
+const DURATION_CENTRE_X = 260 + 70;
+const DURATION_CENTRE_Y = 872;
+const DURATION_WIDTH = 140;
+const DURATION_HEIGHT = 56;
+
+/** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
 	if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
+	if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+}
+
+/** The trigger tab's two DOM controls: scope and duration. */
+function drawTriggerControls(): void {
+	const locked = settingsLocked();
+	drawScopeControl(locked);
+	drawDurationControl(locked);
+}
+
+/** How long a fired trigger holds before letting go by itself. A number box rather than a
+ * dropdown so any value can be typed; BC's own blur handler does the clamping, using the
+ * min/max attributes below. */
+function drawDurationControl(locked: boolean): void {
+	drawLeftText(
+		"Minutes a fired trigger lasts before it wears off (0 = until released):",
+		260,
+		DURATION_LABEL_Y,
+		locked ? "Gray" : "Black",
+	);
+	let element = document.getElementById(DURATION_ID) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(DURATION_ID, "number", String(getTriggerDuration()), 4);
+		element.min = "0";
+		element.max = "1440";
+		element.inputMode = "numeric";
+		// Commit on blur, not on every keystroke — otherwise typing "15" saves 1 on the way
+		// to 15. ElementNumberInputBlur clamps to min/max first.
+		element.addEventListener("blur", function (this: HTMLInputElement, event: Event) {
+			ElementNumberInputBlur.call(this, event);
+			const saved = setTriggerDuration(Number(this.value));
+			this.value = String(saved);
+			log(`trigger duration set to ${saved} min`);
+		});
+		element.addEventListener("wheel", ElementNumberInputWheel as any);
+	}
+	if (document.activeElement !== element) element.value = String(getTriggerDuration());
+	element.disabled = locked;
+	ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
 }
 
 function drawScopeControl(locked: boolean): void {
@@ -367,8 +428,9 @@ export function installMenu(): void {
 
 			// The scope dropdown belongs to Permissions only — remove it the moment any
 			// other tab is showing, or a DOM element sits over the Stats table.
-			if (tab.name === "Permissions") drawScopeControl(locked);
-			else removeScopeControl();
+			// DOM controls belong to the Triggers tab only — remove them the moment any
+			// other tab shows, or they sit on top of it.
+			if (tab.name !== "Triggers") removeScopeControl();
 
 			if (tab.render) {
 				tab.render();
@@ -384,6 +446,7 @@ export function installMenu(): void {
 				DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
 				drawLeftText(row.label, left + BOX_SIZE + 20, top + 26, locked ? "Gray" : "Black");
 			});
+			tab.extra?.();
 		},
 		click: () => {
 			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {

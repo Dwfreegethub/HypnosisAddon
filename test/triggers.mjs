@@ -197,5 +197,17 @@ triggers.recordAction("speech-block");
 triggers.commitRecording();
 check("same phrase replaces, not duplicates", storage.listTriggers().length, 2);
 check("  replaced actions", storage.listTriggers().find(t => t.phrase === "frozen").actions, ["speech-block"]);
+
+// --- auto-release after the configured duration ---
+// setTimeout is stubbed so the clock can be driven rather than waited on.
+storage.setTriggerScope("hypnotist");
+storage.setFeature("movementRestriction", true);
+storage.forgetAllTriggers();
+storage.setTriggerDuration(5);
+check("duration stored", storage.getTriggerDuration(), 5);
+check("duration clamps negatives", storage.setTriggerDuration(-3), 0);
+check("duration clamps absurd", storage.setTriggerDuration(99999), 1440);
+storage.setTriggerDuration(5);
+
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

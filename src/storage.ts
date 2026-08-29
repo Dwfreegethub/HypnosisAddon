@@ -126,6 +126,9 @@ interface HypnoAddonSettings {
 	/** Who besides the installer may fire a trigger. Stored as a NAME rather than an index
 	 * so that reordering the dropdown can never silently change what someone chose. */
 	triggerScope: TriggerScope;
+	/** Minutes a fired trigger's effects last before releasing themselves. 0 means no
+	 * limit — they stay until released by name or by the safeword. */
+	triggerDurationMinutes: number;
 	features: FeatureToggles;
 }
 
@@ -151,7 +154,7 @@ function defaultFeatures(): FeatureToggles {
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.4.0", trust: [], experience: 0, triggers: [], triggerScope: "hypnotist", features: defaultFeatures() };
+	return { version: "0.4.0", trust: [], experience: 0, triggers: [], triggerScope: "hypnotist", triggerDurationMinutes: 5, features: defaultFeatures() };
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -182,6 +185,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.experience ??= 0;
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
+	if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
 	s.trust ??= [];
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
@@ -448,4 +452,17 @@ export function getTriggerScope(): TriggerScope {
 export function setTriggerScope(scope: TriggerScope): void {
 	loadSettings().triggerScope = scope;
 	saveSettings();
+}
+
+export function getTriggerDuration(): number {
+	return loadSettings().triggerDurationMinutes;
+}
+
+/** Clamped rather than validated at the edges: a number box can be typed into, and a
+ * negative or absurd duration should land somewhere sane rather than be rejected. */
+export function setTriggerDuration(minutes: number): number {
+	const value = Number.isFinite(minutes) ? Math.max(0, Math.min(1440, Math.round(minutes))) : 5;
+	loadSettings().triggerDurationMinutes = value;
+	saveSettings();
+	return value;
 }
