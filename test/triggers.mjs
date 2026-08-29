@@ -158,5 +158,34 @@ const subjectLine = triggers.beginRecording(HYP, "GameBot", "secret word");
 check("subject line hides the phrase", /secret word/.test(subjectLine), false);
 check("hypnotist line has the phrase", /secret word/.test(lastToHypnotist()), true);
 triggers.cancelRecording();
+
+// --- releases work OUTSIDE a session ---
+// A trigger fires out of trance, so undoing it must not require being back under.
+storage.setFeature("hypnoEnabled", true);
+storage.setFeature("movementRestriction", true);
+storage.forgetAllTriggers();
+triggers.beginRecording(HYP, "GameBot", "frozen");
+triggers.recordAction("movement-block");
+triggers.commitRecording();
+said = [];
+voice.handleSpokenLine(HYP, "frozen");
+check("trigger fires out of trance", said.length, 1);
+said = [];
+voice.handleSpokenLine(HYP, "Missy you can move again");
+check("release lands with no session", said.length, 1);
+said = [];
+voice.handleSpokenLine(HYP, "Missy you cannot move");
+check("restriction still needs a session", said.length, 0);
+
+// --- a second trigger does not overwrite the first ---
+triggers.beginRecording(HYP, "GameBot", "no touchy");
+triggers.recordAction("touch:breasts");
+triggers.commitRecording();
+check("two triggers coexist", storage.listTriggers().length, 2);
+triggers.beginRecording(HYP, "GameBot", "frozen");
+triggers.recordAction("speech-block");
+triggers.commitRecording();
+check("same phrase replaces, not duplicates", storage.listTriggers().length, 2);
+check("  replaced actions", storage.listTriggers().find(t => t.phrase === "frozen").actions, ["speech-block"]);
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

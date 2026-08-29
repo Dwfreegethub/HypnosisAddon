@@ -56,6 +56,12 @@ interface Suggestion {
 	 * suggestion — "you notice nothing" is worth saying if even one category is permitted,
 	 * and run() then applies only the categories actually allowed. */
 	permission: keyof FeatureToggles | (keyof FeatureToggles)[];
+	/** Undoes a restriction rather than applying one. Releases work OUTSIDE a session and
+	 * without a permission check: a trigger can fire out of trance, and if the only way to
+	 * undo it were another trance the subject would be stuck with the safeword as their
+	 * only exit. Undoing can never harm them, so it is always allowed — the same principle
+	 * that makes a remote release always honored. */
+	release?: boolean;
 	patterns: RegExp[];
 	run: () => void;
 }
@@ -71,6 +77,7 @@ function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
 const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "movement-release",
+		release: true,
 		permission: "movementRestriction",
 		patterns: [
 			/\byou (can|may) move\b/,
@@ -106,6 +113,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "clothing-release",
+		release: true,
 		permission: "clothingRestriction",
 		patterns: [
 			/\byou (can|may) (change|remove|touch|adjust) your (clothes|clothing|outfit)\b/,
@@ -135,6 +143,7 @@ const SUGGESTIONS: Suggestion[] = [
 		// applied only if separately permitted — saying it doesn't override a box the
 		// subject left unchecked.
 		id: "awareness-release",
+		release: true,
 		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
 		patterns: [
 			/\byou notice (everything|things|them|it) again\b/,
@@ -170,6 +179,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "touch-release",
+		release: true,
 		permission: "suppressActivities",
 		patterns: [
 			/\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
@@ -193,6 +203,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "speech-release",
+		release: true,
 		permission: "speechRestriction",
 		patterns: [
 			/\byou (can|may) (speak|talk)\b/,
@@ -223,6 +234,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "stand",
+		release: true,
 		permission: "postureControl",
 		// Bare "stand" and "rise" are matched now that a suggestion also has to name the
 		// subject — that gate does most of the false-positive work, so these no longer have
@@ -541,7 +553,9 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	const cmd = matchBodyPartCommand(content);
 	if (!cmd) return false;
 	const label = cmd.all ? "self-touch" : `touch:${cmd.word}`;
-	if (!isSessionActiveWith(sender)) {
+	// Same asymmetry as the suggestions above: "you can touch your breasts again" works
+	// out of trance, "you cannot" doesn't.
+	if (cmd.block && !isSessionActiveWith(sender)) {
 		log(`heard "${label}" from ${sender} but no active session with them — ignoring`);
 		return true;
 	}
@@ -550,7 +564,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 		return true;
 	}
 	const features = getFeatures();
-	if (!features.hypnoEnabled || !features.selfTouchControl) {
+	if (cmd.block && (!features.hypnoEnabled || !features.selfTouchControl)) {
 		log(`heard "${label}" from ${sender} but selfTouchControl isn't granted`);
 		return true;
 	}
@@ -594,7 +608,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	const suggestion = SUGGESTIONS.find((s) => s.id === id);
 	if (!suggestion) return;
 
-	if (!isSessionActiveWith(sender)) {
+	// Releases skip the session gate. A trigger fires outside a trance, so if undoing what
+	// it did required being back under, the subject's only exit would be the safeword.
+	if (!suggestion.release && !isSessionActiveWith(sender)) {
 		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
 		return;
 	}
@@ -605,10 +621,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 
 	const features = getFeatures();
-	// Re-checked even though the session gate already passed: permission and session are
-	// independent, and a spoken suggestion is just another way to reach the same effect a
-	// button would have — so it answers to the same permission.
-	if (!features.hypnoEnabled || !permitted(suggestion, features)) {
+	// Permission gates restrictions, not releases — a revoked permission should never
+	// leave an already-applied effect stuck on.
+	if (!suggestion.release && (!features.hypnoEnabled || !permitted(suggestion, features))) {
 		log(`heard "${id}" from ${sender} but ${suggestion.permission} isn't granted`);
 		return;
 	}
