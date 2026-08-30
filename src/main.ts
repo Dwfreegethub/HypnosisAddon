@@ -5,6 +5,7 @@ import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, isSpeechBlocked, getScreenFade } from "./effects";
 import { flavor } from "./flavor";
 import { installMenu } from "./menu";
+import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
@@ -206,3 +207,7 @@ safely("remote (Information Sheet) registration", () => installRemote(modApi));
 
 // The in-room Agree / Ignore / Fight box. After installSession, whose state it reads.
 safely("induction prompt box", () => installPrompt(modApi));
+
+// Draws the subject's own body from a frozen snapshot. Hooks DrawCharacter, the single
+// funnel every screen uses — see illusion.ts for why Player itself is never touched.
+safely("clothing illusion", () => installIllusion(modApi));

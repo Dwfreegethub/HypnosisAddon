@@ -59,6 +59,7 @@ const TABS: Tab[] = [
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
+			{ key: "illusionControl", label: "Clothing Illusion" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
 	},
@@ -69,6 +70,7 @@ const TABS: Tab[] = [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "tranceScreenFade", label: "Screen Fade" },
+			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 		],
 	},
 	{
@@ -86,8 +88,11 @@ const TABS: Tab[] = [
 		// permission, a scope and a duration. DW asked where the duration belonged, and
 		// the honest answer was "nowhere yet".
 		name: "Triggers",
-		blurb: "Persistent words planted while you are under. Planting needs trust 65 — arousal does not count toward it.",
-		rows: [{ key: "triggerControl", label: "Allow triggers to be planted in you" }],
+		blurb: "Things that outlast the session. Both need trust 65 — arousal does not count toward either.",
+		rows: [
+			{ key: "triggerControl", label: "Allow triggers to be planted in you" },
+			{ key: "carryForward", label: "Suggestions that outlive the trance" },
+		],
 		extra: drawTriggerControls,
 	},
 	{

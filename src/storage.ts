@@ -69,6 +69,18 @@ export interface FeatureToggles {
 	postureControl: boolean;
 	/** Blocking the subject from touching themselves, or named body parts. */
 	selfTouchControl: boolean;
+	/** The clothing illusion: the subject's own screen keeps showing how they looked when
+	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 70
+	 * on top of this permission (the design doc's feature-threshold table), because it is
+	 * the first feature that lies to the player about their own state rather than
+	 * restricting them. */
+	illusionControl: boolean;
+	/** Letting a suggestion given under trance survive waking. Separate from triggerControl
+	 * because they are different bargains: a trigger lies dormant until someone says a word,
+	 * while a carried suggestion is simply still true when you wake up. Same trust
+	 * threshold (65) for the same reason — both outlive the session, so neither may be
+	 * reached by the arousal floor. */
+	carryForward: boolean;
 	/** Letting a hypnotist plant persistent triggers. Separate from everything else
 	 * because a trigger outlives the session that created it — the individual actions a
 	 * trigger fires still answer to their own permissions when it goes off. */
@@ -119,6 +131,13 @@ export interface FeatureToggles {
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
 	tranceScreenFade: boolean;
+	/** Freeze-frame the subject's own view of their clothes on entering trance.
+	 *
+	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
+	 * subject *feels* happening to them; this one makes their own screen tell them
+	 * something untrue, which is a larger step and should not arrive unannounced on an
+	 * upgrade. Opt in. */
+	tranceClothingFreeze: boolean;
 }
 
 interface HypnoAddonSettings {
@@ -147,6 +166,8 @@ function defaultFeatures(): FeatureToggles {
 		speechRestriction: false,
 		selfTouchControl: false,
 		arousalControl: false,
+		illusionControl: false,
+		carryForward: false,
 		triggerControl: false,
 		suppressClothing: false,
 		suppressBondage: false,
@@ -157,6 +178,8 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
+		// The one trance default that starts off — see the note on the interface.
+		tranceClothingFreeze: false,
 	};
 }
 

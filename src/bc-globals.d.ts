@@ -108,3 +108,21 @@ declare function ActivityOrgasmStart(character: any): void;
 /** BC's frame clock (Scripts/Game.js), milliseconds. Every orgasm timer is measured
  * against this rather than Date.now(). */
 declare const CurrentTime: number;
+
+// Character construction and rendering (Scripts/Character.js, Scripts/Drawing.js).
+// CharacterLoadSimple makes a local-only CharacterType.SIMPLE character - documented in
+// Character.js as "generally used internally and not to represent an actual in-game
+// character". CharacterRefresh's second argument is Push: pass false to keep it off the
+// server. DrawCharacter is the single funnel every screen uses to draw a body; see
+// illusion.ts for why that matters.
+declare function CharacterLoadSimple(characterId: string): any;
+declare function CharacterRefresh(character: any, push?: boolean, refreshDialog?: boolean): void;
+declare function CharacterLoadCanvas(character: any): void;
+declare function DrawCharacter(
+	character: any,
+	x: number,
+	y: number,
+	zoom: number,
+	isHeightResizeAllowed?: boolean,
+	drawCanvas?: any,
+): void;

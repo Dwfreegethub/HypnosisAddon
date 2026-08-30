@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch } from "./voice";
+import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
 import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
 import {
 	addInteractions,
@@ -17,6 +18,7 @@ import {
 } from "./storage";
 import { describeTrust } from "./trust";
 import { describeRecording } from "./triggers";
+import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
 
@@ -431,6 +433,34 @@ const COMMANDS: HypnoCommand[] = [
 				`arousal set to ${what} (${AROUSAL_LEVELS[what as ArousalLevel]}). ` +
 					`Progress=${Player?.ArousalSettings?.Progress} Active=${Player?.ArousalSettings?.Active}`,
 			);
+		},
+	},
+	{
+		Tag: "carry",
+		group: "Diagnostics",
+		args: "[drop]",
+		Description: "Show what is set to outlive the trance, or drop it",
+		Action: (args: string) => {
+			if (firstWord(args).toLowerCase() === "drop") {
+				reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
+				return;
+			}
+			reply(describeCarry());
+		},
+	},
+	{
+		// Bypasses matching, permissions, trust and session, like /hypno kneel. Also the
+		// quickest way to confirm the draw hook is alive at all.
+		Tag: "illusion",
+		group: "Testing",
+		args: "<on|off>",
+		Description: "Freeze/release your own view of your clothes, bypassing all gates",
+		Action: (args: string) => {
+			const word = firstWord(args).toLowerCase();
+			const on = word === "" ? !isIllusionActive() : word !== "off";
+			if (on) freezeAppearance();
+			else clearIllusion();
+			reply(describeIllusion());
 		},
 	},
 	{

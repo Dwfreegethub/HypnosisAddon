@@ -79,6 +79,24 @@ const CASES = [
 	["How are you?", null],
 	["The clothes are on the floor.", null],
 	["I need to get up early tomorrow.", null],
+	// --- clothing illusion ---
+	// Listed before the awareness entries in the table; these two phrasings overlap and the
+	// more specific reading has to win.
+	["You cannot tell what you are wearing.", "illusion-block"],
+	["You don't notice what you are wearing.", "illusion-block"],
+	["You do not notice your clothes.", "illusion-block"],
+	["Your clothes look the same to you.", "illusion-block"],
+	["Nothing about you has changed.", "illusion-block"],
+	["You will not be able to tell how you are dressed.", "illusion-block"],
+	["You can see yourself again.", "illusion-release"],
+	["You can tell what you are wearing.", "illusion-release"],
+	["You notice your clothes again.", "illusion-release"],
+	// The awareness entries must still win their own wording.
+	["You notice nothing.", "awareness-block"],
+	["You do not notice.", "awareness-block"],
+	["You notice everything again.", "awareness-release"],
+	// And the clothing block is a different thing from the clothing illusion.
+	["You cannot change your clothes.", "clothing-block"],
 	["I kneel beside you.", null],
 	["We should get up soon.", null],
 	["I have to move my car.", null],

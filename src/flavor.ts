@@ -41,7 +41,9 @@ export type FlavorKey =
 	/** A forced orgasm that ran into denial, edging, or a chastity item. */
 	| "orgasm-refused"
 	/** The player's arousal meter is switched off entirely, so none of this can land. */
-	| "arousal-unavailable";
+	| "arousal-unavailable"
+	| "illusion-block"
+	| "illusion-release";
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -166,6 +168,19 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You strain for it and something holds you back. Nothing gives.",
 		"You are told to go over, and you cannot. The wanting has nowhere to go.",
 		"Your body reaches for it, finds the way shut, and stays where it is.",
+	],
+	// The illusion's flavor has one job the others don't: it must not describe a CHANGE,
+	// because the subject is supposed to believe nothing has changed. So it reads as
+	// attention sliding off the question rather than as anything being done.
+	"illusion-block": [
+		"You stop wondering what you have on. You know what you have on.",
+		"Looking down settles nothing and you lose interest in looking again.",
+		"However you are dressed is however you are dressed. The question closes.",
+	],
+	"illusion-release": [
+		"You look down, properly this time, and see what is actually there.",
+		"Your eyes finally land on yourself, and the answer is not the one you were carrying.",
+		"Whatever was smoothing the question over lets go of it.",
 	],
 	// Deliberately plain rather than in-fiction: this one is a mismatch between the
 	// hypnotist's expectation and the player's own settings, and dressing that up as

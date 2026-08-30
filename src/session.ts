@@ -6,6 +6,8 @@ import { clearAllTimers } from "./timers";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
+import { freezeAppearance, clearIllusion } from "./illusion";
+import { carryThroughWake, releaseCarried, isCarried } from "./carry";
 import {
 	applyEffect,
 	removeEffect,
@@ -202,12 +204,21 @@ function endSession(reason: string, quiet = false): void {
 	// them, the other is a number they now carry — resetting it would be us reaching into
 	// state that was theirs before the session and is theirs after it.
 	clearOrgasmDenial();
+	// The one effect the total-clear-then-reapply pattern cannot cover: re-applying the
+	// illusion would take a FRESH snapshot, of the truth, at the moment of waking. So when
+	// it is carried, the snapshot has to survive the clear rather than be rebuilt after it.
+	if (!isCarried("illusion-block")) clearIllusion();
 	clearAllTimers();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
 	session.hypnotistId = null;
 	if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
+	// AFTER the clear, deliberately: the clear stays total so no branch can strand an
+	// effect, and anything the hypnotist made durable is put back from a list rather than
+	// by carving exceptions into the one function that guarantees a clean exit.
+	const carried = carryThroughWake();
+	if (carried && !quiet) notify(carried);
 }
 
 // --- Subject side: the roll ----------------------------------------------------------
@@ -348,8 +359,13 @@ function applyTranceState(): void {
 	if (f.tranceCannotMove) applyEffect("Freeze");
 	if (f.tranceCannotSpeak) setSpeechBlocked(true);
 	if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
+	// Snapshot at the moment of going under, so the clothes the subject keeps seeing are
+	// the ones they were wearing when they lost track — not whatever they had on at some
+	// arbitrary later point.
+	if (f.tranceClothingFreeze) freezeAppearance();
 	log(
-		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade}`,
+		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} ` +
+			`fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`,
 	);
 }
 
@@ -444,6 +460,10 @@ export function safeword(): void {
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearOrgasmDenial();
+	clearIllusion();
+	// Nothing survives a safeword — that is the whole point of it, and the one rule in this
+	// file that no feature is allowed to make conditional.
+	releaseCarried("safeword");
 	clearAllTimers();
 	session = freshSession();
 	if (hypnotist != null) {

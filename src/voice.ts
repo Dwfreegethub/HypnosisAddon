@@ -2,10 +2,21 @@ import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
-import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, trustWith, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
+import { freezeAppearance, clearIllusion } from "./illusion";
+import {
+	beginCarry,
+	noteCarried,
+	isRecordingCarry,
+	isCarrierOf,
+	isCarried,
+	dropCarried,
+	releaseCarried,
+	registerCarryHandlers,
+} from "./carry";
 import { scheduleTimer, cancelTimer } from "./timers";
 import {
 	isRecording,
@@ -16,6 +27,7 @@ import {
 	triggersFiredBy,
 	triggersArmed,
 	installerHasSession,
+	tellHypnotist,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -64,9 +76,18 @@ interface Suggestion {
 	 * skip is the permission check, since a revoked permission must never leave an
 	 * already-applied effect stuck on. */
 	release?: boolean;
+	/** Which restriction this release undoes. Lets a carried suggestion be let go by name
+	 * when the ordinary release wording is spoken, and is what makes a release reachable at
+	 * all outside a trance — see the carried-release exception in handleSpokenLine. */
+	releaseOf?: FlavorKey;
 	/** Reverses this suggestion. Used when a trigger is released by name — the release
 	 * has to undo exactly what that trigger applied, not everything of that kind. */
 	undo?: () => void;
+	/** Minimum RELATIONSHIP trust to apply this, from the design doc's feature-threshold
+	 * table. Deliberately not effectiveAccess(): the chemical floor is for session-only
+	 * effects, and a threshold exists on a suggestion precisely because it is deeper than
+	 * that. Omitted means the permission is the only gate, as it is for everything else. */
+	trustThreshold?: number;
 	patterns: RegExp[];
 	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
 	 * arousal suggestions, which can match and be permitted and still not land (the
@@ -90,6 +111,21 @@ function applyForcedOrgasm(): FlavorKey | void {
 	// of those is holding them.
 	if (result === "denied") return "orgasm-refused";
 	// "already" means one is running; the ordinary flavor still reads correctly.
+}
+
+/** Why this suggestion cannot run for this speaker, or null if it can. Returns a reason
+ * string rather than a boolean so the log can say which gate stopped it — the same
+ * "a silent rejection is a bug in its own right" rule the rest of this file follows. */
+function blockedReason(suggestion: Suggestion, speaker: number, features: FeatureToggles): string | null {
+	if (suggestion.release) return null; // a revoked permission must never strand an effect
+	if (!features.hypnoEnabled) return "hypnoEnabled is off";
+	if (!permitted(suggestion, features)) return `${suggestion.permission} isn't granted`;
+	if (suggestion.trustThreshold != null) {
+		const trust = trustWith(speaker);
+		if (trust < suggestion.trustThreshold)
+			return `needs trust ${suggestion.trustThreshold}, at ${trust.toFixed(1)}`;
+	}
+	return null;
 }
 
 function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
@@ -155,6 +191,7 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "orgasm-allow",
 		release: true,
+		releaseOf: "orgasm-deny",
 		permission: "arousalControl",
 		patterns: [
 			/\byou (?:can|may) (?:come|cum|orgasm|climax|finish) (?:again|now|freely|whenever|if|when)\b/,
@@ -195,9 +232,50 @@ const SUGGESTIONS: Suggestion[] = [
 		// release to take back.
 		run: () => applyForcedOrgasm(),
 	},
+	// The clothing illusion. Listed here, before the awareness entries, because the two
+	// overlap: "you do not notice what you are wearing" also matches awareness-block's
+	// "you do not notice what", and the more specific reading has to win.
+	{
+		id: "illusion-release",
+		release: true,
+		releaseOf: "illusion-block",
+		permission: "illusionControl",
+		patterns: [
+			/\byou (?:can|may) (?:see|tell) (?:what|how) you are (?:wearing|dressed)\b/,
+			/\byou (?:can|may) see yourself (?:again|properly|clearly)\b/,
+			/\byou (?:see|notice) yourself as you (?:really |actually )?are\b/,
+			/\byou (?:notice|see) your (?:clothes|clothing|outfit) again\b/,
+			/\byou (?:can|may) tell what you have on\b/,
+			/\blook (?:down |)at yourself (?:again|properly)\b/,
+		],
+		run: () => clearIllusion(),
+	},
+	{
+		id: "illusion-block",
+		permission: "illusionControl",
+		// The design doc's feature-threshold table puts the clothing illusion at 70. This is
+		// the first suggestion to carry one, and it is checked against relationship trust
+		// alone — the arousal floor must never reach a feature that lies to someone about
+		// their own state.
+		trustThreshold: 70,
+		patterns: [
+			/\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
+			/\byou (?:do not|will not|cannot) notice (?:what|how) you are (?:wearing|dressed)\b/,
+			/\byou (?:do not|will not|cannot) notice your (?:clothes|clothing|outfit)\b/,
+			/\byou (?:cannot|do not) (?:tell|see) what you have on\b/,
+			/\byour (?:clothes|clothing|outfit) (?:look|looks|stay|stays) the same to you\b/,
+			/\byou look the same to yourself\b/,
+			/\bnothing about you (?:changes|has changed)\b/,
+			/\byou (?:do not|cannot) see yourself change\b/,
+			/\byou will (?:not be able|be unable) to (?:tell|see) (?:what|how) you are (?:wearing|dressed)\b/,
+		],
+		run: () => (freezeAppearance() ? undefined : undefined),
+		undo: () => clearIllusion(),
+	},
 	{
 		id: "movement-release",
 		release: true,
+		releaseOf: "movement-block",
 		permission: "movementRestriction",
 		patterns: [
 			/\byou (can|may) move\b/,
@@ -235,6 +313,7 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "clothing-release",
 		release: true,
+		releaseOf: "clothing-block",
 		permission: "clothingRestriction",
 		patterns: [
 			/\byou (can|may) (change|remove|touch|adjust) your (clothes|clothing|outfit)\b/,
@@ -266,6 +345,7 @@ const SUGGESTIONS: Suggestion[] = [
 		// subject left unchecked.
 		id: "awareness-release",
 		release: true,
+		releaseOf: "awareness-block",
 		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
 		patterns: [
 			/\byou notice (everything|things|them|it) again\b/,
@@ -302,6 +382,7 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "touch-release",
 		release: true,
+		releaseOf: "touch-block",
 		permission: "suppressActivities",
 		patterns: [
 			/\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
@@ -327,6 +408,7 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "speech-release",
 		release: true,
+		releaseOf: "speech-block",
 		permission: "speechRestriction",
 		patterns: [
 			/\byou (can|may) (speak|talk)\b/,
@@ -359,6 +441,7 @@ const SUGGESTIONS: Suggestion[] = [
 	{
 		id: "stand",
 		release: true,
+		releaseOf: "kneel",
 		permission: "postureControl",
 		// Bare "stand" and "rise" are matched now that a suggestion also has to name the
 		// subject — that gate does most of the false-positive work, so these no longer have
@@ -620,8 +703,12 @@ function fireTrigger(trigger: Trigger): void {
 		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
 		if (!suggestion) continue;
-		if (!permitted(suggestion, features)) {
-			log(`trigger "${trigger.phrase}": ${id} skipped, permission not granted`);
+		// Re-checked at FIRING time against the installer, not at planting time — so a
+		// permission revoked since, or trust that has decayed below the threshold, disarms
+		// this action of every trigger already planted.
+		const blocked = blockedReason(suggestion, trigger.installedBy, features);
+		if (blocked) {
+			log(`trigger "${trigger.phrase}": ${id} skipped, ${blocked}`);
 			continue;
 		}
 		ChatRoomSendLocal(flavor(suggestion.run() || suggestion.id));
@@ -718,6 +805,78 @@ function handleTriggerFiring(sender: number, content: string): boolean {
 	return true;
 }
 
+// --- Carry-forward -----------------------------------------------------------------
+// "This will stay with you" turns on capture; every suggestion that lands afterwards runs
+// normally AND is remembered, so it can be put back once the trance ends. See carry.ts.
+
+const CARRY_START = [
+	/\b(?:this|that|it) will stay with you\b/,
+	/\byou will keep (?:this|that|it)\b/,
+	/\b(?:this|that|it) (?:will |)(?:stay|stays|remains) (?:with you )?(?:when|after) you wake\b/,
+	/\byou will carry (?:this|that|it) with you\b/,
+	/\bwhat i tell you now will stay\b/,
+	/\bthis stays with you\b/,
+];
+const CARRY_CANCEL = [
+	/\b(?:this|that|it) will not stay with you\b/,
+	/\bforget what i (?:said|told you)\b/,
+	/\bnothing stays with you\b/,
+];
+
+/** Apply one action by id, covering both the suggestion table and the parameterised
+ * body-part ids. Shared by carry's re-apply and its undo so the two cannot drift. */
+function applyActionById(id: string): void {
+	if (id.startsWith("touch:")) {
+		const word = id.slice("touch:".length);
+		if (word === "all") setAllSelfTouchBlocked(true);
+		else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], true);
+		return;
+	}
+	SUGGESTIONS.find((s) => s.id === id)?.run();
+}
+
+function undoActionById(id: string): void {
+	if (id.startsWith("touch:")) {
+		const word = id.slice("touch:".length);
+		if (word === "all") setAllSelfTouchBlocked(false);
+		else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
+		return;
+	}
+	SUGGESTIONS.find((s) => s.id === id)?.undo?.();
+}
+
+// Registered at module load: carry.ts needs these but importing voice.ts from it would be
+// circular, so the dependency runs one way and the functions are handed over.
+registerCarryHandlers(applyActionById, undoActionById);
+
+/** Handle "this will stay with you" / "forget what I said". Returns true if the line was
+ * one of them. Requires a live trance and the subject's name, exactly like trigger
+ * setup — making something outlive a session should never be reachable in conversation. */
+function handleCarryControl(sender: number, content: string): boolean {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return false;
+
+	if (CARRY_CANCEL.some((p) => p.test(text))) {
+		if (!isCarrierOf(sender) && !isRecordingCarry()) return false;
+		if (releaseCarried("the hypnotist took it back")) {
+			ChatRoomSendLocal("Whatever was going to stay with you doesn't.");
+		}
+		return true;
+	}
+
+	if (!CARRY_START.some((p) => p.test(text))) return false;
+	if (!isSessionActiveWith(sender) || !mentionsAnyName(content, playerOwnNames())) return false;
+
+	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
+	const result = beginCarry(sender, character?.Name ?? `#${sender}`);
+	// The refusal goes to the HYPNOTIST, not the subject — same split as trigger setup, and
+	// for the same reason: the subject learning "they aren't trusted enough yet" breaks the
+	// fiction, while the hypnotist not learning it leaves them guessing.
+	if (result.refusal) tellHypnotist(sender, `[carry] Refused — ${result.refusal}`);
+	if (result.subject) ChatRoomSendLocal(result.subject);
+	return true;
+}
+
 // --- Wake ------------------------------------------------------------------------------
 // Checked before everything else. Ending a trance answers to no permission — same
 // principle as a remote release always being honored — so it doesn't belong in the
@@ -788,6 +947,9 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	}
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
 	else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
+	const actionId = cmd.all ? "touch:all" : `touch:${cmd.word}`;
+	if (cmd.block) noteCarried(actionId);
+	else dropCarried(actionId);
 	log(`${cmd.block ? "blocked" : "released"} ${label}`);
 	ChatRoomSendLocal(
 		cmd.block
@@ -804,6 +966,9 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 export function handleSpokenLine(sender: number, content: string): void {
 	// Trigger control first, so "remember trigger" can't be read as anything else.
 	if (handleTriggerControl(sender, content)) return;
+	// Then carry control, before anything that could read "this will stay with you" as a
+	// movement suggestion ("stay").
+	if (handleCarryControl(sender, content)) return;
 	// Then release-by-name, before firing — otherwise "you are released from frozen"
 	// contains "frozen" and would set the trigger off instead of clearing it.
 	if (handleTriggerRelease(sender, content)) return;
@@ -825,7 +990,16 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// outside one was too broad a fix for a narrow problem: it meant ordinary hypnosis
 	// wording kept working on someone who wasn't under. Undoing what a trigger did is
 	// handled by its own targeted phrase instead — "you are released from <trigger>".
-	if (!isSessionActiveWith(sender)) {
+	// A release of something CARRIED works outside a trance, from the person who carried it
+	// and only while they still have it. Deliberately this narrow: a blanket
+	// releases-work-anywhere rule was tried for triggers and had to be reverted, because it
+	// left ordinary hypnosis wording operating on people who weren't under.
+	const carriedRelease =
+		!!suggestion.release &&
+		!!suggestion.releaseOf &&
+		isCarrierOf(sender) &&
+		isCarried(suggestion.releaseOf);
+	if (!isSessionActiveWith(sender) && !carriedRelease) {
 		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
 		return;
 	}
@@ -836,10 +1010,11 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 
 	const features = getFeatures();
-	// Permission gates restrictions, not releases — a revoked permission should never
-	// leave an already-applied effect stuck on.
-	if (!suggestion.release && (!features.hypnoEnabled || !permitted(suggestion, features))) {
-		log(`heard "${id}" from ${sender} but ${suggestion.permission} isn't granted`);
+	// Permission and trust gate restrictions, not releases — a revoked permission should
+	// never leave an already-applied effect stuck on.
+	const blocked = blockedReason(suggestion, sender, features);
+	if (blocked) {
+		log(`heard "${id}" from ${sender} but ${blocked}`);
 		return;
 	}
 	// While recording a trigger, suggestions are stored rather than performed — otherwise
@@ -852,4 +1027,11 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
 	ChatRoomSendLocal(flavor(suggestion.run() || id));
+	// Captured AFTER it runs, so a carried suggestion is felt during the trance too — the
+	// difference from trigger recording, which stores instead of running.
+	if (suggestion.release) {
+		if (suggestion.releaseOf) dropCarried(suggestion.releaseOf);
+	} else {
+		noteCarried(id);
+	}
 }

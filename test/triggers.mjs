@@ -198,6 +198,34 @@ triggers.commitRecording();
 check("same phrase replaces, not duplicates", storage.listTriggers().length, 2);
 check("  replaced actions", storage.listTriggers().find(t => t.phrase === "frozen").actions, ["speech-block"]);
 
+// --- per-suggestion trust threshold ---
+// Planting a trigger needs trust 65; the clothing illusion action inside it needs 70. The
+// two gates are separate on purpose, so a trigger can be planted and still carry an action
+// the installer is not yet trusted enough to fire. Checked at FIRING time, not planting.
+storage.setFeature("illusionControl", true);
+storage.forgetAllTriggers();
+storage.setTrustValue(HYP, "GameBot", 68);
+triggers.beginRecording(HYP, "GameBot", "look away");
+check("plants at trust 68", triggers.isRecording(), true);
+triggers.recordAction("illusion-block");
+triggers.commitRecording();
+said = [];
+voice.handleSpokenLine(HYP, "look away");
+check("illusion action skipped below trust 70", said.length, 0);
+
+storage.setTrustValue(HYP, "GameBot", 75);
+said = [];
+voice.handleSpokenLine(HYP, "look away");
+check("illusion action fires at trust 75", said.length, 1);
+
+// A release action carries no threshold — a revoked permission or decayed trust must never
+// strand an effect that is already applied.
+storage.setTrustValue(HYP, "GameBot", 10);
+storage.forgetAllTriggers();
+triggers.beginRecording(HYP, "GameBot", "look back");
+check("  release trigger plants", triggers.isRecording(), false); // trust 10 < 65
+storage.setTrustValue(HYP, "GameBot", 70);
+
 // --- auto-release after the configured duration ---
 // setTimeout is stubbed so the clock can be driven rather than waited on.
 storage.setTriggerScope("hypnotist");

@@ -18,7 +18,7 @@ import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
  * showed them the trigger phrase, which the design doc explicitly wants hidden ("trigger
  * words can be hidden from the subject entirely"). A subject who can read their own
  * trigger word can simply avoid reacting to it. */
-function tellHypnotist(hypnotistId: number, text: string): void {
+export function tellHypnotist(hypnotistId: number, text: string): void {
 	sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
 }
 
