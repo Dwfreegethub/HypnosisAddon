@@ -1,6 +1,23 @@
 // Exercises the real pattern library from src/voice.ts against a phrase list.
 // Each case is [phrase, expectedSuggestionId | null].
-const { matchSuggestion, mentionsAnyName } = await import("./voice-bundle.mjs");
+const { matchSuggestion, mentionsAnyName, suggestionHelp } = await import("./voice-bundle.mjs");
+
+// --- the help screen's examples must be real -----------------------------------------
+// The What to Say tab is generated from these, so an example that no longer matches its
+// own patterns is worse than no help at all: it teaches a phrase that silently does
+// nothing. This is the assertion that keeps the two honest.
+let hp = 0; const hf = [];
+for (const s of suggestionHelp()) {
+	if (!s.examples.length) { hf.push([s.id, "at least one example", "none"]); continue; }
+	for (const example of s.examples) {
+		const got = matchSuggestion(example);
+		got === s.id ? hp++ : hf.push([`${s.id}: ${JSON.stringify(example)}`, s.id, got]);
+	}
+}
+console.log(`help examples: ${hp}/${hp + hf.length} match their own patterns`);
+for (const [what, want, got] of hf) console.log(`  ${what}
+    expected: ${want}
+    got:      ${got}`);
 
 // --- name gate ---
 const NAMES = ["Missy"];

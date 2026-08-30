@@ -19,6 +19,26 @@ import { clearSelfTouchBlocks } from "./selftouch";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES } from "./triggers";
 import { isHypnotized } from "./session";
+import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
+import {
+	TITLE_Y,
+	TAB_TOP,
+	TAB_HEIGHT,
+	TAB_WIDTH,
+	PANEL_LEFT,
+	PANEL_TOP,
+	PANEL_WIDTH,
+	PANEL_HEIGHT,
+	BLURB_Y,
+	CONTENT_LEFT,
+	BACK_LEFT,
+	BACK_TOP,
+	BACK_SIZE,
+	tabLeft,
+	tabHitIndex,
+	drawLeftText,
+	drawTabsAndPanel,
+} from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
 // Preference.js, PreferenceRegisterExtensionSetting) — adds one button into
@@ -105,26 +125,15 @@ const TABS: Tab[] = [
 let activeTab = 0;
 
 // --- Geometry ------------------------------------------------------------------------
-const TITLE_Y = 110;
+// Screen chrome (tabs, panel, exit icon, text helpers) lives in panel.ts, shared with the
+// help screen. What stays here is what only the settings screen has: checkbox rows and the
+// data buttons.
+/** Sits left of the exit icon at 1815, same size, so the two read as a pair. */
+const HELP_LEFT = 1700;
+const HELP_TOP = BACK_TOP;
+const HELP_SIZE = BACK_SIZE;
 
-const TAB_TOP = 190;
-const TAB_HEIGHT = 72;
-const TAB_LEFT = 200;
-// 280 rather than 340: five tabs at 340 would end at x=1932 and run under the exit icon
-// at 1815. DrawButton shrinks its label to fit, so the names still read.
-const TAB_WIDTH = 280;
-const TAB_GAP = 8;
-
-const PANEL_LEFT = 200;
-const PANEL_TOP = 262;
-const PANEL_WIDTH = 1600;
-const PANEL_HEIGHT = 640;
-/** Border thickness. Everything is a filled rect rather than a stroke so the tab-to-panel
- * join lands on exact pixels — see drawTabsAndPanel. */
-const BORDER = 3;
-
-const BLURB_Y = 305;
-const BOX_LEFT = 260;
+const BOX_LEFT = CONTENT_LEFT;
 const BOX_SIZE = 70;
 const ROW_TOP_START = 350;
 const ROW_SPACING = 78;
@@ -322,16 +331,6 @@ function drawStats(): void {
 }
 
 // Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
-// button is MouseIn(1815, 75, 90, 90), and this screen has no canvas equivalent of its
-// own to copy (the Preferences exit is DOM-positioned via ElementMenu).
-const BACK_LEFT = 1815;
-const BACK_TOP = 75;
-const BACK_SIZE = 90;
-
-function tabLeft(index: number): number {
-	return TAB_LEFT + index * (TAB_WIDTH + TAB_GAP);
-}
-
 /** Only 7 rows fit between ROW_TOP_START and the panel floor, so a tab with more spills
  * off the bottom invisibly — which is exactly what happened when Permissions reached 8 and
  * the Lock row was drawn below the panel with no sign anything was missing. Past the
@@ -359,54 +358,6 @@ function settingsLocked(): boolean {
 	return getFeatures().lockedWhileHypnotized && isHypnotized();
 }
 
-/** Left-aligned text. BC's canvas defaults to centered, so every label needs this. */
-function drawLeftText(text: string, x: number, y: number, color = "Black"): void {
-	MainCanvas.save();
-	MainCanvas.textAlign = "left";
-	DrawText(text, x, y, color, "Gray");
-	MainCanvas.restore();
-}
-
-/** Draw the tab strip and the content panel as one connected shape.
- *
- * The seam between the active tab and the panel is NEVER DRAWN, rather than drawn and
- * then painted over. A first attempt erased it with a white rectangle and left a visible
- * hairline: canvas strokes are anti-aliased and bleed sub-pixel past their nominal
- * bounds, so a cover rectangle on exact integer coordinates always leaves faint edges.
- *
- * So: inactive tabs are ordinary DrawButtons (hover highlighting comes free), while the
- * active tab is drawn by hand as a white fill plus three border segments — left, top,
- * right, no bottom — and the panel's own top border is drawn in two pieces that stop
- * either side of it. Every border is a filled DrawRect rather than a stroke, so nothing
- * is anti-aliased and the joins are exact. */
-function drawTabsAndPanel(): void {
-	const activeLeft = tabLeft(activeTab);
-	const activeRight = activeLeft + TAB_WIDTH;
-	const panelRight = PANEL_LEFT + PANEL_WIDTH;
-	const panelBottom = PANEL_TOP + PANEL_HEIGHT;
-
-	// Panel interior, and the inactive tabs sitting on its edge.
-	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
-	TABS.forEach((tab, i) => {
-		if (i !== activeTab) DrawButton(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT, tab.name, "#d8d8d8");
-	});
-
-	// Active tab: white through to the panel interior, so no join is visible at all.
-	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, TAB_HEIGHT + BORDER, "White");
-	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, BORDER, "Black"); // top
-	DrawRect(activeLeft, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // left
-	DrawRect(activeRight - BORDER, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // right
-	DrawTextFit(TABS[activeTab].name, activeLeft + TAB_WIDTH / 2, TAB_TOP + TAB_HEIGHT / 2 + 1, TAB_WIDTH - 4, "black");
-
-	// Panel border: top in two pieces that stop either side of the active tab, then the
-	// other three sides whole. Widths clamp to 0 when the active tab is at either end.
-	DrawRect(PANEL_LEFT, PANEL_TOP, Math.max(0, activeLeft - PANEL_LEFT), BORDER, "Black");
-	DrawRect(activeRight, PANEL_TOP, Math.max(0, panelRight - activeRight), BORDER, "Black");
-	DrawRect(PANEL_LEFT, PANEL_TOP, BORDER, PANEL_HEIGHT, "Black");
-	DrawRect(panelRight - BORDER, PANEL_TOP, BORDER, PANEL_HEIGHT, "Black");
-	DrawRect(PANEL_LEFT, panelBottom - BORDER, PANEL_WIDTH, BORDER, "Black");
-}
-
 export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
 		Identifier: "HypnosisAddon",
@@ -416,12 +367,21 @@ export function installMenu(): void {
 		load: () => {
 			activeTab = 0;
 			removeScopeControl();
+			closeHelp();
 		},
 		run: () => {
+			if (isHelpOpen()) {
+				// DOM controls belong to the settings screen and would float over the help
+				// text, which is canvas — they have to go before help draws over them.
+				removeScopeControl();
+				drawHelp("BC Hypnosis Add-on — help");
+				return;
+			}
 			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 
-			drawTabsAndPanel();
+			drawTabsAndPanel(TABS.map((t) => t.name), activeTab);
 
 			const tab = TABS[activeTab];
 			const locked = settingsLocked();
@@ -455,15 +415,24 @@ export function installMenu(): void {
 			tab.extra?.();
 		},
 		click: () => {
+			if (isHelpOpen()) {
+				clickHelp();
+				return;
+			}
+			if (MouseIn(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE)) {
+				removeScopeControl();
+				openHelp();
+				return;
+			}
 			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
 				PreferenceSubscreenExtensionsClear();
 				return;
 			}
-			for (let i = 0; i < TABS.length; i++) {
-				if (MouseIn(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT)) {
-					activeTab = i;
-					return;
-				}
+			const hitTab = tabHitIndex(TABS.length);
+			if (hitTab !== null) {
+				activeTab = hitTab;
+				removeScopeControl();
+				return;
 			}
 			// Data buttons live on the Stats tab, which has no rows.
 			if (TABS[activeTab].render) {
@@ -494,9 +463,15 @@ export function installMenu(): void {
 		},
 		// Both exit paths matter: exit() for our own back button, unload() for BC tearing
 		// the screen down some other way. Missing either leaves the dropdown floating.
-		unload: () => removeScopeControl(),
+		// Both exit paths also close help: it is a module-level flag shared with the remote
+		// panel, so leaving it set would greet the next screen with a help page.
+		unload: () => {
+			removeScopeControl();
+			closeHelp();
+		},
 		exit: () => {
 			removeScopeControl();
+			closeHelp();
 			return true;
 		},
 	});

@@ -3,6 +3,7 @@ import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { flavor, FlavorKey } from "./flavor";
+import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
 	getSessionView,
 	countdownRemaining,
@@ -36,6 +37,9 @@ const ICON_SIZE = 60;
 const SUB_EXIT_LEFT = 1815;
 const SUB_EXIT_TOP = 75;
 const SUB_EXIT_SIZE = 90;
+/** Left of the exit icon, same size — same pairing as on the settings screen, so the
+ * button is in the place someone already learned. */
+const SUB_HELP_LEFT = 1700;
 
 const FEATURE_BUTTON_LEFT = 400;
 const FEATURE_BUTTON_WIDTH = 500;
@@ -240,6 +244,10 @@ function statusLine(view: SessionView | undefined): string {
 }
 
 function drawSubscreen(target: any): void {
+	if (isHelpOpen()) {
+		drawHelp("BC Hypnosis Add-on — help");
+		return;
+	}
 	const view = getSessionView(target.MemberNumber);
 	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
 	DrawText(statusLine(view), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
@@ -257,6 +265,7 @@ function drawSubscreen(target: any): void {
 	);
 	FEATURES.forEach((feature, i) => drawFeatureButton(i, feature, target));
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
+	DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
 }
 
 function clickSessionButton(target: any): boolean {
@@ -284,6 +293,14 @@ function clickFeatureButton(index: number, feature: FeatureDef, target: any): bo
 }
 
 function clickSubscreen(target: any): void {
+	if (isHelpOpen()) {
+		clickHelp();
+		return;
+	}
+	if (MouseIn(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
+		openHelp();
+		return;
+	}
 	if (MouseIn(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
 		activeTarget = null;
 		return;
@@ -403,6 +420,7 @@ export function installRemote(modApi: any): void {
 		((_args: [], next: (args?: any) => void) => {
 			if (activeTarget) {
 				activeTarget = null;
+				closeHelp();
 				return;
 			}
 			next([]);

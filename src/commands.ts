@@ -143,11 +143,14 @@ export function installCommands(): void {
 		Description:
 			"BC Hypnosis Add-on — session control, diagnostics and test commands",
 		Action: () => {
-			reply(summary);
 			reply(
-				"Most features are used by SPEAKING to a subject during a session, not by command — " +
-					"try /hypno match <phrase> to see what a phrase would do.",
+				"Most of this add-on is used by SPEAKING to someone during a session, not by command. " +
+					"The full guide — what to say, how trust works, every command — is under " +
+					"Preferences > Extensions > Hypnosis Add-on > Help, and on the Help button in the " +
+					"remote panel.",
 			);
+			reply(summary);
+			reply("Stuck on a phrase? /hypno match <phrase> reports what it would do and why not.");
 		},
 		// Fold the argument hint into the Description BC renders, so its own help screen
 		// shows it too rather than only our summary line.
@@ -156,6 +159,17 @@ export function installCommands(): void {
 			Description: args ? `${args} — ${Description}` : Description,
 		})),
 	});
+}
+
+/** The command list as the help screen sees it. Same list BC's own help and the bare
+ * `/hypno` summary are built from, so none of the three can fall behind the others. */
+export function commandHelp(): { group: string; tag: string; args: string; description: string }[] {
+	return COMMANDS.map((c) => ({
+		group: c.group,
+		tag: c.Tag,
+		args: c.args ?? "",
+		description: c.Description,
+	}));
 }
 
 const COMMANDS: HypnoCommand[] = [

@@ -85,6 +85,11 @@ interface Suggestion {
 	/** Reverses this suggestion. Used when a trigger is released by name — the release
 	 * has to undo exactly what that trigger applied, not everything of that kind. */
 	undo?: () => void;
+	/** Wordings that land, for the help screen. Kept beside the patterns rather than in
+	 * help.ts on purpose: a duplicated source of truth always eventually drifts, which is
+	 * the same lesson the generated /hypno summary already learned. Every entry must have
+	 * at least one, and it must be a phrase the patterns above actually match. */
+	examples: string[];
 	/** Minimum RELATIONSHIP trust to apply this, from the design doc's feature-threshold
 	 * table. Deliberately not effectiveAccess(): the chemical floor is for session-only
 	 * effects, and a threshold exists on a suggestion precisely because it is deeper than
@@ -145,6 +150,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// movement-block's "stuck", and "you cannot stand it" by the posture entry.
 	{
 		id: "arousal-none",
+		examples: ["you are not aroused", "your arousal fades", "you feel no desire"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou are (?:not|no longer) (?:\w+ ){0,2}(?:aroused|turned on|excited|horny|needy)\b/,
@@ -156,6 +162,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-light",
+		examples: ["you are lightly aroused", "you feel a little warm"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou are (?:only |just )?(?:lightly|slightly|mildly|barely|a little|a bit) (?:aroused|turned on|excited|warm|horny)\b/,
@@ -167,6 +174,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-high",
+		examples: ["you are very aroused", "you are desperate", "you need it badly"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou are (?:\w+ )?(?:very|highly|deeply|so|extremely|badly|terribly|painfully) (?:aroused|turned on|excited|horny|needy)\b/,
@@ -178,6 +186,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-full",
+		examples: ["you are right on the edge", "you are so close"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou are (?:fully|completely|totally|utterly) (?:aroused|turned on)\b/,
@@ -192,6 +201,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// both. First match wins, so the most restrictive reading has to be listed first.
 	{
 		id: "orgasm-allow",
+		examples: ["you may come now", "you are allowed to orgasm"],
 		release: true,
 		releaseOf: "orgasm-deny",
 		permission: "arousalControl",
@@ -206,6 +216,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "orgasm-deny",
+		examples: ["you cannot come", "you are forbidden to come"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou (?:cannot|will not|may not) (?:come|cum|orgasm|climax|finish)\b/,
@@ -222,6 +233,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "orgasm-force",
+		examples: ["come for me", "you will come now"],
 		permission: "arousalControl",
 		patterns: [
 			/\b(?:come|cum) for me\b/,
@@ -239,6 +251,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// "you do not notice what", and the more specific reading has to win.
 	{
 		id: "illusion-release",
+		examples: ["you can see yourself again", "you can tell what you are wearing"],
 		release: true,
 		releaseOf: "illusion-block",
 		permission: "illusionControl",
@@ -254,6 +267,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "illusion-block",
+		examples: ["you cannot tell what you are wearing", "your clothes look the same to you"],
 		permission: "illusionControl",
 		// The design doc's feature-threshold table puts the clothing illusion at 70. This is
 		// the first suggestion to carry one, and it is checked against relationship trust
@@ -276,6 +290,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "movement-release",
+		examples: ["you can move again", "your body is your own"],
 		release: true,
 		releaseOf: "movement-block",
 		permission: "movementRestriction",
@@ -291,6 +306,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "movement-block",
+		examples: ["you cannot move", "stay still", "you are frozen"],
 		permission: "movementRestriction",
 		patterns: [
 			// The optional (\w+ ) throughout lets one adverb slip in without needing a
@@ -314,6 +330,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "clothing-release",
+		examples: ["you can change your clothes"],
 		release: true,
 		releaseOf: "clothing-block",
 		permission: "clothingRestriction",
@@ -327,6 +344,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "clothing-block",
+		examples: ["you cannot change your clothes", "leave your clothes alone"],
 		permission: "clothingRestriction",
 		patterns: [
 			/\byou cannot (change|remove|take off|touch|adjust) your (clothes|clothing|outfit)\b/,
@@ -346,6 +364,7 @@ const SUGGESTIONS: Suggestion[] = [
 		// applied only if separately permitted — saying it doesn't override a box the
 		// subject left unchecked.
 		id: "awareness-release",
+		examples: ["you notice everything again"],
 		release: true,
 		releaseOf: "awareness-block",
 		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
@@ -365,6 +384,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "awareness-block",
+		examples: ["you notice nothing", "you are unaware"],
 		permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
 		patterns: [
 			/\byou notice nothing\b/,
@@ -383,6 +403,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "touch-release",
+		examples: ["you can feel my touch again"],
 		release: true,
 		releaseOf: "touch-block",
 		permission: "suppressActivities",
@@ -396,6 +417,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "touch-block",
+		examples: ["you will ignore my touches", "you cannot feel my touch"],
 		permission: "suppressActivities",
 		patterns: [
 			/\byou (will |)ignore (my|his|her|their) (touch|touches)\b/,
@@ -409,6 +431,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "speech-release",
+		examples: ["you can speak again", "your voice is back"],
 		release: true,
 		releaseOf: "speech-block",
 		permission: "speechRestriction",
@@ -423,6 +446,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "speech-block",
+		examples: ["you cannot speak", "stay silent", "not a word"],
 		permission: "speechRestriction",
 		patterns: [
 			/\byou cannot (\w+ )?(speak|talk)\b/,
@@ -442,6 +466,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "stand",
+		examples: ["stand", "get up", "on your feet"],
 		release: true,
 		releaseOf: "kneel",
 		permission: "postureControl",
@@ -461,6 +486,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "kneel",
+		examples: ["kneel", "on your knees"],
 		permission: "postureControl",
 		// Guarded so the hypnotist narrating their own action ("I kneel beside you") doesn't
 		// put the subject on the floor. "I want you to kneel" still lands — the guard is on
@@ -575,6 +601,27 @@ export function matchBodyPartCommand(content: string): BodyPartCommand | null {
 		}
 	}
 	return null;
+}
+
+export interface SuggestionHelp {
+	id: string;
+	permission: string;
+	examples: string[];
+	release: boolean;
+	trustThreshold?: number;
+}
+
+/** The pattern library as the help screen sees it. Table order is already grouped by
+ * feature, and each release sits next to the restriction it undoes, so the list needs no
+ * sorting — it reads the way it was written. */
+export function suggestionHelp(): SuggestionHelp[] {
+	return SUGGESTIONS.map((s) => ({
+		id: s.id,
+		permission: Array.isArray(s.permission) ? s.permission.join(" / ") : String(s.permission),
+		examples: s.examples,
+		release: !!s.release,
+		trustThreshold: s.trustThreshold,
+	}));
 }
 
 /** Human-readable verdict on a phrase for /hypno match — reports the pattern result and

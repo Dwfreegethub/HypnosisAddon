@@ -126,3 +126,7 @@ declare function DrawCharacter(
 	isHeightResizeAllowed?: boolean,
 	drawCanvas?: any,
 ): void;
+
+/** Font string for a given size, respecting the player's font-stack preference
+ * (Scripts/Common.js). BC sets MainCanvas.font from this everywhere it draws text. */
+declare function CommonGetFont(size: number | string): string;
