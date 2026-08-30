@@ -36,29 +36,66 @@ for (const k of ["hypnoEnabled", "movementRestriction", "speechRestriction"]) st
 // Refusals name the actual cause and go to the hypnotist, same as trigger setup.
 storage.setFeature("carryForward", false);
 storage.setTrustValue(HYP, "GameBot", 70);
-check("refused without permission", !!carry.beginCarry(HYP, "GameBot").refusal, true);
-check("  nothing recording", carry.isRecordingCarry(), false);
+carry.noteApplied("movement-block");
+check("refused without permission", !!carry.carryThese(HYP, "GameBot", carry.lastApplied()).refusal, true);
+check("  nothing held", carry.carriedIds(), []);
 
 storage.setFeature("carryForward", true);
 storage.setTrustValue(HYP, "GameBot", 40);
-const low = carry.beginCarry(HYP, "GameBot");
+const low = carry.carryThese(HYP, "GameBot", carry.lastApplied());
 check("refused below trust 65", /needs trust 65/.test(low.refusal ?? ""), true);
-check("  nothing recording", carry.isRecordingCarry(), false);
+check("  nothing held", carry.carriedIds(), []);
 
+// Nothing said yet is its own refusal, and it names the cause rather than going quiet.
 storage.setTrustValue(HYP, "GameBot", 70);
-const ok = carry.beginCarry(HYP, "GameBot");
-check("accepted at trust 70", carry.isRecordingCarry(), true);
-// The subject is told something is being made to last, never what.
-check("  subject line hides the list", /movement|speech|freeze/i.test(ok.subject ?? ""), false);
+carry.clearActiveSuggestions();
+const empty = carry.carryThese(HYP, "GameBot", carry.lastApplied());
+check("refused with nothing to keep", /give the suggestion first/.test(empty.refusal ?? ""), true);
 
-// --- capture ---
-carry.noteCarried("movement-block");
-carry.noteCarried("speech-block");
-carry.noteCarried("movement-block"); // repeats must not stack
-check("captures each id once", carry.carriedIds(), ["movement-block", "speech-block"]);
-check("isCarried", carry.isCarried("speech-block"), true);
-check("carrier is known", carry.isCarrierOf(HYP), true);
-check("  and only them", carry.isCarrierOf(OTHER), false);
+// --- targeting: "that" means the one just given, not everything in force -------------
+// The whole point of the design. A session leaves the subject frozen, silent and unaware;
+// "that stays with you" must keep only the thing actually meant.
+carry.clearActiveSuggestions();
+carry.noteApplied("movement-block");
+carry.noteApplied("speech-block");
+carry.noteApplied("illusion-block");
+check("last applied is the most recent", carry.lastApplied(), ["illusion-block"]);
+const ok = carry.carryThese(HYP, "GameBot", carry.lastApplied());
+check("keeps only that one", carry.carriedIds(), ["illusion-block"]);
+check("  not the freeze", carry.isCarried("movement-block"), false);
+check("  not the silence", carry.isCarried("speech-block"), false);
+// The subject is told something lasts, never what.
+check("  subject line hides the list", /illusion|clothes|wearing/i.test(ok.subject ?? ""), false);
+
+// Said again after another suggestion, it accumulates rather than replacing.
+carry.noteApplied("speech-block");
+carry.carryThese(HYP, "GameBot", carry.lastApplied());
+check("accumulates", carry.carriedIds(), ["illusion-block", "speech-block"]);
+check("  repeats are refused, not duplicated", !!carry.carryThese(HYP, "GameBot", ["speech-block"]).refusal, true);
+check("  still two", carry.carriedIds().length, 2);
+
+// The blunt wording is available when it really is what you want.
+carry.releaseCarried("reset");
+carry.clearActiveSuggestions();
+carry.noteApplied("movement-block");
+carry.noteApplied("speech-block");
+carry.carryThese(HYP, "GameBot", carry.appliedSuggestions());
+check("all-of-it keeps everything in force", carry.carriedIds(), ["movement-block", "speech-block"]);
+
+// A release un-tracks it, so it can no longer be the thing "that" points at.
+carry.noteReleased("speech-block");
+check("released drops out of the tracker", carry.lastApplied(), ["movement-block"]);
+
+// Ending a session clears the tracker — nothing spoken is still in force afterwards.
+carry.clearActiveSuggestions();
+check("exit clears the tracker", carry.appliedSuggestions(), []);
+check("  but not what was already carried", carry.carriedIds().length, 2);
+
+carry.releaseCarried("reset");
+carry.clearActiveSuggestions();
+carry.noteApplied("movement-block");
+carry.noteApplied("speech-block");
+carry.carryThese(HYP, "GameBot", carry.appliedSuggestions());
 
 // --- surviving a wake ---
 // carryThroughWake runs AFTER the session's total clear, so it must re-apply rather than
@@ -68,7 +105,6 @@ said = [];
 const line = carry.carryThroughWake();
 check("wake line returned", typeof line, "string");
 check("  still holding after the wake", carry.carriedIds(), ["movement-block", "speech-block"]);
-check("  recording stopped", carry.isRecordingCarry(), false);
 
 // --- releasing one by name, out of trance ---
 said = [];
@@ -97,17 +133,19 @@ check("  carrier forgotten", carry.isCarrierOf(HYP), false);
 
 // --- nothing survives a safeword ---
 storage.setTrustValue(HYP, "GameBot", 70);
-carry.beginCarry(HYP, "GameBot");
-carry.noteCarried("movement-block");
+carry.clearActiveSuggestions();
+carry.noteApplied("movement-block");
+carry.carryThese(HYP, "GameBot", carry.lastApplied());
 carry.carryThroughWake();
 check("carrying before the safeword", carry.carriedIds(), ["movement-block"]);
 carry.releaseCarried("safeword");
 check("safeword takes it too", carry.carriedIds(), []);
 check("  and the carrier with it", carry.isCarrierOf(HYP), false);
 
-// --- capture is inert when it was never turned on ---
-carry.noteCarried("clothing-block");
-check("no capture without beginCarry", carry.carriedIds(), []);
+// --- the tracker alone carries nothing ---
+// Applying a suggestion must never make it durable by itself; that takes the phrase.
+carry.noteApplied("clothing-block");
+check("tracking is not carrying", carry.carriedIds(), []);
 
 console.log(`carry: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

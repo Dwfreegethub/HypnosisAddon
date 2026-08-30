@@ -6,8 +6,8 @@ import { clearAllTimers } from "./timers";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
-import { freezeAppearance, clearIllusion } from "./illusion";
-import { carryThroughWake, releaseCarried, isCarried } from "./carry";
+import { freezeAppearance, clearIllusion, describeIllusion } from "./illusion";
+import { carryThroughWake, releaseCarried, isCarried, describeCarry, clearActiveSuggestions } from "./carry";
 import {
 	applyEffect,
 	removeEffect,
@@ -200,6 +200,7 @@ function endSession(reason: string, quiet = false): void {
 	clearTranceStates();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
+	clearActiveSuggestions();
 	// The denial LOCK comes off; the arousal LEVEL stays. One is something we applied to
 	// them, the other is a number they now carry — resetting it would be us reaching into
 	// state that was theirs before the session and is theirs after it.
@@ -459,6 +460,7 @@ export function safeword(): void {
 	clearTranceStates();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
+	clearActiveSuggestions();
 	clearOrgasmDenial();
 	clearIllusion();
 	// Nothing survives a safeword — that is the whole point of it, and the one rule in this
@@ -483,7 +485,10 @@ export function describeSession(): string {
 	const f = getFeatures();
 	const granted = (Object.keys(f) as (keyof typeof f)[]).filter((k) => f[k]).join(", ") || "none";
 	const perms = `permissions: ${granted}`;
-	if (session.phase === "Idle") return `session: Idle | ${perms}`;
+	// Both of these can be true with no session at all — that's the point of them — so they
+	// are reported unconditionally, including on the Idle line.
+	const lasting = `${describeIllusion()} | ${describeCarry()}`;
+	if (session.phase === "Idle") return `session: Idle | ${lasting} | ${perms}`;
 	const bits = [`session: ${session.phase}`];
 	if (session.hypnotistId != null) bits.push(`hypnotist=${session.hypnotistId}`);
 	if (session.choice) bits.push(`choice=${session.choice}`);
@@ -492,7 +497,7 @@ export function describeSession(): string {
 	if (session.phase === "AttemptFailed") bits.push(`progress=${session.progress.toFixed(1)}`);
 	if (session.cooldownUntil > Date.now())
 		bits.push(`cooldown=${Math.ceil((session.cooldownUntil - Date.now()) / 1000)}s`);
-	return `${bits.join(" ")} | ${perms}`;
+	return `${bits.join(" ")} | ${lasting} | ${perms}`;
 }
 
 /** Spoken wake-up keyword, per the design doc's "wake-up keyword (spoken in chat) or a

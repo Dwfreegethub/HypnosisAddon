@@ -8,10 +8,23 @@ import { scheduleTimer, cancelTimer } from "./timers";
 // the session, or a trigger, which outlives it but lies dormant until someone says a word.
 // There was no way to say "you will still be frozen when you wake up".
 //
-// Shaped deliberately like trigger recording, because it is the same act: the hypnotist
-// turns it on, gives the suggestions normally, and they are captured as they land. The
-// difference is that a carried suggestion RUNS at the time it is spoken — the subject feels
-// it during the trance too — where a recorded trigger is stored instead of run.
+// TARGETED, not a mode. The hypnotist gives a suggestion and then says that one stays —
+// "Missy, you cannot tell what you are wearing. Missy, that will stay with you." Said
+// again after another suggestion, it keeps that one too.
+//
+// The two obvious alternatives are both worse, and it is worth writing down why:
+//
+//   A capture MODE that runs forward from the phrase reads backwards. You have to declare
+//   what you are about to do before doing it, which is not how anyone talks, and the phrase
+//   most naturally means "that thing I just said".
+//
+//   Sweeping up everything currently in force is the blunt one. By the end of a session the
+//   subject is typically frozen, silent, unaware of clothing changes and holding an
+//   illusion; one phrase carrying all of it means she wakes still unable to move or speak
+//   because the hypnotist wanted the illusion to hold. Almost never the intent.
+//
+// So the phrase takes the most recent suggestion, and accumulates. There is a separate
+// all-of-it wording for the rare case where the blunt version really is what you want.
 //
 // Gates match triggers exactly, and for the same reason: this outlives the session, so it
 // needs its own permission and relationship trust, and the arousal floor must not reach it.
@@ -23,10 +36,11 @@ import { scheduleTimer, cancelTimer } from "./timers";
 // who is not under.
 
 export const CARRY_TRUST_THRESHOLD = 65;
+/** Same cap as a trigger's action list, for the same reason: a bundle this size is already
+ * more than anyone can keep track of, and a runaway one is harder to undo than to make. */
+const MAX_CARRIED = 8;
 const TIMER_KEY = "carry-forward";
 
-/** Capturing suggestions as they land. Only true during a session. */
-let recording = false;
 /** Who carried them. Only this person can release them by speaking. */
 let carrier: number | null = null;
 let carrierName = "";
@@ -45,8 +59,42 @@ export function registerCarryHandlers(reapply: (id: string) => void, undo: (id: 
 	undoOne = undo;
 }
 
-export function isRecordingCarry(): boolean {
-	return recording;
+/** Suggestion ids currently applied by the spoken path, most recent LAST. Lives here
+ * rather than in voice.ts because session.ts has to clear it on every exit, and voice.ts
+ * already imports session.ts — routing it through this module, which both already depend
+ * on, is what keeps the graph acyclic. Same reasoning as timers.ts.
+ *
+ * Deliberately only the spoken path. The trance defaults (cannot move, cannot speak, the
+ * veil) are applied straight by applyTranceState and never appear here, so they can never
+ * be carried past waking by accident — a subject always gets their legs and their voice
+ * back. Making one of those durable takes saying it out loud as a suggestion first, which
+ * is exactly the deliberateness it should require. */
+const applied: string[] = [];
+
+export function noteApplied(id: string): void {
+	const at = applied.indexOf(id);
+	if (at !== -1) applied.splice(at, 1);
+	applied.push(id);
+}
+
+export function noteReleased(id: string): void {
+	const at = applied.indexOf(id);
+	if (at !== -1) applied.splice(at, 1);
+}
+
+/** Everything currently in force from the spoken path, oldest first. */
+export function appliedSuggestions(): string[] {
+	return [...applied];
+}
+
+/** The one "that" refers to. */
+export function lastApplied(): string[] {
+	return applied.slice(-1);
+}
+
+/** Called from every session-exit path — nothing spoken is still in force afterwards. */
+export function clearActiveSuggestions(): void {
+	applied.length = 0;
 }
 
 export function isCarried(id: string): boolean {
@@ -64,40 +112,49 @@ export function isCarrierOf(sender: number): boolean {
 }
 
 export function describeCarry(): string {
-	const state = recording ? "recording" : ids.length ? "holding" : "idle";
-	return `carry-forward: ${state}${ids.length ? ` — ${ids.join(", ")} (from ${carrierName || carrier})` : ""}`;
+	if (!ids.length) return "carry-forward: nothing held";
+	return `carry-forward: holding ${ids.join(", ")} (from ${carrierName || carrier})`;
 }
 
-/** Turn capture on. Returns a line for the subject, or a refusal for the hypnotist —
- * the caller decides where each goes, the same split trigger setup uses. */
-export function beginCarry(sender: number, name: string): { subject?: string; refusal?: string } {
+/** Mark suggestions to survive waking. Returns a line for the subject, or a refusal for
+ * the hypnotist — the caller decides where each goes, the same split trigger setup uses.
+ *
+ * ACCUMULATES rather than replacing, so "that stays with you" can be said after each
+ * suggestion the hypnotist actually wants kept. That is the whole design: the alternative
+ * of sweeping up everything currently in force would make one phrase carry the freeze, the
+ * silence and the suppression along with the thing you meant, and nobody wants their
+ * subject to wake up still unable to speak because they wanted the illusion to hold. */
+export function carryThese(sender: number, name: string, wanted: string[]): { subject?: string; refusal?: string } {
 	const features = getFeatures();
 	if (!features.hypnoEnabled) return { refusal: "They have hypnosis switched off." };
 	if (!features.carryForward) return { refusal: `They have not enabled "Suggestions that outlive the trance".` };
 	const trust = trustWith(sender);
 	if (trust < CARRY_TRUST_THRESHOLD)
-		return { refusal: `Carrying a suggestion past waking needs trust ${CARRY_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)}.` };
+		return { refusal: `Making a suggestion outlive the trance needs trust ${CARRY_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)}.` };
+	if (!wanted.length)
+		return { refusal: "Nothing to keep — give the suggestion first, then say it stays with them." };
 
-	recording = true;
+	// A different person taking over replaces the set rather than adding to it; two people
+	// each holding half of a bundle has no sensible release story.
+	if (carrier !== null && carrier !== sender) releaseCarried("someone else took over");
 	carrier = sender;
 	carrierName = name;
-	log(`carry-forward recording started for ${name} (${sender})`);
+
+	const added: string[] = [];
+	for (const id of wanted) {
+		if (ids.includes(id)) continue;
+		if (ids.length >= MAX_CARRIED) {
+			log(`carry-forward is full at ${MAX_CARRIED}, dropping "${id}"`);
+			continue;
+		}
+		ids.push(id);
+		added.push(id);
+	}
+	if (!added.length) return { refusal: "That is already set to stay with them." };
+	log(`carry-forward will keep ${added.join(", ")} (${ids.length} total)`);
 	// Deliberately vague to the subject. They are being told something is being made to
 	// last, not given a list they could keep track of and check against later.
-	return { subject: "Something in what you are being told settles deeper, and stays." };
-}
-
-/** Record a suggestion that just landed. Called after it runs, not instead of it. */
-export function noteCarried(id: string): void {
-	if (!recording) return;
-	if (ids.includes(id)) return;
-	ids.push(id);
-	log(`carry-forward will keep "${id}" (${ids.length} total)`);
-}
-
-/** Stop capturing but keep what is already held. Called when the session ends. */
-export function stopRecordingCarry(): void {
-	recording = false;
+	return { subject: "Something in what you were just told settles deeper, and stays." };
 }
 
 /** Everything a session-exit path needs: stop capturing, re-apply what survives, and start
@@ -108,7 +165,6 @@ export function stopRecordingCarry(): void {
  * into that would put the guarantee at the mercy of this feature. So the clear stays total,
  * and what survives is put back afterwards from a list. */
 export function carryThroughWake(): string | null {
-	recording = false;
 	if (!ids.length) return null;
 	for (const id of ids) {
 		try {
@@ -146,7 +202,6 @@ export function dropCarried(id: string): void {
 export function releaseCarried(reason: string): boolean {
 	cancelTimer(TIMER_KEY);
 	if (!ids.length) {
-		recording = false;
 		carrier = null;
 		return false;
 	}
@@ -159,7 +214,6 @@ export function releaseCarried(reason: string): boolean {
 	}
 	log(`carry-forward released ${ids.length} suggestion(s) — ${reason}`);
 	ids = [];
-	recording = false;
 	carrier = null;
 	carrierName = "";
 	return true;

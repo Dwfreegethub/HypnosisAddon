@@ -8,14 +8,16 @@ import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion } from "./illusion";
 import {
-	beginCarry,
-	noteCarried,
-	isRecordingCarry,
+	carryThese,
 	isCarrierOf,
 	isCarried,
 	dropCarried,
 	releaseCarried,
 	registerCarryHandlers,
+	noteApplied,
+	noteReleased,
+	appliedSuggestions,
+	lastApplied,
 } from "./carry";
 import { scheduleTimer, cancelTimer } from "./timers";
 import {
@@ -806,19 +808,24 @@ function handleTriggerFiring(sender: number, content: string): boolean {
 }
 
 // --- Carry-forward -----------------------------------------------------------------
-// "This will stay with you" turns on capture; every suggestion that lands afterwards runs
-// normally AND is remembered, so it can be put back once the trance ends. See carry.ts.
+// "That will stay with you" keeps the suggestion just given; saying it again after another
+// one keeps that too. See carry.ts for why it targets rather than sweeping.
 
-const CARRY_START = [
-	/\b(?:this|that|it) will stay with you\b/,
-	/\byou will keep (?:this|that|it)\b/,
-	/\b(?:this|that|it) (?:will |)(?:stay|stays|remains) (?:with you )?(?:when|after) you wake\b/,
-	/\byou will carry (?:this|that|it) with you\b/,
-	/\bwhat i tell you now will stay\b/,
-	/\bthis stays with you\b/,
+const CARRY_LAST = [
+	/\b(?:that|this|it) (?:will |)stays? with (?:you|her|him|them)\b/,
+	/\byou will keep (?:that|this|it)\b/,
+	/\b(?:that|this|it) (?:will |)(?:stay|stays|remain|remains) (?:with you )?(?:when|after) you wake\b/,
+	/\byou will carry (?:that|this|it) with you\b/,
+	/\b(?:that|this|it) (?:one |)stays\b/,
+];
+const CARRY_ALL = [
+	/\ball of (?:this|that|it) (?:will |)stays? with you\b/,
+	/\b(?:all|everything) (?:of it |)(?:will |)stays? with you\b/,
+	/\byou will keep (?:all of |)(?:this|everything)\b/,
+	/\beverything i (?:have |)told you stays\b/,
 ];
 const CARRY_CANCEL = [
-	/\b(?:this|that|it) will not stay with you\b/,
+	/\b(?:this|that|it|none of it|nothing) will not stay with you\b/,
 	/\bforget what i (?:said|told you)\b/,
 	/\bnothing stays with you\b/,
 ];
@@ -849,26 +856,32 @@ function undoActionById(id: string): void {
 // circular, so the dependency runs one way and the functions are handed over.
 registerCarryHandlers(applyActionById, undoActionById);
 
-/** Handle "this will stay with you" / "forget what I said". Returns true if the line was
- * one of them. Requires a live trance and the subject's name, exactly like trigger
- * setup — making something outlive a session should never be reachable in conversation. */
+/** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".
+ * Returns true if the line was one of them. Requires a live trance and the subject's name,
+ * exactly like trigger setup — making something outlive a session should never be reachable
+ * in ordinary conversation. */
 function handleCarryControl(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return false;
 
 	if (CARRY_CANCEL.some((p) => p.test(text))) {
-		if (!isCarrierOf(sender) && !isRecordingCarry()) return false;
+		if (!isCarrierOf(sender)) return false;
 		if (releaseCarried("the hypnotist took it back")) {
 			ChatRoomSendLocal("Whatever was going to stay with you doesn't.");
 		}
 		return true;
 	}
 
-	if (!CARRY_START.some((p) => p.test(text))) return false;
+	// All-of-it is checked first: "all of this stays with you" also matches the narrower
+	// "this stays" pattern, and the broader reading has to win its own wording.
+	const all = CARRY_ALL.some((p) => p.test(text));
+	if (!all && !CARRY_LAST.some((p) => p.test(text))) return false;
 	if (!isSessionActiveWith(sender) || !mentionsAnyName(content, playerOwnNames())) return false;
 
+	const wanted = all ? appliedSuggestions() : lastApplied();
+
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
-	const result = beginCarry(sender, character?.Name ?? `#${sender}`);
+	const result = carryThese(sender, character?.Name ?? `#${sender}`, wanted);
 	// The refusal goes to the HYPNOTIST, not the subject — same split as trigger setup, and
 	// for the same reason: the subject learning "they aren't trusted enough yet" breaks the
 	// fiction, while the hypnotist not learning it leaves them guessing.
@@ -948,8 +961,12 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
 	else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
 	const actionId = cmd.all ? "touch:all" : `touch:${cmd.word}`;
-	if (cmd.block) noteCarried(actionId);
-	else dropCarried(actionId);
+	if (cmd.block) {
+		noteApplied(actionId);
+	} else {
+		noteReleased(actionId);
+		dropCarried(actionId);
+	}
 	log(`${cmd.block ? "blocked" : "released"} ${label}`);
 	ChatRoomSendLocal(
 		cmd.block
@@ -1027,11 +1044,14 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
 	ChatRoomSendLocal(flavor(suggestion.run() || id));
-	// Captured AFTER it runs, so a carried suggestion is felt during the trance too — the
-	// difference from trigger recording, which stores instead of running.
+	// Tracked AFTER it runs, so "that will stay with you" has something to point at. A
+	// release both un-tracks the restriction and lets go of it if it was being carried.
 	if (suggestion.release) {
-		if (suggestion.releaseOf) dropCarried(suggestion.releaseOf);
+		if (suggestion.releaseOf) {
+			noteReleased(suggestion.releaseOf);
+			dropCarried(suggestion.releaseOf);
+		}
 	} else {
-		noteCarried(id);
+		noteApplied(id);
 	}
 }

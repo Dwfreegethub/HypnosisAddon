@@ -44,6 +44,22 @@ function targetsPlayer(data: any, metadata: any): boolean {
 	return data?.Sender !== Player.MemberNumber && !!ChatRoomMessageInvolvesPlayer?.(data);
 }
 
+/** Action messages that name no asset AND no group, so nothing in the payload says what
+ * they are about — they have to be recognised by the message tag itself.
+ *
+ * `ChangeClothes` is the one that matters, and it was the hole in this: BC sends exactly
+ * one of these for a whole WARDROBE session (ChatRoomAppearanceLoadCharacter in
+ * ChatRoom.js), carrying only a source and a destination character, however many garments
+ * actually changed. Item-by-item changes through the dialog carry their asset and were
+ * being suppressed correctly all along — which is why this looked like it worked.
+ *
+ * Deliberately a short, verified list rather than a guess at every tag. Anything
+ * safeword-, leash- or room-related stays off it: those are messages a subject must keep
+ * seeing regardless of what they've agreed to not notice. */
+const ACTION_TAGS: Record<string, SuppressionCategory> = {
+	ChangeClothes: "clothing",
+};
+
 /** Which bucket does this message fall into, if any?
  *
  * Asset.IsRestraint (Asset.js) is what separates clothing from bondage — it's set per
@@ -60,7 +76,16 @@ function classify(data: any, metadata: any): SuppressionCategory | null {
 	// Some Action messages carry only a group, no asset (e.g. stripping a slot empty).
 	const group = metadata?.FocusGroup;
 	if (group) return group.IsRestraint || group.Category === "Item" ? "bondage" : "clothing";
-	return null;
+
+	// Neither asset nor group: fall back to the message's own name.
+	const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : undefined;
+	return tag ?? null;
+}
+
+/** Exposed for the test suite — classify is the part with all the branches, and it is pure
+ * apart from reading two fields off its arguments. */
+export function classifyForTest(data: any, metadata: any): SuppressionCategory | null {
+	return classify(data, metadata);
 }
 
 export function installSuppression(): void {

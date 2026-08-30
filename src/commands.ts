@@ -456,10 +456,12 @@ const COMMANDS: HypnoCommand[] = [
 		args: "<on|off>",
 		Description: "Freeze/release your own view of your clothes, bypassing all gates",
 		Action: (args: string) => {
+			// Bare form REPORTS rather than toggling. A toggle you have to run to inspect is
+			// useless for checking state mid-test — you can never tell whether what you're
+			// reading is what was there or what you just did.
 			const word = firstWord(args).toLowerCase();
-			const on = word === "" ? !isIllusionActive() : word !== "off";
-			if (on) freezeAppearance();
-			else clearIllusion();
+			if (word === "on") freezeAppearance();
+			else if (word === "off") clearIllusion();
 			reply(describeIllusion());
 		},
 	},
