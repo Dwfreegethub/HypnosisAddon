@@ -8,7 +8,7 @@ const EMOTICON_ASSET_NAME = "Emoticon";
 // Every effect we inject onto the Emoticon item must be listed here. BC's own validation
 // (ValidationSanitizeEffects in Validation.js) filters an item's Property.Effect down to
 // what the *asset* permits, dropping anything not in Asset.Effect or Asset.AllowEffect.
-const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe"];
+const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
 
 function findEmoticonItem(character: any): any {
 	return character?.Appearance?.find((a: any) => a?.Asset?.Name === EMOTICON_ASSET_NAME);

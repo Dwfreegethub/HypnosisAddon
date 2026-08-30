@@ -75,6 +75,12 @@ export interface FeatureToggles {
 	triggerControl: boolean;
 	/** Silencing suggestions ("you cannot speak"). */
 	speechRestriction: boolean;
+	/** Arousal level, forced orgasm and orgasm denial — one permission for all six, per
+	 * DW. They're deliberately NOT split the way kneel was split out of movement: kneeling
+	 * and being frozen are different things to consent to, whereas "someone may move my
+	 * arousal around" covers the whole set as one decision. Drives BC's own arousal system,
+	 * so it does nothing at all for a player whose meter is set to Inactive. */
+	arousalControl: boolean;
 	/** Permission to hide messages about clothing changes done to you. */
 	suppressClothing: boolean;
 	/** Permission to hide messages about restraints applied to or removed from you. */
@@ -140,6 +146,7 @@ function defaultFeatures(): FeatureToggles {
 		postureControl: false,
 		speechRestriction: false,
 		selfTouchControl: false,
+		arousalControl: false,
 		triggerControl: false,
 		suppressClothing: false,
 		suppressBondage: false,

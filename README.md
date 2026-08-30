@@ -345,9 +345,12 @@ Stack: TypeScript, bundled with esbuild into a single `.user.js` (Tampermonkey o
 npm install
 npm run watch     # rebuilds dist/HypnosisAddon.user.js on save
 npm run typecheck # tsc --noEmit
+npm test          # bundles the modules, then runs every suite in test/
 ```
 
-To test against the live client: install the script in Tampermonkey from a `file://` URL pointing at `dist/HypnosisAddon.user.js` (enable "Allow access to file URLs" for the extension), then just refresh the BC tab after each rebuild to pick up changes. `@match` targets `*://*.bondageprojects.elementfx.com/*` — update it if the hosting domain changes.
+**Run `npm test` after any change to `voice.ts`.** Adding a suggestion whose wording overlaps an existing one is the easiest mistake to make in this codebase and the hardest to notice by hand — the suite exists because that has happened repeatedly.
+
+To test against the live client: install the script in Tampermonkey from a `file://` URL pointing at `dist/HypnosisAddon.user.js` (enable "Allow access to file URLs" for the extension), then just refresh the BC tab after each rebuild to pick up changes. `@match` targets both `*://*.bondageprojects.elementfx.com/*` and `*://*.bondage-europe.com/*` — BC is served from more than one host and a non-matching `@match` fails completely silently.
 
 Verified against the live R131 client source: the socket instance is the global `ServerSocket`, incoming events are consumed via `ServerSocket.on("ChatRoomMessage", ...)`, and BC already has a `Type: "Hidden"` message convention (sent through `ServerSend("ChatRoomChat", { Content, Type: "Hidden", Target })`) that's delivered but never rendered in the visible chat log — this is the channel the "Sync between players" section above is planned to use.
 
@@ -364,11 +367,11 @@ Persistence, hooking (`bondage-club-mod-sdk`), and the Hidden-message envelope a
 
 **Stage 3 (in progress):** two screens now, both verified against the live client source rather than assumed.
 
-**Settings (Preferences → Extensions → "Hypnosis Add-on")**, via `PreferenceRegisterExtensionSetting`. Four checkboxes, all off by default, persisted the same way as trust data — these are **permission** settings ("do I allow this to be done to me"), not self-triggers; checking one never applies an effect to yourself:
+**Settings (Preferences → Extensions → "Hypnosis Add-on")**, via `PreferenceRegisterExtensionSetting`. Originally four checkboxes; now five tabs (see Stage 6 and Stage 8 below). All permissions off by default, persisted the same way as trust data — these are **permission** settings ("do I allow this to be done to me"), not self-triggers; checking one never applies an effect to yourself. The four originals:
 - **Hypnosis Enabled** — master switch/hard floor. Turning it off immediately releases Movement/Clothing Restriction if either is currently active (matches the design doc's "clears active trance, suspends all effects"); turning it back on doesn't auto-reapply anything.
 - **Movement Restriction** — permission for a remote request to apply Freeze. Unchecking it releases Freeze immediately if it's currently active.
-- **Clothing Restriction** — permission for a remote request to apply BlockWardrobe, *and* gates clothing-message suppression (grouped to match the design doc's "Clothing Confusion" feature) — the `ChatRoomMessage` hook reads this flag directly, in addition to (not instead of) the one-shot `/hypno suppress` test command.
-- **Hidden Activities** — gates the Hidden-message cross-client channel (`messaging.ts`) for both sending and receiving.
+- **Clothing Restriction** — permission for a remote request to apply BlockWardrobe. It also gated clothing-message suppression at first, grouped to match the design doc's "Clothing Confusion" feature; that turned out to be wrong twice over (it fired outside any session, and it ate *every* Action message, not only clothing ones), and suppression got its own three toggles in v0.11.0.
+- **Hidden Activities** — gated the Hidden-message cross-client channel for both sending and receiving. It caused two bugs doing that (below), was narrowed until it gated nothing at all, and was **removed in v0.14.0** in favour of "Lock settings while in trance". Left here because the mistake is the useful part: a *protocol* gate wearing a *content* preference's label.
 
 **Remote control (another player's Information Sheet)**, via hooking `InformationSheetRun`/`Click`/`Exit` (`Screens/Character/InformationSheet/InformationSheet.js`) — same mechanism LSCG's own remote uses (technique only, not their code — see `remote.ts`). Viewing someone else's sheet shows a small "H" icon directly below LSCG's own remote icon; clicking it opens a subscreen with Movement Restriction / Clothing Restriction buttons. No custom icon asset exists yet, hence the plain letter.
 
@@ -429,9 +432,69 @@ Self-touch is structurally self-only: `ActivityRun` executes on the *actor's* cl
 
 **Settings screen went tabbed** (v0.13.0) — Permissions / Trance Defaults / Awareness. The seam between active tab and panel is *never drawn* rather than drawn and erased; erasing left a hairline, because canvas strokes are anti-aliased and bleed past their nominal bounds. Previous layout tagged `menu-checkbox-layout`.
 
-**The pattern test suite has now caught six real bugs pre-ship**, including bare `stand` never matching, and `awareness-release` swallowing "you are awake again" — which would have made the wake keyword restore awareness while leaving the subject under. It lives in the scratchpad and does not survive the session; **move it into the repo before touching `voice.ts` again.**
+**The pattern test suite has now caught six real bugs pre-ship**, including bare `stand` never matching, and `awareness-release` swallowing "you are awake again" — which would have made the wake keyword restore awareness while leaving the subject under. Moved into the repo in v0.13.2; `npm test` runs it.
 
 ⚠ **`INDUCTION_WINDOW_MS` is at the 10-second testing value.** Restore to `60_000` before real play.
+
+---
+
+## Stage 7 — Trust engine (`trust.ts`, `curve.ts`, `storage.ts`, v0.15.0–v0.18.0)
+
+**Store the count, derive the value.** `trust = 100n/(n+H)` with `H = 25`, where `n` is the number of interactions. Storing the *score* would mean any later retune of `H` silently corrupts every saved relationship; storing the count means a retune simply reprices them. Same curve, same `H`, for subject experience.
+
+An interaction is one conversational message, rate-limited to one per five minutes and worth double when the line is addressed to you by name. A successful induction is worth five (dropped from ten in v0.18.0 — trust was arriving too fast to feel earned). Every induction *attempt* grants a quarter-point of experience whether it lands or not, since practice is practice.
+
+**The roll became a chance, not a threshold.** `clamp(access + choiceModifier + experienceEffect, 5, 95)`, read literally as a percentage. The old `score >= 50` had almost no probabilistic zone — with only a 20-wide random term, outcomes swung from impossible to certain across a 20-point trust window (at trust 25 + Agree it was already 100%; trust 25 + Ignore was 0%). Depth now falls out of the same roll as `chance - roll`, so a comfortable success goes deep and a squeaker leaves a trance the subject can pull themselves out of.
+
+**Experience is one pool, not two.** Its sign follows the choice: it helps you go under when you agree and helps you resist when you fight. Practice with hypnosis is one skill; what you point it at is a per-attempt decision.
+
+**Arousal is a floor, not a multiplier:** `access = max(trust, min(arousal, 30))`. Read off `Player.ArousalSettings.Progress` on the player's own client — which is both correct and convenient, since the roll already runs there and nothing needs syncing or trusting. A multiplier on zero trust is still zero, which would give a stranger nothing, and a stranger is precisely the case the mechanic exists for.
+
+**Diagnostics that earned their place:** `/hypno chance <name>` prints the inputs *and* the resulting percentage for all three choices — the single most useful thing while tuning, because it exposes the formula without having to run an induction and infer it from the outcome. `/hypno storage` reports where settings actually loaded from.
+
+**A real data-integrity bug (v0.17.0):** `localStorage` is per-**origin**, and the backup key was a single fixed string — so two characters on one browser shared one set of trust and stats, and each login overwrote the other. Keyed per account number now, and `saveSettings` refuses outright until the member number is known rather than writing somewhere wrong.
+
+---
+
+## Stage 8 — Persistent triggers (`triggers.ts`, `timers.ts`, v0.20.0–v0.25.0)
+
+Planted by speaking during a trance and fired **afterwards, outside any session** — which is the whole point, and the reason firing is checked before the session gate in `handleSpokenLine`.
+
+Gated on its own permission *and* trust 65, with arousal deliberately excluded from that check: the design doc's rule is that the chemical floor never reaches anything persistent.
+
+**Each action re-checks its own permission at firing time**, not at planting time. Revoking a permission therefore disarms that part of every trigger already planted, rather than leaving old grants to outlive the consent that created them.
+
+Things that turned out to matter more than expected:
+
+- **The subject must not see the phrase.** Someone who can read their own trigger word can simply decide not to react to it. So the phrase goes to the *hypnotist* over the Hidden channel and the subject gets atmosphere — and with the Awareness toggle on, the whole setup exchange never renders for them at all. The line still has to be *processed* (it is how the trigger gets built), so the handler reacts and then does not call `next()`, rather than suppressing wholesale.
+- **Refusals must name the cause.** The first version answered a permission problem with "Something in the words slides off you", and it was genuinely impossible to tell why a trigger would not plant. Now: `[trigger] Refused — ...` with the actual reason.
+- **Blanket release was too broad.** Letting release wording work outside a trance fixed "a trigger fired and nothing can undo it" but broke something bigger: ordinary hypnosis phrasing kept working on people who were not under. Replaced with a targeted `"you are released from <name>"`, which is narrow, needs knowledge only the hypnotist has, and undoes exactly what that trigger applied.
+- **Scope reuses BC's own permission ladder** — `IsOwnedByCharacter`, `IsLoverOfCharacter`, `HasOnWhitelist`, `HasOnBlacklist`, `ReputationCharacterGet(C, "Dominant")`. People without the add-on can fire a trigger, because the matching happens entirely on the subject's client; all the speaker has to do is say the word.
+- **Non-checkbox controls, finally** (v0.24.0): `ElementCreateDropdown` and `ElementCreateInput` are real DOM elements layered over the canvas in canvas coordinates, positioned by *centre*. They must be removed explicitly on tab switch, `exit()` and `unload()`, or they linger over whatever screen comes next.
+- **`timers.ts` exists purely to break an import cycle.** The auto-release timer is scheduled in `voice.ts` (which owns undo) but cancelled by `session.ts` (safeword, wake); `voice.ts` already imports `session.ts`. Same trap the pose helpers hit, same fix: put the shared state in a leaf module both can depend on.
+
+---
+
+## Stage 9 — Prompt box and arousal (`prompt.ts`, `arousal.ts`, v0.26.0–v0.27.1)
+
+**The Agree / Ignore / Fight prompt got a box** (`ChatRoomRun` to draw after `next()`, `ChatRoomClick` to consume before it). It sits in the character half of the screen — x 0–1003, the rect BC's own arousal overlay fills — so the chat log and input stay clear and the safeword is still typeable. The chat commands **remain**: `ChatRoomRun` only runs on the chat room screen, so a player in the wardrobe when an attempt lands sees no box at all. One prompt, two ways to answer.
+
+**Arousal drives BC's own system, not a parallel one.** Arousal is already visible to the whole room — the meter, the pink screen filter, facial expressions — so a private number of our own would look disconnected from what everyone else can see.
+
+| Level | Value | Why that number |
+|---|---|---|
+| not aroused | 0 | also clears a running orgasm timer |
+| lightly aroused | 30 | where BC starts the blush |
+| highly aroused | 70 | BC's "Horny" eyes and drool band |
+| fully aroused | 95 | what BC itself sets an *edged* character to, and its cap for any zone not allowed to finish |
+
+**`ActivitySetArousal` moves the meter but not the face** — BC only runs `ActivityExpression` from its own timer path. `arousal.ts` calls both, guarded by the same condition BC uses.
+
+**Forced orgasm delegates the decision, not just the action.** `ActivityOrgasmPrepare` is where BC enforces `DenialMode`, edging and chastity; it declines by leaving `OrgasmTimer` untouched. Reading the timer back is how we tell "it happened" from "something refused it" — so a real chastity item wins without this add-on knowing the rules. Then `ActivityOrgasmStart` fires immediately, skipping BC's five-second Resist/Surrender window: a forced orgasm that offers a Resist button is not forced.
+
+**Denial uses BC's own `DenialMode` effect**, so it stops vibrators and activities too, not just our suggestion. `removeEffect` only touches our injected Emoticon entry, so releasing it can never strip denial off a chastity item the player is actually wearing.
+
+**Body-part mapping was wrong, and the fix is a test** (v0.27.1). `clit` pointed at `ItemVulva`; BC's own preference file labels `ItemVulvaPiercings` as "Clitoris" and `ItemVulva` as "Pussy & Vagina", so the block landed on the wrong zone and the clit stayed reachable. `cock` and `penis` were worse — they pointed at `ItemPenis`/`ItemGlans`, which **do not exist as groups**; a character with a penis uses the same two slots as everyone else, and the penis wording lives only in `ActivityBuildChatTag`'s message lookup. `test/part.mjs` now holds BC's complete arousal-zone list and validates every group name against it, because a name that is not a real zone can never be an activity target — so the block fails silently, which is the worst way for this to fail.
 
 ---
 
@@ -467,4 +530,13 @@ Full detail on each is inline above where relevant; this is just an index so not
 
 ---
 
-*Last updated: 2026-08-29 (v0.13.1)*
+- **BC's arousal zone names do not match anatomy — read the label file before mapping one.** `Screens/Character/Preference/Text_Preference.csv` has an `ArousalZoneItem*` row per zone, and it is the complete list of groups any activity can target. `ItemVulvaPiercings` is **"Clitoris"** (not a piercing slot), `ItemVulva` is "Pussy & Vagina", `ItemFeet` is "Lower Legs" while `ItemBoots` is "Feet & Toes", and `ItemPelvis` is "Pelvis & Belly". **There is no `ItemPenis` or `ItemGlans` group** — a character with a penis uses `ItemVulva`/`ItemVulvaPiercings` like everyone else, and those two names appear only in `ActivityBuildChatTag`'s message lookup. A block registered against a name that is not a real zone fails *silently*, so validate the mapping in a test rather than trusting it.
+- **`ActivitySetArousal` does not touch facial expressions.** BC only runs `ActivityExpression` from `ActivityTimerProgress`, so setting arousal directly moves the meter and leaves the face blank. Call both, guarded by BC's own condition (`AffectExpression` not disabled, no orgasm running).
+- **`ActivityOrgasmPrepare` is where an orgasm can be refused**, and it refuses by doing nothing — `DenialMode`, `IsEdged()` and an `Edging` craft each make it return with `OrgasmTimer` untouched. Read the timer back to tell "it happened" from "something declined", instead of reimplementing the rules. `ActivityOrgasmStart` immediately afterwards skips the five-second Resist/Surrender window; `Timer.js` then drives the rest of the lifecycle (`OrgasmStop` at expiry, arousal 20).
+- **`ChatRoomRun`/`ChatRoomClick` are the chat room's draw and click hooks.** Draw *after* `next()` to paint over the room; consume *before* `next()` to take a click. The character half of the screen is x 0–1003 — the exact rect `ChatRoomDrawArousalOverlay` fills — so anything drawn there leaves the chat log and input box usable. BC's own orgasm buttons sit at y 532–600 in that same space; stay clear of them.
+- **TypeScript's "return anything where `void` is expected" allowance does not extend to a union.** Widening a callback from `() => void` to `() => FlavorKey | void` breaks every arrow that returned a value incidentally (`run: () => applyEffect("Freeze")`), which is a compile error rather than a silent change — but it is a surprising one.
+- **`localStorage` is per-origin, not per-account.** A fixed backup key means every character on that browser shares one blob and each login overwrites the last. Key it by member number, and refuse to save at all before the member number is known.
+
+---
+
+*Last updated: 2026-08-29 (v0.27.1)*

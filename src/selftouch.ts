@@ -18,19 +18,46 @@ import { flavor, bodyPartFlavor } from "./flavor";
 // govern what the player does to themselves — which is exactly what was asked for. Someone
 // else touching them runs on THEIR client and is out of reach here by construction.
 
-/** Spoken body-part words → the BC asset groups they cover. Group names verified against
- * the live client. Plural and singular both present because people say both. */
+/** Spoken body-part words -> the BC asset groups they cover.
+ *
+ * The right-hand side is BC's AROUSAL ZONE list, not a guess — every name here appears in
+ * Screens/Character/Preference/Text_Preference.csv as an ArousalZoneItem* row, which is
+ * also the complete set of groups any activity can target. That list is worth reading
+ * before adding an entry, because BC's zone names do not line up with anatomy the way you
+ * would expect:
+ *
+ *   ItemVulva            "Pussy & Vagina"
+ *   ItemVulvaPiercings   "Clitoris"     <- NOT a piercing slot for activity purposes
+ *   ItemFeet             "Lower Legs"
+ *   ItemBoots            "Feet & Toes"
+ *   ItemLegs             "Upper Legs"
+ *   ItemPelvis           "Pelvis & Belly"
+ *   ItemTorso            "Torso & Ribs"
+ *
+ * There is no ItemPenis or ItemGlans group. A character with a penis uses ItemVulva and
+ * ItemVulvaPiercings like everyone else — the penis wording exists only in ActivityRun's
+ * chat tag (ActivityBuildChatTag maps ItemVulva->ItemPenis, ItemVulvaPiercings->ItemGlans
+ * purely to pick the message). So the anatomy words below deliberately share slots.
+ *
+ * Plural and singular both present because people say both. */
 export const BODY_PARTS: Record<string, string[]> = {
 	breasts: ["ItemBreast", "ItemNipples"],
 	breast: ["ItemBreast", "ItemNipples"],
 	chest: ["ItemBreast", "ItemNipples"],
 	nipples: ["ItemNipples"],
+	nipple: ["ItemNipples"],
+	// The broad words cover the clitoris too; the specific ones don't reach back.
 	pussy: ["ItemVulva", "ItemVulvaPiercings"],
 	vulva: ["ItemVulva", "ItemVulvaPiercings"],
-	clit: ["ItemVulva"],
-	crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis", "ItemPenis", "ItemGlans"],
-	cock: ["ItemPenis", "ItemGlans"],
-	penis: ["ItemPenis", "ItemGlans"],
+	cunt: ["ItemVulva", "ItemVulvaPiercings"],
+	clit: ["ItemVulvaPiercings"],
+	clitoris: ["ItemVulvaPiercings"],
+	// Same two slots as above — see the note on ItemPenis not existing.
+	cock: ["ItemVulva", "ItemVulvaPiercings"],
+	penis: ["ItemVulva", "ItemVulvaPiercings"],
+	dick: ["ItemVulva", "ItemVulvaPiercings"],
+	tip: ["ItemVulvaPiercings"],
+	crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
 	butt: ["ItemButt"],
 	ass: ["ItemButt"],
 	bottom: ["ItemButt"],
@@ -39,16 +66,25 @@ export const BODY_PARTS: Record<string, string[]> = {
 	face: ["ItemHead"],
 	head: ["ItemHead"],
 	hair: ["ItemHead"],
+	ears: ["ItemEars"],
+	ear: ["ItemEars"],
+	nose: ["ItemNose"],
 	neck: ["ItemNeck"],
 	throat: ["ItemNeck"],
-	legs: ["ItemLegs"],
+	// "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
+	legs: ["ItemLegs", "ItemFeet"],
+	leg: ["ItemLegs", "ItemFeet"],
 	thighs: ["ItemLegs"],
-	feet: ["ItemFeet", "ItemBoots"],
+	feet: ["ItemBoots"],
+	toes: ["ItemBoots"],
 	hands: ["ItemHands"],
 	arms: ["ItemArms"],
-	belly: ["ItemTorso"],
-	stomach: ["ItemTorso"],
+	shoulders: ["ItemArms"],
+	belly: ["ItemPelvis", "ItemTorso"],
+	stomach: ["ItemPelvis", "ItemTorso"],
+	tummy: ["ItemPelvis", "ItemTorso"],
 	waist: ["ItemTorso"],
+	ribs: ["ItemTorso"],
 	hips: ["ItemPelvis"],
 };
 

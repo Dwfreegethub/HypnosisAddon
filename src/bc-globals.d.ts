@@ -96,3 +96,15 @@ declare function ElementCreateInput(
 /** BC's own clamp-on-blur for number inputs — respects the element's min/max/inputMode. */
 declare function ElementNumberInputBlur(this: HTMLInputElement, event: Event): void;
 declare function ElementNumberInputWheel(this: HTMLInputElement, event: Event): void;
+
+// Arousal and orgasms (Scripts/Activity.js). ActivitySetArousal clamps 0-100 and syncs to
+// the room; ActivityExpression is what actually moves the face and is NOT called by it.
+// ActivityOrgasmPrepare enforces DenialMode / edging and is where an orgasm can be refused,
+// ActivityOrgasmStart is the orgasm itself. See arousal.ts for how they're sequenced.
+declare function ActivitySetArousal(character: any, progress: number): void;
+declare function ActivityExpression(character: any, progress: number): void;
+declare function ActivityOrgasmPrepare(character: any, bypass?: boolean): void;
+declare function ActivityOrgasmStart(character: any): void;
+/** BC's frame clock (Scripts/Game.js), milliseconds. Every orgasm timer is measured
+ * against this rather than Date.now(). */
+declare const CurrentTime: number;

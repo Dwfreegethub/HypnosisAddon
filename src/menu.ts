@@ -58,6 +58,7 @@ const TABS: Tab[] = [
 			{ key: "postureControl", label: "Posture Control" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
+			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
 	},

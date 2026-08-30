@@ -5,6 +5,7 @@ import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selfto
 import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
+import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
 import { scheduleTimer, cancelTimer } from "./timers";
 import {
 	isRecording,
@@ -67,7 +68,28 @@ interface Suggestion {
 	 * has to undo exactly what that trigger applied, not everything of that kind. */
 	undo?: () => void;
 	patterns: RegExp[];
-	run: () => void;
+	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
+	 * arousal suggestions, which can match and be permitted and still not land (the
+	 * player's meter is off, or a chastity item refused the orgasm). Returning nothing
+	 * means "it worked", and the suggestion's own id is used, as before. */
+	run: () => FlavorKey | void;
+}
+
+/** Arousal suggestions can match, be permitted, and still not land — the player's own BC
+ * arousal meter may be switched off entirely. Reported as a plain out-of-fiction line
+ * rather than as atmosphere, so the hypnotist and the subject both learn the same thing. */
+function applyArousal(level: ArousalLevel): FlavorKey | void {
+	if (!setArousalLevel(level)) return "arousal-unavailable";
+}
+
+function applyForcedOrgasm(): FlavorKey | void {
+	const result = forceOrgasm();
+	if (result === "unavailable") return "arousal-unavailable";
+	// "denied" is BC's own refusal — our denial suggestion, an edging item, or a chastity
+	// belt. Deliberately not distinguished any further: the subject shouldn't be told which
+	// of those is holding them.
+	if (result === "denied") return "orgasm-refused";
+	// "already" means one is running; the ordinary flavor still reads correctly.
 }
 
 function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
@@ -79,6 +101,100 @@ function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
 // phrase usually contains the same verb ("you can move again" vs "you cannot move") and the
 // first match wins.
 const SUGGESTIONS: Suggestion[] = [
+	// Arousal goes FIRST. Its patterns are the most specific in the table (every one names
+	// arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
+	// reverse is not true: "you are stuck at the edge" would otherwise be eaten by
+	// movement-block's "stuck", and "you cannot stand it" by the posture entry.
+	{
+		id: "arousal-none",
+		permission: "arousalControl",
+		patterns: [
+			/\byou are (?:not|no longer) (?:\w+ ){0,2}(?:aroused|turned on|excited|horny|needy)\b/,
+			/\byour (?:arousal|excitement|need|desire|heat|wanting) (?:is gone|fades|drains away|goes away|disappears|leaves you)\b/,
+			/\byou feel no (?:arousal|desire|need|excitement)\b/,
+			/\byou (?:do not|will not) (?:want|need) (?:it|anything|me)\b/,
+		],
+		run: () => applyArousal("none"),
+	},
+	{
+		id: "arousal-light",
+		permission: "arousalControl",
+		patterns: [
+			/\byou are (?:only |just )?(?:lightly|slightly|mildly|barely|a little|a bit) (?:aroused|turned on|excited|warm|horny)\b/,
+			/\byou feel (?:a little|a bit|slightly|lightly) (?:aroused|warm|excited|horny)\b/,
+			/\byou are (?:just )?(?:starting|beginning) to (?:feel it|get (?:warm|aroused|excited))\b/,
+			/\ba (?:little|small|faint) (?:warmth|heat) (?:builds|starts|begins|settles)\b/,
+		],
+		run: () => applyArousal("light"),
+	},
+	{
+		id: "arousal-high",
+		permission: "arousalControl",
+		patterns: [
+			/\byou are (?:\w+ )?(?:very|highly|deeply|so|extremely|badly|terribly|painfully) (?:aroused|turned on|excited|horny|needy)\b/,
+			/\byou (?:are|feel) (?:\w+ )?(?:aching|burning|desperate|needy)\b/,
+			/\byou (?:want|need) (?:it|this|me|to come|to cum) (?:badly|so much|desperately|now)\b/,
+			/\byour (?:arousal|need|heat|desire) (?:climbs|builds|floods you|takes over)\b/,
+		],
+		run: () => applyArousal("high"),
+	},
+	{
+		id: "arousal-full",
+		permission: "arousalControl",
+		patterns: [
+			/\byou are (?:fully|completely|totally|utterly) (?:aroused|turned on)\b/,
+			/\byou are (?:\w+ ){0,2}(?:on|at) the (?:very )?(?:edge|brink)\b/,
+			/\byou are (?:so close|almost there|about to (?:come|cum|burst))\b/,
+			/\byou are (?:\w+ )?edged\b/,
+		],
+		run: () => applyArousal("full"),
+	},
+	// allow before deny before force, and all three before anything else, because they
+	// overlap: "you cannot come now" contains "come now", and "you may come now" contains
+	// both. First match wins, so the most restrictive reading has to be listed first.
+	{
+		id: "orgasm-allow",
+		release: true,
+		permission: "arousalControl",
+		patterns: [
+			/\byou (?:can|may) (?:come|cum|orgasm|climax|finish) (?:again|now|freely|whenever|if|when)\b/,
+			/\byou are (?:allowed|free|permitted) to (?:come|cum|orgasm|climax|finish)\b/,
+			/\bi (?:allow|permit) you to (?:come|cum|orgasm|climax|finish)\b/,
+			/\byour orgasm is (?:allowed|yours)\b/,
+			/\byou are no longer denied\b/,
+		],
+		run: () => setOrgasmDenied(false),
+	},
+	{
+		id: "orgasm-deny",
+		permission: "arousalControl",
+		patterns: [
+			/\byou (?:cannot|will not|may not) (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou are (?:not allowed|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou will (?:not be able|be unable) to (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou have forgotten how to (?:come|cum|orgasm|climax)\b/,
+			/\byour orgasm is denied\b/,
+			/\byou are denied\b/,
+			/\bno (?:coming|cumming|orgasms?)\b/,
+			/\b(?:do not|never) (?:come|cum|orgasm|climax)\b/,
+		],
+		run: () => setOrgasmDenied(true),
+		undo: () => setOrgasmDenied(false),
+	},
+	{
+		id: "orgasm-force",
+		permission: "arousalControl",
+		patterns: [
+			/\b(?:come|cum) for me\b/,
+			/\b(?:come|cum|orgasm) now\b/,
+			/\byou (?:will|are going to) (?:come|cum|orgasm|climax|finish) (?:now|for me)\b/,
+			/\byou (?:come|cum|orgasm) (?:now|for me)\b/,
+			/\bgo over (?:the edge )?(?:now|for me)\b/,
+		],
+		// No undo: an orgasm is an event, not a state, so there is nothing for a trigger
+		// release to take back.
+		run: () => applyForcedOrgasm(),
+	},
 	{
 		id: "movement-release",
 		release: true,
@@ -91,7 +207,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bmove (again|freely)\b/,
 			/\byour body is your own\b/,
 		],
-		run: () => removeEffect("Freeze"),
+		run: () => { removeEffect("Freeze"); },
 	},
 	{
 		id: "movement-block",
@@ -113,7 +229,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou will (not be able|be unable) to move\b/,
 			/\byou will not move\b/,
 		],
-		run: () => applyEffect("Freeze"),
+		run: () => { applyEffect("Freeze"); },
 		undo: () => removeEffect("Freeze"),
 	},
 	{
@@ -126,7 +242,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (can|may) (dress|undress)\b/,
 			/\byour (clothes|clothing|outfit) are yours again\b/,
 		],
-		run: () => removeEffect("BlockWardrobe"),
+		run: () => { removeEffect("BlockWardrobe"); },
 	},
 	{
 		id: "clothing-block",
@@ -141,7 +257,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou have forgotten how to (dress|undress|change)\b/,
 			/\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/,
 		],
-		run: () => applyEffect("BlockWardrobe"),
+		run: () => { applyEffect("BlockWardrobe"); },
 		undo: () => removeEffect("BlockWardrobe"),
 	},
 	{
@@ -508,8 +624,7 @@ function fireTrigger(trigger: Trigger): void {
 			log(`trigger "${trigger.phrase}": ${id} skipped, permission not granted`);
 			continue;
 		}
-		suggestion.run();
-		ChatRoomSendLocal(flavor(suggestion.id));
+		ChatRoomSendLocal(flavor(suggestion.run() || suggestion.id));
 		fired++;
 	}
 	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
@@ -736,6 +851,5 @@ export function handleSpokenLine(sender: number, content: string): void {
 		return;
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
-	suggestion.run();
-	ChatRoomSendLocal(flavor(id));
+	ChatRoomSendLocal(flavor(suggestion.run() || id));
 }

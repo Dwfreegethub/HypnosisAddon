@@ -5,6 +5,7 @@ import { noteInductionSuccess, noteInductionAttempt } from "./trust";
 import { clearAllTimers } from "./timers";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
+import { clearOrgasmDenial } from "./arousal";
 import {
 	applyEffect,
 	removeEffect,
@@ -87,6 +88,11 @@ interface SubjectSession {
 	depth: number;
 	cooldownUntil: number;
 	hypnotizedAt: number;
+	/** Who the pending prompt names, and when it lapses. Held here rather than in the
+	 * prompt box so the on-screen panel and the chat fallback read one source of truth —
+	 * the box is a second way to answer the same prompt, not a second prompt. */
+	promptName: string;
+	promptExpiresAt: number;
 }
 
 function freshSession(): SubjectSession {
@@ -99,6 +105,8 @@ function freshSession(): SubjectSession {
 		depth: 0,
 		cooldownUntil: 0,
 		hypnotizedAt: 0,
+		promptName: "",
+		promptExpiresAt: 0,
 	};
 }
 
@@ -190,6 +198,10 @@ function endSession(reason: string, quiet = false): void {
 	clearTranceStates();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
+	// The denial LOCK comes off; the arousal LEVEL stays. One is something we applied to
+	// them, the other is a number they now carry — resetting it would be us reaching into
+	// state that was theirs before the session and is theirs after it.
+	clearOrgasmDenial();
 	clearAllTimers();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
@@ -350,6 +362,8 @@ function beginInductionWindow(): void {
 
 function showPrompt(hypnotistName: string): void {
 	if (promptTimer) clearTimeout(promptTimer);
+	session.promptName = hypnotistName;
+	session.promptExpiresAt = Date.now() + PROMPT_TIMEOUT_MS;
 	promptTimer = setTimeout(() => {
 		promptTimer = null;
 		if (session.phase !== "AttemptMade") return;
@@ -360,8 +374,21 @@ function showPrompt(hypnotistName: string): void {
 		beginInductionWindow();
 	}, PROMPT_TIMEOUT_MS);
 	notify(
-		`${hypnotistName} is attempting to hypnotize you. Respond with /hypno agree, /hypno ignore, or /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)`,
+		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)`,
 	);
+}
+
+/** The pending induction prompt, if there is one. Drives the in-room choice box (see
+ * prompt.ts); null in every other phase, which is what makes the box appear and vanish.
+ *
+ * Returns the remaining time rather than the deadline so the caller can't accidentally
+ * render a countdown against the wrong clock. */
+export function getPendingPrompt(): { hypnotistName: string; remainingMs: number } | null {
+	if (session.phase !== "AttemptMade") return null;
+	return {
+		hypnotistName: session.promptName || "Someone",
+		remainingMs: Math.max(0, session.promptExpiresAt - Date.now()),
+	};
 }
 
 // --- Subject side: public entry points (commands) ------------------------------------
@@ -416,6 +443,7 @@ export function safeword(): void {
 	clearTranceStates();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
+	clearOrgasmDenial();
 	clearAllTimers();
 	session = freshSession();
 	if (hypnotist != null) {

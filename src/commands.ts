@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch } from "./voice";
+import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
 import {
 	addInteractions,
 	setTrustValue,
@@ -394,6 +395,43 @@ const COMMANDS: HypnoCommand[] = [
 			reply(
 				removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied",
 			),
+	},
+	{
+		// Same job as /hypno kneel: exercise the arousal API with no matching, permission
+		// or session in the way, so "saying it did nothing" can be pinned on the gates
+		// rather than on BC's arousal system.
+		Tag: "arousal",
+		group: "Testing",
+		args: "<none|light|high|full|orgasm|deny|allow>",
+		Description: "Drive arousal directly, bypassing matching, permissions and session",
+		Action: (args: string) => {
+			const what = firstWord(args).toLowerCase();
+			if (!arousalAvailable()) {
+				reply(
+					"arousal is switched off for this character — set Preferences > Arousal to " +
+						"something other than Inactive",
+				);
+				return;
+			}
+			if (what === "orgasm") {
+				reply(`forced orgasm: ${forceOrgasm()}`);
+				return;
+			}
+			if (what === "deny" || what === "allow") {
+				setOrgasmDenied(what === "deny");
+				reply(`orgasm denial ${what === "deny" ? "applied" : "released"} (DenialMode effect)`);
+				return;
+			}
+			if (!(what in AROUSAL_LEVELS)) {
+				reply(`usage: /hypno arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
+				return;
+			}
+			setArousalLevel(what as ArousalLevel);
+			reply(
+				`arousal set to ${what} (${AROUSAL_LEVELS[what as ArousalLevel]}). ` +
+					`Progress=${Player?.ArousalSettings?.Progress} Active=${Player?.ArousalSettings?.Active}`,
+			);
+		},
 	},
 	{
 		Tag: "suppress",

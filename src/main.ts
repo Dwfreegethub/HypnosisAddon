@@ -5,6 +5,7 @@ import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, isSpeechBlocked, getScreenFade } from "./effects";
 import { flavor } from "./flavor";
 import { installMenu } from "./menu";
+import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession } from "./session";
 import { installSuppression } from "./suppression";
@@ -202,3 +203,6 @@ safely("self-touch hook", () => installSelfTouch(modApi));
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);
 safely("remote (Information Sheet) registration", () => installRemote(modApi));
+
+// The in-room Agree / Ignore / Fight box. After installSession, whose state it reads.
+safely("induction prompt box", () => installPrompt(modApi));

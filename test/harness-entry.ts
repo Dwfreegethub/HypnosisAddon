@@ -4,3 +4,4 @@ export * as voice from "../src/voice";
 export * as storage from "../src/storage";
 export * as triggers from "../src/triggers";
 export * as session from "../src/session";
+export * as selftouch from "../src/selftouch";

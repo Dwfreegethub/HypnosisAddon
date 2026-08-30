@@ -29,7 +29,19 @@ export type FlavorKey =
 	/** Tried to touch themselves while blocked outright. */
 	| "selftouch-blocked"
 	| "selftouch-part-block"
-	| "selftouch-part-release";
+	| "selftouch-part-release"
+	// Arousal. The four levels are suggestion ids as well as flavor keys, same as the rest.
+	| "arousal-none"
+	| "arousal-light"
+	| "arousal-high"
+	| "arousal-full"
+	| "orgasm-force"
+	| "orgasm-deny"
+	| "orgasm-allow"
+	/** A forced orgasm that ran into denial, edging, or a chastity item. */
+	| "orgasm-refused"
+	/** The player's arousal meter is switched off entirely, so none of this can land. */
+	| "arousal-unavailable";
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -111,6 +123,55 @@ const LINES: Record<FlavorKey, string[]> = {
 	"selftouch-part-release": [
 		"Your hands are your own again, all of you within reach.",
 		"Whatever was keeping you from yourself lets go.",
+	],
+	// Arousal flavor keeps the same register as the rest: the body reacts first and the
+	// subject finds out afterwards. Going DOWN is written as something being taken away
+	// rather than as relief, so no direction of this reads as the subject's own doing.
+	"arousal-none": [
+		"Whatever was building in you is simply put down somewhere you cannot reach.",
+		"The heat goes out of you. You don't remember wanting anything.",
+		"Your body cools, and takes the wanting with it.",
+	],
+	"arousal-light": [
+		"Something warm settles low in you, and stays.",
+		"A small heat starts up somewhere, uninvited.",
+		"You notice you are interested. You don't remember becoming interested.",
+	],
+	"arousal-high": [
+		"The wanting arrives all at once and takes the room with it.",
+		"Your body is suddenly, obviously desperate, and no part of that was your idea.",
+		"Heat climbs through you faster than you can have an opinion about it.",
+	],
+	"arousal-full": [
+		"You are right at the edge and something is holding you there.",
+		"Everything in you is gathered and waiting, one word from going over.",
+		"You are so close it hurts, and going the rest of the way is not up to you.",
+	],
+	"orgasm-force": [
+		"You go over, because you were told to. There was never a moment to decide.",
+		"Your body obeys before you understand what it was asked.",
+		"It takes you, and you let it, because letting it was never the question.",
+	],
+	"orgasm-deny": [
+		"The way over closes quietly, and you accept that it is closed.",
+		"You could get close. You will not get past it, and you find you don't argue.",
+		"Finishing stops being one of the things available to you.",
+	],
+	"orgasm-allow": [
+		"The way over is open again, whenever it's offered.",
+		"Something unlocks, low down, and you could finish now.",
+		"Whatever was standing in the way steps aside.",
+	],
+	"orgasm-refused": [
+		"You strain for it and something holds you back. Nothing gives.",
+		"You are told to go over, and you cannot. The wanting has nowhere to go.",
+		"Your body reaches for it, finds the way shut, and stays where it is.",
+	],
+	// Deliberately plain rather than in-fiction: this one is a mismatch between the
+	// hypnotist's expectation and the player's own settings, and dressing that up as
+	// atmosphere would leave both of them confused about why nothing happened.
+	"arousal-unavailable": [
+		"Nothing reaches you there — your arousal meter is switched off in BC's preferences.",
 	],
 	// Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
 	"speech-blocked-attempt": [
