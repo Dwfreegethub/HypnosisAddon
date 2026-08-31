@@ -3,7 +3,7 @@ import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, isSpeechBlocked, getScreenFade } from "./effects";
-import { flavor } from "./flavor";
+import { announce } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
@@ -15,6 +15,7 @@ import { installSelfTouch } from "./selftouch";
 import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
+import { setRoomVoice } from "./notify";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
@@ -148,6 +149,10 @@ safely("ChatRoomMessage hook", () => {
 
 // Before anything that could receive an appearance sync — BC strips our injected effects
 // out of any incoming sync unless this client's own asset allow-list already permits them.
+// Before anything can speak: whether the room hears our emotes at all is a setting, and
+// notify.ts takes it as a callback so it can stay a leaf module.
+setRoomVoice(() => getFeatures().roomSeesReactions);
+
 safely("effect allow-list", installEffectAllowList);
 
 // Speech blocking. ChatRoomSendChatMessage is the right hook rather than ChatRoomSendChat:
@@ -162,7 +167,7 @@ safely("speech-block hook", () => {
 		((args: [string], next: (args: [string]) => any) => {
 			if (!isSpeechBlocked()) return next(args);
 			log("speech blocked:", args[0]);
-			ChatRoomSendLocal(flavor("speech-blocked-attempt"));
+			announce("speech-blocked-attempt");
 			return false;
 		}) as any,
 	);

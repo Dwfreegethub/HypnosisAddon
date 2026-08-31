@@ -8,3 +8,5 @@ export * as selftouch from "../src/selftouch";
 export * as carry from "../src/carry";
 export * as suppression from "../src/suppression";
 export * as timers from "../src/timers";
+export * as notify from "../src/notify";
+export * as flavor from "../src/flavor";

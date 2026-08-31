@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
 import {
 	getFeatures,
@@ -85,12 +86,13 @@ const TABS: Tab[] = [
 	},
 	{
 		name: "Trance Defaults",
-		blurb: "What being under is like. On by default — this is the trance itself, not something granted.",
+		blurb: "What being under is like, and what the room sees of it. On by default — this is the trance itself, not something granted.",
 		rows: [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "tranceScreenFade", label: "Screen Fade" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
+			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 		],
 	},
 	{
@@ -166,7 +168,7 @@ function dataButtonLeft(index: number): number {
 
 function notifyLocal(message: string): void {
 	log(message);
-	ChatRoomSendLocal(message);
+	tellPlayer(message);
 }
 
 function clickDataButton(index: number): void {

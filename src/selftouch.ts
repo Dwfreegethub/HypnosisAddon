@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { flavor, bodyPartFlavor } from "./flavor";
+import { announce, announceBodyPart } from "./flavor";
 
 // Blocking the subject from touching THEMSELVES — either at all (while frozen) or on
 // named body parts ("you cannot touch your breasts").
@@ -133,10 +133,7 @@ function groupNamesFor(targetGroup: any): string[] {
 	return names;
 }
 
-function notify(message: string): void {
-	log(message);
-	ChatRoomSendLocal(message);
-}
+
 
 export function installSelfTouch(modApi: any): void {
 	modApi.hookFunction(
@@ -150,17 +147,17 @@ export function installSelfTouch(modApi: any): void {
 					// existing Freeze effect now covers it rather than needing its own
 					// setting — anyone who consented to being frozen consented to this.
 					if (Player?.HasEffect?.("Freeze")) {
-						notify(flavor("selftouch-frozen"));
+						announce("selftouch-frozen");
 						return undefined;
 					}
 					if (blockAllSelfTouch) {
-						notify(flavor("selftouch-blocked"));
+						announce("selftouch-blocked");
 						return undefined;
 					}
 					for (const name of groupNamesFor(targetGroup)) {
 						const word = blockedGroups.get(name);
 						if (word) {
-							notify(bodyPartFlavor(word));
+							announceBodyPart(word);
 							return undefined;
 						}
 					}

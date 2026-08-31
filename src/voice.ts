@@ -4,7 +4,8 @@ import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, trustWith, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
-import { flavor, bodyPartFlavor, FlavorKey } from "./flavor";
+import { flavor, bodyPartFlavor, announce, announceBodyPart, FlavorKey } from "./flavor";
+import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion } from "./illusion";
 import {
@@ -711,18 +712,18 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	if (parsed.kind === "cancel") {
 		if (isRecording()) {
 			cancelRecording();
-			ChatRoomSendLocal("Whatever was being set aside comes apart again.");
+			tellPlayer("Whatever was being set aside comes apart again.");
 		}
 		return true;
 	}
 	if (parsed.kind === "commit") {
 		if (!isRecording()) return false;
 		const message = commitRecording();
-		if (message) ChatRoomSendLocal(message);
+		if (message) tellPlayer(message);
 		return true;
 	}
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
-	ChatRoomSendLocal(beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase));
+	tellPlayer(beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase));
 	return true;
 }
 
@@ -747,7 +748,8 @@ function fireTrigger(trigger: Trigger): void {
 			if (word === "all") setAllSelfTouchBlocked(true);
 			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], true);
 			else continue;
-			ChatRoomSendLocal(word === "all" ? flavor("selftouch-blocked") : bodyPartFlavor(word));
+			if (word === "all") announce("selftouch-blocked");
+			else announceBodyPart(word);
 			fired++;
 			continue;
 		}
@@ -761,7 +763,7 @@ function fireTrigger(trigger: Trigger): void {
 			log(`trigger "${trigger.phrase}": ${id} skipped, ${blocked}`);
 			continue;
 		}
-		ChatRoomSendLocal(flavor(suggestion.run() || suggestion.id));
+		announce(suggestion.run() || suggestion.id);
 		fired++;
 	}
 	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
@@ -822,7 +824,7 @@ function scheduleAutoRelease(trigger: Trigger): void {
 	if (minutes <= 0) return; // 0 means it holds until released deliberately
 	scheduleTimer(timerKey(trigger), minutes * 60_000, () => {
 		undoTrigger(trigger);
-		ChatRoomSendLocal("Whatever was holding you loosens on its own.");
+		tellPlayer("Whatever was holding you loosens on its own.");
 	});
 	log(`trigger "${trigger.phrase}" will release itself in ${minutes} min`);
 }
@@ -842,7 +844,7 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 			return true;
 		}
 		undoTrigger(trigger);
-		ChatRoomSendLocal("Whatever was holding you lets go.");
+		tellPlayer("Whatever was holding you lets go.");
 		return true;
 	}
 	return false;
@@ -926,7 +928,7 @@ function handleCarryControl(sender: number, content: string): boolean {
 	if (CARRY_CANCEL.some((p) => p.test(text))) {
 		if (!isCarrierOf(sender)) return false;
 		if (releaseCarried("the hypnotist took it back")) {
-			ChatRoomSendLocal("Whatever was going to stay with you doesn't.");
+			tellPlayer("Whatever was going to stay with you doesn't.");
 		}
 		return true;
 	}
@@ -945,7 +947,7 @@ function handleCarryControl(sender: number, content: string): boolean {
 	// for the same reason: the subject learning "they aren't trusted enough yet" breaks the
 	// fiction, while the hypnotist not learning it leaves them guessing.
 	if (result.refusal) tellHypnotist(sender, `[carry] Refused — ${result.refusal}`);
-	if (result.subject) ChatRoomSendLocal(result.subject);
+	if (result.subject) tellPlayer(result.subject);
 	return true;
 }
 
@@ -1014,7 +1016,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	// executing instead of being captured while a trigger was being built.
 	const recorded = recordAction(cmd.all ? "touch:all" : `touch:${cmd.word}`);
 	if (recorded) {
-		ChatRoomSendLocal(recorded);
+		tellPlayer(recorded);
 		return true;
 	}
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
@@ -1027,13 +1029,9 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 		dropCarried(actionId);
 	}
 	log(`${cmd.block ? "blocked" : "released"} ${label}`);
-	ChatRoomSendLocal(
-		cmd.block
-			? cmd.all
-				? flavor("selftouch-blocked")
-				: flavor("selftouch-part-block")
-			: flavor("selftouch-part-release"),
-	);
+	if (!cmd.block) announce("selftouch-part-release");
+	else if (cmd.all) announce("selftouch-blocked");
+	else announceBodyPart(cmd.word);
 	return true;
 }
 
@@ -1098,11 +1096,11 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// hypnotist has to undo it before they can carry on.
 	const recorded = recordAction(id);
 	if (recorded) {
-		ChatRoomSendLocal(recorded);
+		tellPlayer(recorded);
 		return;
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
-	ChatRoomSendLocal(flavor(suggestion.run() || id));
+	announce(suggestion.run() || id);
 	// Tracked AFTER it runs, so "that will stay with you" has something to point at. A
 	// release both un-tracks the restriction and lets go of it if it was being carried.
 	if (suggestion.release) {

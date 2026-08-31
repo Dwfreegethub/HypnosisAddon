@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 import {
 	getFeatures,
 	trustWith,
@@ -26,7 +27,7 @@ export function tellHypnotist(hypnotistId: number, text: string): void {
 export function installTriggers(): void {
 	registerHiddenHandler("trigger-status", (sender, message) => {
 		const text = typeof message.text === "string" ? message.text : "";
-		if (text) ChatRoomSendLocal(text);
+		if (text) tellPlayer(text);
 	});
 }
 

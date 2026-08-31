@@ -2,7 +2,7 @@ import { log } from "./log";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { flavor, FlavorKey } from "./flavor";
+import { announce, FlavorKey } from "./flavor";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
 	getSessionView,
@@ -354,7 +354,7 @@ export function installRemote(modApi: any): void {
 			feature.release();
 			// Flavor rather than "N releases you" — the sender is unambiguous during a
 			// session, and it's still in the console for testing.
-			ChatRoomSendLocal(flavor(feature.releaseFlavor));
+			announce(feature.releaseFlavor);
 			return;
 		}
 		const features = getFeatures();
@@ -374,7 +374,7 @@ export function installRemote(modApi: any): void {
 		}
 		log(`remote request (${feature.key}) from ${sender} honored`);
 		feature.apply();
-		ChatRoomSendLocal(flavor(feature.applyFlavor));
+		announce(feature.applyFlavor);
 	});
 
 	// --- Information Sheet hooks: this client as the VIEWER ---

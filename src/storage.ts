@@ -143,6 +143,17 @@ export interface FeatureToggles {
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
 	tranceScreenFade: boolean;
+	/** Whether the room sees your reactions, as emotes.
+	 *
+	 * On by default: without it the add-on narrates a great deal that nobody but you can
+	 * read, so a scene that is rich from the inside is silent from the outside. Only things
+	 * somebody standing there could actually observe are ever emoted — perception effects
+	 * stay private by construction, since nobody can watch you fail to notice something.
+	 *
+	 * Worth being able to switch off all the same: emoting in a public room tells everyone
+	 * present that you are running this, and describes fairly intimate behaviour while it
+	 * does so. */
+	roomSeesReactions: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *
 	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
@@ -191,6 +202,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
+		roomSeesReactions: true,
 		// The one trance default that starts off — see the note on the interface.
 		tranceClothingFreeze: false,
 	};

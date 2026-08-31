@@ -130,3 +130,8 @@ declare function DrawCharacter(
 /** Font string for a given size, respecting the player's font-stack preference
  * (Scripts/Common.js). BC sets MainCanvas.font from this everywhere it draws text. */
 declare function CommonGetFont(size: number | string): string;
+
+/** Sends an emote to the room (ChatRoom.js). The one message type that renders arbitrary
+ * text — Action and Activity look their Content up as a translation key first. Honours the
+ * owner rule that can block emotes, which is why we call it rather than build the packet. */
+declare function ChatRoomSendEmote(message: string): void;

@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 
 // Our namespace tag on the shared Type:"Hidden" ChatRoomChat channel — BCX uses
 // "BCXMsg", LSCG uses "LSCGMsg". Ours must differ so we don't misparse (or get
@@ -58,7 +59,7 @@ export function handleIncomingHidden(data: any): boolean {
 			// Visible on the receiving screen too — console-only here would make a
 			// successful round trip look identical to a message that never arrived.
 			// No timeout — stays in the log rather than fading after a few seconds.
-			ChatRoomSendLocal(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
+			tellPlayer(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
 		}
 		return true;
 	}

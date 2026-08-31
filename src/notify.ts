@@ -1,0 +1,94 @@
+import { log } from "./log";
+
+// Where our text goes, and who can read it.
+//
+// Two audiences, and until now everything went to the first one. Playing in a public room
+// made the problem obvious: the add-on narrates a great deal, all of it invisible to
+// everyone but the subject, so a scene that reads as rich from the inside is completely
+// silent from the outside.
+//
+// So: anything only the subject could know is bracketed, making its privacy legible at a
+// glance, and anything the room could actually observe is emoted so the room sees it.
+//
+// EMOTE IS THE ONLY OPTION for custom text, which is worth writing down because the
+// obvious alternatives look right and are not. Verified in ChatRoom.js: Action and
+// Activity both render as "(text)" — exactly the shape we want — but both look their
+// Content up as a translation key first (TextQueryMultiple / ActivityDictionaryText), and
+// an unknown key renders as `MISSING TEXT IN "...": <key>` rather than falling back to the
+// literal string. Emote is the one type that prints what it is given. It renders as
+// "*text*" and is tinted with the sender's own label colour, so it is still visually
+// distinct from ordinary chat.
+
+/** Whether the room hears anything at all. Read live from settings by the caller; kept as
+ * a parameter rather than an import so this module stays a leaf. */
+export type RoomVoice = () => boolean;
+
+let roomVoice: RoomVoice = () => true;
+
+export function setRoomVoice(fn: RoomVoice): void {
+	roomVoice = fn;
+}
+
+/** Text only the subject can see. Bracketed so it is obvious it went nowhere else. */
+export function tellPlayer(message: string): void {
+	if (typeof ChatRoomSendLocal !== "function") return;
+	ChatRoomSendLocal(`[${message}]`);
+}
+
+/** Text the room sees, as an emote from the subject.
+ *
+ * Deliberately routed through BC's own ChatRoomSendEmote rather than building the packet
+ * ourselves: it honours the owner rule that can block emotes, which is somebody's consent
+ * setting and not ours to step around. */
+export function tellRoom(message: string): void {
+	if (!roomVoice()) return;
+	if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
+	if (!ServerPlayerIsInChatRoom()) return;
+	try {
+		ChatRoomSendEmote(message);
+	} catch (err) {
+		log("could not emote to the room:", err);
+	}
+}
+
+// --- Pronouns -------------------------------------------------------------------------
+
+interface Pronouns {
+	/** "her" / "his" / "their" / "its" */
+	their: string;
+	/** "her" / "him" / "them" / "it" */
+	them: string;
+	/** "herself" / "himself" / "themselves" / "itself" */
+	themselves: string;
+}
+
+const PRONOUNS: Record<string, Pronouns> = {
+	SheHer: { their: "her", them: "her", themselves: "herself" },
+	HeHim: { their: "his", them: "him", themselves: "himself" },
+	TheyThem: { their: "their", them: "them", themselves: "themselves" },
+	ItIt: { their: "its", them: "it", themselves: "itself" },
+};
+
+/** The player's own pronouns, from BC's Pronouns appearance group.
+ *
+ * Never guessed from a name or a body: Character.GetPronouns() reads the item the player
+ * chose, and BC's own default when there is none is SheHer. They/them is the fallback here
+ * when the value is something we do not recognise, because being wrong in the neutral
+ * direction is the only harmless way to be wrong. */
+function pronouns(): Pronouns {
+	const name = typeof Player?.GetPronouns === "function" ? Player.GetPronouns() : undefined;
+	return PRONOUNS[name] ?? PRONOUNS.TheyThem;
+}
+
+/** An emote has no name prefix of its own — BC renders exactly the text it is given — so
+ * the character's name has to be in the string, and being the subject of the sentence it
+ * also settles the verb: "Missy reaches" is third-person singular whoever Missy is, which
+ * is what keeps they/them from needing a whole second set of phrasings. */
+export function fillTokens(template: string): string {
+	const p = pronouns();
+	return template
+		.replace(/\{name\}/g, String(Player?.Nickname || Player?.Name || "Someone"))
+		.replace(/\{their\}/g, p.their)
+		.replace(/\{them\}/g, p.them)
+		.replace(/\{themselves\}/g, p.themselves);
+}

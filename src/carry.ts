@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 import { getFeatures, trustWith, getTriggerDuration } from "./storage";
 import { scheduleTimer, cancelTimer } from "./timers";
 
@@ -178,7 +179,7 @@ export function carryThroughWake(): string | null {
 	if (minutes > 0) {
 		scheduleTimer(TIMER_KEY, minutes * 60_000, () => {
 			releaseCarried("it wore off");
-			ChatRoomSendLocal("Whatever stayed with you out of the trance quietly stops.");
+			tellPlayer("Whatever stayed with you out of the trance quietly stops.");
 		});
 	}
 	log(`carry-forward kept ${ids.length} suggestion(s) past waking, for ${minutes || "unlimited"} min`);

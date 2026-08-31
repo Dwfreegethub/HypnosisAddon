@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch, isTriggerInEffect } from "./voice";
 import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
@@ -103,7 +104,7 @@ function reply(message: string): void {
 	log(message);
 	// No timeout arg — ChatRoomSendLocal only auto-removes when Timeout is a positive
 	// number (confirmed in ChatRoom.js), so omitting it keeps this in the log permanently.
-	ChatRoomSendLocal(message);
+	tellPlayer(message);
 }
 
 /** One subcommand. `group` is ours, for the generated summary; everything else is BC's
@@ -349,7 +350,7 @@ const COMMANDS: HypnoCommand[] = [
 			const reveal = firstWord(args).toLowerCase() === "full";
 			all.forEach((t, i) =>
 				reply(
-					`${i + 1}. ${reveal ? `"${t.phrase}"` : "[hidden phrase]"} → ${t.actions.join(", ")}  ` +
+					`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
 						`(by ${t.installedByName})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
 				),
 			);

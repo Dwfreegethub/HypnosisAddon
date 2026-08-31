@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
 import { noteInductionSuccess, noteInductionAttempt } from "./trust";
@@ -126,7 +127,7 @@ function notify(message: string): void {
 	log(message);
 	// No timeout — these are consent-relevant, they should stay in the log rather than
 	// fade out while the player is looking somewhere else.
-	ChatRoomSendLocal(message);
+	tellPlayer(message);
 }
 
 // --- Bands: what the hypnotist is allowed to see -------------------------------------

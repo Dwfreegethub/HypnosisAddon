@@ -1,3 +1,4 @@
+import { tellPlayer, tellRoom, fillTokens } from "./notify";
 // Flavor text for things that happen TO the subject.
 //
 // Lives in its own module, imported by both voice.ts (spoken suggestions) and remote.ts
@@ -44,6 +45,42 @@ export type FlavorKey =
 	| "arousal-unavailable"
 	| "illusion-block"
 	| "illusion-release";
+
+/** Public counterparts, for the things somebody standing there would actually see.
+ *
+ * Only a subset has one, and the split is the whole point: perception effects are
+ * unobservable by definition. Nobody can watch you fail to notice your own clothes, so
+ * awareness, touch-blocking, the illusion and the arousal levels stay private — while
+ * reaching for yourself and stopping, or opening your mouth and producing nothing, are
+ * plainly visible and should not be silent to the room.
+ *
+ * {name} is required, since an emote carries no name of its own. {their} / {them} /
+ * {themselves} come from the player's chosen pronouns; the character's NAME is always the
+ * subject of the sentence, which fixes the verb as third-person singular and saves writing
+ * a they/them variant of every line. */
+const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
+	"movement-block": [
+		"{name} goes very still, mid-motion.",
+		"{name} stops moving, as though the idea had gone.",
+	],
+	"movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+	kneel: ["{name} sinks to {their} knees without seeming to decide to.", "{name} kneels, unhurried and unquestioning."],
+	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
+	"clothing-block": [
+		"{name} reaches for {their} clothes, and {their} hand drifts away again.",
+		"{name} half-reaches for a fastening and seems to forget why.",
+	],
+	"selftouch-frozen": ["{name} twitches towards {themselves}, and nothing moves."],
+	"selftouch-blocked": [
+		"{name} starts to reach for {themselves}, and thinks better of it.",
+		"{name}'s hands stay exactly where they are.",
+	],
+	"speech-blocked-attempt": [
+		"{name} opens {their} mouth, and nothing comes out.",
+		"{name} tries to say something, and does not.",
+	],
+	"orgasm-refused": ["{name} strains for it, and something holds {them} back."],
+};
 
 const LINES: Record<FlavorKey, string[]> = {
 	"movement-block": [
@@ -197,14 +234,48 @@ const LINES: Record<FlavorKey, string[]> = {
 	],
 };
 
-export function flavor(key: FlavorKey): string {
-	const options = LINES[key];
+function pick(options: string[]): string {
 	return options[Math.floor(Math.random() * options.length)];
+}
+
+export function flavor(key: FlavorKey): string {
+	return pick(LINES[key]);
+}
+
+/** The room-facing line for this effect, already name- and pronoun-filled, or null when
+ * there is nothing anyone could have seen. */
+export function publicFlavor(key: FlavorKey): string | null {
+	const options = PUBLIC_LINES[key];
+	return options ? fillTokens(pick(options)) : null;
+}
+
+/** Both halves at once. Every effect should go through this rather than reaching for
+ * ChatRoomSendLocal, so the private line and the public one can never fall out of step —
+ * and so adding a public variant to a key is the only edit needed to give it a voice. */
+export function announce(key: FlavorKey): void {
+	tellPlayer(flavor(key));
+	const seen = publicFlavor(key);
+	if (seen) tellRoom(seen);
 }
 
 /** Body-part refusals name the part, so they can't come from the static table. Uses the
  * subject's hypnotist's own wording rather than a group name — being told "your breasts"
  * and refused about "ItemBreast" would break the spell rather badly. */
+/** Body-part refusals name the part, so they are built rather than looked up — same
+ * reasoning as bodyPartFlavor below, applied to the public half. */
+export function announceBodyPart(part: string): void {
+	tellPlayer(bodyPartFlavor(part));
+	tellRoom(
+		fillTokens(
+			pick([
+				`{name} reaches for {their} ${part}, then seems to change {their} mind.`,
+				`{name} half-reaches for {their} ${part} and loses interest partway.`,
+				`{name}'s hands get as far as {their} ${part} before drifting away.`,
+			]),
+		),
+	);
+}
+
 export function bodyPartFlavor(part: string): string {
 	const options = [
 		`Your hands move towards your ${part}, then you change your mind. You do not need to touch them.`,
