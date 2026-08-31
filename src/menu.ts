@@ -256,11 +256,14 @@ const SCOPE_HEIGHT = 56;
 
 const DECAY_ID = "HypnosisAddonDecayRate";
 const DECAY_LABEL_X = 950;
-const DECAY_LABEL_Y = 705;
+// The last trust row sits at y=680 and 36px text reaches ~18px either side of its centre,
+// so 705 left the label resting on top of it. 730 clears the row; the dropdown then has to
+// fit between there and the data buttons at 810, hence 46 tall rather than 52.
+const DECAY_LABEL_Y = 730;
 const DECAY_CENTRE_X = 1370;
-const DECAY_CENTRE_Y = 750;
+const DECAY_CENTRE_Y = 775;
 const DECAY_WIDTH = 640;
-const DECAY_HEIGHT = 52;
+const DECAY_HEIGHT = 46;
 
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 830;

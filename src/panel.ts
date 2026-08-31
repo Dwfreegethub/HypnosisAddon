@@ -149,8 +149,11 @@ const LINE_HEIGHT = 32;
 const HEAD_LEAD = 14;
 const BODY_SIZE = 24;
 const HEAD_SIZE = 26;
-/** Leaves room for the page control along the panel floor. */
-const LINES_PER_COLUMN = 16;
+/** Leaves room for the page control along the panel floor.
+ *
+ * 16 put the last line at y=832 — and 846 when it was a heading, which carries a lead —
+ * against page buttons at 830. 14 stops the text at 782, two clear lines above them. */
+const LINES_PER_COLUMN = 14;
 
 function styleOf(style: LineStyle | undefined): { size: number; color: string } {
 	if (style === "head") return { size: HEAD_SIZE, color: "Black" };
