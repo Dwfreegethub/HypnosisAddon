@@ -14,6 +14,8 @@ export type FlavorKey =
 	| "movement-block"
 	| "movement-release"
 	| "clothing-block"
+	/** Tried to open the wardrobe while blocked. */
+	| "clothing-blocked-attempt"
 	| "clothing-release"
 	| "kneel"
 	| "stand"
@@ -29,7 +31,11 @@ export type FlavorKey =
 	| "selftouch-frozen"
 	/** Tried to touch themselves while blocked outright. */
 	| "selftouch-blocked"
-	| "selftouch-part-block"
+	/** The block being PLACED, which is a different moment from bumping into it. */
+	| "selftouch-applied"
+	/** A trigger placed a restriction the subject was never told about. Deliberately vague:
+	 * they heard no instruction, so naming the part would tell them what the trigger did. */
+	| "restriction-settles"
 	| "selftouch-part-release"
 	// Arousal. The four levels are suggestion ids as well as flavor keys, same as the rest.
 	| "arousal-none"
@@ -66,7 +72,11 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
 	kneel: ["{name} sinks to {their} knees without seeming to decide to.", "{name} kneels, unhurried and unquestioning."],
 	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
-	"clothing-block": [
+	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
+	// INTO one is observable, which is why the attempt keys carry the public lines and the
+	// apply keys mostly do not. Movement and posture are the exceptions: going still and
+	// kneeling are visible in themselves.
+	"clothing-blocked-attempt": [
 		"{name} reaches for {their} clothes, and {their} hand drifts away again.",
 		"{name} half-reaches for a fastening and seems to forget why.",
 	],
@@ -93,10 +103,17 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your body is yours again. You hadn't noticed it stopped being.",
 		"Something lets go of you, and you can move.",
 	],
+	// Apply-time: a possibility closing, with nothing reached for yet.
 	"clothing-block": [
+		"The idea of changing your clothes quietly stops being available.",
+		"Your clothes settle into being simply what you are wearing, not something you could alter.",
+		"Somewhere between you and your own buttons, a decision gets made without you.",
+	],
+	// Attempt-time: the moment you actually walk into it.
+	"clothing-blocked-attempt": [
+		"You reach for a fastening and forget what you were reaching for.",
 		"Your hands will not go near your clothes, and you stop wondering why.",
 		"The thought of changing slips away before you can hold on to it.",
-		"You reach for a fastening and forget what you were reaching for.",
 	],
 	"clothing-release": [
 		"You could change your clothes, if you wanted to. The idea is available again.",
@@ -155,9 +172,18 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You were going to touch yourself. The impulse arrives and quietly leaves.",
 		"Touching yourself isn't among the things you're going to do.",
 	],
-	"selftouch-part-block": [
-		"You will leave that part of yourself alone now.",
-		"Some of you is off-limits to you. You accept this easily.",
+	"selftouch-applied": [
+		"Reaching for yourself quietly stops being one of your options.",
+		"Something closes off between you and your own hands.",
+		"You will not be touching yourself. The decision is already made, and it was not yours.",
+	],
+	// DW's wording, near enough: a restriction lands and the subject finds the not-knowing
+	// interesting rather than alarming. It has to stay vague — a trigger fires with no
+	// spoken instruction, so naming the part would hand them what the trigger does.
+	"restriction-settles": [
+		"You feel something close off. You are not sure what yet, and the not-knowing is oddly interesting.",
+		"A small door shuts somewhere in you. You will find out which one when you reach for it.",
+		"Something has been put out of your reach. You will discover what when your hands get there.",
 	],
 	"selftouch-part-release": [
 		"Your hands are your own again, all of you within reach.",
@@ -261,8 +287,23 @@ export function announce(key: FlavorKey): void {
 /** Body-part refusals name the part, so they can't come from the static table. Uses the
  * subject's hypnotist's own wording rather than a group name — being told "your breasts"
  * and refused about "ItemBreast" would break the spell rather badly. */
+/** A per-part block being PLACED, when the subject heard the instruction and so already
+ * knows which part. Names it; nothing is revealed that they did not just hear.
+ *
+ * No public half: placing a restriction is invisible. */
+export function announceBodyPartApplied(part: string): void {
+	tellPlayer(
+		pick([
+			`Touching your ${part} stops being one of the things you are going to do.`,
+			`Your ${part} quietly moves out of your own reach.`,
+			`You will be leaving your ${part} alone now, and you do not mind.`,
+		]),
+	);
+}
+
 /** Body-part refusals name the part, so they are built rather than looked up — same
- * reasoning as bodyPartFlavor below, applied to the public half. */
+ * reasoning as bodyPartFlavor below, applied to the public half. Attempt-time: the subject
+ * has actually reached for themselves, which is why this one the room can see. */
 export function announceBodyPart(part: string): void {
 	tellPlayer(bodyPartFlavor(part));
 	tellRoom(

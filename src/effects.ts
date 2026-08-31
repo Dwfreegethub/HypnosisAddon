@@ -149,6 +149,14 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 	return true;
 }
 
+/** Is this effect one WE put on, as opposed to a real item doing the same thing? Reads our
+ * own Emoticon carrier rather than Character.HasEffect, which cannot tell the difference —
+ * and the difference matters whenever we are about to narrate something, since describing a
+ * player's actual chastity belt as hypnosis would be both wrong and confusing. */
+export function hasOwnEffect(effectName: string): boolean {
+	return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+}
+
 export function removeEffect(effectName: string, character: any = Player): boolean {
 	const item = findEmoticonItem(character);
 	const effects = item?.Property?.Effect;

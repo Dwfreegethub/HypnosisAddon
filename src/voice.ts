@@ -4,7 +4,7 @@ import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, trustWith, FeatureToggles, Trigger } from "./storage";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
-import { flavor, bodyPartFlavor, announce, announceBodyPart, FlavorKey } from "./flavor";
+import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion } from "./illusion";
@@ -748,8 +748,10 @@ function fireTrigger(trigger: Trigger): void {
 			if (word === "all") setAllSelfTouchBlocked(true);
 			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], true);
 			else continue;
-			if (word === "all") announce("selftouch-blocked");
-			else announceBodyPart(word);
+			// A trigger fires with no spoken instruction behind it, so the subject has no idea
+			// which part was just closed off. Saying so would hand them what the trigger does,
+			// which is the one thing triggers deliberately keep back.
+			announce(word === "all" ? "selftouch-applied" : "restriction-settles");
 			fired++;
 			continue;
 		}
@@ -1030,8 +1032,8 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	}
 	log(`${cmd.block ? "blocked" : "released"} ${label}`);
 	if (!cmd.block) announce("selftouch-part-release");
-	else if (cmd.all) announce("selftouch-blocked");
-	else announceBodyPart(cmd.word);
+	else if (cmd.all) announce("selftouch-applied");
+	else announceBodyPartApplied(cmd.word);
 	return true;
 }
 

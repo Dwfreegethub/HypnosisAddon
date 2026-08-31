@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, isSpeechBlocked, getScreenFade } from "./effects";
+import { installEffectAllowList, isSpeechBlocked, getScreenFade, hasOwnEffect } from "./effects";
 import { announce } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -169,6 +169,27 @@ safely("speech-block hook", () => {
 			log("speech blocked:", args[0]);
 			announce("speech-blocked-attempt");
 			return false;
+		}) as any,
+	);
+});
+
+// The wardrobe's answer to speech-blocked-attempt. BlockWardrobe made BC refuse the
+// wardrobe in total silence, so the one restriction with no attempt message at all was the
+// one where the player is actively clicking a button and getting nothing back.
+//
+// Guarded on OUR effect rather than on CanChangeOwnClothes alone: a real locked outfit
+// blocks the wardrobe too, and narrating somebody's actual chastity belt as hypnosis would
+// be both wrong and confusing.
+safely("wardrobe-block hook", () => {
+	modApi.hookFunction(
+		"ChatRoomOpenWardrobeScreen",
+		10,
+		((args: [], next: (args: []) => any) => {
+			if (Player?.CanChangeOwnClothes?.() === false && hasOwnEffect("BlockWardrobe")) {
+				announce("clothing-blocked-attempt");
+				return undefined;
+			}
+			return next(args);
 		}) as any,
 	);
 });

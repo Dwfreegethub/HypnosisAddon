@@ -48,12 +48,17 @@ notify.setRoomVoice(() => true);
 for (const key of [
 	"awareness-block", "awareness-release", "touch-block", "touch-release",
 	"illusion-block", "illusion-release", "arousal-none", "arousal-high", "arousal-full",
+	// Placing a restriction is invisible too — see the apply/attempt section below.
+	"clothing-block", "selftouch-applied", "restriction-settles",
 ]) {
 	check(`${key} stays private`, flavor.publicFlavor(key), null);
 }
 for (const key of [
-	"movement-block", "movement-release", "kneel", "stand", "clothing-block",
-	"selftouch-frozen", "selftouch-blocked", "speech-blocked-attempt", "orgasm-refused",
+	// Going still and kneeling are visible in themselves; the rest are all ATTEMPTS, the
+	// moment somebody actually walks into a restriction.
+	"movement-block", "movement-release", "kneel", "stand",
+	"clothing-blocked-attempt", "selftouch-frozen", "selftouch-blocked",
+	"speech-blocked-attempt", "orgasm-refused",
 ]) {
 	check(`${key} is visible`, typeof flavor.publicFlavor(key), "string");
 }
@@ -97,6 +102,41 @@ local = []; room = [];
 flavor.announce("awareness-block");
 check("a private effect tells only the subject", local.length, 1);
 check("  and says nothing to the room", room.length, 0);
+
+// --- applying a restriction is a different moment from bumping into it ------------------
+// These used to share one line, so a trigger that placed a block announced it as though
+// the subject had just reached for themselves and been stopped. Nothing had been reached
+// for yet.
+local = []; room = [];
+flavor.announce("selftouch-applied");
+check("applying tells the subject", local.length, 1);
+check("  and nothing to the room — placing a block is invisible", room.length, 0);
+
+local = []; room = [];
+flavor.announce("selftouch-blocked");
+check("attempting tells the subject", local.length, 1);
+check("  and the room, which can see it", room.length, 1);
+
+check("applying has no public line", flavor.publicFlavor("selftouch-applied"), null);
+check("attempting does", typeof flavor.publicFlavor("selftouch-blocked"), "string");
+check("the vague trigger line stays private", flavor.publicFlavor("restriction-settles"), null);
+
+// Clothing had the reverse problem: its apply text described reaching for a fastening,
+// which is an attempt, and there was no attempt message at all.
+check("clothing apply is private", flavor.publicFlavor("clothing-block"), null);
+check("clothing attempt is visible", typeof flavor.publicFlavor("clothing-blocked-attempt"), "string");
+check("  apply text does not describe reaching", /reach/i.test(flavor.flavor("clothing-block")), false);
+
+// A trigger fires with nothing spoken, so its message must not name the part.
+local = [];
+flavor.announce("restriction-settles");
+check("the trigger line names no body part", /breast|pussy|clit|ass|mouth/i.test(local[0] ?? ""), false);
+
+// Spoken, they heard the part named, so repeating it reveals nothing.
+local = []; room = [];
+flavor.announceBodyPartApplied("breasts");
+check("spoken apply names the part", /breasts/.test(local[0] ?? ""), true);
+check("  and stays off the room's screen", room.length, 0);
 
 // --- body parts use the word the hypnotist used, on both sides ---
 local = []; room = [];
