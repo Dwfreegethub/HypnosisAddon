@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { tellPlayer } from "./notify";
-import { getFeatures, trustWith, getTriggerDuration } from "./storage";
+import { getFeatures, getTriggerDuration } from "./storage";
+import { accessFor } from "./trust";
 import { scheduleTimer, cancelTimer } from "./timers";
 
 // Carry-forward: suggestions given under trance that survive waking.
@@ -129,7 +130,7 @@ export function carryThese(sender: number, name: string, wanted: string[]): { su
 	const features = getFeatures();
 	if (!features.hypnoEnabled) return { refusal: "They have hypnosis switched off." };
 	if (!features.carryForward) return { refusal: `They have not enabled "Suggestions that outlive the trance".` };
-	const trust = trustWith(sender);
+	const trust = accessFor(sender, "persistent");
 	if (trust < CARRY_TRUST_THRESHOLD)
 		return { refusal: `Making a suggestion outlive the trance needs trust ${CARRY_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)}.` };
 	if (!wanted.length)

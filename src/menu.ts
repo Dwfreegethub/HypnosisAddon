@@ -14,6 +14,9 @@ import {
 	setTriggerScope,
 	getTriggerDuration,
 	setTriggerDuration,
+	getDecayRate,
+	setDecayRate,
+	DECAY_RATES,
 } from "./storage";
 import { setSuppressed, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -120,7 +123,7 @@ const TABS: Tab[] = [
 	},
 	{
 		name: "Stats",
-		blurb: "Read-only. Interaction counts are shown because they're what's actually stored — and what makes the pace legible.",
+		blurb: "Your trust and experience, and how fast trust fades. Counts are shown because they're what is actually stored.",
 		render: drawStats,
 	},
 ];
@@ -235,6 +238,13 @@ const SCOPE_CENTRE_Y = 745;
 const SCOPE_WIDTH = 760;
 const SCOPE_HEIGHT = 56;
 
+const DECAY_ID = "HypnosisAddonDecayRate";
+const DECAY_LABEL_Y = 700;
+const DECAY_CENTRE_X = 260 + 300;
+const DECAY_CENTRE_Y = 745;
+const DECAY_WIDTH = 600;
+const DECAY_HEIGHT = 56;
+
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 830;
 const DURATION_CENTRE_X = 260 + 70;
@@ -244,8 +254,48 @@ const DURATION_HEIGHT = 56;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
-	if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+	for (const id of [SCOPE_ID, DURATION_ID, DECAY_ID]) {
+		if (document.getElementById(id)) ElementRemove(id);
+	}
+}
+
+/** DOM controls are real elements over the canvas, so each one has to be taken away the
+ * moment its own tab stops showing — otherwise it floats on top of whatever is drawn next.
+ * Two tabs own controls now, which is why this is per-tab rather than a single "not the
+ * Triggers tab" check: switching from Triggers to Stats left the scope dropdown sitting
+ * over the stats table. */
+function syncTabControls(tabName: string): void {
+	if (tabName !== "Triggers") {
+		if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
+		if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+	}
+	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+}
+
+/** How fast trust fades without contact.
+ *
+ * Named speeds rather than a number, per DW: the player picks "Slowly", so what that means
+ * behind the scenes can be retuned without their saved choice changing meaning. Lives on
+ * the Stats tab because that is where trust is already shown — it is the one control that
+ * changes what those numbers do. */
+function drawDecayControl(): void {
+	const locked = settingsLocked();
+	drawLeftText("How fast trust fades when you don't see someone:", 260, DECAY_LABEL_Y, locked ? "Gray" : "Black");
+	let element = document.getElementById(DECAY_ID) as HTMLSelectElement | null;
+	if (!element) {
+		element = ElementCreateDropdown(
+			DECAY_ID,
+			DECAY_RATES.map((r) => r.label),
+			function () {
+				setDecayRate(DECAY_RATES[this.selectedIndex]?.key ?? "never");
+				log(`trust decay set to ${getDecayRate()}`);
+			},
+		);
+	}
+	const index = DECAY_RATES.findIndex((r) => r.key === getDecayRate());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	ElementPosition(DECAY_ID, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT);
 }
 
 /** The trigger tab's two DOM controls: scope and duration. */
@@ -316,6 +366,7 @@ function drawStats(): void {
 		y += STAT_LINE_HEIGHT;
 	};
 
+	drawDecayControl();
 	line("Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
 	y += 16;
 	line("Trust", "value", "detail", "Gray");
@@ -395,11 +446,7 @@ export function installMenu(): void {
 				"Gray",
 			);
 
-			// The scope dropdown belongs to Permissions only — remove it the moment any
-			// other tab is showing, or a DOM element sits over the Stats table.
-			// DOM controls belong to the Triggers tab only — remove them the moment any
-			// other tab shows, or they sit on top of it.
-			if (tab.name !== "Triggers") removeScopeControl();
+			syncTabControls(tab.name);
 
 			if (tab.render) {
 				tab.render();

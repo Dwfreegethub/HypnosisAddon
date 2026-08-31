@@ -2,7 +2,8 @@ import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
-import { getFeatures, getTriggerDuration, trustWith, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
+import { accessFor, AccessCategory } from "./trust";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
@@ -97,6 +98,10 @@ interface Suggestion {
 	 * effects, and a threshold exists on a suggestion precisely because it is deeper than
 	 * that. Omitted means the permission is the only gate, as it is for everything else. */
 	trustThreshold?: number;
+	/** Which access category the threshold is checked in — decides whether a BC
+	 * relationship's floor may lift it. Defaults to "session"; the illusion is "deceptive",
+	 * so only an owner's floor reaches it. */
+	trustCategory?: AccessCategory;
 	patterns: RegExp[];
 	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
 	 * arousal suggestions, which can match and be permitted and still not land (the
@@ -130,9 +135,9 @@ function blockedReason(suggestion: Suggestion, speaker: number, features: Featur
 	if (!features.hypnoEnabled) return "hypnoEnabled is off";
 	if (!permitted(suggestion, features)) return `${suggestion.permission} isn't granted`;
 	if (suggestion.trustThreshold != null) {
-		const trust = trustWith(speaker);
-		if (trust < suggestion.trustThreshold)
-			return `needs trust ${suggestion.trustThreshold}, at ${trust.toFixed(1)}`;
+		const access = accessFor(speaker, suggestion.trustCategory ?? "session");
+		if (access < suggestion.trustThreshold)
+			return `needs trust ${suggestion.trustThreshold}, at ${access.toFixed(1)}`;
 	}
 	return null;
 }
@@ -276,6 +281,7 @@ const SUGGESTIONS: Suggestion[] = [
 		// alone — the arousal floor must never reach a feature that lies to someone about
 		// their own state.
 		trustThreshold: 70,
+		trustCategory: "deceptive",
 		patterns: [
 			/\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
 			/\byou (?:do not|will not|cannot) notice (?:what|how) you are (?:wearing|dressed)\b/,

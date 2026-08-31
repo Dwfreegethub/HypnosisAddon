@@ -1,5 +1,13 @@
 import { log } from "./log";
-import { addInteractions, addExperience, trustWith, experienceValue, listTrust } from "./storage";
+import {
+	addInteractions,
+	addExperience,
+	trustWith,
+	experienceValue,
+	listTrust,
+	getRelationshipOverride,
+	RelationKind,
+} from "./storage";
 import { H_TRUST, valueFromCount } from "./curve";
 
 // Trust accrual — the slow path. Conversation in the same room builds trust with the
@@ -95,6 +103,94 @@ function agoText(timestamp: number): string {
 /** Per-person rows for the settings screen's Stats tab, strongest first. Shows the
  * interaction count next to the value deliberately: the count is what's actually stored
  * and what makes the pace legible ("5.8 interactions" says more about speed than "18.8"). */
+// --- BC relationships as a trust floor ------------------------------------------------
+//
+// The doc had "relationship → starting trust" and "trust decay" as two separate todo items.
+// They are one mechanic: without a floor, an owner who goes away for three weeks comes back
+// having to re-earn the right to hypnotise you, which is wrong in a way that is not even
+// interesting — the relationship is still there, in BC's own data, the whole time.
+//
+// Same shape as the arousal chemical floor already in session.ts, and combined into the
+// same max() rather than bolted on beside it.
+
+export type AccessCategory =
+	/** Ordinary in-session suggestions. */
+	| "session"
+	/** Arousal levels and orgasms. */
+	| "arousal"
+	/** Lies to the subject about their own state — the clothing illusion. */
+	| "deceptive"
+	/** Outlives the session: triggers, carry-forward. */
+	| "persistent";
+
+interface Relation {
+	kind: RelationKind;
+	floor: number;
+	/** Which categories this floor is allowed to lift. A relationship you have not built on
+	 * gets you in the door, not all the way through the house. */
+	reaches: AccessCategory[];
+}
+
+/** DW's values. A friend gets a foot in the door and earns the rest; a lover additionally
+ * gets the arousal features; an owner gets everything.
+ *
+ * Owner sits at 65 — exactly the trigger and carry-forward threshold, so ownership alone
+ * confers those, while the clothing illusion's 70 still wants a little real history. */
+const RELATIONS: Record<Exclude<RelationKind, "none">, Relation> = {
+	friend: { kind: "friend", floor: 15, reaches: ["session"] },
+	lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },
+	owner: { kind: "owner", floor: 65, reaches: ["session", "arousal", "deceptive", "persistent"] },
+};
+
+function characterFor(memberId: number): any {
+	return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+		(c: any) => c?.MemberNumber === memberId,
+	);
+}
+
+/** What BC says this person is to us — or what `/hypno relate` has been told to pretend.
+ *
+ * Highest wins: an owner who is also on the friend list is an owner. Friend is checked off
+ * Player.FriendList, which is a plain list of member numbers, so it works for someone who
+ * is not in the room; owner and lover need the loaded character. */
+export function relationshipWith(memberId: number): RelationKind {
+	const override = getRelationshipOverride(memberId);
+	if (override) return override;
+	const C = characterFor(memberId);
+	try {
+		if (C && Player?.IsOwnedByCharacter?.(C)) return "owner";
+		if (C && C.IsLoverOfCharacter?.(Player)) return "lover";
+		if (Player?.FriendList?.includes?.(memberId)) return "friend";
+	} catch {
+		/* relationship lookups are a bonus, never a requirement */
+	}
+	return "none";
+}
+
+/** Access for a threshold check: the highest of what has been earned and what a
+ * relationship confers, for the categories that relationship is allowed to lift.
+ *
+ * The arousal floor is deliberately NOT here — it belongs to session.ts, applies only to
+ * session-scoped effects, and must never reach anything persistent or deceptive. This
+ * function is the relationship half; effectiveAccess() combines both. */
+export function accessFor(memberId: number, category: AccessCategory): number {
+	const earned = trustWith(memberId);
+	const kind = relationshipWith(memberId);
+	if (kind === "none") return earned;
+	const relation = RELATIONS[kind];
+	if (!relation.reaches.includes(category)) return earned;
+	return Math.max(earned, relation.floor);
+}
+
+/** For diagnostics and the help screen. */
+export function describeRelationship(memberId: number): string {
+	const kind = relationshipWith(memberId);
+	if (kind === "none") return "no BC relationship";
+	const r = RELATIONS[kind];
+	const pretend = getRelationshipOverride(memberId) ? " (test override)" : "";
+	return `${kind}${pretend} — floor ${r.floor}, reaches ${r.reaches.join(", ")}`;
+}
+
 export function trustStatRows(): TrustStatRow[] {
 	return listTrust()
 		.slice()

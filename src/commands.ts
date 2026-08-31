@@ -15,8 +15,15 @@ import {
 	exportSettings,
 	importSettings,
 	resetSettings,
+	setRelationshipOverride,
+	listRelationshipOverrides,
+	getDecayRate,
+	setDecayRate,
+	DECAY_RATES,
+	DecayRate,
+	RelationKind,
 } from "./storage";
-import { describeTrust } from "./trust";
+import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
 import { describeRecording } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
@@ -278,6 +285,64 @@ const COMMANDS: HypnoCommand[] = [
 				`trust with ${entry.memberName} → ${trustWith(target.id).toFixed(1)} ` +
 					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
+		},
+	},
+	{
+		// BC relationships need an actual owner or lover to test against, which is not
+		// something you can arrange on demand. This pretends, per member number, so the
+		// floors and the category rules can be exercised with one alt.
+		Tag: "relate",
+		group: "Testing",
+		args: "[name|number] <none|friend|lover|owner|clear>",
+		Description: "Pretend a BC relationship with someone, to test the trust floors",
+		Action: (args: string) => {
+			const usage = "usage: /hypno relate [name or member number] <none|friend|lover|owner|clear>";
+			const parts = args.trim().split(/\s+/).filter(Boolean);
+			if (!parts.length) {
+				const all = listRelationshipOverrides();
+				reply(all.length ? "test overrides:" : "no relationship overrides set");
+				all.forEach((o) => reply(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} → ${o.kind}`));
+				reply(usage);
+				return;
+			}
+			const [token, rawKind] = parts.length >= 2 ? parts : ["", parts[0]];
+			const kind = rawKind.toLowerCase();
+			if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
+				reply(usage);
+				return;
+			}
+			const target = targetOrAsk(token, usage);
+			if (!target) return;
+			// "clear" drops the pretence so BC's real answer shows through again; "none"
+			// actively pretends there is no relationship, which is different and is how you
+			// test that a real owner can be masked.
+			setRelationshipOverride(target.id, kind === "clear" ? null : (kind as RelationKind));
+			reply(`${target.name}: ${describeRelationship(target.id)}`);
+			reply(
+				`  access — session ${accessFor(target.id, "session").toFixed(1)}, ` +
+					`arousal ${accessFor(target.id, "arousal").toFixed(1)}, ` +
+					`deceptive ${accessFor(target.id, "deceptive").toFixed(1)}, ` +
+					`persistent ${accessFor(target.id, "persistent").toFixed(1)}`,
+			);
+		},
+	},
+	{
+		Tag: "decay",
+		group: "Testing",
+		args: "[never|veryslow|slow|typical|fast|veryfast]",
+		Description: "Read or set how fast trust fades without contact",
+		Action: (args: string) => {
+			const token = firstWord(args).toLowerCase();
+			if (!token) {
+				reply(`trust decay: ${getDecayRate()} — ${DECAY_RATES.map((r) => r.key).join(", ")}`);
+				return;
+			}
+			if (!DECAY_RATES.some((r) => r.key === token)) {
+				reply(`usage: /hypno decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
+				return;
+			}
+			setDecayRate(token as DecayRate);
+			reply(`trust decay set to ${token}`);
 		},
 	},
 	{

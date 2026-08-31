@@ -22,6 +22,52 @@ function backupKey(): string | null {
 	return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
 }
 
+/** Decay speed, stored as a NAME rather than a number.
+ *
+ * DW's call, and the right one: the player picks "Slowly", not "1.0 interactions per day",
+ * so the numbers behind these can be retuned freely without anyone's saved choice changing
+ * meaning. Same reasoning as triggerScope — a stored index or a stored magnitude both go
+ * quietly wrong the moment the scale is edited. */
+export type DecayRate = "never" | "veryslow" | "slow" | "typical" | "fast" | "veryfast";
+
+/** Interactions lost per day of no contact.
+ *
+ * Subtracting a flat count from `n` gives a decay shape for free, and it is the opposite of
+ * the intuitive one — worth writing down, because the first version of this comment had it
+ * backwards. Since `trust = 100n/(n+25)`, the curve is steep at the bottom and flat at the
+ * top, so a fixed number of lost interactions costs a casual acquaintance far more than an
+ * established relationship. A month at "typical" (60 interactions):
+ *
+ *     trust 30 -> 0      an acquaintance is simply forgotten
+ *     trust 50 -> 0
+ *     trust 75 -> 37     a real relationship is halved
+ *     trust 90 -> 87     a deep one barely notices
+ *
+ * That is the right shape and needs no second curve: out of sight, out of mind applies to
+ * people you barely know, while someone you have spent months with does not fade in a
+ * month. It also means the low end can hit zero quickly, which is what the relationship
+ * floors are for. */
+export const DECAY_PER_DAY: Record<DecayRate, number> = {
+	never: 0,
+	veryslow: 0.25,
+	slow: 1,
+	typical: 2,
+	fast: 5,
+	veryfast: 12,
+};
+
+export const DECAY_RATES: { key: DecayRate; label: string }[] = [
+	{ key: "never", label: "Never" },
+	{ key: "veryslow", label: "Very slowly" },
+	{ key: "slow", label: "Slowly" },
+	{ key: "typical", label: "Typical" },
+	{ key: "fast", label: "Fast" },
+	{ key: "veryfast", label: "Very fast" },
+];
+
+/** A BC relationship, as it bears on trust. */
+export type RelationKind = "none" | "friend" | "lover" | "owner";
+
 export interface TrustEntry {
 	memberId: number;
 	memberName: string;
@@ -177,6 +223,12 @@ interface HypnoAddonSettings {
 	/** Minutes a fired trigger's effects last before releasing themselves. 0 means no
 	 * limit — they stay until released by name or by the safeword. */
 	triggerDurationMinutes: number;
+	/** How fast trust fades without contact. */
+	decayRate: DecayRate;
+	/** TESTING ONLY: pretend a relationship exists, keyed by member number as a string
+	 * because JSON object keys always are. Set with `/hypno relate`. Lets the relationship
+	 * floors be exercised without actually collaring anyone. */
+	relationshipOverride: Record<string, RelationKind>;
 	features: FeatureToggles;
 }
 
@@ -209,7 +261,20 @@ function defaultFeatures(): FeatureToggles {
 }
 
 function defaultSettings(): HypnoAddonSettings {
-	return { version: "0.4.0", trust: [], experience: 0, triggers: [], triggerScope: "hypnotist", triggerDurationMinutes: 5, features: defaultFeatures() };
+	return {
+		version: "0.4.0",
+		trust: [],
+		experience: 0,
+		triggers: [],
+		triggerScope: "hypnotist",
+		triggerDurationMinutes: 5,
+		// OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
+		// whenever it was last touched, so shipping this switched on would decay months of
+		// stored trust the first time someone loaded the new build. Opt in.
+		decayRate: "never",
+		relationshipOverride: {},
+		features: defaultFeatures(),
+	};
 }
 
 let cached: HypnoAddonSettings | null = null;
@@ -241,6 +306,8 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
 	if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
+	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
+	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
 	s.trust ??= [];
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
@@ -317,8 +384,38 @@ export function getTrust(memberId: number): TrustEntry | undefined {
 }
 
 /** Trust with this person as a 0-100 value, derived from their interaction count. */
+export function getDecayRate(): DecayRate {
+	return loadSettings().decayRate;
+}
+
+export function setDecayRate(rate: DecayRate): void {
+	loadSettings().decayRate = rate;
+	saveSettings();
+}
+
+/** Charge an entry for the time since it was last touched.
+ *
+ * Applied LAZILY, on read, rather than from a timer: there is nothing to schedule, nothing
+ * to miss while the game is closed, and it stays correct across reloads on its own. The
+ * catch a timer would not have is that the clock must be advanced when it is charged —
+ * otherwise every subsequent read bills the same elapsed days again. Hence the write-back,
+ * which also only happens once a whole interaction has accrued, so ordinary reads do not
+ * touch storage. */
+function applyDecay(entry: TrustEntry | undefined): number {
+	if (!entry) return 0;
+	const perDay = DECAY_PER_DAY[loadSettings().decayRate] ?? 0;
+	if (perDay <= 0 || entry.interactions <= 0) return entry?.interactions ?? 0;
+	const days = (Date.now() - entry.lastUpdated) / 86_400_000;
+	const lost = days * perDay;
+	if (lost < 1) return entry.interactions; // not yet worth a write
+	entry.interactions = Math.max(0, entry.interactions - lost);
+	entry.lastUpdated = Date.now();
+	saveSettings();
+	return entry.interactions;
+}
+
 export function trustWith(memberId: number): number {
-	return valueFromCount(getTrust(memberId)?.interactions ?? 0, H_TRUST);
+	return valueFromCount(applyDecay(getTrust(memberId)), H_TRUST);
 }
 
 /** Add (or with a negative delta, remove) interactions. The only way trust moves —
@@ -351,6 +448,23 @@ export function setTrustValue(memberId: number, memberName: string, value: numbe
 	entry.lastUpdated = Date.now();
 	saveSettings();
 	return entry;
+}
+
+export function getRelationshipOverride(memberId: number): RelationKind | null {
+	const value = loadSettings().relationshipOverride[String(memberId)];
+	return value === "friend" || value === "lover" || value === "owner" || value === "none" ? value : null;
+}
+
+export function setRelationshipOverride(memberId: number, kind: RelationKind | null): void {
+	const settings = loadSettings();
+	if (kind === null) delete settings.relationshipOverride[String(memberId)];
+	else settings.relationshipOverride[String(memberId)] = kind;
+	saveSettings();
+}
+
+export function listRelationshipOverrides(): { memberId: number; kind: RelationKind }[] {
+	const settings = loadSettings();
+	return Object.entries(settings.relationshipOverride).map(([id, kind]) => ({ memberId: Number(id), kind }));
 }
 
 export function listTrust(): TrustEntry[] {

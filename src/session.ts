@@ -2,7 +2,7 @@ import { log } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
-import { noteInductionSuccess, noteInductionAttempt } from "./trust";
+import { noteInductionSuccess, noteInductionAttempt, accessFor, describeRelationship } from "./trust";
 import { clearAllTimers } from "./timers";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -256,7 +256,11 @@ function chemicalFloor(): number {
  * mechanic exists to serve. As a floor it also lets an established relationship push a
  * little past where trust alone would sit. */
 export function effectiveAccess(memberId: number): number {
-	return Math.max(trustWith(memberId), chemicalFloor());
+	// Three inputs, one max(): what they have earned, what a BC relationship confers, and
+	// what arousal is lending right now. The relationship half is category-aware — an owner
+	// lifts everything, a friend only session-scoped things — while the arousal half is
+	// session-only by construction, which is why it is applied here and nowhere else.
+	return Math.max(accessFor(memberId, "session"), chemicalFloor());
 }
 
 /** The chance this attempt lands, 0-100. Read the number literally: 35 means a 35% chance.
@@ -295,6 +299,7 @@ export function describeChances(memberId: number): string[] {
 	return [
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
+		`  ${describeRelationship(memberId)}`,
 		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
 			const c = inductionChance(memberId, choice);
 			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${MAX_ATTEMPTS}`;

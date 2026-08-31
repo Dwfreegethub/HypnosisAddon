@@ -2,7 +2,6 @@ import { log } from "./log";
 import { tellPlayer } from "./notify";
 import {
 	getFeatures,
-	trustWith,
 	listTriggers,
 	saveTrigger,
 	getTriggerScope,
@@ -10,6 +9,7 @@ import {
 	TriggerScope,
 } from "./storage";
 import { isSessionActiveWith } from "./session";
+import { accessFor } from "./trust";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
@@ -106,7 +106,7 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 		return refuse('[trigger] Refused — they have not enabled "Triggers" in their Hypnosis Add-on settings.');
 	}
 	// Relationship trust only — see the gate note above.
-	const trust = trustWith(hypnotistId);
+	const trust = accessFor(hypnotistId, "persistent");
 	if (trust < TRIGGER_TRUST_THRESHOLD) {
 		log(`trigger plant refused: trust ${trust.toFixed(1)} < ${TRIGGER_TRUST_THRESHOLD}`);
 		return refuse(`[trigger] Refused — planting needs trust ${TRIGGER_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)} with them. Arousal does not count toward this.`);
