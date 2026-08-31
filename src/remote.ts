@@ -49,6 +49,14 @@ const FIRST_FEATURE_TOP = 430;
 const FEATURE_SPACING = 115;
 const STATUS_LINE_Y = 245;
 
+/** The "they don't have it" panel: a line of explanation and a way to ask again, in case
+ * they installed it while you were looking at them. */
+const ABSENT_LINE_Y = 380;
+const RETRY_LEFT = 700;
+const RETRY_TOP = 470;
+const RETRY_WIDTH = 300;
+const RETRY_HEIGHT = 80;
+
 let activeTarget: any = null;
 
 interface RemoteState {
@@ -137,6 +145,32 @@ function featureTop(index: number): number {
 // OnlineSharedSettings field is shared automatically. So we ask on demand instead of
 // trying to keep every room member's state pre-synced.
 const knownState = new Map<number, RemoteState>();
+
+// --- Presence probe -------------------------------------------------------------------
+// The H icon draws on every player's sheet, because there is no way to know who is running
+// this without asking them. Opening the panel asks; if nothing answers, the panel used to
+// sit on "(checking…)" forever, which is indistinguishable from a slow reply, a lost
+// message, and a bug. Saying so is the whole feature.
+//
+// Deliberately NOT used to hide the icon. It could be, once a member number has been
+// probed once — but that would quietly turn the sheet into a directory of who in the room
+// has the add-on installed, which is nobody's business but theirs.
+
+const PROBE_TIMEOUT_MS = 3000;
+/** When we last asked, per member number. */
+const probedAt = new Map<number, number>();
+
+export type Presence = "waiting" | "present" | "absent";
+
+/** Any reply at all proves they are running it — the two queries are answered by handlers
+ * that only exist in this add-on, so either arriving is proof. A late reply flips this back
+ * to "present" on the next frame: the timeout is a display decision, never a lockout. */
+export function presenceOf(memberNumber: number): Presence {
+	if (knownState.has(memberNumber) || getSessionView(memberNumber)) return "present";
+	const asked = probedAt.get(memberNumber);
+	if (asked == null) return "waiting";
+	return Date.now() - asked < PROBE_TIMEOUT_MS ? "waiting" : "absent";
+}
 
 function isPermitted(state: PermissionSource | undefined, feature: FeatureDef): boolean {
 	if (!state || !state.hypnoEnabled) return false;
@@ -248,6 +282,10 @@ function drawSubscreen(target: any): void {
 		drawHelp("BC Hypnosis Add-on — help");
 		return;
 	}
+	if (presenceOf(target.MemberNumber) === "absent") {
+		drawAbsent(target);
+		return;
+	}
 	const view = getSessionView(target.MemberNumber);
 	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
 	DrawText(statusLine(view), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
@@ -264,6 +302,18 @@ function drawSubscreen(target: any): void {
 		!session.enabled,
 	);
 	FEATURES.forEach((feature, i) => drawFeatureButton(i, feature, target));
+	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
+	DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
+}
+
+/** Shown instead of the controls, rather than alongside them. A row of permanently
+ * disabled buttons under an explanation would only invite clicking them. */
+function drawAbsent(target: any): void {
+	const name = target?.Name ?? "They";
+	DrawText(`Hypnosis Remote — ${name}`, MainCanvasWidth / 2, 170, "Black");
+	DrawText(`${name} doesn't appear to be running the Hypnosis add-on.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
+	DrawText("Nothing on this panel would reach them.", MainCanvasWidth / 2, ABSENT_LINE_Y + 55, "Gray");
+	DrawButton(RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, "Check again", "White", "", "Ask them again");
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
 	DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
 }
@@ -305,13 +355,24 @@ function clickSubscreen(target: any): void {
 		activeTarget = null;
 		return;
 	}
+	if (presenceOf(target.MemberNumber) === "absent") {
+		if (MouseIn(RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT)) probeRemote(target);
+		return;
+	}
 	if (clickSessionButton(target)) return;
 	FEATURES.some((feature, i) => clickFeatureButton(i, feature, target));
 }
 
 function openRemoteFor(target: any): void {
 	activeTarget = target;
+	probeRemote(target);
+}
+
+/** Ask both questions and start the clock. Split out so the Retry button can re-ask
+ * without reopening the panel. */
+export function probeRemote(target: any): void {
 	knownState.delete(target.MemberNumber);
+	probedAt.set(target.MemberNumber, Date.now());
 	// Two independent asks: permissions (what they allow at all) and session state (what's
 	// currently possible). Neither is inferable from the other.
 	sendHiddenMessage({ type: "state-query" }, target.MemberNumber);

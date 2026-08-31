@@ -72,6 +72,8 @@ function startedLines(): HelpLine[] {
 		gap(),
 		head("As the hypnotist"),
 		body("1. Open their profile, click the H icon, Attempt Hypnosis."),
+		dim("   The icon shows on everyone — it cannot know who has the"),
+		dim("   add-on until it asks. The panel says so within 3 seconds."),
 		body("2. Wait out the induction window — that time is for roleplay."),
 		body("3. Then just talk. See the What to Say tab."),
 		body("4. You must use their NAME for anything to land."),

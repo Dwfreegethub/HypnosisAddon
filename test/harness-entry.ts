@@ -10,3 +10,5 @@ export * as suppression from "../src/suppression";
 export * as timers from "../src/timers";
 export * as notify from "../src/notify";
 export * as flavor from "../src/flavor";
+export * as remote from "../src/remote";
+export * as messaging from "../src/messaging";
