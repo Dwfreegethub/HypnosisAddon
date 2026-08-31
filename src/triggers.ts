@@ -204,6 +204,12 @@ function characterFor(memberNumber: number): any {
 function speakerAllowedByScope(speaker: number): boolean {
 	const scope = getTriggerScope();
 	if (scope === "hypnotist") return false;
+	// The ladder is about OTHER PEOPLE. Running it against yourself produced answers nobody
+	// chose — "everyone" and "not blacklisted" trivially include you, and the dominants rung
+	// asks whether your own reputation plus 25 beats your own reputation, which it always
+	// does — so three scopes silently allowed self-firing and four did not. Whether you may
+	// fire your own triggers is one explicit setting now; see triggersFiredBy.
+	if (speaker === Player?.MemberNumber) return false;
 	const C = characterFor(speaker);
 	if (!C) return false;
 	if (Player?.IsOwnedByCharacter?.(C)) return true;
@@ -224,10 +230,26 @@ function speakerAllowedByScope(speaker: number): boolean {
 
 export function triggersFiredBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
+	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+	// Yourself is decided by one setting and nothing else — including the installedBy
+	// shortcut below, which would otherwise let a trigger you somehow planted in yourself
+	// fire regardless of the setting.
+	if (speaker === Player?.MemberNumber) return getFeatures().selfTrigger ? matching : [];
 	const allowedByScope = speakerAllowedByScope(speaker);
-	return listTriggers().filter(
-		(t) => normalisedText.includes(t.phrase) && (t.installedBy === speaker || allowedByScope),
-	);
+	return matching.filter((t) => t.installedBy === speaker || allowedByScope);
+}
+
+/** Triggers this speaker may RELEASE by name. Deliberately looser than firing: undoing can
+ * never harm the subject, so it does not answer to the self-trigger setting the way firing
+ * does. That matters most for the case it was written for — a subject who has been silenced
+ * cannot say a release phrase at all, so the ways out that remain (this, `/hypno release`,
+ * the duration timer, the safeword) must not be narrowed further than they already are. */
+export function triggersReleasableBy(speaker: number, normalisedText: string): Trigger[] {
+	if (!normalisedText) return [];
+	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+	if (speaker === Player?.MemberNumber) return matching;
+	const allowedByScope = speakerAllowedByScope(speaker);
+	return matching.filter((t) => t.installedBy === speaker || allowedByScope);
 }
 
 /** For the settings screen and /hypno triggers. */

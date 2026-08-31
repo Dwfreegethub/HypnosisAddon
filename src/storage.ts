@@ -75,6 +75,18 @@ export interface FeatureToggles {
 	 * the first feature that lies to the player about their own state rather than
 	 * restricting them. */
 	illusionControl: boolean;
+	/** Whether YOU may fire triggers planted in you, by saying the phrase yourself.
+	 *
+	 * Its own setting rather than a rung on the scope ladder, because the ladder answers
+	 * "which OTHER people may fire this" and evaluating it against yourself gave answers
+	 * nobody chose: `everyone` and `notblack` trivially include you, and `dominants`
+	 * compared your own reputation against itself plus 25, which is always true. So three
+	 * scopes allowed self-firing and four did not, for no reason a player could predict.
+	 *
+	 * Off by default. A trigger's whole fiction is that someone else put it there and it
+	 * fires outside your control; someone who wants to reinforce their own conditioning can
+	 * tick this, while someone who does not would otherwise have to discover it happening. */
+	selfTrigger: boolean;
 	/** Letting a suggestion given under trance survive waking. Separate from triggerControl
 	 * because they are different bargains: a trigger lies dormant until someone says a word,
 	 * while a carried suggestion is simply still true when you wake up. Same trust
@@ -168,6 +180,7 @@ function defaultFeatures(): FeatureToggles {
 		arousalControl: false,
 		illusionControl: false,
 		carryForward: false,
+		selfTrigger: false,
 		triggerControl: false,
 		suppressClothing: false,
 		suppressBondage: false,

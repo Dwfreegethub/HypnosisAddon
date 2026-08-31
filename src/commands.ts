@@ -1,6 +1,6 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { describeMatch } from "./voice";
+import { describeMatch, releaseTriggerEffects } from "./voice";
 import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
 import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
 import {
@@ -344,7 +344,41 @@ const COMMANDS: HypnoCommand[] = [
 			all.forEach((t, i) =>
 				reply(`${i + 1}. [hidden phrase] → ${t.actions.join(", ")}  (by ${t.installedByName})`),
 			);
-			reply("Remove one with /hypno forgettrigger <number>, or all of them with 'all'.");
+			reply(
+				"Undo one that has fired with /hypno release <number> (it stays planted), or " +
+					"remove it for good with /hypno forgettrigger <number>. Both take 'all'.",
+			);
+		},
+	},
+	{
+		// The way out for a subject who has been silenced. Speech blocking hooks
+		// ChatRoomSendChatMessage, which runs after command parsing — so /hypno commands
+		// still work when ordinary chat does not, and a spoken release phrase is simply
+		// unavailable to them. Without this, a fired trigger with the duration set to 0 left
+		// only the safeword, which is an OOC stop signal and clears everything else too.
+		Tag: "release",
+		group: "Session",
+		args: "[number|all]",
+		Description: "Undo what a fired trigger did, without deleting it (see /hypno triggers)",
+		Action: (args: string) => {
+			const token = args.trim().toLowerCase();
+			const all = listTriggers();
+			if (!all.length) {
+				reply("no triggers planted");
+				return;
+			}
+			if (!token || token === "all") {
+				all.forEach(releaseTriggerEffects);
+				reply(`released the effects of ${all.length} trigger(s) — they stay planted`);
+				return;
+			}
+			const index = Number(token);
+			if (!Number.isInteger(index) || index < 1 || index > all.length) {
+				reply(`no trigger ${token} — you have ${all.length}. See /hypno triggers.`);
+				return;
+			}
+			releaseTriggerEffects(all[index - 1]);
+			reply(`released trigger ${index} — it stays planted and can fire again`);
 		},
 	},
 	{
@@ -362,18 +396,24 @@ const COMMANDS: HypnoCommand[] = [
 			// planted in them, the same principle as the safeword. By INDEX rather than
 			// phrase, since the phrase is hidden from them — hiding it must not also take
 			// away the ability to remove it.
+			//
+			// Undoes its effects on the way out. Deleting a trigger while what it applied is
+			// still in force did half the job and looked like the whole of it — the subject
+			// removed the thing and stayed frozen.
+			const all = listTriggers();
 			if (token === "all") {
-				reply(`forgot ${forgetAllTriggers()} trigger(s)`);
+				all.forEach(releaseTriggerEffects);
+				reply(`released and forgot ${forgetAllTriggers()} trigger(s)`);
 				return;
 			}
 			const index = Number(token);
-			const all = listTriggers();
 			if (!Number.isInteger(index) || index < 1 || index > all.length) {
 				reply(`no trigger ${token} — you have ${all.length}. See /hypno triggers.`);
 				return;
 			}
+			releaseTriggerEffects(all[index - 1]);
 			const gone = forgetTrigger(all[index - 1].phrase);
-			reply(gone ? `forgot trigger ${index}` : "nothing removed");
+			reply(gone ? `released and forgot trigger ${index}` : "nothing removed");
 		},
 	},
 	{

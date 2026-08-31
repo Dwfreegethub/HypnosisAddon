@@ -57,5 +57,32 @@ rel.black = [OWNER];
 storage.setTriggerScope("notblack");
 check("blacklisted owner still allowed (matches BC)", fires(OWNER), true);
 
+// --- yourself is NOT on the ladder ---------------------------------------------------
+// The ladder answers "which OTHER people may fire this", and running it against yourself
+// gave answers nobody chose: everyone and notblack trivially include you, and the dominants
+// rung compares your own reputation with itself plus 25, which is always true. So three
+// scopes let you fire your own triggers and four did not. It is one explicit setting now,
+// and every scope must agree with it.
+const SELF = Player.MemberNumber;
+storage.setFeature("selfTrigger", false);
+for (const scope of ["hypnotist", "owner", "lovers", "whitelist", "dominants", "notblack", "everyone"]) {
+	storage.setTriggerScope(scope);
+	check(`${scope}: self, setting off`, fires(SELF), false);
+}
+storage.setFeature("selfTrigger", true);
+for (const scope of ["hypnotist", "owner", "lovers", "whitelist", "dominants", "notblack", "everyone"]) {
+	storage.setTriggerScope(scope);
+	check(`${scope}: self, setting on`, fires(SELF), true);
+}
+
+// Releasing is looser than firing on purpose: undoing can never harm the subject, and a
+// silenced subject has few enough ways out already.
+const canRelease = (who) => triggers.triggersReleasableBy(who, "sleepy").length > 0;
+storage.setFeature("selfTrigger", false);
+storage.setTriggerScope("hypnotist");
+check("self may still RELEASE with the setting off", canRelease(SELF), true);
+check("  but still cannot fire", fires(SELF), false);
+check("a stranger still cannot release", canRelease(RANDOM), false);
+
 console.log(`scope: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

@@ -27,6 +27,7 @@ import {
 	beginRecording,
 	recordAction,
 	triggersFiredBy,
+	triggersReleasableBy,
 	triggersArmed,
 	installerHasSession,
 	tellHypnotist,
@@ -796,6 +797,13 @@ function undoTrigger(trigger: Trigger): void {
 	log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
 }
 
+/** Undo a trigger's effects without deleting the trigger. Exported for `/hypno release`,
+ * which exists because a silenced subject cannot speak a release phrase at all — chat
+ * commands survive speech blocking, ordinary speech does not. */
+export function releaseTriggerEffects(trigger: Trigger): void {
+	undoTrigger(trigger);
+}
+
 /** Keyed by installer AND phrase — two people can plant the same word, and one wearing
  * off must not cancel the other's. */
 function timerKey(trigger: Trigger): string {
@@ -824,7 +832,7 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 		const match = pattern.exec(text);
 		if (!match) continue;
 		const phrase = cleanPhrase(match[1]);
-		const trigger = triggersFiredBy(sender, phrase)[0];
+		const trigger = triggersReleasableBy(sender, phrase)[0];
 		if (!trigger) {
 			log(`release asked for "${phrase}" but no trigger of theirs matches`);
 			return true;
