@@ -1,7 +1,7 @@
-import { suggestionHelp } from "./voice";
+import { suggestionHelp, ILLUSION_TRUST_THRESHOLD } from "./voice";
 import { commandHelp } from "./commands";
 import { getTriggerDuration, getTriggerScope } from "./storage";
-import { TRIGGER_SCOPES } from "./triggers";
+import { TRIGGER_SCOPES, TRIGGER_TRUST_THRESHOLD } from "./triggers";
 import { CARRY_TRUST_THRESHOLD } from "./carry";
 import {
 	TITLE_Y,
@@ -138,7 +138,7 @@ function lastingLines(): HelpLine[] {
 		head("Two ways to outlast a session"),
 		body("A TRIGGER sleeps until someone says its word."),
 		body("A CARRIED suggestion is simply still true when you wake."),
-		dim("Both need trust 65. Arousal does not count toward it —"),
+		dim(`Both need trust ${TRIGGER_TRUST_THRESHOLD}. Arousal does not count toward it —`),
 		dim("the chemical floor never reaches anything persistent."),
 		dim("Firing your OWN trigger is off unless you tick it."),
 		gap(),
@@ -201,7 +201,8 @@ function trustLines(): HelpLine[] {
 		body("Friend 15 · Lover 30 · Owner 65, under whatever you have"),
 		body("earned — so a relationship never has to be re-earned."),
 		body("A friend gets in the door; a lover also reaches arousal;"),
-		body("an owner reaches everything, triggers included."),
+		body("an owner reaches everything — triggers and the illusion"),
+		body("included, since the owner floor matches both gates."),
 		dim("Read from BC's own friend list, lovership and ownership."),
 		gap(),
 		head("Trust fades without contact"),
@@ -213,8 +214,8 @@ function trustLines(): HelpLine[] {
 		gap(),
 		head("What each gate needs"),
 		body("Everyday suggestions   the permission alone"),
-		body("Clothing illusion      trust 70"),
-		body("Planting a trigger     trust 65"),
+		body(`Clothing illusion      trust ${ILLUSION_TRUST_THRESHOLD}`),
+		body(`Planting a trigger     trust ${TRIGGER_TRUST_THRESHOLD}`),
 		body(`Carrying past waking   trust ${CARRY_TRUST_THRESHOLD}`),
 		gap(),
 		head("The roll"),

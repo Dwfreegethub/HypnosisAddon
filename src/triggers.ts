@@ -60,7 +60,7 @@ export function installTriggers(): void {
 //    (per-list, trust-threshold, anyone) as future work; installer-only is the safe start.
 
 /** The doc's threshold for persistent triggers. */
-const TRIGGER_TRUST_THRESHOLD = 65;
+export const TRIGGER_TRUST_THRESHOLD = 65;
 /** Shortest phrase we'll accept. One-letter triggers would fire constantly. */
 const MIN_PHRASE_LENGTH = 3;
 /** Cap on actions per trigger — LSCG caps at 3; the doc says we aim higher, but not

@@ -198,32 +198,35 @@ triggers.commitRecording();
 check("same phrase replaces, not duplicates", storage.listTriggers().length, 2);
 check("  replaced actions", storage.listTriggers().find(t => t.phrase === "frozen").actions, ["speech-block"]);
 
-// --- per-suggestion trust threshold ---
-// Planting a trigger needs trust 65; the clothing illusion action inside it needs 70. The
-// two gates are separate on purpose, so a trigger can be planted and still carry an action
-// the installer is not yet trusted enough to fire. Checked at FIRING time, not planting.
+// --- per-suggestion trust threshold, re-checked at FIRING time ---
+// Planting and firing are separate checks on purpose. A trigger planted while trusted has
+// to go quiet again if that trust later falls — through decay, or through the subject
+// simply setting it lower — rather than outliving the trust that authorised it.
+//
+// Deliberately expressed as "above the gate" and "below it" rather than with literal
+// numbers: planting, carrying and the illusion all sit at 65 today, and the point of the
+// assertion survives any of those moving.
 storage.setFeature("illusionControl", true);
 storage.forgetAllTriggers();
-storage.setTrustValue(HYP, "GameBot", 68);
+storage.setTrustValue(HYP, "GameBot", 80);
 triggers.beginRecording(HYP, "GameBot", "look away");
-check("plants at trust 68", triggers.isRecording(), true);
+check("plants while trusted", triggers.isRecording(), true);
 triggers.recordAction("illusion-block");
 triggers.commitRecording();
 said = [];
 voice.handleSpokenLine(HYP, "look away");
-check("illusion action skipped below trust 70", said.length, 0);
+check("and fires while still trusted", said.length, 1);
 
-storage.setTrustValue(HYP, "GameBot", 75);
+storage.setTrustValue(HYP, "GameBot", 20);
 said = [];
 voice.handleSpokenLine(HYP, "look away");
-check("illusion action fires at trust 75", said.length, 1);
+check("but goes quiet once trust falls below the gate", said.length, 0);
 
-// A release action carries no threshold — a revoked permission or decayed trust must never
-// strand an effect that is already applied.
-storage.setTrustValue(HYP, "GameBot", 10);
+// Planting is refused outright down there too, so a trigger cannot be created by someone
+// who could not fire what it holds.
 storage.forgetAllTriggers();
 triggers.beginRecording(HYP, "GameBot", "look back");
-check("  release trigger plants", triggers.isRecording(), false); // trust 10 < 65
+check("  and cannot be planted at all", triggers.isRecording(), false);
 storage.setTrustValue(HYP, "GameBot", 70);
 
 // --- "is it holding me right now" ------------------------------------------------------

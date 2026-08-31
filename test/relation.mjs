@@ -62,10 +62,15 @@ near("  arousal", trust.accessFor(OWNER, "arousal"), 65);
 near("  persistent", trust.accessFor(OWNER, "persistent"), 65);
 near("  and the illusion", trust.accessFor(OWNER, "deceptive"), 65);
 
-// Owner's 65 clears the trigger and carry gates exactly, and falls just short of the
-// illusion's 70 — ownership opens almost everything, the last step is still earned.
+// Ownership alone now clears every gate there is — the owner floor and all three
+// thresholds are 65, which is the point of having lowered the illusion to match. That
+// equality is the whole "an owner reaches everything" rule, so it is asserted rather than
+// left to coincidence.
 check("owner clears the trigger gate", trust.accessFor(OWNER, "persistent") >= 65, true);
-check("owner does NOT yet clear the illusion", trust.accessFor(OWNER, "deceptive") >= 70, false);
+check("owner clears the carry gate", trust.accessFor(OWNER, "persistent") >= 65, true);
+check("owner clears the illusion too", trust.accessFor(OWNER, "deceptive") >= 65, true);
+// A lover still does not, however much a lover may want to.
+check("a lover does not reach the illusion", trust.accessFor(LOVER, "deceptive") >= 65, false);
 
 // A floor is a floor, never a cap: earned trust above it wins.
 storage.setTrustValue(FRIEND, "P111", 80);

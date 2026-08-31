@@ -150,6 +150,17 @@ function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
 // ORDER MATTERS: releases are listed before their matching restrictions, because a release
 // phrase usually contains the same verb ("you can move again" vs "you cannot move") and the
 // first match wins.
+/** What the clothing illusion costs, from the design doc's feature-threshold table.
+ *
+ * Was 70; DW lowered it to 65 so that ownership alone reaches it — the owner floor is 65,
+ * and the doc's rule is that an owner reaches everything. At 70 an owner cleared triggers
+ * and carry-forward but stopped one rung short of the illusion, which was an accident of
+ * two numbers rather than a decision.
+ *
+ * Named and exported so the help screen can read it rather than repeat it; the same
+ * duplicated-source-of-truth rule that made the /hypno summary generated. */
+export const ILLUSION_TRUST_THRESHOLD = 65;
+
 const SUGGESTIONS: Suggestion[] = [
 	// Arousal goes FIRST. Its patterns are the most specific in the table (every one names
 	// arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
@@ -280,7 +291,7 @@ const SUGGESTIONS: Suggestion[] = [
 		// the first suggestion to carry one, and it is checked against relationship trust
 		// alone — the arousal floor must never reach a feature that lies to someone about
 		// their own state.
-		trustThreshold: 70,
+		trustThreshold: ILLUSION_TRUST_THRESHOLD,
 		trustCategory: "deceptive",
 		patterns: [
 			/\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
