@@ -19,7 +19,7 @@ import {
 	appliedSuggestions,
 	lastApplied,
 } from "./carry";
-import { scheduleTimer, cancelTimer } from "./timers";
+import { scheduleTimer, cancelTimer, markActive, clearActive, isActive } from "./timers";
 import {
 	isRecording,
 	cancelRecording,
@@ -765,7 +765,10 @@ function fireTrigger(trigger: Trigger): void {
 		fired++;
 	}
 	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
-	if (fired) scheduleAutoRelease(trigger);
+	if (fired) {
+		markActive(timerKey(trigger));
+		scheduleAutoRelease(trigger);
+	}
 }
 
 // Releasing a trigger by name: "Missy, you are released from frozen".
@@ -794,14 +797,15 @@ function undoTrigger(trigger: Trigger): void {
 		SUGGESTIONS.find((s) => s.id === id)?.undo?.();
 	}
 	cancelTimer(timerKey(trigger));
+	clearActive(timerKey(trigger));
 	log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
 }
 
-/** Undo a trigger's effects without deleting the trigger. Exported for `/hypno release`,
- * which exists because a silenced subject cannot speak a release phrase at all — chat
- * commands survive speech blocking, ordinary speech does not. */
-export function releaseTriggerEffects(trigger: Trigger): void {
-	undoTrigger(trigger);
+/** Is this trigger's grip currently on the subject? Read by `/hypno forgettrigger`, which
+ * refuses while it is — you do not get to quietly delete the thing that is holding you.
+ * The safeword is the way out of that, and saying so is the point. */
+export function isTriggerInEffect(trigger: Trigger): boolean {
+	return isActive(timerKey(trigger));
 }
 
 /** Keyed by installer AND phrase — two people can plant the same word, and one wearing

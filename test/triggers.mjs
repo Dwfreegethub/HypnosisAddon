@@ -19,7 +19,7 @@ globalThis.CharacterSetActivePose = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 
-const { voice, storage, triggers } = await import("./harness-bundle.mjs");
+const { voice, storage, triggers, timers } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -225,6 +225,32 @@ storage.forgetAllTriggers();
 triggers.beginRecording(HYP, "GameBot", "look back");
 check("  release trigger plants", triggers.isRecording(), false); // trust 10 < 65
 storage.setTrustValue(HYP, "GameBot", 70);
+
+// --- "is it holding me right now" ------------------------------------------------------
+// What /hypno forgettrigger refuses on. Tracked separately from the auto-release timer
+// because a duration of 0 means no timer and still very much in force — which is exactly
+// the case where a subject would most want to delete their way out.
+storage.setTriggerScope("hypnotist");
+storage.setFeature("movementRestriction", true);
+storage.forgetAllTriggers();
+storage.setTriggerDuration(0); // no clock at all
+triggers.beginRecording(HYP, "GameBot", "hold me");
+triggers.recordAction("movement-block");
+triggers.commitRecording();
+const held = () => storage.listTriggers()[0];
+check("not in effect before it fires", voice.isTriggerInEffect(held()), false);
+voice.handleSpokenLine(HYP, "hold me");
+check("in effect after firing, with no timer running", voice.isTriggerInEffect(held()), true);
+voice.handleSpokenLine(HYP, "Missy you are released from hold me");
+check("released clears the marker", voice.isTriggerInEffect(held()), false);
+
+// Firing again then wiping everything — the marker must not outlive the effects, or a
+// subject would be told something is holding them when nothing is.
+voice.handleSpokenLine(HYP, "hold me");
+check("held again", voice.isTriggerInEffect(held()), true);
+timers.clearAllTimers();
+check("a full clear drops the marker too", voice.isTriggerInEffect(held()), false);
+storage.setTriggerDuration(5);
 
 // --- auto-release after the configured duration ---
 // setTimeout is stubbed so the clock can be driven rather than waited on.

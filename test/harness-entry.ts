@@ -7,3 +7,4 @@ export * as session from "../src/session";
 export * as selftouch from "../src/selftouch";
 export * as carry from "../src/carry";
 export * as suppression from "../src/suppression";
+export * as timers from "../src/timers";
