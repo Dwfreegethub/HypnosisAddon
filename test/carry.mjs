@@ -21,7 +21,16 @@ globalThis.ServerSend = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 
-const { voice, storage, carry } = await import("./harness-bundle.mjs");
+// Enough of an appearance for the illusion to snapshot, and stubs for the two BC calls it
+// makes. The illusion is the one carried effect that cannot simply be re-run — see below.
+globalThis.Player.Appearance = [
+	{ Asset: { Name: "Dress", Group: { Name: "Cloth", Clothing: true, Category: "Appearance" } } },
+	{ Asset: { Name: "Body", Group: { Name: "BodyUpper", Category: "Appearance" } } },
+];
+globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
+globalThis.CharacterRefresh = () => {};
+
+const { voice, storage, carry, illusion } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -141,6 +150,27 @@ check("carrying before the safeword", carry.carriedIds(), ["movement-block"]);
 carry.releaseCarried("safeword");
 check("safeword takes it too", carry.carriedIds(), []);
 check("  and the carrier with it", carry.isCarrierOf(HYP), false);
+
+// --- releasing a CARRIED illusion actually turns it off ---------------------------------
+// The path that matters for the thing DW hit in play: the illusion is the one carried
+// effect whose undo has to reach into another module, so "carry released it" and "the
+// subject can see again" are two different claims. Assert the second.
+storage.setFeature("illusionControl", true);
+storage.setTrustValue(HYP, "GameBot", 70);
+carry.releaseCarried("reset");
+carry.clearActiveSuggestions();
+
+illusion.freezeAppearance();
+check("illusion applied", illusion.isIllusionActive(), true);
+carry.noteApplied("illusion-block");
+carry.carryThese(HYP, "GameBot", carry.lastApplied());
+carry.carryThroughWake();
+check("carried past waking", carry.isCarried("illusion-block"), true);
+check("  and still showing the old clothes", illusion.isIllusionActive(), true);
+
+carry.releaseCarried("test");
+check("releasing it clears the carry", carry.carriedIds(), []);
+check("  AND lets the subject see again", illusion.isIllusionActive(), false);
 
 // --- the tracker alone carries nothing ---
 // Applying a suggestion must never make it durable by itself; that takes the phrase.

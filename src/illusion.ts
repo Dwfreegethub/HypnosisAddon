@@ -142,6 +142,16 @@ export function clearIllusion(): void {
 	if (!frozen) return;
 	frozen = null;
 	lastSignature = "";
+	// Force the player's own canvas to rebuild. In theory unnecessary — while the illusion
+	// was running it was the shadow being passed to DrawCharacter, so Player's MustDraw flag
+	// went untouched and is still set from whatever changed underneath — but "in theory the
+	// screen updates" is a bad place to leave the moment a subject is supposed to find out
+	// they are naked. Push=false, so nothing goes to the server.
+	try {
+		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
+	} catch (err) {
+		log("could not refresh after releasing the illusion:", err);
+	}
 	log("clothing illusion released");
 }
 

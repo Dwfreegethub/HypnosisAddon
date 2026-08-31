@@ -106,6 +106,17 @@ const CASES = [
 	["Nothing about you has changed.", "illusion-block"],
 	["You will not be able to tell how you are dressed.", "illusion-block"],
 	["You can see yourself again.", "illusion-release"],
+	// These four matched NOTHING before v0.38.2 — "again" was mandatory on one pattern and a
+	// qualifier on another, which ruled out the most natural ways to say it.
+	["Look at yourself.", "illusion-release"],
+	["Look down at yourself.", "illusion-release"],
+	["You notice your clothes.", "illusion-release"],
+	["You notice you are naked.", "illusion-release"],
+	["You realise you are naked.", "illusion-release"],
+	["You notice what is missing.", "illusion-release"],
+	// ...without swallowing the awareness wording, which is a different feature.
+	["You notice what happens to you.", "awareness-release"],
+	["I look at myself.", null],
 	["You can tell what you are wearing.", "illusion-release"],
 	["You notice your clothes again.", "illusion-release"],
 	// The awareness entries must still win their own wording.

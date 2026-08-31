@@ -13,3 +13,4 @@ export * as flavor from "../src/flavor";
 export * as remote from "../src/remote";
 export * as messaging from "../src/messaging";
 export * as trust from "../src/trust";
+export * as illusion from "../src/illusion";

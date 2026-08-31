@@ -269,7 +269,12 @@ const SUGGESTIONS: Suggestion[] = [
 	// "you do not notice what", and the more specific reading has to win.
 	{
 		id: "illusion-release",
-		examples: ["you can see yourself again", "you can tell what you are wearing"],
+		examples: [
+			"look at yourself",
+			"you can see yourself again",
+			"you notice your clothes",
+			"you notice you are naked",
+		],
 		release: true,
 		releaseOf: "illusion-block",
 		permission: "illusionControl",
@@ -277,9 +282,14 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (?:can|may) (?:see|tell) (?:what|how) you are (?:wearing|dressed)\b/,
 			/\byou (?:can|may) see yourself (?:again|properly|clearly)\b/,
 			/\byou (?:see|notice) yourself as you (?:really |actually )?are\b/,
-			/\byou (?:notice|see) your (?:clothes|clothing|outfit) again\b/,
+			// "again" was mandatory on the next one and a qualifier was mandatory on the
+			// last, so "you notice your clothes" and a bare "look at yourself" — two of the
+			// most natural ways to say this — matched nothing at all.
+			/\byou (?:notice|see|feel) your (?:clothes|clothing|outfit)\b/,
 			/\byou (?:can|may) tell what you have on\b/,
-			/\blook (?:down |)at yourself (?:again|properly)\b/,
+			/\blook (?:down )?at yourself\b/,
+			/\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
+			/\byou (?:notice|see) what (?:you are wearing|is missing)\b/,
 		],
 		run: () => clearIllusion(),
 	},
@@ -399,6 +409,15 @@ const SUGGESTIONS: Suggestion[] = [
 			setSuppressed("clothing", false);
 			setSuppressed("bondage", false);
 			setSuppressed("activity", false);
+			// The broad release undoes MORE than the broad block applies, deliberately.
+			// "You notice nothing" never switches the illusion on — that takes its own line —
+			// but "you notice everything again" is the everything-back phrase, and a subject
+			// told they notice everything who still cannot see that their clothes are gone
+			// has been told something untrue.
+			//
+			// Same principle that already lets releases skip the permission check: handing
+			// something back should always be easier than taking it away.
+			clearIllusion();
 		},
 	},
 	{
