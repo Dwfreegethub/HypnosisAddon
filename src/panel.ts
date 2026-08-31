@@ -52,6 +52,31 @@ export function drawLeftText(text: string, x: number, y: number, color = "Black"
 	MainCanvas.restore();
 }
 
+/** Left-aligned text that SHRINKS to fit a width, down to a floor, then gives up and
+ * clips. BC's DrawTextFit does the shrinking but centres, and DrawText does neither — so a
+ * long blurb simply ran off the right-hand edge of the panel and out of the screen, which
+ * it had been doing on the wider tabs for some time. */
+export function drawLeftTextFit(text: string, x: number, y: number, maxWidth: number, color = "Black"): void {
+	MainCanvas.save();
+	MainCanvas.textAlign = "left";
+	let size = 36;
+	const font = (n: number) => (typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`);
+	MainCanvas.font = font(size);
+	while (size > 22 && MainCanvas.measureText(text).width > maxWidth) {
+		size -= 2;
+		MainCanvas.font = font(size);
+	}
+	let out = text;
+	if (MainCanvas.measureText(out).width > maxWidth) {
+		while (out.length > 1 && MainCanvas.measureText(`${out}…`).width > maxWidth) out = out.slice(0, -1);
+		out = `${out}…`;
+	}
+	MainCanvas.textBaseline = "middle";
+	MainCanvas.fillStyle = color;
+	MainCanvas.fillText(out, x, y);
+	MainCanvas.restore();
+}
+
 /** Left-aligned text at a chosen size. DrawText is locked to BC's 36px; help content needs
  * to be denser than that or almost nothing fits on a page. */
 export function drawSmallText(text: string, x: number, y: number, size: number, color = "Black"): void {

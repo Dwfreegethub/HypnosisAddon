@@ -309,6 +309,12 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
 	s.trust ??= [];
+	// Purge any entry for ourselves. Nothing should ever have created one — see the guard in
+	// noteConversation — but entries written before that guard was tightened are still in
+	// people's saved data, and "how much do I trust me" is noise in every list it appears in.
+	if (typeof Player?.MemberNumber === "number") {
+		s.trust = s.trust.filter((t) => t.memberId !== Player.MemberNumber);
+	}
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
 	// silently resetting to zero.
@@ -468,7 +474,10 @@ export function listRelationshipOverrides(): { memberId: number; kind: RelationK
 }
 
 export function listTrust(): TrustEntry[] {
-	return loadSettings().trust;
+	// Filtered as well as purged on load: the purge only runs once the member number is
+	// known, and a stale self entry should not show in the meantime.
+	const self = Player?.MemberNumber;
+	return loadSettings().trust.filter((t) => t.memberId !== self);
 }
 
 /** Subject experience as a 0-100 value. One pool: cooperating and resisting both build it,

@@ -51,7 +51,12 @@ const lastCounted = new Map<number, number>();
 
 /** Called for every ordinary chat line from someone else in the room. */
 export function noteConversation(sender: number, senderName: string, directed: boolean): void {
-	if (!sender || sender === Player?.MemberNumber) return;
+	// Refuse when we cannot tell who WE are, not only when the sender is plainly us. The
+	// add-on loads before login, and BC echoes the player's own chat back through the same
+	// hook — so during that window `Player.MemberNumber` is undefined, `sender === undefined`
+	// is false, and every message you send counts as somebody building trust with you. That
+	// is how a "MissyMissy" entry with 135 interactions appeared in DW's own stats.
+	if (!sender || typeof Player?.MemberNumber !== "number" || sender === Player.MemberNumber) return;
 	const now = Date.now();
 	const last = lastCounted.get(sender) ?? 0;
 	if (now - last < RATE_LIMIT_MS) return;

@@ -136,6 +136,29 @@ near("earned trust decays away", storage.trustWith(OWNER), 0, 2);
 near("but ownership still opens the door", trust.accessFor(OWNER, "persistent"), 65);
 near("  while a stranger stays shut out", trust.accessFor(STRANGER, "persistent"), 0);
 
+// --- never track trust with yourself ---------------------------------------------------
+// The add-on loads before login and BC echoes your own chat back through the same hook, so
+// during that window Player.MemberNumber is undefined, `sender === undefined` is false, and
+// every message you send counts as somebody building trust with you. That is how a
+// self-entry with 135 interactions turned up in DW's own stats.
+const SELF = Player.MemberNumber;
+storage.setDecayRate("never");
+
+trust.noteConversation(SELF, "Missy", true);
+check("your own messages never count", storage.listTrust().some((t) => t.memberId === SELF), false);
+
+// The window that actually caused it: not logged in yet, so we cannot tell who we are.
+const realSelf = Player.MemberNumber;
+Player.MemberNumber = undefined;
+trust.noteConversation(realSelf, "Missy", true);
+trust.noteConversation(STRANGER, "P444", true);
+Player.MemberNumber = realSelf;
+check("nothing is counted while we don't know who we are", storage.listTrust().some((t) => t.memberId === realSelf), false);
+
+// And an entry written by an older build is filtered out rather than shown.
+storage.setTrustValue(SELF, "Missy", 90);
+check("a stale self entry is hidden", storage.listTrust().some((t) => t.memberId === SELF), false);
+
 // --- the testing override ---------------------------------------------------------------
 storage.setRelationshipOverride(STRANGER, "owner");
 check("override applies", trust.relationshipWith(STRANGER), "owner");

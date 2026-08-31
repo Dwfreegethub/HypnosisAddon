@@ -41,6 +41,7 @@ import {
 	tabLeft,
 	tabHitIndex,
 	drawLeftText,
+	drawLeftTextFit,
 	drawTabsAndPanel,
 } from "./panel";
 
@@ -123,7 +124,7 @@ const TABS: Tab[] = [
 	},
 	{
 		name: "Stats",
-		blurb: "Your trust and experience, and how fast trust fades. Counts are shown because they're what is actually stored.",
+		blurb: "Trust and experience. Counts are shown because they are what is actually stored.",
 		render: drawStats,
 	},
 ];
@@ -149,8 +150,23 @@ const STAT_NAME_X = BOX_LEFT;
 const STAT_VALUE_X = 900;
 const STAT_DETAIL_X = 1100;
 const STAT_LINE_HEIGHT = 40;
-/** Rows that fit between the first line and the data buttons below. */
-const STAT_MAX_ROWS = 8;
+const STAT_EXPERIENCE_Y = 360;
+const STAT_HEADER_Y = 400;
+const STAT_FIRST_ROW_Y = 440;
+/** Rows that fit above the page control. Everything past this pages rather than being
+ * summarised away — a list that ends in "…and 30 more" is not a list. */
+const STAT_ROWS_PER_PAGE = 7;
+
+// Paging sits on the left, under the rows; the decay control is on the right, on the same
+// band. They used to overlap the trust list entirely: the dropdown was positioned for a
+// short list and the list grew past it.
+const PAGE_BUTTON_TOP = 705;
+const PAGE_BUTTON_WIDTH = 110;
+const PAGE_BUTTON_HEIGHT = 46;
+const PAGE_PREV_LEFT = BOX_LEFT;
+const PAGE_NEXT_LEFT = BOX_LEFT + 130;
+/** Which page of the trust list is showing. Reset whenever the screen opens. */
+let statPage = 0;
 
 // Export / Import / Reset, along the bottom of the Stats tab.
 const DATA_BUTTON_TOP = 810;
@@ -239,11 +255,12 @@ const SCOPE_WIDTH = 760;
 const SCOPE_HEIGHT = 56;
 
 const DECAY_ID = "HypnosisAddonDecayRate";
-const DECAY_LABEL_Y = 700;
-const DECAY_CENTRE_X = 260 + 300;
-const DECAY_CENTRE_Y = 745;
-const DECAY_WIDTH = 600;
-const DECAY_HEIGHT = 56;
+const DECAY_LABEL_X = 950;
+const DECAY_LABEL_Y = 705;
+const DECAY_CENTRE_X = 1370;
+const DECAY_CENTRE_Y = 750;
+const DECAY_WIDTH = 640;
+const DECAY_HEIGHT = 52;
 
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 830;
@@ -280,7 +297,7 @@ function syncTabControls(tabName: string): void {
  * changes what those numbers do. */
 function drawDecayControl(): void {
 	const locked = settingsLocked();
-	drawLeftText("How fast trust fades when you don't see someone:", 260, DECAY_LABEL_Y, locked ? "Gray" : "Black");
+	drawLeftText("Trust fades when you don't see someone:", DECAY_LABEL_X, DECAY_LABEL_Y, locked ? "Gray" : "Black");
 	let element = document.getElementById(DECAY_ID) as HTMLSelectElement | null;
 	if (!element) {
 		element = ElementCreateDropdown(
@@ -357,29 +374,48 @@ function drawScopeControl(locked: boolean): void {
 	ElementPosition(SCOPE_ID, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT);
 }
 
+function statPageCount(): number {
+	return Math.max(1, Math.ceil(trustStatRows().length / STAT_ROWS_PER_PAGE));
+}
+
+/** Paged rather than a pick-one dropdown, deliberately. The ranking IS the information —
+ * who you are closest to, and how far ahead of everyone else they are — and a dropdown
+ * showing one person at a time throws that away while also being a worse way to find
+ * anyone in a list of forty. */
 function drawStats(): void {
-	let y = ROW_TOP_START + 10;
-	const line = (name: string, value: string, detail: string, color = "Black") => {
+	const line = (y: number, name: string, value: string, detail: string, color = "Black") => {
 		drawLeftText(name, STAT_NAME_X, y, color);
 		if (value) drawLeftText(value, STAT_VALUE_X, y, color);
 		if (detail) drawLeftText(detail, STAT_DETAIL_X, y, "Gray");
-		y += STAT_LINE_HEIGHT;
 	};
 
 	drawDecayControl();
-	line("Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
-	y += 16;
-	line("Trust", "value", "detail", "Gray");
+	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
+	line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
 
 	const rows = trustStatRows();
 	if (!rows.length) {
-		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, y, "Gray");
+		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, STAT_FIRST_ROW_Y, "Gray");
 		drawDataButtons();
 		return;
 	}
-	for (const row of rows.slice(0, STAT_MAX_ROWS)) line(row.name, row.trust, row.detail);
-	if (rows.length > STAT_MAX_ROWS) {
-		drawLeftText(`…and ${rows.length - STAT_MAX_ROWS} more — /hypno logtrust lists everyone.`, STAT_NAME_X, y, "Gray");
+
+	const pages = statPageCount();
+	if (statPage >= pages) statPage = pages - 1;
+	const start = statPage * STAT_ROWS_PER_PAGE;
+	rows.slice(start, start + STAT_ROWS_PER_PAGE).forEach((row, i) => {
+		line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
+	});
+
+	if (pages > 1) {
+		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
+		DrawButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
+		drawLeftText(
+			`${statPage + 1} / ${pages}  ·  ${rows.length} people`,
+			PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 24,
+			PAGE_BUTTON_TOP + PAGE_BUTTON_HEIGHT / 2,
+			"Gray",
+		);
 	}
 	drawDataButtons();
 }
@@ -420,6 +456,7 @@ export function installMenu(): void {
 		// previous visit's navigation is disorienting.
 		load: () => {
 			activeTab = 0;
+			statPage = 0;
 			removeScopeControl();
 			closeHelp();
 		},
@@ -439,10 +476,13 @@ export function installMenu(): void {
 
 			const tab = TABS[activeTab];
 			const locked = settingsLocked();
-			drawLeftText(
+			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
+			// canvas takes on its own.
+			drawLeftTextFit(
 				locked ? "Locked while you are in trance. /hypno safeword always works." : tab.blurb,
 				BOX_LEFT,
 				BLURB_Y,
+				PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
 				"Gray",
 			);
 
@@ -486,6 +526,14 @@ export function installMenu(): void {
 			}
 			// Data buttons live on the Stats tab, which has no rows.
 			if (TABS[activeTab].render) {
+				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+					statPage = Math.max(0, statPage - 1);
+					return;
+				}
+				if (MouseIn(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+					statPage = Math.min(statPageCount() - 1, statPage + 1);
+					return;
+				}
 				for (let i = 0; i < DATA_BUTTONS.length; i++) {
 					if (MouseIn(dataButtonLeft(i), DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
 						clickDataButton(i);
