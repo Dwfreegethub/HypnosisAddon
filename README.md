@@ -527,6 +527,35 @@ Which groups freeze is read off the groups' own flags rather than a hand-written
 
 ---
 
+## Stage 11 — Trust over time, and a run of play-testing fallout (v0.35.0–v0.38.2)
+
+**Presence detection** (`remote.ts`). The H icon draws on every player's sheet because there is no way to know who has the add-on without asking. Clicking it on someone who does not sent both queries and then sat on `(checking…)` indefinitely — indistinguishable from a slow reply, a lost message, and a bug. A 3-second probe now says so, with a *Check again* button.
+
+The icon is deliberately **not** hidden once probed: that would turn the Information Sheet into a directory of who in the room is running this. The timeout is a display decision and never a lockout — any reply, however late, restores the panel on the next frame, and either query answering counts as proof since only this add-on handles either.
+
+**Trust decay** (`storage.ts`). Subtraction from the stored interaction count, applied **lazily on read** rather than from a timer: nothing to schedule, nothing missed while the game is closed, correct across reloads on its own. The one catch a timer would not have is that the clock must be advanced when charged, or every later read bills the same elapsed days again.
+
+The shape is the opposite of the intuitive one, and this is worth internalising because the first version of the comment had it backwards. `trust = 100n/(n+25)` is steep at the bottom and flat at the top, so a fixed number of lost interactions costs an acquaintance far more than an established relationship — a month at "typical" takes trust 30 to zero, 75 to 37, and 90 to 87. That is the right behaviour and needs no second curve.
+
+Stored as a **name**, not a number, so the values behind Never / Very slowly / … / Very fast can be retuned without changing what anyone's saved choice means. Same reasoning as `triggerScope`, and the same reasoning that put counts rather than scores in storage in the first place.
+
+**Relationship floors** (`trust.ts`). Read from BC's `FriendList`, `IsOwnedByCharacter` and `IsLoverOfCharacter`. Each floor carries a **reach** as well as a number — a friend lifts only session-scoped gates, a lover adds arousal, an owner lifts everything — which is what makes it a design rather than three constants. Introduced `AccessCategory` and `accessFor()`, which now backs every trust gate and folds the older arousal chemical floor into the same `max()` instead of two floors applied in different places.
+
+Decay and floors are one mechanic, not two: without the floor, an owner who goes away for three weeks returns having to re-earn a relationship BC records the whole time.
+
+**Four bugs off one screenshot** (v0.38.0), of which the first is the instructive one:
+
+- **The add-on was tracking trust with the player themselves.** There *was* a guard — `sender === Player?.MemberNumber` — and it never fired, because the add-on loads before login and BC echoes your own chat back through the same hook. In that window `Player.MemberNumber` is `undefined`, so `sender === undefined` is false and every message you send counts as somebody building trust with you. **The lesson generalises: a guard comparing against your own identity has to handle not yet knowing it.** It now refuses whenever we cannot tell who we are.
+- `DrawText` does not fit to a width and `DrawTextFit` centres, so long left-aligned text ran off the canvas with nothing to stop it. `drawLeftTextFit` shrinks then clips.
+- A DOM control positioned for a short list, over a list that grew.
+- A list ending in "…and 30 more" is not a list. Paged rather than given a person-dropdown, because the ranking is the information.
+
+**Release wording is where the gaps hide** (v0.38.2). Four natural ways to release the clothing illusion matched nothing at all, while the restriction side had been fine all along — restrictions get exercised constantly in play and each release only once. Worth checking the release half of every pair deliberately rather than waiting to trip over it.
+
+The subtler half of the same report: `"you notice everything again"` cleared message suppression and left the illusion running. Two separate features, correctly separated — but that phrase is the everything-back line, so it now lifts both. The broad release undoes more than the broad block applies, which is the same asymmetry that already lets releases skip permission checks.
+
+---
+
 ## Lessons Learned (BC API gotchas — quick reference)
 
 Full detail on each is inline above where relevant; this is just an index so nothing gets rediscovered the hard way twice.
@@ -567,6 +596,11 @@ Full detail on each is inline above where relevant; this is just an index so not
 - **BC sends one `ChangeClothes` Action for a whole wardrobe session**, carrying only a source and a destination character however many garments changed. Item-by-item changes carry their asset instead. Anything classifying clothing messages has to handle both, and the wardrobe one can only be recognised by its tag.
 - **TypeScript's "return anything where `void` is expected" allowance does not extend to a union.** Widening a callback from `() => void` to `() => Key | void` breaks every arrow that returned a value incidentally.
 - **`localStorage` is per-origin, not per-account.** A fixed backup key means every character on that browser shares one blob. Key it by member number, and refuse to save before that number is known.
+- **`Player.FriendList` is a plain array of member numbers**, so friendship can be checked for someone who is not in the room. Ownership and lovership need the loaded character (`Player.IsOwnedByCharacter(C)`, `C.IsLoverOfCharacter(Player)`).
+- **`ChatRoomCharacter` includes the player.** Any check that walks it to answer "what is this person to me" will happily answer it about yourself — which is how a permission ladder ended up letting people fire their own triggers on three of seven settings.
+- **A guard against your own identity must handle not yet having one.** The add-on runs before login, so `Player.MemberNumber` is `undefined` for a window; `sender === Player?.MemberNumber` is false for every sender during it. Refuse when you cannot tell, not only when you can tell it is you.
+- **`DrawText` does not fit to a width and `DrawTextFit` centres.** There is no left-aligned fitted text primitive, so anything long and left-aligned runs off the canvas silently.
+- **DOM controls do not move when the canvas beneath them does.** A dropdown positioned against a short list stays put when the list grows; every screen owning one needs per-tab cleanup, not a single "not on that tab" check.
 
 ---
 
@@ -579,4 +613,4 @@ Full detail on each is inline above where relevant; this is just an index so not
 
 ---
 
-*Last updated: 2026-08-30 (v0.34.0)*
+*Last updated: 2026-08-30 (v0.38.2)*
