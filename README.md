@@ -432,7 +432,7 @@ Self-touch is structurally self-only: `ActivityRun` executes on the *actor's* cl
 
 **Settings screen went tabbed** (v0.13.0) — Permissions / Trance Defaults / Awareness. The seam between active tab and panel is *never drawn* rather than drawn and erased; erasing left a hairline, because canvas strokes are anti-aliased and bleed past their nominal bounds. Previous layout tagged `menu-checkbox-layout`.
 
-**The pattern test suite has now caught six real bugs pre-ship**, including bare `stand` never matching, and `awareness-release` swallowing "you are awake again" — which would have made the wake keyword restore awareness while leaving the subject under. Moved into the repo in v0.13.2; `npm test` runs it.
+**The pattern test suite has now caught a dozen real bugs pre-ship**, including bare `stand` never matching, and `awareness-release` swallowing "you are awake again" — which would have made the wake keyword restore awareness while leaving the subject under. Moved into the repo in v0.13.2; `npm test` runs it.
 
 ⚠ **`INDUCTION_WINDOW_MS` is at the 10-second testing value.** Restore to `60_000` before real play.
 
@@ -498,6 +498,35 @@ Things that turned out to matter more than expected:
 
 ---
 
+## Stage 10 — Illusion, carry-forward, help, and who sees what (v0.28.0–v0.34.0)
+
+**The clothing illusion** (`illusion.ts`) is a freeze-frame: the subject's own screen keeps showing the clothes they had on when it took hold, while the room sees the truth.
+
+The rule the module is built around is **never touch `Player.Appearance`** — that array is what `ServerAppearanceBundle` reads for every sync, so a lie written there goes out to the whole room, which is the exact inverse of the feature. The lie lives in a local-only `CharacterType.SIMPLE` character that nothing syncs, and `DrawCharacter` — the single funnel every screen uses to draw a body — is hooked to pass that shadow through instead.
+
+Which groups freeze is read off the groups' own flags rather than a hand-written list: `Clothing: true` (32 groups) plus `Category: "Item"` (28) is everything worn, and the remaining 25 — body, face, expressions, hair, and `Emoticon` — stay live. So the subject still sees their own blush and pose change while their clothes do not, and our effect-carrier item is never frozen.
+
+`IsPlayer()` is overridden for the duration of that one call only. `DrawCharacter` branches on it to decide whether to apply the viewer's own blindness and tints; without the override the subject's own body would start being dimmed like everyone else's. A shadow claiming to be the player *globally* would be read as the player by `Timer.js` and the activity code too.
+
+**Carry-forward** (`carry.ts`) is the third kind of persistence — a suggestion that is simply still true after waking, as distinct from a trigger that sleeps until someone says a word. Carried effects are re-applied **after** the session's total clear rather than exempted from it: `endSession` clearing everything in one place is what guarantees a trance can never strand an effect, and carving exceptions into it would put that guarantee at the mercy of this feature. The illusion is the one exception, because it cannot be rebuilt afterwards — re-freezing at the moment of waking would snapshot the truth.
+
+**Per-suggestion trust thresholds** (`Suggestion.trustThreshold`) finally give the design doc's feature-threshold table a consumer. Checked against relationship trust alone, never `effectiveAccess` — the arousal floor must not reach a feature that lies to someone about their own state. Re-checked at *firing* time for triggers, so trust that decays below the line disarms that action of every trigger already planted.
+
+**The help screen** (`help.ts`, `panel.ts`) is five tabs behind a "?" on both the settings panel and the remote. The vocabulary tab is generated from the suggestion table and the command tab from the command list, because hand-writing either guarantees the drift the `/hypno` summary already suffered. `Suggestion` gained an `examples` field for it, and the suite asserts all 44 examples actually match their own suggestion — an example that has drifted is worse than no help, since it teaches a phrase that silently does nothing.
+
+**Who sees what** (`notify.ts`) split the output in two. Anything only the subject can know is `[bracketed]`; anything the room could have observed is emoted. Enforced structurally — there is no direct `ChatRoomSendLocal` call anywhere in `src/` outside that module.
+
+**Emote is the only type that renders custom text.** `Action` and `Activity` both render as `(text)`, which is the nicer shape, but both resolve their `Content` as a translation key first and print `MISSING TEXT IN "...": <key>` for anything unknown. Routed through BC's own `ChatRoomSendEmote` so the owner rule that can block emotes is honoured.
+
+**Applying a restriction and walking into one are different moments**, and separating them settled the public/private question: *placing* a restriction is invisible, *bumping into* one is the visible part. Movement and posture are the exceptions — going still and kneeling are visible in themselves. A trigger firing gets a deliberately vague line, because it fires with no spoken instruction and naming the part would hand the subject what the trigger does.
+
+**Two bugs from play worth remembering:**
+
+- **The scope ladder was being run against the player themselves.** `speakerAllowedByScope` looks the speaker up in `ChatRoomCharacter`, which includes you — so `everyone` and `notblack` trivially passed, and the dominants rung asked whether your own reputation plus 25 beat your own reputation, which is always true. Three scopes allowed self-firing and four did not, for no reason anyone could predict. Self is one explicit setting now and never touches the ladder.
+- **BC sends two different clothing messages.** Item-by-item through the dialog carries the asset; the whole wardrobe sends a single `ChangeClothes` Action naming only a source and a destination character. With no asset and no group there was nothing to classify by, so suppression never saw it — while the item-by-item path had worked all along, which is exactly why it looked like the feature was working.
+
+---
+
 ## Lessons Learned (BC API gotchas — quick reference)
 
 Full detail on each is inline above where relevant; this is just an index so nothing gets rediscovered the hard way twice.
@@ -527,6 +556,17 @@ Full detail on each is inline above where relevant; this is just an index so not
 - **Never erase an anti-aliased stroke.** Canvas strokes bleed sub-pixel past their nominal bounds, so covering one with a rect on integer coordinates leaves a visible hairline. Draw borders as filled `DrawRect` segments and simply don't draw the part you don't want.
 - **A userscript with a non-matching `@match` fails completely silently.** BC is served from more than one host (`bondageprojects.elementfx.com`, `bondage-europe.com`); if the addon appears totally dead — no indicator, no console line — check the `@match` list first.
 - **Overlapping hit regions need an explicit active-view check.** Tabs share coordinates across their content; without gating clicks to the visible tab, one click toggles a row in *every* tab, mostly invisibly.
+- **`Player.Appearance` is what syncs — never write a lie into it.** `ServerAppearanceBundle` reads that array for every appearance sync, so a client-side illusion written there reaches the whole room, which is the inverse of the feature. Draw from a separate local-only `CharacterType.SIMPLE` character instead, and hook `DrawCharacter` (the single funnel every screen uses) to substitute it.
+- **Asset groups classify themselves.** `AssetGroup.Clothing === true` plus `Category === "Item"` is exactly "everything worn"; the remainder is the body, face, hair and expressions. Reading those flags beats a hand-written group list, which goes stale the moment BC adds content.
+- **BC's arousal zone names do not match anatomy.** `ItemVulvaPiercings` is **"Clitoris"**, `ItemFeet` is "Lower Legs" while `ItemBoots` is "Feet & Toes", and **there is no `ItemPenis` or `ItemGlans` group** — those names exist only in `ActivityBuildChatTag`'s message lookup. `Text_Preference.csv`'s `ArousalZoneItem*` rows are the authoritative list. A block registered against a name that is not a real zone fails *silently*.
+- **`ActivitySetArousal` does not move the face.** BC only runs `ActivityExpression` from its own timer path, so setting arousal directly moves the meter and leaves the expression blank.
+- **`ActivityOrgasmPrepare` refuses by doing nothing** — `DenialMode`, `IsEdged()` and an `Edging` craft each make it return with `OrgasmTimer` untouched. Read the timer back to tell "it happened" from "something declined" rather than reimplementing the rules.
+- **Emote is the only message type that renders arbitrary text.** `Action` and `Activity` look their `Content` up as a translation key first and print `MISSING TEXT IN "...": <key>` for anything unknown. Emote also carries no name of its own, so any generated line must name the character itself.
+- **Read pronouns, never infer them.** `Character.GetPronouns()` returns the player's chosen `SheHer` / `HeHim` / `TheyThem` / `ItIt`. Making the character's *name* the subject of a generated sentence fixes the verb as third-person singular and saves writing a second set of phrasings.
+- **`ChatRoomRun` / `ChatRoomClick` are the chat room's draw and click hooks.** Draw after `next()` to paint over the room, consume before it to take a click. The character half of the screen is x 0–1003 — the exact rect `ChatRoomDrawArousalOverlay` fills.
+- **BC sends one `ChangeClothes` Action for a whole wardrobe session**, carrying only a source and a destination character however many garments changed. Item-by-item changes carry their asset instead. Anything classifying clothing messages has to handle both, and the wardrobe one can only be recognised by its tag.
+- **TypeScript's "return anything where `void` is expected" allowance does not extend to a union.** Widening a callback from `() => void` to `() => Key | void` breaks every arrow that returned a value incidentally.
+- **`localStorage` is per-origin, not per-account.** A fixed backup key means every character on that browser shares one blob. Key it by member number, and refuse to save before that number is known.
 
 ---
 
@@ -539,4 +579,4 @@ Full detail on each is inline above where relevant; this is just an index so not
 
 ---
 
-*Last updated: 2026-08-29 (v0.27.1)*
+*Last updated: 2026-08-30 (v0.34.0)*
