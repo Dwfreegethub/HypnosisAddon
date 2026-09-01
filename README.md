@@ -1,339 +1,28 @@
 # BC Hypnosis Add-on
 
-*Planning session notes — work in progress*
-
----
-
-## Philosophy
-
-Real hypnosis is based on **trust, rapport, and accumulated experience** — not instant control.
-This add-on takes that seriously. Depth of access grows over time through genuine relationship-building, not through force or a single command.
-
-Drugs and arousal can influence the process but cannot substitute for real trust. Hard limits are absolute.
-
----
-
-## Core Mechanic: Trust as a Depth Gate
-
-**Trust** is the primary variable. It is:
-- Per-hypnotist (tracked separately for each person, 0–100%)
-- Stored on the **subject's** side ("how much do I trust person X")
-- Built over time, not granted instantly
-
-Rather than fixed tiers, trust is a percentage. Each feature has a **player-adjustable threshold** — the trust % required for that feature to become accessible. In the zone near the threshold, outcomes are probabilistic (resistance mechanic applies). Well above the threshold, effects are near-certain.
-
-**Two access paths, not one.** Long-term depth is always relationship-trust-gated — that part is never bypassed. But arousal and drugs open a second, bounded path: a **chemical access floor** that lets someone with *zero* relationship trust still reach shallow, session-only effects, capped by a player-set ceiling ("Stranger ceiling," see Player Settings). Effective access for a threshold check is `max(relationshipTrust, chemicalFloor)` — a floor, not a multiplier, since a multiplier on zero trust is still zero and wouldn't give a stranger anything. Deep/persistent features stay out of the chemical floor's reach entirely (see Feature Thresholds below), consistent with the existing rule that drugs/arousal can't write anything permanent.
-
----
-
-## What Builds Trust
-
-### 1. Conversation (primary slow path)
-- Chatting with someone in the same room gradually builds shallow trust
-- Messages directed at each other count more than ambient chat
-- Same-room-time-alone as a trust builder: **optional player setting** (off by default)
-
-### 2. Formal Induction (accelerator)
-- The hypnotist speaks an induction phrase or uses a command
-- Subject receives a consent prompt and accepts
-- Successful induction significantly accelerates trust growth
-- At high trust levels, acceptance can become automatic (subject has already consented to that depth through relationship history)
-- Pre-written induction scripts can be triggered by command — the add-on speaks them in chat
-
-### 3. Arousal (real-time modifier)
-- BC arousal level raises the **chemical access floor** (see Core Mechanic above), capped by the player's "Stranger ceiling" setting — a floor, not a multiplier, so it also helps an established relationship push slightly past where relationship trust alone would sit
-- Higher arousal = lower inhibitions = deeper momentary access, regardless of relationship history
-- Effect is temporary and session-only; never touches stored relationship trust, and never reaches persistent/deep features
-
-### 4. Drugs (temporary blunt instrument)
-- Can raise **or lower** the same chemical access floor temporarily, same "Stranger ceiling" cap
-- Player-adjustable: character can be set as "drugs relax my guard" or "drugs make me paranoid"
-- **Hard rule:** drugs cannot be used to plant triggers or lasting suggestions
-- Drugs open or close the door temporarily; they cannot write anything permanent — the floor they raise never applies to persistent/deep features, only session-only ones
-
----
-
-## What Lowers Trust
-
-- Violation of hard limits
-- Suggestions that fail (subject resists)
-- Time apart — **decay rate is a player setting** (some characters: "once trust is built it stays"; others: "out of sight, out of mind")
-- RP trust break: subject can invoke a "that broke my trust" response after a violation, which explicitly docks trust with that person
-- Direct menu adjustment (OOC, explicit)
-- **Trust-withdrawal command** — freely available, easy to use; naturally inaccessible when the subject is bound/gagged (BC bondage is the lock, not an artificial system setting)
-
----
-
-## Control & Reset
-
-**Three layers:**
-
-**Hard floor — always yours.** Panic/safeword equivalent. Always works regardless of trance state or bondage. Clears active trance, suspends all effects, restores full menu access. Cannot be taken away.
-
-**RP layer — feels locked, isn't literally.** A hypnotist can plant a suggestion like "you won't try to remove your triggers." If the subject has OOC-consented to that depth, the UI shows resistance flavor text when editing — but the underlying data is still editable. Experience of being locked without removing the safety valve.
-
-**Full lock (opt-in).** Some players want to be genuinely locked out of changes. Available as an explicit setting. Still subject to the hard floor override.
-
-**Reset:**
-- Hard reset (LSCG-style) always available — restores factory defaults
-- **Named save states** — reset to a specific saved configuration rather than factory defaults (e.g., "reset to how my owner set me up")
-
-**Architect role — the owner model:**
-- One designated person has highest access to the subject's hypnosis profile
-- Sets base configuration: features enabled, triggers, thresholds
-- Other people can use installed triggers (within their scope) but cannot add/remove or change core settings
-- Subject can explicitly grant architect status, or trust can automatically elevate someone above a high threshold
-- Subject can always revoke via hard floor override
-
----
-
-## The Hypnotist's Side: Skill
-
-Two dimensions:
-
-**Global skill** — grows through practice across all subjects. Affects induction success rate and suggestion precision.
-
-**Per-subject familiarity** — grows through sessions with a specific person. Determines depth ceiling with that individual.
-
-A skilled hypnotist needs less time to build trust; their suggestions land more reliably.
-
----
-
-## Trust Percentage & Feature Thresholds
-
-Each feature has a player-adjustable trust % threshold. Example defaults (placeholders — to be tuned through play):
-
-| Feature | Default Threshold |
-|---------|------------------|
-| Mood suggestions | 20% |
-| Behavioral suggestions (session-only) | 40% |
-| Persistent triggers | 65% |
-| Triggers only removable by hypnotist | 85% |
-| Hypnotic immobilization | 50% |
-| Follow / leash | 55% |
-| Remove clothes | 60% |
-| Clothing illusion | 70% |
-| Bondage illusion | 75% |
-
-**In the zone (near threshold):** outcome is probabilistic, resistance mechanic applies.
-**Well above threshold:** near-certain success.
-**Below threshold:** blocked entirely.
-
-**Chemical floor applies only to session-only rows** (mood suggestions, behavioral suggestions, hypnotic immobilization, follow/leash, remove clothes, both illusions) — never to persistent triggers or hypnotist-only-removable triggers, no matter how high a player sets their Stranger ceiling. Those two stay relationship-trust-only.
-
----
-
-## Triggers
-
-- Planted during induction sessions by the hypnotist
-- Fire when the trigger word/phrase appears in chat
-- **Scope:** per-person (only fires when a specific person says it), per-list, trust-threshold, or anyone
-- **Fade over time** if not reinforced — untriggered or un-refreshed suggestions weaken
-- Hypnotist must periodically reinforce triggers (brief re-induction) to maintain them
-- Creates ongoing relationship mechanic rather than "plant and forget"
-
-### Accidental collateral effect
-If other players are in the room during an induction, those with high base suggestibility or existing trust with the hypnotist could be partially pulled in — opt-in setting. Enables group induction and emergent unintended side effects.
-
----
-
-## Gamification: Fighting Off Suggestions
-
-When a suggestion lands near the threshold (probabilistic zone):
-- Subject gets a **resistance mechanic** — a contest, not an instant block
-- Subject can also **consciously allow** a borderline suggestion
-- **Arousal level** affects resistance (higher arousal = harder to resist)
-- **Drug state** affects resistance (depends on type and player settings)
-- Trust level determines the base difficulty
-
----
-
-## Hard Limits
-
-- Player-defined, stored locally
-- **Absolute** — cannot be bypassed regardless of trust, arousal, or drugs
-- Mirror real psychology: hypnosis cannot make you do something against your core values
-- Serve as the consent backbone of the add-on
-
----
-
-## Meta-Consent Layer (OOC vs IC)
-
-Two separate settings:
-
-**IC stance** — how your character behaves in roleplay (resistant / neutral / open). Drives RP flavor and resistance animations.
-
-**OOC preference** — do you actually want the mechanics to work?
-- "Yes, affect me" — mechanics work; IC resistance is purely cosmetic RP
-- "Genuine resistance" — resistance mechanic is real; effects can actually be blocked
-- "Hard no" — equivalent to a global hard limit; nothing goes through
-
-Allows players to play a resistant character while genuinely wanting to be affected, without breaking character.
-
----
-
-## Feature List
-
-### Tier 1 — Works on anyone (BC native systems)
-*Hypnotist's add-on sends BC game commands. Subject does not need add-on installed.*
-
-| Feature | Description |
-|---------|-------------|
-| **Hypnotic immobilization** | Apply BC Freeze effect as a suggestion, not physical restraint |
-| **Follow / leash** | Compulsion to follow — including across room transitions |
-| **Remove clothes** | Triggered compulsion to remove items — gradual, one piece at a time |
-
-### Tier 2 — Requires add-on on both sides
-*Subject's client must be running the add-on.*
-
-| Feature | Description |
-|---------|-------------|
-| **Verbal triggers** | Keyword planted in session; effect fires when word appears in chat |
-| **Clothing illusion** | Subject's client renders wrong clothing state (see below) |
-| **Bondage illusion** | Subject believes they are restrained when they are not (see below) |
-| **Resistance mini-game** | UI prompt for fighting off or accepting borderline suggestions |
-| **Consent / induction prompts** | Session start/end, hard limit notifications |
-| **Induction scripts** | Pre-written scripts spoken in chat via command; customizable |
-| **Collateral effect** | Partial effect on bystanders with high suggestibility (opt-in) |
-
-*Most features work in both map rooms and regular rooms.*
-
----
-
-## Perception / Illusion Features (detail)
-
-### Clothing Confusion
-Targets the subject's information environment — not their actual state.
-
-- **Suppress BC clothing messages** — subject never sees "X removes your dress" or "X puts Y on you"
-- **Block wardrobe access** — intercept UI clicks; wardrobe shows nothing, scrambled info, or wrong state
-- **Client-side rendering** — subject's view shows clothed when naked or vice versa
-- Others in the room see reality; the subject's own perception is the target
-- Result: the whole room can see the subject is naked while the subject genuinely doesn't know
-
-### Bondage Illusion
-Two approaches:
-
-**Tier 1 (physical):** Apply BC Freeze effect. Real movement lock, works without subject's add-on. Visible to others — they see a frozen character. Blunt but effective.
-
-**Tier 2 (mental — preferred):** No physical restraints applied. Subject's client:
-- Suppresses inventory and wardrobe interaction
-- Renders ghost restraints client-side (cuffs, rope that only they see)
-- Suppresses any messages that would reveal the truth
-
-Result: subject believes they are bound; to everyone else they look like a free person standing still. The suggestion is what holds them, not the restraints. The disconnect between the subject's experience and observable reality is a feature, not a bug.
-
----
-
-## Player Settings
-
-| Setting | Description |
-|---------|-------------|
-| Base suggestibility | How quickly trust builds with anyone |
-| Same-room-time trust | Toggle — passive trust from time alone together |
-| Trust decay rate | How fast trust fades without interaction |
-| Drug response | Whether drugs raise or lower effective trust |
-| Hard limits | List of always-blocked actions |
-| Auto-accept depth | Trust % at which induction acceptance becomes automatic |
-| IC stance | RP flavor: resistant / neutral / open |
-| OOC preference | Whether mechanics actually work |
-| Feature thresholds | Per-feature trust % required (adjustable) |
-| Stranger ceiling | Max chemical access floor for someone with zero relationship trust (session-only effects only) |
-
----
-
-## Technical Architecture Notes
-
-### Data storage
-- Subject stores: trust per hypnotist, personal settings, hard limits, active triggers, trigger strength/decay
-- Hypnotist stores: global skill, per-subject familiarity, planted trigger records
-- Data must persist across sessions
-- **Confirmed mechanism** (BCX and LSCG both do this — established convention, not one dev's preference): one LZString-compressed JSON blob written to `Player.ExtensionSettings.<Name>`, pushed via BC's real `ServerPlayerExtensionSettingsSync(name)` API, mirrored to `localStorage` as an offline backup. Use this rather than inventing our own storage/sync path.
-
-### Sync between players
-- Communication via BC's Hidden chat message system (same pattern as BCX/LSCG) — confirmed against the live client: `Type: "Hidden"` on a `ChatRoomChat` message is delivered through the normal `ChatRoomMessage` event but never rendered in the visible chat log
-- **The channel is shared.** BCX tags its traffic `Content: "BCXMsg"`, LSCG uses `Content: "LSCGMsg"`. We need our own tag (placeholder: `Content: "HypnoAddonMsg"`) from the start so we don't collide with either
-- Trust values are subject-authoritative — subject's client is source of truth
-- Hypnotist's commands are requests; subject's add-on decides whether they succeed
-
-### Effect hooking
-- Adopt `bondage-club-mod-sdk` (MIT license, by Jomshir98 — one of BC's own coders) for wrapping/intercepting BC's own functions, rather than writing our own hook utility. Both BCX and LSCG build on this same package.
-- **Gotcha, confirmed against the live client:** `Player` is not stable — `CharacterCreatePlayer()` in `Scripts/Character.js` reassigns the whole global `Player` object at login (`Player = CharacterCreate(...)`), replacing a pre-login placeholder. A `hookFunction("Player.<method>", ...)` call made before that point patches the placeholder and goes silently stale the moment the real object replaces it — no error, the hook just stops firing. Don't hook methods hanging off `Player` specifically; either hook a real top-level global function (`ChatRoomMessage`, `CommandCombine` — neither gets reassigned, both confirmed working), or read/write `Player`'s current state live at call time the way the effect-injection technique already does (works regardless of reassignment since it re-reads `Player` fresh every call, never caches a reference).
-
-### Add-on loader compatibility
-- Ship as standalone Tampermonkey userscript
-- **FUSAM, corrected:** the real project is `gitlab.com/sidiousious/bc-addon-loader`. It needs no code-level integration — getting listed is a `manifest.json` entry (short ID, long name, description, author, script URL) submitted via merge request or the BC Scripting Community Discord, once we have a stable published script URL. It's a listing step to do whenever we're ready to publish, not a Stage 3 engineering task.
-
----
-
-## Prior Art: LSCG's HypnoModule
-
-LSCG (a mature, popular BC add-on) already ships a mechanic close to ours — read in full from its source, not summarized secondhand. A per-hypnotist "influence" score, 0–100:
-- Suggestion strength = the *installer's* stored influence plus the *current speaker's* stored influence (each halved, then summed), doubled if the subject is already in trance, capped at 100
-- Successful compulsion raises influence for both the speaker and (if different) whoever originally installed the suggestion; successful resistance lowers both — a self-reinforcing loop, control begets more control
-- Passive decay independent of that loop: every 10 minutes, logarithmic (`ceil(log10(influence))`), so it trends toward zero without contact but slows down as it gets low
-- Below-certainty suggestions trigger a resistance mini-game: a random 0–100 roll compared against the influence score, full-screen blur/tint scaling with it, plus an instant "Submit" button as a conscious-allow that skips the roll entirely
-- A separate post-wake cooldown, independent of influence, blocks immediate re-triggering
-- Trigger words auto-rotate periodically and can be hidden from the subject entirely unless overridden
-
-This validates the shape of our trust mechanic — we're implementing our own, not depending on LSCG's, and we're deliberately differing from it, including in how it's presented to the player, not just internally:
-- Per-feature trust thresholds (our table above) vs. LSCG's single all-purpose influence number
-- OOC preference layer (genuine resistance / cosmetic RP resistance / hard no) — no equivalent in LSCG
-- Architect/ownership as a role distinct from raw trust — LSCG only checks BC's native owner/lover relationship for suggestion-editing rights
-- Open question carried forward: do we want LSCG's full-screen blur/tint resistance takeover, or something quieter?
-
-## Development Stages
-
-### Stage 1 — Proof of life
-- Working userscript that loads without errors
-- Confirms it is running (console log + optional on-screen indicator)
-- Hooks into BC's socket event stream and logs received events to console
-- Goal: verify the add-on loads correctly and can see BC's data
-
-### Stage 2 — Command line effects
-- Simple text commands (whispered to self or typed in a dev channel) to trigger effects manually
-- Test targets:
-  - Apply / remove Freeze effect
-  - Suppress a clothing message
-  - Block wardrobe UI
-  - Send a Hidden chat message to another player running the add-on
-  - Log trust state for a player
-- No menus — pure command/response to verify each mechanic works in isolation
-
-### Stage 3 — Menu design and BC UI integration
-- Design where menus live in BC (preference screen, existing mod panels, custom overlay)
-- Implement basic settings UI
-- Implement trust display (subject can see their trust level with each hypnotist)
-- Begin wiring Stage 2 commands to menu actions
-- Everything not yet built goes on the **Todo list** with priority and dependency notes
-
-### Todo (staging TBD)
-- Trust accumulation engine (conversation tracking, time weighting)
-- Induction flow (command → prompt → acceptance → trust gain)
-- Trigger system (plant, scope, fire, decay)
-- Resistance mini-game
-- Clothing illusion (rendering override)
-- Bondage illusion (Tier 2 mental version)
-- Collateral effect system
-- Arousal integration
-- Drug integration
-- Architect role / permission hierarchy
-- Save states / named reset points
-- Hard floor / panic command
-- Induction script library
-- FUSAM compatibility
-
----
-
-## Open Questions
-
-- Global skill vs per-subject familiarity — interaction mechanics
-- Trigger reinforcement — how often, how much decay per day (LSCG's logarithmic-every-10-minutes is a reasonable starting reference, not necessarily our final formula)
-- Trigger word visibility — LSCG hides + periodically rotates the subject's own trigger word unless overridden; do we want that, or keep triggers always known to the subject?
-- Induction script library — ship with defaults, allow user-created?
-- Clothing illusion interaction with BC's existing blindfold/sensory systems
-- Collateral effect range in map rooms — everyone, or distance-limited?
-- Hypnotist without add-on — Tier 1 features only?
+A trust-based hypnosis add-on for Bondage Club, shipped as a single Tampermonkey userscript.
+TypeScript, bundled with esbuild, built on `bondage-club-mod-sdk`.
+
+**The short version.** Depth of access grows through accumulated relationship, not through a
+command. Trust is per-hypnotist, stored on the subject's side, and derived from an interaction
+count so the curve can be retuned without corrupting anyone's save. Every cross-player action is
+only ever a *request* — the receiving client alone decides whether it lands, which is the rule the
+whole architecture rests on.
+
+## Documentation
+
+| | |
+|---|---|
+| [`docs/design.md`](docs/design.md) | **The design.** Philosophy, the trust and depth models, every settled decision and why, open questions, the todo list. Start here for *what this is meant to be*. |
+| [`docs/feature-summary.md`](docs/feature-summary.md) | Short player-facing list of what exists and what is planned. |
+| **This file** | **The engineering record.** How to build and test, stage-by-stage implementation notes, and the BC API traps that cost real time to find. Start here for *how it works and what will bite you*. |
+
+> This file used to carry its own copy of the design — philosophy, trust curve, feature tables,
+> open questions — duplicating `docs/design.md` section for section. The copy drifted, as a
+> duplicated source of truth always does: it was still presenting trust-percentage gating as
+> current long after that had been superseded by the trance-depth redesign. It was removed on
+> 2026-08-31 rather than re-synced, because re-syncing guarantees the same drift again. Design
+> questions have exactly one answer now, and it lives in `docs/design.md`.
 
 ---
 
@@ -390,6 +79,11 @@ The `/hypno` chat commands from Stage 2 are unchanged and still useful for low-l
 Since v0.7.0 these buttons are **session-gated**: outside an established trance they draw disabled and the subject refuses the request anyway. A third row (Kneel / Stand) was added in v0.8.2, which is why the panel's hardcoded rows became a `FEATURES` table — posture isn't an effect, so "is it currently on" reads `IsKneeling()` rather than `HasEffect()`, and each row now carries its own active/apply/release.
 
 ---
+
+> **Stages 1–3** (proof of life, command-line effects, menu integration) were planning rather than
+> implementation and now live with the rest of the staging plan in
+> [`docs/design.md`](docs/design.md#development-stages). The notes below start where there was code
+> worth describing.
 
 ## Stage 4 — Session flow (`session.ts`, v0.7.0)
 
@@ -556,7 +250,49 @@ The subtler half of the same report: `"you notice everything again"` cleared mes
 
 ---
 
+## Stage 12 — Sensation, visibility, and rewarding the roleplay (v0.39.0–v0.41.0)
+
+**Numbness split from awareness** (`suppression.ts`). `touch-block` held two suggestions wearing one
+name: *"you will ignore my touches"* is a claim about **attention**, *"you cannot feel my touch"* is
+a claim about **sensation**. Suppression registers at priority 320, deliberately after BC's arousal
+handler at 210 — correct for the first, and it made the second untrue, since the message was hidden
+while the arousal still landed. A subject told she could feel nothing watched her own meter climb.
+
+The two now compose instead of colliding: ignore and you are not told, numb and nothing happens,
+both and it may as well not have occurred. Numbness answers to `arousalControl`, not
+`suppressActivities` — consenting to "hide it from me" is not consenting to "make my body not
+respond".
+
+**Trigger words became a player setting** (v0.40.0), with `/hypno triggers full` demoted to a
+testing override behind a new `TESTING_MODE` build flag in `log.ts`. **Flipping that flag is a
+release step.** The earlier idea of gating on room-admin status was dropped: admin is a property of
+a chat room, this add-on is not one, and a subject can create their own room and be admin of it — so
+the gate sat one room-creation away from being no gate at all.
+
+The listing moved from `commands.ts` into `voice.ts` as `describeTriggerList()` because it stopped
+being a formatting loop the moment it grew a decision, and `commands.ts` is not in the test harness.
+Its tests assert against `TESTING_MODE` rather than against `true`, so the suite stays correct after
+the release flip instead of failing at the moment somebody is trying to ship.
+
+**The roleplay bonus** (v0.41.0). +5 per line the hypnotist says during the induction window, capped
+at +15, reset per attempt, session-only. The design doc had specified it since the session flow was
+written and the roll formula always had a slot for it; its absence is why the induction *accelerator*
+looked like the RP reward when it is nothing of the kind.
+
+---
+
 ## Lessons Learned (BC API gotchas — quick reference)
+
+- **BC's message dispatcher has three return shapes, and the third one is the useful one.**
+  `ChatRoomMessageRunHandlers` treats `true` as "stop the whole pipeline", an object with `msg` as a
+  rewrite, and an object with **`skip`** as "keep processing, but skip the later handlers this
+  predicate matches". That last one is how you disable exactly one of BC's own handlers — numbness
+  skips *Arousal processing* at 210 and leaves the display, the sensory-deprivation hiders and the
+  Asylum GGTS tracking running. Returning `true` is the obvious move and takes all of them with it.
+- **Two of BC's handlers share Priority 210**, so a skip predicate matching on priority would also
+  eat the kneel stimulation message. Match on `Description` — and since that makes the feature depend
+  on an upstream string, check the handler still exists at install time and log if it does not,
+  rather than failing silently in play.
 
 Full detail on each is inline above where relevant; this is just an index so nothing gets rediscovered the hard way twice.
 
