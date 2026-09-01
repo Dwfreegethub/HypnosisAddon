@@ -8,7 +8,7 @@ import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
-import { installSession } from "./session";
+import { installSession, noteInductionLine } from "./session";
 import { installSuppression } from "./suppression";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
@@ -127,6 +127,15 @@ safely("ChatRoomMessage hook", () => {
 				} catch (err) {
 					log("suggestion parsing failed:", err);
 				}
+					// Roleplay during an induction window earns a bonus on the roll. Offered
+					// every line; session.ts decides whether one counts. Kept out of
+					// handleSpokenLine deliberately — this is not a suggestion and must not
+					// inherit the name gate, since an induction is a monologue, not an order.
+					try {
+						noteInductionLine(data.Sender, data.Content);
+					} catch (err) {
+						log("induction RP counting failed:", err);
+					}
 				// Trust accrual, independent of any session — this is the slow path that
 				// runs during ordinary conversation, long before anyone tries anything.
 				try {

@@ -76,6 +76,30 @@ const STRANGER_CEILING = 30;
 const SELF_WAKE_MAX_DEPTH = 40;
 const CHOICE_MODIFIER: Record<SessionChoice, number> = { agree: 25, ignore: 0, fight: -25 };
 
+// --- The RP reward -------------------------------------------------------------------
+//
+// The design doc has always asked for this — "hypnotist is rewarded for engaging during the
+// induction window (messages sent, time invested, actual RP effort)" — and the roll formula
+// has always had a slot for it. It was never built, which left the induction ACCELERATOR
+// looking like the RP reward when it is nothing of the kind: that pays out for completing an
+// induction, identically whether you roleplayed one or waited out the window in silence.
+//
+// This is the one that actually reads effort. Deliberately session-only, exactly like the
+// arousal floor: it moves this roll and is then gone, so it can never be farmed into stored
+// trust or into anything persistent.
+//
+// It also raises the depth CEILING for free, since depth is `chance - roll`. Roleplaying the
+// induction properly gets you in more often AND gets you deeper when you do, which is the
+// right shape for a reward — no separate mechanic needed.
+/** Per line that counts. */
+const RP_BONUS_PER_LINE = 5;
+/** Ceiling. Meaningful against Agree's +25, never decisive against a clamp of 95. */
+const RP_BONUS_CAP = 15;
+/** Shortest line that reads as roleplay rather than noise. Set low enough that real
+ * induction phrasing clears it — "Look into my eyes" is 17 — and high enough that single
+ * words and "ok" do not. */
+const RP_MIN_LENGTH = 15;
+
 // --- Subject side: the real state ----------------------------------------------------
 
 interface SubjectSession {
@@ -96,6 +120,11 @@ interface SubjectSession {
 	 * the box is a second way to answer the same prompt, not a second prompt. */
 	promptName: string;
 	promptExpiresAt: number;
+	/** Lines the hypnotist actually roleplayed during the induction window. Counted, not
+	 * scored — see noteInductionLine. Never leaves this client and never reaches storage. */
+	rpLines: number;
+	/** The last line counted, so the same one pasted repeatedly cannot farm the bonus. */
+	lastRpLine: string;
 }
 
 function freshSession(): SubjectSession {
@@ -110,6 +139,8 @@ function freshSession(): SubjectSession {
 		hypnotizedAt: 0,
 		promptName: "",
 		promptExpiresAt: 0,
+		rpLines: 0,
+		lastRpLine: "",
 	};
 }
 
@@ -283,8 +314,41 @@ function inductionChance(hypnotistId: number, choice: SessionChoice): number {
 	// Hypnotist skill belongs in this sum too, but it lives on the HYPNOTIST's client and
 	// the roll runs here — see the design doc's step-2 note. Deliberately absent until
 	// that's resolved, rather than trusting a self-reported number.
-	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect;
+	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect + rpBonusFor(hypnotistId);
 	return Math.max(RESISTANCE_FLOOR, Math.min(CHANCE_CEILING, raw));
+}
+
+/** What the roleplay in this induction window is currently worth, 0-15.
+ *
+ * Zero for anyone who is not the hypnotist of the live attempt, so the `/hypno chance`
+ * diagnostic reports a clean number for people you are not mid-induction with. */
+export function rpBonusFor(hypnotistId: number): number {
+	if (hypnotistId !== session.hypnotistId) return 0;
+	return Math.min(session.rpLines * RP_BONUS_PER_LINE, RP_BONUS_CAP);
+}
+
+/** Every ordinary line from the room, offered to the induction window.
+ *
+ * Only counts while an induction is actually running, and only from the person running it.
+ * Deliberately does NOT require the hypnotist to say the subject's name, unlike suggestions:
+ * an induction is a monologue delivered AT someone, and forcing "Missy" into every line of
+ * it would buy nothing and make the scene read worse. The sender gate already establishes
+ * who is being addressed.
+ *
+ * Two cheap defences rather than a real anti-gaming system, which the doc already accepts is
+ * not winnable ("anything that measures effort is gameable too"): a length floor, and
+ * refusing a line identical to the one before it. Faking +15 is then three distinct
+ * sentences, which is most of the way to just roleplaying. */
+export function noteInductionLine(sender: number, content: string): void {
+	if (session.phase !== "InductionInProgress") return;
+	if (!sender || sender !== session.hypnotistId) return;
+	const text = (content ?? "").trim();
+	if (text.length < RP_MIN_LENGTH) return;
+	const key = text.toLowerCase();
+	if (key === session.lastRpLine) return;
+	session.lastRpLine = key;
+	session.rpLines += 1;
+	log(`induction RP line ${session.rpLines} — bonus now +${rpBonusFor(sender)}`);
 }
 
 /** What the roll would be against this person right now, for each choice. The single most
@@ -300,6 +364,11 @@ export function describeChances(memberId: number): string[] {
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
+		// Only worth a line when there is one, since it is zero outside an induction window —
+		// but silence about a live bonus would make the percentages below look wrong.
+		...(rpBonusFor(memberId) > 0
+			? [`  roleplay bonus +${rpBonusFor(memberId)} (${session.rpLines} line(s) this window)`]
+			: []),
 		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
 			const c = inductionChance(memberId, choice);
 			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${MAX_ATTEMPTS}`;
@@ -378,6 +447,10 @@ function applyTranceState(): void {
 
 function beginInductionWindow(): void {
 	session.phase = "InductionInProgress";
+	// Fresh count per attempt. Three attempts in a session are three separate performances,
+	// and letting the first one's effort pay for the third would reward giving up.
+	session.rpLines = 0;
+	session.lastRpLine = "";
 	if (windowTimer) clearTimeout(windowTimer);
 	windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
 	pushUpdate();
