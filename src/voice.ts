@@ -1,8 +1,8 @@
-import { log } from "./log";
+import { log, TESTING_MODE } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
-import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
@@ -900,6 +900,36 @@ function undoTrigger(trigger: Trigger): void {
  * The safeword is the way out of that, and saying so is the point. */
 export function isTriggerInEffect(trigger: Trigger): boolean {
 	return isActive(timerKey(trigger));
+}
+
+/** Should `/hypno triggers` print the phrases?
+ *
+ * Two ways to yes, and they are different in kind. The player's own **setting** is the
+ * shipping answer — hidden by default, theirs to change. `full` is a **testing** argument
+ * that stops existing when TESTING_MODE goes false; it is not a second setting and must
+ * never become one, because an argument anybody can type is not a preference anybody chose.
+ *
+ * Not gated on being a room admin, which was the earlier idea and does not survive contact:
+ * admin is a property of a chat room, this add-on is not, and a subject can make their own
+ * room and be admin of it — so the gate would have been one room-creation away from no gate
+ * at all, for exactly the person it was meant to keep the words from. */
+export function triggerPhrasesVisible(fullRequested: boolean): boolean {
+	if (getFeatures().showTriggerWords) return true;
+	return TESTING_MODE && fullRequested;
+}
+
+/** The trigger list as the player sees it. Lives here rather than in commands.ts so the
+ * suite can exercise the visibility rule without standing up the whole command layer —
+ * this stopped being a formatting loop the moment it grew a decision. */
+export function describeTriggerList(fullRequested: boolean): string[] {
+	const all = listTriggers();
+	if (!all.length) return ["no triggers planted"];
+	const reveal = triggerPhrasesVisible(fullRequested);
+	return all.map(
+		(t, i) =>
+			`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
+			`(by ${t.installedByName})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
+	);
 }
 
 /** Keyed by installer AND phrase — two people can plant the same word, and one wearing

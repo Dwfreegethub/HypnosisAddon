@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import {
 	getFeatures,

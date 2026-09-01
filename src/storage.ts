@@ -121,6 +121,15 @@ export interface FeatureToggles {
 	 * the first feature that lies to the player about their own state rather than
 	 * restricting them. */
 	illusionControl: boolean;
+	/** Whether `/hypno triggers` shows you the phrases that fire your own triggers.
+	 *
+	 * OFF by default, which is the design doc's "trigger words hidden by default, with a
+	 * player setting to show them". Hiding is the interesting default — you cannot decide
+	 * not to react to a word you have not read — but it is a preference rather than a
+	 * protection, and it is the subject's own to set. Anyone determined to see their
+	 * triggers can tick this, which is the same "feels locked, isn't literally" layer the
+	 * doc describes everywhere else. */
+	showTriggerWords: boolean;
 	/** Whether YOU may fire triggers planted in you, by saying the phrase yourself.
 	 *
 	 * Its own setting rather than a rung on the scope ladder, because the ladder answers
@@ -243,6 +252,7 @@ function defaultFeatures(): FeatureToggles {
 		arousalControl: false,
 		illusionControl: false,
 		carryForward: false,
+		showTriggerWords: false,
 		selfTrigger: false,
 		triggerControl: false,
 		suppressClothing: false,

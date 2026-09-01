@@ -119,6 +119,7 @@ const TABS: Tab[] = [
 			{ key: "triggerControl", label: "Allow triggers to be planted in you" },
 			{ key: "carryForward", label: "Suggestions that outlive the trance" },
 			{ key: "selfTrigger", label: "You can fire your own triggers" },
+			{ key: "showTriggerWords", label: "Show trigger words when you list them" },
 		],
 		extra: drawTriggerControls,
 	},

@@ -19,7 +19,7 @@ globalThis.CharacterSetActivePose = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 
-const { voice, storage, triggers, timers } = await import("./harness-bundle.mjs");
+const { voice, storage, triggers, timers, build } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -265,6 +265,46 @@ check("duration stored", storage.getTriggerDuration(), 5);
 check("duration clamps negatives", storage.setTriggerDuration(-3), 0);
 check("duration clamps absurd", storage.setTriggerDuration(99999), 1440);
 storage.setTriggerDuration(5);
+
+// --- who gets to see the trigger WORD ---------------------------------------------------
+// The phrase is the one part of a trigger that is optional to show. Everything else — that
+// it exists, who planted it, what it does — is always listed, so nothing is ever happening
+// to the subject unseen. Two independent ways to reveal it, and they are different in kind:
+// a setting the player chose, and a testing argument that stops existing at release.
+storage.setFeature("triggerControl", true);
+storage.setTrustValue(HYP, "GameBot", 70);
+triggers.beginRecording(HYP, "GameBot", "butterfly");
+triggers.recordAction("movement-block");
+triggers.commitRecording();
+
+const listed = (full) => voice.describeTriggerList(full).join(" | ");
+
+storage.setFeature("showTriggerWords", false);
+check("hidden by default", /phrase hidden/.test(listed(false)), true);
+check("  and the word never leaks", /butterfly/.test(listed(false)), false);
+// What IS always shown, hidden phrase or not — this is the line between private and secret.
+check("  but the trigger is still listed", /movement-block/.test(listed(false)), true);
+check("  with who planted it", /GameBot/.test(listed(false)), true);
+
+check("the setting reveals it", /butterfly/.test((storage.setFeature("showTriggerWords", true), listed(false))), true);
+check("  and says so plainly", /phrase hidden/.test(listed(false)), false);
+
+// `full` is the testing override, independent of the setting. Asserted AGAINST THE FLAG
+// rather than against `true`, so this suite stays correct after the release flip instead of
+// failing at the exact moment somebody is trying to ship.
+storage.setFeature("showTriggerWords", false);
+check("full reveals only while testing", /butterfly/.test(listed(true)), build.TESTING_MODE);
+check("  without changing the setting", storage.getFeatures().showTriggerWords, false);
+check("  so the plain listing still hides", /butterfly/.test(listed(false)), false);
+
+// The whole point of routing both through one predicate: it is the only thing to check.
+check("predicate agrees — setting off, no full", voice.triggerPhrasesVisible(false), false);
+check("predicate agrees — full asked", voice.triggerPhrasesVisible(true), build.TESTING_MODE);
+storage.setFeature("showTriggerWords", true);
+check("predicate agrees — setting on", voice.triggerPhrasesVisible(false), true);
+storage.setFeature("showTriggerWords", false);
+
+storage.forgetTrigger(1);
 
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

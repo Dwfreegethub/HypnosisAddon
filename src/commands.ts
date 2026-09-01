@@ -1,7 +1,7 @@
-import { log } from "./log";
+import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { describeMatch, isTriggerInEffect } from "./voice";
+import { describeMatch, isTriggerInEffect, describeTriggerList } from "./voice";
 import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
 import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
 import {
@@ -395,7 +395,10 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "triggers",
 		group: "Diagnostics",
-		args: "[full]",
+		// `full` is advertised only while it exists. When TESTING_MODE goes false the
+		// argument stops working AND stops being mentioned, so the help screen cannot end up
+		// documenting a command that ignores you.
+		args: TESTING_MODE ? "[full]" : "",
 		Description: "List the triggers planted in you, and which are currently holding you",
 		Action: (args: string) => {
 			const all = listTriggers();
@@ -403,22 +406,11 @@ const COMMANDS: HypnoCommand[] = [
 				reply("no triggers planted");
 				return;
 			}
-			// Phrases are deliberately NOT shown by default. Per the design doc, trigger
-			// words can be hidden from the subject — and a subject who can read their own
-			// trigger word can simply decide not to react to it. You still see that a
-			// trigger exists, who planted it and what it does, so nothing is happening to
-			// you unseen.
-			//
-			// PROVISIONAL: `full` reveals the phrases, for testing. It defeats the design
-			// above, so it is one argument and one line to remove when it stops earning its
-			// place. Decide before this ships to anyone but us.
-			const reveal = firstWord(args).toLowerCase() === "full";
-			all.forEach((t, i) =>
-				reply(
-					`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
-						`(by ${t.installedByName})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
-				),
-			);
+			// Whether the phrases show is decided in voice.ts — the player's own "Show
+			// trigger words" setting, or `full` while we are still the only ones running
+			// this. You always see that a trigger exists, who planted it and what it does,
+			// so nothing is ever happening to you unseen; only the word itself is optional.
+			describeTriggerList(TESTING_MODE && firstWord(args).toLowerCase() === "full").forEach(reply);
 			reply(
 				"Remove one with /hypno forgettrigger <number>, or all of them with 'all' — " +
 					"but not while it is holding you. /hypno safeword is the way out of that.",
