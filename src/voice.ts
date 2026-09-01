@@ -297,10 +297,10 @@ const SUGGESTIONS: Suggestion[] = [
 		id: "illusion-block",
 		examples: ["you cannot tell what you are wearing", "your clothes look the same to you"],
 		permission: "illusionControl",
-		// The design doc's feature-threshold table puts the clothing illusion at 70. This is
-		// the first suggestion to carry one, and it is checked against relationship trust
-		// alone — the arousal floor must never reach a feature that lies to someone about
-		// their own state.
+		// The first suggestion to carry a trust threshold, and still the only one. Checked
+		// against relationship trust alone — the arousal floor must never reach a feature
+		// that lies to someone about their own state. See ILLUSION_TRUST_THRESHOLD above for
+		// why the number is 65 rather than the 70 this table originally called for.
 		trustThreshold: ILLUSION_TRUST_THRESHOLD,
 		trustCategory: "deceptive",
 		patterns: [

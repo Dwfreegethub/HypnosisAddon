@@ -139,8 +139,9 @@ interface Relation {
 /** DW's values. A friend gets a foot in the door and earns the rest; a lover additionally
  * gets the arousal features; an owner gets everything.
  *
- * Owner sits at 65 — exactly the trigger and carry-forward threshold, so ownership alone
- * confers those, while the clothing illusion's 70 still wants a little real history. */
+ * Owner sits at 65 — exactly the trigger, carry-forward AND clothing-illusion threshold,
+ * so ownership alone confers every gate there is. The illusion was 70 until v0.37.0, which
+ * left an owner one rung short of it by accident rather than by decision. */
 const RELATIONS: Record<Exclude<RelationKind, "none">, Relation> = {
 	friend: { kind: "friend", floor: 15, reaches: ["session"] },
 	lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },

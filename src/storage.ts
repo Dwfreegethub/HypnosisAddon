@@ -116,10 +116,10 @@ export interface FeatureToggles {
 	/** Blocking the subject from touching themselves, or named body parts. */
 	selfTouchControl: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
-	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 70
-	 * on top of this permission (the design doc's feature-threshold table), because it is
-	 * the first feature that lies to the player about their own state rather than
-	 * restricting them. */
+	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
+	 * on top of this permission — the same number as triggers and carry-forward, and the
+	 * same number as the owner floor, so ownership alone reaches all three. Deceptive
+	 * rather than restricting, so the arousal floor never counts toward it. */
 	illusionControl: boolean;
 	/** Whether `/hypno triggers` shows you the phrases that fire your own triggers.
 	 *
