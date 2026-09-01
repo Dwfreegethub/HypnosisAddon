@@ -140,3 +140,9 @@ declare function CommonGetFont(size: number | string): string;
  * text — Action and Activity look their Content up as a translation key first. Honours the
  * owner rule that can block emotes, which is why we call it rather than build the packet. */
 declare function ChatRoomSendEmote(message: string): void;
+
+// Inventory.js — the appearance-editing API. InventoryRemove cascades an asset's
+// RemoveItemOnRemove list, so removing a dress takes its sub-items with it rather than
+// leaving orphans; pass Refresh=false while looping and refresh once at the end.
+declare function InventoryRemove(character: any, assetGroup: string, refresh?: boolean): void;
+declare function InventoryGet(character: any, assetGroup: string): any;

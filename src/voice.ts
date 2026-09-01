@@ -4,11 +4,12 @@ import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
-import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
+import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist, effectiveAccess } from "./session";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion } from "./illusion";
+import { undress, UndressResult } from "./undress";
 import {
 	carryThese,
 	isCarrierOf,
@@ -117,6 +118,18 @@ function applyArousal(level: ArousalLevel): FlavorKey | void {
 	if (!setArousalLevel(level)) return "arousal-unavailable";
 }
 
+/** Undressing can match, be permitted, and still not happen — bound hands, a lock that is not
+ * ours, or nothing left to take off. Each gets its own line rather than silence. */
+function applyUndress(count: number): FlavorKey | void {
+	const result: UndressResult = undress(count);
+	if (result.refusal === "already bare") return "undress-bare";
+	if (result.refusal) return "undress-blocked";
+	// The flavor is deliberately generic about WHICH garment. Naming it would read better
+	// ("your skirt comes off") and garmentWord() exists for it — but it needs a built line
+	// like announceBodyPartApplied rather than a fixed one, so it is a follow-up, not a gap.
+	return count === 1 ? "undress" : "undress-all";
+}
+
 function applyForcedOrgasm(): FlavorKey | void {
 	const result = forceOrgasm();
 	if (result === "unavailable") return "arousal-unavailable";
@@ -135,7 +148,13 @@ function blockedReason(suggestion: Suggestion, speaker: number, features: Featur
 	if (!features.hypnoEnabled) return "hypnoEnabled is off";
 	if (!permitted(suggestion, features)) return `${suggestion.permission} isn't granted`;
 	if (suggestion.trustThreshold != null) {
-		const access = accessFor(speaker, suggestion.trustCategory ?? "session");
+		const category = suggestion.trustCategory ?? "session";
+		// Session-only effects get the arousal floor; everything deeper does not. The doc is
+		// explicit that the chemical floor reaches the session-only rows — mood, behavioural,
+		// immobilisation, follow, remove clothes, both illusions' message half — and never
+		// persistent or deceptive ones. accessFor() is the relationship half alone, so
+		// checking a session threshold against it was quietly stricter than the design.
+		const access = category === "session" ? effectiveAccess(speaker) : accessFor(speaker, category);
 		if (access < suggestion.trustThreshold)
 			return `needs trust ${suggestion.trustThreshold}, at ${access.toFixed(1)}`;
 	}
@@ -160,6 +179,13 @@ function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
  * Named and exported so the help screen can read it rather than repeat it; the same
  * duplicated-source-of-truth rule that made the /hypno summary generated. */
 export const ILLUSION_TRUST_THRESHOLD = 65;
+
+/** What undressing costs, from the design doc's feature-threshold table ("Remove clothes,
+ * 60%"). Lower than the illusion's 65 deliberately: being undressed is a real, visible thing
+ * that everyone including the subject can see, where the illusion is a lie told to her about
+ * her own body. Session-scoped, so the arousal floor DOES reach it — the doc lists it among
+ * the rows the chemical floor may lift. */
+export const UNDRESS_TRUST_THRESHOLD = 60;
 
 const SUGGESTIONS: Suggestion[] = [
 	// Arousal goes FIRST. Its patterns are the most specific in the table (every one names
@@ -377,7 +403,7 @@ const SUGGESTIONS: Suggestion[] = [
 		permission: "clothingRestriction",
 		patterns: [
 			/\byou cannot (change|remove|take off|touch|adjust) your (clothes|clothing|outfit)\b/,
-			/\byou cannot (dress|undress|get dressed|get undressed)\b/,
+			/\byou cannot (dress|undress|strip|get dressed|get undressed)\b/,
 			/\byou are (unable|not able) to (change|remove) your (clothes|clothing|outfit)\b/,
 			/\byour (clothes|clothing|outfit) (stay|stays|will stay|must stay|are staying)\b/,
 			/\b(do not|never) (touch|change|remove|adjust) your (clothes|clothing|outfit)\b/,
@@ -387,6 +413,48 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		run: () => { applyEffect("BlockWardrobe"); },
 		undo: () => removeEffect("BlockWardrobe"),
+	},
+	// Taking clothes OFF, as opposed to clothing-block above, which is being unable to change
+	// them. ORDER IS LOAD-BEARING: these sit AFTER clothing-block so that "you cannot undress"
+	// and "you cannot strip" are read as restrictions rather than as instructions. First match
+	// wins, and the negated forms have to get there first.
+	//
+	// "all-at-once" is listed first because "take everything off" contains "take", and the
+	// single-garment patterns must not eat it. Same first-match-wins rule as releases.
+	{
+		id: "undress-all",
+		examples: ["take everything off", "strip"],
+		permission: "undressControl",
+		trustThreshold: UNDRESS_TRUST_THRESHOLD,
+		patterns: [
+			/\btake (everything|it all) off\b/,
+			/\btake off (everything|all your clothes)\b/,
+			/\b(strip|undress) (completely|entirely|all the way)\b/,
+			/\byou are (getting|going) completely undressed\b/,
+			/\bremove (everything|all your clothes)\b/,
+			/\bnothing stays on\b/,
+			// Bare, and safe to be bare: the name gate already requires the line to address
+			// the subject, so "comic strip" only fires if somebody says "Missy, comic strip".
+			/\bstrip\b/,
+		],
+		run: () => applyUndress(Infinity),
+	},
+	{
+		id: "undress",
+		examples: ["take something off", "undress"],
+		permission: "undressControl",
+		trustThreshold: UNDRESS_TRUST_THRESHOLD,
+		patterns: [
+			/\btake (something|a piece|one thing|another|it) off\b/,
+			/\btake off (something|a piece|one thing|another)\b/,
+			/\b(you )?(start|begin) (to )?undress(ing)?\b/,
+			/\byou (want|need) to undress\b/,
+			/\bundress (for me|yourself|now)\b/,
+			/\bundress\b/,
+			/\btake your clothes off\b/,
+			/\bremove (a|one) (piece|garment|item)\b/,
+		],
+		run: () => applyUndress(1),
 	},
 	{
 		// The broad one: clothing, bondage and touch together. Each category is still

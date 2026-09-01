@@ -53,7 +53,15 @@ export type FlavorKey =
 	/** The player's arousal meter is switched off entirely, so none of this can land. */
 	| "arousal-unavailable"
 	| "illusion-block"
-	| "illusion-release";
+	| "illusion-release"
+	/** A garment comes off. The one effect here the whole room can genuinely watch. */
+	| "undress"
+	/** Everything, in one go. */
+	| "undress-all"
+	/** Asked to undress with nothing left to take off. */
+	| "undress-bare"
+	/** Hands bound, or a lock that is not ours. */
+	| "undress-blocked";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -79,6 +87,22 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	// INTO one is observable, which is why the attempt keys carry the public lines and the
 	// apply keys mostly do not. Movement and posture are the exceptions: going still and
 	// kneeling are visible in themselves.
+	// Undressing is the most observable thing in the add-on — it changes the character
+	// everyone in the room is looking at, so unlike every other apply-time effect these get
+	// a public line rather than staying silent.
+	undress: [
+		"{name} slips out of something, unhurried, without seeming to decide to.",
+		"{name}'s hands undo a fastening while {their} face stays somewhere far away.",
+		"Something of {name}'s comes off, set aside without a glance.",
+	],
+	"undress-all": [
+		"{name} undresses steadily, piece after piece, attending to none of it.",
+		"{name} takes everything off with the unbothered thoroughness of a habit.",
+	],
+	"undress-blocked": [
+		"{name}'s hands move to undress and stop, held.",
+		"{name} starts to undo something and cannot make {their} hands finish.",
+	],
 	"clothing-blocked-attempt": [
 		"{name} reaches for {their} clothes, and {their} hand drifts away again.",
 		"{name} half-reaches for a fastening and seems to forget why.",
@@ -179,6 +203,27 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your body comes back, all at once, and remembers what it was feeling.",
 		"Sensation returns to your skin like warmth to a cold hand.",
 		"You can feel again, and everything that was quiet is suddenly not.",
+	],
+	// Undressing is the most observable thing in the add-on — it changes the character
+	// everyone in the room is looking at. These read as the hands acting first and the
+	// intention arriving late, same register as the rest, but they are not secrets.
+	undress: [
+		"Your hands find the fastening before you have decided anything.",
+		"It comes off. You are not sure you chose that, and you are not troubled by it.",
+		"Taking it off seems like the obvious thing to have been doing.",
+	],
+	"undress-all": [
+		"Your hands work without consulting you, and keep working until there is nothing left.",
+		"Piece by piece, and none of it feels like a decision.",
+		"You undress the way you would follow a habit — thoroughly, and without noticing.",
+	],
+	"undress-bare": [
+		"Your hands go looking for something to take off and find nothing there.",
+		"There is nothing left to remove. Your hands settle again.",
+	],
+	"undress-blocked": [
+		"Your hands try, and something holds them where they are.",
+		"You go to undress and find you cannot — something else has that decision.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",

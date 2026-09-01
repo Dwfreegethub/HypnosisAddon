@@ -811,6 +811,18 @@ A single trigger can fire **multiple effects simultaneously** (no hard limit pla
 - Optional: hypnotist can set a hard expiry on a trigger — fires only N times, or disappears after X hours
 - This is an interesting design space; needs further research into whether it adds meaningful gameplay vs. complexity
 
+### Ephemeral Triggers (short-lived, not yet built)
+
+A lighter trigger type that does not use the reinforcement/decay system at all — designed for a single session's worth of play and gone by the next day.
+
+**Rules:**
+- Maximum duration: ~2 hours from the moment of planting
+- **Firing does not reinforce** — each use burns through the clock, not back to it
+- Arousal or chemical state can extend the duration slightly (exact amount TBD — probably 20–30 min at most)
+- Cannot be converted to a persistent trigger after the fact
+
+**Design intent:** lets a hypnotist create responsive in-scene triggers without committing to an ongoing relationship mechanic. Lower trust threshold expected (TBD — likely Yielding or Entranced rather than Deep). The tradeoff is built in: they disappear whether used or not, and the hypnotist gets nothing for maintaining them.
+
 ### Hypnotist Panel (per trigger)
 Fields: trigger word · effect(s) · scope (who can fire it) · strength · last reinforced · decay status · expiry (if set)
 Actions: add trigger · reinforce · test fire · remove

@@ -85,6 +85,7 @@ const TABS: Tab[] = [
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion" },
+			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
 	},

@@ -89,6 +89,23 @@ const CASES = [
   ["Missy, kneel.","kneel"],
   ["Missy, don't touch your clothes.","clothing-block"],
   ["Missy, you cannot change your clothes.","clothing-block"],
+  // --- undressing vs being unable to undress -------------------------------------------
+  // These two families read almost identically and mean opposite things. The negated forms
+  // MUST reach clothing-block, which is why the undress pair sits after it in the table.
+  ["Missy, take everything off.","undress-all"],
+  ["Missy, strip.","undress-all"],
+  ["Missy, take off all your clothes.","undress-all"],
+  ["Missy, nothing stays on.","undress-all"],
+  ["Missy, take something off.","undress"],
+  ["Missy, undress.","undress"],
+  ["Missy, start undressing.","undress"],
+  ["Missy, take your clothes off.","undress"],
+  // The opposite meaning, same words.
+  ["Missy, you cannot undress.","clothing-block"],
+  ["Missy, you cannot strip.","clothing-block"],
+  ["Missy, you cannot get undressed.","clothing-block"],
+  ["Missy, you cannot take off your clothes.","clothing-block"],
+  ["Missy, leave your clothes alone.","clothing-block"],
   // must not fire
   ["I didn't notice, Missy.",null],
   ["We should ignore that, Missy.",null],

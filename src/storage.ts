@@ -121,6 +121,13 @@ export interface FeatureToggles {
 	 * same number as the owner floor, so ownership alone reaches all three. Deceptive
 	 * rather than restricting, so the arousal floor never counts toward it. */
 	illusionControl: boolean;
+	/** Taking the subject's own clothes off, one garment at a time.
+	 *
+	 * Its own permission rather than a corner of clothingRestriction, which is only the
+	 * wardrobe BLOCK. Being undressed by somebody and being unable to open your wardrobe are
+	 * quite different things to agree to, and this one is the only effect in the add-on that
+	 * changes what the whole room can see rather than only what the subject experiences. */
+	undressControl: boolean;
 	/** Whether `/hypno triggers` shows you the phrases that fire your own triggers.
 	 *
 	 * OFF by default, which is the design doc's "trigger words hidden by default, with a
@@ -251,6 +258,7 @@ function defaultFeatures(): FeatureToggles {
 		selfTouchControl: false,
 		arousalControl: false,
 		illusionControl: false,
+		undressControl: false,
 		carryForward: false,
 		showTriggerWords: false,
 		selfTrigger: false,
