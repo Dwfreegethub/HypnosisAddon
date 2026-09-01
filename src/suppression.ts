@@ -31,8 +31,35 @@ export function isSuppressed(category: SuppressionCategory): boolean {
 	return active.has(category);
 }
 
+// --- Numbness -------------------------------------------------------------------------
+//
+// "You cannot feel my touch" is a claim about SENSATION, where "you will ignore my touches"
+// above is a claim about ATTENTION. They were one suggestion until v0.39.0, and the bundling
+// made the first of them untrue: the message was hidden and the arousal still landed, so a
+// subject told she could not feel anything watched her own meter climb.
+//
+// Kept in this module because it is the same pipeline, and because clearAllSuppression() is
+// already called on every teardown path there is — session end, safeword, hypnoEnabled off.
+// Adding a second piece of state with its own clear function would have meant finding all
+// three again and getting one of them wrong.
+//
+// The two compose rather than overlap, which is the point of splitting them:
+//   ignore  → you are touched, you are aroused, you are not told
+//   numb    → you are touched, you are told, nothing happens to you
+//   both    → you are touched, and it may as well not have occurred
+let numb = false;
+
+export function setNumb(on: boolean): void {
+	numb = on;
+}
+
+export function isNumb(): boolean {
+	return numb;
+}
+
 export function clearAllSuppression(): void {
 	active.clear();
+	numb = false;
 }
 
 /** Did this message describe something happening TO us, rather than by us or to someone
@@ -112,4 +139,57 @@ export function installSuppression(): void {
 		},
 	});
 	log("suppression handler registered at priority 320");
+	installNumbness();
+}
+
+/** The name of BC's own arousal handler, as it appears in ChatRoomMessageHandlers. Matched
+ * by string because that is the only thing identifying it — two handlers share Priority 210
+ * and skipping both would also lose the kneel stimulation message. */
+const AROUSAL_HANDLER = "Arousal processing";
+
+/** Stop another person's activity from arousing us, without hiding it and without touching
+ * anything else in the pipeline.
+ *
+ * BC's dispatcher (ChatRoomMessageRunHandlers) supports THREE return shapes, and the third
+ * is what makes this precise. Verified in the live R131 source:
+ *
+ *   true            stop the whole pipeline — kills the display too, and everything between
+ *   {msg}           rewrite the text
+ *   {skip: fn}      keep processing, but skip the specific later handlers fn matches
+ *
+ * So we register just ahead of arousal at 210 and skip that one handler by name. Returning
+ * `true` here instead would have been the obvious move and the wrong one: it would take the
+ * display with it, which is a different feature the subject consented to separately, plus
+ * BC's own sensory-deprivation hiders and the Asylum GGTS activity tracking.
+ *
+ * Scope mirrors the arousal handler's own condition exactly — an ActivityName aimed at us
+ * by somebody who is not us. Our own touches never reach here at all: those are stopped in
+ * selftouch.ts at ActivityRun, on the actor's client, before a message is ever sent. */
+function installNumbness(): void {
+	ChatRoomRegisterMessageHandler({
+		Description: "HypnosisAddon: numbness (skip arousal, leave the message alone)",
+		Priority: 205,
+		Callback: (data: any, sender: any, _msg: string, metadata: any) => {
+			try {
+				if (!numb) return false;
+				if (!metadata?.ActivityName) return false;
+				if (metadata?.TargetMemberNumber !== Player?.MemberNumber) return false;
+				// Someone else's doing. Our own is handled at the source, and skipping it
+				// here as well would be a silent second implementation of the same rule.
+				if (sender?.MemberNumber === Player?.MemberNumber) return false;
+				log(`numb to ${metadata.ActivityName} — skipping arousal`);
+				return { skip: (h: any) => h?.Description === AROUSAL_HANDLER };
+			} catch (err) {
+				log("numbness handler failed:", err);
+				return false;
+			}
+		},
+	});
+	// A rename upstream would leave the skip matching nothing, and numbness would quietly
+	// stop working with no error anywhere. Say so at install time instead of in play.
+	const handlers = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
+	if (handlers && !handlers.some((h: any) => h?.Description === AROUSAL_HANDLER)) {
+		log(`WARNING: no handler named "${AROUSAL_HANDLER}" — numbness will not block arousal`);
+	}
+	log("numbness handler registered at priority 205");
 }

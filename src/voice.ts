@@ -1,6 +1,6 @@
 import { log } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
-import { setSuppressed } from "./suppression";
+import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
@@ -418,6 +418,9 @@ const SUGGESTIONS: Suggestion[] = [
 			// Same principle that already lets releases skip the permission check: handing
 			// something back should always be easier than taking it away.
 			clearIllusion();
+			// And numbness, for the same reason: "you notice everything again" said to
+			// someone who still cannot feel being touched is the same untruth.
+			setNumb(false);
 		},
 	},
 	{
@@ -439,33 +442,84 @@ const SUGGESTIONS: Suggestion[] = [
 			if (f.suppressActivities) setSuppressed("activity", true);
 		},
 	},
+	// The touch pair and the numbness pair below say different things and were one entry
+	// until v0.39.0. "Ignore my touches" is about ATTENTION — it reaches you, you do not
+	// attend to it, and your arousal still climbs with no visible cause, which is the good
+	// half of the mechanic. "You cannot feel my touch" is about SENSATION, and bundling the
+	// two made it a lie: the subject was told she felt nothing while her own arousal meter
+	// told her otherwise. Same class of bug as the illusion surviving "you notice
+	// everything again" in v0.38.2 — a suggestion the subject can directly observe to be
+	// false.
+	//
+	// Numbness sits under arousalControl rather than suppressActivities, per DW. Consenting
+	// to "you may hide when I am touched" is not consenting to "my body may be made not to
+	// respond", and the two are worth being asked separately.
 	{
 		id: "touch-release",
-		examples: ["you can feel my touch again"],
+		examples: ["you notice my touches again", "you register my touch"],
 		release: true,
 		releaseOf: "touch-block",
 		permission: "suppressActivities",
+		// No "you can notice my touch" here, though it is the obvious phrasing: awareness-
+		// release's deliberately broad /you (can|may) notice/ sits earlier in the table and
+		// takes it first. That is the right outcome — the broad release also clears activity
+		// suppression — so this is a pattern that would never have fired, not a gap.
 		patterns: [
-			/\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
-			/\byou feel (my|his|her|their) (touch|touches) again\b/,
-			/\byou (can|may) feel (me|it) again\b/,
 			/\byou notice (my|his|her|their) (touch|touches) again\b/,
+			/\byou (notice|register) (my|his|her|their) (touch|touches)\b/,
+			/\byou (will |)stop ignoring (my|his|her|their) (touch|touches)\b/,
 		],
 		run: () => setSuppressed("activity", false),
 	},
 	{
 		id: "touch-block",
-		examples: ["you will ignore my touches", "you cannot feel my touch"],
+		examples: ["you will ignore my touches"],
 		permission: "suppressActivities",
 		patterns: [
 			/\byou (will |)ignore (my|his|her|their) (touch|touches)\b/,
 			/\bignore (my|his|her|their) (touch|touches)\b/,
-			/\byou (cannot|do not) feel (my|his|her|their) (touch|touches|hands)\b/,
-			/\b(my|his|her|their) (touch|touches) (do not|does not) reach you\b/,
-			/\byou (cannot|do not) feel (me|my hands)\b/,
 		],
 		run: () => setSuppressed("activity", true),
 		undo: () => setSuppressed("activity", false),
+	},
+	{
+		id: "numb-release",
+		examples: ["you can feel my touch again", "you can feel again"],
+		release: true,
+		releaseOf: "numb-block",
+		permission: "arousalControl",
+		patterns: [
+			/\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
+			/\byou feel (my|his|her|their) (touch|touches) again\b/,
+			/\byou (can|may) feel (me|it|again|things again|everything again)\b/,
+			/\byour (skin|body) (responds|reacts|works|feels)( again)?\b/,
+			/\byou are not numb\b/,
+			/\btouch reaches you again\b/,
+		],
+		// Generous, like every release: this also lifts the message-hiding above. Being told
+		// you can feel someone's touch again while the touches are still being hidden from
+		// you leaves the subject in a state the words deny — and handing something back is
+		// always allowed to undo more than taking it away applies.
+		run: () => {
+			setNumb(false);
+			setSuppressed("activity", false);
+		},
+	},
+	{
+		id: "numb-block",
+		examples: ["you cannot feel my touch", "you feel nothing when I touch you"],
+		permission: "arousalControl",
+		patterns: [
+			/\byou (cannot|do not) feel (my|his|her|their) (touch|touches|hands)\b/,
+			/\b(my|his|her|their) (touch|touches) (do not|does not) reach you\b/,
+			/\byou (cannot|do not) feel (me|my hands|anything|it)\b/,
+			/\byou feel nothing\b/,
+			/\byou (are|go) numb\b/,
+			/\byour (skin|body) (cannot|does not) feel\b/,
+			/\btouch (cannot|does not) reach you\b/,
+		],
+		run: () => setNumb(true),
+		undo: () => setNumb(false),
 	},
 	{
 		id: "speech-release",

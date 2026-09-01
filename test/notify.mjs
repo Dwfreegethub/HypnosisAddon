@@ -47,6 +47,9 @@ notify.setRoomVoice(() => true);
 // that exists precisely because it is invisible.
 for (const key of [
 	"awareness-block", "awareness-release", "touch-block", "touch-release",
+	// Numbness is unobservable in the same way: nothing renders a reaction, so nothing
+	// renders its absence either. The subject watching it happen is the private half.
+	"numb-block", "numb-release",
 	"illusion-block", "illusion-release", "arousal-none", "arousal-high", "arousal-full",
 	// Placing a restriction is invisible too — see the apply/attempt section below.
 	"clothing-block", "selftouch-applied", "restriction-settles",

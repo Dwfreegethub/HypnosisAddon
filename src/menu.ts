@@ -18,7 +18,7 @@ import {
 	setDecayRate,
 	DECAY_RATES,
 } from "./storage";
-import { setSuppressed, clearAllSuppression } from "./suppression";
+import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES } from "./triggers";
@@ -627,6 +627,13 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "suppressActivities":
 			if (!enabled) setSuppressed("activity", false);
+			break;
+		case "arousalControl":
+			// Numbness is the only arousal-permission effect that is a lasting STATE rather
+			// than a one-off change to a number, so it is the only one there is anything to
+			// release. See the note in suppression.ts on why it lives with the suppression
+			// state despite answering to this permission.
+			if (!enabled) setNumb(false);
 			break;
 		case "lockedWhileHypnotized":
 			// No immediate effect — it only matters while a trance is running, and

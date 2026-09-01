@@ -27,6 +27,9 @@ export type FlavorKey =
 	| "awareness-release"
 	| "touch-block"
 	| "touch-release"
+	/** Numbness — the sensation itself, where touch-block above is only the knowing. */
+	| "numb-block"
+	| "numb-release"
 	/** Tried to touch themselves while frozen. */
 	| "selftouch-frozen"
 	/** Tried to touch themselves while blocked outright. */
@@ -161,6 +164,21 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You can feel where you're being touched again.",
 		"Your skin starts reporting back.",
 		"Touch reaches you again, arriving where it should.",
+	],
+	// Numbness is the sensation, not the knowing — so these describe a body that has gone
+	// quiet rather than attention that has wandered. The subject can still SEE they are
+	// being touched, which is the difference from touch-block above and is deliberate:
+	// watching it happen and feeling nothing is the better half of this.
+	"numb-block": [
+		"You can see it happening. Your body declines to have an opinion about it.",
+		"Hands move over you and land on nothing at all.",
+		"Somewhere between your skin and you, the message stops being delivered.",
+		"You are being touched, and it is happening to somebody else's body.",
+	],
+	"numb-release": [
+		"Your body comes back, all at once, and remembers what it was feeling.",
+		"Sensation returns to your skin like warmth to a cold hand.",
+		"You can feel again, and everything that was quiet is suddenly not.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",

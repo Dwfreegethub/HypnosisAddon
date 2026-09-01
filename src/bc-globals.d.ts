@@ -58,13 +58,18 @@ declare const InformationSheetSelection: any;
 // ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose }).
 declare function CharacterSetActivePose(character: any, poseName: string | null, forceChange?: boolean): void;
 // BC's own message-handler extension point (ChatRoom.js). Priority decides where in the
-// pipeline the callback runs; returning true stops processing and the message never
-// renders. See suppression.ts for the priorities that matter.
+// pipeline the callback runs. Three return shapes, all three used here:
+//   true       stop processing entirely — the message never renders
+//   {msg}      rewrite the text and carry on
+//   {skip}     carry on, but skip the later handlers the predicate matches
+// See suppression.ts for the priorities that matter and which shape each feature needs.
 declare function ChatRoomRegisterMessageHandler(handler: {
 	Description?: string;
 	Priority: number;
 	Callback: (data: any, sender: any, msg: string, metadata: any) => boolean | object | undefined;
 }): void;
+/** The registered handlers themselves, so we can check one we depend on still exists. */
+declare const ChatRoomMessageHandlers: { Description?: string; Priority: number }[] | undefined;
 declare function ChatRoomMessageInvolvesPlayer(data: any): boolean;
 // Activity.js — resolves a group to the one activities are actually mirrored from
 // (ItemNipples mirrors to ItemBreast), so a per-part block can't be sidestepped.
