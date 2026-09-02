@@ -12,7 +12,7 @@ import { installSession, noteInductionLine } from "./session";
 import { installSuppression } from "./suppression";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
-import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine } from "./voice";
+import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice } from "./notify";
@@ -97,13 +97,20 @@ safely("ChatRoomMessage hook", () => {
 			}
 			log("ChatRoomMessage", data);
 
+			// OOC asides are discarded before ANY of the add-on reads the line. Parentheses
+			// are BC's own convention for stepping out of a scene, and a player saying
+			// "(brb)" must never fire a suggestion, build trust, or set off a trigger.
+			// Computed once here so every consumer below sees the same in-character text;
+			// null means the whole line was an aside, with nothing in character to react to.
+			const inCharacter = typeof data?.Content === "string" ? stripOOC(data.Content) : null;
+
 			// Trigger setup, hidden from the subject when they've asked for that. The line
 			// still has to be PROCESSED — it's how the trigger gets built — so react to it
 			// here and then don't call next(), rather than suppressing it wholesale.
-			if ((data?.Type === "Chat" || data?.Type === "Whisper") && typeof data?.Content === "string") {
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
 				try {
-					if (isTriggerSetupLine(data.Sender, data.Content)) {
-						handleSpokenLine(data.Sender, data.Content);
+					if (isTriggerSetupLine(data.Sender, inCharacter)) {
+						handleSpokenLine(data.Sender, inCharacter);
 						log("hid trigger setup line from the subject");
 						return undefined;
 					}
@@ -121,28 +128,28 @@ safely("ChatRoomMessage hook", () => {
 			// Spoken suggestions: ordinary chat we can hear from someone running a session
 			// on us. Never consumes the message — the line is still said out loud, and the
 			// effect (if any) lands alongside it.
-			if ((data?.Type === "Chat" || data?.Type === "Whisper") && typeof data?.Content === "string") {
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
 				try {
-					handleSpokenLine(data.Sender, data.Content);
+					handleSpokenLine(data.Sender, inCharacter);
 				} catch (err) {
 					log("suggestion parsing failed:", err);
 				}
-					// Roleplay during an induction window earns a bonus on the roll. Offered
-					// every line; session.ts decides whether one counts. Kept out of
-					// handleSpokenLine deliberately — this is not a suggestion and must not
-					// inherit the name gate, since an induction is a monologue, not an order.
-					try {
-						noteInductionLine(data.Sender, data.Content);
-					} catch (err) {
-						log("induction RP counting failed:", err);
-					}
+				// Roleplay during an induction window earns a bonus on the roll. Offered
+				// every line; session.ts decides whether one counts. Kept out of
+				// handleSpokenLine deliberately — this is not a suggestion and must not
+				// inherit the name gate, since an induction is a monologue, not an order.
+				try {
+					noteInductionLine(data.Sender, inCharacter);
+				} catch (err) {
+					log("induction RP counting failed:", err);
+				}
 				// Trust accrual, independent of any session — this is the slow path that
 				// runs during ordinary conversation, long before anyone tries anything.
 				try {
 					const sender = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === data.Sender);
 					// A whisper is aimed at us by definition; otherwise it counts as directed
 					// if they used our name. Same check the suggestion name-gate uses.
-					const directed = data.Type === "Whisper" || mentionsAnyName(data.Content, playerOwnNames());
+					const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
 					noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
 				} catch (err) {
 					log("trust accrual failed:", err);

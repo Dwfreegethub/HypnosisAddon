@@ -20,6 +20,8 @@ import {
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
+import { clearOrgasmDenial } from "./arousal";
+import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES } from "./triggers";
 import { isHypnotized } from "./session";
@@ -587,9 +589,14 @@ export function installMenu(): void {
 // requests), and hypnoEnabled off is a hard floor that releases everything regardless of
 // the individual flags — matching the design doc's "clears active trance, suspends all
 // effects". Turning hypnoEnabled back on does NOT restore what was released.
-function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
+export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 	switch (key) {
 		case "hypnoEnabled":
+			// The hard floor: this releases EVERYTHING, whatever the individual flags say.
+			// It was missing the illusion and the denial lock — the same omission as the two
+			// cases below but one level up, and worse there, because the master switch is
+			// what somebody reaches for when they want all of it to stop. Kept in step with
+			// endSession() and safeword(), which are the other two total-clear paths.
 			if (!enabled) {
 				removeEffect("Freeze");
 				removeEffect("BlockWardrobe");
@@ -597,6 +604,8 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 				clearTranceStates();
 				clearAllSuppression();
 				clearSelfTouchBlocks();
+				clearOrgasmDenial();
+				clearIllusion();
 			}
 			break;
 		case "movementRestriction":
@@ -631,11 +640,21 @@ function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) setSuppressed("activity", false);
 			break;
 		case "arousalControl":
-			// Numbness is the only arousal-permission effect that is a lasting STATE rather
-			// than a one-off change to a number, so it is the only one there is anything to
-			// release. See the note in suppression.ts on why it lives with the suppression
-			// state despite answering to this permission.
-			if (!enabled) setNumb(false);
+			// Two lasting states answer to this permission. Numbness lives with the
+			// suppression state (see suppression.ts for why, despite the permission); the
+			// denial LOCK is a BC effect we applied. The arousal LEVEL is deliberately NOT
+			// reset — that is a number they now carry, not something still being done to
+			// them, exactly as endSession already reasons about it.
+			if (!enabled) {
+				setNumb(false);
+				clearOrgasmDenial();
+			}
+			break;
+		case "illusionControl":
+			// The one that mattered most and was missing longest: revoking this left the
+			// subject still unable to see their own clothes, with the setting that caused it
+			// switched off. A permission that cannot be withdrawn is not a permission.
+			if (!enabled) clearIllusion();
 			break;
 		case "lockedWhileHypnotized":
 			// No immediate effect — it only matters while a trance is running, and

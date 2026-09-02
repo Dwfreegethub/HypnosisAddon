@@ -1519,12 +1519,12 @@ What is never optional either way: that a trigger exists, who planted it, what i
 
 The following items are the current implementation priority, in order. Pick up from the top and work down.
 
-1. **`INDUCTION_WINDOW_MS` → 60,000** — currently at 10,000 (testing value). One-line change in `log.ts` or wherever the constant is defined. Must be done before any real play session.
+1. ~~**`INDUCTION_WINDOW_MS` → 60,000**~~ — **done v0.43.0.** It was in `session.ts`, not `log.ts`. Also matters more than it did: the RP bonus is earned in this window, and three substantive lines in ten seconds is typing speed rather than roleplay.
 
-2. **Fix `arousalControl` and `illusionControl` not releasing on revoke** — the rule everywhere else is that unchecking a permission frees the effect immediately. `menu.ts`'s `onToggle` has no case for either. Unchecking *Arousal & Orgasm* leaves `DenialMode` applied; unchecking *Clothing Illusion* leaves the illusion running. Small fix, consent rule.
+2. ~~**Fix `arousalControl` and `illusionControl` not releasing on revoke**~~ — **done v0.43.0.** Both cases added. Writing the test found a third instance one level up: **`hypnoEnabled` off did not clear the illusion or the denial lock either**, which is worse, since the master switch is what someone reaches for when they want all of it to stop. All three total-clear paths (`onToggle`, `endSession`, `safeword`) now agree. `test/revoke.mjs`.
 
 3. **Depth system Phase 1** — implement the 5-tier trance depth gate (Drifting 0–19 / Yielding 20–39 / Entranced 40–59 / Deep 60–79 / Blank 80+). See the full design in *Trance Depth as the Feature Gate*. Minimum viable slice: tier detection from roll outcome, features gated by `depthFull` vs `depthEarned`, chemical floor per-feature dropdown (Both / Arousal only / Drugs only / Neither). Per-feature UI selectors can follow in a later pass.
 
-4. **OOC filtering** — strip anything inside parentheses from incoming chat before it reaches any suggestion parser or trigger matcher. A subject saying "(ooc: brb)" should never fire a suggestion. Simple regex pre-filter on the message hook.
+4. ~~**OOC filtering**~~ — **done v0.43.0.** `stripOOC()` in voice.ts, applied once in main.ts so suggestions, triggers, trust accrual and the RP counter all see the same in-character text. Strips SPANS rather than only whole-line asides, so "Missy you cannot move (back in 5)" still lands while the aside is discarded; an unclosed `(` is treated as running to end of line, because people do not close them. `test/ooc.mjs`.
 
 5. **Session state recovery after disconnect** — if the subject's client drops mid-session and reconnects, attempt to restore the active session state (trance depth, active effects, active triggers) from `ExtensionSettings`. The hypnotist's client cannot be trusted for this — recovery must be subject-side from locally persisted state.

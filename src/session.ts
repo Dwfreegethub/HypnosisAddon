@@ -49,11 +49,14 @@ export type SessionChoice = "agree" | "ignore" | "fight";
 // Eventually several of these become player settings (the doc has session duration and
 // max attempts as subject-set); constants until the flow itself is proven.
 const PROMPT_TIMEOUT_MS = 60_000;
-// TESTING VALUE — normally 60_000. Dropped to 10s so an induction can be exercised
-// repeatedly without a minute of dead time per attempt. PUT THIS BACK before any real
-// play: 10 seconds is far too short to actually roleplay an induction, which is the
-// entire point of this window existing.
-const INDUCTION_WINDOW_MS = 10_000;
+/** How long the roleplay window runs before the roll.
+ *
+ * Back to a minute as of 2026-09-01, per DW's priority list. It sat at 10 seconds through
+ * development so an induction could be exercised repeatedly without a minute of dead time
+ * per attempt — but ten seconds is far too short to actually roleplay an induction, which
+ * is the entire point of this window, and it is now also the window the RP bonus is earned
+ * in. Three substantive lines in ten seconds is typing speed, not roleplay. */
+const INDUCTION_WINDOW_MS = 60_000;
 const MAX_ATTEMPTS = 3;
 const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;

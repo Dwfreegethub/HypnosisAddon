@@ -67,6 +67,29 @@ function normalize(text: string): string {
 		.trim();
 }
 
+/** Strip out-of-character asides before anything reads the line.
+ *
+ * Parentheses are BC's own OOC convention, and until now the add-on ignored that completely:
+ * normalize() turns punctuation into spaces, so "(ooc: brb, you cannot move)" was parsed
+ * exactly as if it had been said in character. A player stepping out of a scene to say
+ * something practical could fire a suggestion, build trust, or set off a trigger.
+ *
+ * Returns null when there is nothing left in character, which the caller must treat as "this
+ * message does not exist" — no matching, no trust, no trigger firing.
+ *
+ * Deliberately strips SPANS rather than only whole-line asides. "Missy you cannot move (back
+ * in 5)" is a real thing people type, and the in-character half of it should still land while
+ * the aside is discarded. */
+export function stripOOC(content: string): string | null {
+	const text = String(content ?? "");
+	// Non-greedy, so two asides in one line are two spans rather than everything between them.
+	const stripped = text.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+	// An unclosed "(" is an aside that ran to the end of the line — people do not close them.
+	const open = stripped.indexOf("(");
+	const final = (open === -1 ? stripped : stripped.slice(0, open)).trim();
+	return final.length ? final : null;
+}
+
 // --- The pattern library -------------------------------------------------------------
 
 interface Suggestion {
