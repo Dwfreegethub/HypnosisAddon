@@ -155,6 +155,58 @@ export function clearIllusion(): void {
 	log("clothing illusion released");
 }
 
+/** One frozen garment, reduced to what it takes to rebuild it.
+ *
+ * Item objects hold a live `Asset` reference into BC's shared asset array, which cannot be
+ * written to storage. Group and name can, and AssetGet() turns them back into the real
+ * thing — verified in Asset.js, where it is a lookup in AssetMap keyed `Group/Name`. */
+export interface FrozenItem {
+	group: string;
+	name: string;
+	color?: any;
+	property?: any;
+}
+
+/** The snapshot, in a form that survives a reload. Null when no illusion is running. */
+export function illusionSnapshot(): FrozenItem[] | null {
+	if (!frozen) return null;
+	return frozen.map((i: any) => ({
+		group: i?.Asset?.Group?.Name,
+		name: i?.Asset?.Name,
+		color: i?.Color,
+		property: i?.Property,
+	}));
+}
+
+/** Put back the EXACT clothes that were frozen, rather than re-freezing.
+ *
+ * The difference matters and is the whole reason this exists: freezeAppearance() would
+ * snapshot whatever is being worn at the moment it is called, which after a reconnect is
+ * the truth — the same trap carry.ts documents for waking. Rebuilding from the saved
+ * identities restores the original lie instead.
+ *
+ * Returns false if the assets cannot be resolved, so the caller can say so rather than
+ * silently leaving the subject seeing something other than they were. */
+export function restoreIllusion(items: FrozenItem[] | null): boolean {
+	if (!items?.length) return false;
+	if (typeof AssetGet !== "function") return false;
+	const family = Player?.AssetFamily ?? "Female3DCG";
+	const rebuilt: any[] = [];
+	for (const item of items) {
+		const asset = AssetGet(family, item.group, item.name);
+		if (!asset) {
+			log(`cannot restore illusion — asset ${item.group}/${item.name} not found`);
+			return false;
+		}
+		rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
+	}
+	frozen = rebuilt;
+	lastSignature = "";
+	rebuild();
+	log(`clothing illusion restored — ${rebuilt.length} remembered item(s)`);
+	return true;
+}
+
 export function describeIllusion(): string {
 	if (!frozen) return "clothing illusion: off";
 	const names = frozen.map((i: any) => i?.Asset?.Group?.Name).filter(Boolean);

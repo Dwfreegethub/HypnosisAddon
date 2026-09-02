@@ -1,10 +1,21 @@
 import { log } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures } from "./storage";
-import { isSpeechBlocked, getScreenFade, setSpeechBlocked, setScreenFade, removeEffect, hasOwnEffect } from "./effects";
+import {
+	isSpeechBlocked,
+	getScreenFade,
+	setSpeechBlocked,
+	setScreenFade,
+	applyEffect,
+	removeEffect,
+	hasOwnEffect,
+	suggestedPose,
+	setSuggestedPose,
+	clearSuggestedPose,
+} from "./effects";
 import { isSuppressed, setSuppressed, isNumb, setNumb, SuppressionCategory } from "./suppression";
 import { selfTouchSnapshot, restoreSelfTouch, clearSelfTouchBlocks } from "./selftouch";
-import { clearIllusion, isIllusionActive } from "./illusion";
+import { clearIllusion, isIllusionActive, illusionSnapshot, restoreIllusion, FrozenItem } from "./illusion";
 import { clearOrgasmDenial } from "./arousal";
 
 // Surviving a disconnect.
@@ -35,6 +46,9 @@ import { clearOrgasmDenial } from "./arousal";
 export const RECOVERY_WINDOW_MS = 5 * 60_000;
 /** How often to look for the hypnotist while waiting inside that window. */
 const WAIT_POLL_MS = 3_000;
+/** The BC effects this add-on applies. Everything else on the Emoticon item is somebody
+ * else's, and hasOwnEffect is what tells the difference. */
+const OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
 
 /** Storage key, per account.
  *
@@ -71,10 +85,20 @@ export interface SavedSession {
 	suppressed: SuppressionCategory[];
 	numb: boolean;
 	selfTouch: { all: boolean; groups: [string, string][] };
-	/** True when the clothing illusion was running. Deliberately not restored — see below. */
-	illusion: boolean;
+	/** The frozen garments themselves, so the ORIGINAL lie comes back rather than a fresh
+	 * snapshot of the truth. Null when no illusion was running. */
+	illusion: FrozenItem[] | null;
+	/** Which of OUR BC effects were applied. These ride on the Emoticon item and usually
+	 * survive a reload on their own — but an appearance sync that lands before the
+	 * AllowEffect patch strips them, so re-asserting is the difference between usually and
+	 * always. */
+	effects: string[];
+	/** A pose a suggestion put them in, so waking still knows to undo it. */
+	pose: string | null;
 	carried: string[];
 	carriedUntil: number;
+	carrierId: number | null;
+	carrierName: string;
 	triggers: SavedTrigger[];
 }
 
@@ -117,7 +141,16 @@ export function persist(state: Omit<SavedSession, "savedAt">): void {
  * session.ts already imports plenty and a cycle here would be easy to create. */
 export function snapshotLocalState(): Omit<
 	SavedSession,
-	"savedAt" | "hypnotistId" | "hypnotistName" | "depth" | "sessionEndsAt" | "carried" | "carriedUntil" | "triggers"
+		| "savedAt"
+	| "hypnotistId"
+	| "hypnotistName"
+	| "depth"
+	| "sessionEndsAt"
+	| "carried"
+	| "carriedUntil"
+	| "carrierId"
+	| "carrierName"
+	| "triggers"
 > {
 	const suppressed: SuppressionCategory[] = (["clothing", "bondage", "activity"] as SuppressionCategory[]).filter(
 		(c) => isSuppressed(c),
@@ -128,7 +161,9 @@ export function snapshotLocalState(): Omit<
 		suppressed,
 		numb: isNumb(),
 		selfTouch: selfTouchSnapshot(),
-		illusion: isIllusionActive(),
+		illusion: illusionSnapshot(),
+		effects: OUR_EFFECTS.filter((e) => hasOwnEffect(e)),
+		pose: suggestedPose(),
 	};
 }
 
@@ -148,6 +183,7 @@ export function releaseEverything(reason: string): void {
 	setNumb(false);
 	clearSelfTouchBlocks();
 	clearIllusion();
+	clearSuggestedPose();
 	clearSaved();
 	log(`recovery: released everything — ${reason}`);
 }
@@ -179,7 +215,7 @@ export interface RecoveryHandlers {
 	/** Put the session back — phase, hypnotist, depth, and the remaining timeout. */
 	restoreSession: (saved: SavedSession) => void;
 	/** Re-apply a carried suggestion by id, and re-arm its remaining time. */
-	restoreCarried: (ids: string[], until: number) => void;
+	restoreCarried: (saved: SavedSession) => void;
 	/** Is this member number in the room right now? */
 	inRoom: (memberId: number) => boolean;
 }
@@ -239,15 +275,23 @@ function restoreLocalState(saved: SavedSession): void {
 	for (const c of saved.suppressed ?? []) setSuppressed(c, true);
 	setNumb(!!saved.numb);
 	restoreSelfTouch(saved.selfTouch ?? { all: false, groups: [] });
-	// The illusion is deliberately NOT restored, and this is a judgement rather than a gap.
-	// Re-freezing now would snapshot the appearance as it is at THIS moment — the truth —
-	// which is the same trap carry.ts documents for waking. Rebuilding the original snapshot
-	// would mean serialising and re-resolving asset definitions, which is real work for the
-	// least common state. And the failure mode matters: after a disconnect, defaulting to the
-	// truth about your own body is the safer direction to err in. A hypnotist who wants it
-	// back says so, which takes one line.
-	if (saved.illusion) {
-		tellPlayer("Coming back, you catch sight of yourself as you actually are.");
+	// Re-assert our BC effects rather than trusting them to have survived. They ride on the
+	// Emoticon item and usually do come back, but a sync landing before the AllowEffect patch
+	// strips them — and applyEffect is idempotent, so asserting costs nothing when they did.
+	for (const e of saved.effects ?? []) if (!hasOwnEffect(e)) applyEffect(e);
+	if (saved.pose) setSuggestedPose(saved.pose);
+	// The illusion comes back as the ORIGINAL frozen clothes, rebuilt from their stored
+	// identities. Re-freezing instead would snapshot whatever is worn at this moment — the
+	// truth — which is the same trap carry.ts documents for waking, and would quietly turn
+	// the illusion into a lie about nothing.
+	//
+	// Only if the assets still resolve. They normally will; a BC release that removed one is
+	// the case that would not, and there the honest thing is to say so rather than to show
+	// something other than what was frozen.
+	if (saved.illusion?.length) {
+		if (!restoreIllusion(saved.illusion)) {
+			tellPlayer("Coming back, you catch sight of yourself as you actually are.");
+		}
 	}
 }
 
@@ -334,7 +378,7 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 		restoreLocalState(saved);
 		try {
 			handlers?.restoreSession(saved);
-			if (saved.carried?.length) handlers?.restoreCarried(saved.carried, saved.carriedUntil);
+			if (saved.carried?.length) handlers?.restoreCarried(saved);
 		} catch (err) {
 			log("could not restore the session:", err);
 		}

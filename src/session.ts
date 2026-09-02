@@ -23,6 +23,9 @@ import {
 	releaseCarried,
 	isCarried,
 	carriedIds,
+	carrierId,
+	carrierNameFor,
+	restoreCarried,
 	describeCarry,
 	clearActiveSuggestions,
 } from "./carry";
@@ -245,7 +248,9 @@ function persistSession(): void {
 		depth: session.depth,
 		sessionEndsAt,
 		carried: carriedIds(),
-		carriedUntil: timerDeadline("carry"),
+		carriedUntil: timerDeadline("carry-forward"),
+		carrierId: carrierId(),
+		carrierName: carrierNameFor(),
 		triggers: snapshotTriggers(),
 	});
 }
@@ -766,9 +771,7 @@ function restoreSavedSession(saved: SavedSession): void {
 export function installSession(): void {
 	registerRecoveryHandlers({
 		restoreSession: restoreSavedSession,
-		restoreCarried: () => {
-			/* carried suggestions are re-applied by voice.ts's handlers; see registerCarryHandlers */
-		},
+		restoreCarried: (saved) => restoreCarried(saved.carried, saved.carriedUntil, saved.carrierId, saved.carrierName),
 		inRoom: (memberId: number) =>
 			(typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).some(
 				(c: any) => c?.MemberNumber === memberId,

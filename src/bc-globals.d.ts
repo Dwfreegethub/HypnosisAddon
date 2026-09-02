@@ -146,3 +146,8 @@ declare function ChatRoomSendEmote(message: string): void;
 // leaving orphans; pass Refresh=false while looping and refresh once at the end.
 declare function InventoryRemove(character: any, assetGroup: string, refresh?: boolean): void;
 declare function InventoryGet(character: any, assetGroup: string): any;
+
+// Asset.js — turns a group/name pair back into the shared Asset definition (a lookup in
+// AssetMap keyed `Group/Name`). Needed to rebuild an appearance item from stored identity,
+// since the live Asset reference itself cannot be serialised. See illusion.ts.
+declare function AssetGet(family: string, group: string, name: string): any;

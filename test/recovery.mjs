@@ -30,9 +30,14 @@ globalThis.ServerSend = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 globalThis.ChatRoomCharacterUpdate = () => {};
-globalThis.CharacterSetActivePose = () => {};
+// Behaves like BC's: it actually writes the pose onto the character. A no-op stub here made
+// the pose test pass vacuously in the wrong direction.
+globalThis.CharacterSetActivePose = (C, pose) => { C.ActivePose = pose; };
 globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
 globalThis.CharacterRefresh = () => {};
+const KNOWN = new Set(["Cloth/Dress", "Bra/Lace"]);
+globalThis.AssetGet = (family, group, name) =>
+	KNOWN.has(`${group}/${name}`) ? { Name: name, Group: { Name: group, Clothing: true } } : null;
 
 const { recovery, storage, effects, suppression, selftouch, illusion } = await import("./harness-bundle.mjs");
 
@@ -57,7 +62,8 @@ const saveTrance = (agoMs, over = {}) => {
 		sessionEndsAt: Date.now() + 20 * 60_000,
 		speechBlocked: true, screenFade: 0.3, suppressed: ["clothing"], numb: true,
 		selfTouch: { all: false, groups: [["ItemBreast", "breasts"]] },
-		illusion: false, carried: [], carriedUntil: 0, triggers: [], ...over,
+		illusion: null, effects: [], pose: null,
+		carried: [], carriedUntil: 0, carrierId: null, carrierName: "", triggers: [], ...over,
 	});
 	const saved = JSON.parse(store[KEY]);
 	saved.savedAt = Date.now() - agoMs;
@@ -65,9 +71,10 @@ const saveTrance = (agoMs, over = {}) => {
 };
 
 let restored = null;
+let carriedBack = null;
 recovery.registerRecoveryHandlers({
 	restoreSession: (s) => { restored = s; },
-	restoreCarried: () => {},
+	restoreCarried: (s) => { carriedBack = s; },
 	inRoom: (id) => ChatRoomCharacter.some((c) => c.MemberNumber === id),
 });
 
@@ -147,13 +154,52 @@ saveTrance(60_000, { triggers: [{ key: "trigger:1:old", actions: ["movement-bloc
 recovery.attemptRecovery();
 check("an expired trigger stays expired", seen.length, 0);
 
-// --- the illusion is deliberately not restored ---------------------------------------------
-// After a disconnect, defaulting to the truth about your own body is the safer direction.
+// --- everything restorable is restored ------------------------------------------------------
+// DW's rule: all states come back unless they genuinely cannot. The illusion is the one that
+// takes real work, because re-freezing would snapshot the TRUTH — the same trap carry.ts
+// documents for waking — so the original garments are rebuilt from their stored identities.
 clearAll();
-saveTrance(20_000, { illusion: true });
+saveTrance(20_000, { illusion: [{ group: "Cloth", name: "Dress" }, { group: "Bra", name: "Lace" }] });
 recovery.attemptRecovery();
-check("the illusion does not come back", illusion.isIllusionActive(), false);
-check("  and the subject is told why", said.some((m) => /as you actually are/.test(m)), true);
+check("the illusion comes back", illusion.isIllusionActive(), true);
+check("  and is not re-snapshotted from the truth", said.some((m) => /as you actually are/.test(m)), false);
+
+// The one case where it genuinely cannot: a BC release removed the asset. Say so rather than
+// showing something other than what was frozen.
+clearAll();
+saveTrance(20_000, { illusion: [{ group: "Cloth", name: "SomethingRemovedInR132" }] });
+recovery.attemptRecovery();
+check("an unresolvable garment does not fake it", illusion.isIllusionActive(), false);
+check("  and the subject is told", said.some((m) => /as you actually are/.test(m)), true);
+
+// --- BC effects are re-asserted, not assumed --------------------------------------------------
+// Freeze and friends ride on the Emoticon item and usually survive a reload on their own, but
+// a sync landing before the AllowEffect patch strips them. Asserting is idempotent.
+clearAll();
+saveTrance(20_000, { effects: ["Freeze", "BlockWardrobe"] });
+check("no freeze before recovery", effects.hasOwnEffect("Freeze"), false);
+recovery.attemptRecovery();
+check("the freeze is put back", effects.hasOwnEffect("Freeze"), true);
+check("  and the wardrobe block", effects.hasOwnEffect("BlockWardrobe"), true);
+
+// --- a suggested pose survives -------------------------------------------------------------
+// ActivePose itself lives on the server, but the knowledge that WE set it does not — and
+// without that, waking would leave them kneeling with nothing to undo it.
+clearAll();
+saveTrance(20_000, { pose: "Kneel" });
+recovery.attemptRecovery();
+check("the suggested pose is restored", effects.suggestedPose(), "Kneel");
+
+// --- carried suggestions come back with the time they had LEFT -------------------------------
+clearAll();
+carriedBack = null;
+saveTrance(20_000, {
+	carried: ["movement-block"], carriedUntil: Date.now() + 120_000, carrierId: HYP, carrierName: "GameBot",
+});
+recovery.attemptRecovery();
+check("carried suggestions are handed back", carriedBack?.carried, ["movement-block"]);
+check("  with their carrier", carriedBack?.carrierId, HYP);
+check("  and their remaining time, not a fresh one", carriedBack?.carriedUntil > Date.now(), true);
 
 recovery.stopWaiting();
 console.log(`recovery: ${pass}/${pass + fail} passed`);

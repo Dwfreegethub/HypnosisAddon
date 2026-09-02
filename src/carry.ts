@@ -188,6 +188,43 @@ export function carryThroughWake(): string | null {
 }
 
 /** Drop one carried suggestion, after its release has already been spoken and run. */
+/** Who is carrying, for the saved snapshot. */
+export function carrierId(): number | null {
+	return carrier;
+}
+
+export function carrierNameFor(): string {
+	return carrierName;
+}
+
+/** Put carried suggestions back after a reconnect, with the time they had LEFT.
+ *
+ * Distinct from carryThroughWake(), which starts a fresh full duration because waking is
+ * when the clock is supposed to start. Reconnecting is not — a disconnect must never be a
+ * way to top up how long something holds you. */
+export function restoreCarried(savedIds: string[], until: number, who: number | null, whoName: string): void {
+	if (!savedIds?.length) return;
+	ids = [...savedIds];
+	carrier = who;
+	carrierName = whoName;
+	for (const id of ids) {
+		try {
+			reapplyOne?.(id);
+		} catch (err) {
+			log(`carry-forward could not restore "${id}":`, err);
+		}
+	}
+	cancelTimer(TIMER_KEY);
+	const remaining = until ? until - Date.now() : 0;
+	if (remaining > 0) {
+		scheduleTimer(TIMER_KEY, remaining, () => {
+			releaseCarried("it wore off");
+			tellPlayer("Whatever stayed with you out of the trance quietly stops.");
+		});
+	}
+	log(`carry-forward restored ${ids.length} suggestion(s), ${remaining > 0 ? `${Math.round(remaining / 60_000)} min left` : "no clock"}`);
+}
+
 export function dropCarried(id: string): void {
 	const i = ids.indexOf(id);
 	if (i === -1) return;

@@ -86,6 +86,13 @@ export function setSuggestedPose(pose: string | null): void {
 	poseSetBySuggestion = pose !== null;
 }
 
+/** The pose a suggestion put them in, or null if the pose is their own. Saved across a
+ * reconnect so that waking still knows it has something to undo — Player.ActivePose itself
+ * survives on the server, but the knowledge that WE set it does not. */
+export function suggestedPose(): string | null {
+	return poseSetBySuggestion ? (Player?.ActivePose ?? null) : null;
+}
+
 /** Undo a pose a suggestion put the player in. Deliberately leaves a pose they chose
  * themselves alone — ending a session shouldn't yank someone out of their own kneel. */
 export function clearSuggestedPose(): void {
