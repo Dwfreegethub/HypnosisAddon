@@ -172,5 +172,39 @@ storage.setRelationshipOverride(OWNER, null);
 check("clearing restores BC's own answer", trust.relationshipWith(OWNER), "owner");
 
 Date.now = realNow;
+// --- who belongs on the trust list ---------------------------------------------------------
+// Two ways a row earns its place: it is not you, and you still know them.
+storage.setTrustValue(4001, "Someone", 40);
+storage.setTrustValue(4002, "Faded", 40);
+storage.setTrustValue(4003, "Gone", 0);
+near("a real relationship is listed", storage.listTrust().filter((t) => t.memberId === 4001).length, 1);
+
+// DW's call: worn down to nothing is not a relationship, it is a row taking up space. Talking
+// again just creates a fresh entry, so nothing is lost by forgetting somebody you no longer
+// know — and a list of strangers at 0.0 is noise in the one place trust is meant to be read.
+near("nobody at zero is listed", storage.listTrust().filter((t) => t.memberId === 4003).length, 0);
+near("  though it is still stored until the next load", storage.listTrustRaw().filter((t) => t.memberId === 4003).length, 1);
+
+// Decaying TO zero drops them the same way, which is the path that actually produces this.
+storage.setTrustValue(4002, "Faded", 0);
+near("decayed to nothing drops off", storage.listTrust().filter((t) => t.memberId === 4002).length, 0);
+
+// --- and a way to delete a bad row ----------------------------------------------------------
+// Previously the only way to remove one entry was to reset everything, which throws away every
+// real relationship too — so one junk row cost the whole dataset.
+near("forgetting removes it", storage.forgetTrust(4001), true);
+near("  it is gone from the raw list too", storage.listTrustRaw().filter((t) => t.memberId === 4001).length, 0);
+near("  and forgetting nothing says so", storage.forgetTrust(999999), false);
+
+// --- the diagnostic reads RAW ----------------------------------------------------------------
+// The point of logtrust is answering "why is that row there", and a list that has already
+// filtered the answer out cannot. It marks what the Stats tab hides rather than hiding it too.
+storage.setTrustValue(4004, "Worn", 0);
+const dump = storage.listTrustRaw().filter((t) => t.memberId === 4004).length;
+near("logtrust can still see a hidden row", dump, 1);
+storage.forgetTrust(4004);
+storage.forgetTrust(4002);
+storage.forgetTrust(4003);
+
 console.log(`relation: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

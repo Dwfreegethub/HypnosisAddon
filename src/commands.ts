@@ -12,6 +12,8 @@ import {
 	describeStorage,
 	listTriggers,
 	forgetTrigger,
+	forgetTrust,
+	listTrustRaw,
 	exportSettings,
 	importSettings,
 	resetSettings,
@@ -656,6 +658,37 @@ const COMMANDS: HypnoCommand[] = [
 				`trust with ${entry.memberName} → ${trustWith(target.id).toFixed(1)} ` +
 					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
+		},
+	},
+	{
+		// The escape hatch that was missing. A junk entry could previously only be removed by
+		// resetting everything, which also throws away every real relationship — so the cost
+		// of one bad row was the whole dataset.
+		//
+		// Takes a raw member number as well as a name, deliberately: the row you most want to
+		// delete is the one that should not exist, and such a row is often for somebody who is
+		// not in the room to be named.
+		Tag: "forgettrust",
+		group: "Data",
+		args: "<name|number>",
+		Description: "Delete a stored trust entry outright — see /hypno logtrust for the numbers",
+		Action: (args: string) => {
+			const token = firstWord(args);
+			if (!token) {
+				reply("Usage: /hypno forgettrust <name|number>. /hypno logtrust lists them with their numbers.");
+				return;
+			}
+			// Resolve by number first, so an entry for somebody absent is still reachable.
+			const byNumber = /^\d+$/.test(token) ? Number(token) : null;
+			const entry = byNumber
+				? listTrustRaw().find((t) => t.memberId === byNumber)
+				: listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
+			if (!entry) {
+				reply(`No stored trust entry matches "${token}". /hypno logtrust shows what is stored.`);
+				return;
+			}
+			forgetTrust(entry.memberId);
+			reply(`Forgot ${entry.memberName} [${entry.memberId}] — ${entry.interactions.toFixed(1)} interactions gone.`);
 		},
 	},
 	{

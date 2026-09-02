@@ -341,6 +341,10 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (typeof Player?.MemberNumber === "number") {
 		s.trust = s.trust.filter((t) => t.memberId !== Player.MemberNumber);
 	}
+	// And anyone who has decayed away to nothing. Kept separate from the self purge above
+	// because they are different problems: that one is data that should never have existed,
+	// this one is data that has simply run out.
+	s.trust = s.trust.filter((t) => typeof t.interactions !== "number" || t.interactions > 0);
 	// Migrate entries written before trust was stored as a count. The old field held a
 	// 0-100 value; convert it back through the curve so existing data survives rather than
 	// silently resetting to zero.
@@ -503,7 +507,33 @@ export function listTrust(): TrustEntry[] {
 	// Filtered as well as purged on load: the purge only runs once the member number is
 	// known, and a stale self entry should not show in the meantime.
 	const self = Player?.MemberNumber;
-	return loadSettings().trust.filter((t) => t.memberId !== self);
+	return loadSettings().trust.filter(
+		// Someone decayed to nothing is not a relationship, they are a row taking up space.
+		// DW's call. The entry is dropped rather than shown at 0.0 — talking again simply
+		// creates a fresh one, so nothing is lost by forgetting a person you no longer know.
+		(t) => t.memberId !== self && t.interactions > 0,
+	);
+}
+
+/** Delete a stored relationship outright.
+ *
+ * The escape hatch that was missing: a junk entry could only be got rid of by resetting
+ * everything. Returns whether anything was removed. */
+export function forgetTrust(memberId: number): boolean {
+	const settings = loadSettings();
+	const before = settings.trust.length;
+	settings.trust = settings.trust.filter((t) => t.memberId !== memberId);
+	if (settings.trust.length === before) return false;
+	saveSettings();
+	log(`forgot trust entry for ${memberId}`);
+	return true;
+}
+
+/** Every stored entry INCLUDING the ones listTrust hides, for diagnostics. When a row shows
+ * up that should not exist, the first question is what its member number actually is — and a
+ * list that has already filtered the answer out cannot say. */
+export function listTrustRaw(): TrustEntry[] {
+	return loadSettings().trust;
 }
 
 /** Subject experience as a 0-100 value. One pool: cooperating and resisting both build it,

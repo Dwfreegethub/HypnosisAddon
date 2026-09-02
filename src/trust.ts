@@ -5,6 +5,7 @@ import {
 	trustWith,
 	experienceValue,
 	listTrust,
+	listTrustRaw,
 	getRelationshipOverride,
 	RelationKind,
 } from "./storage";
@@ -208,20 +209,33 @@ export function trustStatRows(): TrustStatRow[] {
 		}));
 }
 
-/** Human-readable dump for /hypno logtrust. */
+/** Human-readable dump for /hypno logtrust.
+ *
+ * Reads the RAW list, not the filtered one. When a row appears that should not exist, the
+ * question is what its member number actually is, and a list that has already hidden the
+ * answer cannot tell you — which is exactly the position this was in when DW reported a
+ * self-entry that the filter said could not be there. */
 export function describeTrust(): string[] {
-	const all = listTrust();
-	const header = `experience: ${experienceValue().toFixed(1)}`;
+	const all = listTrustRaw();
+	const header =
+		`experience: ${experienceValue().toFixed(1)} | you are #${Player?.MemberNumber ?? "unknown"}` +
+		" | this list is RAW: the Stats tab hides the rows marked below";
 	if (!all.length) return [header, "no trust data stored yet"];
 	return [
 		header,
 		...all
 			.slice()
 			.sort((a, b) => b.interactions - a.interactions)
-			.map(
-				(t) =>
+			.map((t) => {
+				// Say which rows the Stats tab hides and why. A row that "should not be there"
+				// is either us or someone worn down to nothing, and knowing which is the whole
+				// diagnosis — guessing at it is what made this take two attempts.
+				const self = typeof Player?.MemberNumber === "number" && t.memberId === Player.MemberNumber;
+				const hidden = self ? "  <- YOU (hidden, purged on next load)" : t.interactions <= 0 ? "  <- worn out (hidden)" : "";
+				return (
 					`${t.memberName} [${t.memberId}]: trust ${trustWith(t.memberId).toFixed(1)} ` +
-					`(${t.interactions.toFixed(1)} interactions)`,
-			),
+					`(${t.interactions.toFixed(1)} interactions)${hidden}`
+				);
+			}),
 	];
 }
