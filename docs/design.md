@@ -1043,14 +1043,32 @@ Make a subject believe they are undressed (or partly undressed) when they are ac
 
 Either option supports **partial undress** — since clothing is slot-based, the illusion can be scoped to specific body regions rather than all or nothing.
 
-#### Room Change Persistence (all illusion effects)
-The current freeze-frame illusion is local JS state; BC refreshes character appearance from the server on every room transition, which would overwrite the frozen snapshot. The illusion almost certainly breaks on room entry. **This is untested — needs verification.**
+#### Room Change Persistence — **tested 2026-09-01, and the worry was wrong**
 
-**Design decision (if confirmed):** reapply the illusion automatically on room entry by hooking the room load event and restoring the illusion state before the first `DrawCharacter` call fires. If the hook runs during the loading phase, there may be no visible flash at all.
+The concern here was that BC refreshes character appearance from the server on every room
+transition, so the frozen snapshot would be overwritten and the illusion would break on room
+entry. DW tested it: **it holds, with no flash at all.**
 
-If a flash of truth is unavoidable regardless, the preferred approach is a **brief dissociation effect** — a moment of blackout, blur, or swimming text as the room loads, after which perception settles back into the illusion. This serves double duty: it hides the technical seam *and* gives the subject a subtle experiential hint that something is off with their perception. This applies to all illusion-based effects, not just clothing.
+The reason is worth keeping, because it also says which cases *are* affected. The illusion is
+local JS state — the frozen array and the shadow character live in `illusion.ts` — and a room
+change does not reload the page, so that state survives untouched. BC does refresh
+`Player.Appearance`, but `rebuildIfStale()` only ever rebuilds the LIVE half of the shadow
+(body, face, pose); the frozen clothes are a separate cloned array it never consults. So a
+room change cannot disturb them.
 
-The dissociation flash can be a player setting (opt-in or opt-out) once the behavior is confirmed in testing.
+**A page reload is the different case,** and the only one. There the module state genuinely is
+gone, and recovery cannot run until login and the room exist — so the true appearance draws in
+the gap. DW saw exactly that: a brief flash of the real body, then the illusion returning, and
+judged it acceptable since BC does the same thing on its own while assets load.
+
+Half that gap is BC loading and is not ours. The other half was the startup poll noticing, and
+was cut from 1s to 250ms in v0.46.2, which is a frame or two rather than up to a second.
+
+**The dissociation effect is therefore optional rather than needed.** It was proposed as cover
+for an unavoidable seam; the seam turns out to be avoidable on room change and small on
+reload. It remains a good idea on its own merits — a moment of blur as perception settles is
+a nice thing for the subject to feel — but it is now a feature rather than a patch, and should
+be judged as one.
 
 ### Bondage Illusion
 Two approaches:

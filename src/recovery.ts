@@ -58,6 +58,22 @@ import { clearOrgasmDenial } from "./arousal";
 export const RECOVERY_WINDOW_MS = 5 * 60_000;
 /** How often to look for the hypnotist while waiting inside that window. */
 const WAIT_POLL_MS = 3_000;
+/** How often to check, at startup, whether we can act yet.
+ *
+ * Quick, because this interval is what a reconnecting subject SEES. Recovery cannot run
+ * until login and the room exist, and until it does the real appearance is what draws — so
+ * on a reload with a clothing illusion running there is a flash of the truth, whose length
+ * is BC's load time plus however long we then wait to notice. The second half is ours, and
+ * a quarter second of it is barely a frame or two rather than up to a full second.
+ *
+ * Cheap: two property reads, and the interval stops the moment it succeeds. DW confirmed in
+ * play that a ROOM CHANGE has no flash at all — module state survives it, so nothing needs
+ * restoring — which leaves the page reload as the only case this affects. */
+const STARTUP_POLL_MS = 250;
+/** Act on what we can once identity is known, even with no room yet. Time-based rather than
+ * a tick count, so changing the poll rate cannot silently change the deadline. */
+const NO_ROOM_FALLBACK_MS = 20_000;
+const GIVE_UP_MS = 120_000;
 /** The BC effects this add-on applies. Everything else on the Emoticon item is somebody
  * else's, and hasOwnEffect is what tells the difference. */
 const OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
@@ -369,9 +385,9 @@ function restoreLocalState(saved: SavedSession): void {
  * Also waits to be in a room, since the whole question is whether the hypnotist is present
  * and the answer is meaningless before ChatRoomCharacter exists. */
 export function startRecovery(): void {
-	let tries = 0;
+	const startedAt = Date.now();
+	const since = () => Date.now() - startedAt;
 	const tick = () => {
-		tries += 1;
 		const known = typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0;
 		const inRoom = typeof ChatRoomCharacter !== "undefined" && ChatRoomCharacter?.length > 0;
 		if (known && inRoom) {
@@ -381,17 +397,17 @@ export function startRecovery(): void {
 		}
 		// Identity without a room still means orphaned effects can be dealt with, and being
 		// stuck frozen in the lobby is no better than being stuck frozen in a room.
-		if (known && tries > 20) {
+		if (known && since() > NO_ROOM_FALLBACK_MS) {
 			clearInterval(poll);
 			log(`recovery (no room): ${attemptRecovery()}`);
 			return;
 		}
-		if (tries > 120) {
+		if (since() > GIVE_UP_MS) {
 			clearInterval(poll);
 			log("recovery: gave up waiting to learn who we are");
 		}
 	};
-	const poll = setInterval(tick, 1000);
+	const poll = setInterval(tick, STARTUP_POLL_MS);
 	tick();
 }
 
