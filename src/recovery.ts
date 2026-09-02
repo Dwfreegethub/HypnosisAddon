@@ -123,6 +123,9 @@ export interface SavedSession {
 	effects: string[];
 	/** A pose a suggestion put them in, so waking still knows to undo it. */
 	pose: string | null;
+	/** Suggestions given this session, in order — what "that will stay with you" points at.
+	 * Holds no effect itself, which is exactly why it was missed the first time. */
+	applied: string[];
 	carried: string[];
 	carriedUntil: number;
 	carrierId: number | null;
@@ -174,6 +177,7 @@ export function snapshotLocalState(): Omit<
 	| "hypnotistName"
 	| "depth"
 	| "sessionEndsAt"
+	| "applied"
 	| "carried"
 	| "carriedUntil"
 	| "carrierId"
@@ -249,10 +253,14 @@ export function describeCurrentState(): string[] {
 		on("cannot speak", st.speechBlocked),
 		on("screen faded", st.screenFade > 0, `${Math.round(st.screenFade * 100)}%`),
 		on("numb to touch", st.numb),
-		on("unaware of clothing", st.suppressed.includes("clothing")),
-		on("unaware of bondage", st.suppressed.includes("bondage")),
-		on("unaware of touches", st.suppressed.includes("activity")),
-		on("clothing illusion", isIllusionActive(), describeIllusion().replace(/^clothing illusion: (ON, )?/, "")),
+		// "Unaware of clothing" read as "cannot see her own clothes", which is the ILLUSION,
+		// a different feature on the line below. These three hide the chat MESSAGE and nothing
+		// else — she is not told her shirt came off, but she can still look down. DW read the
+		// old wording the other way, which is the wording's fault rather than DW's.
+		on("not told about clothing changes", st.suppressed.includes("clothing")),
+		on("not told about bondage changes", st.suppressed.includes("bondage")),
+		on("not told about touches", st.suppressed.includes("activity")),
+		on("clothing illusion (cannot SEE the change)", isIllusionActive(), describeIllusion().replace(/^clothing illusion: (ON, )?/, "")),
 	];
 	const anything = [...body, ...senses].some((l) => l.startsWith("  ON"));
 	return [
@@ -457,7 +465,9 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 		restoreLocalState(saved);
 		try {
 			handlers?.restoreSession(saved);
-			if (saved.carried?.length) handlers?.restoreCarried(saved);
+			// Unconditional: the tracker needs restoring even when nothing was carried, and
+			// that is the common case — most sessions never carry anything at all.
+			handlers?.restoreCarried(saved);
 		} catch (err) {
 			log("could not restore the session:", err);
 		}

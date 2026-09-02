@@ -63,7 +63,8 @@ const saveTrance = (agoMs, over = {}) => {
 		speechBlocked: true, screenFade: 0.3, suppressed: ["clothing"], numb: true,
 		selfTouch: { all: false, groups: [["ItemBreast", "breasts"]] },
 		illusion: null, effects: [], pose: null,
-		carried: [], carriedUntil: 0, carrierId: null, carrierName: "", triggers: [], ...over,
+		applied: [], carried: [], carriedUntil: 0, carrierId: null, carrierName: "",
+		triggers: [], ...over,
 	});
 	const saved = JSON.parse(store[KEY]);
 	saved.savedAt = Date.now() - agoMs;
@@ -223,6 +224,37 @@ saveTrance(30_000);
 check("saved state reports the window", /inside the 5-minute window/.test(recovery.describeSavedState()), true);
 saveTrance(9 * 60_000);
 check("  and when it has passed", /PAST the 5-minute window/.test(recovery.describeSavedState()), true);
+clearAll();
+
+// --- what "that will stay with you" points at ----------------------------------------------
+// The tracker of suggestions given this session holds no effect of its own, which is exactly
+// why it was missed: losing it strands nothing, it just makes the carry phrase answer "give
+// the suggestion first" about a suggestion that WAS given. DW hit it in play — dropped
+// mid-session, changed rooms, and the hypnotist could no longer refer to what they had said.
+clearAll();
+carriedBack = null;
+saveTrance(20_000, { applied: ["awareness-block", "movement-block"] });
+recovery.attemptRecovery();
+check("the tracker is handed back", carriedBack?.applied, ["awareness-block", "movement-block"]);
+
+// And it is handed back even when nothing was carried, which is the common case — most
+// sessions never carry anything, and that is precisely when the phrase is about to be used.
+clearAll();
+carriedBack = null;
+saveTrance(20_000, { applied: ["awareness-block"], carried: [] });
+recovery.attemptRecovery();
+check("restored even with nothing carried", carriedBack?.applied, ["awareness-block"]);
+check("  and the handler still ran", carriedBack !== null, true);
+
+// --- the readout must not claim more than the feature does ----------------------------------
+// "Unaware of clothing" read as "cannot see her own clothes" — that is the ILLUSION. These
+// three hide the chat message and nothing else.
+clearAll();
+suppression.setSuppressed("clothing", true);
+const labels = recovery.describeCurrentState().join(" ");
+check("suppression says it is about being TOLD", /not told about clothing changes/.test(labels), true);
+check("  and does not say unaware", /unaware of clothing/.test(labels), false);
+check("  while the illusion says it is about seeing", /cannot SEE the change/.test(labels), true);
 clearAll();
 
 recovery.stopWaiting();

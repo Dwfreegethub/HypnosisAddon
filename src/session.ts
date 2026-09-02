@@ -23,6 +23,8 @@ import {
 	releaseCarried,
 	isCarried,
 	carriedIds,
+	appliedSuggestions,
+	restoreActiveSuggestions,
 	carrierId,
 	carrierNameFor,
 	restoreCarried,
@@ -247,6 +249,7 @@ function persistSession(): void {
 		hypnotistName: findCharacterName(session.hypnotistId),
 		depth: session.depth,
 		sessionEndsAt,
+		applied: appliedSuggestions(),
 		carried: carriedIds(),
 		carriedUntil: timerDeadline("carry-forward"),
 		carrierId: carrierId(),
@@ -771,7 +774,12 @@ function restoreSavedSession(saved: SavedSession): void {
 export function installSession(): void {
 	registerRecoveryHandlers({
 		restoreSession: restoreSavedSession,
-		restoreCarried: (saved) => restoreCarried(saved.carried, saved.carriedUntil, saved.carrierId, saved.carrierName),
+		restoreCarried: (saved) => {
+			restoreActiveSuggestions(saved.applied ?? []);
+			if (saved.carried?.length) {
+				restoreCarried(saved.carried, saved.carriedUntil, saved.carrierId, saved.carrierName);
+			}
+		},
 		inRoom: (memberId: number) =>
 			(typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).some(
 				(c: any) => c?.MemberNumber === memberId,

@@ -99,6 +99,20 @@ export function clearActiveSuggestions(): void {
 	applied.length = 0;
 }
 
+/** Put the tracker back after a reconnect.
+ *
+ * Easy to miss, because it holds no effect of its own — it is the memory of what has been
+ * said, which is what "that will stay with you" points AT. Losing it does not strand
+ * anything; it just makes the phrase answer "give the suggestion first" about a suggestion
+ * that was given, which is worse than an error because it looks like the feature is broken.
+ * DW hit exactly that: dropped mid-session, changed rooms, and the hypnotist could no longer
+ * refer to what they had just said. */
+export function restoreActiveSuggestions(ids: string[]): void {
+	applied.length = 0;
+	for (const id of ids ?? []) applied.push(id);
+	if (applied.length) log(`carry: tracker restored — ${applied.join(", ")}`);
+}
+
 export function isCarried(id: string): boolean {
 	return ids.includes(id);
 }
