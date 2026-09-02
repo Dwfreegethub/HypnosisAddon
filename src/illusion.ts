@@ -39,9 +39,36 @@ const SHADOW_ID = "HypnosisAddonIllusion";
  * So the frozen half is "everything worn" and the live half is "the body itself" — which
  * means the subject still sees their own arousal blush, their expression and their pose
  * change while their clothes stay exactly as they were. Emoticon landing in the live half
- * is a happy accident worth keeping: it is the item our injected effects ride on. */
+ * is a happy accident worth keeping: it is the item our injected effects ride on.
+ *
+ * TWO EXCEPTIONS, below: EyeShadow and Decals carry Clothing:true but are cosmetics, not
+ * garments, and belong in the live half with the blush they sit next to. */
+const COSMETIC_GROUPS = new Set(["EyeShadow", "Decals"]);
+
 function isWornGroup(group: any): boolean {
-	return !!group && (group.Clothing === true || group.Category === "Item");
+	if (!group) return false;
+	// Two of BC's 32 Clothing groups are not garments. Checked against the live R131
+	// Female3DCG definitions rather than assumed: EyeShadow is makeup and Decals is body
+	// decoration, and both carry `Clothing: true` alongside the dresses and shoes.
+	//
+	// Freezing them contradicts the split this whole file is built on — the live half is
+	// meant to be the body itself, so that a subject still sees their own blush, expression
+	// and pose change while their clothes stay put. Makeup belongs with the blush. DW found
+	// this in play: an illusion applied with no clothing change reported "frozen groups:
+	// EyeShadow, Socks, Cloth, ...", and eyeshadow has no business in that list.
+	//
+	// Everything else BC flags as Clothing genuinely is worn — hats, glasses, jewelry, masks,
+	// wings — and those stay frozen, because "you cannot tell what you are wearing" covers a
+	// hat. The SlaveParking bot's own NON_CLOTHING_GROUPS reached the same conclusion about
+	// these two independently, which is some comfort that it is the line and not a taste.
+	if (COSMETIC_GROUPS.has(group.Name)) return false;
+	return group.Clothing === true || group.Category === "Item";
+}
+
+/** Exposed for the suite: the classification is the whole feature, and it is checked against
+ * BC's real group flags rather than against itself. */
+export function isWornGroupForTest(group: any): boolean {
+	return isWornGroup(group);
 }
 
 /** The local-only character the lie is drawn from. */
