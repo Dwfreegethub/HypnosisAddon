@@ -103,6 +103,9 @@ export interface SavedTrigger {
 
 export interface SavedSession {
 	savedAt: number;
+	/** Was a trance actually running? Carried suggestions and triggers can be in force
+	 * with no session at all — that is what they are for. */
+	sessionLive: boolean;
 	hypnotistId: number | null;
 	hypnotistName: string;
 	depth: number;
@@ -173,6 +176,7 @@ export function persist(state: Omit<SavedSession, "savedAt">): void {
 export function snapshotLocalState(): Omit<
 	SavedSession,
 		| "savedAt"
+	| "sessionLive"
 	| "hypnotistId"
 	| "hypnotistName"
 	| "depth"
@@ -294,6 +298,8 @@ export type RecoveryOutcome =
 	| "expired"
 	/** Inside the window, waiting to see whether the hypnotist is still around. */
 	| "waiting"
+	/** No trance was running, but something durable was, and it is back. */
+	| "durable only"
 	/** Back in the scene. */
 	| "resumed";
 
@@ -354,6 +360,22 @@ function restoreTriggers(saved: SavedSession): number {
 		}
 	}
 	return restored;
+}
+
+/** Everything that outlives a session: fired triggers and carried suggestions, each on the
+ * time it had LEFT. Returns whether anything came back. */
+function restoreDurable(saved: SavedSession): boolean {
+	const triggers = restoreTriggers(saved);
+	let carried = 0;
+	if (saved.carried?.length) {
+		try {
+			handlers?.restoreCarried(saved);
+			carried = saved.carried.length;
+		} catch (err) {
+			log("could not restore carried suggestions:", err);
+		}
+	}
+	return triggers > 0 || carried > 0;
 }
 
 function restoreLocalState(saved: SavedSession): void {
@@ -442,14 +464,21 @@ export function attemptRecovery(): RecoveryOutcome {
 
 	const away = Date.now() - (saved.savedAt || 0);
 
-	// Triggers first, and unconditionally: they outlive sessions by design.
-	const triggersBack = restoreTriggers(saved);
+	// The five-minute window belongs to the TRANCE. Carried suggestions and fired triggers
+	// carry their own clocks and are meant to outlive a session entirely, so they come back
+	// on their remaining time regardless of how long the subject was away or whether the
+	// hypnotist is anywhere nearby.
+	if (!saved.sessionLive) {
+		const durable = restoreDurable(saved);
+		if (durable) tellPlayer("Something that was already true of you is still true.");
+		return durable ? "durable only" : "nothing to do";
+	}
 
 	if (away > RECOVERY_WINDOW_MS) {
 		releaseEverything(`away ${Math.round(away / 60_000)} min, past the ${RECOVERY_WINDOW_MS / 60_000}-minute window`);
-		// restoreTriggers ran BEFORE the release, so re-apply what still has time to serve.
-		if (triggersBack) {
-			restoreTriggers(saved);
+		// Released FIRST, then the durable half put back — otherwise the release would take
+		// with it the very things that were supposed to survive the trance ending.
+		if (restoreDurable(saved)) {
 			tellPlayer("The trance did not survive being away that long. Something else still has not let go.");
 		} else {
 			tellPlayer("You were gone long enough that whatever held you has ended.");
@@ -457,16 +486,18 @@ export function attemptRecovery(): RecoveryOutcome {
 		return "expired";
 	}
 
-	return waitForHypnotist(saved, triggersBack);
+	return waitForHypnotist(saved);
 }
 
-function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOutcome {
+function waitForHypnotist(saved: SavedSession): RecoveryOutcome {
 	const resume = () => {
 		restoreLocalState(saved);
+		restoreTriggers(saved);
 		try {
 			handlers?.restoreSession(saved);
-			// Unconditional: the tracker needs restoring even when nothing was carried, and
-			// that is the common case — most sessions never carry anything at all.
+			// Unconditional: the tracker of what has been said needs restoring even when nothing
+			// was carried, and that is the common case — most sessions carry nothing, which is
+			// exactly when the phrase is about to be used for the first time.
 			handlers?.restoreCarried(saved);
 		} catch (err) {
 			log("could not restore the session:", err);
@@ -497,7 +528,7 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 		if (away > RECOVERY_WINDOW_MS) {
 			stopWaiting();
 			releaseEverything("the hypnotist did not come back inside the window");
-			if (triggersBack) restoreTriggers(saved);
+			restoreDurable(saved);
 			tellPlayer("They did not come back. Whatever was holding you loosens and lets go.");
 		}
 	}, WAIT_POLL_MS);

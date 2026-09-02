@@ -229,32 +229,41 @@ function stopPersistHeartbeat(): void {
 	persistTimer = null;
 }
 
-/** Write the trance down where a reconnect can find it.
+/** Write down anything a reconnect would need, on a heartbeat and on every transition.
  *
- * Called from pushUpdate on every session transition AND on a heartbeat while under, so the
- * saved copy is never more than a few seconds behind whatever is actually in force. Only a
- * live trance is worth saving: an idle client has nothing to come back to. */
-function persistSession(): void {
-	if (session.phase !== "Hypnotized") {
+ * "ONLY WHILE HYPNOTIZED" WAS THE BUG. Carried suggestions and fired triggers are precisely
+ * the two things designed to OUTLIVE a session — and gating the save on a live trance meant
+ * waking the subject wiped the record of them before they could ever be restored. DW hit it
+ * exactly: carried two suggestions, was woken, disconnected, and came back with nothing. A
+ * trigger firing outside a trance, which is the normal way a trigger fires, was never saved
+ * at all.
+ *
+ * So the question is not "is a trance running" but "is anything in force". */
+function persistState(): void {
+	const live = session.phase === "Hypnotized";
+	const carried = carriedIds();
+	const triggers = snapshotTriggers();
+	if (!live && !carried.length && !triggers.length) {
 		stopPersistHeartbeat();
 		clearSaved();
 		return;
 	}
-	// Self-arming, so no caller has to remember to start it — the phase check above is the
-	// only place that decides whether a trance is running.
-	if (!persistTimer) persistTimer = setInterval(persistSession, PERSIST_HEARTBEAT_MS);
+	// Self-arming, so no caller has to remember to start it — the check above is the only
+	// place that decides whether there is anything worth saving.
+	if (!persistTimer) persistTimer = setInterval(persistState, PERSIST_HEARTBEAT_MS);
 	persist({
 		...snapshotLocalState(),
+		sessionLive: live,
 		hypnotistId: session.hypnotistId,
 		hypnotistName: findCharacterName(session.hypnotistId),
 		depth: session.depth,
 		sessionEndsAt,
 		applied: appliedSuggestions(),
-		carried: carriedIds(),
+		carried,
 		carriedUntil: timerDeadline("carry-forward"),
 		carrierId: carrierId(),
 		carrierName: carrierNameFor(),
-		triggers: snapshotTriggers(),
+		triggers,
 	});
 }
 
@@ -276,7 +285,7 @@ function pushUpdate(refusedReason?: string): void {
 		},
 		session.hypnotistId,
 	);
-	persistSession();
+	persistState();
 }
 
 /** Send a one-off refusal to someone who isn't (and isn't becoming) our hypnotist,
@@ -312,8 +321,9 @@ function endSession(reason: string, quiet = false): void {
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
 	stopWaiting();
-	stopPersistHeartbeat();
-	clearSaved();
+	// NOT clearSaved() — carryThroughWake() below may put things back that are meant to
+	// outlive this session, and persistState() at the end decides what is left to save.
+
 	// The denial LOCK comes off; the arousal LEVEL stays. One is something we applied to
 	// them, the other is a number they now carry — resetting it would be us reaching into
 	// state that was theirs before the session and is theirs after it.

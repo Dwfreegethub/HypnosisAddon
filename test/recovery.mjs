@@ -58,6 +58,7 @@ const clearAll = () => {
 /** A trance written down `agoMs` ago. */
 const saveTrance = (agoMs, over = {}) => {
 	recovery.persist({
+		sessionLive: true,
 		hypnotistId: HYP, hypnotistName: "GameBot", depth: 55,
 		sessionEndsAt: Date.now() + 20 * 60_000,
 		speechBlocked: true, screenFade: 0.3, suppressed: ["clothing"], numb: true,
@@ -73,6 +74,8 @@ const saveTrance = (agoMs, over = {}) => {
 
 let restored = null;
 let carriedBack = null;
+const seen = [];
+recovery.registerTriggerRecovery(() => [], (t) => seen.push(t));
 recovery.registerRecoveryHandlers({
 	restoreSession: (s) => { restored = s; },
 	restoreCarried: (s) => { carriedBack = s; },
@@ -141,11 +144,12 @@ storage.setFeature("releaseOnDisconnect", false);
 // A trigger was never part of the session, so it survives regardless of the window and
 // regardless of the hypnotist. Reconnecting must not reset a clock that is holding you.
 clearAll();
-const seen = [];
-recovery.registerTriggerRecovery(() => [], (t) => seen.push(t));
+
 saveTrance(6 * 60_000, { triggers: [{ key: "trigger:1:sleepy", actions: ["movement-block"], until: Date.now() + 120_000 }] });
 recovery.attemptRecovery();
-check("a live trigger is restored even past the window", seen.map((t) => t.key), ["trigger:1:sleepy", "trigger:1:sleepy"]);
+// Once, not twice. The earlier code restored triggers before the release and again after,
+// which worked only because re-applying is idempotent; restoreDurable does it once, after.
+check("a live trigger is restored even past the window", seen.map((t) => t.key), ["trigger:1:sleepy"]);
 check("  with its own remaining time", seen[0].until > Date.now(), true);
 
 // One whose time already ran out while away must NOT come back.
@@ -255,6 +259,54 @@ const labels = recovery.describeCurrentState().join(" ");
 check("suppression says it is about being TOLD", /not told about clothing changes/.test(labels), true);
 check("  and does not say unaware", /unaware of clothing/.test(labels), false);
 check("  while the illusion says it is about seeing", /cannot SEE the change/.test(labels), true);
+clearAll();
+
+// --- what outlives a session -----------------------------------------------------------------
+// The bug DW found, and the sharpest one in this file. Carried suggestions and fired triggers
+// exist SPECIFICALLY to outlive a trance — and the save was gated on a trance being live, so
+// waking wiped the record of them before a disconnect could ever restore it. DW carried two
+// suggestions, was woken, dropped, and came back to nothing.
+//
+// The five-minute window belongs to the trance. Durable things carry their own clocks.
+clearAll();
+carriedBack = null;
+seen.length = 0;
+saveTrance(30_000, {
+	sessionLive: false,
+	carried: ["awareness-block"], carriedUntil: Date.now() + 300_000, carrierId: HYP, carrierName: "GameBot",
+	triggers: [{ key: "trigger:1:sleepy", actions: ["movement-block"], until: Date.now() + 300_000 }],
+});
+check("no trance, but something durable", recovery.attemptRecovery(), "durable only");
+check("  the carried suggestion is back", carriedBack?.carried, ["awareness-block"]);
+check("  and the trigger", seen.map((t) => t.key), ["trigger:1:sleepy"]);
+check("  without waiting on a hypnotist", recovery.isWaitingForHypnotist(), false);
+
+// Durable state does not expire with the trance window — it has its own clock, and an hour
+// away is irrelevant to a suggestion with four hours left on it.
+clearAll();
+carriedBack = null;
+saveTrance(60 * 60_000, {
+	sessionLive: false,
+	carried: ["awareness-block"], carriedUntil: Date.now() + 300_000, carrierId: HYP, carrierName: "GameBot",
+});
+check("an hour away does not touch it", recovery.attemptRecovery(), "durable only");
+check("  still carried", carriedBack?.carried, ["awareness-block"]);
+
+// And when a TRANCE expires, the durable half still survives it — releasing everything first
+// would otherwise take with it the very things meant to outlast the session.
+clearAll();
+carriedBack = null;
+saveTrance(9 * 60_000, {
+	sessionLive: true,
+	carried: ["awareness-block"], carriedUntil: Date.now() + 300_000, carrierId: HYP, carrierName: "GameBot",
+});
+check("the trance expires", recovery.attemptRecovery(), "expired");
+check("  but what was carried does not", carriedBack?.carried, ["awareness-block"]);
+
+// Nothing at all is still nothing.
+clearAll();
+saveTrance(30_000, { sessionLive: false });
+check("no trance and nothing durable", recovery.attemptRecovery(), "nothing to do");
 clearAll();
 
 recovery.stopWaiting();
