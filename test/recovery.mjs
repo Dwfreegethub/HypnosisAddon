@@ -201,6 +201,30 @@ check("carried suggestions are handed back", carriedBack?.carried, ["movement-bl
 check("  with their carrier", carriedBack?.carrierId, HYP);
 check("  and their remaining time, not a fresh one", carriedBack?.carriedUntil > Date.now(), true);
 
+// --- the readout ---------------------------------------------------------------------------
+// Generated from the same snapshot the restore reads, so what it SAYS is on you and what
+// would actually come back cannot drift apart. A second hand-written list would be wrong
+// within two features.
+clearAll();
+const idle = recovery.describeCurrentState();
+check("says so plainly when nothing is on", idle[0], "Nothing is holding you right now.");
+check("  and lists nothing else", idle.length, 1);
+check("  saved state says nothing too", /nothing/.test(recovery.describeSavedState()), true);
+
+effects.applyEffect("Freeze");
+suppression.setNumb(true);
+const busy = recovery.describeCurrentState().join(" ");
+check("reports what is on", /ON  frozen/.test(busy), true);
+check("  and what is not", /-   wardrobe blocked/.test(busy), true);
+check("  including numbness", /ON  numb to touch/.test(busy), true);
+check("  no longer claims nothing is holding you", /Nothing is holding you/.test(busy), false);
+
+saveTrance(30_000);
+check("saved state reports the window", /inside the 5-minute window/.test(recovery.describeSavedState()), true);
+saveTrance(9 * 60_000);
+check("  and when it has passed", /PAST the 5-minute window/.test(recovery.describeSavedState()), true);
+clearAll();
+
 recovery.stopWaiting();
 console.log(`recovery: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

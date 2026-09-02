@@ -14,8 +14,20 @@ import {
 	clearSuggestedPose,
 } from "./effects";
 import { isSuppressed, setSuppressed, isNumb, setNumb, SuppressionCategory } from "./suppression";
-import { selfTouchSnapshot, restoreSelfTouch, clearSelfTouchBlocks } from "./selftouch";
-import { clearIllusion, isIllusionActive, illusionSnapshot, restoreIllusion, FrozenItem } from "./illusion";
+import {
+	selfTouchSnapshot,
+	restoreSelfTouch,
+	clearSelfTouchBlocks,
+	describeSelfTouchBlocks,
+} from "./selftouch";
+import {
+	clearIllusion,
+	isIllusionActive,
+	illusionSnapshot,
+	restoreIllusion,
+	describeIllusion,
+	FrozenItem,
+} from "./illusion";
 import { clearOrgasmDenial } from "./arousal";
 
 // Surviving a disconnect.
@@ -194,6 +206,57 @@ export function releaseEverything(reason: string): void {
  * crash we never got to write down is exactly the case that leaves somebody stuck. */
 export function hasOrphanedEffects(): boolean {
 	return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode");
+}
+
+/** Everything currently in force, in the order a subject would think of it: what my body is
+ * doing, then what I can perceive, then what will outlast this.
+ *
+ * Built from snapshotLocalState() — the same function the saved copy is written from — so
+ * this readout and what a reconnect would restore cannot drift apart. A second hand-written
+ * list of "things that can be on you" would be wrong within two features.
+ *
+ * Reports the OFF states too. "Nothing is holding you" is the answer most worth being able
+ * to trust, and a readout that only ever lists problems cannot give it. */
+export function describeCurrentState(): string[] {
+	const st = snapshotLocalState();
+	const on = (label: string, active: boolean, detail = "") =>
+		`  ${active ? "ON " : "-  "} ${label}${detail && active ? ` (${detail})` : ""}`;
+
+	const body = [
+		on("frozen", hasOwnEffect("Freeze")),
+		on("wardrobe blocked", hasOwnEffect("BlockWardrobe")),
+		on("orgasm denied", hasOwnEffect("DenialMode")),
+		on("posed by suggestion", !!st.pose, String(st.pose)),
+		on("self-touch blocked", st.selfTouch.all || st.selfTouch.groups.length > 0, describeSelfTouchBlocks()),
+	];
+	const senses = [
+		on("cannot speak", st.speechBlocked),
+		on("screen faded", st.screenFade > 0, `${Math.round(st.screenFade * 100)}%`),
+		on("numb to touch", st.numb),
+		on("unaware of clothing", st.suppressed.includes("clothing")),
+		on("unaware of bondage", st.suppressed.includes("bondage")),
+		on("unaware of touches", st.suppressed.includes("activity")),
+		on("clothing illusion", isIllusionActive(), describeIllusion().replace(/^clothing illusion: (ON, )?/, "")),
+	];
+	const anything = [...body, ...senses].some((l) => l.startsWith("  ON"));
+	return [
+		anything ? "Currently in force:" : "Nothing is holding you right now.",
+		...(anything ? ["body:", ...body, "perception:", ...senses] : []),
+	];
+}
+
+/** What a reconnect would find, for when the question is specifically about carry-over. */
+export function describeSavedState(): string {
+	const saved = read();
+	if (!saved) return "saved for reconnect: nothing (no trance was running when last written)";
+	const age = Math.round((Date.now() - (saved.savedAt || 0)) / 1000);
+	const within = Date.now() - (saved.savedAt || 0) <= RECOVERY_WINDOW_MS;
+	return (
+		`saved for reconnect: ${age}s old (${within ? "inside" : "PAST"} the ` +
+		`${RECOVERY_WINDOW_MS / 60_000}-minute window), hypnotist ${saved.hypnotistName || saved.hypnotistId}, ` +
+		`depth ${saved.depth}, ${saved.triggers?.length ?? 0} trigger(s), ${saved.carried?.length ?? 0} carried` +
+		`${isWaitingForHypnotist() ? " — WAITING for them to come back" : ""}`
+	);
 }
 
 export type RecoveryOutcome =

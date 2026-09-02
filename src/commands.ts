@@ -28,6 +28,7 @@ import { describeRecording } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
+import { describeCurrentState, describeSavedState } from "./recovery";
 
 let suppressNextAction = false;
 
@@ -211,6 +212,27 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Session",
 		Description: "Hard stop: clears the trance and every effect. Always works.",
 		Action: () => safeword(),
+	},
+	{
+		// The one to reach for after a reconnect, or any time the question is "why can I not
+		// do that". `session` answers what PHASE you are in and what you have permitted;
+		// this answers what is actually on you, which is a different question and was the
+		// one with no command behind it.
+		Tag: "effects",
+		group: "Session",
+		Description: "Show everything currently affecting you, and what would survive a reconnect",
+		Action: () => {
+			for (const line of describeCurrentState()) reply(line);
+			const held = listTriggers().filter(isTriggerInEffect);
+			reply(
+				held.length
+					? `triggers holding you: ${held.map((t) => `"${t.actions.join(", ")}" (by ${t.installedByName})`).join("; ")}`
+					: "no trigger is holding you",
+			);
+			reply(describeCarry());
+			reply(describeSavedState());
+			reply("Out of any of it: /hypno safeword.");
+		},
 	},
 	{
 		Tag: "session",
