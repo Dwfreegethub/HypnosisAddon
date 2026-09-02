@@ -297,7 +297,7 @@ export function attemptRecovery(): RecoveryOutcome {
 		// crash and must come off — this is the case that used to leave people frozen.
 		if (hasOrphanedEffects()) {
 			releaseEverything("effects left over with no session behind them");
-			tellPlayer("[Something was still holding you from before. It has let go.]");
+			tellPlayer("Something was still holding you from before. It has let go.");
 			return "orphans cleared";
 		}
 		return "nothing to do";
@@ -305,7 +305,7 @@ export function attemptRecovery(): RecoveryOutcome {
 
 	if (getFeatures().releaseOnDisconnect) {
 		releaseEverything("the subject has asked to come back clear after a disconnect");
-		tellPlayer("[You come back to yourself, clear. Nothing followed you.]");
+		tellPlayer("You come back to yourself, clear. Nothing followed you.");
 		return "released by setting";
 	}
 
@@ -319,9 +319,9 @@ export function attemptRecovery(): RecoveryOutcome {
 		// restoreTriggers ran BEFORE the release, so re-apply what still has time to serve.
 		if (triggersBack) {
 			restoreTriggers(saved);
-			tellPlayer("[The trance did not survive being away that long. Something else still has not let go.]");
+			tellPlayer("The trance did not survive being away that long. Something else still has not let go.");
 		} else {
-			tellPlayer("[You were gone long enough that whatever held you has ended.]");
+			tellPlayer("You were gone long enough that whatever held you has ended.");
 		}
 		return "expired";
 	}
@@ -338,7 +338,7 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 		} catch (err) {
 			log("could not restore the session:", err);
 		}
-		tellPlayer("[You were gone for a moment. You are still under, and it is as though you never left.]");
+		tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
 		log("recovery: resumed");
 	};
 
@@ -350,7 +350,7 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 	// Inside the window but nobody to be under. Hold the effects and keep looking: DW's rule
 	// is that a hypnotist who comes BACK inside the five minutes still counts.
 	tellPlayer(
-		`[You are still somewhere under. If ${saved.hypnotistName || "they"} is not back within a few minutes, it will fade.]`,
+		`You are still somewhere under. If ${saved.hypnotistName || "they"} is not back within a few minutes, it will fade.`,
 	);
 	restoreLocalState(saved);
 	if (waitTimer) clearInterval(waitTimer);
@@ -365,7 +365,7 @@ function waitForHypnotist(saved: SavedSession, triggersBack: number): RecoveryOu
 			stopWaiting();
 			releaseEverything("the hypnotist did not come back inside the window");
 			if (triggersBack) restoreTriggers(saved);
-			tellPlayer("[They did not come back. Whatever was holding you loosens and lets go.]");
+			tellPlayer("They did not come back. Whatever was holding you loosens and lets go.");
 		}
 	}, WAIT_POLL_MS);
 	return "waiting";

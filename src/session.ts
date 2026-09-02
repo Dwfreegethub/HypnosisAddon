@@ -207,16 +207,37 @@ function depthBand(depth: number): string {
  * had left rather than a fresh thirty minutes. */
 let sessionEndsAt = 0;
 
+/** How often to re-write the trance while it is running.
+ *
+ * A heartbeat is needed because pushUpdate() fires on SESSION transitions, and almost
+ * nothing that needs saving is a session transition. Suggestions, triggers and panel buttons
+ * all change what is in force without touching the phase, so a snapshot taken only at
+ * transitions is stale in both directions: an effect applied by speech after the last one is
+ * never saved at all, and an effect RELEASED after it stays saved as though it were still on.
+ * The second is what made a reconnect announce a clothing illusion that had already been
+ * lifted; the first is worse and quieter, since it drops real restrictions on resume. */
+const PERSIST_HEARTBEAT_MS = 5_000;
+let persistTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopPersistHeartbeat(): void {
+	if (persistTimer) clearInterval(persistTimer);
+	persistTimer = null;
+}
+
 /** Write the trance down where a reconnect can find it.
  *
- * Called wherever the session already pushes an update, which is every state change — so the
- * saved copy is never more than one transition old, and a disconnect loses at most that.
- * Only a live trance is worth saving: an idle client has nothing to come back to. */
+ * Called from pushUpdate on every session transition AND on a heartbeat while under, so the
+ * saved copy is never more than a few seconds behind whatever is actually in force. Only a
+ * live trance is worth saving: an idle client has nothing to come back to. */
 function persistSession(): void {
 	if (session.phase !== "Hypnotized") {
+		stopPersistHeartbeat();
 		clearSaved();
 		return;
 	}
+	// Self-arming, so no caller has to remember to start it — the phase check above is the
+	// only place that decides whether a trance is running.
+	if (!persistTimer) persistTimer = setInterval(persistSession, PERSIST_HEARTBEAT_MS);
 	persist({
 		...snapshotLocalState(),
 		hypnotistId: session.hypnotistId,
@@ -283,6 +304,7 @@ function endSession(reason: string, quiet = false): void {
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
 	stopWaiting();
+	stopPersistHeartbeat();
 	clearSaved();
 	// The denial LOCK comes off; the arousal LEVEL stays. One is something we applied to
 	// them, the other is a number they now carry — resetting it would be us reaching into
@@ -586,7 +608,10 @@ export function safeword(): void {
 	clearTimers();
 	// Nothing survives a safeword, and that must include the copy on disk — otherwise the
 	// next reload would faithfully restore the very thing the safeword was used to escape.
+	// Explicit rather than relying on pushUpdate below, which is skipped entirely when there
+	// is no hypnotist to tell.
 	stopWaiting();
+	stopPersistHeartbeat();
 	clearSaved();
 	const hypnotist = session.hypnotistId;
 	removeEffect("Freeze");

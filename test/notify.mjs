@@ -15,6 +15,7 @@ globalThis.ChatRoomSendLocal = (m) => local.push(m);
 globalThis.ChatRoomSendEmote = (m) => room.push(m);
 
 const { notify, flavor } = await import("./harness-bundle.mjs");
+const { readdirSync, readFileSync } = await import("node:fs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -148,6 +149,26 @@ check("body part, private", /pussy/.test(local[0] ?? ""), true);
 check("body part, public names the character", /Missy/.test(room[0] ?? ""), true);
 check("  and uses their pronoun", /\bher\b/.test(room[0] ?? ""), true);
 check("  with nothing left unfilled", /\{\w+\}/.test(room[0] ?? ""), false);
+
+// --- who is allowed to draw the brackets --------------------------------------------------
+// notify.ts owns them. v0.33.0 made half of that structural — no direct ChatRoomSendLocal
+// anywhere else — but nothing stopped a caller ALSO wrapping its own text, and recovery.ts
+// duly did, producing [[doubled brackets]] on screen in v0.44.0. The rule is now checked
+// rather than remembered, in the only way that actually holds: reading the source.
+const srcFiles = readdirSync("src").filter((f) => f.endsWith(".ts"));
+const offenders = [];
+for (const file of srcFiles) {
+	const text = readFileSync(`src/${file}`, "utf8");
+	// tellPlayer / tellRoom called with a string literal that already opens a bracket.
+	if (/tell(Player|Room)\(\s*[`"']\[/.test(text)) offenders.push(file);
+}
+check("nobody adds their own brackets", offenders, []);
+
+// And the reason the rule exists, asserted directly rather than by inspection.
+local = [];
+notify.tellPlayer("plain text");
+check("tellPlayer wraps exactly once", local[0], "[plain text]");
+check("  never doubled", /^\[\[/.test(local[0]), false);
 
 console.log(`notify: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
