@@ -110,6 +110,19 @@ export function clearSelfTouchBlocks(): void {
 	blockAllSelfTouch = false;
 }
 
+/** Everything currently blocked, in a form that survives being written to storage and read
+ * back. Group -> word, plus the blanket flag; see recovery.ts. */
+export function selfTouchSnapshot(): { all: boolean; groups: [string, string][] } {
+	return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
+}
+
+/** Put back exactly what selfTouchSnapshot() recorded. */
+export function restoreSelfTouch(snap: { all: boolean; groups: [string, string][] }): void {
+	clearSelfTouchBlocks();
+	blockAllSelfTouch = !!snap?.all;
+	for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
+}
+
 export function describeSelfTouchBlocks(): string {
 	const parts = [...new Set(blockedGroups.values())];
 	return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;

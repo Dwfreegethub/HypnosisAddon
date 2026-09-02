@@ -22,7 +22,15 @@ import {
 	appliedSuggestions,
 	lastApplied,
 } from "./carry";
-import { scheduleTimer, cancelTimer, markActive, clearActive, isActive } from "./timers";
+import {
+	scheduleTimer,
+	cancelTimer,
+	markActive,
+	clearActive,
+	isActive,
+	timerDeadline,
+} from "./timers";
+import { registerTriggerRecovery, SavedTrigger } from "./recovery";
 import {
 	isRecording,
 	cancelRecording,
@@ -1129,6 +1137,46 @@ function undoActionById(id: string): void {
 // Registered at module load: carry.ts needs these but importing voice.ts from it would be
 // circular, so the dependency runs one way and the functions are handed over.
 registerCarryHandlers(applyActionById, undoActionById);
+
+// --- surviving a disconnect ---------------------------------------------------------------
+// A trigger was never part of the session — the whole point of one is that it fires outside
+// a trance — so a fired trigger with time left on it serves out the REMAINDER after a
+// reconnect, regardless of the five-minute session window and regardless of whether the
+// hypnotist ever comes back. Dropping and rejoining must not be a way to reset every clock
+// currently holding you.
+registerTriggerRecovery(
+	() =>
+		listTriggers()
+			.filter((t) => isActive(timerKey(t)))
+			.map((t) => ({ key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) })),
+	(saved: SavedTrigger) => {
+		const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
+		if (!trigger) {
+			log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
+			return;
+		}
+		for (const id of saved.actions) {
+			try {
+				applyActionById(id);
+			} catch (err) {
+				log(`recovery: could not re-apply "${id}":`, err);
+			}
+		}
+		markActive(saved.key);
+		// until === 0 is the duration-0 case: applied, with no clock, until released deliberately.
+		const remaining = saved.until ? saved.until - Date.now() : 0;
+		if (remaining > 0) {
+			scheduleTimer(saved.key, remaining, () => {
+				undoTrigger(trigger);
+				tellPlayer("Whatever was holding you loosens on its own.");
+			});
+		}
+		log(
+			`recovery: trigger "${trigger.phrase}" restored with ` +
+				`${remaining > 0 ? `${Math.round(remaining / 60_000)} min left` : "no clock"}`,
+		);
+	},
+);
 
 /** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".
  * Returns true if the line was one of them. Requires a live trance and the subject's name,

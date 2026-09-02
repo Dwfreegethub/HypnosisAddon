@@ -8,18 +8,36 @@
 // state in a leaf module both can depend on.
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** When each pending timer is due, in absolute ms.
+ *
+ * A setTimeout knows its delay but will not tell you, and a reconnecting subject has to
+ * serve out the REMAINDER of a trigger rather than a fresh full duration — otherwise
+ * dropping and rejoining would silently reset every clock holding them. */
+const deadlines = new Map<string, number>();
 
 /** Schedule work under a key, replacing any pending work for that same key. Re-firing a
  * trigger therefore restarts its clock rather than stacking a second timer. */
 export function scheduleTimer(key: string, delayMs: number, fn: () => void): void {
 	cancelTimer(key);
+	deadlines.set(key, Date.now() + delayMs);
 	timers.set(
 		key,
 		setTimeout(() => {
 			timers.delete(key);
+			deadlines.delete(key);
 			fn();
 		}, delayMs),
 	);
+}
+
+/** Absolute due time for a pending timer, or 0 if nothing is pending under that key. */
+export function timerDeadline(key: string): number {
+	return deadlines.get(key) ?? 0;
+}
+
+/** Every key currently in force, whether or not a clock is running on it. */
+export function activeTimerKeys(): string[] {
+	return [...activeKeys];
 }
 
 export function cancelTimer(key: string): void {
@@ -28,6 +46,7 @@ export function cancelTimer(key: string): void {
 		clearTimeout(existing);
 		timers.delete(key);
 	}
+	deadlines.delete(key);
 }
 
 /** Keys whose effects are currently in force.
@@ -60,5 +79,6 @@ export function isActive(key: string): boolean {
 export function clearAllTimers(): void {
 	for (const timer of timers.values()) clearTimeout(timer);
 	timers.clear();
+	deadlines.clear();
 	activeKeys.clear();
 }

@@ -100,6 +100,7 @@ const TABS: Tab[] = [
 			{ key: "tranceScreenFade", label: "Screen Fade" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
+			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
 		],
 	},
 	{

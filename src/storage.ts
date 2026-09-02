@@ -128,6 +128,13 @@ export interface FeatureToggles {
 	 * quite different things to agree to, and this one is the only effect in the add-on that
 	 * changes what the whole room can see rather than only what the subject experiences. */
 	undressControl: boolean;
+	/** Come back CLEAR after a disconnect instead of resuming where you left off.
+	 *
+	 * Off by default, because BC drops people constantly and losing a scene to a thirty-second
+	 * network blip is the worse outcome. On, nothing survives a reconnect — no trance, no
+	 * carried suggestion, and no remaining trigger time. The escape hatch for anyone who does
+	 * not want a technical failure to be a way of being held. */
+	releaseOnDisconnect: boolean;
 	/** Whether `/hypno triggers` shows you the phrases that fire your own triggers.
 	 *
 	 * OFF by default, which is the design doc's "trigger words hidden by default, with a
@@ -259,6 +266,7 @@ function defaultFeatures(): FeatureToggles {
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
+		releaseOnDisconnect: false,
 		carryForward: false,
 		showTriggerWords: false,
 		selfTrigger: false,

@@ -3,12 +3,29 @@ import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
 import { noteInductionSuccess, noteInductionAttempt, accessFor, describeRelationship } from "./trust";
-import { clearAllTimers } from "./timers";
+import { clearAllTimers, timerDeadline } from "./timers";
+import {
+	persist,
+	clearSaved,
+	snapshotLocalState,
+	startRecovery,
+	registerRecoveryHandlers,
+	snapshotTriggers,
+	stopWaiting,
+	SavedSession,
+} from "./recovery";
 import { clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
 import { freezeAppearance, clearIllusion, describeIllusion } from "./illusion";
-import { carryThroughWake, releaseCarried, isCarried, describeCarry, clearActiveSuggestions } from "./carry";
+import {
+	carryThroughWake,
+	releaseCarried,
+	isCarried,
+	carriedIds,
+	describeCarry,
+	clearActiveSuggestions,
+} from "./carry";
 import {
 	applyEffect,
 	removeEffect,
@@ -27,9 +44,11 @@ import {
 // hypnotist's client never receives the subject's choice or any raw number — only bands —
 // so a modified hypnotist client can't read them, rather than merely agreeing not to.
 //
-// Session state is intentionally in-memory only, not persisted: a trance shouldn't
-// survive a page reload, and "reload to get out" is a useful last-ditch escape hatch on
-// top of the safeword.
+// Session state is in memory, and ALSO written down for reconnects — see recovery.ts.
+// "Reload to get out" used to be described here as a deliberate escape hatch; it never was
+// one. It was a comment written around the behaviour rather than a decision, and it was not
+// even true: the BC effects survived a reload while the session that would release them did
+// not, so reloading made things worse rather than better. The safeword is the escape hatch.
 
 export type SessionPhase =
 	| "Idle"
@@ -184,6 +203,32 @@ function depthBand(depth: number): string {
 
 // --- Subject side: pushing the view --------------------------------------------------
 
+/** Absolute deadline of the running session timeout, so a resumed session gets the time it
+ * had left rather than a fresh thirty minutes. */
+let sessionEndsAt = 0;
+
+/** Write the trance down where a reconnect can find it.
+ *
+ * Called wherever the session already pushes an update, which is every state change — so the
+ * saved copy is never more than one transition old, and a disconnect loses at most that.
+ * Only a live trance is worth saving: an idle client has nothing to come back to. */
+function persistSession(): void {
+	if (session.phase !== "Hypnotized") {
+		clearSaved();
+		return;
+	}
+	persist({
+		...snapshotLocalState(),
+		hypnotistId: session.hypnotistId,
+		hypnotistName: findCharacterName(session.hypnotistId),
+		depth: session.depth,
+		sessionEndsAt,
+		carried: carriedIds(),
+		carriedUntil: timerDeadline("carry"),
+		triggers: snapshotTriggers(),
+	});
+}
+
 function pushUpdate(refusedReason?: string): void {
 	if (session.hypnotistId == null) return;
 	const now = Date.now();
@@ -202,6 +247,7 @@ function pushUpdate(refusedReason?: string): void {
 		},
 		session.hypnotistId,
 	);
+	persistSession();
 }
 
 /** Send a one-off refusal to someone who isn't (and isn't becoming) our hypnotist,
@@ -236,6 +282,8 @@ function endSession(reason: string, quiet = false): void {
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
+	stopWaiting();
+	clearSaved();
 	// The denial LOCK comes off; the arousal LEVEL stays. One is something we applied to
 	// them, the other is a number they now carry — resetting it would be us reaching into
 	// state that was theirs before the session and is theirs after it.
@@ -398,6 +446,7 @@ function runInductionRoll(): void {
 		// leaves a shallow trance the subject can pull themselves out of.
 		session.depth = Math.min(100, Math.max(0, Math.round(chance - roll)));
 		session.hypnotizedAt = Date.now();
+		sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
 		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
 		applyTranceState();
 		// The accelerator, and the practice. Both halves only on success.
@@ -535,6 +584,10 @@ export function selfWake(): void {
  * way for anyone to take it away. Deliberately the simplest path in this file. */
 export function safeword(): void {
 	clearTimers();
+	// Nothing survives a safeword, and that must include the copy on disk — otherwise the
+	// next reload would faithfully restore the very thing the safeword was used to escape.
+	stopWaiting();
+	clearSaved();
 	const hypnotist = session.hypnotistId;
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
@@ -663,7 +716,40 @@ export function querySession(memberNumber: number): void {
 
 // --- Wiring --------------------------------------------------------------------------
 
+/** Put a saved trance back on. Called by recovery.ts once it has decided the scene is still
+ * live — the decision is entirely there, and the mechanics entirely here. */
+function restoreSavedSession(saved: SavedSession): void {
+	session.phase = "Hypnotized";
+	session.hypnotistId = saved.hypnotistId;
+	session.depth = Number(saved.depth) || 0;
+	session.hypnotizedAt = Date.now();
+	// The session keeps the time it had left, not a fresh allowance. Reconnecting is not a way
+	// to extend a trance, and a stale deadline that has already passed ends it immediately.
+	const remaining = (saved.sessionEndsAt || 0) - Date.now();
+	if (sessionTimer) clearTimeout(sessionTimer);
+	if (remaining > 0) {
+		sessionEndsAt = saved.sessionEndsAt;
+		sessionTimer = setTimeout(() => endSession("session timed out"), remaining);
+	} else {
+		endSession("the session had already run out while you were away");
+		return;
+	}
+	pushUpdate();
+	log(`recovery: session restored, depth ${session.depth}, ${Math.round(remaining / 60_000)} min left`);
+}
+
 export function installSession(): void {
+	registerRecoveryHandlers({
+		restoreSession: restoreSavedSession,
+		restoreCarried: () => {
+			/* carried suggestions are re-applied by voice.ts's handlers; see registerCarryHandlers */
+		},
+		inRoom: (memberId: number) =>
+			(typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).some(
+				(c: any) => c?.MemberNumber === memberId,
+			),
+	});
+	startRecovery();
 	// Incoming, as the SUBJECT.
 
 	registerHiddenHandler("session-query", (sender) => {
