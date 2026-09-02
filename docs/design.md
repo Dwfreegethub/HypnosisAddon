@@ -528,7 +528,52 @@ Both counters are session-scoped (reset between sessions) unless carrying fatigu
 1. **BC owner or lovers:** The wizard asks if the subject wants to designate one of them as Architect. Subject chooses; it is never automatic.
 2. **No owner/lovers (or none chosen):** Once a hypnotist reaches a high trust threshold (exact value TBD; modifiers optionally included), they may *request* Architect status. Subject accepts or declines — no silent elevation.
 
+**Abandonment and breaking free:**
+- The abandonment clock resets only on a **full induction session** — a whisper or passing contact does not count
+- The Architect is **never removed automatically** — the subject must explicitly request or attempt to break free
+- **Minimum trial period: 1 week** — subject cannot attempt to break free until at least 7 days have passed since the Architect relationship was established
+- **Default abandonment period: 2 weeks** — if the Architect has not run a session in 2 weeks, the subject may attempt to break free. Configurable by the subject before the Architect is set (wizard step or pre-commit setting). **Once an Architect is in place, this period cannot be changed by anyone** — both parties commit to the agreed window upfront
+- When breaking free: the subject chooses what resets (Architect triggers wiped, trust probably already faded — player's choice)
+- **The Architect can always remove themselves** from the subject at any time — mutual dissolution (breakup) is also an option
+
+**Architect control model:**
+- Architect has **granular lock control** — can lock specific settings rather than everything at once (exact scope of lockable items TBD; review settings screen for what makes sense to include/exclude)
+- **Only the Architect can change or unlock locked settings** — if the Architect is unavailable, locked settings stay locked. This is by design; choose carefully
+- **Architect triggers do not decay** — they are permanent until the subject resets or the Architect removes them
+- **Architect triggers cannot be removed or edited by other hypnotists** — only by the Architect or via a full subject reset
+- **Reset is always available to the subject** — no lock can prevent a full reset
+
 **Control hierarchy setting:** Subject decides whether the *player* or the *Architect* holds the highest level of control over settings. This is a toggle the subject sets. Regardless of how it is set, the subject always retains the ability to do a full reset.
+
+---
+
+## Proxy / Helper Mode (not yet built)
+
+A temporary, OOC support role — entirely separate from Architect. No RP framing; purely a tool for setup and troubleshooting.
+
+**What Proxy can do (with subject confirmation per action):**
+- View all settings tabs
+- Propose changes to any setting — subject sees and agrees to each one before it applies
+- Remove problem triggers (except Architect-placed triggers — see below)
+
+**What Proxy cannot do:**
+- Act without subject confirmation
+- Plant new triggers
+- Remove or modify Architect-placed triggers
+- Retain any access after leaving the menu
+
+**How it works:**
+- Subject invokes: `/hypno proxy @name` — subject initiates, not the helper (reduces abuse vector)
+- Access lasts only while the helper is actively in the shared menu view — closes automatically when they leave
+- Subject sees a live summary of all changes made during the session
+
+**Proxy and Architect interaction:**
+- A subject with an Architect **can** invoke Proxy — decided.
+- Proxy cannot touch anything the Architect has set or locked. This is structural: Proxy is OOC support access, not a privilege level that overrides relationship-based locks.
+- Proxy cannot undo anything the Architect has done.
+
+**⚠ Undecided — God mode:**
+A special override flag for a designated super-user (working name: `/hypno proxy @player God`). Would grant view and override ability across all subjects except the invoking player themselves. If implemented, scope, consent model, and logging requirements need full design. Flagged for future discussion — do not implement without explicit sign-off.
 
 ---
 
@@ -714,11 +759,31 @@ Map room note: since most BC bondage items add Slow rather than Freeze, the Tier
 
 ### Drug System
 
-Delivery: similar to LSCG — worn items (including hypodermic injector) and offered drinks. Need to verify no conflicts with LSCG's own system before implementing.
+**Delivery mechanism:** BC's crafted item system (players write custom names and descriptions). The add-on scans crafted item descriptions for a `[hypno:x]` tag and triggers the appropriate effect based on both the tag and the interaction type (drink, smoke, inject, etc.). This is the same general approach as LSCG; the `[hypno:]` namespace prevents conflicts if both add-ons are running simultaneously.
 
-**Two directions:** drugs that lower resistance (raise chemical floor) AND items that *boost* resistance / recharge resistance fatigue — so players can have countermeasures if desired.
+**Item types and actions scanned:**
+- Cup / drink → `drink` action
+- Cigarette → `smoke` action (BC-native item; LSCG does not use this)
+- Hypodermic injector / syringe → `inject` action
+- Potion / vial → `drink` action
 
-Drugs raise or lower the chemical access floor temporarily — see Core Mechanic. They cannot plant persistent suggestions.
+**Effect keywords:**
+
+| Tag | Effect | Natural item pairing |
+|-----|--------|---------------------|
+| `[hypno:relax]` | Mild inhibition lowering — small susceptibility bump | Drink, cigarette |
+| `[hypno:sedate]` | Strong inhibition lowering — significant susceptibility bump | Injection, potion |
+| `[hypno:stimulate]` | Inhibition raiser — makes subject harder to hypnotize | Stimulant drink, injection |
+| `[hypno:restore]` | Recharges resistance fatigue so subject can fight harder | Tonic, injection |
+| `[hypno:extend]` | Prolongs an active trance session slightly | Potion used during a session |
+
+**Two directions:** drugs that lower resistance (raise chemical floor) AND items that boost resistance or recharge fatigue — players can have countermeasures if desired.
+
+**Stacking:** Arousal and drug effects are tracked as separate floor values. The effective chemical floor at any moment is `max(arousalFloor, drugFloor)` — they do not add together. This prevents aroused + drugged from trivially pushing susceptibility near 100.
+
+**Doses vs. distinct items:** two items with distinct identities (mild vs. strong) rather than stacking doses of the same item. Multi-dose works for LSCG's general sedation; for hypnosis specifically, the RP overhead of repeated dosing before the induction starts eats the scene.
+
+Drugs raise or lower the chemical access floor temporarily — see Core Mechanic. They cannot plant persistent suggestions. Need to verify no conflicts with LSCG's own system before implementing.
 
 ### Hypnotic Visor / Glasses
 
@@ -740,6 +805,18 @@ When a subject enters trance, the following effects activate automatically — e
 
 All three are intended to be the default "you are hypnotized" experience. Players who want lighter effects can dial them back or disable individually.
 
+### Induction Visual — Spiral Overlay (planned)
+
+An animated spiral drawn as a canvas overlay during the induction attempt — same mechanism as the screen fade. Color reflects the current state of the induction:
+
+| State | Color | Notes |
+|-------|-------|-------|
+| Subject agreeing / relaxing | Soft blue or lavender | Calm, inviting |
+| Subject resisting / fighting | Warm red or amber | Tension, struggle |
+| Induction failing / roll poor | Spiral slows or stutters | Visual feedback that it isn't taking hold |
+
+Implementation: canvas 2D overlay, rotating animation, color and speed driven by live induction state. Check BC's VR glasses item for any existing spiral asset worth reusing — if not, draw it independently. Player-adjustable (can disable). Does not appear outside of an active induction attempt.
+
 ---
 
 ## Triggers
@@ -751,7 +828,16 @@ All three are intended to be the default "you are hypnotized" experience. Player
 
 - Planted during induction sessions by the hypnotist
 - Fire when the trigger word/phrase appears in chat
-- **Scope:** per-person (only fires when a specific person says it), per-list, trust-threshold, or anyone
+- **Scope:** who can fire the trigger. Default is **planter only** (the hypnotist who planted it). The hypnotist can propose a wider scope when planting (trust-threshold, per-list, or anyone), but the subject's global scope setting caps what is allowed — a subject whose setting is "planter only" cannot have an "anyone"-scoped trigger planted regardless of what the hypnotist specifies. Subject-authoritative throughout.
+
+  | Scope | Who fires it |
+  |-------|-------------|
+  | **Planter only** *(default)* | Only the hypnotist who planted it |
+  | **Trust threshold** | Anyone above a configured trust level |
+  | **Per-list** | A named set of people |
+  | **Anyone** | Any player in the room |
+
+  Global default is a subject setting. Individual triggers can be set to a wider scope at plant time, subject to the global cap.
 - **Fade over time** if not reinforced — untriggered or un-refreshed suggestions weaken
 - Hypnotist must periodically reinforce triggers (brief re-induction) to maintain them
 - Creates ongoing relationship mechanic rather than "plant and forget"
@@ -948,6 +1034,24 @@ Targets the subject's information environment — not their actual state.
 - Others in the room see reality; the subject's own perception is the target
 - Result: the whole room can see the subject is naked while the subject genuinely doesn't know
 
+#### Reverse Illusion — "Naked when dressed" (planned)
+Make a subject believe they are undressed (or partly undressed) when they are actually clothed. Two implementation options:
+
+**Option A — Naked shadow overlay (preferred long-term).** The bondage illusion already renders a shadow character on top of the real one. That same machinery can render a "bare" version of the subject instead of a frozen snapshot — hypnotist applies the illusion, no stripping required. BC's clothing is slot-based, so the illusion can target specific slots: fully naked (all slots cleared), topless only, bottomless only, or any combination. This is the right long-term approach.
+
+**Option B — Automated strip/freeze/restore command (faster to build).** A single hypnotist command that saves the subject's current outfit, strips them, freezes the illusion, then restores the outfit automatically. One action; all complexity hidden. Easier to implement than Option A but less flexible.
+
+Either option supports **partial undress** — since clothing is slot-based, the illusion can be scoped to specific body regions rather than all or nothing.
+
+#### Room Change Persistence (all illusion effects)
+The current freeze-frame illusion is local JS state; BC refreshes character appearance from the server on every room transition, which would overwrite the frozen snapshot. The illusion almost certainly breaks on room entry. **This is untested — needs verification.**
+
+**Design decision (if confirmed):** reapply the illusion automatically on room entry by hooking the room load event and restoring the illusion state before the first `DrawCharacter` call fires. If the hook runs during the loading phase, there may be no visible flash at all.
+
+If a flash of truth is unavoidable regardless, the preferred approach is a **brief dissociation effect** — a moment of blackout, blur, or swimming text as the room loads, after which perception settles back into the illusion. This serves double duty: it hides the technical seam *and* gives the subject a subtle experiential hint that something is off with their perception. This applies to all illusion-based effects, not just clothing.
+
+The dissociation flash can be a player setting (opt-in or opt-out) once the behavior is confirmed in testing.
+
 ### Bondage Illusion
 Two approaches:
 
@@ -1111,6 +1215,8 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~Trust accumulation engine~~ — moved to Stage 6
 - ~~Trigger system (plant, scope, fire, expiry)~~ — done in v0.20.0–v0.25.0. **Decay** (weakening with disuse, reinforcement) is still outstanding; what shipped is a flat duration timer.
 - Resistance mini-game
+- **OOC chat filtering** — any message wrapped in parentheses (e.g. `(just going AFK a moment)`) is OOC by BC convention and must be ignored entirely by the suggestion parser. No suggestion matching, no trust interaction, no trigger firing. Strip the message before it reaches any add-on logic. Add test cases to the pattern suite covering OOC-wrapped versions of known suggestion phrases to prevent regressions.
+- **Session state recovery after disconnect** — if the subject is dropped mid-session (BC disconnect, crash, browser close), investigate whether the active session state (suggestions in effect, trance depth, awareness flags) can be restored when they return to the room. The subject's state is stored locally so a full reload may wipe it. Design question: does the hypnotist get a reconnect prompt, or does the subject auto-restore silently? Related to the clothing-awareness bug (Bug #1) — a disconnect may be one of the paths that leaves flags in a dirty state.
 - ~~Clothing illusion (rendering override)~~ — done in v0.28.0. What shipped is the **freeze-frame** reading: the subject keeps seeing the clothes they had on when it took hold. Deliberately scoped to the room view — the wardrobe and the item menus still show the truth, which DW ruled out of scope at the time.
 - Bondage illusion (Tier 2 mental version) — the *opposite* direction to the clothing illusion and still unbuilt: showing restraints that are not there, rather than hiding changes that are. The shadow-character machinery from illusion.ts is most of what it needs.
 - Collateral effect system
@@ -1152,6 +1258,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Body part protection (others touching you)** — self-touch is done (`ActivityRun` hook). Blocking others from touching you needs a different approach since `ActivityRun` executes on the actor's client, not the subject's. Research needed.
 - ~~**BC relationship → trust floor**~~ — done in v0.36.0 as friend 15 / lover 30 / owner 65, each with a REACH as well as a number (see the version notes). ~~**Architect status tied to ownership**~~ — **decided: not automatic.** Wizard asks owner/lovers if they want to set it up. Strangers reach it via trust threshold + request/accept flow. One architect at a time. Subject always holds reset.
 - **Persona / alter ego** — "when you hear X, you become [name/personality]." Mostly RP, but add-on can nudge: if the alter ego is defined as wearing little clothing, add-on resists attempts to get fully dressed while the persona is active. Add to trigger effects.
+- **Custom phrase localization** — let subjects replace built-in flavor text and suggestion patterns with their own wording. Stored as a small `effect_id → custom phrase` map in ExtensionSettings (minimal storage impact after LZString compression). Two layers: flavor text (what the subject sees when an effect fires — subject-side only, simple substitution) and suggestion aliases (what the hypnotist says to trigger it — harder, requires exposing the subject's aliases to the hypnotist via help screen or OOC). Primary use case: players for whom English is not their first language, and players who want more personal or thematic phrasing. Ship flavor text first; aliases as a later extension.
 - **Phantom sensation** — feeling touch that isn't there, or not feeling touch that is. Separate category from clothing illusion. Excellent trigger effect: warmth, numbness, phantom touch on specific body parts. Many implementation paths — explore.
 - **Compelled self-touch + block combination** — "touch yourself whenever arousal drops below X" AND "you cannot touch yourself on your own." Both halves are already built separately; needs a combined trigger or conditional.
 - **Fractionation** — waking and re-inducing repeatedly, each time going deeper. As a named mechanic: if re-induction follows a wake within a short window, the roll gets a bonus (subject still partway primed, rapport warm). Currently no mechanic distinguishes first from second induction.
@@ -1159,7 +1266,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Resistance fatigue** — the more someone fights off inductions, the more tired they get, making future attempts easier. Currently resistance is stateless. Review when developing trust/experience further.
 - **Suggestion stacking / conditionals** — "if X then Y, if Y then Z." Chains of triggers. Body part blocks already stack naturally; review for formal support.
 - **Honesty / amnesia** — compulsive truth-telling and targeted forgetting. RP-prompt features only (no way to enforce mechanically), but the add-on can emit a hint visible only to the subject reminding them to RP accordingly.
-- **Waking trance** — subject appears fully conscious but suggestions still active. Needs investigation: hypnotist can already issue most commands post-trance; the gap is clearing the subject's screen and whether the subject knows they're still under. Explore what "distinct mode" would add before committing to building it.
+- **Waking trance** — **decided: build it.** Subject is ambulatory but still under — screen tint drops to ~5–10% opacity (near-invisible) vs the full-trance 30%, movement restriction lifts, suggestions continue to parse and fire. Effects that require deep stillness (full freeze, etc.) do not fire in walking trance; lighter effects do. Vocal commands: *"Walk with me"* / *"Stay with me as you move"* → enters walking trance; *"Stop"* / *"Be still"* / *"Stay"* → re-applies movement lock and returns to full trance. Subject-authoritative: subject knows they are still under even if they appear conscious to others.
 - ~~**Safe signal while silenced**~~ — resolved. Speech blocking hooks `ChatRoomSendChatMessage`, which runs *after* command parsing and after the emote and whisper branches, so a silenced subject keeps `/hypno` commands, emotes and whispers; only ordinary room speech goes. Documented in the help screen's Lasting tab (v0.32.0). The residual case is a fired trigger with the duration set to **0**, where the safeword is the only self-serve exit — DW's deliberate call.
 - **Session log** — record of what was suggested, what stuck, and when. Hypnotist-side. TBD.
 - **Setup wizard** — first-launch guided config (openness, relationship trust, depth thresholds for sensitive features, chemical floor scope, safeword, decay rate). Re-runnable from settings. Does not lock anything — just fills sensible defaults.
@@ -1168,6 +1275,16 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
 - **Trigger reinforcement and decay** — formal re-induction resets clock; firing counts as partial reinforcement only. Decay rate separate from trust decay.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured.
+
+---
+
+## Known Bugs
+
+Observed in play but not yet traced to a root cause. Add date and any reproduction details when logging.
+
+| # | Bug | Observed | Notes |
+|---|-----|----------|-------|
+| 1 | **Session starts with clothing awareness already suppressed** — subject is ignoring clothing changes at the moment a session begins, before any suggestion is given. Expected: clothing awareness suppression should be off at session start and only apply after an explicit suggestion. | 2026-09-01 | Possible state leak from a previous session or carry-forward. Check whether awareness flags are reset on session end / on next session start. |
 
 ---
 
@@ -1397,3 +1514,17 @@ What is never optional either way: that a trigger exists, who planted it, what i
 **The roleplay bonus, finally (v0.41.0).** See the induction formula section above for the mechanic. What matters here is the conflation it resolved: **the induction accelerator was never the RP reward**, and reading it as one was producing pressure to raise a number that would have let strangers reach the deepest gates in an hour. The accelerator pays for *finishing* an induction; the RP bonus pays for *performing* one. Both now exist, at 5 and +5/line respectively, and they do different jobs.
 
 ---
+
+## Priority Work Session — 2026-09-01
+
+The following items are the current implementation priority, in order. Pick up from the top and work down.
+
+1. **`INDUCTION_WINDOW_MS` → 60,000** — currently at 10,000 (testing value). One-line change in `log.ts` or wherever the constant is defined. Must be done before any real play session.
+
+2. **Fix `arousalControl` and `illusionControl` not releasing on revoke** — the rule everywhere else is that unchecking a permission frees the effect immediately. `menu.ts`'s `onToggle` has no case for either. Unchecking *Arousal & Orgasm* leaves `DenialMode` applied; unchecking *Clothing Illusion* leaves the illusion running. Small fix, consent rule.
+
+3. **Depth system Phase 1** — implement the 5-tier trance depth gate (Drifting 0–19 / Yielding 20–39 / Entranced 40–59 / Deep 60–79 / Blank 80+). See the full design in *Trance Depth as the Feature Gate*. Minimum viable slice: tier detection from roll outcome, features gated by `depthFull` vs `depthEarned`, chemical floor per-feature dropdown (Both / Arousal only / Drugs only / Neither). Per-feature UI selectors can follow in a later pass.
+
+4. **OOC filtering** — strip anything inside parentheses from incoming chat before it reaches any suggestion parser or trigger matcher. A subject saying "(ooc: brb)" should never fire a suggestion. Simple regex pre-filter on the message hook.
+
+5. **Session state recovery after disconnect** — if the subject's client drops mid-session and reconnects, attempt to restore the active session state (trance depth, active effects, active triggers) from `ExtensionSettings`. The hypnotist's client cannot be trusted for this — recovery must be subject-side from locally persisted state.
