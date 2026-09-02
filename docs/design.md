@@ -27,6 +27,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
+| **What to test next** | Needs Testing — as of v0.48.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -34,7 +35,7 @@ Appendix at the end.
 
 ## Current Implementation Status
 
-*(as of 2026-08-31, v0.41.0 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
+*(as of 2026-09-01, v0.48.0 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
 
 **A full hypnosis loop now works end to end, tested with two accounts.** A hypnotist opens the subject's Information Sheet, clicks an icon, attempts an induction; the subject privately chooses how to respond; after an RP window a roll decides whether they go under; and once under, the hypnotist can restrict them either by clicking buttons or simply by speaking to them.
 
@@ -54,6 +55,7 @@ Appendix at the end.
 | 10 — Help & voice | Five-tab help screen on both panels; private messages bracketed, observable ones emoted to the room |
 | 11 — Trust over time | Decay as named speeds, BC relationships as category-aware floors, access unified behind `accessFor()` |
 | 12 — Sensation & effort | Numbness split from awareness; trigger words a player setting; roleplay rewarded in the induction roll |
+| 13 — Undressing & survival | Taking clothes off one garment at a time; OOC filtering; a trance that survives a disconnect; `/hypno effects` |
 
 **Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while in trance". Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
@@ -63,7 +65,7 @@ A second tab holds the **trance defaults** — cannot move / cannot speak / scre
 
 **Getting out**, in ascending order of authority: the hypnotist's Wake Up button; `/hypno wake`, which works only if the trance is shallow; a 30-minute session timeout; and `/hypno safeword`, which always works from any state and can't be taken away.
 
-**Spoken suggestions.** During a session the subject's client parses the hypnotist's ordinary chat. Twenty-three entries exist — movement, clothing, posture, speech, three awareness categories, four arousal levels, forced/denied orgasm, numbness and the clothing illusion — plus parameterised self-touch blocks for 42 body words, each with restriction and release phrasings. The help screen's *What to Say* tab is generated from this same table, and the test suite asserts every example phrasing it shows actually matches. Contractions and punctuation are normalised away first, so wording is fairly free ("you can't move", "don't move", "stay still", "you're frozen" all land). **The hypnotist must address the subject by name** for anything to fire, which is what keeps ordinary conversation inert. Effects are identical whether triggered by button or by speech, flavor text included.
+**Spoken suggestions.** During a session the subject's client parses the hypnotist's ordinary chat. Twenty-five entries exist — movement, clothing, posture, speech, three awareness categories, four arousal levels, forced/denied orgasm, numbness, undressing and the clothing illusion — plus parameterised self-touch blocks for 42 body words, each with restriction and release phrasings. The help screen's *What to Say* tab is generated from this same table, and the test suite asserts every example phrasing it shows actually matches. Contractions and punctuation are normalised away first, so wording is fairly free ("you can't move", "don't move", "stay still", "you're frozen" all land). **The hypnotist must address the subject by name** for anything to fire, which is what keeps ordinary conversation inert. Effects are identical whether triggered by button or by speech, flavor text included.
 
 **Architectural spine — subject-authoritative throughout.** Every cross-player action is only ever a *request*; the receiving client alone decides, checking its own local settings. The hypnotist's client is never trusted about permissions, session state, or whether a suggestion matched. This is what the doc's own "Sync between players" section already called for, and it's worth checking future features against it.
 
@@ -71,7 +73,7 @@ A second tab holds the **trance defaults** — cannot move / cannot speak / scre
 
 **Known rough edges (still true):** suggestion patterns are regex, not comprehension, so synonyms outside the library silently do nothing — which is why the pattern suite exists and why every gap found in play should become a case in it. `INDUCTION_WINDOW_MS` remains at its 10-second testing value. The flavor-text wording DW wasn't sold on has been through one real pass since (the apply/attempt split in v0.34.0) but has not been re-reviewed as a whole.
 
-**Test suite: 598 checks across thirteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
+**Test suite: 748 checks across sixteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
 
 
 
@@ -1302,7 +1304,8 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 
 | # | Bug | Observed | Notes |
 |---|-----|----------|-------|
-| 1 | **Session starts with clothing awareness already suppressed** — subject is ignoring clothing changes at the moment a session begins, before any suggestion is given. Expected: clothing awareness suppression should be off at session start and only apply after an explicit suggestion. | 2026-09-01 | Possible state leak from a previous session or carry-forward. Check whether awareness flags are reset on session end / on next session start. |
+| ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **likely fixed, needs one confirming run.** Orphaned state is now cleared on every load (v0.44.0) and the saved snapshot no longer goes stale between session transitions (v0.44.1), which were the two plausible paths to a flag surviving into a fresh session. Re-test before closing. Original report: | 2026-09-01 | Possible state leak from a previous session or carry-forward. |
+| 1b | **Session starts with clothing awareness already suppressed** — subject is ignoring clothing changes at the moment a session begins, before any suggestion is given. Expected: clothing awareness suppression should be off at session start and only apply after an explicit suggestion. | 2026-09-01 | Possible state leak from a previous session or carry-forward. Check whether awareness flags are reset on session end / on next session start. |
 
 ---
 
@@ -1337,7 +1340,7 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 
 ---
 
-*Last updated: 2026-08-31 — trance depth as feature gate (5 named tiers), dual fatigue, fractionation. Relationship floors settled as DEPTH floors (friend none / lover Entranced / owner Deep, Fight forfeits). Two-depth rule (`depthEarned` / `depthFull`) replaces the four-way `AccessCategory` split; the reach matrix is superseded and its Arousal column is recorded as never having worked. Induction accelerator corrected to +5; RP bonus built as the separate lever it always was. Code at v0.41.0.*
+*Last updated: 2026-09-01 — undressing, OOC filtering, disconnect recovery, and `/hypno effects`. Priority items 1, 2, 4 and 5 done; item 3 (the depth system) is the one left. See **Needs Testing** for what has not yet had two accounts in a room. Code at v0.48.0.*
 
 ## Appendix: Version History
 
@@ -1532,6 +1535,153 @@ What is never optional either way: that a trigger exists, who planted it, what i
 **The roleplay bonus, finally (v0.41.0).** See the induction formula section above for the mechanic. What matters here is the conflation it resolved: **the induction accelerator was never the RP reward**, and reading it as one was producing pressure to raise a number that would have let strangers reach the deepest gates in an hour. The accelerator pays for *finishing* an induction; the RP bonus pays for *performing* one. Both now exist, at 5 and +5/line respectively, and they do different jobs.
 
 ---
+
+### Added 2026-09-01 (v0.42.0 – v0.48.0)
+
+Undressing, then the whole of DW's priority list except the depth system, then a long
+bug-chase in play that turned out to be the valuable part of the day.
+
+**Undressing (v0.42.0).** The doc's Tier 1 *Remove clothes*: one garment at a time, outermost
+first, so saying it again takes the next piece and the pace belongs to the scene. Slots are
+SlaveParking's `HANDLER_UNDRESS_ORDER` on DW's pointer — a curated list rather than all 32
+`Clothing: true` groups, which would take a subject's earrings off when told to undress.
+
+**The exact inverse of `illusion.ts`, and the two now state each other's rule.** The illusion
+must never touch `Player.Appearance` because that array syncs to the whole room; undressing
+must, for the same reason. Undressing only the subject can see *is* the illusion, under a
+different permission and a higher trust bar.
+
+Order in the suggestion table is load-bearing: the pair sits **after** `clothing-block` so
+that "you cannot undress" reads as a restriction rather than an instruction. The suite caught
+bare `/undress/` eating `clothing-block`'s own example.
+
+**Priority items 1, 2 and 4 (v0.43.0).** The induction window back to 60s. `arousalControl`
+and `illusionControl` releasing on revoke — and writing that test found a third case one level
+up and worse: **`hypnoEnabled` off did not clear the illusion or the denial lock either**,
+which is the hard floor, the switch someone reaches for when they want everything to stop. And
+OOC filtering, which was a real hole rather than a nicety: `normalize()` turns punctuation into
+spaces, so `(ooc: brb, you cannot move)` was parsed exactly as if said in character.
+
+**Disconnect recovery (v0.44.0 – v0.48.0).** Item 5, and it took five versions because every
+play-test found the next layer of it. The rules are DW's and did not change; what changed
+repeatedly was the answer to *what counts as state*.
+
+  1. **v0.44.0** — the window, the hypnotist check, triggers serving their remainder, the
+     opt-out. The bug it actually fixed was not the one the list described: state was not
+     merely lost. `Freeze`, `BlockWardrobe` and `DenialMode` ride on the Emoticon item in
+     `Player.Appearance`, which is **server-side and comes back on reload**, while the session
+     that would release them does not — so a reconnecting subject was still frozen with
+     nothing that knew why, and only the safeword out. `hasOrphanedEffects()` runs on every
+     load for that reason, disconnect or not.
+  2. **v0.44.1** — the saved snapshot only refreshed on session *transitions*, and almost
+     nothing worth saving is one. Stale in both directions: an effect released after the last
+     transition stayed saved as on, and an effect applied after it was never saved at all. A
+     5-second heartbeat while anything is in force.
+  3. **v0.45.0** — *"all the states restored unless they are not possible"*, so four more:
+     the illusion (rebuilt from the **original** garments via `AssetGet`, not re-frozen), our
+     BC effects, a suggested pose, and carried suggestions — which had been **a stub that did
+     nothing** while claiming another module handled it.
+  4. **v0.47.0** — the `applied` tracker, which is what *"that will stay with you"* points at.
+     Easy to miss precisely because it holds no effect: losing it strands nothing, it just
+     makes the phrase deny a suggestion that was given.
+  5. **v0.48.0** — the sharpest one. Carried suggestions and fired triggers exist *specifically
+     to outlive a session*, and the save was gated on a session being live, so **waking wiped
+     the record of them**. The five-minute window belongs to the trance; durable state carries
+     its own clocks and returns regardless of how long the subject was away or whether the
+     hypnotist is anywhere near.
+
+**`/hypno effects` (v0.46.0).** DW asked how to see what carried over and there was no answer:
+`/hypno session` reports the phase and the permissions, neither of which is what is currently
+on you. Generated from the same snapshot the restore reads, so the readout and what would
+actually come back cannot drift apart. It reports the **off** states too — "nothing is holding
+you" is the answer most worth being able to trust.
+
+It immediately earned itself twice. It exposed that the illusion had been **freezing
+EyeShadow** (v0.46.1) — two of BC's 32 `Clothing: true` groups are cosmetics, not garments, and
+freezing makeup contradicts the split the module is built on. And its own wording overclaimed
+(v0.47.0): *"unaware of clothing"* reads as *cannot see her clothes*, which is the illusion, a
+different feature two lines below. Suppression hides the message; the illusion hides the body.
+
+**Room-change persistence, answered.** See that section: DW tested it and the illusion holds
+with no flash, because a room change does not reload the page. A page reload is the only case,
+and the poll that notices went from 1s to 250ms.
+
+---
+
+## Needs Testing — as of v0.48.0
+
+Written at the end of 2026-09-01. Everything below is built and unit-tested; what it has not
+had is two accounts in a room. Ordered by how much it would matter if it were wrong.
+
+### 1. Carried suggestions across a wake AND a disconnect — the whole v0.48.0 chain
+
+The scenario DW hit, which failed at four different layers over five versions. Run it exactly:
+
+```
+Missy, you notice nothing
+Missy, you cannot tell what you are wearing
+Missy, all of this stays with you
+[take the shirt]
+/hypno effects          <- BEFORE waking: confirm both landed and both are held
+Missy wake
+/hypno effects          <- after waking: both should STILL be on, carry-forward holding two
+[disconnect, reconnect]
+/hypno effects          <- the actual test
+```
+
+Expected on the last one: no trance, but `not told about clothing changes: ON`, `clothing
+illusion (cannot SEE the change): ON`, and `carry-forward: holding awareness-block,
+illusion-block`. Console should log `recovery: durable only` — that path did not exist before
+v0.48.0.
+
+**The illusion is the deepest part of the chain.** It is the only carried effect whose restore
+rebuilds the original garments rather than re-running a suggestion, so if it comes back with
+the *same frozen group list* as before the wake, everything under it worked.
+
+Note carried suggestions expire on the trigger duration (Triggers tab, default 5 min). Taking
+longer than that between waking and reconnecting means they legitimately wore off — that is
+not a bug, and `/hypno effects` says so.
+
+### 2. Known Bug #1 — awareness suppressed at session start
+
+Probably already dead: orphan clearing (v0.44.0) and the stale-snapshot fix (v0.44.1) removed
+the two plausible paths. Needs one clean run to close: fresh load, start a session, `/hypno
+effects` before saying anything. All three awareness lines should be off.
+
+### 3. A trigger firing outside a trance, then a disconnect
+
+Never persisted at all before v0.48.0, and it is the *normal* way a trigger fires. Plant one,
+wake, fire it in ordinary conversation, disconnect, come back. It should still be holding you,
+with less time on it than it started with — not a fresh full duration.
+
+### 4. Undressing (v0.42.0) — untested in play entirely
+
+`Missy, take something off` repeatedly, then `Missy, take everything off`. Watch that the
+room sees it (it changes the character everyone is looking at, unlike everything else here),
+that accessories are left alone, and that `Missy, you cannot undress` is still read as a
+restriction rather than an instruction.
+
+Also worth checking with hands bound and with a locked item on: both should refuse and say
+which, rather than failing silently.
+
+### 5. The RP bonus (v0.41.0) — never observed live
+
+`/hypno chance <name>` during an induction window should show `roleplay bonus +N` climbing as
+the hypnotist types. Three substantive lines to reach +15. Worth confirming the 15-character
+floor is not rejecting real induction phrasing.
+
+### 6. OOC filtering (v0.43.0)
+
+`(Missy, you cannot move)` in parentheses should do nothing at all. `Missy, you cannot move
+(brb)` should still work.
+
+### 7. `hypnoEnabled` off as the hard floor (v0.43.0)
+
+With everything applied — frozen, illusion, denial — untick *Hypnosis Enabled*. All of it
+should come off, including the two that used to survive it.
+
+---
+
 
 ## Priority Work Session — 2026-09-01
 
