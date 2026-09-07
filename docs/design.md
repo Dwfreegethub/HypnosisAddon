@@ -1608,6 +1608,27 @@ and the poll that notices went from 1s to 250ms.
 
 ---
 
+## Bot Hypnotist — Possible Testing Utility (not yet built)
+
+A small standalone Node.js script (separate from SSS and BD) that connects to BC and acts as a hypnotist by sending the hidden messages and suggestion-phrased chat that the add-on's subject side expects. The subject's client does all the actual work; the bot is just a protocol-aware message sender.
+
+**Why it's useful for testing:** the bot can log everything it sends and receives, and prompt the person running the subject account to confirm what they're seeing — "you should now be frozen, can you move?" The bot knows the expected outcome of each message and can walk through scenarios systematically without needing a second human to drive the hypnotist side.
+
+**What it needs to implement:**
+- Send the hidden induction-start message in the correct format
+- Wait for the subject's private choice (Agree / Ignore / Fight) as a hidden message response
+- Branch on the response — proceed if Agree, report and stop if Ignore/Fight
+- Send suggestion-phrased chat during a session
+- Send trigger-planting messages
+- Send wake and release messages
+- After each step, prompt the subject to confirm observed behavior before proceeding
+
+**The catch:** the induction requires the subject's private choice to come back as a hidden message. The bot has to listen for that and branch. SSS already handles async message flows (bondage stages, mercy releases), so the pattern is established — just needs wiring for the hypnosis protocol.
+
+**Scope:** testing only. Not intended for RP use with real players, and should be clearly labeled as a test harness. Full RP integration into SSS (Handler as hypnotist) is a separate, larger idea — possible but not planned.
+
+---
+
 ## Needs Testing — as of v0.48.0
 
 Written at the end of 2026-09-01. Everything below is built and unit-tested; what it has not
