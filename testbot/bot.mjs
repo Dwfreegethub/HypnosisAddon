@@ -282,6 +282,12 @@ socket.on("ChatRoomMessage", (data) => {
 			// subject's client saying why it declined, in its own words.
 			if (message.refusedReason) logLine("REFUSED", message.refusedReason);
 		}
+		// Refusals are the single most useful thing the subject's client says, so they get
+		// their own line rather than being left inside a RECV blob. The depth-arousal run was
+		// ungradeable for want of exactly this.
+		if (message.type === "trigger-status" && /Refused/i.test(message.text ?? "")) {
+			logLine("REFUSED", message.text);
+		}
 		// `/bot next` on the subject's side arrives here rather than as chat.
 		//
 		// This is not a convenience. The suite silences the subject on purpose, and a silenced

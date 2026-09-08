@@ -1378,6 +1378,17 @@ export function handleSpokenLine(sender: number, content: string): void {
 	const blocked = blockedReason(suggestion, sender, features);
 	if (blocked) {
 		log(`heard "${id}" from ${sender} but ${blocked}`);
+		// TELL THE HYPNOTIST. This was console-only, and the silence cost a whole test run:
+		// the depth-arousal scenario refused the illusion exactly as designed and reported
+		// nothing, so the run could not be graded and the correct behaviour read as a bug.
+		// Planting a trigger already answered this way — it was only ordinary suggestions
+		// that vanished.
+		//
+		// It is not just a testing affordance either. A hypnotist saying something that does
+		// nothing, with no feedback at all, cannot tell a refusal from a typo. Nothing new is
+		// disclosed: the remote panel already shows which features are granted, and trigger
+		// refusals already name the depth and the earned rule in these words.
+		tellHypnotist(sender, `[suggestion] Refused — "${suggestion.id}" ${blocked}.`);
 		return;
 	}
 	// While recording a trigger, suggestions are stored rather than performed — otherwise
