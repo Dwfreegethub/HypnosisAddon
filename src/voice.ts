@@ -4,7 +4,8 @@ import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
-import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist, effectiveAccess } from "./session";
+import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
+import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
@@ -125,15 +126,10 @@ interface Suggestion {
 	 * the same lesson the generated /hypno summary already learned. Every entry must have
 	 * at least one, and it must be a phrase the patterns above actually match. */
 	examples: string[];
-	/** Minimum RELATIONSHIP trust to apply this, from the design doc's feature-threshold
-	 * table. Deliberately not effectiveAccess(): the chemical floor is for session-only
-	 * effects, and a threshold exists on a suggestion precisely because it is deeper than
-	 * that. Omitted means the permission is the only gate, as it is for everything else. */
-	trustThreshold?: number;
-	/** Which access category the threshold is checked in — decides whether a BC
-	 * relationship's floor may lift it. Defaults to "session"; the illusion is "deceptive",
-	 * so only an owner's floor reaches it. */
-	trustCategory?: AccessCategory;
+	// NO trustThreshold any more. Depth is the gate as of v0.50.0, and it is looked up from
+	// the suggestion's PERMISSION rather than stored here — so a player who raises the tier
+	// for "clothing illusion" moves the button, the spoken phrase and the trigger action all
+	// at once, instead of three places drifting apart.
 	patterns: RegExp[];
 	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
 	 * arousal suggestions, which can match and be permitted and still not land (the
@@ -174,22 +170,45 @@ function applyForcedOrgasm(): FlavorKey | void {
 /** Why this suggestion cannot run for this speaker, or null if it can. Returns a reason
  * string rather than a boolean so the log can say which gate stopped it — the same
  * "a silent rejection is a bug in its own right" rule the rest of this file follows. */
-function blockedReason(suggestion: Suggestion, speaker: number, features: FeatureToggles): string | null {
+/** The consent half alone: is this switched on at all?
+ *
+ * Split out from the depth check because a TRIGGER needs exactly this and not that. A trigger
+ * fires outside a trance, where depth is zero by definition — so re-checking depth when it
+ * goes off would disarm every trigger ever planted, permanently. Depth is a property of the
+ * induction that planted it and is checked once, then; permission is re-checked every single
+ * time it fires, so revoking one disarms that action of every trigger already out there. */
+function permissionReason(suggestion: Suggestion, features: FeatureToggles): string | null {
 	if (suggestion.release) return null; // a revoked permission must never strand an effect
 	if (!features.hypnoEnabled) return "hypnoEnabled is off";
 	if (!permitted(suggestion, features)) return `${suggestion.permission} isn't granted`;
-	if (suggestion.trustThreshold != null) {
-		const category = suggestion.trustCategory ?? "session";
-		// Session-only effects get the arousal floor; everything deeper does not. The doc is
-		// explicit that the chemical floor reaches the session-only rows — mood, behavioural,
-		// immobilisation, follow, remove clothes, both illusions' message half — and never
-		// persistent or deceptive ones. accessFor() is the relationship half alone, so
-		// checking a session threshold against it was quietly stricter than the design.
-		const access = category === "session" ? effectiveAccess(speaker) : accessFor(speaker, category);
-		if (access < suggestion.trustThreshold)
-			return `needs trust ${suggestion.trustThreshold}, at ${access.toFixed(1)}`;
-	}
 	return null;
+}
+
+function blockedReason(suggestion: Suggestion, speaker: number, features: FeatureToggles): string | null {
+	const permission = permissionReason(suggestion, features);
+	if (permission) return permission;
+	if (suggestion.release) return null;
+	// DEPTH, not trust. Trust decided how deep this induction could go; the feature asks only
+	// whether they got there. See depth.ts — and note the check is per PERMISSION rather than
+	// per suggestion, so "you notice nothing" answers to whichever of its three categories is
+	// actually granted rather than to a single tier of its own.
+	const depthBlock = depthReason(suggestion, features);
+	if (depthBlock) return depthBlock;
+	return null;
+}
+
+/** Why the subject is not deep enough for this suggestion, or null.
+ *
+ * With several permissions, the SHALLOWEST granted one wins — matching what run() does, which
+ * applies only the categories actually permitted. Blocking "you notice nothing" at the
+ * deepest of its three tiers would refuse a line that would have done something. */
+function depthReason(suggestion: Suggestion, features: FeatureToggles): string | null {
+	const keys = (Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission]).filter(
+		(k) => features[k],
+	);
+	if (!keys.length) return null; // the permission check above already refused this
+	if (keys.some((k) => depthAllows(k))) return null;
+	return depthRefusal(keys[0]);
 }
 
 function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
@@ -358,8 +377,6 @@ const SUGGESTIONS: Suggestion[] = [
 		// against relationship trust alone — the arousal floor must never reach a feature
 		// that lies to someone about their own state. See ILLUSION_TRUST_THRESHOLD above for
 		// why the number is 65 rather than the 70 this table originally called for.
-		trustThreshold: ILLUSION_TRUST_THRESHOLD,
-		trustCategory: "deceptive",
 		patterns: [
 			/\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
 			/\byou (?:do not|will not|cannot) notice (?:what|how) you are (?:wearing|dressed)\b/,
@@ -456,7 +473,6 @@ const SUGGESTIONS: Suggestion[] = [
 		id: "undress-all",
 		examples: ["take everything off", "strip"],
 		permission: "undressControl",
-		trustThreshold: UNDRESS_TRUST_THRESHOLD,
 		patterns: [
 			/\btake (everything|it all) off\b/,
 			/\btake off (everything|all your clothes)\b/,
@@ -474,7 +490,6 @@ const SUGGESTIONS: Suggestion[] = [
 		id: "undress",
 		examples: ["take something off", "undress"],
 		permission: "undressControl",
-		trustThreshold: UNDRESS_TRUST_THRESHOLD,
 		patterns: [
 			/\btake (something|a piece|one thing|another|it) off\b/,
 			/\btake off (something|a piece|one thing|another)\b/,
@@ -799,7 +814,19 @@ export interface SuggestionHelp {
 	permission: string;
 	examples: string[];
 	release: boolean;
-	trustThreshold?: number;
+	/** The tier this needs, as a label. Looked up from the permission rather than stored on
+	 * the suggestion, so the help screen and the gate cannot disagree. */
+	depthTier?: string;
+}
+
+/** The tier a suggestion needs, for the help screen. Releases are deliberately blank: a
+ * release is never depth-gated, because handing something back must always be easier than
+ * taking it away. */
+function tierLabelFor(permission: keyof FeatureToggles | (keyof FeatureToggles)[]): string | undefined {
+	const keys = Array.isArray(permission) ? permission : [permission];
+	const tiers = keys.map((k) => requiredDepth(k));
+	const shallowest = Math.min(...tiers);
+	return Number.isFinite(shallowest) ? tierLabel(tierOf(shallowest)) : undefined;
 }
 
 /** The pattern library as the help screen sees it. Table order is already grouped by
@@ -811,7 +838,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		permission: Array.isArray(s.permission) ? s.permission.join(" / ") : String(s.permission),
 		examples: s.examples,
 		release: !!s.release,
-		trustThreshold: s.trustThreshold,
+		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));
 }
 
@@ -946,10 +973,11 @@ function fireTrigger(trigger: Trigger): void {
 		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
 		if (!suggestion) continue;
-		// Re-checked at FIRING time against the installer, not at planting time — so a
-		// permission revoked since, or trust that has decayed below the threshold, disarms
-		// this action of every trigger already planted.
-		const blocked = blockedReason(suggestion, trigger.installedBy, features);
+		// PERMISSION re-checked at firing time, not depth. Revoking a permission disarms that
+		// action of every trigger already planted — but a trigger fires with no trance behind
+		// it, so asking how deep the subject is would refuse all of them forever. Depth was
+		// asked and answered when the trigger was planted.
+		const blocked = permissionReason(suggestion, features);
 		if (blocked) {
 			log(`trigger "${trigger.phrase}": ${id} skipped, ${blocked}`);
 			continue;

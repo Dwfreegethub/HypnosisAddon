@@ -27,7 +27,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.48.0 |
+| **What to test next** | Needs Testing — as of v0.50.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -343,7 +343,7 @@ Each feature has a player-adjustable trust % threshold. Example defaults (placeh
 
 ---
 
-## ⚠ DESIGN CHANGE: Trance Depth as the Feature Gate (not yet implemented)
+## ⚠ DESIGN CHANGE: Trance Depth as the Feature Gate — **Phase 1 built, v0.50.0**
 
 **Summary of change:** Feature access is gated on *trance depth*, not directly on trust percentage. Trust is still the primary driver — it determines how deep a hypnotist can take a subject — but the check the add-on makes per feature is "are you at depth tier X or higher?" rather than "is trust ≥ X%?" The subject's response (Agree/Ignore/Fight) and other modifiers then move the actual achieved depth up or down within that ceiling.
 
@@ -1629,10 +1629,78 @@ A small standalone Node.js script (separate from SSS and BD) that connects to BC
 
 ---
 
-## Needs Testing — as of v0.48.0
+### Added 2026-09-02 (v0.50.0) — the depth system
+
+Feature access moved off trust percentage and onto trance depth. Trust is still the primary
+driver; what changed is where it is read. Each feature now asks one question — *are you at
+least this deep?* — instead of carrying its own trust number.
+
+**`depth.ts`** holds the tiers, the per-feature requirements, the current depths and the
+chemical scope. It imports only storage, which is deliberate: `session.ts` already imports
+`carry.ts` and `triggers.ts`, and both of those need to know how deep the subject is, so
+having them import `session.ts` back would close a loop. Same trap `timers.ts` exists for and
+the same fix — the leaf module holds the state and the owner pushes into it. `session.ts`
+resolves the roll and calls `setCurrentDepths()`; everyone else asks `depth.ts`.
+
+**Two depths, resolved from one roll.** `chance` is computed twice — once with the chemical
+floor and once without — and the *same* roll subtracted from each, so the two differ by
+exactly the chemical contribution and `depthEarned` can never exceed `depth`. Rolling twice
+would let a subject be deeper in the earned sense than in reality.
+
+**Relationship floors are now DEPTH floors** (friend none, lover Entranced, owner Deep),
+forfeited by Fight, exactly as settled on 2026-08-31.
+
+**Three deviations from the written spec, all deliberate:**
+
+- **Chemical default is *Arousal only*, not *Neither*.** The doc says wizard-skippers get
+  Neither; there is no wizard, so shipping that would silently switch off the arousal floor
+  that has worked since v0.18.0 — a regression dressed as a default.
+- **One global chemical scope rather than per-feature.** Thirteen tier controls plus thirteen
+  scope controls is not a usable canvas screen, and drugs do not exist yet so the control has
+  one meaningful axis today. The per-feature shape is stored, so adding the UI later needs no
+  migration.
+- **The RP bonus counts toward both depths.** The doc lists it beside the chemical modifiers,
+  but it is not one: it reads the hypnotist's effort, not the subject's bloodstream, and
+  nothing about roleplaying well should be barred from writing something lasting. **Worth a
+  second look** — it is the one place the implementation reads the design rather than
+  following it.
+
+**The bug this nearly shipped with.** `fireTrigger` re-checks each action at firing time, and
+that check went through the same function the depth gate was added to — so every trigger
+would have been permanently disarmed, because a trigger fires *outside* a trance where depth
+is zero by definition. Permission and depth are now separate checks: depth belongs to the
+induction that planted the trigger and is asked once, then; permission is re-asked every time
+it fires, so revoking one still disarms that action of every trigger already out there.
+
+**The settings screen** gained a **Depth** tab: one row per gated feature with a
+click-to-cycle tier button, the earned-only three marked as such, a chemical-scope button and
+a reset-to-defaults. Click-to-cycle rather than dropdowns because DOM controls have to be
+created, positioned in canvas coordinates and explicitly removed, and thirteen of them over a
+paging screen is a maintenance problem out of proportion to a five-value ordered choice.
+
+Only overrides are stored, so retuning a default still moves everyone who has not chosen.
+
+---
+
+## Needs Testing — as of v0.50.0
 
 Written at the end of 2026-09-01. Everything below is built and unit-tested; what it has not
 had is two accounts in a room. Ordered by how much it would matter if it were wrong.
+
+### 0. The depth system in play (v0.50.0) — nothing here has been in a room
+
+The largest untested change in the project. Everything below assumed trust gates; they are
+gone. Worth checking, roughly in this order:
+
+- **A shallow trance refuses the deep things.** Take someone under with Ignore and no
+  relationship — depth will be low — then try the illusion, a trigger and carry-forward. All
+  three should refuse and name the tier. `/hypno effects` shows the tier reached.
+- **A deep one allows them.** Agree, ideally with roleplay for the bonus.
+- **Arousal cannot buy the earned three.** Get aroused, go under, confirm the session
+  features work and the illusion/trigger/carry still refuse with *arousal does not count*.
+- **A trigger planted deep still fires later**, out of trance, at depth zero. This is the one
+  that nearly shipped broken.
+- **The Depth tab**: cycle a tier, confirm the gate moves; reset to defaults.
 
 ### 1. Carried suggestions across a wake AND a disconnect — the whole v0.48.0 chain
 
@@ -1712,7 +1780,7 @@ The following items are the current implementation priority, in order. Pick up f
 
 2. ~~**Fix `arousalControl` and `illusionControl` not releasing on revoke**~~ — **done v0.43.0.** Both cases added. Writing the test found a third instance one level up: **`hypnoEnabled` off did not clear the illusion or the denial lock either**, which is worse, since the master switch is what someone reaches for when they want all of it to stop. All three total-clear paths (`onToggle`, `endSession`, `safeword`) now agree. `test/revoke.mjs`.
 
-3. **Depth system Phase 1** — implement the 5-tier trance depth gate (Drifting 0–19 / Yielding 20–39 / Entranced 40–59 / Deep 60–79 / Blank 80+). See the full design in *Trance Depth as the Feature Gate*. Minimum viable slice: tier detection from roll outcome, features gated by `depthFull` vs `depthEarned`, chemical floor per-feature dropdown (Both / Arousal only / Drugs only / Neither). Per-feature UI selectors can follow in a later pass.
+3. ~~**Depth system Phase 1**~~ — **done v0.50.0** (`depth.ts`, new **Depth** settings tab). Tiers, per-feature requirements, the two-depth split, relationship depth floors, and a chemical-scope control. Three deviations from the spec, all deliberate and all flagged in the version notes: the chemical default is *Arousal only* rather than *Neither*; the chemical scope is one global control rather than per-feature; and the RP bonus counts toward **both** depths rather than the full one alone. Original item: **Depth system Phase 1** — implement the 5-tier trance depth gate (Drifting 0–19 / Yielding 20–39 / Entranced 40–59 / Deep 60–79 / Blank 80+). See the full design in *Trance Depth as the Feature Gate*. Minimum viable slice: tier detection from roll outcome, features gated by `depthFull` vs `depthEarned`, chemical floor per-feature dropdown (Both / Arousal only / Drugs only / Neither). Per-feature UI selectors can follow in a later pass.
 
 4. ~~**OOC filtering**~~ — **done v0.43.0.** `stripOOC()` in voice.ts, applied once in main.ts so suggestions, triggers, trust accrual and the RP counter all see the same in-character text. Strips SPANS rather than only whole-line asides, so "Missy you cannot move (back in 5)" still lands while the aside is discarded; an unclosed `(` is treated as running to end of line, because people do not close them. `test/ooc.mjs`.
 

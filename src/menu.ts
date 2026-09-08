@@ -17,6 +17,10 @@ import {
 	getDecayRate,
 	setDecayRate,
 	DECAY_RATES,
+	setDepthOverride,
+	clearDepthOverrides,
+	getChemicalScope,
+	setChemicalScope,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -24,7 +28,16 @@ import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES } from "./triggers";
-import { isHypnotized } from "./session";
+import { isHypnotized, currentTier } from "./session";
+import {
+	DEPTH_GATES,
+	CHEMICAL_SCOPES,
+	requiredTier,
+	tierLabel,
+	nextTier,
+	nextScope,
+	ChemicalScope,
+} from "./depth";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
 	TITLE_Y,
@@ -72,6 +85,9 @@ interface Tab {
 	render?: () => void;
 	/** Drawn AFTER the rows, for a tab that has both checkboxes and other controls. */
 	extra?: () => void;
+	/** A tab that draws itself usually has to handle its own clicks too. Returns true when it
+	 * consumed the click, so the generic row handling below knows to stop. */
+	clickExtra?: () => boolean;
 }
 
 const TABS: Tab[] = [
@@ -118,7 +134,7 @@ const TABS: Tab[] = [
 		// permission, a scope and a duration. DW asked where the duration belonged, and
 		// the honest answer was "nowhere yet".
 		name: "Triggers",
-		blurb: "Things that outlast the session. Both need trust 65 — arousal does not count toward either.",
+		blurb: "Things that outlast the session. Both need a Deep trance by default — arousal never counts toward either.",
 		rows: [
 			{ key: "triggerControl", label: "Allow triggers to be planted in you" },
 			{ key: "carryForward", label: "Suggestions that outlive the trance" },
@@ -126,6 +142,16 @@ const TABS: Tab[] = [
 			{ key: "showTriggerWords", label: "Show trigger words when you list them" },
 		],
 		extra: drawTriggerControls,
+	},
+	{
+		// Depth earned its own tab rather than a column beside the permissions: thirteen
+		// features times a tier control is more than the Permissions tab can carry, and the
+		// two questions are genuinely different anyway. The checkbox asks "may they ever";
+		// this asks "how far under do I have to be first".
+		name: "Depth",
+		blurb: "How deep you must be before each thing can reach you. The checkbox still has to be on.",
+		render: drawDepthGates,
+		clickExtra: clickDepthGates,
 	},
 	{
 		name: "Stats",
@@ -188,6 +214,122 @@ const RESET_ARM_MS = 5000;
 
 function dataButtonLeft(index: number): number {
 	return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
+}
+
+// --- Depth tab ------------------------------------------------------------------------
+// Click-to-cycle rather than thirteen dropdowns: DOM controls have to be created, positioned
+// in canvas coordinates and explicitly removed, and thirteen of them layered over a screen
+// that also pages would be a maintenance problem out of all proportion to a five-value
+// choice. A button that advances one step reads fine for an ordered scale.
+const DEPTH_ROW_TOP = 340;
+const DEPTH_ROW_HEIGHT = 52;
+const DEPTH_ROWS_PER_PAGE = 7;
+const DEPTH_TIER_LEFT = 1150;
+const DEPTH_TIER_WIDTH = 250;
+const DEPTH_BUTTON_HEIGHT = 44;
+const SCOPE_BUTTON_LEFT = BOX_LEFT;
+const SCOPE_BUTTON_TOP = 810;
+const SCOPE_BUTTON_WIDTH = 430;
+const DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
+const DEFAULTS_BUTTON_WIDTH = 240;
+let depthPage = 0;
+
+function depthPageCount(): number {
+	return Math.max(1, Math.ceil(DEPTH_GATES.length / DEPTH_ROWS_PER_PAGE));
+}
+
+function visibleGates(): typeof DEPTH_GATES {
+	const from = depthPage * DEPTH_ROWS_PER_PAGE;
+	return DEPTH_GATES.slice(from, from + DEPTH_ROWS_PER_PAGE);
+}
+
+function drawDepthGates(): void {
+	const locked = settingsLocked();
+	const features = getFeatures();
+	// Where they are RIGHT NOW, so the numbers mean something while reading the list.
+	const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
+	drawLeftText(here, BOX_LEFT, DEPTH_ROW_TOP - 34, "Gray");
+
+	visibleGates().forEach((gate, i) => {
+		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
+		// A feature whose permission is off can never happen whatever the tier says, and
+		// showing that plainly stops the tier reading as the only thing standing in the way.
+		const granted = !!features[gate.key];
+		drawLeftText(
+			`${gate.label}${gate.earnedOnly ? "  (arousal never counts)" : ""}`,
+			BOX_LEFT,
+			top + 30,
+			granted ? "Black" : "Gray",
+		);
+		DrawButton(
+			DEPTH_TIER_LEFT,
+			top,
+			DEPTH_TIER_WIDTH,
+			DEPTH_BUTTON_HEIGHT,
+			tierLabel(requiredTier(gate.key)),
+			locked ? "#ddd" : granted ? "White" : "#eee",
+			"",
+			locked ? "Locked while in trance" : "Click to require a deeper trance",
+			locked,
+		);
+	});
+
+	if (depthPageCount() > 1) {
+		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
+		DrawButton(
+			PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "",
+			depthPage >= depthPageCount() - 1,
+		);
+		drawLeftText(`page ${depthPage + 1} of ${depthPageCount()}`, PAGE_NEXT_LEFT + 130, PAGE_BUTTON_TOP + 30, "Gray");
+	}
+
+	const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
+	DrawButton(
+		SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
+		`Chemicals count: ${scope}`, locked ? "#ddd" : "White", "",
+		"What may push you deeper besides trust. Never applies to the three above that say otherwise.",
+		locked,
+	);
+	DrawButton(
+		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
+		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
+	);
+}
+
+function clickDepthGates(): boolean {
+	if (settingsLocked()) return true; // consume, so a locked screen cannot be edited by touch
+	if (depthPageCount() > 1) {
+		if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+			depthPage = Math.max(0, depthPage - 1);
+			return true;
+		}
+		if (MouseIn(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+			depthPage = Math.min(depthPageCount() - 1, depthPage + 1);
+			return true;
+		}
+	}
+	if (MouseIn(SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+		const next: ChemicalScope = nextScope(getChemicalScope());
+		setChemicalScope(next);
+		log(`chemical scope set to ${next}`);
+		return true;
+	}
+	if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+		clearDepthOverrides();
+		notifyLocal("Depth requirements reset to their defaults.");
+		return true;
+	}
+	const gates = visibleGates();
+	for (let i = 0; i < gates.length; i++) {
+		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
+		if (MouseIn(DEPTH_TIER_LEFT, top, DEPTH_TIER_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+			const next = nextTier(requiredTier(gates[i].key));
+			setDepthOverride(gates[i].key, next);
+			log(`${gates[i].key} now needs ${next}`);
+			return true;
+		}
+	}
+	return false;
 }
 
 function notifyLocal(message: string): void {
@@ -529,9 +671,13 @@ export function installMenu(): void {
 			const hitTab = tabHitIndex(TABS.length);
 			if (hitTab !== null) {
 				activeTab = hitTab;
+				depthPage = 0;
 				removeScopeControl();
 				return;
 			}
+			// A self-drawing tab handles its own clicks first. Stats predates this and keeps
+			// its handling inline below; Depth uses the hook.
+			if (TABS[activeTab].clickExtra?.()) return;
 			// Data buttons live on the Stats tab, which has no rows.
 			if (TABS[activeTab].render) {
 				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {

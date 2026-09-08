@@ -109,6 +109,8 @@ export interface SavedSession {
 	hypnotistId: number | null;
 	hypnotistName: string;
 	depth: number;
+	/** The earned half, which cannot be recomputed after the fact — the roll is gone. */
+	depthEarned: number;
 	/** Absolute deadline of the session timeout, so a resume does not get a fresh 30 minutes. */
 	sessionEndsAt: number;
 	speechBlocked: boolean;
@@ -175,11 +177,12 @@ export function persist(state: Omit<SavedSession, "savedAt">): void {
  * session.ts already imports plenty and a cycle here would be easy to create. */
 export function snapshotLocalState(): Omit<
 	SavedSession,
-		| "savedAt"
+	| "savedAt"
 	| "sessionLive"
 	| "hypnotistId"
 	| "hypnotistName"
 	| "depth"
+	| "depthEarned"
 	| "sessionEndsAt"
 	| "applied"
 	| "carried"

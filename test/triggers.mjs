@@ -19,7 +19,13 @@ globalThis.CharacterSetActivePose = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 
-const { voice, storage, triggers, timers, build } = await import("./harness-bundle.mjs");
+const { depth, voice, storage, triggers, timers, build } = await import("./harness-bundle.mjs");
+// Depth is the gate now, not trust. Planting a trigger, carrying a suggestion and the
+// clothing illusion all need a Deep trance by default, measured against the EARNED depth —
+// so these suites have to say how deep the subject is, the way a real induction would. Set
+// once here: every case below assumes a trance deep enough to work in, and the ones that
+// test the gate itself lower it explicitly.
+depth.setCurrentDepths(80, 80);
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -50,12 +56,24 @@ check("refused without permission", /not enabled "Triggers"/.test(lastToHypnotis
 check("  nothing recorded", triggers.isRecording(), false);
 
 storage.setFeature("triggerControl", true);
-storage.setTrustValue(HYP, "GameBot", 40);
+// DEPTH is the gate as of v0.50.0, not trust. Trust decided how deep this induction could
+// go; planting asks only whether they got there.
+storage.setTrustValue(HYP, "GameBot", 90);
+depth.setCurrentDepths(30, 30); // Yielding — nowhere near the Deep that planting needs
 triggers.beginRecording(HYP, "GameBot", "sleepy");
-check("refused below trust 65", /needs trust 65.*at 40\.0/.test(lastToHypnotist()), true);
+check("refused above the tier's floor", /needs Deep/.test(lastToHypnotist()), true);
 check("  nothing recorded", triggers.isRecording(), false);
+check("  and high trust does not buy it", /trust/.test(lastToHypnotist()), false);
+
+// Deep enough in the FULL sense but not the earned one: arousal got them there, and arousal
+// may never write something that outlives the session. The rule the two depths exist for.
+depth.setCurrentDepths(80, 30);
+triggers.beginRecording(HYP, "GameBot", "sleepy");
+check("arousal cannot buy a trigger", triggers.isRecording(), false);
+check("  and says why", /arousal does not count/.test(lastToHypnotist()), true);
 
 // --- record and commit ---
+depth.setCurrentDepths(80, 80);
 storage.setTrustValue(HYP, "GameBot", 70);
 triggers.beginRecording(HYP, "GameBot", "sleepy time");
 check("recording started", triggers.isRecording(), true);
@@ -217,16 +235,20 @@ said = [];
 voice.handleSpokenLine(HYP, "look away");
 check("and fires while still trusted", said.length, 1);
 
-storage.setTrustValue(HYP, "GameBot", 20);
+// A trigger already planted keeps firing whatever the depth is now — the whole point of one
+// is that it works outside a trance, where there is no depth at all. Firing is gated by the
+// trigger's own scope and by each action's permission, not by how deep you are today.
+depth.setCurrentDepths(0, 0);
 said = [];
 voice.handleSpokenLine(HYP, "look away");
-check("but goes quiet once trust falls below the gate", said.length, 0);
+check("a planted trigger fires with no trance at all", said.length, 1);
 
-// Planting is refused outright down there too, so a trigger cannot be created by someone
-// who could not fire what it holds.
+// But planting a NEW one down here is refused, so a trigger cannot be created by somebody
+// who is not deep enough to be planting anything.
 storage.forgetAllTriggers();
 triggers.beginRecording(HYP, "GameBot", "look back");
-check("  and cannot be planted at all", triggers.isRecording(), false);
+check("  though nothing new can be planted", triggers.isRecording(), false);
+depth.setCurrentDepths(80, 80);
 storage.setTrustValue(HYP, "GameBot", 70);
 
 // --- "is it holding me right now" ------------------------------------------------------

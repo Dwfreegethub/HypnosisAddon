@@ -20,7 +20,13 @@ globalThis.CharacterSetActivePose = () => {};
 globalThis.ChatRoomSendLocal = () => {};
 globalThis.ReputationCharacterGet = (C) => (C.MemberNumber === DOM ? 100 : C === Player ? 50 : 0);
 
-const { storage, triggers } = await import("./harness-bundle.mjs");
+const { depth, storage, triggers } = await import("./harness-bundle.mjs");
+// Depth is the gate now, not trust. Planting a trigger, carrying a suggestion and the
+// clothing illusion all need a Deep trance by default, measured against the EARNED depth —
+// so these suites have to say how deep the subject is, the way a real induction would. Set
+// once here: every case below assumes a trance deep enough to work in, and the ones that
+// test the gate itself lower it explicitly.
+depth.setCurrentDepths(80, 80);
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {

@@ -2,8 +2,22 @@ import { log } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
-import { noteInductionSuccess, noteInductionAttempt, accessFor, describeRelationship } from "./trust";
+import {
+	noteInductionSuccess,
+	noteInductionAttempt,
+	accessFor,
+	relationshipWith,
+	describeRelationship,
+} from "./trust";
 import { clearAllTimers, timerDeadline } from "./timers";
+import {
+	tierOf,
+	tierLabel,
+	DepthTier,
+	setCurrentDepths,
+	clearCurrentDepths,
+	arousalCounts,
+} from "./depth";
 import {
 	persist,
 	clearSaved,
@@ -103,6 +117,21 @@ const STRANGER_CEILING = 30;
 const SELF_WAKE_MAX_DEPTH = 40;
 const CHOICE_MODIFIER: Record<SessionChoice, number> = { agree: 25, ignore: 0, fight: -25 };
 
+/** Depth a relationship guarantees on a successful, unfought induction.
+ *
+ * SETTLED 2026-08-31, and the reason the floors had to move here from the access number:
+ * "a lover always reaches arousal" cannot be said with a trust floor at all. Depth is
+ * `chance - roll`, so the deepest anyone lands is `chance` itself — and a lover at floor 30
+ * choosing Ignore has chance 30, which is below the Entranced 40 that arousal sits at. Their
+ * ceiling was under the tier; they would never have reached it, not merely unreliably.
+ *
+ * Fight forfeits the floor entirely, which is what keeps Fight worth choosing. */
+const RELATION_DEPTH_FLOOR: Record<string, number> = {
+	friend: 0,
+	lover: 40, // Entranced — arousal, always
+	owner: 60, // Deep — the illusion and triggers, always; Blank still has to be earned
+};
+
 // --- The RP reward -------------------------------------------------------------------
 //
 // The design doc has always asked for this — "hypnotist is rewarded for engaging during the
@@ -140,6 +169,14 @@ interface SubjectSession {
 	/** Fixed at the moment of successful induction, per the design doc — going deeper
 	 * requires waking and running a fresh induction. */
 	depth: number;
+	/** The same roll, resolved WITHOUT the chemical contribution.
+	 *
+	 * Two numbers rather than one because the structural rule — drugs and arousal may never
+	 * write anything permanent nor reach a feature that lies to the subject — is about where
+	 * the depth came from, not how much of it there is. A single number cannot carry that:
+	 * if arousal feeds depth and depth gates everything, an aroused stranger reaches
+	 * persistent triggers by construction. Never higher than `depth`. */
+	depthEarned: number;
 	cooldownUntil: number;
 	hypnotizedAt: number;
 	/** Who the pending prompt names, and when it lapses. Held here rather than in the
@@ -162,6 +199,7 @@ function freshSession(): SubjectSession {
 		attempts: 0,
 		progress: 0,
 		depth: 0,
+		depthEarned: 0,
 		cooldownUntil: 0,
 		hypnotizedAt: 0,
 		promptName: "",
@@ -257,6 +295,7 @@ function persistState(): void {
 		hypnotistId: session.hypnotistId,
 		hypnotistName: findCharacterName(session.hypnotistId),
 		depth: session.depth,
+		depthEarned: session.depthEarned,
 		sessionEndsAt,
 		applied: appliedSuggestions(),
 		carried,
@@ -320,6 +359,7 @@ function endSession(reason: string, quiet = false): void {
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
+	clearCurrentDepths();
 	stopWaiting();
 	// NOT clearSaved() — carryThroughWake() below may put things back that are meant to
 	// outlive this session, and persistState() at the end decides what is left to save.
@@ -364,6 +404,10 @@ function endSession(reason: string, quiet = false): void {
  * ceiling goes. Today its only consumer is the induction roll, which is session-only by
  * definition — check this comment before wiring it anywhere else. */
 function chemicalFloor(): number {
+	// The player's chemical scope decides whether arousal counts at all. Drugs are unbuilt, so
+	// "Drugs only" and "Neither" currently mean the same thing — kept as four options anyway,
+	// so that a saved preference does not need migrating the day drugs land.
+	if (!arousalCounts()) return 0;
 	const settings = Player?.ArousalSettings;
 	const active = settings?.Active === "Hybrid" || settings?.Active === "Automatic";
 	if (!active) return 0;
@@ -398,13 +442,32 @@ export function effectiveAccess(memberId: number): number {
  * The 5/95 clamps mean nothing is ever certain either way — a determined stranger keeps a
  * sliver, and a deeply trusted hypnotist can still miss. The floor is DW's settled call
  * and is meant to become a player setting. */
-function inductionChance(hypnotistId: number, choice: SessionChoice): number {
-	const trust = effectiveAccess(hypnotistId);
+/** The roll, resolved twice: once with everything, once with only what was earned.
+ *
+ * Both use the SAME roll, so the two depths differ by exactly the chemical contribution and
+ * `depthEarned` can never exceed `depth`. Computing a second roll would let a subject be
+ * deeper in the earned sense than in reality, which is nonsense. */
+function resolveDepths(hypnotistId: number, choice: SessionChoice, roll: number): { full: number; earned: number } {
+	const full = inductionChance(hypnotistId, choice);
+	const earned = inductionChance(hypnotistId, choice, true);
+	const floor = choice === "fight" ? 0 : RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
+	const at = (chance: number) => Math.min(100, Math.max(0, Math.round(Math.max(chance - roll, floor))));
+	const fullDepth = at(full);
+	return { full: fullDepth, earned: Math.min(fullDepth, at(earned)) };
+}
+
+function inductionChance(hypnotistId: number, choice: SessionChoice, earnedOnly = false): number {
+	const trust = earnedOnly ? accessFor(hypnotistId, "session") : effectiveAccess(hypnotistId);
 	const exp = experienceValue();
 	const experienceEffect = choice === "agree" ? exp * EXPERIENCE_WEIGHT : choice === "fight" ? -exp * EXPERIENCE_WEIGHT : 0;
 	// Hypnotist skill belongs in this sum too, but it lives on the HYPNOTIST's client and
 	// the roll runs here — see the design doc's step-2 note. Deliberately absent until
 	// that's resolved, rather than trusting a self-reported number.
+	// The RP bonus is deliberately part of BOTH. The doc lists it beside the chemical
+	// modifiers, but it is not one: it reads the hypnotist's effort, not the subject's
+	// bloodstream, and nothing about roleplaying well should be barred from writing something
+	// lasting. Flagged in the doc as the one place this implementation reads the design
+	// rather than following it to the letter.
 	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect + rpBonusFor(hypnotistId);
 	return Math.max(RESISTANCE_FLOOR, Math.min(CHANCE_CEILING, raw));
 }
@@ -484,14 +547,17 @@ function runInductionRoll(): void {
 		session.phase = "Hypnotized";
 		// Depth falls out of the same roll: a comfortable success goes deep, a squeaker
 		// leaves a shallow trance the subject can pull themselves out of.
-		session.depth = Math.min(100, Math.max(0, Math.round(chance - roll)));
+		const depths = resolveDepths(session.hypnotistId, choice, roll);
+		session.depth = depths.full;
+		session.depthEarned = depths.earned;
+		setCurrentDepths(depths.full, depths.earned);
 		session.hypnotizedAt = Date.now();
 		sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
 		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
 		applyTranceState();
 		// The accelerator, and the practice. Both halves only on success.
 		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
-		notify(`You slip under. (${depthBand(session.depth)})`);
+		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
 		log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
 	} else if (session.attempts >= MAX_ATTEMPTS) {
 		session.phase = "CooldownRequired";
@@ -628,6 +694,7 @@ export function safeword(): void {
 	// next reload would faithfully restore the very thing the safeword was used to escape.
 	// Explicit rather than relying on pushUpdate below, which is skipped entirely when there
 	// is no hypnotist to tell.
+	clearCurrentDepths();
 	stopWaiting();
 	stopPersistHeartbeat();
 	clearSaved();
@@ -693,6 +760,12 @@ export function wakeByHypnotist(sender: number): boolean {
 
 /** Are we in trance at all, regardless of who put us there? Used by the settings screen's
  * lock, which doesn't care which hypnotist is responsible. */
+/** Depth reached, and the earned half of it. Read by every depth gate; zero with no session,
+ * which is the correct answer since every gated feature needs a trance. */
+export function currentTier(): DepthTier {
+	return tierOf(session.phase === "Hypnotized" ? session.depth : 0);
+}
+
 export function isHypnotized(): boolean {
 	return session.phase === "Hypnotized";
 }
@@ -765,6 +838,8 @@ function restoreSavedSession(saved: SavedSession): void {
 	session.phase = "Hypnotized";
 	session.hypnotistId = saved.hypnotistId;
 	session.depth = Number(saved.depth) || 0;
+	session.depthEarned = Number(saved.depthEarned) || 0;
+	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
 	// The session keeps the time it had left, not a fresh allowance. Reconnecting is not a way
 	// to extend a trance, and a stale deadline that has already passed ends it immediately.

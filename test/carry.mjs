@@ -30,7 +30,13 @@ globalThis.Player.Appearance = [
 globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
 globalThis.CharacterRefresh = () => {};
 
-const { voice, storage, carry, illusion } = await import("./harness-bundle.mjs");
+const { depth, voice, storage, carry, illusion } = await import("./harness-bundle.mjs");
+// Depth is the gate now, not trust. Planting a trigger, carrying a suggestion and the
+// clothing illusion all need a Deep trance by default, measured against the EARNED depth —
+// so these suites have to say how deep the subject is, the way a real induction would. Set
+// once here: every case below assumes a trance deep enough to work in, and the ones that
+// test the gate itself lower it explicitly.
+depth.setCurrentDepths(80, 80);
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -50,10 +56,22 @@ check("refused without permission", !!carry.carryThese(HYP, "GameBot", carry.las
 check("  nothing held", carry.carriedIds(), []);
 
 storage.setFeature("carryForward", true);
-storage.setTrustValue(HYP, "GameBot", 40);
+// DEPTH gates this now, not trust — and against the EARNED depth, because a carried
+// suggestion outlives the session exactly as a trigger does and must be no more buyable
+// with arousal. High trust does not substitute for a shallow trance.
+storage.setTrustValue(HYP, "GameBot", 90);
+depth.setCurrentDepths(30, 30); // Yielding, well short of the Deep this needs
 const low = carry.carryThese(HYP, "GameBot", carry.lastApplied());
-check("refused below trust 65", /needs trust 65/.test(low.refusal ?? ""), true);
+check("refused above the tier's floor", /needs Deep/.test(low.refusal ?? ""), true);
 check("  nothing held", carry.carriedIds(), []);
+
+// Deep enough overall, but only because of arousal. The two-depth rule exists for this.
+depth.setCurrentDepths(80, 30);
+const chemical = carry.carryThese(HYP, "GameBot", carry.lastApplied());
+check("arousal cannot buy it either", !!chemical.refusal, true);
+check("  and says arousal does not count", /arousal does not count/.test(chemical.refusal ?? ""), true);
+check("  still nothing held", carry.carriedIds(), []);
+depth.setCurrentDepths(80, 80);
 
 // Nothing said yet is its own refusal, and it names the cause rather than going quiet.
 storage.setTrustValue(HYP, "GameBot", 70);

@@ -111,7 +111,7 @@ function vocabularyLines(): HelpLine[] {
 	for (const s of suggestionHelp()) {
 		const gateBits: string[] = [];
 		if (!s.release) gateBits.push(s.permission);
-		if (s.trustThreshold != null) gateBits.push(`trust ${s.trustThreshold}`);
+		if (s.depthTier) gateBits.push(`${s.depthTier}+`);
 		const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
 		lines.push({
 			text: `${s.examples.map((e) => `"${e}"`).join("  ·  ")}${gate}`,

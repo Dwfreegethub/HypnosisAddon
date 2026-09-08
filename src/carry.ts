@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures, getTriggerDuration } from "./storage";
-import { accessFor } from "./trust";
+import { depthRefusal } from "./depth";
 import { scheduleTimer, cancelTimer } from "./timers";
 
 // Carry-forward: suggestions given under trance that survive waking.
@@ -37,6 +37,9 @@ import { scheduleTimer, cancelTimer } from "./timers";
 // have something carried, which is what keeps ordinary hypnosis phrasing inert on someone
 // who is not under.
 
+/** Kept only for the tests and help text that still name a number. The GATE is the depth tier
+ * for `carryForward`, Deep by default, measured against the EARNED depth — carrying outlives
+ * the session exactly as a trigger does, and must be no more buyable with arousal. */
 export const CARRY_TRUST_THRESHOLD = 65;
 /** Same cap as a trigger's action list, for the same reason: a bundle this size is already
  * more than anyone can keep track of, and a runaway one is harder to undo than to make. */
@@ -144,9 +147,11 @@ export function carryThese(sender: number, name: string, wanted: string[]): { su
 	const features = getFeatures();
 	if (!features.hypnoEnabled) return { refusal: "They have hypnosis switched off." };
 	if (!features.carryForward) return { refusal: `They have not enabled "Suggestions that outlive the trance".` };
-	const trust = accessFor(sender, "persistent");
-	if (trust < CARRY_TRUST_THRESHOLD)
-		return { refusal: `Making a suggestion outlive the trance needs trust ${CARRY_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)}.` };
+	// Depth against the EARNED half, exactly as a trigger. Both outlive the session, so
+	// neither may be bought with arousal — the structural rule, not a tunable one.
+	const refusal = depthRefusal("carryForward");
+	if (refusal)
+		return { refusal: `Making a suggestion outlive the trance ${refusal}. Take them deeper first.` };
 	if (!wanted.length)
 		return { refusal: "Nothing to keep — give the suggestion first, then say it stays with them." };
 

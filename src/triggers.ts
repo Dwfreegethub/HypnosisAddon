@@ -9,7 +9,7 @@ import {
 	TriggerScope,
 } from "./storage";
 import { isSessionActiveWith } from "./session";
-import { accessFor } from "./trust";
+import { depthRefusal } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
@@ -48,18 +48,20 @@ export function installTriggers(): void {
 //
 // THREE GATES, and they're deliberately different from everything else in the add-on:
 //
-// 1. Planting needs relationship trust >= TRIGGER_TRUST_THRESHOLD, checked against
-//    trustWith() and NOT effectiveAccess(). The design doc is explicit that the
-//    arousal/drug chemical floor must never reach persistent features no matter how high
-//    the Stranger ceiling goes — a trigger outlives the state that created it, so it can't
-//    be bought with arousal.
+// 1. Planting needs DEPTH — the tier set for `triggerControl`, Deep by default — measured
+//    against depthEARNED rather than the full depth. The design doc is explicit that the
+//    arousal/drug chemical floor must never reach persistent features no matter how high the
+//    Stranger ceiling goes: a trigger outlives the state that created it, so it cannot be
+//    bought with arousal. Under the depth model that is the earned/full split rather than a
+//    trust-vs-access one, but it is the same rule and it protects the same thing.
 // 2. Each action re-checks its OWN permission when the trigger fires, not when it was
 //    planted. Revoking movement permission has to disarm the movement half of a trigger
 //    planted last week.
 // 3. A trigger fires only for the person who installed it. The doc lists wider scopes
 //    (per-list, trust-threshold, anyone) as future work; installer-only is the safe start.
 
-/** The doc's threshold for persistent triggers. */
+/** Kept only for the tests and the help text that still name a number. The GATE is the depth
+ * tier for `triggerControl`; this is the trust that historically bought it. */
 export const TRIGGER_TRUST_THRESHOLD = 65;
 /** Shortest phrase we'll accept. One-letter triggers would fire constantly. */
 const MIN_PHRASE_LENGTH = 3;
@@ -105,11 +107,14 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 		log("trigger plant refused: triggerControl not granted");
 		return refuse('[trigger] Refused — they have not enabled "Triggers" in their Hypnosis Add-on settings.');
 	}
-	// Relationship trust only — see the gate note above.
-	const trust = accessFor(hypnotistId, "persistent");
-	if (trust < TRIGGER_TRUST_THRESHOLD) {
-		log(`trigger plant refused: trust ${trust.toFixed(1)} < ${TRIGGER_TRUST_THRESHOLD}`);
-		return refuse(`[trigger] Refused — planting needs trust ${TRIGGER_TRUST_THRESHOLD}; you are at ${trust.toFixed(1)} with them. Arousal does not count toward this.`);
+	// Depth, against the EARNED half — see the gate note above.
+	const refusal = depthRefusal("triggerControl");
+	if (refusal) {
+		log(`trigger plant refused: ${refusal}`);
+		return refuse(
+			`[trigger] Refused — planting a trigger ${refusal}. ` +
+				"Take them deeper first; arousal does not count toward this one.",
+		);
 	}
 	if (phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short to use as a trigger.`);

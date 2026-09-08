@@ -248,6 +248,18 @@ interface HypnoAddonSettings {
 	triggerDurationMinutes: number;
 	/** How fast trust fades without contact. */
 	decayRate: DecayRate;
+	/** Per-feature depth requirements, as tier NAMES, and ONLY where the player has changed
+	 * one. The defaults live in depth.ts, so retuning them moves everyone who has not made a
+	 * choice — the same principle as the decay rates. A stored copy of every default would
+	 * freeze the design at whatever it was the day somebody first opened the screen. */
+	depthGates: Record<string, string>;
+	/** What may contribute the chemical half of depth.
+	 *
+	 * The doc says wizard-skippers get "Neither". There is no wizard yet, and shipping that
+	 * default would silently switch off the arousal floor that has worked since v0.18.0 — a
+	 * regression dressed as a default. "Arousal only" IS the current behaviour; the wizard can
+	 * set it to something else the day it exists. */
+	chemicalScope: string;
 	/** TESTING ONLY: pretend a relationship exists, keyed by member number as a string
 	 * because JSON object keys always are. Set with `/hypno relate`. Lets the relationship
 	 * floors be exercised without actually collaring anyone. */
@@ -298,6 +310,8 @@ function defaultSettings(): HypnoAddonSettings {
 		// whenever it was last touched, so shipping this switched on would decay months of
 		// stored trust the first time someone loaded the new build. Opt in.
 		decayRate: "never",
+		depthGates: {},
+		chemicalScope: "arousal",
 		relationshipOverride: {},
 		features: defaultFeatures(),
 	};
@@ -333,6 +347,8 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.triggerScope ??= "hypnotist";
 	if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
+	if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
+	if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
 	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
 	s.trust ??= [];
 	// Purge any entry for ourselves. Nothing should ever have created one — see the guard in
@@ -420,6 +436,33 @@ export function getTrust(memberId: number): TrustEntry | undefined {
 }
 
 /** Trust with this person as a 0-100 value, derived from their interaction count. */
+/** A player's depth override for one feature, or "" if they have not set one. Returns a
+ * loose string rather than the DepthTier type so storage.ts stays a leaf that depth.ts can
+ * import without the two depending on each other. */
+export function getDepthOverride(key: string): any {
+	return loadSettings().depthGates[key] ?? "";
+}
+
+export function setDepthOverride(key: string, tier: string): void {
+	loadSettings().depthGates[key] = tier;
+	saveSettings();
+}
+
+export function clearDepthOverrides(): void {
+	const settings = loadSettings();
+	settings.depthGates = {};
+	saveSettings();
+}
+
+export function getChemicalScope(): any {
+	return loadSettings().chemicalScope ?? "arousal";
+}
+
+export function setChemicalScope(scope: string): void {
+	loadSettings().chemicalScope = scope;
+	saveSettings();
+}
+
 export function getDecayRate(): DecayRate {
 	return loadSettings().decayRate;
 }
