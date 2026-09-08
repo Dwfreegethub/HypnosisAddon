@@ -80,11 +80,26 @@ socket.on("LoginResponse", (data) => {
 	}
 	me = data.MemberNumber;
 	logLine("net", `logged in as ${data.Name} (${me})`);
-	socket.emit("ChatRoomJoin", { Name: roomName });
+
+	// The server needs a CHARACTER before it will put us in a room, and logging in does not
+	// by itself produce one. Skipping this is why the first version sat there having "joined"
+	// nothing: ChatRoomJoin went out and the server never answered at all, which reads
+	// exactly like a lost packet. Same sequence the SlaveParking bot uses, which works.
+	socket.emit("AccountUpdate", { Inventory: data.Inventory ?? [], OnlineSettings: data.OnlineSettings ?? {} });
+	socket.emit("AccountUpdate", { Game: data.Game ?? {} });
+	socket.emit("AccountUpdate", { AssetFamily: "Female3DCG" });
+
+	// A beat for the server to apply those before asking it to seat us somewhere.
+	setTimeout(() => {
+		logLine("net", `joining "${roomName}"`);
+		socket.emit("ChatRoomJoin", { Name: roomName });
+	}, 800);
 });
 
 socket.on("ChatRoomJoinResponse", (data) => {
-	if (data === "JoinedRoom") {
+	// BC answers "JoinedRoom" in most versions and a bare "ok" in some. Accept both rather
+	// than treating one of them as a failure and helpfully creating a duplicate room.
+	if (data === "JoinedRoom" || data === "ok") {
 		logLine("net", `joined "${roomName}"`);
 		return;
 	}
@@ -419,5 +434,21 @@ function handleCommand(sender, text) {
 			return report(`Unknown: !${cmd}. Try !tests.`);
 	}
 }
+
+// Anything the server says that we do not explicitly handle still goes in the log.
+//
+// This exists because of how the first run failed: ChatRoomJoin was emitted, no response
+// handler fired, and the log simply stopped — indistinguishable from a crash, a lost packet
+// and a wrong event name. A harness whose whole purpose is diagnosing silent failures should
+// not have one of its own. The noisy high-frequency events are dropped; everything else is
+// worth seeing once.
+const NOISY = new Set(["ChatRoomSync", "ChatRoomSyncMemberJoin", "ChatRoomSyncMemberLeave", "ServerInfo", "ChatRoomMessage"]);
+socket.onAny((event, ...args) => {
+	if (NOISY.has(event)) return;
+	logLine("event", event, args.length === 1 ? args[0] : args);
+});
+
+socket.on("connect_error", (err) => logLine("ERROR", `connect_error: ${err?.message ?? err}`));
+socket.on("disconnect", (why) => logLine("net", `disconnected: ${why}`));
 
 logLine("boot", `starting — room "${roomName}", log ${LOG_FILE}`);
