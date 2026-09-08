@@ -41,11 +41,26 @@ const LOG_FILE = path.join(HERE, "session.log");
 
 // --- config ---------------------------------------------------------------------------
 let secrets;
-try {
-	secrets = JSON.parse(fs.readFileSync(path.join(HERE, "secrets.json"), "utf-8"));
-} catch {
-	console.error("No secrets.json. Copy secrets.example.json to secrets.json and fill it in.");
-	process.exit(1);
+const SECRETS_FILE = path.join(HERE, "secrets.json");
+{
+	// Missing and malformed are DIFFERENT problems and used to print the same sentence, which
+	// sent DW hunting for a file that was sitting right there. A trailing comma is not a missing
+	// file; say which one it is.
+	let raw;
+	try {
+		raw = fs.readFileSync(SECRETS_FILE, "utf-8");
+	} catch {
+		console.error(`No ${SECRETS_FILE}.`);
+		console.error("Copy secrets.example.json to secrets.json and fill it in.");
+		process.exit(1);
+	}
+	try {
+		secrets = JSON.parse(raw);
+	} catch (err) {
+		console.error(`${SECRETS_FILE} is not valid JSON: ${err.message}`);
+		console.error("Usually a missing or extra comma between entries.");
+		process.exit(1);
+	}
 }
 const {
 	username,
