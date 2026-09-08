@@ -450,18 +450,31 @@ const SCENARIOS = [
 	{
 		name: "ooc",
 		blurb: "Parenthesised text must do nothing at all.",
+		// TESTS A RELEASE, NOT A RESTRICTION, and that is the whole point of the rewrite.
+		//
+		// The first version asserted "nothing should happen. No freeze" straight after putting
+		// the subject under — but applyTranceState() applies Freeze the moment she goes under
+		// if she has "Cannot Move During Trance" ticked, which she does. So she was frozen
+		// before the OOC line was ever spoken, "no freeze" could not fail, and the following
+		// step's "you should be frozen" could not fail either. Both assertions were
+		// unfalsifiable and the scenario passed on a state it had created itself.
+		//
+		// Releases have no such baseline: nothing about being in a trance un-freezes anybody.
+		// So freeze her deliberately, then try to release it OOC. If she can move, OOC leaked
+		// — and there is no other way for that to happen.
 		steps: [
-			// The session matters MORE here than anywhere else: with no session both halves do
-			// nothing, the scenario passes, and it has proved nothing about OOC at all. The
-			// second step is the real assertion and it needs a working baseline.
-			{ do: () => trance(80, 80), look: "Under at Blank, so the IC half below has something to prove. Then /bot next." },
+			{ do: () => trance(80, 80), look: "Under at Blank. Your own trance settings may freeze you here; the next step makes it certain either way. /bot next" },
 			{
-				do: () => say("(Missy, you cannot move)"),
-				look: "Entirely OOC — nothing should happen. No freeze, no message. /bot next",
+				do: () => say("Missy, you cannot move."),
+				look: "Baseline: you should be frozen. Confirm you cannot move before going on. /bot next",
 			},
 			{
-				do: () => say("Missy, you cannot move (back in a sec)"),
-				look: "The IC half should still land — you should be frozen. /bot ok / /bot fail",
+				do: () => say("(Missy, you can move again)"),
+				look: "THE TEST: entirely OOC, so it must NOT release you. You should still be frozen. If you can move, OOC leaked. /bot next",
+			},
+			{
+				do: () => say("Missy, you can move again (back in a sec)"),
+				look: "The IC half of a mixed line still lands — you should be free now. /bot ok / /bot fail",
 			},
 		],
 	},
