@@ -1,0 +1,9 @@
+{
+  "name": "hypno-testbot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scripted hypnotist for testing the BC Hypnosis Add-on's subject side.",
+  "scripts": { "start": "node bot.mjs" },
+  "dependencies": { "socket.io-client": "^4.8.3" }
+}

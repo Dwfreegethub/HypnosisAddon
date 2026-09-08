@@ -17,6 +17,7 @@ import {
 	exportSettings,
 	importSettings,
 	resetSettings,
+	getFeatures,
 	setRelationshipOverride,
 	listRelationshipOverrides,
 	getDecayRate,
@@ -31,6 +32,18 @@ import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
+import {
+	DEPTH_GATES,
+	tierOf,
+	tierLabel,
+	requiredTier,
+	requiredDepth,
+	depthAllows,
+	setCurrentDepths,
+	currentDepth,
+	currentDepthEarned,
+	arousalCounts,
+} from "./depth";
 
 let suppressNextAction = false;
 
@@ -689,6 +702,65 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			forgetTrust(entry.memberId);
 			reply(`Forgot ${entry.memberName} [${entry.memberId}] — ${entry.interactions.toFixed(1)} interactions gone.`);
+		},
+	},
+	{
+		// TESTING ONLY. Depth normally comes from the induction roll, which means every check
+		// of a depth gate is at the mercy of chance — you cannot ask "does Deep unlock the
+		// illusion" without rolling until you get a Deep. This sets it directly.
+		//
+		// Two numbers, because one would hide the thing most worth testing: `full earned`
+		// lets the earned-only rule be exercised deliberately. `/hypno depth 80 20` is a
+		// subject who is deep because they are aroused, and must still be refused a trigger.
+		Tag: "depth",
+		group: "Testing",
+		args: "<0-100> [earned]",
+		Description: "TESTING: force the current trance depth, and optionally the earned half",
+		Action: (args: string) => {
+			if (!TESTING_MODE) {
+				reply("Not available — this build is not in testing mode.");
+				return;
+			}
+			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			if (!parts.length) {
+				reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
+				reply("Usage: /hypno depth <0-100> [earned]. Try `/hypno depth 80 20` for an aroused-but-unearned trance.");
+				return;
+			}
+			const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
+			const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
+			setCurrentDepths(full, earned);
+			reply(
+				`Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned — ` +
+					`${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read.`,
+			);
+		},
+	},
+	{
+		// The companion to the above, and the one to read when something will not fire: it
+		// answers "what would work right now" in one screen rather than by trying things.
+		Tag: "gates",
+		group: "Diagnostics",
+		Description: "Show every depth gate, what it needs, and whether you are deep enough now",
+		Action: () => {
+			const full = currentDepth();
+			const earned = currentDepthEarned();
+			reply(
+				`Depth ${full} full / ${earned} earned — ${tierLabel(tierOf(full))}. ` +
+					`Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}.`,
+			);
+			const features = getFeatures();
+			for (const gate of DEPTH_GATES) {
+				const granted = !!features[gate.key];
+				const deep = depthAllows(gate.key, full, earned);
+				// Both halves reported, because "off" and "not deep enough" are different
+				// problems with different fixes and look identical from outside.
+				const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
+				reply(
+					`  ${verdict.padEnd(16)} ${gate.label} — needs ${tierLabel(requiredTier(gate.key))} ` +
+						`(${requiredDepth(gate.key)})${gate.earnedOnly ? ", earned only" : ""}`,
+				);
+			}
 		},
 	},
 	{
