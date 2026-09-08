@@ -23,6 +23,7 @@
 //   !say <text>       make the bot say something arbitrary
 //   !hidden <type>    send a raw protocol message, for poking at edge cases
 //   !status           where we are
+//   !join             (re)join the room, if the bot started before it existed
 //   !abort            stop the scenario
 
 import { io } from "socket.io-client";
@@ -90,21 +91,29 @@ socket.on("LoginResponse", (data) => {
 	socket.emit("AccountUpdate", { AssetFamily: "Female3DCG" });
 
 	// A beat for the server to apply those before asking it to seat us somewhere.
-	setTimeout(() => {
-		logLine("net", `joining "${roomName}"`);
-		socket.emit("ChatRoomJoin", { Name: roomName });
-	}, 800);
+	setTimeout(tryJoin, 800);
 });
 
-socket.on("ChatRoomJoinResponse", (data) => {
-	// BC answers "JoinedRoom" in most versions and a bare "ok" in some. Accept both rather
-	// than treating one of them as a failure and helpfully creating a duplicate room.
-	if (data === "JoinedRoom" || data === "ok") {
-		logLine("net", `joined "${roomName}"`);
-		return;
-	}
-	// Not there yet — make it, matching the settings DW is already using.
-	logLine("net", `join said "${data}", creating the room instead`);
+// BC ROOMS ARE EPHEMERAL — they exist only while somebody is standing in one. An empty room
+// is not an empty room, it is no room, so "CannotFindRoom" usually means the subject is not
+// in it yet rather than that anything is wrong. The bot therefore keeps trying, and makes the
+// room itself if it is first to arrive.
+//
+// The two responses are also easy to get wrong: a SUCCESSFUL join answers on
+// ChatRoomJoinResponse, but a FAILED one comes back on ChatRoomSearchResponse. Listening only
+// to the first is why the fallback below never ran on the first attempt.
+let joined = false;
+let joinTries = 0;
+
+function tryJoin() {
+	if (joined) return;
+	joinTries += 1;
+	logLine("net", `joining "${roomName}" (attempt ${joinTries})`);
+	socket.emit("ChatRoomJoin", { Name: roomName });
+}
+
+function createRoom() {
+	logLine("net", `creating "${roomName}"`);
 	socket.emit("ChatRoomCreate", {
 		Name: roomName,
 		Description: "Hypnosis add-on test harness",
@@ -117,12 +126,54 @@ socket.on("ChatRoomJoinResponse", (data) => {
 		Ban: [],
 		Limit: 10,
 		BlockCategory: [],
+		Language: "EN",
 	});
+}
+
+socket.on("ChatRoomJoinResponse", (data) => {
+	// BC answers "JoinedRoom" in most versions and a bare "ok" in some.
+	if (data === "JoinedRoom" || data === "ok") {
+		joined = true;
+		logLine("net", `joined "${roomName}"`);
+		return;
+	}
+	logLine("net", `join response: ${JSON.stringify(data)}`);
+});
+
+socket.on("ChatRoomSearchResponse", (data) => {
+	if (joined) return;
+	// The room does not exist right now. Make it on the first miss so the subject has
+	// somewhere to walk into; after that just keep knocking, in case they made it first.
+	if (data === "CannotFindRoom") {
+		if (joinTries <= 1) createRoom();
+		else setTimeout(tryJoin, 5000);
+		return;
+	}
+	logLine("net", `search response: ${JSON.stringify(data)}`);
+	setTimeout(tryJoin, 5000);
 });
 
 socket.on("ChatRoomCreateResponse", (data) => {
-	if (data === "ChatRoomCreated") socket.emit("ChatRoomJoin", { Name: roomName });
-	else logLine("ERROR", `could not create the room: ${data}`);
+	if (data === "ChatRoomCreated") {
+		joined = true;
+		logLine("net", `created and joined "${roomName}" — walk in whenever you are ready`);
+		return;
+	}
+	// Somebody made it between our miss and our create, which is the normal race when both
+	// sides start at once. Just join it.
+	if (data === "RoomAlreadyExist") {
+		logLine("net", "room appeared while we were creating it — joining");
+		setTimeout(tryJoin, 500);
+		return;
+	}
+	logLine("ERROR", `could not create the room: ${JSON.stringify(data)}`);
+	setTimeout(tryJoin, 5000);
+});
+
+socket.on("ChatRoomLeaveResponse", () => {
+	joined = false;
+	logLine("net", "left the room — will try to get back in");
+	setTimeout(tryJoin, 2000);
 });
 
 socket.on("ChatRoomSync", (data) => {
@@ -419,6 +470,11 @@ function handleCommand(sender, text) {
 		case "hidden":
 			if (!arg) return report("!hidden <type> — e.g. !hidden session-wake");
 			return hidden({ type: arg });
+		case "join":
+			joined = false;
+			joinTries = 0;
+			tryJoin();
+			return;
 		case "status":
 			report(
 				active
