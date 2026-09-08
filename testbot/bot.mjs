@@ -326,6 +326,21 @@ function trance(depth = 80, earned = depth) {
 	hidden({ type: "test-trance", depth, earned });
 }
 
+// EVERY STEP SAYS WHAT SHOULD HAPPEN AND WHAT WOULD MEAN IT FAILED.
+//
+// `look` used to be one sentence doing both jobs and it was not enough: DW ran the undress
+// scenario, got four refusal messages, and could not tell whether that was the expected result
+// or the bug. A test whose outcome has to be interpreted is not a test.
+//
+//   do    what the bot does
+//   want  what SHOULD happen — the pass condition, stated as an observation
+//   fail  what it looks like when it is broken. Optional, but write one wherever "nothing
+//         happened" is a possible outcome, because "nothing happened" is ambiguous on its own.
+//
+// And keep the baseline in mind when writing one. Three scenarios have already been wrong
+// because the setup produced the state the assertion was checking for: no session at all, a
+// trance that freezes on its own, a trance freeze that then blocks undressing. If a step
+// cannot fail, it is not testing anything.
 const SCENARIOS = [
 	{
 		name: "induction",
@@ -333,7 +348,8 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => hidden({ type: "session-attempt", hypnotistName: "WinnersDice" }),
-				look: "You should get the Agree / Ignore / Fight box. Choose AGREE. Then /bot next.",
+				want: "A box offering Agree / Ignore / Fight. Choose AGREE.",
+				fail: "No box appears at all.",
 			},
 			{
 				do: async () => {
@@ -343,11 +359,13 @@ const SCENARIOS = [
 					await wait(1500);
 					say("Missy, there is nothing to hold on to and nothing you need to do.");
 				},
-				look: "Three RP lines = the full +15 bonus. Run `/hypno chance WinnersDice` — it should show `roleplay bonus +15`. Then wait for the window (60s) and /bot next.",
+				want: "`/hypno chance WinnersDice` shows `roleplay bonus +15` — three RP lines, 5 each. Then wait out the 60s window.",
+				fail: "The bonus is below +15, or the command does not mention roleplay at all.",
 			},
 			{
 				do: () => {},
-				look: "Did you go under? Run `/hypno effects` and `/hypno gates`. Report the tier with /bot ok <tier> or /bot fail <what happened>.",
+				want: "You go under. `/hypno effects` names a tier; report it with `/bot ok <tier>`.",
+				fail: "Nothing happens after the window closes.",
 			},
 		],
 	},
@@ -357,25 +375,22 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => trance(30, 30),
-				look: "You should be under at Yielding, no roll. `/hypno effects` confirms it. Then /bot next.",
+				want: "Under at Yielding. `/hypno effects` confirms the tier.",
 			},
 			{
-				do: () => {
-					say("Missy, you cannot tell what you are wearing.");
-				},
-				look: "The illusion needs Deep. It should NOT apply. `/hypno effects` should show clothing illusion off. /bot next",
+				do: () => say("Missy, you cannot tell what you are wearing."),
+				want: "REFUSED. I log a refusal naming Deep (60), and `/hypno effects` shows the clothing illusion OFF.",
+				fail: "Your clothes stop reflecting changes — that means it applied when it should not have.",
 			},
 			{
-				do: () => {
-					say("Missy, your trigger word is buttercup.");
-				},
-				look: "Planting needs Deep too. I should get a refusal naming the tier — I'll log it. /bot next",
+				do: () => say("Missy, your trigger word is buttercup."),
+				want: "REFUSED, naming Deep (60). I log the refusal.",
+				fail: "It starts recording — `/hypno triggers` would then list it.",
 			},
 			{
-				do: () => {
-					say("Missy, you cannot move.");
-				},
-				look: "Movement only needs Yielding, so this SHOULD work. Confirm you cannot move, then /bot ok / /bot fail.",
+				do: () => say("Missy, you cannot move."),
+				want: "WORKS — movement only needs Yielding (20). You should be unable to move.",
+				fail: "You can still move, or I log a refusal.",
 			},
 		],
 	},
@@ -383,10 +398,11 @@ const SCENARIOS = [
 		name: "depth-deep",
 		blurb: "A Deep trance allows what a shallow one refused.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank, all of it earned. Then /bot next." },
+			{ do: () => trance(80, 80), want: "Under at Blank, all of it earned." },
 			{
 				do: () => say("Missy, you cannot tell what you are wearing."),
-				look: "The illusion should apply now. `/hypno effects` shows it on, with the frozen groups. /bot next",
+				want: "APPLIES. `/hypno effects` shows the clothing illusion ON, listing the frozen groups.",
+				fail: "I log a refusal, or effects shows it off.",
 			},
 			{
 				do: async () => {
@@ -396,7 +412,8 @@ const SCENARIOS = [
 					await wait(1200);
 					say("Missy, remember trigger.");
 				},
-				look: "Planting should succeed — I'll log the trigger-status messages. `/hypno triggers` should list it. /bot ok / /bot fail",
+				want: "PLANTS. I should log RECORDING, then SAVED. `/hypno triggers` lists it.",
+				fail: "Any refusal in my log, or nothing listed.",
 			},
 		],
 	},
@@ -406,19 +423,22 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => trance(80, 20),
-				look: "Deep, but only 20 of it earned — an aroused subject rather than a deeply hypnotised one. Then /bot next.",
+				want: "Under at 80 full / 20 earned — deep because aroused, not because hypnotised.",
 			},
 			{
 				do: () => say("Missy, you cannot move."),
-				look: "A session feature reads the FULL depth, so this should still work. /bot next",
+				want: "WORKS. A session feature reads the FULL depth, and 80 clears Yielding.",
+				fail: "You can still move, or I log a refusal.",
 			},
 			{
 				do: () => say("Missy, you cannot tell what you are wearing."),
-				look: "The illusion is earned-only. It must REFUSE. `/hypno effects` shows it off. /bot next",
+				want: "REFUSED. The illusion is earned-only and only 20 was earned. I log a refusal saying `arousal does not count`.",
+				fail: "It applies anyway — then check `/hypno gates` for a lowered tier on Clothing illusion.",
 			},
 			{
 				do: () => say("Missy, your trigger word is nightfall."),
-				look: "Planting must refuse with 'arousal does not count'. I'll log it. /bot ok / /bot fail",
+				want: "REFUSED, also naming `arousal does not count`.",
+				fail: "It starts recording.",
 			},
 		],
 	},
@@ -426,7 +446,7 @@ const SCENARIOS = [
 		name: "trigger-fires",
 		blurb: "A trigger planted deep still fires later, with no trance at all.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank. /bot next to plant one." },
+			{ do: () => trance(80, 80), want: "Under at Blank." },
 			{
 				do: async () => {
 					say("Missy, your trigger word is buttercup.");
@@ -435,15 +455,18 @@ const SCENARIOS = [
 					await wait(1200);
 					say("Missy, remember trigger.");
 				},
-				look: "Should plant. Then /bot next.",
+				want: "PLANTS. I log RECORDING then SAVED.",
+				fail: "Any refusal in my log.",
 			},
 			{
 				do: () => hidden({ type: "session-wake" }),
-				look: "You should wake. `/hypno effects` should show no session and no depth. Then /bot next.",
+				want: "You wake. `/hypno effects` shows no session and no depth, and you can move again.",
+				fail: "You are still under, or still frozen.",
 			},
 			{
 				do: () => say("buttercup"),
-				look: "THE TEST: the trigger should still fire with zero depth. If it does not, triggers are broken. /bot ok / /bot fail",
+				want: "THE TEST: you freeze, with no trance and zero depth. A trigger answers to the induction that planted it, not to how deep you are now.",
+				fail: "Nothing happens — that means triggers are broken.",
 			},
 		],
 	},
@@ -456,43 +479,68 @@ const SCENARIOS = [
 		// the subject under — but applyTranceState() applies Freeze the moment she goes under
 		// if she has "Cannot Move During Trance" ticked, which she does. So she was frozen
 		// before the OOC line was ever spoken, "no freeze" could not fail, and the following
-		// step's "you should be frozen" could not fail either. Both assertions were
-		// unfalsifiable and the scenario passed on a state it had created itself.
+		// step's "you should be frozen" could not fail either.
 		//
 		// Releases have no such baseline: nothing about being in a trance un-freezes anybody.
-		// So freeze her deliberately, then try to release it OOC. If she can move, OOC leaked
-		// — and there is no other way for that to happen.
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank. Your own trance settings may freeze you here; the next step makes it certain either way. /bot next" },
+			{ do: () => trance(80, 80), want: "Under at Blank. Your trance settings may already freeze you; the next step makes it certain either way." },
 			{
 				do: () => say("Missy, you cannot move."),
-				look: "Baseline: you should be frozen. Confirm you cannot move before going on. /bot next",
+				want: "BASELINE: you cannot move. Confirm that before going on — the next step depends on it.",
 			},
 			{
 				do: () => say("(Missy, you can move again)"),
-				look: "THE TEST: entirely OOC, so it must NOT release you. You should still be frozen. If you can move, OOC leaked. /bot next",
+				want: "NOTHING HAPPENS. Entirely OOC, so it must not reach you — you are STILL frozen.",
+				fail: "You can move. That is OOC leaking, and there is no other way for it to happen.",
 			},
 			{
 				do: () => say("Missy, you can move again (back in a sec)"),
-				look: "The IC half of a mixed line still lands — you should be free now. /bot ok / /bot fail",
+				want: "RELEASES. The IC half of a mixed line still lands, so you can move now.",
+				fail: "You are still frozen — the aside ate the whole line.",
 			},
 		],
 	},
 	{
 		name: "undress",
 		blurb: "Taking clothes off, one garment at a time.",
+		// STEP 2 IS NOT OPTIONAL. Verified in the live client, Character.js:
+		//   IsRestrained: () => HasEffect("Freeze") || HasEffect("Block") || HasEffect("BlockWardrobe")
+		//   CanChangeClothesOn: (C) => !C.IsRestrained() && ...
+		// so a subject frozen by her own trance settings cannot undress at all. The first
+		// version ran straight from the trance into "take something off" and got four
+		// refusals, which read as the feature being broken.
 		steps: [
-			{ do: () => trance(60, 60), look: "Under at Entranced. Tick Undressing in the settings if it is not on. Then /bot next." },
-			{ do: () => say("Missy, take something off."), look: "One garment, outermost first. The room should see an emote. /bot next" },
-			{ do: () => say("Missy, take something off."), look: "The next garment down. /bot next" },
-			{ do: () => say("Missy, take everything off."), look: "The rest — but NOT hats, glasses or jewellery. /bot ok / /bot fail" },
+			{
+				do: () => trance(60, 60),
+				want: "Under at Entranced (60) — the tier undressing needs. Tick Undressing in the settings if it is not already on.",
+			},
+			{
+				do: () => say("Missy, you can move again."),
+				want: "You can move. Frozen hands cannot undress, so this clears the trance freeze first.",
+				fail: "Still frozen — everything below will refuse, and correctly so.",
+			},
+			{
+				do: () => say("Missy, take something off."),
+				want: "ONE garment comes off, the outermost first — your top. The room sees an emote.",
+				fail: "'Undressing would require moving' means step 2 did not take. 'Something holds them' means a real lock, not us.",
+			},
+			{
+				do: () => say("Missy, take something off."),
+				want: "The NEXT garment down, one only.",
+				fail: "Two come off at once, or nothing does.",
+			},
+			{
+				do: () => say("Missy, take everything off."),
+				want: "The rest of the clothes go. Hats, glasses and jewellery STAY — they are not clothing.",
+				fail: "Accessories come off too, or clothes are left behind.",
+			},
 		],
 	},
 	{
 		name: "hard-floor",
 		blurb: "hypnoEnabled off must release everything.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank, so there is something to tear down. Then /bot next." },
+			{ do: () => trance(80, 80), want: "Under at Blank, so there is something to tear down." },
 			{
 				do: async () => {
 					say("Missy, you cannot move.");
@@ -501,11 +549,13 @@ const SCENARIOS = [
 					await wait(1000);
 					say("Missy, you cannot tell what you are wearing.");
 				},
-				look: "Several things applied. Check `/hypno effects`, then /bot next.",
+				want: "All three apply. `/hypno effects` lists movement, speech and the clothing illusion.",
+				fail: "Any of the three missing from effects.",
 			},
 			{
 				do: () => {},
-				look: "Now untick Hypnosis Enabled. EVERYTHING should come off — including the illusion and any denial. `/hypno effects` should say nothing is holding you. /bot ok / /bot fail",
+				want: "Now UNTICK Hypnosis Enabled. Everything comes off at once — `/hypno effects` says nothing is holding you, and you can move and speak.",
+				fail: "Anything at all survives the untick. That is the hard floor failing, the most serious result in the suite.",
 			},
 		],
 	},
@@ -537,7 +587,12 @@ async function runStep() {
 	} catch (err) {
 		logLine("ERROR", `step threw: ${err?.message ?? err}`);
 	}
-	report(`[${active.at + 1}/${active.scenario.steps.length}] ${step.look}`);
+	// Two lines rather than one, because the pass condition and the failure condition are
+	// different thoughts and running them together is what made the undress result unreadable.
+	const n = `[${active.at + 1}/${active.scenario.steps.length}]`;
+	report(`${n} EXPECT: ${step.want}`);
+	if (step.fail) report(`${n} FAIL IF: ${step.fail}`);
+	report(`${n} Then /bot next${active.at + 1 === active.scenario.steps.length ? " — or /bot ok / /bot fail to finish" : ""}.`);
 }
 
 /** Both entry points land here: `!cmd` typed in chat, and `/bot cmd` arriving over the hidden

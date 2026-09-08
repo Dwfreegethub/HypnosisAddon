@@ -46,6 +46,20 @@ export function undressBlockedReason(): string | null {
 	}
 	// Hands bound. BC's own effect, not ours — a real straitjacket, and nothing we did.
 	if (Player?.CanInteract?.() === false) return "bound";
+	// OUR OWN FREEZE, reported as itself rather than as somebody else's lock.
+	//
+	// Verified in the live client — Character.js:
+	//     IsRestrained: () => HasEffect("Freeze") || HasEffect("Block") || HasEffect("BlockWardrobe")
+	//     CanChangeClothesOn: (C) => !C.IsRestrained() && !ManagementIsClubSlave() && ...
+	// so our Freeze makes CanChangeOwnClothes() false, and the check below then blamed a
+	// locked outfit that does not exist. In play that reads as the add-on breaking: a subject
+	// with "Cannot Move During Trance" ticked is frozen the moment she goes under, so every
+	// undress command for the whole session answered "something else has that decision" —
+	// naming an obstacle nobody could find.
+	//
+	// Refused either way; being frozen really should stop you undressing. What changes is that
+	// it says so. Same answer selftouch-frozen already gives for the same situation.
+	if (hasOwnEffect("Freeze")) return "frozen";
 	// A locked outfit, an owner rule, or a chastity item. Deliberately NOT triggered by our
 	// OWN wardrobe block: if this hypnotist told her she cannot open her wardrobe and then
 	// told her to strip, the second instruction is theirs to give and theirs to contradict.
@@ -90,7 +104,7 @@ export interface UndressResult {
 	/** Groups actually removed, outermost first. */
 	removed: string[];
 	/** Set when nothing was removed and there is a reason worth reporting. */
-	refusal?: "bound" | "locked" | "unavailable" | "already bare";
+	refusal?: "bound" | "locked" | "frozen" | "unavailable" | "already bare";
 }
 
 /** Take off `count` garments, outermost first. `count` of Infinity strips the lot.

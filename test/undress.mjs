@@ -81,6 +81,28 @@ check("  still dressed", wearing(), ["Cloth", "Panties"]);
 Player.CanChangeOwnClothes = () => true;
 check("and once free it works again", undress.undress(1).removed, ["Cloth"]);
 
+// --- our own freeze says so, instead of blaming a lock that does not exist ---------------
+// Verified in the live client, Character.js:
+//   IsRestrained: () => HasEffect("Freeze") || HasEffect("Block") || HasEffect("BlockWardrobe")
+//   CanChangeClothesOn: (C) => !C.IsRestrained() && !ManagementIsClubSlave() && ...
+// so OUR Freeze makes BC's CanChangeOwnClothes() answer false, and the "locked" branch below
+// then named an obstacle nobody could go and find. It cost a whole play session: a subject
+// with "Cannot Move During Trance" ticked is frozen the moment she goes under, so every
+// undress command for the rest of that session answered "something else has that decision".
+//
+// Still refused — being frozen genuinely should stop you undressing, the way selftouch-frozen
+// already says. What changed is that it is now true.
+dress("Cloth", "Panties");
+const freeze = { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: ["Freeze"] } };
+Player.Appearance.push(freeze);
+Player.CanChangeOwnClothes = () => false; // what BC does the moment IsRestrained() is true
+check("our own freeze reports itself", undress.undress(1).refusal, "frozen");
+check("  and takes nothing off", wearing().includes("Cloth"), true);
+Player.Appearance = Player.Appearance.filter((a) => a !== freeze);
+check("someone else's lock is still a lock", undress.undress(1).refusal, "locked");
+Player.CanChangeOwnClothes = () => true;
+check("and once the freeze is gone it works", undress.undress(1).removed, ["Cloth"]);
+
 // --- the room has to see it -------------------------------------------------------------
 // The assertion that keeps this from quietly becoming the clothing illusion.
 dress("Cloth");

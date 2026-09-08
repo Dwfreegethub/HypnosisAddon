@@ -150,6 +150,10 @@ function applyArousal(level: ArousalLevel): FlavorKey | void {
 function applyUndress(count: number): FlavorKey | void {
 	const result: UndressResult = undress(count);
 	if (result.refusal === "already bare") return "undress-bare";
+	// Our own freeze gets its own line. "Something else has that decision" is true of a lock
+	// and false of us, and saying it when we are the obstacle sends people looking for a
+	// restraint that is not there.
+	if (result.refusal === "frozen") return "undress-frozen";
 	if (result.refusal) return "undress-blocked";
 	// The flavor is deliberately generic about WHICH garment. Naming it would read better
 	// ("your skirt comes off") and garmentWord() exists for it — but it needs a built line

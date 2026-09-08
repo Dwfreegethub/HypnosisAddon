@@ -61,7 +61,10 @@ export type FlavorKey =
 	/** Asked to undress with nothing left to take off. */
 	| "undress-bare"
 	/** Hands bound, or a lock that is not ours. */
-	| "undress-blocked";
+	| "undress-blocked"
+	/** Told to strip while OUR OWN freeze is holding her. Distinct from undress-blocked,
+	 * which means someone else's lock. */
+	| "undress-frozen";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -102,6 +105,9 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"undress-blocked": [
 		"{name}'s hands move to undress and stop, held.",
 		"{name} starts to undo something and cannot make {their} hands finish.",
+	],
+	"undress-frozen": [
+		"{name} does not move to undress. {name} does not move at all.",
 	],
 	"clothing-blocked-attempt": [
 		"{name} reaches for {their} clothes, and {their} hand drifts away again.",
@@ -224,6 +230,12 @@ const LINES: Record<FlavorKey, string[]> = {
 	"undress-blocked": [
 		"Your hands try, and something holds them where they are.",
 		"You go to undress and find you cannot — something else has that decision.",
+	],
+	// Deliberately worded like selftouch-frozen's third line, because it is the same fact:
+	// you were told to do something with your hands and your hands are not yours right now.
+	"undress-frozen": [
+		"Undressing would require moving, and you cannot move at all.",
+		"You are told to undress. Nothing of yours so much as shifts.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",
