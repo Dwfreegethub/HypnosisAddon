@@ -30,7 +30,7 @@ import { describeTrust, describeRelationship, relationshipWith, accessFor } from
 import { describeRecording } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
-import { answerPrompt, selfWake, safeword, describeSession, describeChances } from "./session";
+import { answerPrompt, selfWake, safeword, describeSession, describeChances, forceTrance } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import {
 	DEPTH_GATES,
@@ -732,7 +732,45 @@ const COMMANDS: HypnoCommand[] = [
 			setCurrentDepths(full, earned);
 			reply(
 				`Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned — ` +
-					`${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read.`,
+					`${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. ` +
+					`For suggestions to land you also need a live session — see /hypno trance.`,
+			);
+		},
+	},
+	{
+		// TESTING ONLY, and the missing half of /hypno depth.
+		//
+		// Depth alone was never enough: handleSpokenLine() checks isSessionActiveWith(sender)
+		// BEFORE it consults any depth gate, so a forced depth with no session refused every
+		// suggestion and looked exactly like a broken feature. This starts a real session at
+		// a chosen depth in one step, which is what the depth scenarios actually need.
+		Tag: "trance",
+		group: "Testing",
+		args: "[who] [depth] [earned]",
+		Description: "TESTING: go straight under with someone, at a chosen depth, skipping the roll",
+		Action: (args: string) => {
+			if (!TESTING_MODE) {
+				reply("Not available — this build is not in testing mode.");
+				return;
+			}
+			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			// A leading number is ambiguous: `/hypno trance 80` could be a member number or a
+			// depth. Depths are 0-100 and member numbers are far larger, so read a small first
+			// number as a depth and let the usual one-other-person-in-the-room rule pick who.
+			const looksLikeDepth = parts.length && /^\d{1,3}$/.test(parts[0]) && Number(parts[0]) <= 100;
+			const token = looksLikeDepth ? "" : (parts.shift() ?? "");
+			const target = targetOrAsk(token, "Usage: /hypno trance [who] [depth] [earned]");
+			if (!target) return;
+			const full = parts.length ? Math.max(0, Math.min(100, Number(parts[0]) || 0)) : 80;
+			const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
+			const refused = forceTrance(target.id, full, earned);
+			if (refused) {
+				reply(`Can't: ${refused}.`);
+				return;
+			}
+			reply(
+				`Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned — ` +
+					`${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /hypno wake to come out.`,
 			);
 		},
 	},

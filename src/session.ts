@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures, trustWith, experienceValue } from "./storage";
@@ -574,6 +574,44 @@ function runInductionRoll(): void {
 	pushUpdate();
 }
 
+/** TESTING ONLY: put the player straight into a trance with `hypnotistId`, skipping the
+ * handshake, the induction window and the roll.
+ *
+ * This exists because of a real hole in the test harness. Every depth gate is checked by
+ * handleSpokenLine(), which requires isSessionActiveWith(sender) FIRST — so the scenarios
+ * that opened with `/hypno depth 30 30` and then had the bot speak could never do anything:
+ * a forced depth is a number, not a session, and the suggestion was refused before the
+ * depth was ever consulted. The addon was correct and the harness was testing nothing.
+ *
+ * Deliberately NOT counted as practice: no noteInductionAttempt, no noteInductionSuccess.
+ * A hundred test tranches must not silently teach the trust store that this hypnotist is
+ * enormously experienced, or later runs would be measuring the test runs instead of the
+ * mechanic.
+ *
+ * Gated on TESTING_MODE at both call sites, and again here. This one is worth the
+ * belt-and-braces: a remote party being able to force a trance with no consent step is
+ * precisely the thing the whole subject-authoritative design exists to prevent, so it must
+ * be impossible in a release build rather than merely unreachable. */
+export function forceTrance(hypnotistId: number, full: number, earned: number): string | null {
+	if (!TESTING_MODE) return "not available — this build is not in testing mode";
+	if (!getFeatures().hypnoEnabled) return "hypnoEnabled is off — turn hypnosis on first";
+	clearTimers();
+	session.phase = "Hypnotized";
+	session.hypnotistId = hypnotistId;
+	session.depth = Math.max(0, Math.min(100, full));
+	// Same invariant the roll produces: you cannot have earned more than you have.
+	session.depthEarned = Math.max(0, Math.min(session.depth, earned));
+	setCurrentDepths(session.depth, session.depthEarned);
+	session.hypnotizedAt = Date.now();
+	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
+	sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+	applyTranceState();
+	pushUpdate();
+	persistState();
+	log(`TESTING: forced trance with ${hypnotistId}, depth ${session.depth}/${session.depthEarned}`);
+	return null;
+}
+
 function findCharacterName(memberId: number): string {
 	const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
 		(x: any) => x?.MemberNumber === memberId,
@@ -902,6 +940,23 @@ export function installSession(): void {
 		pushUpdate();
 		showPrompt(String(message.hypnotistName ?? `#${sender}`));
 	});
+
+	// TESTING ONLY, and registered only in a testing build so it does not so much as exist
+	// in a release one. Lets the test bot set up the precondition every depth scenario needs
+	// — a live session at a known depth — in one message instead of a handshake, a 60-second
+	// window, a dice roll and a plea to the RNG for the tier you wanted.
+	if (TESTING_MODE) {
+		registerHiddenHandler("test-trance", (sender, message) => {
+			const full = Number(message.depth ?? 80);
+			const earned = Number(message.earned ?? full);
+			const refused = forceTrance(sender, full, earned);
+			if (refused) {
+				refuse(sender, refused);
+				return;
+			}
+			notify(`TESTING: forced under by ${findCharacterName(sender)} at depth ${full}/${earned}.`);
+		});
+	}
 
 	registerHiddenHandler("session-continue", (sender) => {
 		if (session.hypnotistId !== sender) return;

@@ -25,6 +25,7 @@
 //   !status           where we are
 //   !join             (re)join the room, if the bot started before it existed
 //   !rooms            list the rooms the server will show us — the Environment check
+//   !trance [d] [e]   TESTING: put the subject under at a chosen depth, skipping the roll
 //   !abort            stop the scenario
 
 import { io } from "socket.io-client";
@@ -289,6 +290,21 @@ socket.on("ChatRoomMessage", (data) => {
 // subject's screen, so a step that changes something invisible ends in a question.
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Put the subject under at a chosen depth, with US as the hypnotist, in one message.
+ *
+ * EVERY depth scenario needs this and none of them had it. They opened by asking DW to run
+ * `/hypno depth 30 30` and then started talking — but a forced depth is only a number, and
+ * handleSpokenLine() checks `isSessionActiveWith(sender)` BEFORE it looks at any depth gate.
+ * So the suggestions were refused for having no session, at a stage that never mentions
+ * depth, and the whole suite was testing nothing while looking like the addon was broken.
+ * "Missy, you cannot move" doing nothing was the correct behaviour.
+ *
+ * Handled by a TESTING_MODE-only handler on the subject's side; it does not exist in a
+ * release build, which is the point — nobody should be able to force a trance for real. */
+function trance(depth = 80, earned = depth) {
+	hidden({ type: "test-trance", depth, earned });
+}
+
 const SCENARIOS = [
 	{
 		name: "induction",
@@ -319,8 +335,8 @@ const SCENARIOS = [
 		blurb: "A shallow trance must refuse the deep three.",
 		steps: [
 			{
-				do: () => {},
-				look: "First: `/hypno depth 30 30` (Yielding). Then !next.",
+				do: () => trance(30, 30),
+				look: "You should be under at Yielding, no roll. `/hypno effects` confirms it. Then !next.",
 			},
 			{
 				do: () => {
@@ -346,7 +362,7 @@ const SCENARIOS = [
 		name: "depth-deep",
 		blurb: "A Deep trance allows what a shallow one refused.",
 		steps: [
-			{ do: () => {}, look: "First: `/hypno depth 80 80` (Blank). Then !next." },
+			{ do: () => trance(80, 80), look: "Under at Blank, all of it earned. Then !next." },
 			{
 				do: () => say("Missy, you cannot tell what you are wearing."),
 				look: "The illusion should apply now. `/hypno effects` shows it on, with the frozen groups. !next",
@@ -368,8 +384,8 @@ const SCENARIOS = [
 		blurb: "THE important one: arousal cannot buy the earned three.",
 		steps: [
 			{
-				do: () => {},
-				look: "Set `/hypno depth 80 20` — deep, but only 20 of it earned. That is an aroused subject. Then !next.",
+				do: () => trance(80, 20),
+				look: "Deep, but only 20 of it earned — an aroused subject rather than a deeply hypnotised one. Then !next.",
 			},
 			{
 				do: () => say("Missy, you cannot move."),
@@ -389,7 +405,7 @@ const SCENARIOS = [
 		name: "trigger-fires",
 		blurb: "A trigger planted deep still fires later, with no trance at all.",
 		steps: [
-			{ do: () => {}, look: "Set `/hypno depth 80 80`, then !next to plant one." },
+			{ do: () => trance(80, 80), look: "Under at Blank. !next to plant one." },
 			{
 				do: async () => {
 					say("Missy, your trigger word is buttercup.");
@@ -402,7 +418,7 @@ const SCENARIOS = [
 			},
 			{
 				do: () => hidden({ type: "session-wake" }),
-				look: "You should wake. Run `/hypno depth 0 0` to be certain there is no depth left, then !next.",
+				look: "You should wake. `/hypno effects` should show no session and no depth. Then !next.",
 			},
 			{
 				do: () => say("buttercup"),
@@ -414,6 +430,10 @@ const SCENARIOS = [
 		name: "ooc",
 		blurb: "Parenthesised text must do nothing at all.",
 		steps: [
+			// The session matters MORE here than anywhere else: with no session both halves do
+			// nothing, the scenario passes, and it has proved nothing about OOC at all. The
+			// second step is the real assertion and it needs a working baseline.
+			{ do: () => trance(80, 80), look: "Under at Blank, so the IC half below has something to prove. Then !next." },
 			{
 				do: () => say("(Missy, you cannot move)"),
 				look: "Entirely OOC — nothing should happen. No freeze, no message. !next",
@@ -428,7 +448,7 @@ const SCENARIOS = [
 		name: "undress",
 		blurb: "Taking clothes off, one garment at a time.",
 		steps: [
-			{ do: () => {}, look: "Set `/hypno depth 60 60` (Entranced+) and tick Undressing. Then !next." },
+			{ do: () => trance(60, 60), look: "Under at Entranced. Tick Undressing in the settings if it is not on. Then !next." },
 			{ do: () => say("Missy, take something off."), look: "One garment, outermost first. The room should see an emote. !next" },
 			{ do: () => say("Missy, take something off."), look: "The next garment down. !next" },
 			{ do: () => say("Missy, take everything off."), look: "The rest — but NOT hats, glasses or jewellery. !ok / !fail" },
@@ -438,6 +458,7 @@ const SCENARIOS = [
 		name: "hard-floor",
 		blurb: "hypnoEnabled off must release everything.",
 		steps: [
+			{ do: () => trance(80, 80), look: "Under at Blank, so there is something to tear down. Then !next." },
 			{
 				do: async () => {
 					say("Missy, you cannot move.");
@@ -528,6 +549,15 @@ function handleCommand(sender, text) {
 			joinTries = 0;
 			tryJoin();
 			return;
+		case "trance": {
+			// e.g. `!trance 80 20` — the manual form of the same thing, for trying something
+			// the scenarios do not cover without having to run one.
+			const nums = (arg ?? "").trim().split(/\s+/).filter(Boolean).map(Number);
+			const depth = Number.isFinite(nums[0]) ? nums[0] : 80;
+			const earned = Number.isFinite(nums[1]) ? nums[1] : depth;
+			trance(depth, earned);
+			return report(`forcing a trance at ${depth}/${earned}`);
+		}
 		case "rooms": {
 			// The direct test of whether we share an Environment with the subject: the server
 			// only returns rooms from our own, so an empty list next to a room the subject is
