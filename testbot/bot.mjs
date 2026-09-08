@@ -24,6 +24,7 @@
 //   !hidden <type>    send a raw protocol message, for poking at edge cases
 //   !status           where we are
 //   !join             (re)join the room, if the bot started before it existed
+//   !rooms            list the rooms the server will show us — the Environment check
 //   !abort            stop the scenario
 
 import { io } from "socket.io-client";
@@ -46,7 +47,31 @@ try {
 	console.error("No secrets.json. Copy secrets.example.json to secrets.json and fill it in.");
 	process.exit(1);
 }
-const { username, password, roomName = "Hypno testing", subjectName = "" } = secrets;
+const {
+	username,
+	password,
+	roomName = "Hypno testing",
+	subjectName = "",
+	// THE ONE THAT MATTERS. Read app.js on the BC server:
+	//
+	//   function AccountGetEnvironment(socket) {
+	//     if (origin header matches ChatRoomProduction) return "PROD";
+	//     else if (origin header exists)                return "DEV";
+	//     else return (Math.round(Math.random() * 1e12)).toString();
+	//   }
+	//
+	// and then ChatRoomJoin refuses any room where `Acc.Environment != Room.Environment`.
+	//
+	// A browser sets Origin automatically; a Node socket.io client does not, so without this
+	// the bot lands in an Environment named after a random number and can never see a room
+	// made in a browser — the room is genuinely there (ChatRoomCreate says RoomAlreadyExist)
+	// and genuinely invisible (ChatRoomJoin says CannotFindRoom). Both were true at once,
+	// which is what gave it away.
+	//
+	// This is also why the SlaveParking bot never hit it: that one CREATES the room it lives
+	// in, so both ends share whatever random Environment it was given.
+	origin = "https://www.bondageprojects.elementfx.com",
+} = secrets;
 
 // --- logging --------------------------------------------------------------------------
 // Written as it happens rather than buffered: the interesting runs are the ones that hang or
@@ -63,7 +88,12 @@ function logLine(kind, text, data) {
 }
 
 // --- connection -----------------------------------------------------------------------
-const socket = io(BC_SERVER, { transports: ["websocket"] });
+const socket = io(BC_SERVER, {
+	transports: ["websocket"],
+	// Applied to the WebSocket handshake in Node. Must match the site you actually play on,
+	// because the server compares the two accounts' Environments and not the string itself.
+	extraHeaders: { Origin: origin },
+});
 let me = 0;
 /** memberNumber -> name, from ChatRoomSync. */
 const room = new Map();
@@ -130,26 +160,26 @@ function createRoom() {
 	});
 }
 
-socket.on("ChatRoomJoinResponse", (data) => {
-	// BC answers "JoinedRoom" in most versions and a bare "ok" in some.
-	if (data === "JoinedRoom" || data === "ok") {
+// THERE IS NO ChatRoomJoinResponse. The server emits every join outcome — success and
+// failure alike — on ChatRoomSearchResponse; `grep -c ChatRoomJoinResponse app.js` is 0.
+// Listening for a success event that does not exist is why the bot reported nothing after a
+// join that may well have worked.
+socket.on("ChatRoomSearchResponse", (data) => {
+	if (data === "JoinedRoom" || data === "AlreadyInRoom") {
 		joined = true;
-		logLine("net", `joined "${roomName}"`);
+		logLine("net", `in "${roomName}"`);
 		return;
 	}
-	logLine("net", `join response: ${JSON.stringify(data)}`);
-});
-
-socket.on("ChatRoomSearchResponse", (data) => {
 	if (joined) return;
-	// The room does not exist right now. Make it on the first miss so the subject has
-	// somewhere to walk into; after that just keep knocking, in case they made it first.
 	if (data === "CannotFindRoom") {
+		// Either nobody is in it — BC rooms exist only while occupied — or we cannot SEE it,
+		// which is the Environment mismatch above. Make it once so there is somewhere to walk
+		// into, then keep knocking.
 		if (joinTries <= 1) createRoom();
 		else setTimeout(tryJoin, 5000);
 		return;
 	}
-	logLine("net", `search response: ${JSON.stringify(data)}`);
+	logLine("net", `join refused: ${JSON.stringify(data)}`);
 	setTimeout(tryJoin, 5000);
 });
 
@@ -168,6 +198,14 @@ socket.on("ChatRoomCreateResponse", (data) => {
 	}
 	logLine("ERROR", `could not create the room: ${JSON.stringify(data)}`);
 	setTimeout(tryJoin, 5000);
+});
+
+socket.on("ChatRoomSearchResult", (rooms) => {
+	const names = (rooms ?? []).map((r) => `${r.Name} (${r.MemberCount ?? "?"})`);
+	logLine("net", `${names.length} room(s) visible to us`, names.slice(0, 20));
+	if (!names.length) {
+		logLine("net", "NONE — if the subject is standing in one right now, our Environments differ; check `origin` in secrets.json");
+	}
 });
 
 socket.on("ChatRoomLeaveResponse", () => {
@@ -475,6 +513,14 @@ function handleCommand(sender, text) {
 			joinTries = 0;
 			tryJoin();
 			return;
+		case "rooms": {
+			// The direct test of whether we share an Environment with the subject: the server
+			// only returns rooms from our own, so an empty list next to a room the subject is
+			// standing in IS the mismatch, stated rather than inferred.
+			logLine("net", "searching for visible rooms");
+			socket.emit("ChatRoomSearch", { Query: "", Space: "", Game: "", FullRooms: true, Ignore: [] });
+			return;
+		}
 		case "status":
 			report(
 				active
@@ -507,4 +553,5 @@ socket.onAny((event, ...args) => {
 socket.on("connect_error", (err) => logLine("ERROR", `connect_error: ${err?.message ?? err}`));
 socket.on("disconnect", (why) => logLine("net", `disconnected: ${why}`));
 
-logLine("boot", `starting — room "${roomName}", log ${LOG_FILE}`);
+logLine("boot", `starting — room "${roomName}", origin ${origin}`);
+logLine("boot", `log: ${LOG_FILE}`);
