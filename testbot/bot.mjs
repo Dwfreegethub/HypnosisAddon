@@ -15,6 +15,11 @@
 //   node bot.mjs
 //
 // In the room, drive it from chat:
+// TWO WAYS IN, and the second one matters more than it looks. Every command below can be
+// typed in chat with a `!`, or given as a slash command — `/bot next` — which reaches us over
+// the hidden channel instead of the room. Use the slash form whenever the subject is silenced,
+// which several of these scenarios do on purpose: chat is blocked then, and `/bot` is not.
+//
 //   !tests            list the scenarios
 //   !run <n>          run scenario n
 //   !next             advance to the next step
@@ -277,6 +282,16 @@ socket.on("ChatRoomMessage", (data) => {
 			// subject's client saying why it declined, in its own words.
 			if (message.refusedReason) logLine("REFUSED", message.refusedReason);
 		}
+		// `/bot next` on the subject's side arrives here rather than as chat.
+		//
+		// This is not a convenience. The suite silences the subject on purpose, and a silenced
+		// subject cannot type `!next` — the harness was disabling the only way to drive it, and
+		// the better the addon worked the more thoroughly the tests locked themselves out.
+		// Slash commands survive because the speech block hooks ChatRoomSendChatMessage, which
+		// runs after command parsing; the hidden channel then carries it here untouched.
+		if (message.type === "test-command" && typeof message.text === "string") {
+			handleCommand(data.Sender, `!${message.text.replace(/^[!/]+/, "")}`);
+		}
 		return;
 	}
 	if (data?.Type === "Chat" && data?.Sender !== me && typeof data?.Content === "string") {
@@ -312,7 +327,7 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => hidden({ type: "session-attempt", hypnotistName: "WinnersDice" }),
-				look: "You should get the Agree / Ignore / Fight box. Choose AGREE. Then !next.",
+				look: "You should get the Agree / Ignore / Fight box. Choose AGREE. Then /bot next.",
 			},
 			{
 				do: async () => {
@@ -322,11 +337,11 @@ const SCENARIOS = [
 					await wait(1500);
 					say("Missy, there is nothing to hold on to and nothing you need to do.");
 				},
-				look: "Three RP lines = the full +15 bonus. Run `/hypno chance WinnersDice` — it should show `roleplay bonus +15`. Then wait for the window (60s) and !next.",
+				look: "Three RP lines = the full +15 bonus. Run `/hypno chance WinnersDice` — it should show `roleplay bonus +15`. Then wait for the window (60s) and /bot next.",
 			},
 			{
 				do: () => {},
-				look: "Did you go under? Run `/hypno effects` and `/hypno gates`. Report the tier with !ok <tier> or !fail <what happened>.",
+				look: "Did you go under? Run `/hypno effects` and `/hypno gates`. Report the tier with /bot ok <tier> or /bot fail <what happened>.",
 			},
 		],
 	},
@@ -336,25 +351,25 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => trance(30, 30),
-				look: "You should be under at Yielding, no roll. `/hypno effects` confirms it. Then !next.",
+				look: "You should be under at Yielding, no roll. `/hypno effects` confirms it. Then /bot next.",
 			},
 			{
 				do: () => {
 					say("Missy, you cannot tell what you are wearing.");
 				},
-				look: "The illusion needs Deep. It should NOT apply. `/hypno effects` should show clothing illusion off. !next",
+				look: "The illusion needs Deep. It should NOT apply. `/hypno effects` should show clothing illusion off. /bot next",
 			},
 			{
 				do: () => {
 					say("Missy, your trigger word is buttercup.");
 				},
-				look: "Planting needs Deep too. I should get a refusal naming the tier — I'll log it. !next",
+				look: "Planting needs Deep too. I should get a refusal naming the tier — I'll log it. /bot next",
 			},
 			{
 				do: () => {
 					say("Missy, you cannot move.");
 				},
-				look: "Movement only needs Yielding, so this SHOULD work. Confirm you cannot move, then !ok / !fail.",
+				look: "Movement only needs Yielding, so this SHOULD work. Confirm you cannot move, then /bot ok / /bot fail.",
 			},
 		],
 	},
@@ -362,10 +377,10 @@ const SCENARIOS = [
 		name: "depth-deep",
 		blurb: "A Deep trance allows what a shallow one refused.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank, all of it earned. Then !next." },
+			{ do: () => trance(80, 80), look: "Under at Blank, all of it earned. Then /bot next." },
 			{
 				do: () => say("Missy, you cannot tell what you are wearing."),
-				look: "The illusion should apply now. `/hypno effects` shows it on, with the frozen groups. !next",
+				look: "The illusion should apply now. `/hypno effects` shows it on, with the frozen groups. /bot next",
 			},
 			{
 				do: async () => {
@@ -375,7 +390,7 @@ const SCENARIOS = [
 					await wait(1200);
 					say("Missy, remember trigger.");
 				},
-				look: "Planting should succeed — I'll log the trigger-status messages. `/hypno triggers` should list it. !ok / !fail",
+				look: "Planting should succeed — I'll log the trigger-status messages. `/hypno triggers` should list it. /bot ok / /bot fail",
 			},
 		],
 	},
@@ -385,19 +400,19 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => trance(80, 20),
-				look: "Deep, but only 20 of it earned — an aroused subject rather than a deeply hypnotised one. Then !next.",
+				look: "Deep, but only 20 of it earned — an aroused subject rather than a deeply hypnotised one. Then /bot next.",
 			},
 			{
 				do: () => say("Missy, you cannot move."),
-				look: "A session feature reads the FULL depth, so this should still work. !next",
+				look: "A session feature reads the FULL depth, so this should still work. /bot next",
 			},
 			{
 				do: () => say("Missy, you cannot tell what you are wearing."),
-				look: "The illusion is earned-only. It must REFUSE. `/hypno effects` shows it off. !next",
+				look: "The illusion is earned-only. It must REFUSE. `/hypno effects` shows it off. /bot next",
 			},
 			{
 				do: () => say("Missy, your trigger word is nightfall."),
-				look: "Planting must refuse with 'arousal does not count'. I'll log it. !ok / !fail",
+				look: "Planting must refuse with 'arousal does not count'. I'll log it. /bot ok / /bot fail",
 			},
 		],
 	},
@@ -405,7 +420,7 @@ const SCENARIOS = [
 		name: "trigger-fires",
 		blurb: "A trigger planted deep still fires later, with no trance at all.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank. !next to plant one." },
+			{ do: () => trance(80, 80), look: "Under at Blank. /bot next to plant one." },
 			{
 				do: async () => {
 					say("Missy, your trigger word is buttercup.");
@@ -414,15 +429,15 @@ const SCENARIOS = [
 					await wait(1200);
 					say("Missy, remember trigger.");
 				},
-				look: "Should plant. Then !next.",
+				look: "Should plant. Then /bot next.",
 			},
 			{
 				do: () => hidden({ type: "session-wake" }),
-				look: "You should wake. `/hypno effects` should show no session and no depth. Then !next.",
+				look: "You should wake. `/hypno effects` should show no session and no depth. Then /bot next.",
 			},
 			{
 				do: () => say("buttercup"),
-				look: "THE TEST: the trigger should still fire with zero depth. If it does not, triggers are broken. !ok / !fail",
+				look: "THE TEST: the trigger should still fire with zero depth. If it does not, triggers are broken. /bot ok / /bot fail",
 			},
 		],
 	},
@@ -433,14 +448,14 @@ const SCENARIOS = [
 			// The session matters MORE here than anywhere else: with no session both halves do
 			// nothing, the scenario passes, and it has proved nothing about OOC at all. The
 			// second step is the real assertion and it needs a working baseline.
-			{ do: () => trance(80, 80), look: "Under at Blank, so the IC half below has something to prove. Then !next." },
+			{ do: () => trance(80, 80), look: "Under at Blank, so the IC half below has something to prove. Then /bot next." },
 			{
 				do: () => say("(Missy, you cannot move)"),
-				look: "Entirely OOC — nothing should happen. No freeze, no message. !next",
+				look: "Entirely OOC — nothing should happen. No freeze, no message. /bot next",
 			},
 			{
 				do: () => say("Missy, you cannot move (back in a sec)"),
-				look: "The IC half should still land — you should be frozen. !ok / !fail",
+				look: "The IC half should still land — you should be frozen. /bot ok / /bot fail",
 			},
 		],
 	},
@@ -448,17 +463,17 @@ const SCENARIOS = [
 		name: "undress",
 		blurb: "Taking clothes off, one garment at a time.",
 		steps: [
-			{ do: () => trance(60, 60), look: "Under at Entranced. Tick Undressing in the settings if it is not on. Then !next." },
-			{ do: () => say("Missy, take something off."), look: "One garment, outermost first. The room should see an emote. !next" },
-			{ do: () => say("Missy, take something off."), look: "The next garment down. !next" },
-			{ do: () => say("Missy, take everything off."), look: "The rest — but NOT hats, glasses or jewellery. !ok / !fail" },
+			{ do: () => trance(60, 60), look: "Under at Entranced. Tick Undressing in the settings if it is not on. Then /bot next." },
+			{ do: () => say("Missy, take something off."), look: "One garment, outermost first. The room should see an emote. /bot next" },
+			{ do: () => say("Missy, take something off."), look: "The next garment down. /bot next" },
+			{ do: () => say("Missy, take everything off."), look: "The rest — but NOT hats, glasses or jewellery. /bot ok / /bot fail" },
 		],
 	},
 	{
 		name: "hard-floor",
 		blurb: "hypnoEnabled off must release everything.",
 		steps: [
-			{ do: () => trance(80, 80), look: "Under at Blank, so there is something to tear down. Then !next." },
+			{ do: () => trance(80, 80), look: "Under at Blank, so there is something to tear down. Then /bot next." },
 			{
 				do: async () => {
 					say("Missy, you cannot move.");
@@ -467,11 +482,11 @@ const SCENARIOS = [
 					await wait(1000);
 					say("Missy, you cannot tell what you are wearing.");
 				},
-				look: "Several things applied. Check `/hypno effects`, then !next.",
+				look: "Several things applied. Check `/hypno effects`, then /bot next.",
 			},
 			{
 				do: () => {},
-				look: "Now untick Hypnosis Enabled. EVERYTHING should come off — including the illusion and any denial. `/hypno effects` should say nothing is holding you. !ok / !fail",
+				look: "Now untick Hypnosis Enabled. EVERYTHING should come off — including the illusion and any denial. `/hypno effects` should say nothing is holding you. /bot ok / /bot fail",
 			},
 		],
 	},
@@ -506,6 +521,8 @@ async function runStep() {
 	report(`[${active.at + 1}/${active.scenario.steps.length}] ${step.look}`);
 }
 
+/** Both entry points land here: `!cmd` typed in chat, and `/bot cmd` arriving over the hidden
+ * channel. The leading marker is already stripped to a single `!` by the caller. */
 function handleCommand(sender, text) {
 	const [cmd, ...rest] = text.slice(1).split(/\s+/);
 	const arg = rest.join(" ");
@@ -515,6 +532,7 @@ function handleCommand(sender, text) {
 		case "tests":
 			SCENARIOS.forEach((s, i) => report(`${i + 1}. ${s.name} — ${s.blurb}`));
 			report("!run <n> to start. !ok / !fail <note> to record a step.");
+			report("Cannot speak? Same commands as /bot run 2, /bot next, /bot ok — those work gagged.");
 			return;
 		case "run": {
 			const n = Number(arg) - 1;

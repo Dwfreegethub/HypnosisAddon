@@ -804,6 +804,13 @@ export function currentTier(): DepthTier {
 	return tierOf(session.phase === "Hypnotized" ? session.depth : 0);
 }
 
+/** Who currently has us, or null. Exists for the `/bot` test command, which needs somewhere
+ * to send a message from inside a trance — the one moment when the answer is not "ask them",
+ * because being unable to speak is exactly the state it is there to work around. */
+export function currentHypnotistId(): number | null {
+	return session.phase === "Idle" ? null : session.hypnotistId;
+}
+
 export function isHypnotized(): boolean {
 	return session.phase === "Hypnotized";
 }

@@ -30,7 +30,15 @@ import { describeTrust, describeRelationship, relationshipWith, accessFor } from
 import { describeRecording } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
-import { answerPrompt, selfWake, safeword, describeSession, describeChances, forceTrance } from "./session";
+import {
+	answerPrompt,
+	selfWake,
+	safeword,
+	describeSession,
+	describeChances,
+	forceTrance,
+	currentHypnotistId,
+} from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import {
 	DEPTH_GATES,
@@ -181,6 +189,53 @@ export function installCommands(): void {
 			...cmd,
 			Description: args ? `${args} — ${Description}` : Description,
 		})),
+	});
+
+	installBotCommand();
+}
+
+/** Drive the test bot from a slash command, because chat is not always available.
+ *
+ * The whole point: a silenced subject cannot type `!next`. ChatRoomSendChatMessage — where
+ * the speech block lives — runs AFTER command parsing, so a slash command still gets through
+ * when ordinary speech does not. That asymmetry is deliberate (it is what keeps
+ * `/hypno safeword` reachable) and this rides on it.
+ *
+ * It does NOT send chat. Verified in the live client: CommandParse() returns CommandExecute()'s
+ * BOOLEAN for anything starting with the command key, and ChatRoomSendChat() only sends when
+ * it gets a string back — so an unregistered `/bot` never leaves the browser at all, it just
+ * prints "no such command" locally. Registering it here is what makes it exist, and once it
+ * exists the cleanest route to the bot is the hidden channel: unaffected by silence, invisible
+ * to the room, and not dependent on the bot parsing room chat.
+ *
+ * `!` in chat keeps working. Two ways in, and the one that survives a gag is the point. */
+function installBotCommand(): void {
+	if (!TESTING_MODE) return;
+	CommandCombine({
+		Tag: "bot",
+		Description: "TESTING: send a command to the test bot (works while silenced)",
+		Action: (args: string) => {
+			const text = (args ?? "").trim();
+			if (!text) {
+				reply("Usage: /bot <command> — e.g. /bot next, /bot run 2, /bot ok, /bot tests.");
+				reply("Goes over the hidden channel, so it works while you cannot speak.");
+				return;
+			}
+			// The hypnotist first: mid-trance they are by definition the bot, and being unable
+			// to say who you meant is the exact situation this command exists for.
+			const hypnotist = currentHypnotistId();
+			const target = hypnotist ?? (others().length === 1 ? others()[0].MemberNumber : null);
+			if (target == null) {
+				reply(
+					others().length
+						? `Not in a session, and more than one person is here: ${others().map((c: any) => `${c.Name} (${c.MemberNumber})`).join(", ")}.`
+						: "Nobody else is in the room to send it to.",
+				);
+				return;
+			}
+			sendHiddenMessage({ type: "test-command", text }, target);
+			log(`/bot -> ${target}: ${text}`);
+		},
 	});
 }
 
