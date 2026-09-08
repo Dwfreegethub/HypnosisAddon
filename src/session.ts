@@ -948,6 +948,25 @@ export function installSession(): void {
 		showPrompt(String(message.hypnotistName ?? `#${sender}`));
 	});
 
+	// THE TEST BOT'S OWN WORDS MUST NOT BE SPOKEN IN THE ROOM.
+	//
+	// They were, and it corrupted a run. The bot narrated its step guidance as ordinary chat —
+	// "FAIL IF: Still frozen", "'Undressing would require moving' means step 2 did not take" —
+	// and this client parses every word of ordinary chat from the hypnotist. Trigger phrases
+	// are matched before the name check and before the session check, so guidance quoting
+	// hypnosis wording can fire a stored trigger. In run 7 something re-applied kneel and a
+	// freeze 15ms after the release that was supposed to clear it, twice, and the only thing
+	// spoken in between was the bot's own instructions.
+	//
+	// So the harness gets its own channel. Instructions arrive as private text and never touch
+	// the speech pipeline; only the lines that are deliberately under test are spoken aloud.
+	if (TESTING_MODE) {
+		registerHiddenHandler("test-note", (_sender, message) => {
+			const text = typeof message.text === "string" ? message.text : "";
+			if (text) tellPlayer(text);
+		});
+	}
+
 	// TESTING ONLY, and registered only in a testing build so it does not so much as exist
 	// in a release one. Lets the test bot set up the precondition every depth scenario needs
 	// — a live session at a known depth — in one message instead of a handshake, a 60-second

@@ -617,8 +617,20 @@ const SCENARIOS = [
 // --- running them ---------------------------------------------------------------------
 let active = null;
 
+/** Everything the harness says to DW. Deliberately NOT say().
+ *
+ * say() puts text in the room, where the subject's client reads it as the hypnotist speaking —
+ * and our guidance is full of hypnosis wording, because it is describing hypnosis. Trigger
+ * matching happens before the name check and before the session check, so a step description
+ * quoting a phrase can fire a stored trigger. That is what wrecked run 7: the release at step 2
+ * worked, the log shows effects going to [], and 15ms later kneel and a freeze came back —
+ * twice — with nothing spoken in between except our own four lines of instructions.
+ *
+ * Only the lines that are the test itself get spoken aloud now. Falls back to chat when there
+ * is no subject to send to, so !rooms and !status still answer when the bot is alone. */
 function report(text) {
-	say(text);
+	if (subject?.id) hidden({ type: "test-note", text }, subject.id);
+	else say(text);
 }
 
 async function runStep() {
