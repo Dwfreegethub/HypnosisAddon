@@ -271,6 +271,47 @@ function hidden(message, target = subject?.id ?? null) {
 // report the shape of what happened but never grade it. Hence the ask-the-human steps.
 let lastUpdate = null;
 
+// WHAT THE SUBJECT LOOKS LIKE, in one line.
+//
+// This is the assertion for most of the suite — did a garment come off, is the freeze on, is
+// she kneeling — and until now the bot could not see any of it. The run-7 log recorded five
+// steps of undressing and not one fact about whether any clothes moved; the answer had to be
+// inferred from the ABSENCE of a sync, which is exactly the kind of reading-tea-leaves the
+// harness exists to replace.
+const CLOTHING = [
+	"Cloth", "ClothLower", "SuitTop", "SuitLower", "Bra", "Panties", "Socks", "Shoes", "Gloves",
+];
+const ACCESSORY = ["Hat", "Glasses", "Necklace", "Mask", "Gloves2"];
+
+function describeCharacter(c) {
+	const app = Array.isArray(c?.Appearance) ? c.Appearance : [];
+	const group = (n) => app.find((a) => a?.Group === n);
+	// Our effects ride the Emoticon item — see effects.ts. Anything here is the add-on's doing.
+	const effects = group("Emoticon")?.Property?.Effect ?? [];
+	const worn = CLOTHING.filter(group);
+	const extras = ACCESSORY.filter(group);
+	return {
+		effects,
+		wearing: worn,
+		accessories: extras,
+		pose: c?.ActivePose ?? [],
+	};
+}
+
+/** Only log a sync when something we care about actually changed — BC re-syncs constantly. */
+let lastLook = "";
+function noteAppearance(c) {
+	if (!c || c.MemberNumber !== subject?.id) return;
+	const look = describeCharacter(c);
+	const key = JSON.stringify(look);
+	if (key === lastLook) return;
+	lastLook = key;
+	logLine("look", subject.name, look);
+}
+
+socket.on("ChatRoomSyncSingle", (data) => noteAppearance(data?.Character));
+socket.on("ChatRoomSyncCharacter", (data) => noteAppearance(data?.Character));
+
 socket.on("ChatRoomMessage", (data) => {
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG) {
 		const message = data?.Dictionary?.[0]?.message;
@@ -300,9 +341,21 @@ socket.on("ChatRoomMessage", (data) => {
 		}
 		return;
 	}
-	if (data?.Type === "Chat" && data?.Sender !== me && typeof data?.Content === "string") {
+	if (data?.Sender === me) return;
+	if (data?.Type === "Chat" && typeof data?.Content === "string") {
 		const text = data.Content.trim();
+		logLine("said", `${room.get(data.Sender) ?? data.Sender}: ${text}`);
 		if (text.startsWith("!")) handleCommand(data.Sender, text);
+		return;
+	}
+	// EMOTES ARE RESULTS, not decoration. Almost everything the add-on does narrates itself to
+	// the room — "hands move to undress and stop, held" IS the outcome of an undress command —
+	// and the bot was dropping every one of them. Run 7 refused five times and the log recorded
+	// none of it, which is why the failure could not be diagnosed from here.
+	if (data?.Type === "Emote" || data?.Type === "Action") {
+		if (typeof data?.Content === "string") {
+			logLine("room", `${data.Type}: ${data.Content}`);
+		}
 	}
 });
 
@@ -681,7 +734,21 @@ function handleCommand(sender, text) {
 // and a wrong event name. A harness whose whole purpose is diagnosing silent failures should
 // not have one of its own. The noisy high-frequency events are dropped; everything else is
 // worth seeing once.
-const NOISY = new Set(["ChatRoomSync", "ChatRoomSyncMemberJoin", "ChatRoomSyncMemberLeave", "ServerInfo", "ChatRoomMessage"]);
+const NOISY = new Set([
+	"ChatRoomSync",
+	"ChatRoomSyncMemberJoin",
+	"ChatRoomSyncMemberLeave",
+	"ServerInfo",
+	"ChatRoomMessage",
+	// Summarised below instead. Dumping these raw wrote ~4KB per sync — a whole appearance
+	// including the crafting and wheel-of-fortune blobs — and the run-7 log could not be read
+	// at all: the payload contains characters that break the line, so even a parser could not
+	// recover the three fields that actually matter.
+	"ChatRoomSyncSingle",
+	"ChatRoomSyncCharacter",
+	"ChatRoomSyncPose",
+	"ChatRoomSyncArousal",
+]);
 socket.onAny((event, ...args) => {
 	if (NOISY.has(event)) return;
 	logLine("event", event, args.length === 1 ? args[0] : args);

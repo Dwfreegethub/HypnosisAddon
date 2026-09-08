@@ -1404,7 +1404,20 @@ export function handleSpokenLine(sender: number, content: string): void {
 		return;
 	}
 	log(`matched suggestion "${id}" in: ${content}`);
-	announce(suggestion.run() || id);
+	// MATCHED, PERMITTED, DEEP ENOUGH — AND STILL DIDN'T HAPPEN is its own outcome, and until
+	// now the only outcome with nowhere to be reported. A refusal reaches the hypnotist and a
+	// success is visible; this third case narrated itself to the room and said nothing else.
+	//
+	// It cost a whole test run: "take something off" was refused five times because a freeze
+	// was holding her hands, the emote said so, and the hypnotist's client showed nothing at
+	// all — so the log recorded five commands and no results, and the failure could not be
+	// diagnosed from either end.
+	//
+	// run() returning a key OTHER than the suggestion's own id is exactly this case, and that
+	// is why it returns a key rather than a boolean.
+	const outcome = suggestion.run() || id;
+	if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
+	announce(outcome);
 	// Tracked AFTER it runs, so "that will stay with you" has something to point at. A
 	// release both un-tracks the restriction and lets go of it if it was being carried.
 	if (suggestion.release) {
