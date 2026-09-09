@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.61.2.*
+*Design notes and decision log — work in progress. Code at v0.62.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -28,7 +28,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.61.2 |
+| **What to test next** | Needs Testing — as of v0.62.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -184,7 +184,7 @@ scenarios* for what each scenario proves.
 
 ## Current Implementation Status
 
-*(as of 2026-09-08, v0.61.2 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
+*(as of 2026-09-08, v0.62.0 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
 
 **A full hypnosis loop now works end to end, tested with two accounts.** A hypnotist opens the subject's Information Sheet, clicks an icon, attempts an induction; the subject privately chooses how to respond; after an RP window a roll decides whether they go under; and once under, the hypnotist can restrict them either by clicking buttons or simply by speaking to them.
 
@@ -1599,7 +1599,8 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
-- ~~**Trigger reinforcement and decay**~~ — **built v0.60.0.** Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
+- **Trigger aging for the harness** — a `TESTING_MODE`-only `/hypno agetrigger <days>` plus a `test-age` hidden handler, backdating `reinforcedAt` so decay can be observed in a sitting instead of a fortnight. Same shape as `/hypno trance`/`test-trance`, and it disappears at release for the same reason. Blocks the decay scenario, which is the last open item in *Needs Testing*.
+- ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured.
 
@@ -1648,11 +1649,11 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 
 ---
 
-*Last updated: 2026-09-08 — the test pass finished at eight scenarios; trigger reinforcement and
-decay built; both canvas panels moved their tabs to the vertical. Three bugs found and fixed
-(freeze blaming a nonexistent lock, the hard floor leaving the session running, `/bot` silent on
-success). Two items still owe a live run — the hard-floor fix and decay, both in **Needs
-Testing** with their expected results written out. Code at v0.61.2.*
+*Last updated: 2026-09-08 — the test pass is finished and eight of its nine topics are confirmed in
+play, the hard floor among them. Trigger reinforcement and decay built, then retuned twentyfold
+when the dial turned out to mean weeks where it said hours. This document was corrected against the
+code and given an Orientation section, so it can be read cold. One item still owes a live run —
+decay — and it is blocked on a testing-only way to age a trigger. Code at v0.62.0.*
 
 ## Appendix: Version History
 
@@ -1978,7 +1979,7 @@ hypnotist) remains a separate, larger idea and is not planned.
 
 ---
 
-### Added 2026-09-08 (v0.57.1 – v0.61.2) — the pass finished, reinforcement and decay, vertical tabs
+### Added 2026-09-08 (v0.57.1 – v0.62.0) — the pass finished, reinforcement and decay, vertical tabs
 
 **v0.57.1 — the two gaps in the pass.** Seven scenarios, and neither of the two things most worth
 checking: that an induction can be completed end to end by the bot, and that the master switch is a
@@ -2033,6 +2034,51 @@ move costs one constant instead of another sweep. Three rounds of screenshot-dri
 — the inactive tabs' right border tucked under the panel's so the column stops reading as one heavy
 doubled line, the decay label left-aligned with the dropdown it labels, and the stats name column
 narrowed from 640 to 460 because the widest thing in it is a name and a member number.
+
+**v0.62.0 — the decay dial was two positions out.** DW: *"in my mind the very fast would be more
+where I expect slow or very slow to be. I was thinking very fast as more like a few hours. Maybe a
+day if added at the highest level."* Correct, and worse than it sounds — *Very fast* gave a
+Blank-planted trigger **twenty-one days**. The rates went up roughly twentyfold, to 5 / 15 / 40 /
+90 / 300 points a day, built around DW's sentence rather than around a feeling of caution. A Deep
+planting — the tier planting requires by default, so the row a player meets — now runs 14.7d /
+6.7d / 3.1d / 1.5d / **12h**, and Blank at *Very fast* lands within an hour of exactly one day.
+The full table is in *Triggers > Trigger Reinforcement and Decay*.
+
+**Neglect compounds, which was DW's other question.** The loss became `rate × days × (1 + days/14)`.
+Deliberately **not** the exponential curve that is easy to reach for first: a true exponential
+*decelerates*, and its long thin tail would leave every neglected trigger loitering at strength 4
+indefinitely — plant-and-forget wearing a different hat, when a deadline is the entire point of the
+mechanic.
+
+It also bites nowhere near where you would expect. At the fast settings it changes nothing
+measurable, because the trigger is gone in hours before fourteen days of compounding can mean
+anything. It earns its keep at the **slow** end, where the straight line ran away: Blank at *Very
+slowly* was 64 days linear against 24 now. Without it the two slowest settings were Never with
+extra steps.
+
+**The firing credit had to stop being a flat 0.25 days**, and this is the kind of thing a retune
+turns up. Lifetimes now span forty minutes to a month, so a fixed number of days is a rounding
+error at one end of the dial and immortality at the other — two firings would have outrun *Very
+fast* completely, and *Very fast* is exactly the setting somebody would pair with a trigger they
+fire constantly. It is 6% of that trigger's own lifetime now, capped at 50%, so steady use buys
+about half again as long at any setting and a re-induction is still the only reset.
+
+**A name cannot be checked; a duration can.** The Triggers tab prints the current setting's cost
+under the dropdown and `/hypno triggerdecay` says it too — *"a Deep planting fades away in about
+3.1 days, unused and unreinforced."* The old dial misled precisely because "Very fast" told nobody
+it meant three weeks, and a label nobody can verify is how that survives a build.
+
+Every expected value in the retuned suite is worked by hand from the published constants rather
+than read back off the implementation — a suite that echoes its subject would have accepted the old
+tuning just as happily. The new assertion worth naming: two days of neglect must cost more than
+twice one day's, which is the one property a straight line cannot have.
+
+**The doc caught up the same day.** It had drifted into carrying six wrong claims — version
+attributions off by two or three releases, a run-7 fix that was never built, Known Bug #2's root
+cause, and "all 7 scenarios passed" when there were eight and one had no verdict. All corrected
+against `git log` and the code. The larger addition is an **Orientation** section at the top: the
+doc had been a design record that assumed you already knew the project, and it is now also the
+thing you can hand someone with none of that context.
 
 ### Added 2026-09-07 (v0.51.0 – v0.57.0) — test bot, and what it found
 
@@ -2138,7 +2184,7 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ---
 
-## Needs Testing — as of v0.61.2
+## Needs Testing — as of v0.62.0
 
 Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
 scenario was rewritten to be capable of failing. **One thing is open:** decay has never run outside
@@ -2213,11 +2259,26 @@ Both versions pass now, because the code is correct. Only the five-step one demo
 
 Covered by unit tests, never exercised against a live client.
 
-**How to run it:** `/hypno triggerdecay veryfast` — since v0.62.0 that is a Deep planting gone in
-about twelve hours, and a Blank one in about a day, so the numbers move while you watch. Plant a
-trigger under a Blank trance, wake, then check `/hypno triggers`.
+> **Blocked on one small piece of tooling — this is where the next session starts.** The harness
+> has no decay steps yet, and cannot usefully have them until a trigger can be **aged**. Even at
+> *Very fast* a Deep planting takes twelve hours to die, so the first step of a decay scenario is
+> watchable and every step after it is not. What is needed is a `TESTING_MODE`-only affordance that
+> backdates `reinforcedAt` by a stated number of days — `/hypno agetrigger <days>` plus a `test-age`
+> hidden handler so the bot can drive it, the same shape as `/hypno trance` and `test-trance`, and
+> disappearing at release for the same reason. With it, the eight-step scenario below runs in about
+> ten minutes; without it, steps 3 onward cannot be run at all.
 
-**Expected result, in four parts:**
+**How to run it, once aging exists:** `/hypno triggerdecay veryfast` — since v0.62.0 that is a Deep
+planting gone in about twelve hours and a Blank one in about a day, so step 1 is observable
+unaided. Plant a trigger under a Blank trance, wake, then check `/hypno triggers`.
+
+**Plant it with two actions at different tiers** — *cannot move* (Yielding, 20) and the clothing
+illusion (Deep, 60) on the same trigger word. That pairing is what makes step 2 below falsifiable:
+one half of a single trigger keeps working while the other stops, which no other arrangement
+demonstrates. Plant from **Blank**, not Deep: planted at exactly 60 the illusion half is out of
+reach the moment any decay starts, which is correct behaviour and a useless test.
+
+**Expected result, in five parts:**
 
 1. `/hypno triggers` shows a strength and the tier it still reaches — *"60/60 — full strength
    (Deep)"* at first, drifting down as `plantedDepth` decays.
@@ -2230,6 +2291,9 @@ trigger under a Blank trance, wake, then check `/hypno triggers`.
    magic word that keeps someone's work alive forever.
 4. A trigger driven below 10 fires flavour and no actions; at 0 it disappears from the list
    entirely — unless it is holding you at that moment, in which case it survives until it lets go.
+5. Aged **two** days it has lost more than twice what it lost in one. That is the v0.62.0
+   acceleration, and it is the only part of the model that cannot be confirmed by watching a single
+   reading.
 
 **What failure looks like:** strength that does not move at all (the rate setting is not being
 read); strength that resets on firing (the credit is moving `reinforcedAt` instead of crediting
@@ -2253,7 +2317,7 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.61.2. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.62.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
 - [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
 
 ### Strongly recommended (testers can survive without, but experience is rough)
