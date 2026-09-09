@@ -9,10 +9,34 @@ export const TITLE_Y = 110;
 export const TAB_TOP = 190;
 export const TAB_HEIGHT = 72;
 export const TAB_LEFT = 200;
-// 280 rather than 340: five tabs at 340 would end at x=1932 and run under the exit icon
-// at 1815. DrawButton shrinks its label to fit, so the names still read.
-export const TAB_WIDTH = 280;
 export const TAB_GAP = 8;
+
+/** Tab width, DIVIDED OUT of the panel rather than fixed.
+ *
+ * It was a constant 280, chosen when there were five tabs. The sixth pushed the row's right
+ * edge to x=1920 against a panel that ends at 1800, so the last tab hung outside the box it
+ * is supposed to be attached to — visible in the settings screenshot as Stats sticking out
+ * past the border. A seventh would have ended at 2208, off a 2000-wide canvas entirely.
+ *
+ * Computed, the row always ends exactly where the panel does, whatever the count, and the two
+ * screens can have different numbers of tabs without either being wrong. DrawTextFit shrinks
+ * the labels, so the names go on reading. It stops being enough somewhere around nine, where
+ * the text gets too small — that is when tabs move to the left-hand edge, and the arithmetic
+ * for it is in the vertical-tabs note below. */
+export function tabWidth(count: number): number {
+	return (PANEL_WIDTH - (count - 1) * TAB_GAP) / count;
+}
+
+// ON MOVING THE TABS TO THE VERTICAL, which DW asked about and which does fit:
+//
+//   6 tabs x (72 + 8) - 8 = 472 tall, in a panel 640 tall — room for eight, at full width
+//   and with the labels never shrinking. Content would start at 200 + 280 + 60 = 540 and run
+//   to 1800, so 1260 wide against the 1540 it has now.
+//
+// Every absolute x in menu.ts shifts by +280, and two places get tight rather than
+// impossible: the trigger-decay dropdown (940-1500 becomes 1220-1780, against an 1800 limit)
+// and the two-column toggle rows (COLUMN_TWO_LEFT 1000 becomes 1280). Worth doing before
+// there are more tabs and more content to move, not after.
 
 export const PANEL_LEFT = 200;
 export const PANEL_TOP = 262;
@@ -32,14 +56,14 @@ export const BACK_LEFT = 1815;
 export const BACK_TOP = 75;
 export const BACK_SIZE = 90;
 
-export function tabLeft(index: number): number {
-	return TAB_LEFT + index * (TAB_WIDTH + TAB_GAP);
+export function tabLeft(index: number, count: number): number {
+	return TAB_LEFT + index * (tabWidth(count) + TAB_GAP);
 }
 
 /** Which tab the mouse is over, or null. */
 export function tabHitIndex(count: number): number | null {
 	for (let i = 0; i < count; i++) {
-		if (MouseIn(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT)) return i;
+		if (MouseIn(tabLeft(i, count), TAB_TOP, tabWidth(count), TAB_HEIGHT)) return i;
 	}
 	return null;
 }
@@ -102,23 +126,24 @@ export function drawSmallText(text: string, x: number, y: number, size: number, 
  * either side of it. Every border is a filled DrawRect rather than a stroke, so nothing
  * is anti-aliased and the joins are exact. */
 export function drawTabsAndPanel(names: readonly string[], activeIndex: number): void {
-	const activeLeft = tabLeft(activeIndex);
-	const activeRight = activeLeft + TAB_WIDTH;
+	const width = tabWidth(names.length);
+	const activeLeft = tabLeft(activeIndex, names.length);
+	const activeRight = activeLeft + width;
 	const panelRight = PANEL_LEFT + PANEL_WIDTH;
 	const panelBottom = PANEL_TOP + PANEL_HEIGHT;
 
 	// Panel interior, and the inactive tabs sitting on its edge.
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	names.forEach((name, i) => {
-		if (i !== activeIndex) DrawButton(tabLeft(i), TAB_TOP, TAB_WIDTH, TAB_HEIGHT, name, "#d8d8d8");
+		if (i !== activeIndex) DrawButton(tabLeft(i, names.length), TAB_TOP, width, TAB_HEIGHT, name, "#d8d8d8");
 	});
 
 	// Active tab: white through to the panel interior, so no join is visible at all.
-	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, TAB_HEIGHT + BORDER, "White");
-	DrawRect(activeLeft, TAB_TOP, TAB_WIDTH, BORDER, "Black"); // top
+	DrawRect(activeLeft, TAB_TOP, width, TAB_HEIGHT + BORDER, "White");
+	DrawRect(activeLeft, TAB_TOP, width, BORDER, "Black"); // top
 	DrawRect(activeLeft, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // left
 	DrawRect(activeRight - BORDER, TAB_TOP, BORDER, TAB_HEIGHT, "Black"); // right
-	DrawTextFit(names[activeIndex], activeLeft + TAB_WIDTH / 2, TAB_TOP + TAB_HEIGHT / 2 + 1, TAB_WIDTH - 4, "black");
+	DrawTextFit(names[activeIndex], activeLeft + width / 2, TAB_TOP + TAB_HEIGHT / 2 + 1, width - 4, "black");
 
 	// Panel border: top in two pieces that stop either side of the active tab, then the
 	// other three sides whole. Widths clamp to 0 when the active tab is at either end.
