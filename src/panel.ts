@@ -131,7 +131,11 @@ export function drawTabsAndPanel(names: readonly string[], activeIndex: number):
 	// Panel interior, and the inactive tabs sitting on its edge.
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	names.forEach((name, i) => {
-		if (i !== activeIndex) DrawButton(TAB_LEFT, tabTop(i), TAB_WIDTH, TAB_HEIGHT, name, "#d8d8d8");
+		// TAB_WIDTH + BORDER, not TAB_WIDTH: at exactly TAB_WIDTH the button's own right border
+		// lands on the same pixels as the panel's left border and the pair reads as one heavy
+		// line running the height of the column. Overlapping by a border hides it under the
+		// panel's, the same way the active tab hides its join below.
+		if (i !== activeIndex) DrawButton(TAB_LEFT, tabTop(i), TAB_WIDTH + BORDER, TAB_HEIGHT, name, "#d8d8d8");
 	});
 
 	// Active tab: white through to the panel interior, so no join is visible at all. Same

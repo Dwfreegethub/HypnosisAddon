@@ -176,8 +176,15 @@ const ROW_SPACING = 78;
 
 /** Columns for the Stats tab. */
 const STAT_NAME_X = BOX_LEFT;
-const STAT_VALUE_X = BOX_LEFT + 640;
-const STAT_DETAIL_X = BOX_LEFT + 840;
+// 460 rather than 640. The widest thing in this column is a name and a member number —
+// "WinnersDice [252905]" is about 340px — so 640 left a hand's width of nothing between the
+// name and its value, and pushed the detail column out to where it had least room.
+const STAT_VALUE_X = BOX_LEFT + 460;
+const STAT_DETAIL_X = BOX_LEFT + 620;
+/** What a name may use before it reaches the value column. BC names can run to 20 characters
+ * and the member number adds nine more, so this one does need a cap now that the column is
+ * only as wide as it has to be. */
+const STAT_NAME_MAX = 440;
 const STAT_LINE_HEIGHT = 40;
 const STAT_EXPERIENCE_Y = 290;
 const STAT_HEADER_Y = 330;
@@ -429,8 +436,11 @@ const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
 // bottom of the screen. Both labels go through drawLeftTextFit with a hard width, so a long
 // translation shrinks instead of colliding — the duration box sits at 260-400 and this
 // dropdown to its right, which is the whole reason they can share the line.
-const TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 500;
-const TRIGGER_DECAY_LABEL_MAX = 420;
+// Left-aligned with the dropdown it labels rather than floating between the two controls:
+// +680 is the dropdown's own left edge (centre 930, width 500). It was 180px to the left of
+// it, which read as a label belonging to neither box.
+const TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 680;
+const TRIGGER_DECAY_LABEL_MAX = 500;
 const TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
 const TRIGGER_DECAY_WIDTH = 500;
 
@@ -593,7 +603,7 @@ function statPageCount(): number {
  * anyone in a list of forty. */
 function drawStats(): void {
 	const line = (y: number, name: string, value: string, detail: string, color = "Black") => {
-		drawLeftText(name, STAT_NAME_X, y, color);
+		drawLeftTextFit(name, STAT_NAME_X, y, STAT_NAME_MAX, color);
 		if (value) drawLeftText(value, STAT_VALUE_X, y, color);
 		if (detail) drawLeftText(detail, STAT_DETAIL_X, y, "Gray");
 	};
