@@ -248,10 +248,6 @@ function visibleGates(): typeof DEPTH_GATES {
 function drawDepthGates(): void {
 	const locked = settingsLocked();
 	const features = getFeatures();
-	// Where they are RIGHT NOW, so the numbers mean something while reading the list.
-	const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
-	drawLeftText(here, BOX_LEFT, DEPTH_ROW_TOP - 34, "Gray");
-
 	visibleGates().forEach((gate, i) => {
 		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
 		// A feature whose permission is off can never happen whatever the tier says, and
@@ -296,6 +292,15 @@ function drawDepthGates(): void {
 		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
 	);
+
+	// Where they are RIGHT NOW, so the numbers above mean something while reading the list.
+	//
+	// Beside the buttons rather than above the rows: it used to be drawn at DEPTH_ROW_TOP - 34,
+	// which is exactly where the generic tab renderer puts the blurb, so the two printed on top
+	// of each other and neither could be read. This row is the only band on the tab with space
+	// to spare, and the status belongs with the summary controls anyway.
+	const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
+	drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
 }
 
 function clickDepthGates(): boolean {
@@ -421,7 +426,7 @@ const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
 // translation shrinks instead of colliding — the duration box sits at 260-400 and this
 // dropdown at 940-1500, which is the whole reason they can share the line.
 const TRIGGER_DECAY_LABEL_X = 760;
-const TRIGGER_DECAY_LABEL_MAX = 420;
+const TRIGGER_DECAY_LABEL_MAX = 700;
 const TRIGGER_DECAY_CENTRE_X = 1220;
 const TRIGGER_DECAY_WIDTH = 560;
 
@@ -494,7 +499,7 @@ function drawTriggerControls(): void {
  * to persist says nothing about the other, and the doc calls for two settings. */
 function drawTriggerDecayControl(locked: boolean): void {
 	drawLeftTextFit(
-		"Planted triggers fade without reinforcement:",
+		"Triggers fade without reinforcement:",
 		TRIGGER_DECAY_LABEL_X,
 		DURATION_LABEL_Y,
 		TRIGGER_DECAY_LABEL_MAX,
