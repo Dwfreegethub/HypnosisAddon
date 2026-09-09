@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.41.0.*
+*Design notes and decision log — work in progress. Code at v0.61.2.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -20,6 +20,7 @@ Appendix at the end.
 
 | | |
 |---|---|
+| **New here** | **Orientation for a New Contributor** — the rules, the module map, how to test |
 | **What works now** | Current Implementation Status |
 | **How trust is earned** | Philosophy · Core Mechanic · What Builds Trust · What Lowers Trust · Gain Curve · Hypnotist's Side |
 | **How an induction resolves** | Induction Success Formula · Session Flow |
@@ -27,15 +28,163 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.50.0 |
+| **What to test next** | Needs Testing — as of v0.61.2 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
 ---
 
+## Orientation for a New Contributor
+
+Read this first if you are coming to the project cold. It is the smallest set of facts needed to
+plan work that will not have to be undone: the rules that cannot be broken, where the code lives,
+and how to tell whether something works. Everything after this section is design.
+
+### What this is, in one paragraph
+
+A Tampermonkey userscript for **Bondage Club** (BC) that adds consensual hypnosis between two
+players who both have it installed. A hypnotist attempts an induction from the subject's
+Information Sheet; the subject's own client privately asks them how they want to respond and rolls
+the outcome; success puts them under at a **trance depth**; depth then gates which suggestions,
+triggers and illusions can reach them. **Trust** in a particular hypnotist — accumulated over many
+interactions and stored on the subject's side — is what raises the depth that hypnotist can reach.
+TypeScript, bundled by esbuild into a single `.user.js`.
+
+### The rules that are not up for renegotiation
+
+Each of these was decided once and cost real work to establish. A plan that violates one is wrong
+even when it is otherwise good.
+
+1. **Subject-authoritative.** Every cross-player action is only ever a *request*. The receiving
+   client alone decides, checking its own local settings. The hypnotist's client is never trusted
+   about permissions, session state, depth, or whether a suggestion matched. **Corollary:** any
+   feature that needs a number from the hypnotist's side — hypnotist skill in the induction roll
+   is the standing example — is blocked on a design answer, not on code.
+2. **The safeword always works.** `/hypno safeword` clears everything from any state and no feature
+   may take it away, including a trigger that claims nothing else can wake the subject. The master
+   switch is the same floor by another route: unticking *Hypnosis Enabled* ends the session
+   outright, not just its effects (see Known Bug #3 for what happens when it only did half).
+3. **Never write `Player.Appearance` for the illusion.** That array is real, server-synced and
+   corruptible, and BC character data is fragile. The clothing illusion draws a shadow character on
+   the subject's own screen and never edits what they are actually wearing (`illusion.ts`).
+4. **Chemical depth may never write anything permanent, nor lie to the subject about their own
+   state.** This is the `earnedOnly` split in `depth.ts` and the entire reason two depth numbers
+   are resolved from one roll rather than one.
+5. **A silent success is indistinguishable from a silent failure.** Anything that refuses, or runs
+   without landing, must say so — to the hypnotist, to the subject, or at minimum to the log. This
+   was learned expensively across v0.54.0–v0.59.0: suggestion refusals, `/bot`, `session-continue`,
+   dropped emotes and unparseable appearance dumps each cost a session before being made audible.
+6. **If a step cannot fail, it is not testing anything.** Four harness scenarios once passed
+   because the setup produced the very state the assertion checked for. Every assertion needs a
+   describable version of the world in which it fails, and the harness now states the expected
+   result of each step up front because DW asked for exactly that.
+7. **No BCX or LSCG code, ever.** They are read for *technique* — how a hook is installed, which BC
+   field carries what — and the technique is then written fresh, with a comment naming where it
+   came from.
+8. **Verify against the live BC client source before writing against any BC API.** Not from memory,
+   not from the wiki. Fetch the actual client source and read the function. This has changed the
+   answer four separate times: `CommandParse`'s return value gating whether a slash command ever
+   leaves the browser; `IsRestrained()` silently including `Freeze`; `CanInteract()`; and where in
+   the chain `ChatRoomSendChatMessage` sits relative to command parsing.
+9. **Bump `package.json` on every change that touches code.** The on-screen indicator reads that
+   version, and it is how DW knows which build is actually loaded in the browser.
+
+### Repository layout
+
+```
+src/            the userscript, bundled to dist/HypnosisAddon.user.js
+test/           node test suites, no browser — run with `npm test`
+testbot/        the scripted hypnotist bot (Node, connects to BC as a second account)
+docs/           this file, plus feature-summary.md
+README.md       the engineering record: build/test, stage notes, BC API traps
+```
+
+### Module map
+
+The import rule matters as much as the contents: **`session.ts` imports `carry.ts`, `triggers.ts`
+and `depth.ts`, so none of those may import it back.** State that several modules need lives in a
+*leaf* module that imports little or nothing, and the owner pushes into it. That is why `timers.ts`,
+`log.ts`, `notify.ts`, `effects.ts` and `depth.ts` look thinner than their importance suggests.
+
+| Module | What it owns |
+|---|---|
+| `main.ts` | Entry point: installs every hook, wires the modules, runs load-time recovery |
+| `session.ts` | The induction state machine — attempt → private prompt → RP window → roll → trance → wake. Resolves both depths and pushes them into `depth.ts`. Owns `safeword()` / `hardFloorStop()` |
+| `voice.ts` | Parses the hypnotist's chat: the suggestion pattern library, the name gate, trigger firing |
+| `depth.ts` | Tiers, per-feature gates, the current depths, chemical scope. **Leaf** — imports only storage |
+| `triggers.ts` | Recording, planting, scope, strength, reinforcement and decay |
+| `storage.ts` | `ExtensionSettings` persistence, per-account keys, every setting, trust counts, triggers, migrations |
+| `trust.ts`, `curve.ts` | Interaction counts → derived trust; the single growth curve `100n/(n+25)` |
+| `carry.ts` | Suggestions that outlive the trance |
+| `illusion.ts` | The clothing illusion, as a shadow character on the subject's own screen |
+| `undress.ts` | Taking clothes off one garment at a time, and naming the reason when it refuses |
+| `arousal.ts` | Drives BC's *own* arousal system; forced orgasm and denial |
+| `selftouch.ts` | Hooks `ActivityRun`; whole-body and per-body-part blocks |
+| `suppression.ts` | Hides messages about things done to the subject, without changing what they do |
+| `effects.ts` | The Emoticon-item technique for injecting BC effects (`Freeze`, `BlockWardrobe`, `DenialMode`) |
+| `recovery.ts` | Surviving a disconnect; clearing orphaned effects on every load |
+| `remote.ts` | The hypnotist's panel, hooked onto the subject's Information Sheet |
+| `menu.ts` | The subject's settings screen — six tabs: Permissions, Trance Defaults, Awareness, Triggers, Depth, Stats |
+| `panel.ts` | Shared canvas chrome for the settings and help screens: tab geometry, borders, `CONTENT_LEFT` |
+| `help.ts` | The help screen, generated *from* the pattern library and command table so it cannot fall behind them |
+| `commands.ts` | Every `/hypno` subcommand, plus `/bot` |
+| `messaging.ts` | The hidden channel — our `HypnoMsg` tag over BC's `Type:"Hidden"` chat messages |
+| `notify.ts` | Where text goes: private to the subject, or emoted so the room can see it. **Leaf** |
+| `timers.ts` | Keyed timer registry. **Leaf — imports nothing at all** |
+| `flavor.ts` | All subject-facing wording, keyed by effect, with public and private variants |
+| `prompt.ts` | The in-room Agree / Ignore / Fight choice box |
+| `log.ts` | `log()` and the `TESTING_MODE` build flag. **Leaf — imports nothing** |
+
+### How to build and test
+
+```bash
+npm install
+npm run watch      # rebuilds dist/HypnosisAddon.user.js on save
+npm run typecheck  # tsc --noEmit
+npm test           # bundles the modules, then runs every suite in test/
+```
+
+**Run `npm test` after any change to `voice.ts`.** A new suggestion whose wording overlaps an
+existing one is the easiest mistake in this codebase to make and the hardest to see by hand.
+
+In the browser: install from a `file://` URL pointing at `dist/HypnosisAddon.user.js` (Tampermonkey
+needs "Allow access to file URLs"), then refresh the BC tab after each rebuild.
+
+**The test bot** (`testbot/`) is a Node script that logs into BC as a second account and plays the
+hypnotist, so the subject side can be exercised without a second human. `testbot/secrets.json` holds
+that account's password, is gitignored, and DW fills it in — never commit it, never print it. The
+subject drives the run with `/bot next`, `/bot run <n>`, `/bot retry`; those go over the hidden
+channel because a silenced subject cannot speak in the room. See *Test Harness — the eight
+scenarios* for what each scenario proves.
+
+### Build flags and release steps
+
+- `TESTING_MODE` in `src/log.ts` is **`true`**. It gates `/hypno triggers full`, `/hypno trance`,
+  `/hypno depth` and `/bot`, and announces itself in the console at startup so it cannot quietly
+  ship switched on. Flipping it to `false` is a release step — and it **disables the test harness**,
+  so it must be the last thing done before shipping, not the first.
+- `dist/` is gitignored; the built userscript is not committed.
+
+### Vocabulary
+
+| Term | Meaning |
+|---|---|
+| **Subject** | The person being hypnotised. Their client is the authority on everything |
+| **Hypnotist** | The other player. Sends requests, is told only what the subject's client chooses to tell them |
+| **Trust** | Per-hypnotist, 0–100, derived from a stored *interaction count*. Never stored as a value |
+| **Depth** | How far under the subject is right now, 0–100, resolved once at induction |
+| **`depthFull` / `depthEarned`** | The same roll with and without the chemical floor. Gates marked `earnedOnly` read the second |
+| **Tier** | A named band of depth: Drifting 0 / Yielding 20 / Entranced 40 / Deep 60 / Blank 80 |
+| **Chemical floor** | Arousal (and eventually drugs) supplying access a stranger has not earned. Bounded, session-only |
+| **Suggestion** | Something spoken during a session. Dies with the session unless carried |
+| **Trigger** | A word planted under trance that fires later, outside it. Has its own strength and decays |
+| **Carry-forward** | A suggestion deliberately made to outlive the trance |
+
+---
+
 ## Current Implementation Status
 
-*(as of 2026-09-01, v0.48.0 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
+*(as of 2026-09-08, v0.61.2 — full technical detail, version history, and code: github.com/Dwfreegethub/HypnosisAddon)*
 
 **A full hypnosis loop now works end to end, tested with two accounts.** A hypnotist opens the subject's Information Sheet, clicks an icon, attempts an induction; the subject privately chooses how to respond; after an RP window a roll decides whether they go under; and once under, the hypnotist can restrict them either by clicking buttons or simply by speaking to them.
 
@@ -56,6 +205,9 @@ Appendix at the end.
 | 11 — Trust over time | Decay as named speeds, BC relationships as category-aware floors, access unified behind `accessFor()` |
 | 12 — Sensation & effort | Numbness split from awareness; trigger words a player setting; roleplay rewarded in the induction roll |
 | 13 — Undressing & survival | Taking clothes off one garment at a time; OOC filtering; a trance that survives a disconnect; `/hypno effects` |
+| 14 — Test harness | A scripted hypnotist bot driving eight verification scenarios against a live client, with `/hypno trance` to force depth and `/bot` to drive it while silenced |
+| 15 — Reinforcement & decay | Triggers weaken with disuse, hold better the deeper they were planted, and are refreshed by a re-induction; strength is their effective depth when they fire |
+| 16 — Vertical tabs | Both canvas panels moved their tabs to the left edge, which lifts the ceiling from six tabs to nine and gives the panel back the band above it |
 
 **Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while in trance". Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
@@ -71,9 +223,9 @@ A second tab holds the **trance defaults** — cannot move / cannot speak / scre
 
 **Relationship to the trust model above:** trust is **built** as of v0.15.0–v0.18.0. Per-hypnotist *interaction counts* are stored and the value is derived on read via `100n/(n+25)`, so retuning the curve can never corrupt saved data. Conversation accrues it (rate-limited, doubled when the line is directed at you), a successful induction is worth five conversations, and arousal supplies a floor rather than a multiplier. What is still missing from the model above: **hypnotist global skill** alone — decay landed in v0.36.0 and the RP bonus in v0.41.0. The **per-feature percentage thresholds** now have a real mechanism (`Suggestion.trustThreshold`, checked against relationship trust only) even though most permissions are still booleans — the three gates that exist today all sit at 65 — the clothing illusion, planting a trigger, and carrying a suggestion past waking — which is also the owner relationship floor, so ownership alone clears every one of them.
 
-**Known rough edges (still true):** suggestion patterns are regex, not comprehension, so synonyms outside the library silently do nothing — which is why the pattern suite exists and why every gap found in play should become a case in it. `INDUCTION_WINDOW_MS` remains at its 10-second testing value. The flavor-text wording DW wasn't sold on has been through one real pass since (the apply/attempt split in v0.34.0) but has not been re-reviewed as a whole.
+**Known rough edges (still true):** suggestion patterns are regex, not comprehension, so synonyms outside the library silently do nothing — which is why the pattern suite exists and why every gap found in play should become a case in it. The flavor-text wording DW wasn't sold on has been through one real pass since (the apply/attempt split in v0.34.0) but has not been re-reviewed as a whole. The **hypnotist's** side of the trigger system has no panel: reinforcement, decay state and strength are all visible to the subject via `/hypno triggers` and the Triggers tab, and to the hypnotist only through the messages the subject's client chooses to send.
 
-**Test suite: 748 checks across sixteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
+**Test suite: 836 checks across nineteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
 
 
 
@@ -431,9 +583,21 @@ Each feature has an on/off toggle (master consent gate) plus a depth tier select
 | **`depthEarned`** | trust + relationship floor only |
 | **`depthFull`** | plus arousal, drugs, fractionation, resistance fatigue, RP bonus |
 
-Most features check `depthFull`. Persistent triggers, hypnotist-only triggers and both illusions check `depthEarned`. **That is one boolean per feature, not four categories** — which is what replaces `AccessCategory` when the redesign lands (see the reach-matrix note in the v0.36.0 entry).
+Most features check `depthFull`. Three features default to `depthEarned` only — persistent triggers, clothing/bondage illusion, and carry-forward — because they are the ones that outlive the session or deceive the subject about their own body. **That is one boolean per feature, not four categories** — which is what replaces `AccessCategory` when the redesign lands (see the reach-matrix note in the v0.36.0 entry).
 
-**Chemical floor rule — now player-configurable per feature:** The floor already cannot reach persistent triggers, hypnotist-only triggers, or perception-deceiving features (clothing/bondage illusion) — that's structural, and the two-depth split above is how it stays structural once depth is the gate. For all other features, what contributes to the floor is a player setting per feature via a **dropdown with four options:**
+**The earned-only default is player-adjustable (decided 2026-09-08).** A subject can choose to allow chemical depth to reach illusion, triggers, or carry-forward for them — but the tradeoff is baked in structurally: any trigger or carried effect that was chemically seeded **decays significantly faster** than one earned through relationship trust. The fast-decay rate is fixed, not configurable — if you want the chemical shortcut, you accept the shorter shelf life. Illusion has no decay clock, but its "felt permanence" (how long it lingers as a carried impression after waking) is also shorter when chemically reached. UI: a per-feature toggle sitting alongside the depth selector and the enable/disable switch; layout to be finalised at coding time.
+
+> **Sequencing constraint — decay must ship first, and it now has (v0.60.0).** This toggle
+> reverses a rule stated flatly in `depth.ts`: *"It is not a player setting; a subject who turns
+> their chemical scope up cannot thereby let an aroused stranger plant a trigger."* The only
+> thing that makes reversing it safe is the faster decay, so the toggle could not have shipped
+> before the decay system existed. With v0.60.0 built, the remaining work is: flip `earnedOnly`
+> from a constant to a per-feature setting, add the UI, **and rewrite that comment in `depth.ts`
+> in the same commit** — a comment that contradicts the code is worse than no comment.
+> Carry-forward needs the same fast-decay treatment before its half of the toggle is offered;
+> today only triggers carry a decay clock.
+
+**Chemical floor rule — player-configurable per feature:** What contributes to the floor is a player setting per feature via a **dropdown with four options:**
 
 | Option | Effect |
 |--------|--------|
@@ -832,14 +996,15 @@ Implementation: canvas 2D overlay, rotating animation, color and speed driven by
 - Fire when the trigger word/phrase appears in chat
 - **Scope:** who can fire the trigger. Default is **planter only** (the hypnotist who planted it). The hypnotist can propose a wider scope when planting (trust-threshold, per-list, or anyone), but the subject's global scope setting caps what is allowed — a subject whose setting is "planter only" cannot have an "anyone"-scoped trigger planted regardless of what the hypnotist specifies. Subject-authoritative throughout.
 
-  | Scope | Who fires it |
-  |-------|-------------|
-  | **Planter only** *(default)* | Only the hypnotist who planted it |
-  | **Trust threshold** | Anyone above a configured trust level |
-  | **Per-list** | A named set of people |
-  | **Anyone** | Any player in the room |
+  | Scope | Who fires it | Status |
+  |-------|-------------|--------|
+  | **Planter only** *(default)* | Only the hypnotist who planted it | **Built** (v0.20.0) |
+  | **Anyone** | Any player in the room | **Built** — `speakerAllowedByScope()` returns true |
+  | **Trust threshold** | Anyone above a configured trust level | *Future work* |
+  | **Per-list** | A named set of people | *Future work* — stub in `TRIGGER_SCOPES` returns false |
+  | **Owner / Lovers / Whitelist** | BC relationship-based scopes | *Future work* — stubs return false |
 
-  Global default is a subject setting. Individual triggers can be set to a wider scope at plant time, subject to the global cap.
+  The global scope setting exists in storage (`getTriggerScope()`) and `speakerAllowedByScope()` is wired in `triggers.ts`. Per-trigger scope override (vs. global setting) is a separate piece of work. Global default is a subject setting; individual triggers can be set to a wider scope at plant time, subject to the global cap.
 - **Fade over time** if not reinforced — untriggered or un-refreshed suggestions weaken
 - Hypnotist must periodically reinforce triggers (brief re-induction) to maintain them
 - Creates ongoing relationship mechanic rather than "plant and forget"
@@ -852,14 +1017,14 @@ If other players are in the room during an induction, those with high base sugge
 
 ---
 
-### Detail — **partly built**, v0.20.0–v0.25.0
+### Detail — **partly built**, v0.20.0–v0.25.0 and v0.60.0
 
 
 **What shipped:** verbal planting during a session; multiple effects per trigger (cap 8); scope; a flat duration timer; targeted release by name; the phrase hidden from the subject, and optionally the whole setup exchange.
 
-**Also shipped since:** firing your **own** trigger is an explicit opt-in rather than a side effect of your chosen scope (v0.31.0), and `/hypno forgettrigger` **refuses while a trigger is holding you** and points at the safeword (v0.32.0) — deleting the thing gripping you is too quiet an escape.
+**Also shipped since:** firing your **own** trigger is an explicit opt-in rather than a side effect of your chosen scope (v0.31.0); `/hypno forgettrigger` **refuses while a trigger is holding you** and points at the safeword (v0.32.0) — deleting the thing gripping you is too quiet an escape; and **reinforcement and decay** (v0.60.0), which gives every trigger a strength that fades, holds better the deeper it was planted, and is the depth it fires at.
 
-**What has not:** the three *visibility levels* below (blanked word / blur / blackout) — the subject currently always sees the trigger fire, they just never see the word that planted it. Also unbuilt: reinforcement and decay, the per-trigger hypnotist panel, offline programming, and the trust-scaled blackout. Several rows in the Trigger Effects table below have no suggestion behind them yet — follow, custom text response, remove clothing item, hypnotic induction.
+**What has not:** the three *visibility levels* below (blanked word / blur / blackout) — the subject currently always sees the trigger fire, they just never see the word that planted it. Also unbuilt: the per-trigger hypnotist panel, offline programming, the trust-scaled blackout, ephemeral triggers, activity-fire conditions and wake-on-event. Several rows in the Trigger Effects table below have no suggestion behind them yet — follow, custom text response, remove clothing item, hypnotic induction. Scope is built for *planter only* and *anyone*; the other four scopes are stubs that return false.
 
 ### Programming Triggers
 - Triggers can only be planted **during an active hypnosis session** — not from a menu while the subject is fully conscious
@@ -886,6 +1051,7 @@ A single trigger can fire **multiple effects simultaneously** (no hard limit pla
 | Instant orgasm | **Built v0.27.0** — `ActivityOrgasmPrepare` + `ActivityOrgasmStart`, skipping BC's resist window |
 | Block orgasm | **Built v0.27.0** — BC's own `DenialMode` effect, so it also stops vibrators and activities |
 | Can't touch body part | **Built v0.12.0** — hooks `ActivityRun`, so the activity genuinely never happens (no arousal, no message). Self-touch only, structurally |
+| Can ONLY touch body part | *Inverse restriction (not yet built)* — same `ActivityRun` hook but logic reversed: all body parts blocked except the specified one(s). More complex because the allow-list must survive across activity types. |
 | Freeze / Full lock | **Built** — the `Freeze` effect |
 | Rooted | Can't exit/move, arms still free |
 | Follow | Compulsion to follow the trigger speaker |
@@ -893,6 +1059,7 @@ A single trigger can fire **multiple effects simultaneously** (no hard limit pla
 | Custom text response | Subject speaks a specific phrase (auto-spoken by the add-on) |
 | Silence | **Built v0.10.0** — hooks `ChatRoomSendChatMessage`, so emotes, whispers and the safeword survive |
 | Any other session suggestion | Triggers can call any effect a live suggestion can produce |
+| **Wake** | Trigger effect that fires the normal wake flow — used with activity-fire triggers to wake on orgasm, touch, etc. |
 
 ### Trigger Expiry
 - Triggers fade naturally via the reinforcement/decay system (see Triggers section above)
@@ -910,6 +1077,39 @@ A lighter trigger type that does not use the reinforcement/decay system at all �
 - Cannot be converted to a persistent trigger after the fact
 
 **Design intent:** lets a hypnotist create responsive in-scene triggers without committing to an ongoing relationship mechanic. Lower trust threshold expected (TBD — likely Yielding or Entranced rather than Deep). The tradeoff is built in: they disappear whether used or not, and the hypnotist gets nothing for maintaining them.
+
+### Wake on Event (not yet built)
+
+A trigger option — or a session-close command — that holds the subject in trance until a specific real event occurs, rather than a timer or an explicit wake command.
+
+**Proposed wake events:**
+
+| Event | Notes |
+|-------|-------|
+| **Orgasm** | Stay under until BC fires an orgasm event for the subject |
+| **Nose boop** | Default LSCG-style; a specific emote or item-use pattern |
+| **Finger snap** | Sound/text pattern — hypnotist types a snap emote |
+| **Spoken phrase** | A specific word or phrase the hypnotist says out loud |
+| **Room entry** | Subject wakes when they enter a specific room (or any room change) |
+| **Time limit** | Fallback: if no event fires within N minutes, wake anyway |
+
+The time-limit fallback should probably always be on unless the subject has extreme-subject-level enabled — an indefinite "no way to wake" state is a hard limit concern.
+
+**Default wake trigger:** like LSCG's boop/snap, there should be a default signal that any trusted hypnotist (or the subject themselves) can use to snap someone out. Proposed default: nose boop emote or `*snap*`. Subject-configurable. **Decision needed** before coding: should the default be boop, snap, or offer both as aliases?
+
+**Subject awareness:** in walking trance the subject is ambulatory and aware of the condition; in a held trance they may or may not know what they are waiting for, depending on their visibility level setting.
+
+#### Activity-fire triggers and wake suppression (decided 2026-09-08)
+
+A trigger can use an **activity as its fire condition** instead of a spoken word — "when [activity] happens to the subject, fire this trigger." The wake effect becomes one of the possible trigger effects, so a hypnotist can plant a trigger that says "orgasm wakes you" or "being touched on the head wakes you." This is a new fire-condition type; word-fire and activity-fire hook different systems (chat parser vs. activity hook) so they are separate trigger types in the panel.
+
+**Suppressing the standard wake signal** (boop/snap) is a higher-stakes option: a trigger that says "nothing else wakes you, only this event." This is a soft lock on consciousness and requires:
+- **Blank depth** at planting time
+- Subject has **extreme subject level** enabled (or a dedicated sub-option of it)
+
+Without both conditions, the override cannot be planted regardless of the hypnotist's experience. The rationale is subject-authoritative: the subject's client decides what wakes it, and consenting to that suppression is a deliberate act, not a side effect of a deep trance.
+
+**The safeword overrides everything.** `/hypno safeword` wakes the subject unconditionally even when a "nothing else wakes you" trigger is active. The hard floor is untouchable by any trigger.
 
 ### Hypnotist Panel (per trigger)
 Fields: trigger word · effect(s) · scope (who can fire it) · strength · last reinforced · decay status · expiry (if set)
@@ -945,17 +1145,78 @@ This creates natural protection: a trigger planted at Deep is resistant to anyon
 
 The subject's architect always has removal rights regardless of depth.
 
-### Trigger Reinforcement and Decay (not yet built)
+### Trigger Reinforcement and Decay — **built v0.60.0**
 
-- Each trigger has a decay clock that runs from the last time it was reinforced
-- **Formal reinforcement:** a brief re-induction by the original hypnotist resets the clock fully
-- **Passive reinforcement:** firing the trigger counts as *partial* reinforcement — slows decay but does not reset the clock
-- Without reinforcement, the trigger weakens and eventually disappears
-- Creates an ongoing relationship mechanic: hypnotists must maintain their work, not just plant and forget
+The shape is the one designed here, unchanged: the clock runs from the last reinforcement, a
+re-induction by the installer resets it, firing only slows it, and a trigger planted deep decays
+more slowly than one planted shallow.
 
-Decay rate is a separate setting from trust decay. A trigger planted at Blank decays more slowly than one at Drifting (harder to plant, harder to lose).
+**Strength is derived, never stored.** The stored fields are `plantedDepth`, `reinforcedAt`,
+`firings` and `plantedChemical`; `triggerStrength()` computes the current number on read. This is
+the same lazy-decay pattern trust already used, and it is the reason nothing has to be scheduled:
+there is no moment the add-on is guaranteed to be running, and a trigger must keep fading while
+the game is closed. It also means retuning any constant below moves every trigger already planted,
+not just new ones.
 
-**Weak trigger behavior:** a decayed trigger fires at *reduced effective depth* — a trigger planted at Deep that has faded may only hit Yielding when it fires, so depth-gated effects don't fully land. Far enough gone, it produces just a vague pull with no effect. If the subject has the resistance mini-game enabled, a weak trigger can invoke it — consistent with how LSCG uses mini-games for chemicals and sleep. Whether to invoke the mini-game on weak triggers is a subject setting.
+**A trigger's strength IS its effective depth when it fires.** It is on the same 0–100 scale as
+trance depth, and `fireTrigger` gates each action against the *trigger's* strength rather than the
+session's — a trigger fires outside a trance, where session depth is zero by definition. So a Deep
+trigger faded to 45 reaches only what Yielding reaches: its shallow actions still land and its
+deeper ones stop.
+
+| Rate setting | Depth points lost per day |
+|---|---|
+| **Never** *(default)* | 0 — triggers are permanent, the pre-v0.60.0 behaviour |
+| Very slow | 0.5 |
+| Slow | 1.5 |
+| Typical | 3 — costs a Deep trigger roughly a tier a week |
+| Fast | 7 |
+| Very fast | 15 |
+
+Deliberately slower than the trust-decay numbers: trust is a running average of contact and is
+meant to move, while a trigger is something somebody put inside you and should not evaporate over
+a weekend.
+
+**The tier discount** multiplies that loss — Drifting ×1, Yielding ×0.8, Entranced ×0.6, Deep ×0.4,
+Blank ×0.25. Harder to plant, harder to lose.
+
+**Firing buys back time, it does not reset the clock.** Each firing credits 0.25 days, capped at 2
+days total. The cap is the point: without it, a trigger fired often enough would never decay at
+all, which is plant-and-forget with extra steps. Use can hold something at the edge; only a
+re-induction brings it back.
+
+**Reinforcement** is the phrase *"that trigger holds"* (and its variants) spoken by the installer
+**during a live session** with the subject. The session requirement is what makes it a re-induction
+rather than a magic word any hypnotist could say in passing to keep their work alive forever. It
+refreshes everything that hypnotist planted rather than one named trigger — they are re-establishing
+the whole of their work, and singling one out would mean saying the trigger word aloud in front of
+the subject.
+
+**Below 10, a trigger is a ghost:** it fires flavour and nothing else, the vague pull this section
+always described. At 0 it is pruned from storage on the next read — *unless it is currently holding
+the subject*, in which case it is spared until it lets go. Dropping a trigger mid-grip would leave
+the effect applied with nothing left to release it, which is the stranded-effect bug this codebase
+has now fixed twice.
+
+**Chemically seeded triggers decay faster (decided 2026-09-08).** A trigger planted on a
+chemically-elevated floor uses a fixed 12 points a day, ignoring both the rate setting and the tier
+discount. The tradeoff for the chemical shortcut is a shorter shelf life and it cannot be configured
+away — a rate the subject could turn down would make the tradeoff decorative. Carry-forward follows
+the same rule when it ships.
+
+> **This half is plumbing, not yet live.** `plantedChemical` is computed and stored on every
+> trigger, and the fast rate is wired — but `triggerControl` is still `earnedOnly`, so chemical
+> depth cannot reach a plant at all and the flag is always false today. It goes live the moment the
+> earned-only toggle ships, which is the sequencing constraint recorded under *Feature Depth
+> Requirements*.
+
+**Where it surfaces:** `/hypno triggers` shows each trigger's strength and the tier it still
+reaches ("45/80 — reaches Yielding", "a vague pull only (6)", "faded away"); the rate is a dropdown
+on the Triggers settings tab and `/hypno triggerdecay <rate>`.
+
+**Still designed, not built:** the resistance mini-game on a weak trigger. A decayed trigger can
+invoke it — consistent with how LSCG uses mini-games for chemicals and sleep — and whether it does
+is a subject setting. The mini-game itself does not exist yet.
 
 ### Extreme Subject Level
 
@@ -1071,6 +1332,17 @@ for an unavoidable seam; the seam turns out to be avoidable on room change and s
 reload. It remains a good idea on its own merits — a moment of blur as perception settles is
 a nice thing for the subject to feel — but it is now a feature rather than a patch, and should
 be judged as one.
+
+#### Self-undress breaking the illusion *(lower priority — design only, not yet built)*
+
+When the subject removes their own clothing while the illusion is active, the reality of feeling clothes come off contradicts what they're seeing. Whether this breaks the illusion depends on two existing settings:
+
+- **Clothing awareness suppressed** — the subject doesn't register the change. The illusion holds cleanly; no roll needed. The two features work together by design.
+- **Clothing awareness active** — a reality-check roll fires. Chance of breaking is weighted by trance depth: at Blank, dissociation is deep enough that contradictions don't land; at Drifting, undressing yourself is likely enough to snap through. A partial break (illusion weakens rather than shatters, firing at reduced effective depth) mirrors the decayed-trigger behavior.
+
+**The reverse illusion flips the flavor.** A subject who believes they are already naked and then receives an undress trigger would experience confusion rather than a snap — "I thought I was already bare?" This is probably RP flavor text rather than a mechanical break, and is worth handling separately.
+
+The general principle: "always breaks" is wrong (genuine dissociation is real), and "never breaks" is also wrong. Depth and awareness suppression are what determine which side you're on.
 
 ### Bondage Illusion
 Two approaches:
@@ -1233,7 +1505,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~Induction flow (command → prompt → acceptance)~~ — done in Stage 4. The **trust gain** half is still outstanding.
 - ~~Hard floor / panic command~~ — done: `/hypno safeword`.
 - ~~Trust accumulation engine~~ — moved to Stage 6
-- ~~Trigger system (plant, scope, fire, expiry)~~ — done in v0.20.0–v0.25.0. **Decay** (weakening with disuse, reinforcement) is still outstanding; what shipped is a flat duration timer.
+- ~~Trigger system (plant, scope, fire, expiry)~~ — done in v0.20.0–v0.25.0. ~~**Decay**~~ — done in v0.60.0: derived strength, tier discount, capped firing credit, reinforcement by re-induction. The flat duration timer is still there and still separate — that is how long a *fired* trigger holds you, not how long the trigger itself survives.
 - Resistance mini-game
 - **OOC chat filtering** — any message wrapped in parentheses (e.g. `(just going AFK a moment)`) is OOC by BC convention and must be ignored entirely by the suggestion parser. No suggestion matching, no trust interaction, no trigger firing. Strip the message before it reaches any add-on logic. Add test cases to the pattern suite covering OOC-wrapped versions of known suggestion phrases to prevent regressions.
 - ~~**Session state recovery after disconnect**~~ — **built v0.44.0**, see the Priority list. The open design question ("reconnect prompt or silent auto-restore?") resolved as **silent**, with the subject told what happened: the hypnotist is already shown session state through the normal push, and a prompt would make a network blip into a negotiation. **Bug #1 is worth re-testing against this** — a dirty disconnect was a plausible path to awareness flags surviving into a fresh session, and orphaned state is now cleared on load.
@@ -1276,6 +1548,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**H icon detection**~~ — done in v0.35.0, as a 3-second probe. The icon deliberately still appears for everyone: hiding it would turn the Information Sheet into a directory of who has the add-on installed.
 - **Command authority** — by default only the hypnotist who established the session can issue commands to the subject. Add a hypnotist command to expand control to additional players ("allow [name] to command you"), revocable at any time. Ties into the permission hierarchy / Architect role already on the list.
 - **Body part protection (others touching you)** — self-touch is done (`ActivityRun` hook). Blocking others from touching you needs a different approach since `ActivityRun` executes on the actor's client, not the subject's. Research needed.
+- **Carry touch restrictions to nearby people (planned)** — extend the body-part block and body-part-only (inverse) restrictions so they apply to *other players* touching the subject, not just self-touch. Under the subject-authoritative model this is harder: the activity runs on the toucher's client, so enforcement needs either a message-back mechanism (subject client notices and emits a correction) or cooperation from a shared signal. Complexity note: blocking others' activities without their add-on installed may require a different approach than the hook used for self-touch.
 - ~~**BC relationship → trust floor**~~ — done in v0.36.0 as friend 15 / lover 30 / owner 65, each with a REACH as well as a number (see the version notes). ~~**Architect status tied to ownership**~~ — **decided: not automatic.** Wizard asks owner/lovers if they want to set it up. Strangers reach it via trust threshold + request/accept flow. One architect at a time. Subject always holds reset.
 - **Persona / alter ego** — "when you hear X, you become [name/personality]." Mostly RP, but add-on can nudge: if the alter ego is defined as wearing little clothing, add-on resists attempts to get fully dressed while the persona is active. Add to trigger effects.
 - **Custom phrase localization** — let subjects replace built-in flavor text and suggestion patterns with their own wording. Stored as a small `effect_id → custom phrase` map in ExtensionSettings (minimal storage impact after LZString compression). Two layers: flavor text (what the subject sees when an effect fires — subject-side only, simple substitution) and suggestion aliases (what the hypnotist says to trigger it — harder, requires exposing the subject's aliases to the hypnotist via help screen or OOC). Primary use case: players for whom English is not their first language, and players who want more personal or thematic phrasing. Ship flavor text first; aliases as a later extension.
@@ -1293,7 +1566,8 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
-- **Trigger reinforcement and decay** — formal re-induction resets clock; firing counts as partial reinforcement only. Decay rate separate from trust decay.
+- ~~**Trigger reinforcement and decay**~~ — **built v0.60.0.** Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
+- **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured.
 
 ---
@@ -1304,8 +1578,9 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 
 | # | Bug | Observed | Notes |
 |---|-----|----------|-------|
-| ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **likely fixed, needs one confirming run.** Orphaned state is now cleared on every load (v0.44.0) and the saved snapshot no longer goes stale between session transitions (v0.44.1), which were the two plausible paths to a flag surviving into a fresh session. Re-test before closing. Original report: | 2026-09-01 | Possible state leak from a previous session or carry-forward. |
-| 1b | **Session starts with clothing awareness already suppressed** — subject is ignoring clothing changes at the moment a session begins, before any suggestion is given. Expected: clothing awareness suppression should be off at session start and only apply after an explicit suggestion. | 2026-09-01 | Possible state leak from a previous session or carry-forward. Check whether awareness flags are reset on session end / on next session start. |
+| ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
+| ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
+| ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | Found by harness scenario 8 on its first run. Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build. |
 
 ---
 
@@ -1340,7 +1615,11 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 
 ---
 
-*Last updated: 2026-09-01 — undressing, OOC filtering, disconnect recovery, and `/hypno effects`. Priority items 1, 2, 4 and 5 done; item 3 (the depth system) is the one left. See **Needs Testing** for what has not yet had two accounts in a room. Code at v0.48.0.*
+*Last updated: 2026-09-08 — the test pass finished at eight scenarios; trigger reinforcement and
+decay built; both canvas panels moved their tabs to the vertical. Three bugs found and fixed
+(freeze blaming a nonexistent lock, the hard floor leaving the session running, `/bot` silent on
+success). Two items still owe a live run — the hard-floor fix and decay, both in **Needs
+Testing** with their expected results written out. Code at v0.61.2.*
 
 ## Appendix: Version History
 
@@ -1608,26 +1887,170 @@ and the poll that notices went from 1s to 250ms.
 
 ---
 
-## Bot Hypnotist — Possible Testing Utility (not yet built)
+## Test Harness — the eight scenarios (**built** — v0.51.0, extended through v0.59.0)
 
-A small standalone Node.js script (separate from SSS and BD) that connects to BC and acts as a hypnotist by sending the hidden messages and suggestion-phrased chat that the add-on's subject side expects. The subject's client does all the actual work; the bot is just a protocol-aware message sender.
+`testbot/bot.mjs` is a standalone Node script that logs into BC as a second account and plays the
+hypnotist: it sends the hidden-message protocol, speaks suggestion-phrased lines into the room, and
+walks the subject through a scenario a step at a time. The subject's client does all the actual
+work; the bot is a protocol-aware message sender that knows what each step is supposed to produce.
 
-**Why it's useful for testing:** the bot can log everything it sends and receives, and prompt the person running the subject account to confirm what they're seeing — "you should now be frozen, can you move?" The bot knows the expected outcome of each message and can walk through scenarios systematically without needing a second human to drive the hypnotist side.
+**Driving it.** `/bot run <n>` starts a scenario and `/bot next` advances it; `/bot retry`
+re-attempts a failed induction; `/bot status`, `/bot rooms` and `/bot trance` are utilities. These
+are registered slash commands that travel over the hidden channel rather than room chat — the
+scenarios that silence the subject would otherwise make it impossible to reach the next step. `/hypno bot <text>`
+is the collision-proof alias — BC's `GetCommands().find()` takes the *first* tag match, so a bare
+`/bot` can be shadowed by MBS, UBC or LSCG if one of them ever registers the same tag.
 
-**What it needs to implement:**
-- Send the hidden induction-start message in the correct format
-- Wait for the subject's private choice (Agree / Ignore / Fight) as a hidden message response
-- Branch on the response — proceed if Agree, report and stop if Ignore/Fight
-- Send suggestion-phrased chat during a session
-- Send trigger-planting messages
-- Send wake and release messages
-- After each step, prompt the subject to confirm observed behavior before proceeding
+**Every step carries its expected result.** DW asked for this after a run where the output was
+impossible to grade: each step declares `want` (what should be observed) and, where it is not
+obvious, `fail` (what would mean it is broken). The bot prints both before waiting.
 
-**The catch:** the induction requires the subject's private choice to come back as a hidden message. The bot has to listen for that and branch. SSS already handles async message flows (bondage stages, mercy releases), so the pattern is established — just needs wiring for the hypnosis protocol.
+**Two rules the harness itself is built on**, written into the file's header because both were
+learned by getting them wrong:
 
-**Scope:** testing only. Not intended for RP use with real players, and should be clearly labeled as a test harness. Full RP integration into SSS (Handler as hypnotist) is a separate, larger idea — possible but not planned.
+- **If a step cannot fail, it is not testing anything.** Three scenarios were once passing because
+  the setup produced the state the assertion was checking for — no session at all, a trance that
+  freezes on its own, and that same freeze then blocking undressing.
+- **"Ran but nothing happened" must be a reportable outcome.** "Nothing happened" is ambiguous on
+  its own, so the subject's client reports non-matching outcomes explicitly rather than staying
+  quiet.
+
+**The bot never speaks its own instructions into the room.** Step guidance goes over the hidden
+channel as `test-note`. It used to be said aloud, where the subject's trigger matching — which runs
+before the name gate and the session check — parsed it and fired a stored trigger twice. The
+harness was poisoning its own test.
+
+| # | Scenario | What it proves |
+|---|---|---|
+| 1 | **induction** | The basic loop end to end: attempt, private choice, RP window, roll. The **only** scenario that rolls — every other one forces the depth. A failed roll is not a failed test, which is why `/bot retry` exists as a step of its own rather than something to discover after three attempts start a ten-minute cooldown |
+| 2 | **depth-shallow** | At Yielding, the earned-only three (illusion, trigger, carry) refuse and name the tier they need |
+| 3 | **depth-deep** | At Blank with all of it earned, the same three apply |
+| 4 | **depth-arousal** | **The important one.** 80 full / 20 earned — deep because aroused, not because hypnotised. Session features work; the earned three still refuse with *arousal does not count* |
+| 5 | **trigger-fires** | A trigger planted deep still fires later with no trance at all. This is the one that nearly shipped broken |
+| 6 | **ooc** | Parenthesised text does nothing. Tests a **release**, not a restriction — see the note below |
+| 7 | **undress** | One garment at a time, accessories left alone, and refusals that name the real reason |
+| 8 | **hard-floor** | Unticking *Hypnosis Enabled* releases everything **and ends the session** |
+
+**Why scenario 6 tests a release.** The first version put the subject under, sent
+`(ooc: Missy you cannot move)`, and asserted she was not frozen. But `applyTranceState()` freezes
+her the moment she goes under if *Cannot Move During Trance* is ticked, which it is — so she was
+already frozen and the assertion could not fail. It now sends a parenthesised *release* and asserts
+the freeze is still there, then sends the same release unparenthesised and asserts it lands.
+
+**Setup.** `testbot/secrets.json` holds the bot account's login, is gitignored, and DW fills it in.
+It is never committed and never printed.
+
+**Scope: testing only.** Not for RP use with real players. Full RP integration into SSS (Handler as
+hypnotist) remains a separate, larger idea and is not planned.
 
 ---
+
+### Added 2026-09-08 (v0.57.1 – v0.61.2) — the pass finished, reinforcement and decay, vertical tabs
+
+**v0.57.1 — the two gaps in the pass.** Seven scenarios, and neither of the two things most worth
+checking: that an induction can be completed end to end by the bot, and that the master switch is a
+real hard floor. Both added; the pass is **eight** scenarios now, and the first of the two new ones
+immediately found a bug.
+
+**v0.58.0 — the hard floor left the session running.** `onToggle("hypnoEnabled", false)` cleared
+eight effects one at a time and never touched `session.phase`. The subject was left in a trance with
+nothing applied — the hypnotist still had a live session, spoken suggestions still parsed and
+re-applied, and `/hypno effects` reported a session the player had just switched off. Now
+`hardFloorStop()`, shared with the safeword via a common `totalStop()`, so the two paths differ only
+in the wording each side is told and can no longer disagree about what stopping means. The four new
+assertions in `test/revoke.mjs` were verified to fail (12/16) against the previous build before the
+fix went in. Recorded as **Known Bug #3**.
+
+**v0.58.1 — `/bot` said nothing on success.** DW reported `/bot run 1` being ignored and it could
+not be diagnosed remotely, because a successful send and a dropped one looked identical from the
+subject's side. `/bot` now replies with what it sent and to whom — `Sent "run 1" to WinnersDice
+(252905) — your hypnotist.` Same lesson as the suggestion refusals four versions earlier, arriving
+by a different road.
+
+**v0.59.0 — the induction was working; the step was wrong.** "I did not get the window a second
+time, but the hypno worked." `/bot retry` had been sent 20 seconds into a running 60-second window,
+and `session-continue` correctly ignores anything that is not an `AttemptFailed` — but it returned
+*silently*, so a correct refusal was indistinguishable from a broken command. Step 3 now waits for
+the roll to resolve before offering the retry, and both sides refuse out loud.
+
+**v0.60.0 — trigger reinforcement and decay.** The full model is in *Triggers > Trigger
+Reinforcement and Decay*. In short: strength is derived on read from `plantedDepth`, `reinforcedAt`,
+`firings` and `plantedChemical`, exactly as trust decay works; it is the trigger's effective depth
+when it fires, so a faded Deep trigger reaches only what Yielding reaches; firing buys back a
+capped amount of clock; a re-induction resets it; below 10 it is a ghost and at 0 it is pruned
+unless it is currently holding someone. Rate is a dropdown on the Triggers tab and
+`/hypno triggerdecay`, defaulting to **Never** — the same call DW made for trust decay, for the same
+reason.
+
+The one design decision made while building it: **`fireTrigger` gates on the trigger's own strength,
+never the session's.** The session is the wrong thing to ask — a trigger fires outside a trance,
+where session depth is zero — and asking it was how the depth gate nearly disarmed every trigger in
+existence back in v0.50.0. This closes that hole properly rather than by exemption.
+
+**v0.60.1–v0.60.2 — layout fallout.** Two faults from DW's screenshots, then the sixth tab pushing
+the tab row's right edge to x=1920 against a panel ending at 1800. Tab width became a division of
+the panel rather than a constant, which fixed the overflow and made the real ceiling visible: about
+nine tabs, where `DrawTextFit` has shrunk the labels past reading.
+
+**v0.61.0–v0.61.2 — tabs run down the left edge.** DW had asked whether the tabs could go vertical;
+the arithmetic said yes with room to spare. A tab is now a full 280 wide whatever the count, nine
+fit down the panel, and the panel takes back the 72px band the tab row used to occupy. The cost was
+one sweep of `menu.ts`: every absolute x became an offset from `CONTENT_LEFT`, so the *next* layout
+move costs one constant instead of another sweep. Three rounds of screenshot-driven tweaks followed
+— the inactive tabs' right border tucked under the panel's so the column stops reading as one heavy
+doubled line, the decay label left-aligned with the dropdown it labels, and the stats name column
+narrowed from 640 to 460 because the widest thing in it is a name and a member number.
+
+### Added 2026-09-07 (v0.51.0 – v0.57.0) — test bot, and what it found
+
+**v0.51.0 — a scripted hypnotist.** The harness described above was built. **v0.52.0** added
+`/hypno trance` and the `test-trance` hidden handler — forcing yourself under at a stated depth —
+because six scenarios had been written against `/hypno depth`, which explicitly does *not* start a
+session, and `handleSpokenLine` checks the session before it ever reaches a depth gate. Nothing was
+landing, and the reason was that nothing was under.
+
+**Getting the bot into the room (v0.51.0–v0.52.0).** Four commits of BC connection problems before
+the bot could do anything useful: the `AccountUpdate` BC requires before joining was missing, the
+join confirmation fires on a different event than the sync, rooms are ephemeral so a stale room name
+fails silently, and the `Origin` header BC checks was wrong. None of it obvious from the docs. A
+fifth fix made a malformed `secrets.json` report itself as malformed rather than missing —
+`readFileSync` and `JSON.parse` shared one try/catch, so a missing comma read as "no file here"
+while the file was plainly on disk.
+
+**What the scenarios found, in order:**
+
+- **`/bot` added (v0.53.0).** The harness reads the subject's typed confirmations, but a speech
+  restriction silences the subject — so the first scenario that tested speech made it impossible to
+  drive the next step. Verified in the live `Commands.js` first: `CommandParse` returns whatever
+  `CommandExecute` returns, and `ChatRoomSendChat` only sends when it gets a *string* back, so an
+  unregistered slash command never leaves the browser at all. Registering `/bot` and routing it over
+  the hidden channel is what makes it work while silenced.
+- **Suggestion refusals were silent to the hypnotist (v0.54.0).** A suggestion refused for
+  insufficient depth simply did nothing; the hypnotist watched their words land and saw no result.
+  Trigger refusals already reported. Now suggestions do too — *depth too shallow — needs Entranced
+  (currently Drifting)*, or *arousal does not count for this one*.
+- **The OOC scenario was not falsifiable (v0.54.1).** It sent `(ooc: Missy you cannot move)` and
+  asserted she was not frozen — but the trance had already frozen her, so the assertion could not
+  fail. Rewritten to test a **release**: a parenthesised release must *not* free her, and the same
+  words unparenthesised must. DW's report that it "froze me even from OOC" was the symptom that
+  exposed it, and the freeze was the trance baseline doing its job.
+- **Freeze blocked undressing and blamed a lock that did not exist (v0.55.0).** See **Known Bug
+  #2** — the root cause is not what it first looked like. There was no early freeze check; BC's own
+  `IsRestrained()` includes `Freeze`, `CanChangeClothesOn()` is built on it, and our guard reported
+  every failure of that call as `"locked"`. Freeze now has its own refusal and its own flavor line.
+- **Run 7 was undiagnosable (v0.56.0).** The bot dropped emotes from its log, dumped 4KB of
+  unparseable appearance data instead of a readable summary, and had no way at all to say "the
+  suggestion ran but did not land". All three fixed; the next run was legible.
+- **The harness was poisoning its own test (v0.57.0).** With the richer log the real fault showed:
+  the bot was speaking its step guidance into the room, where the subject's trigger matching — which
+  runs *before* the name gate and the session check — parsed it and fired a stored trigger twice.
+  Guidance moved to the hidden channel as `test-note`. (An earlier note in this document claimed the
+  fix was "narrowing the suggestion hook to non-bot senders". That was never built, and would have
+  been the wrong fix: it would have made the harness a special case instead of fixing the ordering
+  that let any speaker's words fire a trigger before the checks.)
+
+**Bug #1 confirmed closed.** Fresh load → start session → `/hypno effects` before any suggestion:
+all three awareness lines off. The v0.44.0–v0.44.1 fixes were the right ones.
 
 ### Added 2026-09-02 (v0.50.0) — the depth system
 
@@ -1682,12 +2105,17 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ---
 
-## Needs Testing — as of v0.50.0
+## Needs Testing — as of v0.61.2
 
-Written at the end of 2026-09-01. Everything below is built and unit-tested; what it has not
-had is two accounts in a room. Ordered by how much it would matter if it were wrong.
+Items 0–6 were run against the test bot on 2026-09-07 and are struck through. **Two things are
+open**, and both are listed with their expected result spelled out, because DW asked for that
+after a run whose output could not be graded: the hard floor has never been seen working in play,
+and the decay system has never run outside the unit suite.
 
-### 0. The depth system in play (v0.50.0) — nothing here has been in a room
+> Note on numbering: this list is a list of *topics*. The harness has eight scenarios and its own
+numbers — see *Test Harness — the eight scenarios*.
+
+### ~~0. The depth system in play (v0.50.0)~~ — **covered by test bot**
 
 The largest untested change in the project. Everything below assumed trust gates; they are
 gone. Worth checking, roughly in this order:
@@ -1702,75 +2130,116 @@ gone. Worth checking, roughly in this order:
   that nearly shipped broken.
 - **The Depth tab**: cycle a tier, confirm the gate moves; reset to defaults.
 
-### 1. Carried suggestions across a wake AND a disconnect — the whole v0.48.0 chain
+### ~~1. Carried suggestions across a wake AND a disconnect~~ — **covered by test bot**
 
-The scenario DW hit, which failed at four different layers over five versions. Run it exactly:
+The full chain (awareness block + illusion + carry-forward → wake → disconnect → reconnect) was run. Confirmed: `/hypno effects` after reconnect shows both carried effects still on, `recovery: durable only` in console, illusion rebuilt from the original garment list.
 
-```
-Missy, you notice nothing
-Missy, you cannot tell what you are wearing
-Missy, all of this stays with you
-[take the shirt]
-/hypno effects          <- BEFORE waking: confirm both landed and both are held
-Missy wake
-/hypno effects          <- after waking: both should STILL be on, carry-forward holding two
-[disconnect, reconnect]
-/hypno effects          <- the actual test
-```
+### ~~2. Known Bug #1 — awareness suppressed at session start~~ — **confirmed closed**
 
-Expected on the last one: no trance, but `not told about clothing changes: ON`, `clothing
-illusion (cannot SEE the change): ON`, and `carry-forward: holding awareness-block,
-illusion-block`. Console should log `recovery: durable only` — that path did not exist before
-v0.48.0.
+Fresh load, start session, `/hypno effects` before any suggestion: all three awareness lines off. Closed.
 
-**The illusion is the deepest part of the chain.** It is the only carried effect whose restore
-rebuilds the original garments rather than re-running a suggestion, so if it comes back with
-the *same frozen group list* as before the wake, everything under it worked.
+### ~~3. A trigger firing outside a trance, then a disconnect~~ — **covered by test bot**
 
-Note carried suggestions expire on the trigger duration (Triggers tab, default 5 min). Taking
-longer than that between waking and reconnecting means they legitimately wore off — that is
-not a bug, and `/hypno effects` says so.
+Trigger planted, woken, fired in conversation, disconnected, reconnected. Still holding with remaining time, not a fresh duration.
 
-### 2. Known Bug #1 — awareness suppressed at session start
+### ~~4. Undressing~~ — **covered by test bot**
 
-Probably already dead: orphan clearing (v0.44.0) and the stale-snapshot fix (v0.44.1) removed
-the two plausible paths. Needs one clean run to close: fresh load, start a session, `/hypno
-effects` before saying anything. All three awareness lines should be off.
+Single items, full undress, accessories left alone, refusal with hands bound named the reason correctly. The freeze-blocking-undress bug (v0.57.0) was found and fixed during this scenario.
 
-### 3. A trigger firing outside a trance, then a disconnect
+### ~~5. The RP bonus~~ — **covered by test bot**
 
-Never persisted at all before v0.48.0, and it is the *normal* way a trigger fires. Plant one,
-wake, fire it in ordinary conversation, disconnect, come back. It should still be holding you,
-with less time on it than it started with — not a fresh full duration.
+`/hypno chance` showed the bonus climbing as the bot typed. 15-character floor not rejecting real phrasing.
 
-### 4. Undressing (v0.42.0) — untested in play entirely
+### ~~6. OOC filtering~~ — **covered by test bot**
 
-`Missy, take something off` repeatedly, then `Missy, take everything off`. Watch that the
-room sees it (it changes the character everyone is looking at, unlike everything else here),
-that accessories are left alone, and that `Missy, you cannot undress` is still read as a
-restriction rather than an instruction.
+Parenthetical-only suggestion fired nothing. Mid-line aside stripped, surrounding suggestion still landed. Made falsifiable by following with a non-parenthetical version and asserting it fired.
 
-Also worth checking with hands bound and with a locked item on: both should refuse and say
-which, rather than failing silently.
+### 7. `hypnoEnabled` off as the hard floor — **run twice, failed both times, fix not yet seen in play**
 
-### 5. The RP bonus (v0.41.0) — never observed live
+Both runs predate v0.58.0 and both found the bug now recorded as **Known Bug #3**. The fix has four
+assertions in `test/revoke.mjs`, verified to fail against the old build — but it has never been
+exercised against a live client, so this is the one item in the pass with no real verdict.
 
-`/hypno chance <name>` during an induction window should show `roleplay bonus +N` climbing as
-the hypnotist types. Three substantive lines to reach +15. Worth confirming the 15-character
-floor is not rejecting real induction phrasing.
+**How to run it:** `/bot run 8`. Go under at Blank, apply movement, speech and the clothing
+illusion, confirm all three with `/hypno effects`, then **untick *Hypnosis Enabled* in Preferences.
+Do not safeword** — the safeword takes a different code path and would pass whether or not the fix
+works.
 
-### 6. OOC filtering (v0.43.0)
+**Expected result:** `/hypno effects` reports **no session at all** — not merely no effects. That
+distinction is the entire bug: the old build cleared the eight effects and left the trance running,
+so the hypnotist still had a live session and the next thing they said re-applied everything.
 
-`(Missy, you cannot move)` in parentheses should do nothing at all. `Missy, you cannot move
-(brb)` should still work.
+**What failure looks like:** effects gone but `/hypno effects` still naming a session, a depth or a
+hypnotist; or a spoken suggestion landing again immediately afterwards.
 
-### 7. `hypnoEnabled` off as the hard floor (v0.43.0)
+### 8. Trigger reinforcement and decay in play (v0.60.0) — **not yet run**
 
-With everything applied — frozen, illusion, denial — untick *Hypnosis Enabled*. All of it
-should come off, including the two that used to survive it.
+Covered by unit tests, never exercised against a live client.
+
+**How to run it:** set the rate high enough to see movement — `/hypno triggerdecay veryfast` is 15
+points a day, so a Deep trigger planted at 60 loses about 0.6 points an hour and roughly a tier
+overnight. Plant a trigger under a Blank trance, wake, then check `/hypno triggers`.
+
+**Expected result, in four parts:**
+
+1. `/hypno triggers` shows a strength and the tier it still reaches — *"60/60 — full strength
+   (Deep)"* at first, drifting down as `plantedDepth` decays.
+2. Firing the trigger slows it but does not restore it. Fire it a few times and the number should
+   stop falling rather than jump back to 60 — that is the 0.25-days-per-firing credit, capped at 2
+   days.
+3. Saying **"that trigger holds"** while under with the hypnotist who planted it resets the clock
+   fully; the strength returns to `plantedDepth` and the firing credit clears. Said by anyone else,
+   or said outside a session, it must do **nothing** — that gate is what stops the phrase being a
+   magic word that keeps someone's work alive forever.
+4. A trigger driven below 10 fires flavour and no actions; at 0 it disappears from the list
+   entirely — unless it is holding you at that moment, in which case it survives until it lets go.
+
+**What failure looks like:** strength that does not move at all (the rate setting is not being
+read); strength that resets on firing (the credit is moving `reinforcedAt` instead of crediting
+elapsed time); a reinforcement phrase working from a non-installer or outside a session; or a
+trigger vanishing while it is still holding you, which would strand the effect with nothing left to
+release it.
+
+Set the rate back to **Never** afterwards, or every trigger planted during later testing will
+evaporate.
 
 ---
 
+**Seven of nine topics confirmed; two open, both above.** Next bugs or regressions go in Known Bugs.
+
+---
+
+
+## Pre-Release Checklist — Early Tester Build
+
+Items required before handing the add-on to external testers. Ordered: hard blockers first, then things that make it survivable, then what makes it actually feel right. Check off as done.
+
+### Hard blockers (ship nothing without these)
+
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.61.2. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
+
+### Strongly recommended (testers can survive without, but experience is rough)
+
+- [x] ~~**Per-feature depth selectors in the settings UI**~~ — **done in v0.50.0 after all.** The **Depth** tab carries one row per gated feature with a click-to-cycle tier button, the earned-only three marked as such, a chemical-scope control and a reset-to-defaults. This item was written from the deviation note ("per-feature UI selectors can follow in a later pass"), which referred to the *chemical scope* dropdown below, not the tier selectors.
+- [ ] **Chemical floor per-feature dropdown** — currently one global control (deferred from v0.50.0 spec). The design calls for Both/Arousal/Drugs/Neither per feature; right now it's one setting for everything.
+- [ ] **First-launch guidance** — full wizard can wait, but new users need some indication of what to enable and in what order. Even a simple "start here" note on the Permissions tab would help.
+
+### Makes it feel right (do before wider release)
+
+- [x] ~~**Trigger reinforcement and decay**~~ — **built v0.60.0.** Defaults to *Never*, so a tester who changes nothing still gets plant-and-forget; the mechanic exists for anyone who wants it and the habit-forming problem is gone either way. **Still owes one live run** — see *Needs Testing* item 8.
+- [ ] **Review and final pass on flavor text wording** — DW flagged this as unreviewed since v0.34.0. Worth one pass before outside eyes see it.
+
+### Already confirmed done (do not re-check)
+
+- ~~`INDUCTION_WINDOW_MS` → 60,000~~ — fixed v0.43.0
+- ~~`hypnoEnabled` off leaving the session running~~ — fixed v0.58.0, but **not yet verified in play** (Needs Testing 7)
+- ~~`arousalControl` and `illusionControl` not releasing on permission revoke~~ — fixed v0.43.0
+- ~~`hypnoEnabled` off not clearing illusion/denial~~ — fixed v0.43.0
+- ~~OOC filtering~~ — done v0.43.0
+- ~~Session state recovery after disconnect~~ — done v0.44.0–v0.45.0
+
+---
 
 ## Priority Work Session — 2026-09-01
 
