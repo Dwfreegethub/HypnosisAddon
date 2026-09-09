@@ -31,6 +31,7 @@
 //   !join             (re)join the room, if the bot started before it existed
 //   !rooms            list the rooms the server will show us — the Environment check
 //   !trance [d] [e]   TESTING: put the subject under at a chosen depth, skipping the roll
+//   !retry            another induction attempt after a missed roll (3, then a 10 min cooldown)
 //   !abort            stop the scenario
 
 import { io } from "socket.io-client";
@@ -397,11 +398,20 @@ function trance(depth = 80, earned = depth) {
 const SCENARIOS = [
 	{
 		name: "induction",
-		blurb: "The basic loop: attempt, choose, roll.",
+		blurb: "The basic loop: attempt, choose, roll. The ONLY scenario that rolls.",
+		// A FAILED ROLL IS NOT A FAILED TEST, and this is the one scenario where that has to be
+		// said out loud. Every other scenario forces the depth; this one earns it, so it is at
+		// the mercy of the dice:
+		//
+		//   chance = trust + 25 (agree) + experience*0.25 + RP bonus (up to 15), floor 5, ceil 95
+		//
+		// With little trust built with this bot that is somewhere near a coin flip. Three
+		// attempts are allowed and then a TEN MINUTE cooldown starts, which would eat the
+		// evening — so the retry is a step of its own rather than something to discover.
 		steps: [
 			{
 				do: () => hidden({ type: "session-attempt", hypnotistName: "WinnersDice" }),
-				want: "A box offering Agree / Ignore / Fight. Choose AGREE.",
+				want: "A box offering Agree / Ignore / Fight. Choose AGREE — the other two are separate tests.",
 				fail: "No box appears at all.",
 			},
 			{
@@ -412,13 +422,25 @@ const SCENARIOS = [
 					await wait(1500);
 					say("Missy, there is nothing to hold on to and nothing you need to do.");
 				},
-				want: "`/hypno chance WinnersDice` shows `roleplay bonus +15` — three RP lines, 5 each. Then wait out the 60s window.",
-				fail: "The bonus is below +15, or the command does not mention roleplay at all.",
+				want: "`/hypno chance WinnersDice` shows `roleplay bonus +15` — three lines, 5 each. THEN WAIT for the 60s window to close before the next step.",
+				fail: "The bonus is below +15, or the command does not mention roleplay at all. That is the real assertion here; whether the roll then lands is luck.",
 			},
 			{
-				do: () => {},
-				want: "You go under. `/hypno effects` names a tier; report it with `/bot ok <tier>`.",
-				fail: "Nothing happens after the window closes.",
+				// The bot knows the answer — the subject's client pushed it. Asking DW to
+				// interpret a screen when the protocol already said it is how the last two
+				// scenarios got graded wrong.
+				do: async () => {
+					await wait(1000);
+					const u = lastUpdate;
+					report(
+						u
+							? `Protocol says: phase=${u.phase}${u.depthBand ? `, depth band "${u.depthBand}"` : ""}` +
+									`${u.progressBand ? `, progress "${u.progressBand}"` : ""}.`
+							: "I have heard nothing back from your client at all — that itself is the finding.",
+					);
+				},
+				want: "phase=Hypnotized. `/hypno effects` names a tier — report it with `/bot ok <tier>`.",
+				fail: "phase=AttemptFailed is NOT a bug — the roll simply missed. Use `/bot retry` for another attempt (3 allowed, then a 10 minute cooldown). Only report `/bot fail` if the window closed and NOTHING happened, or the protocol went silent.",
 			},
 		],
 	},
@@ -606,9 +628,14 @@ const SCENARIOS = [
 				fail: "Any of the three missing from effects.",
 			},
 			{
+				// LAST TIME THIS PRODUCED NO VERDICT. Frozen and silenced, the reflex is the
+				// safeword — and the safeword is a DIFFERENT mechanism that clears everything
+				// through its own path, so using it here proves nothing about the hard floor
+				// and quietly reads as a pass. Say so in the step, since it is the natural
+				// thing to reach for and the instruction never warned against it.
 				do: () => {},
-				want: "Now UNTICK Hypnosis Enabled. Everything comes off at once — `/hypno effects` says nothing is holding you, and you can move and speak.",
-				fail: "Anything at all survives the untick. That is the hard floor failing, the most serious result in the suite.",
+				want: "UNTICK 'Hypnosis Enabled' — Preferences > Extensions > Hypnosis Add-on, first toggle on the Permissions tab. Everything comes off at once: `/hypno effects` says nothing is holding you, and you can move and speak again.",
+				fail: "Anything at all survives the untick — the most serious result in the suite. DO NOT USE THE SAFEWORD HERE: it clears everything by its own path, so it proves nothing and looks like a pass. The untick is the whole test. Re-tick it afterwards to carry on.",
 			},
 		],
 	},
@@ -706,6 +733,27 @@ function handleCommand(sender, text) {
 			joinTries = 0;
 			tryJoin();
 			return;
+		case "retry": {
+			// session-continue reuses the choice already made — the subject decided their
+			// stance for this encounter once, and re-prompting on every retry would be
+			// nagging rather than consent. See the handler in session.ts.
+			//
+			// It reopens the RP window with a FRESH line count, so the bonus has to be earned
+			// again: three attempts' effort does not accumulate. Which means a retry that only
+			// sent the message would silently roll at +0 and look like the mechanic being
+			// harsher than it is. So speak, then let the window run.
+			hidden({ type: "session-continue" });
+			report("Retrying. The RP window reopens with a fresh line count, so I will earn the bonus again — wait out the 60s, then /bot ok or /bot retry.");
+			(async () => {
+				await wait(1200);
+				say("Missy, let it happen the way it was already happening.");
+				await wait(1500);
+				say("Missy, you have done the hard part, and there is nothing left to hold.");
+				await wait(1500);
+				say("Missy, further down, and easier every time.");
+			})();
+			return;
+		}
 		case "trance": {
 			// e.g. `!trance 80 20` — the manual form of the same thing, for trying something
 			// the scenarios do not cover without having to run one.
