@@ -28,7 +28,7 @@ import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES } from "./triggers";
-import { isHypnotized, currentTier } from "./session";
+import { isHypnotized, currentTier, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -739,21 +739,19 @@ export function installMenu(): void {
 export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 	switch (key) {
 		case "hypnoEnabled":
-			// The hard floor: this releases EVERYTHING, whatever the individual flags say.
-			// It was missing the illusion and the denial lock — the same omission as the two
-			// cases below but one level up, and worse there, because the master switch is
-			// what somebody reaches for when they want all of it to stop. Kept in step with
-			// endSession() and safeword(), which are the other two total-clear paths.
-			if (!enabled) {
-				removeEffect("Freeze");
-				removeEffect("BlockWardrobe");
-				clearSuggestedPose();
-				clearTranceStates();
-				clearAllSuppression();
-				clearSelfTouchBlocks();
-				clearOrgasmDenial();
-				clearIllusion();
-			}
+			// The hard floor, and it now ends the SESSION rather than only stripping effects.
+			//
+			// The old list cleared eight things and left the session running — phase still
+			// Hypnotized, hypnotist still attached, timer still counting, depths still set.
+			// So turning the master switch off and back on resumed the trance with no new
+			// induction, and the next attempt was refused "Already under." by someone who had
+			// switched the add-on off. The doc says "clears active trance, suspends all
+			// effects"; only the second half was happening.
+			//
+			// Delegated rather than extended, because keeping a second copy of the
+			// everything-off list in step with the safeword's is what failed here before: the
+			// illusion and the denial lock had already gone missing from this one once.
+			if (!enabled) hardFloorStop();
 			break;
 		case "movementRestriction":
 			if (!enabled) removeEffect("Freeze");

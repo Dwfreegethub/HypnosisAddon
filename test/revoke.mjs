@@ -16,7 +16,12 @@ globalThis.Player = {
 };
 globalThis.Asset = [{ Name: "Emoticon", AllowEffect: [] }];
 globalThis.ChatRoomCharacter = [Player];
-globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; } };
+globalThis.localStorage = {
+	_d: {},
+	getItem(k) { return this._d[k] ?? null; },
+	setItem(k, v) { this._d[k] = v; },
+	removeItem(k) { delete this._d[k]; },
+};
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
 globalThis.ServerPlayerIsInChatRoom = () => true;
 globalThis.ServerSend = () => {};
@@ -26,7 +31,7 @@ globalThis.CharacterSetActivePose = () => {};
 globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
 globalThis.CharacterRefresh = () => {};
 
-const { menu, storage, illusion, effects, suppression } = await import("./harness-bundle.mjs");
+const { menu, storage, illusion, effects, suppression, session, depth, carry } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -71,6 +76,37 @@ effects.applyEffect("Freeze");
 menu.onToggle("hypnoEnabled", false);
 check("hypnoEnabled off frees the illusion", illusion.isIllusionActive(), false);
 check("  and the freeze", effects.hasOwnEffect("Freeze"), false);
+
+// --- and the SESSION, which it did not take ------------------------------------------------
+// The block above is the whole of what this suite used to ask: do the effects come off. They
+// did. The session did not — phase stayed Hypnotized, the hypnotist stayed attached, the timer
+// kept counting and the depths stayed set. Two things followed, both found in play rather than
+// here: flipping the master switch off and back on resumed the trance with no new induction,
+// and a genuine induction attempt afterwards was refused "Already under." by a subject who had
+// switched the add-on off.
+//
+// The doc's wording is "clears active trance, suspends all effects". Only the second half was
+// happening, and this suite could not see it because it only ever looked at effects.
+const HYP = 246108;
+storage.setFeature("hypnoEnabled", true);
+check("forced under for the test", session.forceTrance(HYP, 80, 80), null);
+check("  under, at depth", [session.isHypnotized(), depth.currentDepth()], [true, 80]);
+menu.onToggle("hypnoEnabled", false);
+check("the hard floor ends the session", session.isHypnotized(), false);
+check("  and clears the depth", depth.currentDepth(), 0);
+check("  and detaches the hypnotist", session.currentHypnotistId(), null);
+
+// Carried suggestions are the ones most likely to creep back: an ordinary session end
+// deliberately re-applies them, and a total stop is not an ordinary session end.
+storage.setFeature("hypnoEnabled", true);
+storage.setFeature("carryForward", true);
+session.forceTrance(HYP, 80, 80);
+storage.setFeature("movementRestriction", true);
+carry.noteApplied("movement-block");
+carry.carryThese(HYP, "GameBot", ["movement-block"]);
+check("something is being carried", carry.carriedIds(), ["movement-block"]);
+menu.onToggle("hypnoEnabled", false);
+check("the hard floor drops it too", carry.carriedIds(), []);
 
 console.log(`revoke: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

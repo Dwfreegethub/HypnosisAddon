@@ -727,6 +727,39 @@ export function selfWake(): void {
 /** Hard floor from the design doc: always works, in any state, no permission checks, no
  * way for anyone to take it away. Deliberately the simplest path in this file. */
 export function safeword(): void {
+	totalStop(
+		// Deliberately unambiguous on the hypnotist's screen. A safeword is an OOC stop
+		// signal, not an in-fiction escape — the other player needs to read it as "back
+		// off now", not wonder whether their subject cleverly broke the trance.
+		"They used their safeword. Stop.",
+		"Safeword. Trance cleared, all effects released, everything back under your control.",
+	);
+}
+
+/** The other total stop: the subject switched hypnosis off entirely.
+ *
+ * Same teardown as the safeword, different wording — it is not an OOC panic signal, it is a
+ * consent setting being withdrawn, and the hypnotist should read it as such.
+ *
+ * This exists because the hard floor was not one. onToggle() stripped every effect and left
+ * the SESSION running: phase stayed Hypnotized, the hypnotist stayed attached, the timer kept
+ * counting and the depths stayed in depth.ts. Two consequences, both found in one evening —
+ * re-ticking the switch resumed the trance with no new induction, and the next induction
+ * attempt was refused "Already under." by a subject who had turned the add-on off and back on.
+ * The doc's wording is "clears active trance, suspends all effects"; only the second half was
+ * happening. */
+export function hardFloorStop(): void {
+	totalStop(
+		"They turned hypnosis off. Everything has been released.",
+		"Hypnosis disabled. Trance cleared and every effect released.",
+	);
+}
+
+/** Stop everything, keep nothing. The one path in this file no feature may make conditional.
+ *
+ * Shared rather than duplicated on purpose: the safeword's list had already drifted from the
+ * hard floor's once, and the half that drifted was the half nobody tests. */
+function totalStop(hypnotistMessage: string, localMessage: string): void {
 	clearTimers();
 	// Nothing survives a safeword, and that must include the copy on disk — otherwise the
 	// next reload would faithfully restore the very thing the safeword was used to escape.
@@ -746,20 +779,18 @@ export function safeword(): void {
 	clearActiveSuggestions();
 	clearOrgasmDenial();
 	clearIllusion();
-	// Nothing survives a safeword — that is the whole point of it, and the one rule in this
-	// file that no feature is allowed to make conditional.
-	releaseCarried("safeword");
+	// Nothing survives — that is the whole point, and carried suggestions are the ones most
+	// likely to creep back, since carryThroughWake() re-applies them on an ordinary session
+	// end. A total stop is not an ordinary session end.
+	releaseCarried("total stop");
 	clearAllTimers();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;
-		// Deliberately unambiguous on the hypnotist's screen. A safeword is an OOC stop
-		// signal, not an in-fiction escape — the other player needs to read it as "back
-		// off now", not wonder whether their subject cleverly broke the trance.
-		pushUpdate("They used their safeword. Stop.");
+		pushUpdate(hypnotistMessage);
 		session.hypnotistId = null;
 	}
-	notify("Safeword. Trance cleared, all effects released, everything back under your control.");
+	notify(localMessage);
 }
 
 export function describeSession(): string {

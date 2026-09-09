@@ -322,7 +322,15 @@ socket.on("ChatRoomMessage", (data) => {
 			lastUpdate = message;
 			// The refusal reason is the single most useful field in the protocol: it is the
 			// subject's client saying why it declined, in its own words.
-			if (message.refusedReason) logLine("REFUSED", message.refusedReason);
+			if (message.refusedReason) {
+				logLine("REFUSED", message.refusedReason);
+				// AND TELL DW, in game. The induction run failed because her client answered
+				// "Already under." at step 1 — the bot logged it, nobody was reading the log,
+				// and the step guidance said only "FAIL IF: no box appears". A refusal names
+				// the cause outright; leaving it in a file while the person is looking at a
+				// screen is the same mistake as the console-only suggestion refusals.
+				report(`Your client refused: "${message.refusedReason}"`);
+			}
 		}
 		// Refusals are the single most useful thing the subject's client says, so they get
 		// their own line rather than being left inside a RECV blob. The depth-arousal run was
