@@ -1613,7 +1613,7 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 |---|-----|----------|-------|
 | ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
 | ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
-| ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | Found by harness scenario 8 on its first run. Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build. |
+| ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | **Not** found by scenario 8, which passed — it only asked whether the effects came off. Found when scenario 1 would not start afterwards, refusing an induction with "Already under." Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build; the scenario was rewritten to ask `/hypno session` and re-confirmed in play the same day. |
 
 ---
 
@@ -2140,10 +2140,10 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ## Needs Testing — as of v0.61.2
 
-Items 0–6 were run against the test bot on 2026-09-07 and are struck through. **Two things are
-open**, and both are listed with their expected result spelled out, because DW asked for that
-after a run whose output could not be graded: the hard floor has never been seen working in play,
-and the decay system has never run outside the unit suite.
+Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
+scenario was rewritten to be capable of failing. **One thing is open:** decay has never run outside
+the unit suite. Its expected result is spelled out below, because DW asked for that after a run
+whose output could not be graded.
 
 > Note on numbering: this list is a list of *topics*. The harness has eight scenarios and its own
 numbers — see *Test Harness — the eight scenarios*.
@@ -2187,23 +2187,27 @@ Single items, full undress, accessories left alone, refusal with hands bound nam
 
 Parenthetical-only suggestion fired nothing. Mid-line aside stripped, surrounding suggestion still landed. Made falsifiable by following with a non-parenthetical version and asserting it fired.
 
-### 7. `hypnoEnabled` off as the hard floor — **run twice, failed both times, fix not yet seen in play**
+### ~~7. `hypnoEnabled` off as the hard floor~~ — **confirmed 2026-09-08, v0.61.2**
 
-Both runs predate v0.58.0 and both found the bug now recorded as **Known Bug #3**. The fix has four
-assertions in `test/revoke.mjs`, verified to fail against the old build — but it has never been
-exercised against a live client, so this is the one item in the pass with no real verdict.
+Run twice before v0.58.0 and never caught: the scenario asked only whether the effects came off,
+which they did on both builds. The bug was the session surviving, and the step could not see it —
+the same blind spot `test/revoke.mjs` had, for the same reason. The scenario was rewritten to ask
+`/hypno session` and to re-tick the switch afterwards, and the pass below is against the rewrite.
 
-**How to run it:** `/bot run 8`. Go under at Blank, apply movement, speech and the clothing
-illusion, confirm all three with `/hypno effects`, then **untick *Hypnosis Enabled* in Preferences.
-Do not safeword** — the safeword takes a different code path and would pass whether or not the fix
-works.
+**What the bot recorded**, from the subject's own state pushes rather than from a typed answer:
 
-**Expected result:** `/hypno effects` reports **no session at all** — not merely no effects. That
-distinction is the entire bug: the old build cleared the eight effects and left the trance running,
-so the hypnotist still had a live session and the next thing they said re-applied everything.
+| | |
+|---|---|
+| 03:10:03 | `effects:["Freeze"]`, `phase:"Hypnotized"`, `depthBand:"very deep"` — under at Blank |
+| **03:11:30** | **`effects:[]`, `phase:"Idle"`, `depthBand:null`** — the untick, and `phase` is the field v0.58.0 fixed |
+| 03:12:16 | re-tick: no state push at all, so nothing came back with the permission |
+| 03:12:32 | *"Missy, you cannot move."* — no effect change follows, so no session for it to attach to |
 
-**What failure looks like:** effects gone but `/hypno effects` still naming a session, a depth or a
-hypnotist; or a spoken suggestion landing again immediately afterwards.
+The client volunteered its own reason, which is the v0.58.0 shared-teardown wording doing its job:
+*"They turned hypnosis off. Everything has been released."*
+
+Note for anyone reading the log: the three-step version run at 03:00 also reported `1 ok, 0 failed`.
+Both versions pass now, because the code is correct. Only the five-step one demonstrates it.
 
 ### 8. Trigger reinforcement and decay in play (v0.60.0) — **not yet run**
 
@@ -2238,7 +2242,7 @@ evaporate.
 
 ---
 
-**Seven of nine topics confirmed; two open, both above.** Next bugs or regressions go in Known Bugs.
+**Eight of nine topics confirmed; one open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
@@ -2266,7 +2270,7 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 ### Already confirmed done (do not re-check)
 
 - ~~`INDUCTION_WINDOW_MS` → 60,000~~ — fixed v0.43.0
-- ~~`hypnoEnabled` off leaving the session running~~ — fixed v0.58.0, but **not yet verified in play** (Needs Testing 7)
+- ~~`hypnoEnabled` off leaving the session running~~ — fixed v0.58.0, **verified in play 2026-09-08** (Needs Testing 7)
 - ~~`arousalControl` and `illusionControl` not releasing on permission revoke~~ — fixed v0.43.0
 - ~~`hypnoEnabled` off not clearing illusion/denial~~ — fixed v0.43.0
 - ~~OOC filtering~~ — done v0.43.0
