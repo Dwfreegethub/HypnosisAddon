@@ -43,8 +43,6 @@ import {
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
 	TITLE_Y,
-	TAB_TOP,
-	TAB_HEIGHT,
 	PANEL_LEFT,
 	PANEL_TOP,
 	PANEL_WIDTH,
@@ -178,8 +176,8 @@ const ROW_SPACING = 78;
 
 /** Columns for the Stats tab. */
 const STAT_NAME_X = BOX_LEFT;
-const STAT_VALUE_X = 900;
-const STAT_DETAIL_X = 1100;
+const STAT_VALUE_X = BOX_LEFT + 640;
+const STAT_DETAIL_X = BOX_LEFT + 840;
 const STAT_LINE_HEIGHT = 40;
 const STAT_EXPERIENCE_Y = 360;
 const STAT_HEADER_Y = 400;
@@ -224,7 +222,11 @@ function dataButtonLeft(index: number): number {
 const DEPTH_ROW_TOP = 340;
 const DEPTH_ROW_HEIGHT = 52;
 const DEPTH_ROWS_PER_PAGE = 7;
-const DEPTH_TIER_LEFT = 1150;
+const DEPTH_TIER_LEFT = BOX_LEFT + 890;
+/** Room for the gate name before it reaches the tier button. The earned-only rows carry a
+ * "(arousal never counts)" suffix that makes them half again as long as the rest, and page 2
+ * of the Depth tab is entirely earned-only rows — so this is not a hypothetical. */
+const DEPTH_LABEL_MAX = 890 - 40;
 const DEPTH_TIER_WIDTH = 250;
 const DEPTH_BUTTON_HEIGHT = 44;
 const SCOPE_BUTTON_LEFT = BOX_LEFT;
@@ -251,10 +253,11 @@ function drawDepthGates(): void {
 		// A feature whose permission is off can never happen whatever the tier says, and
 		// showing that plainly stops the tier reading as the only thing standing in the way.
 		const granted = !!features[gate.key];
-		drawLeftText(
+		drawLeftTextFit(
 			`${gate.label}${gate.earnedOnly ? "  (arousal never counts)" : ""}`,
 			BOX_LEFT,
 			top + 30,
+			DEPTH_LABEL_MAX,
 			granted ? "Black" : "Gray",
 		);
 		DrawButton(
@@ -401,20 +404,23 @@ function drawDataButtons(): void {
 
 const SCOPE_ID = "HypnosisAddonTriggerScope";
 const SCOPE_LABEL_Y = 700;
-const SCOPE_CENTRE_X = 260 + 380;
+const SCOPE_CENTRE_X = CONTENT_LEFT + 380;
 const SCOPE_CENTRE_Y = 745;
 const SCOPE_WIDTH = 760;
 const SCOPE_HEIGHT = 56;
 
 const DECAY_ID = "HypnosisAddonDecayRate";
-const DECAY_LABEL_X = 950;
+const DECAY_LABEL_X = CONTENT_LEFT + 560;
 // The last trust row sits at y=680 and 36px text reaches ~18px either side of its centre,
 // so 705 left the label resting on top of it. 730 clears the row; the dropdown then has to
 // fit between there and the data buttons at 810, hence 46 tall rather than 52.
 const DECAY_LABEL_Y = 730;
-const DECAY_CENTRE_X = 1370;
+const DECAY_CENTRE_X = CONTENT_LEFT + 940;
 const DECAY_CENTRE_Y = 775;
-const DECAY_WIDTH = 640;
+// 520 rather than 640: the panel gave up 280px to the tab column, and this dropdown was the
+// one control that could not simply move right — at its old width it would have ended at
+// x=1970, past both the panel and the canvas.
+const DECAY_WIDTH = 520;
 const DECAY_HEIGHT = 46;
 
 const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
@@ -422,15 +428,15 @@ const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
 // four toggles, a scope dropdown and a number box, and the next free band below runs into the
 // bottom of the screen. Both labels go through drawLeftTextFit with a hard width, so a long
 // translation shrinks instead of colliding — the duration box sits at 260-400 and this
-// dropdown at 940-1500, which is the whole reason they can share the line.
-const TRIGGER_DECAY_LABEL_X = 760;
-const TRIGGER_DECAY_LABEL_MAX = 700;
-const TRIGGER_DECAY_CENTRE_X = 1220;
-const TRIGGER_DECAY_WIDTH = 560;
+// dropdown to its right, which is the whole reason they can share the line.
+const TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 500;
+const TRIGGER_DECAY_LABEL_MAX = 420;
+const TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
+const TRIGGER_DECAY_WIDTH = 500;
 
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 830;
-const DURATION_CENTRE_X = 260 + 70;
+const DURATION_CENTRE_X = CONTENT_LEFT + 70;
 const DURATION_CENTRE_Y = 872;
 const DURATION_WIDTH = 140;
 const DURATION_HEIGHT = 56;
@@ -629,15 +635,23 @@ function drawStats(): void {
  * the Lock row was drawn below the panel with no sign anything was missing. Past the
  * threshold a tab splits into two columns instead. */
 const MAX_ROWS_PER_COLUMN = 6;
-const COLUMN_TWO_LEFT = 1000;
+const COLUMN_TWO_LEFT = BOX_LEFT + 650;
+/** What a row label may use before it reaches the next column — or, in the right-hand column,
+ * the panel edge. Only applied in two-column mode: capping a single-column tab would shrink
+ * text that has the whole width to itself. */
+const ROW_LABEL_MAX = 480;
 
-function rowPosition(index: number, total: number): { left: number; top: number } {
-	const perColumn = total > MAX_ROWS_PER_COLUMN ? Math.ceil(total / 2) : total;
+function rowPosition(index: number, total: number): { left: number; top: number; labelMax: number } {
+	const twoColumn = total > MAX_ROWS_PER_COLUMN;
+	const perColumn = twoColumn ? Math.ceil(total / 2) : total;
 	const column = Math.floor(index / perColumn);
 	const row = index % perColumn;
 	return {
 		left: column === 0 ? BOX_LEFT : COLUMN_TWO_LEFT,
 		top: ROW_TOP_START + row * ROW_SPACING,
+		// A single column has the whole panel; two share it, and the left one must stop before
+		// the right one's checkbox rather than running under it.
+		labelMax: twoColumn ? ROW_LABEL_MAX : PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - BOX_SIZE - 60,
 	};
 }
 
@@ -698,12 +712,12 @@ export function installMenu(): void {
 			const features = getFeatures();
 			const rows = tab.rows ?? [];
 			rows.forEach((row, i) => {
-				const { left, top } = rowPosition(i, rows.length);
+				const { left, top, labelMax } = rowPosition(i, rows.length);
 				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
 				// Width, which overlaps the box for anything but very short text. Draw the
 				// label ourselves, left-aligned and clear of the box.
 				DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-				drawLeftText(row.label, left + BOX_SIZE + 20, top + 26, locked ? "Gray" : "Black");
+				drawLeftTextFit(row.label, left + BOX_SIZE + 20, top + 26, labelMax, locked ? "Gray" : "Black");
 			});
 			tab.extra?.();
 		},
