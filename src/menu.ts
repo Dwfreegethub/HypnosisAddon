@@ -171,7 +171,7 @@ const HELP_SIZE = BACK_SIZE;
 
 const BOX_LEFT = CONTENT_LEFT;
 const BOX_SIZE = 70;
-const ROW_TOP_START = 350;
+const ROW_TOP_START = 280;
 const ROW_SPACING = 78;
 
 /** Columns for the Stats tab. */
@@ -179,9 +179,9 @@ const STAT_NAME_X = BOX_LEFT;
 const STAT_VALUE_X = BOX_LEFT + 640;
 const STAT_DETAIL_X = BOX_LEFT + 840;
 const STAT_LINE_HEIGHT = 40;
-const STAT_EXPERIENCE_Y = 360;
-const STAT_HEADER_Y = 400;
-const STAT_FIRST_ROW_Y = 440;
+const STAT_EXPERIENCE_Y = 290;
+const STAT_HEADER_Y = 330;
+const STAT_FIRST_ROW_Y = 370;
 /** Rows that fit above the page control. Everything past this pages rather than being
  * summarised away — a list that ends in "…and 30 more" is not a list. */
 const STAT_ROWS_PER_PAGE = 7;
@@ -189,7 +189,7 @@ const STAT_ROWS_PER_PAGE = 7;
 // Paging sits on the left, under the rows; the decay control is on the right, on the same
 // band. They used to overlap the trust list entirely: the dropdown was positioned for a
 // short list and the list grew past it.
-const PAGE_BUTTON_TOP = 705;
+const PAGE_BUTTON_TOP = 635;
 const PAGE_BUTTON_WIDTH = 110;
 const PAGE_BUTTON_HEIGHT = 46;
 const PAGE_PREV_LEFT = BOX_LEFT;
@@ -198,7 +198,7 @@ const PAGE_NEXT_LEFT = BOX_LEFT + 130;
 let statPage = 0;
 
 // Export / Import / Reset, along the bottom of the Stats tab.
-const DATA_BUTTON_TOP = 810;
+const DATA_BUTTON_TOP = 740;
 const DATA_BUTTON_WIDTH = 200;
 const DATA_BUTTON_HEIGHT = 60;
 const DATA_BUTTON_GAP = 20;
@@ -219,7 +219,7 @@ function dataButtonLeft(index: number): number {
 // in canvas coordinates and explicitly removed, and thirteen of them layered over a screen
 // that also pages would be a maintenance problem out of all proportion to a five-value
 // choice. A button that advances one step reads fine for an ordered scale.
-const DEPTH_ROW_TOP = 340;
+const DEPTH_ROW_TOP = 270;
 const DEPTH_ROW_HEIGHT = 52;
 const DEPTH_ROWS_PER_PAGE = 7;
 const DEPTH_TIER_LEFT = BOX_LEFT + 890;
@@ -230,7 +230,7 @@ const DEPTH_LABEL_MAX = 890 - 40;
 const DEPTH_TIER_WIDTH = 250;
 const DEPTH_BUTTON_HEIGHT = 44;
 const SCOPE_BUTTON_LEFT = BOX_LEFT;
-const SCOPE_BUTTON_TOP = 810;
+const SCOPE_BUTTON_TOP = 740;
 const SCOPE_BUTTON_WIDTH = 430;
 const DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
 const DEFAULTS_BUTTON_WIDTH = 240;
@@ -403,20 +403,20 @@ function drawDataButtons(): void {
 // shouldn't be visible. Forget the removal and it hangs over whatever screen comes next.
 
 const SCOPE_ID = "HypnosisAddonTriggerScope";
-const SCOPE_LABEL_Y = 700;
+const SCOPE_LABEL_Y = 630;
 const SCOPE_CENTRE_X = CONTENT_LEFT + 380;
-const SCOPE_CENTRE_Y = 745;
+const SCOPE_CENTRE_Y = 675;
 const SCOPE_WIDTH = 760;
 const SCOPE_HEIGHT = 56;
 
 const DECAY_ID = "HypnosisAddonDecayRate";
 const DECAY_LABEL_X = CONTENT_LEFT + 560;
-// The last trust row sits at y=680 and 36px text reaches ~18px either side of its centre,
-// so 705 left the label resting on top of it. 730 clears the row; the dropdown then has to
-// fit between there and the data buttons at 810, hence 46 tall rather than 52.
-const DECAY_LABEL_Y = 730;
+// The last trust row sits at y=610 and 36px text reaches ~18px either side of its centre,
+// so 635 would leave the label resting on top of it. 660 clears the row; the dropdown then
+// has to fit between there and the data buttons at 740, hence 46 tall rather than 52.
+const DECAY_LABEL_Y = 660;
 const DECAY_CENTRE_X = CONTENT_LEFT + 940;
-const DECAY_CENTRE_Y = 775;
+const DECAY_CENTRE_Y = 705;
 // 520 rather than 640: the panel gave up 280px to the tab column, and this dropdown was the
 // one control that could not simply move right — at its old width it would have ended at
 // x=1970, past both the panel and the canvas.
@@ -435,9 +435,9 @@ const TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
 const TRIGGER_DECAY_WIDTH = 500;
 
 const DURATION_ID = "HypnosisAddonTriggerDuration";
-const DURATION_LABEL_Y = 830;
+const DURATION_LABEL_Y = 760;
 const DURATION_CENTRE_X = CONTENT_LEFT + 70;
-const DURATION_CENTRE_Y = 872;
+const DURATION_CENTRE_Y = 802;
 const DURATION_WIDTH = 140;
 const DURATION_HEIGHT = 56;
 
@@ -536,7 +536,7 @@ function drawDurationControl(locked: boolean): void {
 	// ran past x=900 and would have sat under the label beside it.
 	drawLeftTextFit(
 		"Minutes a fired trigger lasts (0 = until released):",
-		260,
+		CONTENT_LEFT,
 		DURATION_LABEL_Y,
 		460,
 		locked ? "Gray" : "Black",
@@ -563,7 +563,7 @@ function drawDurationControl(locked: boolean): void {
 }
 
 function drawScopeControl(locked: boolean): void {
-	drawLeftText("Who else can fire triggers planted in you:", 260, SCOPE_LABEL_Y, locked ? "Gray" : "Black");
+	drawLeftText("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, locked ? "Gray" : "Black");
 	let element = document.getElementById(SCOPE_ID) as HTMLSelectElement | null;
 	if (!element) {
 		element = ElementCreateDropdown(

@@ -36,7 +36,10 @@ export const BORDER = 3;
  * exported so a screen can be told off in review rather than silently clipping. */
 export const MAX_TABS = Math.floor((PANEL_HEIGHT + TAB_GAP) / (TAB_HEIGHT + TAB_GAP));
 
-export const BLURB_Y = 305;
+// 235 rather than 305: the panel top moved to 190 when the tabs turned, and the blurb sat
+// where it had been left, 115px below an edge it used to clear by 43. Both screens read from
+// this, so both move together.
+export const BLURB_Y = 235;
 /** Everything drawn inside the panel is placed relative to this, so the whole layout moves
  * with the panel rather than needing a per-screen sweep. It did need one sweep, when the tabs
  * turned: the constants that were absolute pixels are all offsets from here now, which is why
@@ -139,7 +142,7 @@ export function drawTabsAndPanel(names: readonly string[], activeIndex: number):
 	DrawRect(TAB_LEFT, activeTop, BORDER, TAB_HEIGHT, "Black"); // left
 	DrawRect(TAB_LEFT, activeTop, TAB_WIDTH, BORDER, "Black"); // top
 	DrawRect(TAB_LEFT, activeBottom - BORDER, TAB_WIDTH, BORDER, "Black"); // bottom
-	DrawTextFit(names[activeIndex], TAB_LEFT + TAB_WIDTH / 2, activeTop + TAB_HEIGHT / 2 + 1, TAB_WIDTH - 4, "black");
+	DrawTextFit(names[activeIndex], TAB_LEFT + TAB_WIDTH / 2, activeTop + TAB_HEIGHT / 2 + 1, TAB_WIDTH - 32, "black");
 
 	// Panel border: the LEFT side in two pieces that stop either side of the active tab, then
 	// the other three whole. Heights clamp to 0 when the active tab is at either end.
@@ -169,7 +172,7 @@ export interface HelpLine {
 // moving BLURB_Y, which both screens share, so it is deliberately a separate change.
 const COLUMN_LEFTS = [CONTENT_LEFT, CONTENT_LEFT + 640];
 const COLUMN_WIDTH = 600;
-const LINE_TOP = 352;
+const LINE_TOP = 282;
 const LINE_HEIGHT = 32;
 /** Extra breathing room above a heading, so groups read as groups. */
 const HEAD_LEAD = 14;
@@ -177,9 +180,11 @@ const BODY_SIZE = 24;
 const HEAD_SIZE = 26;
 /** Leaves room for the page control along the panel floor.
  *
- * 16 put the last line at y=832 — and 846 when it was a heading, which carries a lead —
- * against page buttons at 830. 14 stops the text at 782, two clear lines above them. */
-const LINES_PER_COLUMN = 14;
+ * Was 14, when LINE_TOP was 352 and 16 put the last line at y=832 — 846 with a heading's
+ * lead — against page buttons at 830. The panel now starts 72px higher and LINE_TOP with it,
+ * so 16 lands at 762 (776 with the lead) against buttons at 830: the two lines that the
+ * narrower columns cost, given back. */
+const LINES_PER_COLUMN = 16;
 
 function styleOf(style: LineStyle | undefined): { size: number; color: string } {
 	if (style === "head") return { size: HEAD_SIZE, color: "Black" };
