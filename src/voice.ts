@@ -43,6 +43,12 @@ import {
 	triggersArmed,
 	installerHasSession,
 	tellHypnotist,
+	triggerStrength,
+	describeStrength,
+	pruneFadedTriggers,
+	reinforceTriggersBy,
+	noteTriggerFired,
+	TRIGGER_GHOST_THRESHOLD,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -955,7 +961,28 @@ function fireTrigger(trigger: Trigger): void {
 		return;
 	}
 	const features = getFeatures();
+	// THE TRIGGER'S OWN STRENGTH IS THE DEPTH IT FIRES AT.
+	//
+	// The doc: "a trigger planted at Deep that has faded may only hit Yielding when it fires,
+	// so depth-gated effects don't fully land." So a faded trigger is not refused wholesale —
+	// its shallow actions still work and its deep ones stop, which is a far better mechanic
+	// than an on/off switch and costs one argument.
+	//
+	// Note what this is NOT: the SESSION's depth, which is zero outside a trance and would
+	// disarm every trigger ever planted. That mistake was made once already and caught by the
+	// suite; the comment below about permission-not-depth still holds for the same reason.
+	const strength = triggerStrength(trigger);
+	if (strength < TRIGGER_GHOST_THRESHOLD) {
+		// Far enough gone to be a feeling and nothing else. Deliberately still announced: the
+		// subject feeling a pull they cannot name is the point, and silence here would make a
+		// nearly-dead trigger indistinguishable from one that had already gone.
+		log(`trigger "${trigger.phrase}" is a ghost at strength ${strength} — no actions`);
+		announce("trigger-ghost");
+		noteTriggerFired(trigger);
+		return;
+	}
 	let fired = 0;
+	let tooWeak = 0;
 	for (const id of trigger.actions) {
 		// Body-part actions carry their parameter in the id ("touch:breasts"), since the
 		// pattern library can't hold a per-part entry for all 26 of them.
@@ -986,14 +1013,38 @@ function fireTrigger(trigger: Trigger): void {
 			log(`trigger "${trigger.phrase}": ${id} skipped, ${blocked}`);
 			continue;
 		}
+		// Both halves are the trigger's strength: what it was planted on is what it carries,
+		// so there is no separate earned number to keep. A chemically seeded trigger is the
+		// one case where that is generous — and it pays for the generosity in the fast decay
+		// rate, which is the whole design of the tradeoff.
+		if (!depthAllows(keyFor(suggestion, features), strength, strength)) {
+			log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+			tooWeak++;
+			continue;
+		}
 		announce(suggestion.run() || suggestion.id);
 		fired++;
 	}
-	log(`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions`);
+	log(
+		`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions ` +
+			`at strength ${strength}${tooWeak ? ` (${tooWeak} too weak)` : ""}`,
+	);
+	// Counted whether or not anything landed. A trigger that fired and reached nothing was
+	// still USED, and passive reinforcement is about use rather than success.
+	noteTriggerFired(trigger);
 	if (fired) {
 		markActive(timerKey(trigger));
 		scheduleAutoRelease(trigger);
 	}
+}
+
+/** Which permission a suggestion is actually running under right now — the shallowest one
+ * granted, matching what depthReason() does for spoken lines and what run() itself does. */
+function keyFor(suggestion: Suggestion, features: FeatureToggles): keyof FeatureToggles {
+	const keys = (Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission]).filter(
+		(k) => features[k],
+	);
+	return keys[0] ?? (Array.isArray(suggestion.permission) ? suggestion.permission[0] : suggestion.permission);
 }
 
 // Releasing a trigger by name: "Missy, you are released from frozen".
@@ -1053,13 +1104,18 @@ export function triggerPhrasesVisible(fullRequested: boolean): boolean {
  * suite can exercise the visibility rule without standing up the whole command layer —
  * this stopped being a formatting loop the moment it grew a decision. */
 export function describeTriggerList(fullRequested: boolean): string[] {
+	// Sweep the dead ones first, so the list never shows something that no longer works.
+	// Reading the list is the natural moment for it — there is no tick we are guaranteed to
+	// be present for, and a trigger currently holding the subject is spared until it lets go.
+	pruneFadedTriggers(isTriggerInEffect);
 	const all = listTriggers();
 	if (!all.length) return ["no triggers planted"];
 	const reveal = triggerPhrasesVisible(fullRequested);
 	return all.map(
 		(t, i) =>
 			`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
-			`(by ${t.installedByName})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
+			`(by ${t.installedByName}, ${describeStrength(t)})` +
+			`${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
 	);
 }
 
@@ -1104,6 +1160,43 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 }
 
 /** Returns true if a trigger fired on this line. */
+// Formal reinforcement: "a brief re-induction by the original hypnotist resets the clock".
+//
+// Gated on a LIVE session with them, which is what a re-induction means — the subject went
+// back under for it. Without that gate the phrase is a magic word any hypnotist could drop in
+// passing to keep their work alive forever, which is precisely the plant-and-forget mechanic
+// decay exists to replace.
+const REINFORCE = [
+	/\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
+	/\breinforce (?:that|the|your) triggers?\b/,
+	/\b(?:that|the|your) triggers? (?:is|are) (?:stronger|deeper) now\b/,
+	/\blet (?:that|the|your) triggers? (?:settle|sink) deeper\b/,
+];
+
+function handleReinforcement(sender: number, content: string): boolean {
+	const text = normalize(content);
+	if (!REINFORCE.some((p) => p.test(text))) return false;
+	if (!getFeatures().triggerControl) {
+		tellHypnotist(sender, '[trigger] Refused — they have not enabled "Triggers".');
+		return true;
+	}
+	// Reinforcing is not planting, so it does NOT ask for Deep again — it asks only that they
+	// are actually under with you. Requiring the planting depth would mean a trigger could
+	// only ever be maintained by repeating the hardest part of the work that made it.
+	if (!isSessionActiveWith(sender)) {
+		tellHypnotist(sender, "[trigger] Refused — reinforcing is a re-induction: they have to be under with you.");
+		return true;
+	}
+	const count = reinforceTriggersBy(sender);
+	if (!count) {
+		tellHypnotist(sender, "[trigger] Nothing of yours is planted in them to reinforce.");
+		return true;
+	}
+	tellHypnotist(sender, `[trigger] Reinforced ${count} trigger(s) back to full strength.`);
+	announce("trigger-reinforced");
+	return true;
+}
+
 function handleTriggerFiring(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text) return false;
@@ -1339,6 +1432,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// Then release-by-name, before firing — otherwise "you are released from frozen"
 	// contains "frozen" and would set the trigger off instead of clearing it.
 	if (handleTriggerRelease(sender, content)) return;
+	// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
+	// planted word and set the thing off in the middle of maintaining it.
+	if (handleReinforcement(sender, content)) return;
 	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
 	// trigger is that it works outside a trance.
 	if (handleTriggerFiring(sender, content)) return;

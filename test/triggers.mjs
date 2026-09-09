@@ -328,5 +328,91 @@ storage.setFeature("showTriggerWords", false);
 
 storage.forgetTrigger(1);
 
+// --- Reinforcement and decay (v0.60.0) ------------------------------------------------------
+// The arithmetic, which is the part worth pinning: everything else about decay is wiring, but
+// a wrong rate quietly eats somebody's triggers and nobody notices until they are gone.
+const DAY = 86_400_000;
+const plant = (phrase, depthAt, chemical = false, ago = 0) => {
+	const t = {
+		phrase,
+		actions: ["movement-block"],
+		installedBy: HYP,
+		installedByName: "GameBot",
+		installedAt: Date.now() - ago,
+		plantedDepth: depthAt,
+		plantedChemical: chemical,
+		reinforcedAt: Date.now() - ago,
+		firings: 0,
+	};
+	storage.saveTrigger(t);
+	return t;
+};
+
+storage.forgetAllTriggers();
+storage.setTriggerDecayRate("never");
+const kept = plant("kept", 80, false, 30 * DAY);
+check("never means never, even after a month", triggers.triggerStrength(kept), 80);
+
+// Deeper holds longer. Same rate, same elapsed time, different planting depth — the doc's
+// "harder to plant, harder to lose".
+storage.setTriggerDecayRate("typical"); // 3/day before the tier discount
+storage.forgetAllTriggers();
+const shallow = plant("shallow", 20, false, 4 * DAY); // yielding, x0.8 -> 2.4/day -> 9.6
+const deep = plant("deep", 60, false, 4 * DAY); // deep, x0.4 -> 1.2/day -> 4.8
+const blank = plant("blank", 80, false, 4 * DAY); // blank, x0.25 -> 0.75/day -> 3
+check("a shallow planting fades fastest", triggers.triggerStrength(shallow), 10);
+check("  a deep one slower", triggers.triggerStrength(deep), 55);
+check("  and Blank slowest of all", triggers.triggerStrength(blank), 77);
+
+// The whole point of the mechanic: a faded trigger reaches less far than it did.
+// 60 planted, 4 days at 1.2/day = 55, still Yielding+ but no longer Deep.
+check("a faded Deep trigger no longer reaches Deep", depth.depthAllows("triggerControl", 55, 55), false);
+check("  but still reaches Yielding", depth.depthAllows("movementRestriction", 55, 55), true);
+
+// Firing slows the clock without resetting it.
+storage.forgetAllTriggers();
+const used = plant("used", 60, false, 4 * DAY);
+const unused = plant("unused", 60, false, 4 * DAY);
+used.firings = 4; // 4 x 0.25 = 1 day credited, so 3 days of loss not 4
+check("firing buys back some of the clock", triggers.triggerStrength(used), 56);
+check("  but never all of it — it is still below full", triggers.triggerStrength(used) < used.plantedDepth, true);
+used.firings = 400; // credit is capped at 2 days
+check("  and the credit is capped", triggers.triggerStrength(used), 58);
+check("  while an unused one keeps fading", triggers.triggerStrength(unused), 55);
+
+// Only a re-induction resets it.
+triggers.reinforceTriggersBy(HYP);
+check("reinforcement restores full strength", triggers.triggerStrength(unused), 60);
+check("  and clears the firing credit", unused.firings, 0);
+
+// Chemically seeded triggers pay a fixed price that the setting cannot lower.
+storage.forgetAllTriggers();
+storage.setTriggerDecayRate("veryslow");
+const earned = plant("earned", 80, false, 2 * DAY);
+const chem = plant("chem", 80, true, 2 * DAY); // fixed 12/day regardless
+check("a slow setting protects an earned trigger", triggers.triggerStrength(earned), 80 - Math.round(2 * 0.5 * 0.25));
+check("  but not a chemically seeded one", triggers.triggerStrength(chem), 56);
+storage.setTriggerDecayRate("never");
+check("even 'never' does not protect it", triggers.triggerStrength(chem), 56);
+
+// Far enough gone is a feeling and nothing more, and then it is gone.
+storage.setTriggerDecayRate("veryfast"); // 15/day
+storage.forgetAllTriggers();
+const ghost = plant("ghost", 20, false, 1 * DAY); // yielding x0.8 -> 12/day -> 8 left
+check("a nearly-dead trigger is a ghost", triggers.triggerStrength(ghost) < triggers.TRIGGER_GHOST_THRESHOLD, true);
+const dead = plant("dead", 20, false, 10 * DAY);
+check("  and eventually nothing", triggers.triggerStrength(dead), 0);
+check("pruning sweeps the dead one", triggers.pruneFadedTriggers(() => false), 1);
+check("  and leaves the ghost, which still does something", storage.listTriggers().length, 1);
+
+// A trigger that is currently HOLDING the subject is never swept — dropping it would strand
+// the grip with nothing left to release it, which is a bug this codebase has fixed twice.
+storage.forgetAllTriggers();
+plant("holding", 20, false, 10 * DAY);
+check("a held trigger survives the sweep", triggers.pruneFadedTriggers(() => true), 0);
+check("  and is still there", storage.listTriggers().length, 1);
+storage.forgetAllTriggers();
+storage.setTriggerDecayRate("never");
+
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

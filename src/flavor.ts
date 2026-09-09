@@ -64,7 +64,11 @@ export type FlavorKey =
 	| "undress-blocked"
 	/** Told to strip while OUR OWN freeze is holding her. Distinct from undress-blocked,
 	 * which means someone else's lock. */
-	| "undress-frozen";
+	| "undress-frozen"
+	/** A trigger too faded to do anything, firing as a feeling and nothing more. */
+	| "trigger-ghost"
+	/** The installer re-established their triggers during a session. */
+	| "trigger-reinforced";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -108,6 +112,12 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	],
 	"undress-frozen": [
 		"{name} does not move to undress. {name} does not move at all.",
+	],
+	// A ghost is visible from outside as a hesitation and no more — which is exactly what it
+	// is. The room should not be able to tell it apart from someone losing their thread.
+	"trigger-ghost": [
+		"{name} pauses, as though {they} had half-heard {their} name.",
+		"Something goes across {name}'s face and does not stay.",
 	],
 	"clothing-blocked-attempt": [
 		"{name} reaches for {their} clothes, and {their} hand drifts away again.",
@@ -236,6 +246,18 @@ const LINES: Record<FlavorKey, string[]> = {
 	"undress-frozen": [
 		"Undressing would require moving, and you cannot move at all.",
 		"You are told to undress. Nothing of yours so much as shifts.",
+	],
+	// Deliberately says nothing about triggers, and never names one. The subject is not told
+	// what almost happened — that is the whole of what a trigger keeps back — only that
+	// something reached for them and did not arrive.
+	"trigger-ghost": [
+		"Something in you turns over, faintly, and settles again.",
+		"A word goes past you and almost catches. Almost.",
+		"For a moment you were about to do something. The moment goes.",
+	],
+	"trigger-reinforced": [
+		"Something already inside you is gone over again, and set more firmly.",
+		"You do not know what was just deepened. It was deepened all the same.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",

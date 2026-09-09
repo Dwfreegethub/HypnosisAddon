@@ -15,6 +15,8 @@ import {
 	getTriggerDuration,
 	setTriggerDuration,
 	getDecayRate,
+	getTriggerDecayRate,
+	setTriggerDecayRate,
 	setDecayRate,
 	DECAY_RATES,
 	setDepthOverride,
@@ -412,6 +414,17 @@ const DECAY_CENTRE_Y = 775;
 const DECAY_WIDTH = 640;
 const DECAY_HEIGHT = 46;
 
+const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
+// Shares the duration row rather than claiming one of its own: the Triggers tab is already
+// four toggles, a scope dropdown and a number box, and the next free band below runs into the
+// bottom of the screen. Both labels go through drawLeftTextFit with a hard width, so a long
+// translation shrinks instead of colliding — the duration box sits at 260-400 and this
+// dropdown at 940-1500, which is the whole reason they can share the line.
+const TRIGGER_DECAY_LABEL_X = 760;
+const TRIGGER_DECAY_LABEL_MAX = 420;
+const TRIGGER_DECAY_CENTRE_X = 1220;
+const TRIGGER_DECAY_WIDTH = 560;
+
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 830;
 const DURATION_CENTRE_X = 260 + 70;
@@ -421,7 +434,7 @@ const DURATION_HEIGHT = 56;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, DURATION_ID, DECAY_ID]) {
+	for (const id of [SCOPE_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 }
@@ -435,6 +448,7 @@ function syncTabControls(tabName: string): void {
 	if (tabName !== "Triggers") {
 		if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
 		if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
 }
@@ -470,16 +484,52 @@ function drawTriggerControls(): void {
 	const locked = settingsLocked();
 	drawScopeControl(locked);
 	drawDurationControl(locked);
+	drawTriggerDecayControl(locked);
+}
+
+/** How fast planted triggers fade without reinforcement.
+ *
+ * A separate control from the trust one on the Stats tab, and separate on purpose: trust is
+ * what someone has built with you and a trigger is a thing they left inside you. Wanting one
+ * to persist says nothing about the other, and the doc calls for two settings. */
+function drawTriggerDecayControl(locked: boolean): void {
+	drawLeftTextFit(
+		"Planted triggers fade without reinforcement:",
+		TRIGGER_DECAY_LABEL_X,
+		DURATION_LABEL_Y,
+		TRIGGER_DECAY_LABEL_MAX,
+		locked ? "Gray" : "Black",
+	);
+	let element = document.getElementById(TRIGGER_DECAY_ID) as HTMLSelectElement | null;
+	if (!element) {
+		element = ElementCreateDropdown(
+			TRIGGER_DECAY_ID,
+			DECAY_RATES.map((r) => r.label),
+			function () {
+				setTriggerDecayRate(DECAY_RATES[this.selectedIndex]?.key ?? "never");
+				log(`trigger decay set to ${getTriggerDecayRate()}`);
+			},
+		);
+	}
+	// Re-synced every frame like the scope control, for the same reason: an import or a reset
+	// changes the stored value underneath us and the control must not keep showing the old one.
+	const index = DECAY_RATES.findIndex((r) => r.key === getTriggerDecayRate());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	ElementPosition(TRIGGER_DECAY_ID, TRIGGER_DECAY_CENTRE_X, DURATION_CENTRE_Y, TRIGGER_DECAY_WIDTH, DURATION_HEIGHT);
 }
 
 /** How long a fired trigger holds before letting go by itself. A number box rather than a
  * dropdown so any value can be typed; BC's own blur handler does the clamping, using the
  * min/max attributes below. */
 function drawDurationControl(locked: boolean): void {
-	drawLeftText(
-		"Minutes a fired trigger lasts before it wears off (0 = until released):",
+	// Shortened and width-capped now that the decay dropdown shares this row. The long form
+	// ran past x=900 and would have sat under the label beside it.
+	drawLeftTextFit(
+		"Minutes a fired trigger lasts (0 = until released):",
 		260,
 		DURATION_LABEL_Y,
+		460,
 		locked ? "Gray" : "Black",
 	);
 	let element = document.getElementById(DURATION_ID) as HTMLInputElement | null;

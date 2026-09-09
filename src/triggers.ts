@@ -4,12 +4,15 @@ import {
 	getFeatures,
 	listTriggers,
 	saveTrigger,
+	forgetTrigger,
+	updateTriggers,
+	getTriggerDecayRate,
 	getTriggerScope,
 	Trigger,
 	TriggerScope,
 } from "./storage";
 import { isSessionActiveWith } from "./session";
-import { depthRefusal } from "./depth";
+import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
@@ -69,11 +72,141 @@ const MIN_PHRASE_LENGTH = 3;
  * unbounded, since each one runs on every match. */
 const MAX_ACTIONS = 8;
 
+// --- Reinforcement and decay -------------------------------------------------------------
+//
+// The doc's rule, in four parts: the clock runs from the last reinforcement; a re-induction
+// by the installer resets it; FIRING the trigger only slows it; and a trigger planted deep
+// decays more slowly than one planted shallow.
+//
+// Lazy, on read, exactly like trust decay in storage.ts — nothing to schedule, nothing to
+// miss while the game is closed, correct across reloads on its own. The difference is that
+// trust charges a counter and writes back; strength here is DERIVED, so reading it is free
+// and only pruning writes.
+
+/** Strength lost per day at each setting, in depth points, before the tier discount. Slower
+ * than trust's numbers on purpose: trust is a running average of contact and is meant to move,
+ * while a trigger is a thing somebody put inside you and should not evaporate over a weekend.
+ * "Typical" costs a Deep trigger about a tier a week. */
+const TRIGGER_DECAY_PER_DAY: Record<string, number> = {
+	never: 0,
+	veryslow: 0.5,
+	slow: 1.5,
+	typical: 3,
+	fast: 7,
+	veryfast: 15,
+};
+
+/** Planted deeper, held longer. Multiplies the per-day loss above, so Blank fades at a
+ * quarter the rate of Drifting — "harder to plant, harder to lose". */
+const TIER_HOLD: Record<string, number> = {
+	drifting: 1,
+	yielding: 0.8,
+	entranced: 0.6,
+	deep: 0.4,
+	blank: 0.25,
+};
+
+/** The fixed rate for a chemically seeded trigger. Not multiplied by the tier and not read
+ * from the setting: the doc is explicit that the shortcut's price cannot be configured away,
+ * and a rate the subject could turn down would make the tradeoff decorative. */
+const CHEMICAL_DECAY_PER_DAY = 12;
+
+/** What one firing buys back, in days. Passive reinforcement "slows decay but does not reset
+ * the clock", so this credits elapsed time rather than moving reinforcedAt. */
+const FIRING_CREDIT_DAYS = 0.25;
+/** Ceiling on that credit. Without it, a trigger fired often enough would never decay at all,
+ * which is the plant-and-forget mechanic the decay system exists to remove — just with extra
+ * steps. Use can hold something at the edge; only a re-induction brings it back. */
+const MAX_FIRING_CREDIT_DAYS = 2;
+
+/** Below this a trigger is a vague pull and nothing more — it fires flavour, applies no
+ * action, and says so to nobody. The doc's "far enough gone, it produces just a vague pull". */
+export const TRIGGER_GHOST_THRESHOLD = 10;
+
+/** How strong a trigger is right now, 0-100, on the same scale as trance depth.
+ *
+ * This IS its effective depth when it fires: a Deep trigger faded to 45 reaches only what
+ * Yielding reaches, so its deeper actions stop landing while the shallow ones still do. */
+export function triggerStrength(t: Trigger): number {
+	const perDay = decayPerDayFor(t);
+	if (perDay <= 0) return t.plantedDepth;
+	const credit = Math.min((t.firings ?? 0) * FIRING_CREDIT_DAYS, MAX_FIRING_CREDIT_DAYS);
+	const days = Math.max(0, (Date.now() - t.reinforcedAt) / 86_400_000 - credit);
+	return Math.max(0, Math.round(t.plantedDepth - days * perDay));
+}
+
+function decayPerDayFor(t: Trigger): number {
+	if (t.plantedChemical) return CHEMICAL_DECAY_PER_DAY;
+	const base = TRIGGER_DECAY_PER_DAY[getTriggerDecayRate()] ?? 0;
+	return base * (TIER_HOLD[tierOf(t.plantedDepth)] ?? 1);
+}
+
+/** Faded to nothing, and gone. Called on every read of the list rather than on a timer, for
+ * the same reason the strength is derived: there is no moment we are guaranteed to be running.
+ *
+ * A trigger currently HOLDING the subject is spared — letting a decay tick silently drop the
+ * thing that is gripping someone would leave the grip applied with nothing left to release it,
+ * which is the stranded-effect bug this codebase has fixed twice already. It goes on the next
+ * read after it lets go. */
+export function pruneFadedTriggers(isHolding: (t: Trigger) => boolean): number {
+	const all = listTriggers();
+	const dead = all.filter((t) => triggerStrength(t) <= 0 && !isHolding(t));
+	if (!dead.length) return 0;
+	for (const t of dead) {
+		log(`trigger "${t.phrase}" has faded away entirely (planted ${t.plantedDepth}, by ${t.installedByName})`);
+		forgetTrigger(t.phrase);
+	}
+	return dead.length;
+}
+
+/** Human wording for how a trigger is holding up. */
+export function describeStrength(t: Trigger): string {
+	const now = triggerStrength(t);
+	const label = tierLabel(tierOf(now));
+	if (now <= 0) return "faded away";
+	if (now < TRIGGER_GHOST_THRESHOLD) return `a vague pull only (${now})`;
+	if (now >= t.plantedDepth) return `full strength (${now}, ${label})`;
+	return `${now}/${t.plantedDepth} — reaches ${label}`;
+}
+
+/** A re-induction by the installer resets the clock completely.
+ *
+ * Requires a LIVE session with them, because that is what "a brief re-induction" means — the
+ * subject went back under for it. Without that gate the phrase would be a magic word any
+ * hypnotist could say in passing to keep their work alive forever, which is the opposite of an
+ * ongoing relationship mechanic.
+ *
+ * Reinforces everything that hypnotist planted, not one trigger: they are re-establishing the
+ * whole of their work, and singling one out would mean naming it aloud in front of the subject.
+ * Returns how many were refreshed. */
+export function reinforceTriggersBy(hypnotistId: number): number {
+	const mine = listTriggers().filter((t) => t.installedBy === hypnotistId);
+	if (!mine.length) return 0;
+	for (const t of mine) {
+		t.reinforcedAt = Date.now();
+		t.firings = 0;
+	}
+	updateTriggers();
+	log(`reinforced ${mine.length} trigger(s) for ${hypnotistId}`);
+	return mine.length;
+}
+
+/** Passive reinforcement. Firing buys back a little of the clock and no more. */
+export function noteTriggerFired(t: Trigger): void {
+	t.firings = (t.firings ?? 0) + 1;
+	updateTriggers();
+}
+
 interface Recording {
 	hypnotistId: number;
 	hypnotistName: string;
 	phrase: string;
 	actions: string[];
+	/** Captured when permission was GRANTED, not when the trigger was committed — the depth
+	 * that allowed the planting is the depth it was planted at, and the subject may well have
+	 * drifted between the two. */
+	plantedDepth: number;
+	plantedChemical: boolean;
 }
 
 let recording: Recording | null = null;
@@ -119,7 +252,20 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 	if (phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short to use as a trigger.`);
 	}
-	recording = { hypnotistId, hypnotistName, phrase, actions: [] };
+	// "Chemically seeded" means exactly: it would NOT have been permitted on earned depth
+	// alone. Asked that way rather than by reading the chemical-scope setting, so it stays
+	// correct in both regimes — today triggerControl is earned-only and this is always false,
+	// and on the day the earned-only default becomes adjustable it starts being true without
+	// this line changing.
+	const plantedChemical = !depthAllows("triggerControl", currentDepthEarned(), currentDepthEarned());
+	recording = {
+		hypnotistId,
+		hypnotistName,
+		phrase,
+		actions: [],
+		plantedDepth: plantedChemical ? currentDepth() : currentDepthEarned(),
+		plantedChemical,
+	};
 	log(`recording trigger "${phrase}" for ${hypnotistName}`);
 	tellHypnotist(
 		hypnotistId,
@@ -161,6 +307,10 @@ export function commitRecording(): string {
 		installedBy: recording.hypnotistId,
 		installedByName: recording.hypnotistName,
 		installedAt: Date.now(),
+		plantedDepth: recording.plantedDepth,
+		plantedChemical: recording.plantedChemical,
+		reinforcedAt: Date.now(),
+		firings: 0,
 	};
 	saveTrigger(trigger);
 	const count = trigger.actions.length;
@@ -168,6 +318,7 @@ export function commitRecording(): string {
 	tellHypnotist(
 		trigger.installedBy,
 		`[trigger] SAVED "${trigger.phrase}" — ${count} action(s): ${trigger.actions.join(", ")}. ` +
+			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +
 			`Saying it will now fire them, in or out of trance.`,
 	);
 	recording = null;

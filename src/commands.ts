@@ -21,6 +21,8 @@ import {
 	setRelationshipOverride,
 	listRelationshipOverrides,
 	getDecayRate,
+	getTriggerDecayRate,
+	setTriggerDecayRate,
 	setDecayRate,
 	DECAY_RATES,
 	DecayRate,
@@ -507,6 +509,33 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			reply(resetSettings());
+		},
+	},
+	{
+		// The dropdown on the Triggers tab does the same thing. This exists because a setting
+		// you can only reach by opening a screen is a setting that cannot be scripted, and the
+		// test bot drives everything else by command.
+		Tag: "triggerdecay",
+		group: "Data",
+		args: "[rate]",
+		Description: "How fast planted triggers fade without reinforcement (separate from trust decay)",
+		Action: (args: string) => {
+			const token = firstWord(args).toLowerCase();
+			if (!token) {
+				reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"}.`);
+				reply(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+				return;
+			}
+			const rate = DECAY_RATES.find((r) => r.key === token);
+			if (!rate) {
+				reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+				return;
+			}
+			setTriggerDecayRate(rate.key);
+			reply(
+				`Planted triggers now fade: ${rate.label}. ` +
+					"Deeper plantings fade more slowly; firing one slows it but only a re-induction resets it.",
+			);
 		},
 	},
 	{

@@ -87,6 +87,26 @@ export interface Trigger {
 	installedBy: number;
 	installedByName: string;
 	installedAt: number;
+	// --- decay, added v0.60.0. See triggers.ts for the arithmetic. -------------------------
+	/** How deep the subject was when this was planted, which is also its starting strength
+	 * and its ceiling. The doc's rule that "a trigger planted at Blank decays more slowly
+	 * than one at Drifting" needs the planting depth kept, not just the fact it was allowed. */
+	plantedDepth: number;
+	/** Planted on a chemically-elevated floor: it would NOT have been permitted on earned
+	 * depth alone. Such triggers use the fixed fast rate whatever tier they were planted at —
+	 * the price of the shortcut, and deliberately not configurable.
+	 *
+	 * Today this is always false, because triggerControl is earned-only and the chemical half
+	 * cannot reach it at all. It is recorded rather than assumed because the earned-only
+	 * default is becoming player-adjustable, and on that day a trigger planted at 80 full /
+	 * 20 earned has to already know what it was. */
+	plantedChemical: boolean;
+	/** Last FULL reinforcement — a re-induction by the installer. Decay is measured from
+	 * here, not from installedAt. */
+	reinforcedAt: number;
+	/** Firings since the last full reinforcement. Passive reinforcement: each one buys back
+	 * some of the elapsed time, so use slows decay without ever resetting the clock. */
+	firings: number;
 }
 
 export type TriggerScope =
@@ -248,6 +268,11 @@ interface HypnoAddonSettings {
 	triggerDurationMinutes: number;
 	/** How fast trust fades without contact. */
 	decayRate: DecayRate;
+	/** How fast planted triggers fade without reinforcement. Deliberately a SEPARATE setting
+	 * from trust's — the doc says so, and they are different relationships: trust is what
+	 * someone has built with you, a trigger is a thing left inside you, and wanting one to
+	 * persist says nothing about the other. */
+	triggerDecayRate: DecayRate;
 	/** Per-feature depth requirements, as tier NAMES, and ONLY where the player has changed
 	 * one. The defaults live in depth.ts, so retuning them moves everyone who has not made a
 	 * choice — the same principle as the decay rates. A stored copy of every default would
@@ -310,6 +335,10 @@ function defaultSettings(): HypnoAddonSettings {
 		// whenever it was last touched, so shipping this switched on would decay months of
 		// stored trust the first time someone loaded the new build. Opt in.
 		decayRate: "never",
+		// OFF by default for the same reason trust decay is: every stored trigger carries a
+		// reinforcedAt from whenever it was planted, so shipping this switched on would fade
+		// triggers that were planted under a promise they would not. Opt in.
+		triggerDecayRate: "never",
 		depthGates: {},
 		chemicalScope: "arousal",
 		relationshipOverride: {},
@@ -347,6 +376,21 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.triggerScope ??= "hypnotist";
 	if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
+	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
+	// Triggers planted before v0.60.0 have no strength history. Planting has always required
+	// Deep, so that is the honest floor to assume — generous readings would have old triggers
+	// outliving new ones, and a stricter one would quietly weaken work already done.
+	if (Array.isArray(s.triggers)) {
+		for (const t of s.triggers as Trigger[]) {
+			if (typeof t.plantedDepth !== "number") t.plantedDepth = 60;
+			if (typeof t.plantedChemical !== "boolean") t.plantedChemical = false;
+			// From installedAt, not from now: a trigger planted three weeks ago and never
+			// reinforced has not just been reinforced. Decay is off by default, so nothing
+			// fades until the subject opts in — but when they do, the clock must be honest.
+			if (typeof t.reinforcedAt !== "number") t.reinforcedAt = t.installedAt ?? Date.now();
+			if (typeof t.firings !== "number") t.firings = 0;
+		}
+	}
 	if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
 	if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
 	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
@@ -460,6 +504,22 @@ export function getChemicalScope(): any {
 
 export function setChemicalScope(scope: string): void {
 	loadSettings().chemicalScope = scope;
+	saveSettings();
+}
+
+export function getTriggerDecayRate(): DecayRate {
+	return loadSettings().triggerDecayRate;
+}
+
+export function setTriggerDecayRate(rate: DecayRate): void {
+	loadSettings().triggerDecayRate = rate;
+	saveSettings();
+}
+
+/** Write a trigger back after its strength history changed. Kept beside saveTrigger rather
+ * than reusing it: saveTrigger REPLACES by phrase+installer, which is right for re-planting
+ * and wrong for updating in place. */
+export function updateTriggers(): void {
 	saveSettings();
 }
 
