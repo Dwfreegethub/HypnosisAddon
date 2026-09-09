@@ -434,21 +434,44 @@ const SCENARIOS = [
 				fail: "The bonus is below +15, or the command does not mention roleplay at all. That is the real assertion here; whether the roll then lands is luck.",
 			},
 			{
-				// The bot knows the answer — the subject's client pushed it. Asking DW to
-				// interpret a screen when the protocol already said it is how the last two
-				// scenarios got graded wrong.
+				// WAIT FOR THE ROLL RATHER THAN ASKING DW TO TIME IT.
+				//
+				// The step used to report whatever phase had arrived by then, which mid-window
+				// is "InductionInProgress" — a non-answer. DW read it as nothing having
+				// happened and asked for a retry twenty seconds into a running 60-second
+				// window; session-continue correctly ignores anything that is not a failed
+				// attempt, so there was no second prompt, and it looked like the prompt was
+				// broken. It was not: the first attempt was still running and went on to
+				// succeed at 01:45:13, exactly 60 seconds after the window opened.
+				//
+				// The bot has the window length in the protocol and a clock. Neither of those
+				// is DW's job.
 				do: async () => {
-					await wait(1000);
+					report("Waiting for the window to close — I will say what the roll did. Nothing to do until then.");
+					const until = Date.now() + 90_000;
+					while (Date.now() < until) {
+						const phase = lastUpdate?.phase;
+						if (phase && phase !== "InductionInProgress" && phase !== "AttemptMade") break;
+						await wait(1000);
+					}
 					const u = lastUpdate;
-					report(
-						u
-							? `Protocol says: phase=${u.phase}${u.depthBand ? `, depth band "${u.depthBand}"` : ""}` +
-									`${u.progressBand ? `, progress "${u.progressBand}"` : ""}.`
-							: "I have heard nothing back from your client at all — that itself is the finding.",
-					);
+					if (!u) return report("I have heard nothing back from your client at all — that itself is the finding.");
+					if (u.phase === "Hypnotized") {
+						return report(`Under. Depth band "${u.depthBand}". Run /hypno effects and report the tier with /bot ok <tier>.`);
+					}
+					if (u.phase === "AttemptFailed") {
+						return report(
+							`The roll missed${u.progressBand ? ` (progress "${u.progressBand}")` : ""} — attempt ${u.attempts}/${u.maxAttempts}. ` +
+								"That is luck, not a bug. /bot retry for another.",
+						);
+					}
+					if (u.phase === "CooldownRequired") {
+						return report(`Out of attempts — ${Math.ceil((u.cooldownRemaining ?? 0) / 60000)} minute cooldown. Still not a bug.`);
+					}
+					report(`Window did not close after 90s. Last phase was "${u.phase}" — THAT is a finding.`);
 				},
-				want: "phase=Hypnotized. `/hypno effects` names a tier — report it with `/bot ok <tier>`.",
-				fail: "phase=AttemptFailed is NOT a bug — the roll simply missed. Use `/bot retry` for another attempt (3 allowed, then a 10 minute cooldown). Only report `/bot fail` if the window closed and NOTHING happened, or the protocol went silent.",
+				want: "I say what the roll did. Under → `/bot ok <tier>`. Missed → `/bot retry`, which is luck rather than a failure.",
+				fail: "Only `/bot fail` if I report the window never closing, or that I heard nothing at all from your client.",
 			},
 		],
 	},
@@ -720,6 +743,12 @@ function handleCommand(sender, text) {
 		}
 		case "next":
 			if (!active) return report("Nothing running. !run <n>.");
+			// Two runs have now ended "0 ok, 0 failed" because next was pressed on the last
+			// step. A scenario that finishes with no verdict is indistinguishable in the log
+			// from one nobody ran, which is the whole reason the harness exists.
+			if (active.at + 1 >= active.scenario.steps.length && !active.results.length) {
+				return report("That is the last step — finish with /bot ok or /bot fail <note>, not next.");
+			}
 			active.at += 1;
 			return void runStep();
 		case "ok":
@@ -750,6 +779,15 @@ function handleCommand(sender, text) {
 			// again: three attempts' effort does not accumulate. Which means a retry that only
 			// sent the message would silently roll at +0 and look like the mechanic being
 			// harsher than it is. So speak, then let the window run.
+			// Only after a MISS. Sent mid-window it does nothing on the subject's side, and the
+			// three RP lines below would go into the room as decoration — which is what
+			// happened, and made a working induction look like a broken prompt.
+			if (lastUpdate?.phase && lastUpdate.phase !== "AttemptFailed") {
+				return report(
+					`Not retrying — your client is in "${lastUpdate.phase}", and a retry only means something after an attempt has missed.` +
+						(lastUpdate.phase === "InductionInProgress" ? " The window is still running; wait for it." : ""),
+				);
+			}
 			hidden({ type: "session-continue" });
 			report("Retrying. The RP window reopens with a fresh line count, so I will earn the bonus again — wait out the 60s, then /bot ok or /bot retry.");
 			(async () => {

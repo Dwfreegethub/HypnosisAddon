@@ -1017,7 +1017,21 @@ export function installSession(): void {
 
 	registerHiddenHandler("session-continue", (sender) => {
 		if (session.hypnotistId !== sender) return;
-		if (session.phase !== "AttemptFailed") return;
+		// A retry only means something after an attempt has actually missed. Sent mid-window it
+		// used to return in silence, which read on the hypnotist's screen as the retry having
+		// been ignored — DW hit exactly this, asked for a retry twenty seconds into a running
+		// 60-second window, and got no second prompt and no explanation. Say which it is.
+		if (session.phase !== "AttemptFailed") {
+			refuse(
+				sender,
+				session.phase === "InductionInProgress"
+					? "The attempt is still running — wait for it to land or miss."
+					: session.phase === "Hypnotized"
+						? "They are already under."
+						: "There is no failed attempt to retry.",
+			);
+			return;
+		}
 		// Retry reuses the choice already made — the subject decided their stance for this
 		// encounter once, and re-prompting on every retry would be nagging, not consent.
 		notify("They try again.");
