@@ -225,7 +225,7 @@ A second tab holds the **trance defaults** — cannot move / cannot speak / scre
 
 **Known rough edges (still true):** suggestion patterns are regex, not comprehension, so synonyms outside the library silently do nothing — which is why the pattern suite exists and why every gap found in play should become a case in it. The flavor-text wording DW wasn't sold on has been through one real pass since (the apply/attempt split in v0.34.0) but has not been re-reviewed as a whole. The **hypnotist's** side of the trigger system has no panel: reinforcement, decay state and strength are all visible to the subject via `/hypno triggers` and the Triggers tab, and to the hypnotist only through the messages the subject's client chooses to send.
 
-**Test suite: 836 checks across nineteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
+**Test suite: 842 checks across nineteen files**, `npm test`. The ones earning their keep beyond the pattern library: every help example is asserted to match its own suggestion; every body-part word is validated against BC's real arousal-zone list; the public/private split is asserted key by key; and the safeword is asserted to clear carried suggestions.
 
 
 
@@ -1164,25 +1164,56 @@ session's — a trigger fires outside a trance, where session depth is zero by d
 trigger faded to 45 reaches only what Yielding reaches: its shallow actions still land and its
 deeper ones stop.
 
-| Rate setting | Depth points lost per day |
-|---|---|
-| **Never** *(default)* | 0 — triggers are permanent, the pre-v0.60.0 behaviour |
-| Very slow | 0.5 |
-| Slow | 1.5 |
-| Typical | 3 — costs a Deep trigger roughly a tier a week |
-| Fast | 7 |
-| Very fast | 15 |
+**Retuned in v0.62.0, by roughly twentyfold.** The first numbers were chosen to feel
+conservative and were simply wrong — "Very fast" gave a Blank-planted trigger twenty-one days,
+which is not a fast anything, and DW read the whole dial as sitting two positions off. The scale
+is now built around one sentence: *very fast should be a few hours, and about a day for something
+planted at the top.* Here is what each setting means in time — planted now, never fired, never
+reinforced, gone by:
 
-Deliberately slower than the trust-decay numbers: trust is a running average of contact and is
-meant to move, while a trigger is something somebody put inside you and should not evaporate over
-a weekend.
+| Planted at | Very slow | Slow | Typical | Fast | Very fast |
+|---|---|---|---|---|---|
+| Drifting (10) | 1.8d | 15h | 6h | 3h | **1h** |
+| Yielding (20) | 3.9d | 1.5d | 14h | 7h | **2h** |
+| Entranced (40) | 8.4d | 3.5d | 1.5d | 17h | **5h** |
+| **Deep (60)** | **14.7d** | **6.7d** | **3.1d** | **1.5d** | **12h** |
+| Blank (80) | 23.7d | 11.6d | 5.7d | 2.9d | **24h** |
+
+Deep is the row that matters — it is the tier planting requires by default, so it is the one a
+player actually meets. Each step is about half the one before, which is what makes five positions
+worth having rather than three usable ones and a pair nobody would pick. Underneath, the rates are
+5 / 15 / 40 / 90 / 300 points per day before the tier discount, and **Never** is still 0 and still
+the default.
+
+Because a name cannot be checked and a duration can, the Triggers tab now prints the current
+setting's cost under the dropdown, and `/hypno triggerdecay` says it too: *"a Deep planting fades
+away in about 3.1 days, unused and unreinforced."* The old dial was misleading precisely because
+"Very fast" told nobody it meant three weeks.
 
 **The tier discount** multiplies that loss — Drifting ×1, Yielding ×0.8, Entranced ×0.6, Deep ×0.4,
 Blank ×0.25. Harder to plant, harder to lose.
 
-**Firing buys back time, it does not reset the clock.** Each firing credits 0.25 days, capped at 2
-days total. The cap is the point: without it, a trigger fired often enough would never decay at
-all, which is plant-and-forget with extra steps. Use can hold something at the edge; only a
+**Neglect compounds (v0.62.0).** The loss is `rate × days × (1 + days/14)`, not `rate × days`, so a
+trigger left alone sheds points faster the longer it is left alone. Two days of neglect cost more
+than twice one day's.
+
+The shape was chosen against the obvious alternative. A true exponential *decelerates* — a fast
+initial drop and then a long thin tail that never quite reaches zero. That is a fair model of human
+forgetting and the wrong model for this mechanic: it leaves every neglected trigger loitering at
+strength 4 indefinitely, which is plant-and-forget wearing a different hat. Decay exists to create
+an ongoing relationship mechanic, and what creates one is a deadline.
+
+It also earns its keep somewhere counter-intuitive. At the fast settings it changes nothing
+measurable, because the trigger is gone in hours long before fourteen days of compounding mean
+anything. It matters at the **slow** end, where a straight line runs away: Blank at *Very slow*
+would be 64 days linear against 24 here. Without the acceleration the two slowest settings are
+indistinguishable from Never for any relationship that has a pause in it.
+
+**Firing buys back time, it does not reset the clock.** Each firing credits **6% of that trigger's
+own lifetime**, capped at **50%** — a fraction rather than a fixed number of days, because
+lifetimes now run from forty minutes to a month and a flat quarter-day would be a rounding error
+at one end of the dial and immortality at the other. The cap is the point: without it, a trigger
+fired often enough would never decay at all. Steady use buys about half again as long; only a
 re-induction brings it back.
 
 **Reinforcement** is the phrase *"that trigger holds"* (and its variants) spoken by the installer
@@ -1199,8 +1230,10 @@ the effect applied with nothing left to release it, which is the stranded-effect
 has now fixed twice.
 
 **Chemically seeded triggers decay faster (decided 2026-09-08).** A trigger planted on a
-chemically-elevated floor uses a fixed 12 points a day, ignoring both the rate setting and the tier
-discount. The tradeoff for the chemical shortcut is a shorter shelf life and it cannot be configured
+chemically-elevated floor uses a fixed **150** points a day, ignoring both the rate setting and the
+tier discount — between *Fast* and *Very fast*, and with no tier hold at all, so one bought with
+arousal at Deep is gone in about nine hours where an earned one at the same tier and setting would
+have days. The tradeoff for the chemical shortcut is a shorter shelf life and it cannot be configured
 away — a rate the subject could turn down would make the tradeoff decorative. Carry-forward follows
 the same rule when it ships.
 
@@ -2176,9 +2209,9 @@ hypnotist; or a spoken suggestion landing again immediately afterwards.
 
 Covered by unit tests, never exercised against a live client.
 
-**How to run it:** set the rate high enough to see movement — `/hypno triggerdecay veryfast` is 15
-points a day, so a Deep trigger planted at 60 loses about 0.6 points an hour and roughly a tier
-overnight. Plant a trigger under a Blank trance, wake, then check `/hypno triggers`.
+**How to run it:** `/hypno triggerdecay veryfast` — since v0.62.0 that is a Deep planting gone in
+about twelve hours, and a Blank one in about a day, so the numbers move while you watch. Plant a
+trigger under a Blank trance, wake, then check `/hypno triggers`.
 
 **Expected result, in four parts:**
 

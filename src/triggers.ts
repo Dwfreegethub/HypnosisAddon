@@ -83,18 +83,55 @@ const MAX_ACTIONS = 8;
 // trust charges a counter and writes back; strength here is DERIVED, so reading it is free
 // and only pruning writes.
 
-/** Strength lost per day at each setting, in depth points, before the tier discount. Slower
- * than trust's numbers on purpose: trust is a running average of contact and is meant to move,
- * while a trigger is a thing somebody put inside you and should not evaporate over a weekend.
- * "Typical" costs a Deep trigger about a tier a week. */
+/** Strength lost per day at each setting, in depth points, before the tier discount and before
+ * the acceleration below.
+ *
+ * RETUNED IN v0.62.0, by a factor of about twenty. The first numbers were picked to feel
+ * conservative and were simply wrong: "very fast" gave a Blank-planted trigger twenty-one days,
+ * which is not a fast anything. DW's reading is the one these are built to now — **very fast
+ * should be a few hours, and about a day for something planted at the top**:
+ *
+ *              very slow    slow   typical    fast   very fast
+ *   Drifting        1.8d     15h        6h      3h          1h
+ *   Yielding        3.9d    1.5d       14h      7h          2h
+ *   Entranced       8.4d    3.5d      1.5d     17h          5h
+ *   Deep           14.7d    6.7d      3.1d    1.5d         12h
+ *   Blank          23.7d   11.6d      5.7d    2.9d         24h
+ *
+ * Read that as "planted now, never used, never reinforced — gone by". Each step is roughly
+ * half the one before, so the dial has five distinguishable positions rather than three usable
+ * ones and a pair nobody would pick. Deep is the reference row: it is the tier planting
+ * requires by default, so it is what somebody actually experiences.
+ *
+ * The old scale is not preserved anywhere. It was never shipped to anyone and nobody has a
+ * trigger planted under it. */
 const TRIGGER_DECAY_PER_DAY: Record<string, number> = {
 	never: 0,
-	veryslow: 0.5,
-	slow: 1.5,
-	typical: 3,
-	fast: 7,
-	veryfast: 15,
+	veryslow: 5,
+	slow: 15,
+	typical: 40,
+	fast: 90,
+	veryfast: 300,
 };
+
+/** Neglect compounds: the loss is `rate x days x (1 + days/GRACE)`, so a trigger left alone
+ * sheds points faster the longer it is left alone.
+ *
+ * WHY THIS SHAPE, and not the exponential curve it is easy to reach for first. A true
+ * exponential DEcelerates — it drops fast, then trails a long thin tail that never quite
+ * reaches zero. That is a decent model of human forgetting and the wrong model for this
+ * mechanic: it would leave every neglected trigger loitering at strength 4 forever, which is
+ * plant-and-forget wearing a different hat. The whole reason decay exists is the doc's
+ * "creates an ongoing relationship mechanic", and a deadline is what creates one.
+ *
+ * WHERE IT ACTUALLY BITES, which is not where you would guess. At the fast settings it changes
+ * nothing measurable — a trigger set to "very fast" is gone in hours, long before fourteen days
+ * of compounding mean anything. It earns its keep at the slow end, where the straight line runs
+ * away: Blank at "very slowly" is 64 days linear against 24 here. Without it, the two slowest
+ * settings are indistinguishable from Never for any relationship that has a pause in it.
+ *
+ * Fourteen days because that is roughly the longest gap the slowest setting should tolerate. */
+const DECAY_GRACE_DAYS = 14;
 
 /** Planted deeper, held longer. Multiplies the per-day loss above, so Blank fades at a
  * quarter the rate of Drifting — "harder to plant, harder to lose". */
@@ -108,16 +145,28 @@ const TIER_HOLD: Record<string, number> = {
 
 /** The fixed rate for a chemically seeded trigger. Not multiplied by the tier and not read
  * from the setting: the doc is explicit that the shortcut's price cannot be configured away,
- * and a rate the subject could turn down would make the tradeoff decorative. */
-const CHEMICAL_DECAY_PER_DAY = 12;
+ * and a rate the subject could turn down would make the tradeoff decorative.
+ *
+ * Between "fast" and "very fast", and with no tier discount at all — so a trigger bought with
+ * arousal at Deep is gone in about nine hours where an earned one at the same tier and the same
+ * setting would have days. That is the trade stated in the design doc, priced. */
+const CHEMICAL_DECAY_PER_DAY = 150;
 
-/** What one firing buys back, in days. Passive reinforcement "slows decay but does not reset
- * the clock", so this credits elapsed time rather than moving reinforcedAt. */
-const FIRING_CREDIT_DAYS = 0.25;
+/** What one firing buys back, as a fraction of THAT TRIGGER'S OWN lifetime.
+ *
+ * It was a flat 0.25 days, and a flat number cannot work here any more. Lifetimes now span from
+ * forty minutes to a month, so a quarter of a day is a rounding error at one end of the dial and
+ * immortality at the other — two firings would have outrun "very fast" completely, which is the
+ * setting most likely to be used with a trigger that gets fired a lot.
+ *
+ * Passive reinforcement "slows decay but does not reset the clock", so this credits elapsed time
+ * rather than moving `reinforcedAt`. */
+const FIRING_CREDIT_FRACTION = 0.06;
 /** Ceiling on that credit. Without it, a trigger fired often enough would never decay at all,
  * which is the plant-and-forget mechanic the decay system exists to remove — just with extra
- * steps. Use can hold something at the edge; only a re-induction brings it back. */
-const MAX_FIRING_CREDIT_DAYS = 2;
+ * steps. At half a lifetime, steady use buys about 50% more time and no more: use can hold
+ * something at the edge; only a re-induction brings it back. */
+const MAX_FIRING_CREDIT_FRACTION = 0.5;
 
 /** Below this a trigger is a vague pull and nothing more — it fires flavour, applies no
  * action, and says so to nobody. The doc's "far enough gone, it produces just a vague pull". */
@@ -130,9 +179,47 @@ export const TRIGGER_GHOST_THRESHOLD = 10;
 export function triggerStrength(t: Trigger): number {
 	const perDay = decayPerDayFor(t);
 	if (perDay <= 0) return t.plantedDepth;
-	const credit = Math.min((t.firings ?? 0) * FIRING_CREDIT_DAYS, MAX_FIRING_CREDIT_DAYS);
-	const days = Math.max(0, (Date.now() - t.reinforcedAt) / 86_400_000 - credit);
-	return Math.max(0, Math.round(t.plantedDepth - days * perDay));
+	const creditFraction = Math.min((t.firings ?? 0) * FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION);
+	const days = Math.max(0, (Date.now() - t.reinforcedAt) / 86_400_000 - creditFraction * lifeDays(t.plantedDepth, perDay));
+	return Math.max(0, Math.round(t.plantedDepth - perDay * days * (1 + days / DECAY_GRACE_DAYS)));
+}
+
+/** How long a trigger of this strength lasts at this rate, in days, if it is never fired.
+ *
+ * The decay curve solved for zero: `rate x d x (1 + d/GRACE) = strength`, which is an ordinary
+ * quadratic in d. Two callers, and both of them need it because every timescale in this system
+ * now spans three orders of magnitude — the firing credit, which has to mean the same thing at
+ * both ends of the dial, and the wording that tells the player what a setting actually costs. */
+export function lifeDays(strength: number, perDay: number): number {
+	if (perDay <= 0 || strength <= 0) return Infinity;
+	return (DECAY_GRACE_DAYS / 2) * (Math.sqrt(1 + (4 * strength) / (perDay * DECAY_GRACE_DAYS)) - 1);
+}
+
+/** "about 3 days", "about 12 hours" — a duration a player can act on. */
+function describeDuration(days: number): string {
+	if (!Number.isFinite(days)) return "never";
+	const hours = days * 24;
+	if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} minutes`;
+	if (hours < 36) return `${Math.round(hours)} hours`;
+	return `${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
+}
+
+/** What a decay setting costs, said in time rather than in points.
+ *
+ * Measured on a DEEP planting because that is the tier planting requires by default, so it is
+ * the row a player will actually meet. The dial was retuned in v0.62.0 precisely because the
+ * labels alone ("Very fast") told nobody that they meant three weeks. */
+export function describeDecayPace(rate: string = getTriggerDecayRate()): string {
+	const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
+	if (perDay <= 0) return "never — planted triggers stay until something else removes them";
+	return `a Deep planting fades away in about ${describeDuration(lifeDays(60, perDay))}, unused and unreinforced`;
+}
+
+/** The same fact in the few words a canvas caption has room for. */
+export function decayLifetimeText(rate: string = getTriggerDecayRate()): string {
+	const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
+	if (perDay <= 0) return "A planted trigger stays until it is removed.";
+	return `A Deep planting lasts about ${describeDuration(lifeDays(60, perDay))} if it is never used.`;
 }
 
 function decayPerDayFor(t: Trigger): number {

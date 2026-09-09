@@ -29,7 +29,7 @@ import {
 	RelationKind,
 } from "./storage";
 import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
-import { describeRecording } from "./triggers";
+import { describeRecording, describeDecayPace } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import {
@@ -522,7 +522,7 @@ const COMMANDS: HypnoCommand[] = [
 		Action: (args: string) => {
 			const token = firstWord(args).toLowerCase();
 			if (!token) {
-				reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"}.`);
+				reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"} — ${describeDecayPace()}.`);
 				reply(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
 				return;
 			}
@@ -532,9 +532,10 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			setTriggerDecayRate(rate.key);
+			reply(`Planted triggers now fade: ${rate.label} — ${describeDecayPace(rate.key)}.`);
 			reply(
-				`Planted triggers now fade: ${rate.label}. ` +
-					"Deeper plantings fade more slowly; firing one slows it but only a re-induction resets it.",
+				"Deeper plantings fade more slowly, and neglect compounds: the longer one goes " +
+					"unused the faster it sheds. Firing it slows that; only a re-induction resets it.",
 			);
 		},
 	},

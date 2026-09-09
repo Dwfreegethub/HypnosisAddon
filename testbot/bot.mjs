@@ -664,9 +664,36 @@ const SCENARIOS = [
 				// through its own path, so using it here proves nothing about the hard floor
 				// and quietly reads as a pass. Say so in the step, since it is the natural
 				// thing to reach for and the instruction never warned against it.
+				//
+				// AND ASK `/hypno session`, NOT `/hypno effects`. This step used to check
+				// effects alone, which cannot see the bug it exists to catch: v0.58.0 fixed the
+				// master switch clearing all eight effects and leaving `session.phase` set, so
+				// on the BROKEN build `/hypno effects` also said "nothing is holding you" and
+				// the step read as a pass. Effects were never the half that was wrong.
 				do: () => {},
-				want: "UNTICK 'Hypnosis Enabled' — Preferences > Extensions > Hypnosis Add-on, first toggle on the Permissions tab. Everything comes off at once: `/hypno effects` says nothing is holding you, and you can move and speak again.",
-				fail: "Anything at all survives the untick — the most serious result in the suite. DO NOT USE THE SAFEWORD HERE: it clears everything by its own path, so it proves nothing and looks like a pass. The untick is the whole test. Re-tick it afterwards to carry on.",
+				want: "UNTICK 'Hypnosis Enabled' — Preferences > Extensions > Hypnosis Add-on, first toggle on the Permissions tab. Then run BOTH: `/hypno effects` says nothing is holding you, AND `/hypno session` says `session: Idle`.",
+				fail: "`/hypno session` naming any phase other than Idle, or still showing a hypnotist or a depth — that is the v0.58.0 bug and it means the master switch stripped the effects but left the trance running. Also a fail: anything at all surviving in `/hypno effects`. DO NOT USE THE SAFEWORD HERE: it clears everything by its own path, so it proves nothing and looks like a pass.",
+			},
+			{
+				// THE REGRESSION TEST PROPER, and the only step that can tell the two builds
+				// apart by behaviour rather than by a status line.
+				//
+				// Re-ticking is needed to carry on anyway, so it costs nothing — but it is also
+				// exactly when a surviving session would show itself. With no session, a spoken
+				// suggestion is ignored at the session gate in handleSpokenLine and nothing can
+				// happen. With the old build's orphaned `phase: "Hypnotized"`, the permission is
+				// back, the session never ended, and she freezes again without a new induction.
+				do: async () => {
+					report("Re-tick 'Hypnosis Enabled' now, then send /bot next. I will say one thing afterwards.");
+					await wait(500);
+				},
+				want: "RE-TICK 'Hypnosis Enabled', then `/bot next`. Nothing should happen when you re-tick it — permission coming back is not a trance coming back.",
+				fail: "Any effect returning the moment you re-tick.",
+			},
+			{
+				do: () => say("Missy, you cannot move."),
+				want: "NOTHING HAPPENS. You are not frozen, and `/hypno session` still says Idle. There is no session, so there is nothing for a suggestion to attach to — a fresh induction is the only way back under.",
+				fail: "You freeze. That means the untick left the session alive and the master switch is still only clearing effects — the v0.58.0 bug, unfixed.",
 			},
 		],
 	},

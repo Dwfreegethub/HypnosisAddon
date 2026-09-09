@@ -353,55 +353,83 @@ storage.setTriggerDecayRate("never");
 const kept = plant("kept", 80, false, 30 * DAY);
 check("never means never, even after a month", triggers.triggerStrength(kept), 80);
 
+// RETUNED IN v0.62.0 and every number below moved. The rates went up roughly twentyfold and
+// the curve stopped being a straight line, because "very fast" used to give a Blank planting
+// three weeks. The expected values here are worked out by hand from the published constants —
+// rate x days x (1 + days/14), then the tier discount — rather than read back off the
+// implementation, which is the only way this suite could ever have caught the old tuning.
+
 // Deeper holds longer. Same rate, same elapsed time, different planting depth — the doc's
 // "harder to plant, harder to lose".
-storage.setTriggerDecayRate("typical"); // 3/day before the tier discount
+storage.setTriggerDecayRate("typical"); // 40/day before the tier discount
 storage.forgetAllTriggers();
-const shallow = plant("shallow", 20, false, 4 * DAY); // yielding, x0.8 -> 2.4/day -> 9.6
-const deep = plant("deep", 60, false, 4 * DAY); // deep, x0.4 -> 1.2/day -> 4.8
-const blank = plant("blank", 80, false, 4 * DAY); // blank, x0.25 -> 0.75/day -> 3
-check("a shallow planting fades fastest", triggers.triggerStrength(shallow), 10);
-check("  a deep one slower", triggers.triggerStrength(deep), 55);
-check("  and Blank slowest of all", triggers.triggerStrength(blank), 77);
+const HALF = 0.5 * DAY; // accel factor at half a day: 1 + 0.5/14 = 1.0357
+const shallow = plant("shallow", 20, false, HALF); // yielding x0.8 -> 32/day -> 16.57 lost
+const deep = plant("deep", 60, false, HALF); // deep x0.4 -> 16/day -> 8.29 lost
+const blank = plant("blank", 80, false, HALF); // blank x0.25 -> 10/day -> 5.18 lost
+check("a shallow planting fades fastest", triggers.triggerStrength(shallow), 3);
+check("  a deep one slower", triggers.triggerStrength(deep), 52);
+check("  and Blank slowest of all", triggers.triggerStrength(blank), 75);
 
 // The whole point of the mechanic: a faded trigger reaches less far than it did.
-// 60 planted, 4 days at 1.2/day = 55, still Yielding+ but no longer Deep.
-check("a faded Deep trigger no longer reaches Deep", depth.depthAllows("triggerControl", 55, 55), false);
-check("  but still reaches Yielding", depth.depthAllows("movementRestriction", 55, 55), true);
+check("a faded Deep trigger no longer reaches Deep", depth.depthAllows("triggerControl", 52, 52), false);
+check("  but still reaches Yielding", depth.depthAllows("movementRestriction", 52, 52), true);
 
-// Firing slows the clock without resetting it.
+// NEGLECT COMPOUNDS — the v0.62.0 curve, and the one property a straight line cannot have.
+// Deep at typical is 16/day: one day costs 16 x 1 x (1+1/14) = 17.1, two days cost
+// 16 x 2 x (1+2/14) = 36.6. More than double the loss for double the time.
 storage.forgetAllTriggers();
-const used = plant("used", 60, false, 4 * DAY);
-const unused = plant("unused", 60, false, 4 * DAY);
-used.firings = 4; // 4 x 0.25 = 1 day credited, so 3 days of loss not 4
-check("firing buys back some of the clock", triggers.triggerStrength(used), 56);
+const oneDay = plant("oneday", 60, false, 1 * DAY);
+const twoDay = plant("twoday", 60, false, 2 * DAY);
+check("one day of neglect", triggers.triggerStrength(oneDay), 43);
+check("  two days costs MORE than twice as much", triggers.triggerStrength(twoDay), 23);
+check("  which is what makes it a deadline rather than a slope",
+	60 - triggers.triggerStrength(twoDay) > 2 * (60 - triggers.triggerStrength(oneDay)), true);
+
+// Firing slows the clock without resetting it. The credit is a fraction of the trigger's OWN
+// lifetime now, not a flat number of days — at these rates a flat quarter-day would be
+// immortality at one end of the dial and a rounding error at the other. A Deep planting at
+// typical lives 3.07 days, so each firing buys 6% of that and the cap is half of it.
+storage.forgetAllTriggers();
+const used = plant("used", 60, false, 2 * DAY);
+const unused = plant("unused", 60, false, 2 * DAY);
+used.firings = 4; // 24% of 3.07 = 0.74 days credited, so 1.26 days of loss not 2
+check("firing buys back some of the clock", triggers.triggerStrength(used), 38);
 check("  but never all of it — it is still below full", triggers.triggerStrength(used) < used.plantedDepth, true);
-used.firings = 400; // credit is capped at 2 days
-check("  and the credit is capped", triggers.triggerStrength(used), 58);
-check("  while an unused one keeps fading", triggers.triggerStrength(unused), 55);
+used.firings = 400; // capped at half a lifetime, 1.54 days
+check("  and the credit is capped", triggers.triggerStrength(used), 52);
+check("  while an unused one keeps fading", triggers.triggerStrength(unused), 23);
 
 // Only a re-induction resets it.
 triggers.reinforceTriggersBy(HYP);
 check("reinforcement restores full strength", triggers.triggerStrength(unused), 60);
 check("  and clears the firing credit", unused.firings, 0);
 
-// Chemically seeded triggers pay a fixed price that the setting cannot lower.
+// Chemically seeded triggers pay a fixed price that the setting cannot lower: 150/day with no
+// tier discount at all, against 1.25/day for the same planting earned at the slowest setting.
 storage.forgetAllTriggers();
 storage.setTriggerDecayRate("veryslow");
-const earned = plant("earned", 80, false, 2 * DAY);
-const chem = plant("chem", 80, true, 2 * DAY); // fixed 12/day regardless
-check("a slow setting protects an earned trigger", triggers.triggerStrength(earned), 80 - Math.round(2 * 0.5 * 0.25));
-check("  but not a chemically seeded one", triggers.triggerStrength(chem), 56);
+const QUARTER = 0.25 * DAY;
+const earned = plant("earned", 80, false, QUARTER); // blank x0.25 -> 1.25/day -> 0.32 lost
+const chem = plant("chem", 80, true, QUARTER); // flat 150/day -> 38.17 lost
+check("a slow setting protects an earned trigger", triggers.triggerStrength(earned), 80);
+check("  but not a chemically seeded one", triggers.triggerStrength(chem), 42);
 storage.setTriggerDecayRate("never");
-check("even 'never' does not protect it", triggers.triggerStrength(chem), 56);
+check("even 'never' does not protect it", triggers.triggerStrength(chem), 42);
 
 // Far enough gone is a feeling and nothing more, and then it is gone.
-storage.setTriggerDecayRate("veryfast"); // 15/day
+storage.setTriggerDecayRate("veryfast"); // 300/day
 storage.forgetAllTriggers();
-const ghost = plant("ghost", 20, false, 1 * DAY); // yielding x0.8 -> 12/day -> 8 left
+const ghost = plant("ghost", 20, false, 0.07 * DAY); // yielding x0.8 -> 240/day -> 16.9 lost
 check("a nearly-dead trigger is a ghost", triggers.triggerStrength(ghost) < triggers.TRIGGER_GHOST_THRESHOLD, true);
-const dead = plant("dead", 20, false, 10 * DAY);
+const dead = plant("dead", 20, false, 0.2 * DAY);
 check("  and eventually nothing", triggers.triggerStrength(dead), 0);
+
+// The dial says what it costs, in time. This is the assertion that would have failed loudest
+// against the old tuning, where "Very fast" quietly meant twenty-one days.
+check("very fast means hours, not weeks", /\b\d+ hours\b/.test(triggers.describeDecayPace("veryfast")), true);
+check("  very slow means days", /\b[\d.]+ days\b/.test(triggers.describeDecayPace("veryslow")), true);
+check("  and never says so plainly", triggers.describeDecayPace("never").startsWith("never"), true);
 check("pruning sweeps the dead one", triggers.pruneFadedTriggers(() => false), 1);
 check("  and leaves the ghost, which still does something", storage.listTriggers().length, 1);
 

@@ -29,7 +29,7 @@ import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
-import { TRIGGER_SCOPES } from "./triggers";
+import { TRIGGER_SCOPES, decayLifetimeText } from "./triggers";
 import { isHypnotized, currentTier, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
@@ -450,6 +450,8 @@ const DURATION_CENTRE_X = CONTENT_LEFT + 70;
 const DURATION_CENTRE_Y = 802;
 const DURATION_WIDTH = 140;
 const DURATION_HEIGHT = 56;
+/** Under the decay dropdown, which ends at 830, and clear of the panel floor at 902. */
+const DECAY_CAPTION_Y = 858;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
@@ -536,6 +538,16 @@ function drawTriggerDecayControl(locked: boolean): void {
 	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
 	element.disabled = locked;
 	ElementPosition(TRIGGER_DECAY_ID, TRIGGER_DECAY_CENTRE_X, DURATION_CENTRE_Y, TRIGGER_DECAY_WIDTH, DURATION_HEIGHT);
+	// What the setting COSTS, under the control that sets it. The names alone were actively
+	// misleading before v0.62.0 — "Very fast" meant three weeks — and a name is not something a
+	// player can check. A duration is.
+	drawLeftTextFit(
+		decayLifetimeText(),
+		TRIGGER_DECAY_LABEL_X,
+		DECAY_CAPTION_Y,
+		TRIGGER_DECAY_WIDTH,
+		locked ? "Gray" : "#555",
+	);
 }
 
 /** How long a fired trigger holds before letting go by itself. A number box rather than a
