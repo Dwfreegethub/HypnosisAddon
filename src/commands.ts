@@ -209,33 +209,58 @@ export function installCommands(): void {
  * to the room, and not dependent on the bot parsing room chat.
  *
  * `!` in chat keeps working. Two ways in, and the one that survives a gag is the point. */
+/** Hand one line to the test bot. Shared by `/bot` and `/hypno bot`.
+ *
+ * IT SAYS WHAT IT DID, and that is the point of this version. The first one sent the message
+ * and returned in silence, so "the command never ran" and "the command ran and the bot did not
+ * hear it" looked exactly alike from DW's chair — and an evening went on `/bot run 1` being
+ * ignored with no way to tell which. That is the same defect as the console-only suggestion
+ * refusals and the dropped emotes: a silent success is indistinguishable from a silent
+ * failure, so it is not a success worth having. */
+function sendToBot(args: string): void {
+	if (!TESTING_MODE) {
+		reply("Not available — this build is not in testing mode.");
+		return;
+	}
+	const text = (args ?? "").trim();
+	if (!text) {
+		reply("Usage: /bot <command> — e.g. /bot next, /bot run 2, /bot ok, /bot tests.");
+		reply("Goes over the hidden channel, so it works while you cannot speak.");
+		reply("If /bot itself does nothing, another add-on has claimed the name — use /hypno bot <command>.");
+		return;
+	}
+	// The hypnotist first: mid-trance they are by definition the bot, and being unable to say
+	// who you meant is the exact situation this command exists for.
+	const hypnotist = currentHypnotistId();
+	const target = hypnotist ?? (others().length === 1 ? others()[0].MemberNumber : null);
+	if (target == null) {
+		reply(
+			others().length
+				? `Not in a session, and more than one person is here: ${others().map((c: any) => `${c.Name} (${c.MemberNumber})`).join(", ")}.`
+				: "Nobody else is in the room to send it to.",
+		);
+		return;
+	}
+	sendHiddenMessage({ type: "test-command", text }, target);
+	const name = findCharacter(target)?.Name ?? `#${target}`;
+	// Naming the target matters as much as confirming the send: if it went to the wrong person
+	// — a second bot instance, someone else in the room — that is invisible otherwise.
+	reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " — your hypnotist" : ""}.`);
+	log(`/bot -> ${target}: ${text}`);
+}
+
+/** `/bot` as a command of its own, which is the short form and the one worth typing.
+ *
+ * It can be shadowed. BC's CommandExecute picks the FIRST registered match by tag, so any
+ * other add-on that claims "bot" wins and ours never runs — silently, since an unmatched tag
+ * is only "no such command" when NOTHING owns it. `/hypno bot` in COMMANDS below cannot be
+ * shadowed, because the tag it hangs off is ours. */
 function installBotCommand(): void {
 	if (!TESTING_MODE) return;
 	CommandCombine({
 		Tag: "bot",
 		Description: "TESTING: send a command to the test bot (works while silenced)",
-		Action: (args: string) => {
-			const text = (args ?? "").trim();
-			if (!text) {
-				reply("Usage: /bot <command> — e.g. /bot next, /bot run 2, /bot ok, /bot tests.");
-				reply("Goes over the hidden channel, so it works while you cannot speak.");
-				return;
-			}
-			// The hypnotist first: mid-trance they are by definition the bot, and being unable
-			// to say who you meant is the exact situation this command exists for.
-			const hypnotist = currentHypnotistId();
-			const target = hypnotist ?? (others().length === 1 ? others()[0].MemberNumber : null);
-			if (target == null) {
-				reply(
-					others().length
-						? `Not in a session, and more than one person is here: ${others().map((c: any) => `${c.Name} (${c.MemberNumber})`).join(", ")}.`
-						: "Nobody else is in the room to send it to.",
-				);
-				return;
-			}
-			sendHiddenMessage({ type: "test-command", text }, target);
-			log(`/bot -> ${target}: ${text}`);
-		},
+		Action: sendToBot,
 	});
 }
 
@@ -791,6 +816,15 @@ const COMMANDS: HypnoCommand[] = [
 					`For suggestions to land you also need a live session — see /hypno trance.`,
 			);
 		},
+	},
+	{
+		// The same thing `/bot` does, reachable through a tag nobody else can claim. Not a
+		// duplicate so much as the one that is guaranteed to work: see installBotCommand.
+		Tag: "bot",
+		group: "Testing",
+		args: "<command>",
+		Description: "TESTING: send a command to the test bot — the collision-proof form of /bot",
+		Action: sendToBot,
 	},
 	{
 		// TESTING ONLY, and the missing half of /hypno depth.
