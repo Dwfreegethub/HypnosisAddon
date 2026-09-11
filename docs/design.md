@@ -6,6 +6,18 @@ test, the stage-by-stage implementation notes, and the BC API traps worth knowin
 design half — what the thing is meant to be and why. [`feature-summary.md`](feature-summary.md) is
 the short player-facing list of what exists.
 
+> **⚠ Unmerged design work lives in [`declared-skill-proposal.md`](declared-skill-proposal.md).**
+> It carries the settled answer to *hypnotist skill in the induction roll* (the "declared and
+> visible" model), the AFK backstop, the practice cap, the starter set, and the early notes on
+> **extreme mode**. Many decisions in it are settled as of 2026-09-09 and not yet reflected
+> anywhere in this file. It is being reviewed section by section with DW and folded in here as
+> each section is agreed — sections 1, 2 and 3 have been walked; 4 onward have not.
+>
+> **Read it before planning any work touching the induction roll, the AFK/prompt-timeout path, the
+> settings defaults, or extreme mode** — otherwise this document will look like it disagrees with
+> decisions that have been made. Its **§10** is the single list of everything still awaiting an
+> answer; its **§11** records what has *not* been verified and must not be treated as fact.
+
 **How to read this.** *Current Implementation Status* is first, because "what actually works today"
 is the question most often being asked. Everything after it is design, roughly outermost-first:
 the trust model, then the depth redesign that will replace how it gates, then safety, then
@@ -26,7 +38,7 @@ Appendix at the end.
 | **How an induction resolves** | Induction Success Formula · Session Flow |
 | **How features are gated** | Trust Percentage & Feature Thresholds *(superseded)* · **Trance Depth as the Feature Gate** |
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
-| **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion |
+| **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion · Word-Level Control |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
 | **What to test next** | Needs Testing — as of v0.62.0 |
 | **Undecided** | Open Questions |
@@ -576,6 +588,12 @@ Each feature has an on/off toggle (master consent gate) plus a depth tier select
 | Bondage illusion | Blank |
 | Triggers only removable by hypnotist | Blank |
 
+> **This table is the design, not a mirror of the code.** It names tiers for features that do not
+> exist yet (Follow / leash, Mood suggestions, Bondage illusion, hypnotist-only triggers) and omits
+> gates that do (the three awareness categories, self-touch, carry-forward). `DEPTH_GATES` in
+> `depth.ts` is what is actually gated, and the Depth tab draws from it. When a row here gets built,
+> it gets a `DEPTH_GATES` entry and this note gets shorter.
+
 **Two depths, not one.** The structural exclusion — drugs and arousal may never write anything permanent, nor reach a feature that lies to the subject about their own state — is not a *how deep are you* rule. It is a *where did the depth come from* rule, and a single depth number cannot carry it: if arousal contributes to depth and depth gates everything, then an aroused stranger reaches persistent triggers and the clothing illusion by construction, which this doc forbids everywhere else. So depth is computed twice:
 
 | | Inputs |
@@ -681,7 +699,7 @@ Both counters are session-scoped (reset between sessions) unless carrying fatigu
 **Full lock (opt-in).** Some players want to be genuinely locked out of changes. Available as an explicit setting. Still subject to the hard floor override.
 
 **Reset:**
-- Hard reset (LSCG-style) always available — restores factory defaults
+- Hard reset (LSCG-style) always available — restores factory defaults. **Today it does not end an in-flight trance** (Known Bug #4); the decided fix is that it ends the trance itself and says so, never refusing — see the note under the Known Bugs table.
 - **Named save states** — reset to a specific saved configuration rather than factory defaults (e.g., "reset to how my owner set me up")
 
 **Architect role — the owner model:**
@@ -710,6 +728,53 @@ Both counters are session-scoped (reset between sessions) unless carrying fatigu
 - **Reset is always available to the subject** — no lock can prevent a full reset
 
 **Control hierarchy setting:** Subject decides whether the *player* or the *Architect* holds the highest level of control over settings. This is a toggle the subject sets. Regardless of how it is set, the subject always retains the ability to do a full reset.
+
+### The hypnotist vanishing mid-trance — closed 2026-09-10: no special handling
+
+**Decided: nothing is built for this.** No presence detection for the vanished hypnotist, no
+auto-release on absence, no extended recovery. He goes quiet or leaves; she is still under; she uses
+**`/hypno safeword`**, or `/hypno reset` if she wants the add-on gone too. This is now a settled
+answer, not an open item — removed from the todo list, and **removed as a dependency of extreme
+mode**, which was previously written as waiting on it.
+
+**Why this is the right call.** The exits already exist and already work from any state. Building
+presence detection would mean deciding how long absence counts, what happens if he is loading, what
+happens if he is in another room, and what happens if she wants to stay under while he is gone —
+which is a real thing people want. Every one of those is a judgement the subject can simply make for
+herself with one command she already has.
+
+**Consequence 1 — under extreme mode the safeword is the answer, not the fallback.** Ordinarily the
+30-minute timeout (`SESSION_TIMEOUT_MS`, `src/session.ts`) catches this: he leaves, and within half
+an hour she is out whether or not she does anything. Extreme's proposed 60–90 minutes pushes that
+much further away. That does not change the decision, but it does change what the decision *means*:
+in extreme, a subject whose hypnotist has vanished should expect to use the safeword rather than wait
+it out. Worth saying in the tester documentation.
+
+**Consequence 2 — the accepted risk, stated rather than left silent.** Checked against the code, and
+the news is mostly good:
+
+- **She will see him leave.** Room join/leave messages are not touched by awareness suppression.
+  `classify()` in `src/suppression.ts` only ever matches `Activity` and `Action` messages, and its
+  `ACTION_TAGS` list is deliberately one entry long, with the comment stating outright that
+  "anything safeword-, leash- or room-related stays off it: those are messages a subject must keep
+  seeing regardless of what they've agreed to not notice."
+- **Nothing blocks the exit.** The safeword is a slash command and survives the speech block; the
+  screen fade dims the view without hiding chat; `lockedWhileHypnotized` freezes the settings screen
+  but never the command.
+
+**What is accepted:** nothing *hides* the exit, but nothing *prompts* it either. A subject deep
+under, enjoying being left there, may simply sit — and the add-on will not tell her that the person
+who put her there is gone and she can leave whenever she likes. That is a real gap and it is
+accepted deliberately: the cheap mitigation would be one private line when the hypnotist leaves the
+room, and that is presence detection, which is exactly what this decision declines.
+
+**Is the five-minute presence check now unused? No — it never covered this case.**
+`RECOVERY_WINDOW_MS` and the `inRoom` handler in `src/recovery.ts` are for the mirror-image
+situation: **she** disconnects and comes back. `attemptRecovery()` uses them to decide whether to
+resume her trance (he is present, or returns inside the window) or let it go (he does not). That
+path is live, tested, and unaffected. It was only ever *suggested* as machinery that could be
+repurposed for the vanishing hypnotist; that suggestion is what has now been declined. Nothing
+becomes dead code.
 
 ---
 
@@ -1101,7 +1166,7 @@ The time-limit fallback should probably always be on unless the subject has extr
 
 #### Activity-fire triggers and wake suppression (decided 2026-09-08)
 
-A trigger can use an **activity as its fire condition** instead of a spoken word — "when [activity] happens to the subject, fire this trigger." The wake effect becomes one of the possible trigger effects, so a hypnotist can plant a trigger that says "orgasm wakes you" or "being touched on the head wakes you." This is a new fire-condition type; word-fire and activity-fire hook different systems (chat parser vs. activity hook) so they are separate trigger types in the panel.
+A trigger can use an **activity as its fire condition** instead of a spoken word — "when [activity] happens to the subject, fire this trigger." The wake effect becomes one of the possible trigger effects, so a hypnotist can plant a trigger that says "orgasm wakes you" or "being touched on the head wakes you." ~~This is a new fire-condition type; word-fire and activity-fire hook different systems (chat parser vs. activity hook) so they are separate trigger types in the panel.~~ **Reversed 2026-09-10: a fire-condition on the existing `Trigger`, not a second type.** Scope, strength, decay, reinforcement and the action list are identical whichever way it fires; a separate type would duplicate all of it and then drift. The two intakes are different — chat parser for words, the activity handler for touches — but they feed one record. Code findings and the touch-planting flow are in *Trigger firing — how it works today* below.
 
 **Suppressing the standard wake signal** (boop/snap) is a higher-stakes option: a trigger that says "nothing else wakes you, only this event." This is a soft lock on consciousness and requires:
 - **Blank depth** at planting time
@@ -1110,6 +1175,104 @@ A trigger can use an **activity as its fire condition** instead of a spoken word
 Without both conditions, the override cannot be planted regardless of the hypnotist's experience. The rationale is subject-authoritative: the subject's client decides what wakes it, and consenting to that suppression is a deliberate act, not a side effect of a deep trance.
 
 **The safeword overrides everything.** `/hypno safeword` wakes the subject unconditionally even when a "nothing else wakes you" trigger is active. The hard floor is untouchable by any trigger.
+
+### Trigger firing — how it works today, and the touch version
+
+#### What the add-on currently hears
+
+`ChatRoomMessage` is hooked in `src/main.ts`, but every consumer inside it is gated on
+`data.Type === "Chat" || "Whisper"`. **Emotes and activity messages arrive, are logged, and are
+ignored.** Neither can fire anything today. Adding touch triggers is a new intake, not an extension.
+
+**Activity messages are cheap and carry everything needed.** `src/suppression.ts` already reads them:
+`data.Type === "Activity"` or `metadata.ActivityName` identifies one, `data.Sender` is the actor,
+`metadata.TargetMemberNumber` is the target, `metadata.FocusGroup` is the body part. Actor, action,
+target, location — structured, and already proven in shipping code.
+
+**Emote-fired triggers — PARKED 2026-09-10, "can be added later".** Activity-fired proceeds alone.
+The question preserved so nobody re-derives it: **scanned or understood?** An emote is free prose
+with no target field, no activity name and no group. *Understood* means parsing third-person
+narration ("*ruffles Missy's hair*"), which is a different grammar from `voice.ts`'s second-person
+pattern library and carries a permanent tail of phrasings that miss. *Scanned* means an emote fires a
+trigger only by **containing the planted phrase**, reusing `triggersFiredBy()`'s existing
+`normalisedText.includes(t.phrase)` unchanged — roughly a ten-line change, because the only new work
+is widening the intake in `main.ts`. Scanned is recommended when this unparks.
+
+#### Planting a verbal trigger — what exists now
+
+Patterns from `src/voice.ts`, verbatim:
+
+```
+TRIGGER_START:  /your trigger (word|phrase) is (.+)$/    /the trigger (word|phrase) is (.+)$/
+                /your (new )?trigger is (.+)$/           /when (i say|you hear) (.+)$/
+TRIGGER_COMMIT: /remember (the |this |that )?trigger/    /the trigger is set/   /lock (it |that )?in/
+TRIGGER_CANCEL: /(forget|cancel|never mind|nevermind) (the |that |this )?trigger/
+```
+
+Gated in `handleTriggerControl()`: mid-trance, from her hypnotist, **and her name in the line**. She
+sees `"Something is being set aside in you. You let it happen."`; he sees
+`[trigger] RECORDING "<phrase>". Say each suggestion, then "remember trigger" to save.` Each
+suggestion recorded returns `"That settles into place, waiting."` to her and
+`[trigger] Recorded <id> into "<phrase>" (<n> so far).` to him. Commit gives her
+`"It settles somewhere you won't think to look for it."` and him `[trigger] SAVED …`.
+
+#### The touch version — PROPOSED
+
+**Confirmed by DW:** three repetitions inside **60 seconds**.
+
+**New patterns** (proposed, alongside `TRIGGER_START`):
+
+```
+/when i do this( three times)?$/        /whenever anyone does this( three times)?$/
+```
+
+**The demonstration window.** He says the line; her client opens a **60-second capture window** and
+waits for the first qualifying activity *from him, targeting her*. That activity's `ActivityName`
+and `FocusGroup` become the trigger's definition — nothing is typed. Recording then proceeds exactly
+as the verbal path does, and `remember trigger` commits.
+
+- **Says it, never touches:** window lapses, recording is discarded, he is told
+  `[trigger] Nothing was demonstrated, so nothing was recorded.` She is told nothing — the same
+  silence `cancelRecording()` already produces when a plant comes to nothing.
+- **Touches twice during planting:** the *first* qualifying activity defines it; later ones are
+  ignored while recording. Deliberate — a demonstration is one gesture, and repeat-touching is how
+  people naturally check something worked.
+- **Someone else touches during the window:** ignored. Only `recording.hypnotistId` can define it.
+
+**Scope — and a real architectural snag.** `getTriggerScope()` is a **single global subject setting**
+(`src/triggers.ts`, `TRIGGER_SCOPES`), not per-trigger. So "whenever anyone does this" is the
+hypnotist asking for something *she* owns. Two ways out, and this needs DW:
+
+1. **Treat his phrasing as a request her setting answers.** "Whenever anyone" only works if her
+   global scope already permits others; otherwise it silently plants as installer-only. Zero new
+   storage, and subject-authority is untouched.
+2. **Add per-trigger scope, capped by her global setting.** More expressive, more storage, and the
+   cap is what keeps it honest.
+
+**Firing and counting.** Each qualifying activity checks the actor against `speakerAllowedByScope()`
+exactly as words do, then increments a counter **keyed per actor** — so two people booping her once
+each never adds to three. The count is in memory only, never persisted: a partial count must not
+survive a reload. On the third inside 60 seconds the stored actions run and `noteTriggerFired()`
+credits the decay clock identically to a word trigger.
+
+**Escalating flavour on partial counts — DW's call, overruling the silent version.** First touch,
+nothing. Second, something like *"You feel a shiver as a thought forms deep in your head."* Third
+fires.
+
+> **The tradeoff, stated honestly.** The silent version withheld the fact that a trigger existed at
+> all. This tells her. From one second touch she can infer: a trigger is planted, this specific
+> gesture is its key, and one more will set it off — which is most of what *Trigger discovery* is
+> meant to be a deliberate, depth-gated mechanic for. It also gives her a free warning she could act
+> on, by walking away or safewording before the third.
+>
+> **What it does not damage:** the trigger still fires, scope still holds, decay is unaffected, and
+> nothing about consent changes. This is an atmosphere-versus-concealment trade, not a safety one.
+>
+> **An option that keeps the atmosphere without the leak, offered rather than argued:** make the
+> second-touch line **ambiguous and not trigger-specific** — the same shiver text fires on *any*
+> unremarkable touch while any trigger is armed, at a low rate. She feels the atmosphere constantly;
+> it stops being a reliable signal that she is two-thirds of the way into something. Costs one
+> setting and some noise.
 
 ### Hypnotist Panel (per trigger)
 Fields: trigger word · effect(s) · scope (who can fire it) · strength · last reinforced · decay status · expiry (if set)
@@ -1391,6 +1554,86 @@ Result: subject believes they are bound; to everyone else they look like a free 
 
 ---
 
+## Word-Level Control (detail) — approved to spec, 2026-09-10
+
+> **Related:** set as trigger actions, so *Triggers* governs scope, depth and decay; the
+> incoming half sits beside awareness suppression (*Feature List*, *Player Settings*); the
+> exits it must not touch are in *Control & Reset* and *Hard Limits*.
+
+Three features, each its own setting. **Where they sit:**
+
+| Feature | Pipeline position | What she experiences |
+|---|---|---|
+| **Words she cannot hear** | Incoming, alongside `src/suppression.ts`'s `ChatRoomRegisterMessageHandler` | The word is blanked or the line is dropped as she reads the room |
+| **Words she cannot say** | Outgoing, the existing `ChatRoomSendChatMessage` hook in `src/main.ts` that already does speech blocking | Her message is refused or the word is stripped before it sends |
+| **A word required in every message** | Same outgoing hook, test inverted | Messages without it do not send |
+
+The hooks all exist. Suppression already blanks by category; this blanks by string. Speech blocking
+already refuses wholesale; this refuses conditionally. **None of the three needs new plumbing.**
+
+**How he sets one:** as trigger actions, recorded into a trigger like any other suggestion — which
+means they inherit scope, depth gating, decay and reinforcement for free.
+
+**⚠ The consent shape is genuinely different, and this is the part to decide before building.**
+Every existing permission is per-*effect*: "may someone stop me moving." These are per-*word*, and
+the word is chosen later, by someone else. "Yes, you may take words from me" cannot be reviewed in
+advance the way "yes, you may freeze me" can. Options worth weighing: a count cap (no more than N
+words at once), or requiring the words be shown to her at planting time.
+
+### ⚠ Exit-path audit — 2026-09-10
+
+**Her ability to *type* the safeword is not at risk. Corrected — the earlier "reserved word list"
+framing was wrong.** `/hypno safeword` is a slash command, not speech. BC's `CommandParse` runs
+before `ChatRoomSendChatMessage`, which is where the speech block lives and where both outgoing
+word rules would live (`src/main.ts`). A word rule on outgoing speech cannot reach a command, for
+exactly the same structural reason silence cannot.
+
+**Implementation constraint that follows, and it is not optional.** Both outgoing rules —
+*cannot say* and *must include* — **must be implemented in the `ChatRoomSendChatMessage` hook, never
+in `ChatRoomSendChat`.** The latter runs *before* command parsing, and a required-word test placed
+there would demand she append a word to `/hypno safeword` before it would send. The exit would be
+damaged without anything looking broken. Same hook as speech blocking, same reason, and it should be
+asserted in the tests rather than trusted to a comment.
+
+**But the incoming filter is a real risk, and this is where a safeguard survives.**
+
+Her safeword confirmation reaches her through `notify()` → `tellPlayer()` → `ChatRoomSendLocal`
+(`src/session.ts`, `src/notify.ts`), which puts it into the same message pipeline a per-word incoming
+filter would sit in. The strings it would be filtering:
+
+- `"Safeword. Trance cleared, all effects released, everything back under your control."`
+- `"Hypnosis disabled. Trance cleared and every effect released."` (`hardFloorStop()`)
+- `"Trance ended and every effect released. Settings reset to defaults."` (Known Bug #4 fix)
+- `"Missy has asked to stop. Release in 5 minutes."` (extreme mode's room announcement)
+
+A hypnotist who makes **"stop"**, **"wake"**, **"release"** or **"clear"** unhearable — all entirely
+plausible choices, not contrived ones — blanks her own confirmation that the exit worked. She types
+the safeword, it works, and she sees nothing. That is precisely the failure the project's rule #5
+exists to prevent: *a silent success is indistinguishable from a silent failure.*
+
+**It inherits no protection from what already exists.** `classify()` in `src/suppression.ts` is safe
+only because it matches on message *type* and its `ACTION_TAGS` list has one entry — the comment's
+promise that "anything safeword-, leash- or room-related stays off it" describes a curated list, not
+a mechanism. A filter matching on text content is a new path and inherits none of it.
+
+**So the safeguard survives, narrowed as DW framed it — protecting the messages, not the keyboard.
+And it should be by ORIGIN, not by word list**, which is stronger than the thing it replaces:
+
+> **Any message the add-on itself generated is never subject to the incoming word filter.**
+> Everything routed through `tellPlayer()` / `tellRoom()` (`src/notify.ts`) is exempt, as are BC's
+> own safeword actions (`ActionActivateSafewordRevert`, `ActionActivateSafewordReleaseAll`).
+
+An origin exemption does not depend on predicting which words matter, and it stays correct when the
+flavour text is reworded — which it is due for (the flavour pass is still outstanding). A literal
+word list would have to be revisited every time a string changes, and would fail silently when
+somebody forgot.
+
+**Proposed tab: Awareness** for "cannot hear", since that tab already means *what you can be made
+not to notice*. The two speech ones belong on **Permissions** beside Speech Restriction, because
+they are things done *to* her expression rather than to her perception.
+
+---
+
 ## Clothing & Bondage Consent Interfaces
 
 ### Clothing Removal Consent
@@ -1562,7 +1805,13 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
   **Body parts deliberately excluded:** 26 of them, so flat buttons are out and it would need a picker sub-screen. Speech is genuinely the better interface for a parameterised command.
 - Widen the suggestion pattern library as gaps turn up in play
-- **Hypnotist global skill in the induction roll.** The formula has a slot for it and this doc calls for it to outweigh subject experience — but skill lives on the *hypnotist's* client while the roll runs on the *subject's*, and taking a self-reported number would break the subject-authoritative rule the whole architecture rests on. Needs a design answer before code.
+- **Hypnotist global skill in the induction roll.** ~~Needs a design answer before code.~~ **Answered 2026-09-09: the "declared and visible" model** — the hypnotist's client sends a derived 0–100 value, the subject's client alone decides whether to honour it and how far, via a four-rung setting. Subject-authority holds literally rather than by exception. Full working in [`declared-skill-proposal.md`](declared-skill-proposal.md), pending review before it is folded in here.
+- **The Fight-never-worse-than-Ignore invariant.** Below an honoured skill of 50 the proposed skill formula gives a fighting subject *worse* odds than one who ignores — `Fight = max(5 + 0.25v, …)` overtakes `Ignore = max(5, 0.35v)` whenever `v < 50`. Nonsense on its face and easy to find in play. Fix by computing Ignore first and using it as a hard upper bound on Fight, expressed as an invariant so it survives retuning, with a swept test assertion. **Blocks the skill ladder.** Found 2026-09-09 while pricing the rung-3 cap.
+- **First-launch guidance and the starter-set button.** Every permission ships `false`, `hypnoEnabled` included, so a fresh install does nothing at all and a new user cannot distinguish broken from off. Not the wizard — a note plus one button offering five session-scoped permissions, on the line `earnedOnly` already draws: nothing that outlives the session, nothing that lies to the subject about their own body. Set and reasoning in [`declared-skill-proposal.md`](declared-skill-proposal.md) §9.
+- **`MAX_ATTEMPTS` never got its decided value.** This list already records *"decided: default 2, with 3 available as a player setting"*; the code has 3 and no setting. A dropped implementation, not an open question.
+- **Dual fatigue system — promoted, and it now blocks something.** Both counters (subject resistance fatigue, hypnotist fatigue) are designed in *Dual Fatigue System* above and **entirely unbuilt** — `grep -ri fatigue src/` returns nothing.
+
+  **Dependency, settled 2026-09-09: build fatigue BEFORE the skill ladder's fourth rung.** That rung lets a skilled hypnotist overpower a subject's Fight, and DW's justification for it being survivable is that the subject wears down across repeated attempts. That mechanic does not exist. Worse, the one term that *does* move across a session runs the other way: subject experience accrues on every attempt win or lose (`ATTEMPT_EXPERIENCE`), and under the single-pool model it is negative when the choice is Fight — so today each failed attempt makes the subject fractionally *better* at resisting. The magnitude is a rounding error (~0.7 on the roll across three attempts), but the sign is the opposite of the assumption, and fatigue will be fighting this term rather than joining it. Rungs 1–3 do not depend on fatigue and may ship first.
 - ~~**Trust decay**~~ — done in v0.36.0. Subtraction from the interaction count, lazily on read, as named speeds rather than a number. **Off by default**; the residual question is whether it should ship on, which only play can answer.
 - ~~**`STRANGER_CEILING` (30) should be a player setting**~~ — **decided: 30 is the default, adjustable as a player setting.** Range TBD but 0–100 with the trust floor logic capping effective reach.
 - **Arousal on the remote panel.** The six arousal actions exist only as speech; folds into the remote-panel item below rather than being separate work.
@@ -1602,7 +1851,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Trigger aging for the harness** — a `TESTING_MODE`-only `/hypno agetrigger <days>` plus a `test-age` hidden handler, backdating `reinforcedAt` so decay can be observed in a sitting instead of a fortnight. Same shape as `/hypno trance`/`test-trance`, and it disappears at release for the same reason. Blocks the decay scenario, which is the last open item in *Needs Testing*.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
-- **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured.
+- **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
 
 ---
 
@@ -1615,6 +1864,67 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 | ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
 | ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
 | ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | **Not** found by scenario 8, which passed — it only asked whether the effects came off. Found when scenario 1 would not start afterwards, refusing an induction with "Already under." Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build; the scenario was rewritten to ask `/hypno session` and re-confirmed in play the same day. |
+| 4 | ✅ **FIX DECIDED 2026-09-10 — reset ends the trance itself rather than refusing.** See the note directly below this table for the decision and the pressure-test that produced it. Original report: **`/hypno reset confirm` does not stop an in-flight trance.** `resetSettings()` replaces the settings object and saves — that is all. It does not call `hardFloorStop()`, does not touch the module-level session state or its timers, does not remove the Emoticon effects, and does not clear the recovery key (which lives in its own `localStorage` entry, so wiping `ExtensionSettings` cannot reach it). After a reset mid-trance the subject is still frozen and still under, with `hypnoEnabled` now reading false. Same class as Bug #3 and the same fix: delegate to `hardFloorStop()`, and clear the recovery key. Found by code inspection 2026-09-09 while checking whether "reset the add-on" is a sufficient exit for extreme mode. **Not yet observed in play — no repro has been run.** | 2026-09-09 | Matters more than it looks: reset is one of two exits DW has proposed as sufficient in extreme mode. The other — logging in with the *userscript* disabled — is worse, since a script that is not running cannot clear the server-side effects that come back on reload. See `declared-skill-proposal.md` §8. |
+
+### Known Bug #4 — the fix, and why it is not the obvious one
+
+**DW's instinct, and it is right about the important half:** reset must not silently half-work. If
+she is in a trance and types `/hypno reset confirm`, she must not be left frozen by a command that
+told her it had wiped everything.
+
+**His proposed shape was refuse-and-instruct** — tell her to safeword first, then reset. That was
+pressure-tested before writing, because reset is the thing people reach for when something has gone
+wrong, and refusing it makes the last resort conditional on another path working.
+
+**The pressure-test, answered straight: no, I could not find a state where `/hypno safeword` fails
+but reset would have saved her.** What was checked:
+
+- **Silenced or entranced.** `safeword()` is a slash command, and `CommandParse` runs *before*
+  `ChatRoomSendChatMessage`, where the speech block lives (`src/main.ts`). It stays reachable.
+- **Settings locked.** `lockedWhileHypnotized` freezes the settings *screen* only; `settingsLocked()`
+  in `src/menu.ts` says so in its own comment — the safeword is untouched by it.
+- **Corrupt stored settings.** `loadSettings()` (`src/storage.ts`) wraps the parse in try/catch and
+  falls back to defaults, so bad data degrades rather than throwing. The safeword still runs.
+- **After a reload, or a partially restored session.** `totalStop()` clears unconditionally: it calls
+  `removeEffect()` for `Freeze` and `BlockWardrobe`, `clearSaved()` for the recovery key, and rebuilds
+  `session` from scratch — none of it gated on the session looking sane first.
+- **In-memory disagreeing with storage.** The refusal check would read `isHypnotized()`, which reads
+  the same in-memory session the safeword clears. They share one source of truth, so the check cannot
+  be right while the cure is wrong.
+
+**So refuse-and-instruct is not dangerous. It is just worse, for four reasons:**
+
+1. **It is not what she asked for.** Nobody types "wipe everything" and wants to stay frozen.
+2. **It adds a step for someone already in trouble** — two commands where one would do.
+3. **It creates a second refusal path that has to be kept correct.** Bug #3 was caused by exactly
+   that: a second copy of the everything-off list that drifted from the first. `hardFloorStop()`
+   exists because the fix was to *delegate to the shared teardown*, and this should follow it.
+4. **The accidental-use protection DW wants already exists** — reset is two-step (`/hypno reset`
+   warns, `/hypno reset confirm` acts).
+
+**Decided: reset calls `hardFloorStop()` itself, then wipes, and says both things out loud.** DW's
+requirement is met by making it fully work *loudly*, rather than by refusing. The existing warning
+step carries the notice, so she is told before anything happens and never blocked.
+
+**Wording — both lines matter, and neither may read as stonewalling.**
+
+Unconfirmed `/hypno reset`, while in a trance:
+
+> *This erases all trust, experience and settings. You are also in a trance right now — resetting
+> will end it and release everything first. Run: `/hypno reset confirm`*
+> *(If you only want out of the trance, `/hypno safeword` does that and keeps your settings.)*
+
+After `/hypno reset confirm`:
+
+> *Trance ended and every effect released. Settings reset to defaults.*
+
+The second line names the release **first**, because that is the part she needs to trust immediately.
+The parenthetical on the first line offers the gentler option without withholding the stronger one.
+
+**Implementation:** `resetSettings()` (`src/storage.ts`) delegates to `hardFloorStop()`
+(`src/session.ts`) before replacing the settings object, and clears the recovery key. The two-step
+warning lives in the `reset` entry of the command table (`src/commands.ts`). Extend
+`test/revoke.mjs`, which was built for this class of bug when #3 was fixed.
 
 ---
 
@@ -1649,11 +1959,12 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 
 ---
 
-*Last updated: 2026-09-08 — the test pass is finished and eight of its nine topics are confirmed in
-play, the hard floor among them. Trigger reinforcement and decay built, then retuned twentyfold
-when the dial turned out to mean weeks where it said hours. This document was corrected against the
-code and given an Orientation section, so it can be read cold. One item still owes a live run —
-decay — and it is blocked on a testing-only way to age a trigger. Code at v0.62.0.*
+*Last updated: 2026-09-10 — two days of design work with the dispatch bot: hypnotist skill answered
+("declared and visible", in `declared-skill-proposal.md`, being folded in section by section),
+touch-fired triggers proposed, word-level control approved to spec, the vanishing hypnotist closed
+with no special handling, and Known Bug #4 found by inspection — reset does not end a trance. This
+pass refiled that material into the sections it belongs to and cut `CLAUDE.md` down to rules and
+pointers after it drifted in a day. Decay still owes its live run. Code at v0.62.0.*
 
 ## Appendix: Version History
 
@@ -2366,4 +2677,4 @@ The following items are the current implementation priority, in order. Pick up f
 
    Carried suggestions were a **stub** — `restoreCarried` was registered as an empty function with a comment claiming another module handled it, and nothing did. They now return with their carrier and the time they had *left*, which is deliberately unlike `carryThroughWake`: waking is when that clock is meant to start, and reconnecting must never top up how long something holds you.
 
-   **Open, and related:** nothing yet handles the *hypnotist* vanishing mid-trance. The subject stays under until the 30-minute session timeout, which is the same "left helpless" case from the other side. The five-minute presence check now exists and could drive it.
+   **~~Open, and related~~ — CLOSED 2026-09-10, no special handling.** The *hypnotist* vanishing mid-trance is deliberately not handled: the subject stays under until the session timeout, or uses `/hypno safeword` / `/hypno reset`. The five-minute presence check was suggested as machinery that could drive it; that suggestion was declined. See *Control & Reset > The hypnotist vanishing mid-trance* for the reasoning and the accepted risk.
