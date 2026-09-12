@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.64.0.*
+*Design notes and decision log — work in progress. Code at v0.64.1.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -2001,13 +2001,20 @@ fixed. Ten of them were verified failing against the previous `resetSettings()` 
 went in; the four that pass either way are the guards that ending the trance did not cost the wipe,
 and that an idle reset does not announce a trance nobody was in.
 
-> **One caveat on those assertions, and it is not specific to this fix.** `revoke.mjs` cannot pass
-> against a `TESTING_MODE: false` build: it stands a trance up with `forceTrance()`, which a release
-> build correctly refuses. Measured at **25/30** with the flag off. Two of the fourteen fail loudly,
-> which is fine — but nine of the rest then pass without testing anything, because there was never a
-> trance for reset to end, and that is rule 6. This predates the fix (the first `forceTrance` check
-> does the same) and it is shared with the trigger-ageing work, so it is filed here rather than
-> patched here. It must be settled before `TESTING_MODE` is flipped, not after.
+> **One caveat on those assertions — since fixed in v0.64.1, recorded here because the reasoning
+> matters more than the patch.** `revoke.mjs` could not pass against a `TESTING_MODE: false` build:
+> it stands a trance up with `forceTrance()`, which a release build correctly refuses. Measured at
+> **25/30** with the flag off. Two of the fourteen failed loudly, which is fine — but nine of the
+> rest then passed *without testing anything*, because there was never a trance for reset to end,
+> and that is rule 6. This predated the fix (the first `forceTrance` check does the same) and was
+> found independently by the trigger-ageing work.
+>
+> **Settled by DW on 2026-09-12: pin the flag in the harness bundler.** `build-test.mjs` now
+> rewrites `src/log.ts` on the way into all three test bundles so `TESTING_MODE` always reads true,
+> and throws if it cannot find the declaration to rewrite. `build.mjs` deliberately does **not** do
+> this, so the shipped userscript still honours whatever the flag says. Verified both directions
+> rather than assumed: with the flag set to `false` in source, `revoke` goes back to **30/30** and
+> all 17 suites pass, while `dist/HypnosisAddon.user.js` still bundles `TESTING_MODE = false`.
 
 
 ---
@@ -2049,7 +2056,7 @@ touch-fired triggers proposed, word-level control approved to spec, the vanishin
 with no special handling, and Known Bug #4 found by inspection — reset does not end a trance (fixed
 in v0.63.1). This
 pass refiled that material into the sections it belongs to and cut `CLAUDE.md` down to rules and
-pointers after it drifted in a day. Decay still owes its live run. Code at v0.64.0.*
+pointers after it drifted in a day. Decay still owes its live run. Code at v0.64.1.*
 
 *Updated 2026-09-12 — Known Bug #4 fixed in v0.63.1: reset now runs the shared teardown before it
 wipes. Confirmed in play by DW the same day, reload included, so item 9 of Needs Testing is closed.*
@@ -2799,17 +2806,18 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.63.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.64.1. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
 
-  - **`test/revoke.mjs` does not survive the flip, and the loud half is not the problem.** Its
-    checks stand their trance up with `forceTrance`, which correctly refuses in a release build, so
-    some fail outright — and more go on **passing while testing nothing**, because there was never
-    a trance for the revoke to take down. Rule 6 exactly: a check that cannot fail is not checking
-    anything, and these read green while the release build is the one build nobody has ever
-    verified revocation on. Confirmed against a flipped build, not inferred, and independently
-    reproduced. **Open decision, DW's:** the fix belongs in `build-test.mjs` — pin `TESTING_MODE`
-    true when bundling the harness, or stand a trance up some other way on a release build — so it
-    is not a rewrite to start blind.
+  - ~~**`test/revoke.mjs` does not survive the flip**~~ — **fixed v0.64.1; the flip no longer
+    breaks the suites.** Its checks stand their trance up with `forceTrance`, which correctly
+    refuses in a release build, so some failed outright — and more went on **passing while testing
+    nothing**, because there was never a trance for the revoke to take down. Rule 6 exactly: a
+    check that cannot fail is not checking anything, and these read green while the release build
+    is the one build nobody has ever verified revocation on. Confirmed against a flipped build, not
+    inferred, and independently reproduced by two threads at 25/30. **DW's call, 2026-09-12: pin it
+    in the bundler.** `build-test.mjs` now forces `TESTING_MODE` true for the test bundles only, so
+    the suites test the logic and this flag stays purely a release concern. Re-verify when you do
+    flip it: the suites should stay green, and `dist/` should still carry `TESTING_MODE = false`.
 - [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
 
 ### Strongly recommended (testers can survive without, but experience is rough)
