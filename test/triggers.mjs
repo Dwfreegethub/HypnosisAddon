@@ -439,6 +439,72 @@ storage.forgetAllTriggers();
 plant("holding", 20, false, 10 * DAY);
 check("a held trigger survives the sweep", triggers.pruneFadedTriggers(() => true), 0);
 check("  and is still there", storage.listTriggers().length, 1);
+// --- TESTING-ONLY aging (v0.63.0) ---------------------------------------------------------
+// The affordance the live decay scenario is blocked on. Everything above is arithmetic proved
+// against hand-worked numbers; this is the only way any of it gets looked at by a person, since
+// the second reading of a real trigger is a day away.
+//
+// Asserted AGAINST THE FLAG, like `full` further up, so this suite stays correct after the
+// release flip instead of failing on the day somebody is trying to ship.
+storage.forgetAllTriggers();
+storage.setTriggerDecayRate("typical"); // Deep x0.4 -> 16/day, the same row as the checks above
+const young = plant("young", 60, false, 0);
+check("a fresh planting is at full strength", triggers.triggerStrength(young), 60);
+
+const firstAge = triggers.ageTriggers(1);
+check("aging works only in a testing build", firstAge.refusal === null, build.TESTING_MODE);
+if (build.TESTING_MODE) {
+	check("  and says what it moved", firstAge.aged, 1);
+	// The point of the whole thing: a day of clock is a day of decay, identical to a day of
+	// waiting. If these two ever disagree the tool is measuring itself rather than the model.
+	check("  a day of clock equals a day elapsed", triggers.triggerStrength(young), 43);
+	// RELATIVE, so two calls compound — which is how the acceleration is observed from two
+	// readings rather than from a total worked out by hand.
+	triggers.ageTriggers(1);
+	check("  aging again compounds rather than replacing", triggers.triggerStrength(young), 23);
+	check("  so the second day costs more than the first", 60 - 23 > 2 * (60 - 43), true);
+
+	// It moves the clock and NOTHING else. Zeroing the firing credit here would quietly make
+	// "firing slows decay but never resets it" unfalsifiable — the live step would pass against
+	// an implementation that had the rule backwards.
+	young.firings = 4;
+	triggers.ageTriggers(0.5);
+	check("  the firing credit survives aging", young.firings, 4);
+
+	// Negative winds it forward, for a run that overshot. Capped at now, because a trigger
+	// reinforced in the future is not a state the rest of the model has an answer for.
+	triggers.ageTriggers(-500);
+	check("  a negative number winds the clock forward", triggers.triggerStrength(young), 60);
+	check("  and cannot push it past now", young.reinforcedAt <= Date.now(), true);
+
+	// By NUMBER, not phrase — the phrase is hidden from the subject by setting, and a testing
+	// command must not be the way round that. One number, one trigger.
+	storage.forgetAllTriggers();
+	young.firings = 0;
+	const first = plant("first", 60, false, 0);
+	const second = plant("second", 60, false, 0);
+	triggers.ageTriggers(1, 2);
+	check("  a number ages that one only", triggers.triggerStrength(first), 60);
+	check("  and it is the one it named", triggers.triggerStrength(second), 43);
+	check("  no phrase leaks into the report", /first|second/.test(triggers.ageTriggers(1, 1).lines.join(" ")), false);
+
+	// Refusals, because a silent no-op reads exactly like a working command against a build
+	// where nothing happens to be planted.
+	check("  an out-of-range number is refused", triggers.ageTriggers(1, 9).refusal !== null, true);
+	check("  and nothing moved with it", triggers.triggerStrength(second), 43);
+	check("  zero days is refused rather than silently doing nothing", triggers.ageTriggers(0).refusal !== null, true);
+	storage.forgetAllTriggers();
+	check("  with nothing planted it says so", triggers.ageTriggers(1).refusal, "no triggers planted");
+
+	// It does not prune: a trigger aged past zero reads "faded away" and goes on the next list
+	// read, which is where pruning belongs and is itself what the live step checks.
+	const doomed = plant("doomed", 20, false, 0);
+	triggers.ageTriggers(30);
+	check("  aging past zero leaves it dead but present", triggers.triggerStrength(doomed), 0);
+	check("  and listed until something reads the list", storage.listTriggers().length, 1);
+	check("  which sweeps it", (voice.describeTriggerList(false), storage.listTriggers().length), 0);
+}
+
 storage.forgetAllTriggers();
 storage.setTriggerDecayRate("never");
 

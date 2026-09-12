@@ -32,6 +32,37 @@ export function installTriggers(): void {
 		const text = typeof message.text === "string" ? message.text : "";
 		if (text) tellPlayer(text);
 	});
+
+	// TESTING ONLY, and registered only in a testing build so it does not so much as exist in
+	// a release one — the same belt-and-braces as `test-trance` in session.ts, and for a
+	// sharper reason: this one WRITES. An ungated version would let anyone in the room age
+	// somebody's triggers to nothing, which is the opposite of what the decay clock is for.
+	//
+	// It exists so the bot can drive the decay scenario. Eight steps, of which only the first
+	// happens on a timescale a person can sit through: see ageTriggers below.
+	if (TESTING_MODE) {
+		registerHiddenHandler("test-age", (sender, message) => {
+			const days = Number(message.days ?? 1);
+			const index = message.index == null ? undefined : Number(message.index);
+			const result = ageTriggers(days, index);
+			// BOTH SIDES ARE TOLD, because neither can see the other's screen. A silent
+			// success here would be indistinguishable from a message that never arrived,
+			// which is the defect this codebase has fixed in three other places already.
+			if (result.refusal) {
+				tellHypnotist(sender, `[trigger] Aging refused — ${result.refusal}.`);
+				return;
+			}
+			tellHypnotist(
+				sender,
+				`[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`,
+			);
+			// The subject is told too. Nothing may happen to their triggers unseen, and a
+			// testing affordance is not an exception to that.
+			const who = characterFor(sender)?.Name ?? `#${sender}`;
+			tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
+			result.lines.forEach(tellPlayer);
+		});
+	}
 }
 
 // Persistent triggers: a word planted during a trance that fires afterwards.
@@ -282,6 +313,67 @@ export function reinforceTriggersBy(hypnotistId: number): number {
 export function noteTriggerFired(t: Trigger): void {
 	t.firings = (t.firings ?? 0) + 1;
 	updateTriggers();
+}
+
+/** What an aging run did, or why it did nothing. */
+export interface AgeResult {
+	/** Non-null means nothing was changed, and this says why. */
+	refusal: string | null;
+	/** One line per trigger touched: its number, who planted it, and the strength either
+	 * side of the move — which is the whole of what there is to observe.
+	 *
+	 * NO PHRASES. The subject's own list hides them unless they have asked to see them, and a
+	 * testing affordance must not be the hole in that; triggers are named by their number in
+	 * `/hypno triggers`, exactly as `/hypno forgettrigger` names them. */
+	lines: string[];
+	aged: number;
+}
+
+/** TESTING ONLY: wind a trigger's decay clock backwards so the model above can be watched in
+ * a sitting rather than over a fortnight.
+ *
+ * WHY IT HAS TO EXIST. Strength is derived from `reinforcedAt`, and every interesting property
+ * of the curve lives on a scale of days: the compounding, the firing credit, the ghost
+ * threshold, the sweep. Even at *very fast* a Deep planting takes twelve hours to die and a
+ * Blank one a day — so the decay scenario in the design doc can observe its first step and
+ * nothing after it. There is no setting that fixes this, because a rate fast enough to watch is
+ * a rate too fast to test the tier discount with. Moving the clock is the only way in.
+ *
+ * IT MOVES THE CLOCK AND NOTHING ELSE. `firings` is deliberately left alone: the firing credit
+ * is one of the things being tested, and zeroing it here would quietly make "firing slows decay
+ * but does not reset it" unfalsifiable — the step would pass against an implementation that had
+ * the rule backwards.
+ *
+ * RELATIVE, not absolute. Each call subtracts from whatever the clock already reads, so "age a
+ * day, look, age another day" gives the two readings the acceleration check needs without
+ * anybody working out a total. A negative number winds it forward again — useful when a run
+ * overshoots — capped at now, since a trigger reinforced in the future is not a state the rest
+ * of the model has an answer for.
+ *
+ * It does NOT prune. A trigger aged past zero reads "faded away" here and disappears on the
+ * next list read, which is where pruning belongs and is itself the thing step 4 of the scenario
+ * is checking. */
+export function ageTriggers(days: number, index?: number): AgeResult {
+	const refuse = (why: string): AgeResult => ({ refusal: why, lines: [], aged: 0 });
+	if (!TESTING_MODE) return refuse("not available — this build is not in testing mode");
+	if (!Number.isFinite(days) || days === 0) {
+		return refuse("give a number of days to age by — 1, 0.5, or a negative number to wind it back");
+	}
+	const all = listTriggers();
+	if (!all.length) return refuse("no triggers planted");
+	if (index !== undefined && (!Number.isInteger(index) || index < 1 || index > all.length)) {
+		return refuse(`no trigger ${index} — you have ${all.length}. See /hypno triggers for the numbering`);
+	}
+	const chosen = index === undefined ? all.slice() : [all[index - 1]];
+	const lines: string[] = [];
+	for (const t of chosen) {
+		const before = describeStrength(t);
+		t.reinforcedAt = Math.min(Date.now(), t.reinforcedAt - days * 86_400_000);
+		lines.push(`${all.indexOf(t) + 1}. by ${t.installedByName}: ${before} -> ${describeStrength(t)}`);
+	}
+	updateTriggers();
+	log(`TESTING: aged ${chosen.length} trigger(s) by ${days} day(s)`);
+	return { refusal: null, lines, aged: chosen.length };
 }
 
 interface Recording {

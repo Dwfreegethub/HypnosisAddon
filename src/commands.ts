@@ -29,7 +29,7 @@ import {
 	RelationKind,
 } from "./storage";
 import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
-import { describeRecording, describeDecayPace } from "./triggers";
+import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import {
@@ -890,6 +890,64 @@ const COMMANDS: HypnoCommand[] = [
 			reply(
 				`Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned — ` +
 					`${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /hypno wake to come out.`,
+			);
+		},
+	},
+	{
+		// TESTING ONLY, and the piece the decay scenario is blocked on.
+		//
+		// Trigger strength is derived from a clock, and every reading after the first one is
+		// days away: even at *very fast* a Deep planting takes twelve hours to die. So the
+		// scenario could watch a trigger start to fade and could not reach the compounding, the
+		// firing credit, the ghost threshold or the sweep — four of its five expected results.
+		// Turning the rate up further does not help, because a rate fast enough to sit through
+		// is a rate too coarse to see the tier discount in.
+		//
+		// By NUMBER, not phrase — the same reasoning as /hypno forgettrigger. The phrase is
+		// hidden from the subject unless they asked to see it, and a testing command must not
+		// be the way round that.
+		Tag: "agetrigger",
+		group: "Testing",
+		args: "<days> [number]",
+		Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
+		Action: (args: string) => {
+			if (!TESTING_MODE) {
+				reply("Not available — this build is not in testing mode.");
+				return;
+			}
+			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			if (!parts.length) {
+				reply("Usage: /hypno agetrigger <days> [number] — see /hypno triggers for the numbering.");
+				reply("With no number it ages every planted trigger; with one it ages just that one.");
+				reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
+				reply(`Triggers currently fade: ${describeDecayPace()}. /hypno triggerdecay changes that.`);
+				return;
+			}
+			const days = Number(parts[0]);
+			if (!Number.isFinite(days)) {
+				reply(`"${parts[0]}" is not a number of days. Usage: /hypno agetrigger <days> [number].`);
+				return;
+			}
+			// Validated here as well as inside ageTriggers, so a mistyped number reads as a
+			// typo rather than as "no trigger NaN".
+			const index = parts.length > 1 ? Number(parts[1]) : undefined;
+			if (index !== undefined && !Number.isInteger(index)) {
+				reply(`"${parts[1]}" is not a trigger number. /hypno triggers lists them by number.`);
+				return;
+			}
+			const result = ageTriggers(days, index);
+			if (result.refusal) {
+				reply(`Can't: ${result.refusal}.`);
+				return;
+			}
+			reply(`Aged ${result.aged} trigger(s) by ${days} day(s) — strength before and after:`);
+			result.lines.forEach(reply);
+			// Says what it did NOT do, because both would otherwise look like bugs from the
+			// outside: a firing count that survived, and a trigger reading "faded away" that is
+			// still in the list until something reads the list.
+			reply(
+				"The firing credit is untouched — only the clock moved. One aged to nothing is " +
+					"swept on the next /hypno triggers, unless it is holding you.",
 			);
 		},
 	},

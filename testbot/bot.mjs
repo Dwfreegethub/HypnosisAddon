@@ -388,6 +388,24 @@ function trance(depth = 80, earned = depth) {
 	hidden({ type: "test-trance", depth, earned });
 }
 
+/** Wind the subject's trigger decay clock back, so the fading can be watched.
+ *
+ * Same reason as trance() above: the scenario needs a state the real world takes too long to
+ * reach. Trigger strength is derived from a timestamp, and even at the fastest setting a Deep
+ * planting takes twelve hours to die — so a decay run could see the first reading and none of
+ * the four after it. This moves the clock instead of waiting on it.
+ *
+ * RELATIVE: `age(1)` twice is two days, which is how the two readings the acceleration check
+ * needs are taken without anybody working out a total. With no `index` it ages every planted
+ * trigger; with one, only that number from the subject's own `/hypno triggers` list.
+ *
+ * Handled by a TESTING_MODE-only handler on the subject's side; it does not exist in a release
+ * build, which is the point — aging is a write, and nobody should be able to erode somebody's
+ * triggers from across a room for real. */
+function age(days = 1, index) {
+	hidden(index == null ? { type: "test-age", days } : { type: "test-age", days, index });
+}
+
 // EVERY STEP SAYS WHAT SHOULD HAPPEN AND WHAT WOULD MEAN IT FAILED.
 //
 // `look` used to be one sentence doing both jobs and it was not enough: DW ran the undress
@@ -835,6 +853,21 @@ function handleCommand(sender, text) {
 			const earned = Number.isFinite(nums[1]) ? nums[1] : depth;
 			trance(depth, earned);
 			return report(`forcing a trance at ${depth}/${earned}`);
+		}
+		case "age": {
+			// e.g. `!age 1` — every trigger a day older, or `!age 2 1` for just the first in
+			// their list. Negative winds it forward again, for a run that overshot.
+			const nums = (arg ?? "").trim().split(/\s+/).filter(Boolean).map(Number);
+			const days = Number.isFinite(nums[0]) ? nums[0] : 1;
+			const index = Number.isFinite(nums[1]) ? nums[1] : null;
+			if (!days) return report("!age <days> [number] — 0 does nothing. Negative winds the clock forward.");
+			age(days, index);
+			// What comes back is the subject's client reporting the strengths either side, over
+			// the hidden channel — this line only says the request left.
+			return report(
+				`asked to age ${index == null ? "every trigger" : `trigger ${index}`} by ${days} day(s). ` +
+					"Their client answers with the strength before and after; /hypno triggers shows the list.",
+			);
 		}
 		case "rooms": {
 			// The direct test of whether we share an Environment with the subject: the server

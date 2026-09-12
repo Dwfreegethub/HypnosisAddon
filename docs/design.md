@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.62.0.*
+*Design notes and decision log — work in progress. Code at v0.63.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -40,7 +40,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion · Word-Level Control |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.62.0 |
+| **What to test next** | Needs Testing — as of v0.63.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -172,8 +172,8 @@ scenarios* for what each scenario proves.
 ### Build flags and release steps
 
 - `TESTING_MODE` in `src/log.ts` is **`true`**. It gates `/hypno triggers full`, `/hypno trance`,
-  `/hypno depth` and `/bot`, and announces itself in the console at startup so it cannot quietly
-  ship switched on. Flipping it to `false` is a release step — and it **disables the test harness**,
+  `/hypno depth`, `/hypno agetrigger` and `/bot`, and announces itself in the console at startup so
+  it cannot quietly ship switched on. Flipping it to `false` is a release step — and it **disables the test harness**,
   so it must be the last thing done before shipping, not the first.
 - `dist/` is gitignored; the built userscript is not committed.
 
@@ -1848,10 +1848,34 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
-- **Trigger aging for the harness** — a `TESTING_MODE`-only `/hypno agetrigger <days>` plus a `test-age` hidden handler, backdating `reinforcedAt` so decay can be observed in a sitting instead of a fortnight. Same shape as `/hypno trance`/`test-trance`, and it disappears at release for the same reason. Blocks the decay scenario, which is the last open item in *Needs Testing*.
+- ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger <days> [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.63.0) — the decay scenario is unblocked
+
+**v0.63.0 — trigger aging, so decay can be looked at.** The one thing standing between the v0.60.0
+decay model and a live run was time: strength is derived from `reinforcedAt`, and four of the
+scenario's five expected results are a day or more apart. Turning the rate up does not help, because
+a rate fast enough to sit through is too coarse to see the tier discount in.
+
+`/hypno agetrigger <days> [number]` moves the clock instead of waiting on it, with `test-age` behind
+it for the bot and `!age` on the bot side. Three decisions worth recording, because each of them
+could have gone the other way and made the tool quietly useless:
+
+- **It moves the clock and nothing else.** `firings` is untouched. Clearing it would have been
+  tidier and would have made *"firing slows decay but never resets it"* pass against an
+  implementation with the rule backwards — a step that cannot fail is not testing anything.
+- **Relative, not absolute.** Each call subtracts from what the clock already reads, so the two
+  readings the acceleration check needs come from *age a day, look, age another day* rather than
+  from arithmetic done in someone's head.
+- **By number, not by phrase.** The phrase is hidden from the subject unless they asked to see it,
+  and the report names triggers the way `/hypno forgettrigger` does. A testing affordance must not
+  be the hole in a privacy rule.
+
+It also does not prune. A trigger aged past zero reads *"faded away"* and disappears on the next
+list read, which is where pruning belongs and is itself part 4 of the scenario demonstrating itself.
 
 ---
 
@@ -1964,7 +1988,7 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 touch-fired triggers proposed, word-level control approved to spec, the vanishing hypnotist closed
 with no special handling, and Known Bug #4 found by inspection — reset does not end a trance. This
 pass refiled that material into the sections it belongs to and cut `CLAUDE.md` down to rules and
-pointers after it drifted in a day. Decay still owes its live run. Code at v0.62.0.*
+pointers after it drifted in a day. Decay still owes its live run. Code at v0.63.0.*
 
 ## Appendix: Version History
 
@@ -2495,7 +2519,7 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ---
 
-## Needs Testing — as of v0.62.0
+## Needs Testing — as of v0.63.0
 
 Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
 scenario was rewritten to be capable of failing. **One thing is open:** decay has never run outside
@@ -2570,14 +2594,23 @@ Both versions pass now, because the code is correct. Only the five-step one demo
 
 Covered by unit tests, never exercised against a live client.
 
-> **Blocked on one small piece of tooling — this is where the next session starts.** The harness
-> has no decay steps yet, and cannot usefully have them until a trigger can be **aged**. Even at
-> *Very fast* a Deep planting takes twelve hours to die, so the first step of a decay scenario is
-> watchable and every step after it is not. What is needed is a `TESTING_MODE`-only affordance that
-> backdates `reinforcedAt` by a stated number of days — `/hypno agetrigger <days>` plus a `test-age`
-> hidden handler so the bot can drive it, the same shape as `/hypno trance` and `test-trance`, and
-> disappearing at release for the same reason. With it, the eight-step scenario below runs in about
-> ten minutes; without it, steps 3 onward cannot be run at all.
+> **The tooling this was blocked on now exists (v0.63.0).** Even at *Very fast* a Deep planting
+> takes twelve hours to die, so the first step of a decay scenario was watchable and every step
+> after it was not. **`/hypno agetrigger <days> [number]`** backdates `reinforcedAt` by a stated
+> number of days, with a `test-age` hidden handler behind it so the bot can drive the same thing
+> with `!age <days> [number]`. `TESTING_MODE`-only at three points — the command refuses, the core
+> function refuses, and the handler is never registered — so it does not exist in a release build,
+> which matters more here than for `/hypno triggers full` because this one *writes*.
+>
+> It is **relative**: `/hypno agetrigger 1` twice is two days, which is how the two readings part 5
+> needs are taken without working out a total. It moves the clock and **nothing else** — the firing
+> credit is left alone on purpose, because zeroing it would make part 2 unfalsifiable. A negative
+> number winds the clock forward again, capped at now, for a run that overshoots. Triggers are named
+> by their **number** in `/hypno triggers`, never by phrase, so the hidden-phrase rule survives the
+> testing affordance. It does not prune: something aged past zero reads *"faded away"* and goes on
+> the next list read, which is part 4 demonstrating itself.
+>
+> **The run is still owed.** With aging, the scenario below is about ten minutes of work.
 
 **How to run it, once aging exists:** `/hypno triggerdecay veryfast` — since v0.62.0 that is a Deep
 planting gone in about twelve hours and a Blank one in about a day, so step 1 is observable
@@ -2628,7 +2661,7 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.62.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.63.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first. Note that `test/revoke.mjs` fails against a flipped build — three of its checks stand up their trance with `forceTrance`, which correctly refuses — so expect that suite to need rewriting rather than reading the failure as a regression.
 - [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
 
 ### Strongly recommended (testers can survive without, but experience is rough)
