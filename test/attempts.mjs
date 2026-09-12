@@ -220,6 +220,51 @@ check("the diagnostic spans two", session.describeChances(HYP).some((l) => /acro
 storage.setMaxAttempts(3);
 check("  and three when three", session.describeChances(HYP).some((l) => /across 3$/.test(l)), true);
 
+// --- what "Lock settings while a session is on you" actually covers -------------------------
+// The lock reads isSessionLive(), and until v0.65.1 it read isHypnotized() — so the whole
+// induction was editable. Someone could be three questions into an attempt on you and you
+// could still grant the permission they were about to reach for, or raise your own attempt
+// limit to hand them another try. DW's call, 2026-09-12.
+//
+// Phase by phase rather than one spot check, because the point of the change is the phases
+// that are NOT Hypnotized: those are exactly the ones the old reading missed.
+storage.setMaxAttempts(3);
+session.safeword();
+check("nothing running, nothing locked", session.isSessionLive(), false);
+
+incoming(HYP, { type: "session-attempt", hypnotistName: "GameBot" });
+check("the prompt is a live session", session.isSessionLive(), true);
+session.answerPrompt("ignore");
+check("  so is the roleplay window", session.isSessionLive(), true);
+runRoll();
+check("  so is a miss with tries left", session.isSessionLive(), true);
+
+// Under. The one phase the old reading did cover, and it must not have regressed.
+Math.random = () => 0;
+retry();
+runRoll();
+check("being under is live", session.isSessionLive(), true);
+check("  and still reads as hypnotized", session.describeSession().includes("session: Hypnotized"), true);
+Math.random = () => 0.99;
+
+// Spent. Deliberately NOT live: the attempts are gone, nothing can reach the subject until
+// the cooldown expires, and a lock that outlasts what it protects against is just a setting
+// nobody can change.
+storage.setMaxAttempts(2);
+session.safeword();
+attempt();
+runRoll();
+retry();
+runRoll();
+check("the cooldown is the end of it", phase(), "CooldownRequired");
+check("  and is not locked", session.isSessionLive(), false);
+
+// And the safeword clears it from any of them, which is what stops the lock being a trap.
+attempt();
+check("an attempt after the cooldown is refused", session.isSessionLive(), false);
+session.safeword();
+check("the safeword leaves nothing live", session.isSessionLive(), false);
+
 session.safeword();
 storage.setMaxAttempts(2);
 

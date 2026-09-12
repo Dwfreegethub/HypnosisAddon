@@ -929,6 +929,23 @@ export function isHypnotized(): boolean {
 	return session.phase === "Hypnotized";
 }
 
+/** Is anything running on us at all — an attempt underway as well as a trance?
+ *
+ * Added v0.65.1 for the settings lock, which had always DESCRIBED itself as holding "until
+ * the session ends" and in fact only held while `isHypnotized()`. The gap is the whole
+ * induction: prompt, roleplay window and the misses between attempts are a live session in
+ * every sense, and a subject who has ticked the lock could still edit their own permissions
+ * and their own attempt limit throughout — raising it to hand a hypnotist more tries, or
+ * dropping it to cut them off mid-sequence. DW's call, 2026-09-12.
+ *
+ * CooldownRequired is deliberately NOT live. The attempts are spent, nothing can reach the
+ * subject until the cooldown expires, and a lock that outlasts what it is protecting against
+ * is just a setting nobody can change. `/hypno safeword` clears the session from any of these
+ * phases, so the lock can never be a trap — same reasoning the lock has always carried. */
+export function isSessionLive(): boolean {
+	return session.phase !== "Idle" && session.phase !== "CooldownRequired";
+}
+
 /** Is this person running a live session on us, in any phase? Broader than
  * isSessionActiveWith, which means specifically "in trance". */
 export function hasLiveSessionWith(memberNumber: number): boolean {

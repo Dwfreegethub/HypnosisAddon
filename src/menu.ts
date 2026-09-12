@@ -33,7 +33,7 @@ import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES, decayLifetimeText } from "./triggers";
-import { isHypnotized, currentTier, hardFloorStop } from "./session";
+import { isHypnotized, isSessionLive, currentTier, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -105,7 +105,7 @@ const TABS: Tab[] = [
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion" },
 			{ key: "undressControl", label: "Undressing" },
-			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
+			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
 		extra: drawAttemptControl,
 		clickExtra: clickAttemptControl,
@@ -254,7 +254,7 @@ function drawAttemptControl(): void {
 		`Attempts before they must wait: ${getMaxAttempts()}`,
 		locked ? "#ddd" : "White",
 		"",
-		locked ? "Locked while in trance" : "How many tries one hypnotist gets in a row",
+		locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
 		locked,
 	);
 	// What the setting COSTS, under the control that sets it — the same shape as the trigger
@@ -333,7 +333,7 @@ function drawDepthGates(): void {
 			tierLabel(requiredTier(gate.key)),
 			locked ? "#ddd" : granted ? "White" : "#eee",
 			"",
-			locked ? "Locked while in trance" : "Click to require a deeper trance",
+			locked ? "Locked until this session ends" : "Click to require a deeper trance",
 			locked,
 		);
 	});
@@ -738,11 +738,19 @@ function rowPosition(index: number, total: number): { left: number; top: number;
 /** Are the checkboxes currently frozen? Read live at draw and click time rather than
  * cached, so the lock lifts the instant a session ends without anything having to notice.
  *
+ * From the whole SESSION, not just the trance — v0.65.1, DW's call. It used to read
+ * `isHypnotized()`, which left the induction itself unlocked: someone could be three
+ * questions into an attempt on you and you could still edit the permissions they were about
+ * to reach, or move your own attempt limit up to give them another try. The label says "while
+ * in trance" and the blurb has always said "until the session ends"; the second one was the
+ * honest description and this makes it true. The cooldown after a spent attempt run is not
+ * live — see isSessionLive.
+ *
  * Tabs stay clickable and the exit button still works — the screen is readable while
  * locked, just not editable. `/hypno safeword` remains the way out in every case, and
  * being a chat command it's untouched by any of this. */
 function settingsLocked(): boolean {
-	return getFeatures().lockedWhileHypnotized && isHypnotized();
+	return getFeatures().lockedWhileHypnotized && isSessionLive();
 }
 
 export function installMenu(): void {
@@ -776,7 +784,7 @@ export function installMenu(): void {
 			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
 			// canvas takes on its own.
 			drawLeftTextFit(
-				locked ? "Locked while you are in trance. /hypno safeword always works." : tab.blurb,
+				locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
 				BOX_LEFT,
 				BLURB_Y,
 				PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,

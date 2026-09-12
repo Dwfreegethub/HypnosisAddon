@@ -238,11 +238,17 @@ export interface FeatureToggles {
 	/** Permission to hide messages about activities done to you (touching, kissing).
 	 * Hides the message only — arousal still applies. */
 	suppressActivities: boolean;
-	/** Freeze this settings screen while in trance: every checkbox greys out and clicks are
-	 * ignored until the session ends. Replaced a "Hidden Activities" toggle that ended up
-	 * gating nothing (see messaging.ts).
+	/** Freeze this settings screen for the duration of a session: every checkbox greys out
+	 * and clicks are ignored until it ends. Replaced a "Hidden Activities" toggle that ended
+	 * up gating nothing (see messaging.ts).
 	 *
-	 * Deliberately locks ITSELF too — being able to switch the lock off mid-trance would
+	 * THE WHOLE SESSION, not only the trance — widened in v0.65.1 on DW's call. It used to
+	 * bite only once the subject was actually under, which left the induction itself editable:
+	 * a hypnotist could be mid-attempt and the subject could still grant the permission they
+	 * were about to reach for, or move `maxAttempts` to hand them another try. The field keeps
+	 * its old name because renaming a stored key costs a migration for nothing.
+	 *
+	 * Deliberately locks ITSELF too — being able to switch the lock off mid-session would
 	 * make it decorative. `/hypno safeword` is the way out, and it's a chat command rather
 	 * than a menu action, so this can never trap anyone. */
 	lockedWhileHypnotized: boolean;
