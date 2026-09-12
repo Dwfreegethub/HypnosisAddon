@@ -725,11 +725,50 @@ export function importSettings(blob: string): { ok: boolean; message: string } {
 	};
 }
 
-/** Back to factory defaults for this account. Trust, experience and every toggle. */
+/** Reset has to end an in-flight trance, not merely wipe the settings that describe one
+ * (design.md, Known Bug #4). The teardown itself lives in session.ts, which imports this
+ * module, so it registers itself here rather than being imported back — the same leaf trick
+ * registerCarryHandlers and registerTriggerRecovery use.
+ *
+ * Returns what it ended, so the message below can name it instead of guessing. */
+let resetTeardown: (() => "trance" | "induction" | null) | null = null;
+
+export function registerResetTeardown(stop: () => "trance" | "induction" | null): void {
+	resetTeardown = stop;
+}
+
+/** Back to factory defaults for this account. Trust, experience and every toggle — and any
+ * trance that was running, because a subject who typed "wipe everything" must not be left
+ * frozen by the command that told her it had. */
 export function resetSettings(): string {
+	// Stop BEFORE the wipe. The teardown reads the live session rather than the settings, but
+	// it also has to know what it is ending in order to say so, and it clears the recovery key
+	// — which lives in its own localStorage entry, so wiping ExtensionSettings cannot reach it.
+	let ended: "trance" | "induction" | null = null;
+	let stopFailed = false;
+	if (!resetTeardown) {
+		// Can only happen if session.ts was never loaded, which in a real build cannot occur.
+		// Reported rather than swallowed: a reset that quietly skipped the teardown is the bug.
+		stopFailed = true;
+		log("reset: no teardown registered — session.ts was not loaded");
+	} else {
+		try {
+			ended = resetTeardown();
+		} catch (err) {
+			stopFailed = true;
+			log("reset: could not end the session:", err);
+		}
+	}
 	cached = defaultSettings();
 	cachedFromAccount = true;
 	saveSettings();
+	if (stopFailed) {
+		return "Settings reset to defaults — but the trance could not be ended. Use /hypno safeword.";
+	}
+	// Release first, wipe second, in the wording as well as the order: the release is the half
+	// she needs to trust immediately.
+	if (ended === "trance") return "Trance ended and every effect released. Settings reset to defaults.";
+	if (ended === "induction") return "Induction stopped and every effect released. Settings reset to defaults.";
 	return "settings reset to defaults";
 }
 

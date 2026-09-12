@@ -31,7 +31,7 @@ globalThis.CharacterSetActivePose = () => {};
 globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
 globalThis.CharacterRefresh = () => {};
 
-const { menu, storage, illusion, effects, suppression, session, depth, carry } = await import("./harness-bundle.mjs");
+const { menu, storage, illusion, effects, suppression, session, depth, carry, recovery } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -107,6 +107,69 @@ carry.carryThese(HYP, "GameBot", ["movement-block"]);
 check("something is being carried", carry.carriedIds(), ["movement-block"]);
 menu.onToggle("hypnoEnabled", false);
 check("the hard floor drops it too", carry.carriedIds(), []);
+
+// --- reset, which did not take the session either (Known Bug #4) ---------------------------
+// Same class as the block above and found the same way, by asking what a stop actually stops.
+// resetSettings() replaced the settings object and saved, and that was all of it: the session
+// kept its phase, the timers kept running, the Emoticon effects stayed applied, and the
+// recovery key — which lives in its own localStorage entry, so wiping ExtensionSettings
+// cannot reach it — would have restored the whole trance on the next load. The subject was
+// left frozen and still under by the one command that had just told her it erased everything.
+//
+// Reset now runs the same teardown as the safeword and the hard floor, and says so. These
+// assertions are the reason it cannot quietly stop doing that again: every one of them
+// passes today against a resetSettings() that only swaps the settings object EXCEPT the ones
+// below, which is exactly the gap that shipped.
+storage.setFeature("hypnoEnabled", true);
+storage.setFeature("carryForward", true);
+storage.setFeature("illusionControl", true);
+storage.setFeature("movementRestriction", true);
+session.forceTrance(HYP, 80, 80);
+illusion.freezeAppearance();
+effects.applyEffect("Freeze");
+effects.applyEffect("BlockWardrobe");
+suppression.setSuppressed("clothing", true);
+carry.noteApplied("movement-block");
+carry.carryThese(HYP, "GameBot", ["movement-block"]);
+// Written down the way a live session writes it down, so the assertion below is about the
+// real key and not a value this file invented.
+recovery.persist({
+	sessionLive: true, hypnotistId: HYP, hypnotistName: "GameBot", depth: 80, depthEarned: 80,
+	sessionEndsAt: Date.now() + 600_000, applied: ["movement-block"], carried: ["movement-block"],
+	carriedUntil: Date.now() + 600_000, carrierId: HYP, carrierName: "GameBot", triggers: [],
+	...recovery.snapshotLocalState(),
+});
+check("under, with the lot applied", [session.isHypnotized(), effects.hasOwnEffect("Freeze"), illusion.isIllusionActive()], [true, true, true]);
+check("  and a recovery key on disk", recovery.describeSavedState().startsWith("saved for reconnect: nothing"), false);
+
+const resetSaid = storage.resetSettings();
+
+// The wording is part of the fix, not decoration: she is told the release happened FIRST,
+// because that is the half she needs to trust immediately. A reset that ends a trance and
+// only reports the wipe is still a reset that lied about what it did.
+check("reset names the release before the wipe", resetSaid, "Trance ended and every effect released. Settings reset to defaults.");
+check("reset ends the trance", session.isHypnotized(), false);
+check("  and clears the depth", depth.currentDepth(), 0);
+check("  and detaches the hypnotist", session.currentHypnotistId(), null);
+check("  and takes the freeze off", effects.hasOwnEffect("Freeze"), false);
+check("  and the wardrobe block", effects.hasOwnEffect("BlockWardrobe"), false);
+check("  and lifts the illusion", illusion.isIllusionActive(), false);
+check("  and the suppression", suppression.isSuppressed("clothing"), false);
+check("  and drops what was carried", carry.carriedIds(), []);
+// The one a settings wipe genuinely cannot reach on its own, and the one that would have
+// brought the whole trance back on the next load.
+check("  and clears the recovery key", recovery.describeSavedState().startsWith("saved for reconnect: nothing"), true);
+// It is still a reset. Ending the trance must not have cost the wipe.
+check("  and still wipes the settings", storage.getFeatures().carryForward, false);
+
+// Idle reset must not claim to have ended something. Rule 5 cuts both ways: a stop that says
+// nothing is a bug, and so is one that announces a trance nobody was in.
+check("an idle reset says only what it did", storage.resetSettings(), "settings reset to defaults");
+
+// The remaining branch — a reset landing mid-induction, which says "Induction stopped"
+// rather than "Trance ended" — is not asserted here: reaching AttemptMade means going
+// through the hidden-message handler, which only exists after installSession(), and this
+// harness deliberately does not run main.ts. It is one ternary in stopForReset().
 
 console.log(`revoke: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
