@@ -25,6 +25,10 @@ export type FlavorKey =
 	| "speech-blocked-attempt"
 	| "awareness-block"
 	| "awareness-release"
+	| "clothing-awareness-block"
+	| "clothing-awareness-release"
+	| "bondage-awareness-block"
+	| "bondage-awareness-release"
 	| "touch-block"
 	| "touch-release"
 	/** Numbness — the sensation itself, where touch-block above is only the knowing. */
@@ -194,6 +198,28 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You start noticing what's being done to you again.",
 		"The world reattaches itself to your body.",
 		"Details you had stopped collecting begin arriving again.",
+	],
+	// The per-category lines. Clothing and bondage had no wording of their own because they
+	// had no suggestion of their own — only touch did — and "you will not notice your
+	// clothing" landed on the broad line, which took whatever else was permitted along with
+	// it and said the broad thing. Same register as awareness-block: absence, not sensation.
+	"clothing-awareness-block": [
+		"What you are wearing stops being something you keep track of.",
+		"Clothes come and go. It does not seem to be your concern.",
+		"Whatever is on you is on you. You stop checking.",
+	],
+	"clothing-awareness-release": [
+		"You notice what you are wearing again.",
+		"Your clothes are yours to keep track of once more.",
+	],
+	"bondage-awareness-block": [
+		"Whatever holds you holds you. You stop noticing it being put there.",
+		"Rope and leather become part of the furniture.",
+		"Restraint arrives without an announcement.",
+	],
+	"bondage-awareness-release": [
+		"You notice what holds you again.",
+		"Every knot and buckle reports back.",
 	],
 	"touch-block": [
 		"Hands on you stop registering as anything at all.",

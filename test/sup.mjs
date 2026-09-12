@@ -48,6 +48,33 @@ for (const [l, e, g] of cf) console.log(`  ${l}
     want ${e}  got ${g}`);
 
 const CASES = [
+  // --- per-category, v0.65.2 ------------------------------------------------------------------
+  // Clothing and bondage each get their own pair, the way touch always has. The clothing
+  // phrasings name the CHANGE — being undressed, clothes changing — because "you will not
+  // notice your clothing" is the ILLUSION's line and is pinned to it below.
+  ["Missy, you will not notice being undressed.","clothing-awareness-block"],
+  ["Missy, you won't notice when you are dressed.","clothing-awareness-block"],
+  ["Missy, you will not notice changes to your clothes.","clothing-awareness-block"],
+  ["Missy, you do not notice me undressing you.","clothing-awareness-block"],
+  ["Missy, changes to your outfit go unnoticed.","clothing-awareness-block"],
+  ["Missy, clothing changes go unnoticed.","clothing-awareness-block"],
+  ["Missy, you notice being undressed again.","clothing-awareness-release"],
+  ["Missy, you notice changes to your clothes again.","clothing-awareness-release"],
+  ["Missy, clothing changes register again.","clothing-awareness-release"],
+  ["Missy, you will not notice the ropes.","bondage-awareness-block"],
+  ["Missy, you won't notice any restraints.","bondage-awareness-block"],
+  ["Missy, you do not notice being tied.","bondage-awareness-block"],
+  ["Missy, you cannot notice being restrained.","bondage-awareness-block"],
+  ["Missy, you notice the ropes again.","bondage-awareness-release"],
+  ["Missy, you feel being bound again.","bondage-awareness-release"],
+  // PINNED: these are the illusion's, not awareness's. "Notice" reads as perception when the
+  // object is the clothes themselves, and the illusion is listed earlier so it wins. This is
+  // the line DW said at Drifting on 2026-09-12 — it was refused for depth by the ILLUSION,
+  // which is the correct routing. Do not move it to clothing-awareness-block.
+  ["Missy, you will not notice your clothing.","illusion-block"],
+  ["Missy, you do not notice what you are wearing.","illusion-block"],
+  ["Missy, you notice your clothes again.","illusion-release"],
+  // --- the broad line, unchanged ----------------------------------------------------------------
   ["Missy, you notice nothing that happens to you.","awareness-block"],
   ["Missy, you notice nothing.","awareness-block"],
   ["Missy, you will not notice.","awareness-block"],

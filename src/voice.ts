@@ -221,6 +221,36 @@ function depthReason(suggestion: Suggestion, features: FeatureToggles): string |
 	return depthRefusal(keys[0]);
 }
 
+/** Which of a multi-permission suggestion's categories will actually take, and why each of
+ * the rest will not. One helper, used both by the broad line's run() and by the report the
+ * hypnotist gets afterwards, so the two cannot drift apart.
+ *
+ * Checks DEPTH per category as well as permission. depthReason() above passes the line if
+ * ANY permitted category is deep enough — correctly, because refusing the whole line would
+ * refuse something that would have done something — but run() then applied every permitted
+ * category whatever its own tier said. With the three awareness gates left at their Drifting
+ * default that was invisible; with one raised on the Depth tab it silently over-applied. */
+function reachableCategories(
+	keys: (keyof FeatureToggles)[],
+	features: FeatureToggles,
+): { applied: (keyof FeatureToggles)[]; skipped: { key: keyof FeatureToggles; why: string }[] } {
+	const applied: (keyof FeatureToggles)[] = [];
+	const skipped: { key: keyof FeatureToggles; why: string }[] = [];
+	for (const key of keys) {
+		if (!features[key]) skipped.push({ key, why: "not permitted" });
+		else if (!depthAllows(key)) skipped.push({ key, why: depthRefusal(key) ?? "too shallow" });
+		else applied.push(key);
+	}
+	return { applied, skipped };
+}
+
+/** How a permission key reads in a line to the hypnotist. */
+const CATEGORY_WORDS: Partial<Record<keyof FeatureToggles, string>> = {
+	suppressClothing: "clothing",
+	suppressBondage: "bondage",
+	suppressActivities: "touches",
+};
+
 function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
 	const keys = Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission];
 	return keys.some((k) => features[k]);
@@ -512,6 +542,73 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		run: () => applyUndress(1),
 	},
+	// PER-CATEGORY awareness, and they sit BEFORE the broad pair below because the broad
+	// block's /you (do not|will not) notice/ has no right-hand anchor and would take "you will
+	// not notice your clothing" first — which is exactly what happened in play: the line
+	// meant for clothing took every permitted category and reported the broad thing. Touch
+	// already had its own pair (touch-block / touch-release, further down); clothing and
+	// bondage did not, so the only way to reach either alone was to have unticked the others.
+	//
+	// Releases before blocks, as everywhere: "you notice your clothes again" contains
+	// "notice your clothes".
+	//
+	// AND THE CLOTHING PAIR MUST NOT SOUND LIKE THE ILLUSION. "You will not notice your
+	// clothing" is an illusion-block pattern — listed above, on purpose, because "notice" there
+	// reads as perception and the more specific feature wins. That is the line DW said in play
+	// at Drifting, and it was refused for depth by the illusion, not ignored by awareness. So
+	// every phrasing here names the CHANGE or the ACT — being undressed, clothes changing —
+	// rather than the clothes themselves, and the suite pins the illusion's claim on the other
+	// wording so nobody "fixes" the collision by moving it.
+	{
+		id: "clothing-awareness-release",
+		examples: ["you notice being undressed again", "clothing changes register again"],
+		release: true,
+		releaseOf: "clothing-awareness-block",
+		permission: "suppressClothing",
+		patterns: [
+			/\byou notice (being|when you are) (dressed|undressed|redressed|changed) again\b/,
+			/\byou notice changes to your (clothes|clothing|outfit)( again)?\b/,
+			/\b(clothing|clothes|outfit) changes (register|reach you)( again)?\b/,
+		],
+		run: () => setSuppressed("clothing", false),
+	},
+	{
+		id: "clothing-awareness-block",
+		examples: ["you will not notice being undressed", "changes to your clothes go unnoticed"],
+		permission: "suppressClothing",
+		patterns: [
+			/\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed)\b/,
+			/\byou (do not|will not|cannot) notice changes to your (clothes|clothing|outfit)\b/,
+			/\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing) you\b/,
+			/\b(clothing|clothes|outfit) changes go unnoticed\b/,
+			/\bchanges to your (clothes|clothing|outfit) go unnoticed\b/,
+		],
+		run: () => setSuppressed("clothing", true),
+		undo: () => setSuppressed("clothing", false),
+	},
+	{
+		id: "bondage-awareness-release",
+		examples: ["you notice the ropes again"],
+		release: true,
+		releaseOf: "bondage-awareness-block",
+		permission: "suppressBondage",
+		patterns: [
+			/\byou notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs) again\b/,
+			/\byou (notice|feel) being (tied|bound|restrained) again\b/,
+		],
+		run: () => setSuppressed("bondage", false),
+	},
+	{
+		id: "bondage-awareness-block",
+		examples: ["you will not notice the ropes", "you do not notice being tied"],
+		permission: "suppressBondage",
+		patterns: [
+			/\byou (do not|will not|cannot) notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs)\b/,
+			/\byou (do not|will not|cannot) notice being (tied|bound|restrained)\b/,
+		],
+		run: () => setSuppressed("bondage", true),
+		undo: () => setSuppressed("bondage", false),
+	},
 	{
 		// The broad one: clothing, bondage and touch together. Each category is still
 		// applied only if separately permitted — saying it doesn't override a box the
@@ -559,11 +656,15 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou are (unaware|oblivious)\b/,
 		],
 		run: () => {
-			// Per-category permission check, not the any-of gate above.
-			const f = getFeatures();
-			if (f.suppressClothing) setSuppressed("clothing", true);
-			if (f.suppressBondage) setSuppressed("bondage", true);
-			if (f.suppressActivities) setSuppressed("activity", true);
+			// Per-category permission AND depth, not the any-of gate above — see
+			// reachableCategories for why depth is checked here a second time.
+			const { applied } = reachableCategories(
+				["suppressClothing", "suppressBondage", "suppressActivities"],
+				getFeatures(),
+			);
+			if (applied.includes("suppressClothing")) setSuppressed("clothing", true);
+			if (applied.includes("suppressBondage")) setSuppressed("bondage", true);
+			if (applied.includes("suppressActivities")) setSuppressed("activity", true);
 		},
 	},
 	// The touch pair and the numbness pair below say different things and were one entry
@@ -1513,6 +1614,22 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// is why it returns a key rather than a boolean.
 	const outcome = suggestion.run() || id;
 	if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
+	// A PARTIAL SUCCESS IS ITS OWN OUTCOME TOO. The broad awareness line applies whichever of
+	// its three categories are permitted and deep enough, and used to say nothing about the
+	// rest — so a hypnotist who said "you will not notice" with only touches ticked was told
+	// nothing, and read the clothing change she then noticed as a bug. Rule 5: the hypnotist
+	// learns what took and what did not, in the same words a refusal would have used.
+	if (Array.isArray(suggestion.permission) && !suggestion.release) {
+		const { applied, skipped } = reachableCategories(suggestion.permission, features);
+		if (skipped.length && applied.length) {
+			const word = (k: keyof FeatureToggles) => CATEGORY_WORDS[k] ?? k;
+			tellHypnotist(
+				sender,
+				`[suggestion] "${id}" took for ${applied.map(word).join(", ")}; ` +
+					`not ${skipped.map((s) => `${word(s.key)} (${s.why})`).join(", ")}.`,
+			);
+		}
+	}
 	announce(outcome);
 	// Tracked AFTER it runs, so "that will stay with you" has something to point at. A
 	// release both un-tracks the restriction and lets go of it if it was being carried.
