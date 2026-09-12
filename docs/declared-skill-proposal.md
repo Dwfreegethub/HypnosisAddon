@@ -29,7 +29,7 @@ that will also be hard to play.
 
 **What resisted, from the 2026-09-10 pass.** Three things, and only one of them worries me:
 
-- **The practice cap** (§5) has no second party at the moment it fires. He attempts, nothing is
+- **The skill plateau** (§5) has no second party at the moment it fires. He attempts, nothing is
   credited, he is told privately. Nothing reaches her at all — it is a rule about his own
   bookkeeping. Told as cause and effect it has to reach forward in time: *he grinds today so that a
   stranger's client believes him next week.* That works, but it is the one mechanic here whose
@@ -55,7 +55,7 @@ play first, then name the actual file, function, constant or setting it lives in
 > consumed in `inductionChance()`, `src/session.ts`)."
 
 **A note on names that do not exist yet.** Where this document names something unbuilt —
-`skillHonour`, the practice cap, the AFK flag — the anchor is *where it would go*, not where it is.
+`skillHonour`, the skill plateau, the AFK flag — the anchor is *where it would go*, not where it is.
 Those are marked **proposed** at first use. There is no `induction.ts` in this repo; the induction
 roll lives in `src/session.ts`.
 
@@ -227,7 +227,7 @@ rather than deciding it, since §3's wording is parked.
   anywhere in `DEPTH_GATES`.
 - **No table in §4 needs recomputing.** Every worked example there is rung 4 at full weight (skill
   80 → +28, floor 25). The rung 3 cap does not appear in any of them.
-- **Nothing else reads the number.** The practice cap, the AFK backstop, trust, decay and
+- **Nothing else reads the number.** The skill plateau, the AFK backstop, trust, decay and
   reinforcement are all untouched. `/hypno chance` would display it, which is cosmetic.
 
 ### The cap is 30 — SETTLED, DW 2026-09-09
@@ -577,7 +577,7 @@ So a first-attempt success is worth 1.25 and three failures are worth 0.75 — t
 subject side has already been played against. Through `100n/(n+25)`: ~25 successes ≈ skill 55,
 ~80 successes ≈ skill 80 ("expert"). Reuses `curve.ts` untouched.
 
-### Rate limit — DW, settled in principle; numbers proposed
+### The skill plateau (rate limit) — DW, settled in principle; numbers proposed
 
 **The problem, played out.** He wants to be able to walk into a room and have strangers' clients
 believe he is an expert. So he asks a cooperative friend to sit still for an hour and he attempts an
@@ -604,7 +604,7 @@ grinding **across many subjects or rooms**, which nothing currently touches.
 **⚠ Naming — do not call this fatigue.** Design.md already has a *Dual Fatigue System*, and it is a
 different mechanic in every dimension:
 
-| | This cap | Design.md's dual fatigue |
+| | The skill plateau | Design.md's dual fatigue |
 |---|---|---|
 | Affects | The skill **stat's growth rate** | The **roll**, directly |
 | Scope | Across sessions, rolling hour | Within a session |
@@ -614,14 +614,10 @@ different mechanic in every dimension:
 
 Calling both "fatigue" will get them conflated in exactly the way this document exists to prevent.
 
-**Name shortlist, DW to pick:**
-
-| Name | Note |
-|---|---|
-| **Skill plateau** | My pick. In-fiction and mechanical at once, and *plateau* says the right thing: you have not lost anything, you have stopped gaining |
-| **Practice cap** | Plainest. Reads as a developer term rather than a game one |
-| **Diminishing returns** | Accurate, and already a familiar idea to players. Slightly misleading — the gain does not diminish, it stops |
-| **Learning cap** | Ties to what the stat measures rather than to the act |
+**✅ NAMED, DW 2026-09-11: the skill plateau.** In-fiction and mechanical at once, and *plateau*
+says the true thing — you have not lost anything, you have stopped gaining. Use this name in code,
+docs, settings and `/hypno skill` output. Rejected: *practice cap* (developer term), *diminishing
+returns* (the gain does not diminish, it stops), *learning cap*.
 
 The in-fiction message should avoid fatigue words too —
 something like *"You have been at this a while; nothing new is sinking in just now"* rather than
@@ -656,7 +652,7 @@ trust and experience.
 
 **Proposal:**
 
-- `/hypno skill` — the hypnotist's own claimed value, the count behind it, and what the practice cap
+- `/hypno skill` — the hypnotist's own claimed value, the count behind it, and what the skill plateau
   is currently doing. Nobody else's, ever.
 - `/hypno chance` already exposes the subject's own trust and experience mid-attempt; that stays.
 - **The existing Stats tab moves behind an Advanced / Detailed stats button — DW, settled.** It is
@@ -1169,6 +1165,12 @@ changes is how long things last.
 and go and do something else — talk to someone, deal with another subject, simply not come back for
 a while — and she is still under when he returns. The trance outlasts the conversation that made it,
 which is a good part of the appeal. **Proposed magnitude: 60–90 minutes, not unlimited.**
+
+> **⚠ This assumes the cap stays a fixed number, and that assumption is now in question.** DW
+> sketched a direction on 2026-09-11 where session length is driven by **depth and cooperation**
+> rather than a constant — see design.md, *Session Flow > Ending a Session > Direction, not a
+> decision*. A dynamic cap may already produce longer sessions without extreme setting one, so
+> **revisit this figure before building it.** Direction only; nothing is decided.
 The timeout is one of the three exits I argued must stay unconditional, and an infinite session
 deletes it.
 
@@ -1332,7 +1334,7 @@ Recorded so nothing gets re-litigated: the **"declared and visible"** model itse
 labelled "Skill can beat my resistance"** · **default is rung 2, stored sparsely** · **rung 3 caps
 the honoured value at 30**, matching `STRANGER_CEILING` · fresh installs may select rung 4 · skill
 counts toward `depthFull` only, never `depthEarned` · skill is derived from the hypnotist's own
-induction count, transmitted as a 0–100 value, never as a bonus · the practice cap is earning-only
+induction count, transmitted as a 0–100 value, never as a bonus · the **skill plateau** is earning-only
 and non-blocking · **dual fatigue ships before rung 4**; rungs 1–3 may ship first · the hypnotist is
 never told whether their claim was honoured · AFK has two paths, blocks the attempt outright, and is
 a player setting defaulting to block-everything · AFK does not release what is already holding you ·
@@ -1443,12 +1445,11 @@ never evaluative, three bands. Only the wording is left.*
 *Remaining recommendation:* keep every line a sentence about what she notices in **herself** — no
 line may make a claim about his history or experience, or the A3a reasoning breaks.
 
-**B2. How fast should a hypnotist stop getting better at this?**
-The ceiling exists so nobody grinds reputation by throwing attempts at a friend. What it is *called*
-is the open part — anything with "fatigue" in it will fuse with the unbuilt dual-fatigue system.
-*Technical:* shortlist of four in §5. The counters it caps are `ATTEMPT_EXPERIENCE` / `INDUCTION_EXPERIENCE` in `src/trust.ts`, mirrored for the hypnotist side.
-*Recommendation:* **"skill plateau"**, but this is close to a coin toss and not worth much time. It
-says the true thing — you have not lost anything, you have stopped gaining.
+**B2. How fast should a hypnotist stop getting better at this? — ✅ CLOSED 2026-09-11.**
+Named **the skill plateau**. Numbers were already settled; only the name was open.
+*Technical:* §5. The counters it caps are `ATTEMPT_EXPERIENCE` / `INDUCTION_EXPERIENCE` in
+`src/trust.ts`, mirrored for the hypnotist side. Use "skill plateau" in code, settings and
+`/hypno skill` output; never "fatigue", which belongs to the unbuilt dual-fatigue system.
 
 ### C. Extreme mode — parked, answer whenever
 

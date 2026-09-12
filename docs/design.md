@@ -8,7 +8,7 @@ the short player-facing list of what exists.
 
 > **⚠ Unmerged design work lives in [`declared-skill-proposal.md`](declared-skill-proposal.md).**
 > It carries the settled answer to *hypnotist skill in the induction roll* (the "declared and
-> visible" model), the AFK backstop, the practice cap, the starter set, and the early notes on
+> visible" model), the AFK backstop, the skill plateau, the starter set, and the early notes on
 > **extreme mode**. Many decisions in it are settled as of 2026-09-09 and not yet reflected
 > anywhere in this file. It is being reviewed section by section with DW and folded in here as
 > each section is agreed — sections 1, 2 and 3 have been walked; 4 onward have not.
@@ -943,6 +943,47 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
 - **Timeout:** subject sets a maximum session duration; add-on automatically wakes them when it expires
 - On wake: feature buttons lock again, active suggestions that aren't persistent fade, triggers remain
 
+**What is actually built today:** a fixed `SESSION_TIMEOUT_MS = 30 * 60_000` (`src/session.ts`),
+armed at the three points a trance begins and never reset by anything in play. Not a player setting.
+The line above describing a subject-set duration is design, not code.
+
+#### ⏸ DIRECTION, NOT A DECISION — replacing the fixed cap (DW, 2026-09-11)
+
+> **DW is explicitly not ready to work out details. Do not spec this, do not build it, do not treat
+> anything below as settled.** It is recorded so the direction is not lost.
+
+The shape he described, in his words rather than expanded:
+
+- Session length should be **driven by depth and cooperation**, not a flat constant.
+- A **player setting for a top limit**.
+- Or possibly an **"ask limit"**: when the time is reached she is asked whether it should continue —
+  **no, or no answer, and the trance lifts.**
+- Separately: **some way for her to change whether she is going with it or fighting it during a
+  session.** Unsure whether that is a periodic prompt or a menu option.
+
+**Two connections to decisions already made — noted as connections, not as proposals:**
+
+1. *"No answer and it lifts"* is the **same safe-default principle already chosen twice**: the
+   extreme-mode safeword releases on the timer with cancel-if-you-are-fine, and the AFK backstop
+   treats an unanswered prompt as absent. Three independent arrivals at the same rule is worth
+   noticing. The machinery also exists — `PROMPT_TIMEOUT_MS` and the induction prompt path
+   (`showPrompt()`, `src/prompt.ts`) already do timed ask-and-default.
+2. *"Going with it or fighting it"* mid-session is **ongoing consent expressed in fiction**, and it
+   sits adjacent to the existing Agree / Ignore / Fight vocabulary — which today happens exactly
+   once, at induction. Whether it becomes a second use of that same vocabulary is the interesting
+   question. **Deliberately not answered here.**
+
+**What a change would touch, factually:**
+
+- The **three arm sites** in `src/session.ts` — the induction roll, `forceTrance()`, and the recovery
+  restore.
+- The **recovery path's `sessionEndsAt` maths** (`src/session.ts`, `restoreSavedSession`), which
+  currently restores *remaining* time against a fixed deadline. A dynamic length changes what
+  "remaining" means across a reload.
+- **⚠ Dependency to not miss:** the extreme-mode session-length decision assumes a **fixed 60–90
+  minute number**. If length becomes dynamic, **that decision needs revisiting** — a cap driven by
+  depth and cooperation may already produce longer sessions without extreme setting one.
+
 ### Starting a Session (summary)
 - "Attempt Hypnosis" button in the existing remote-control panel (the Information Sheet icon)
 - Feature buttons (movement restriction, clothing, etc.) are **locked** until a session is successfully established — they do nothing outside an active session
@@ -1239,15 +1280,245 @@ as the verbal path does, and `remember trigger` commits.
   people naturally check something worked.
 - **Someone else touches during the window:** ignored. Only `recording.hypnotistId` can define it.
 
-**Scope — and a real architectural snag.** `getTriggerScope()` is a **single global subject setting**
-(`src/triggers.ts`, `TRIGGER_SCOPES`), not per-trigger. So "whenever anyone does this" is the
-hypnotist asking for something *she* owns. Two ways out, and this needs DW:
+**Scope — ✅ DECIDED 2026-09-11: per-trigger scope, her global setting as a live ceiling.**
 
-1. **Treat his phrasing as a request her setting answers.** "Whenever anyone" only works if her
-   global scope already permits others; otherwise it silently plants as installer-only. Zero new
-   storage, and subject-authority is untouched.
-2. **Add per-trigger scope, capped by her global setting.** More expressive, more storage, and the
-   cap is what keeps it honest.
+`getTriggerScope()` is a single global subject setting (`src/triggers.ts`, `TRIGGER_SCOPES`). "Whenever
+anyone does this" is the hypnotist asking for something *she* owns, so the trigger stores what he
+**asked for** and operates within what she **currently allows**.
+
+```
+requested   = stored on the Trigger, whatever he asked for
+ceiling     = getTriggerScope(), read live
+effective   = narrower of (requested, ceiling)     ← evaluated AT FIRE TIME
+```
+
+Three consequences, all deliberate:
+
+- **He may ask for more than she allows.** The trigger is stored as asked and simply operates
+  narrower. No refusal, no negotiation — and nothing leaks to him about her setting.
+- **Evaluated at fire time, not plant time.** If she narrows her scope later, every existing trigger
+  narrows with it immediately. That is the whole point of a live ceiling.
+- **The widening direction follows necessarily — see the warning below.**
+
+**How it lands in `speakerAllowedByScope()`.** Today it reads the global directly
+(`const scope = getTriggerScope()`). It becomes a function of an explicit scope — the effective one
+— and the two call sites, `triggersFiredBy()` and `triggersReleasableBy()`, compute effective per
+trigger rather than once per line. Both already filter per-trigger (`t.installedBy === speaker ||
+allowedByScope`), so the shape barely changes; what moves is that the scope is resolved inside the
+filter instead of above it.
+
+**The ordering needed for "narrower of" already exists.** `TRIGGER_SCOPES` is declared
+**tightest-first**, with a comment saying so, so array index *is* the rank and `min` is the lower
+index. **Verified by tracing `speakerAllowedByScope()`: the ladder is monotonic** — for any fixed
+speaker, moving up the array can only turn a `false` into a `true`, never back. Checked against the
+awkward cases: a blacklisted non-owner stays refused until `everyone` (whose check precedes the
+blacklist test), a blacklisted owner is allowed at every rung (the owner test is first), and a
+lover-but-not-whitelisted is allowed from `lovers` upward. So a simple index comparison is sound and
+needs no special cases.
+
+> **⚠ Correction to the roadmap.** CLAUDE.md and the Todo list both describe `owner`, `lovers` and
+> `whitelist` as *"stubs that return false"*. **They are not stubs.** Those `return false` lines are
+> the ladder's terminating cases — "scope is owner and this speaker is not the owner" — and the real
+> relationship tests are implemented above them using BC's own helpers (`IsOwnedByCharacter`,
+> `IsLoverOfCharacter`, `HasOnWhitelist`, `HasOnBlacklist`, `ReputationCharacterGet`). The wider
+> scopes work today. The roadmap item is mis-described and should be corrected or removed.
+
+#### Rule: a trigger nobody could ever fire is not planted — DW, 2026-09-11
+
+**If the effective scope resolves to nobody at all, the plant is refused rather than stored.** A
+trigger that can never fire is not a trigger; it is a dead row that will confuse the list, the decay
+sweep and whoever reads it later.
+
+**Is that state reachable today? No — and the reason is not the ladder.** Checked in code:
+`triggersFiredBy()` and `triggersReleasableBy()` both filter with
+`t.installedBy === speaker || allowedByScope`, and **the installer short-circuit runs first**. So the
+installer fires their own trigger at every rung, including `hypnotist`, where
+`speakerAllowedByScope()` returns `false` immediately for everyone.
+
+That nuance matters for whoever implements this: **the installer's membership is not a property of
+the scope ladder at all** — it lives in the callers, outside the scope system. An emptiness check
+written against the scope alone would conclude that `hypnotist` scope permits nobody, which is
+wrong. The question is *scope ∪ installer*, not *scope*.
+
+**So the rule is correct to define now and unreachable until exclusive scopes exist.** Recording it
+as forward-looking rather than dead code.
+
+> **One case that is NOT emptiness, to avoid confusion later:** a trigger whose installer has left
+> and never returns cannot fire in practice. That is *"the permitted person is absent"*, not *"nobody
+> is permitted"*. The scope still names someone. Do not conflate them — the first must never delete
+> a trigger.
+
+**Where it refuses.** At `beginRecording()` (`src/triggers.ts`), alongside the existing
+`hypnoEnabled`, `triggerControl`, depth and `MIN_PHRASE_LENGTH` refusals — **not at commit.** The
+requested scope is known from the planting line that opens recording, so refusing at parse time
+means he is told before he narrates a suggestion into something that was never going to be saved.
+
+**He sees** a plain reason, matching the existing `refuse()` shape in that function:
+`[trigger] Refused — nobody would ever be able to fire that.`
+**She sees nothing**, per convention — a refused plant is a setup problem, not a scene beat.
+
+> **⚠ Small existing bug this touches.** `beginRecording()`'s `refuse()` returns `""`, and
+> `handleTriggerControl()` (`src/voice.ts`) passes that return straight to `tellPlayer()`, which has
+> no empty guard (`src/notify.ts`) — so it renders a bare `[]` to the subject. **Every existing plant
+> refusal already does this.** Worth fixing when this rule is added, since it adds another path to it.
+
+#### Rule: a trigger whose actions are all disallowed is not set — ✅ ALREADY TRUE, 2026-09-11
+
+**DW suspected this might already exist. It does, in full** — not as an explicit rule but as a
+consequence of two independent behaviours composing. Traced rather than assumed:
+
+1. **Disallowed suggestions are refused at narration, before recording.** In `handleSpokenLine()`
+   (`src/voice.ts`), `blockedReason(suggestion, sender, features)` runs **and returns early** — with
+   `[suggestion] Refused — "<id>" <reason>.` to the hypnotist — *above* the `recordAction(id)` call.
+   A suggestion she has disabled, or that sits above her depth, **never enters `recording.actions`.**
+2. **Commit refuses zero actions.** `commitRecording()` (`src/triggers.ts`) answers an empty action
+   list with `[trigger] Nothing was recorded for "<phrase>", so nothing was saved.` to him and
+   *"Whatever it was, it comes to nothing."* to her, and stores nothing.
+
+So a trigger whose every requested action is disallowed: each narration is refused, nothing is
+recorded, and commit declines to save. **Refused at narration, and again at commit. Not
+saved-but-inert.** Answering DW's three-way question directly: the first two states exist, the third
+does not.
+
+**The nuance DW raised, and it cuts the other way from what he expected.**
+
+Actions are handled **hybrid**: a plant-time *filter* plus a fire-time *check*. `fireTrigger()`
+re-checks each stored action's permission at firing — its own comment says *"Each one re-checks its
+own permission NOW, not when the trigger was planted — revoking a permission has to disarm that part
+of every trigger."* So an action allowed at planting and disabled later is stored and skipped, which
+is the live behaviour. But an action disabled **at** planting is never stored at all.
+
+**That is the plant-time side of the line DW asked about — the opposite of the live ceiling he just
+chose for scope.** She could re-enable that permission tomorrow, and the action would still be
+missing, because it was never written down.
+
+**Recommendation: leave it, and record the asymmetry as deliberate rather than forcing consistency.**
+The two cases differ in one way that justifies it:
+
+| | Scope | Actions |
+|---|---|---|
+| Stored as asked? | **Yes** — refusing would leak her setting to him | **No** |
+| Why the difference | He must learn nothing about her scope | **He has already been told.** `blockedReason` deliberately reports the refusal to him, a decision recorded in its own comment as worth the disclosure |
+
+Since he was told the action was refused, storing it anyway would save something he was just
+informed did not take — worse than refusing. The leak argument that drives the scope decision simply
+does not apply here.
+
+**Flagged as a place the two could be made consistent later** if that reasoning ever stops holding —
+but they should differ *knowingly*, which is what this note is for.
+
+#### ⚠ FORWARD FLAG — exclusive scopes break the model, not just extend it
+
+**DW is thinking about scopes like "only when a stranger says this."** Presumably why he raised the
+empty-scope rule in the same breath — see below.
+
+**The current model is a ladder, and everything above depends on that.** Each rung is a superset of
+the one below, which is what makes *"narrower of"* an index comparison, what makes the monotonicity
+trace valid, and what makes `TRIGGER_SCOPES` meaningfully *ordered* rather than merely listed.
+
+**A stranger-only scope is exclusive, not cumulative.** It is neither a superset nor a subset of
+installer-only — it is **disjoint** from it. The moment one exists:
+
+- **The index comparison stops being defined.** There is no "narrower of" two sets that do not nest.
+- **The monotonicity property is gone**, and with it the argument that a rank comparison is safe.
+- **`TRIGGER_SCOPES` stops being an ordering** and becomes a list of predicates.
+
+**The general form it would have to become:** each trigger carries a **predicate set** of who may
+fire it; her ceiling is also a set; effective is their **intersection**. Rank arithmetic is replaced
+by set operations. Not designed here — flagged so that **whoever adds the first exclusive scope knows
+they are changing the model, not adding a rung.**
+
+**And this is exactly where the empty-scope rule earns its keep.** Intersection can produce the empty
+set; a ladder cannot. DW's rule is the safety valve that model requires, defined before the model
+that needs it — which is the right order to do it in.
+
+**Worth saying: stranger-only is a genuinely good mechanic**, not a hypothetical to be tolerated. A
+word that only works on someone who does not know you is a different and sharper thing than a word
+your hypnotist owns. Not designing it here; recording that it is worth the model change when it
+comes.
+
+#### ✅ The widening case — DECIDED 2026-09-11: tell her, with a count
+
+**This closes the scope decision entirely. Nothing on per-trigger scope is now pending.**
+
+When she changes the trigger-scope control and the new value would **widen** existing triggers, she
+is told **before confirming**, with a count.
+
+**Where it hooks.** The scope control on the **Triggers tab** (`src/menu.ts`; the dropdown is built
+with `ElementCreateDropdown`, and the scope setter is `setTriggerScope()` in `src/storage.ts`). The
+check runs in the control's change handler, *between* the new value being chosen and being written —
+so it is a confirm step, not a notification after the fact.
+
+**What counts as "would widen".** A trigger widens when its **requested** scope is wider than the
+**current** ceiling and at least as wide as the **new** one. In ladder terms, using the index rank
+established above:
+
+```
+widened = requested > currentCeiling  AND  newCeiling > currentCeiling
+count   = triggers where rank(min(requested, newCeiling)) > rank(min(requested, currentCeiling))
+```
+
+The second form is the one to implement: it asks directly whether the *effective* scope changes,
+which stays correct if the ladder is ever reordered, and it naturally excludes triggers that were
+already at or above the new value.
+
+**Draft string, on the confirm:**
+
+> *"Raising this to 'Hypnotist and everyone' will widen 3 triggers that were planted asking for more
+> than you allowed at the time. They will become fireable by anyone. Continue?"*
+
+The clause *"planted asking for more than you allowed at the time"* is doing real work — it explains
+**why** triggers she may not remember are about to change, which is the whole reason this message
+exists.
+
+**Zero count is silent.** No confirm, no message; the setting changes as it always did. A dialog
+that appears only to say nothing happened trains people to dismiss it unread.
+
+**The narrowing direction — worked through, and the answer is no.**
+
+Symmetry argues for it and the message is the reassuring one, so it looked right. Three reasons it is
+not:
+
+1. **She already knows.** Narrowing is the thing she just deliberately did, and the outcome is
+   exactly what the control promises. A message confirming that the setting did what it says is
+   noise by definition.
+2. **There is nothing to confirm.** The widening message exists because it changes something she did
+   not choose and may not remember. Narrowing changes only what she is choosing right now.
+3. **It would dilute the widening message.** If the control speaks every time, the one time it
+   matters stops standing out. The asymmetry *is* the signal: **this control is normally quiet, so
+   when it speaks, read it.**
+
+**If reassurance is wanted, the Triggers tab already has the honest place for it** — the trigger
+list, where narrowing is visible as triggers plainly showing a narrower effective scope. That is a
+state she can look at, rather than a dialog she has to dismiss.
+
+The mechanism is decided and is not being reopened. This is a consequence of it that should be seen
+before it is met in play.
+
+**Narrowing is unambiguously good.** She lowers her scope; every trigger tightens at once; that is
+exactly why the ceiling is live.
+
+**Widening is the same mechanism running the other way.** He plants a trigger asking for *anyone*
+while she is set to installer-only. It operates as installer-only — correct. Months later she raises
+her scope to *anyone* for a completely unrelated reason. **That old trigger silently becomes wide,
+with nobody re-consenting to it, possibly long after she has forgotten it exists.**
+
+Three ways to handle it:
+
+| | Behaviour | Cost |
+|---|---|---|
+| **A. Accept as-is** | The ceiling is live in both directions, full stop | Silent consequence she cannot see — uneasy against rule #5 |
+| **B. Plant-time cap** | Store the *effective* scope at plant time as a second, permanent cap; a trigger can never exceed what was permitted when planted | Defeats the live ceiling in the widening direction, and adds a stored number she cannot later reason about ("why is this one narrower than my setting?") |
+| **C. Tell her, with a count** | When raising her scope would widen existing triggers, say so before she confirms: *"This will widen 3 existing triggers."* | One count at one moment |
+
+**Recommendation: C.** It preserves exactly what was chosen — a live ceiling working both ways — and
+adds visibility only at the moment it matters. The moment is well chosen: she is already in
+settings, already making a deliberate choice, so a line naming the consequence is actionable rather
+than noise. **A** leaves a real consequence invisible; **B** quietly replaces the decision with a
+different one.
+
+Note C needs no new storage and no change to the firing path — it is a read over `listTriggers()` at
+the moment the Triggers-tab scope control changes.
 
 **Firing and counting.** Each qualifying activity checks the actor against `speakerAllowedByScope()`
 exactly as words do, then increments a counter **keyed per actor** — so two people booping her once
@@ -1273,6 +1544,256 @@ fires.
 > unremarkable touch while any trigger is armed, at a low rate. She feels the atmosphere constantly;
 > it stops being a reliable signal that she is two-thirds of the way into something. Costs one
 > setting and some noise.
+
+### Commanded activities — PROPOSED 2026-09-11
+
+**Distinct from activity-fired triggers.** That feature *listens* for a touch; this one *performs*
+one. He says *"Missy, kiss your breast"* while she is under, and her client runs the real BC
+activity — so arousal, the activity message, and every normal game consequence happen through the
+game rather than being simulated.
+
+**⚠ `selftouch.ts` is not 80% of this. It is 0% of the calling half.** It **hooks** `ActivityRun`
+to *refuse* activities (`installSelfTouch()`, returning `undefined` instead of calling `next`). The
+add-on has never *invoked* `ActivityRun` — `grep` finds no call site anywhere in `src/`. What
+selftouch does give us is the confirmed signature, destructured in shipping code:
+`ActivityRun(actor, acted, targetGroup, activity)`.
+
+**Parsing.** A new command family beside the ~25 entries in `voice.ts`, of the shape
+`<verb> (your|my) <bodyword>`. The possessive is the target selector: *your* → `acted = Player`,
+*my* → `acted` = the hypnotist's character from `ChatRoomCharacter`. Reuses the existing name gate
+and `isSelfReferential()` guard.
+
+**The body-word table already exists and already covers this.** `BODY_PARTS` in `src/selftouch.ts`
+is 42 words → 17 BC groups, and **all 17 appear in the observed activity matrix** — full coverage,
+nothing to extend. `ActivityGetGroupOrMirror()` resolves the mirror as it does for blocks.
+
+**Verb → activity name is mostly identity.** Observed vanilla names are the capitalised verb: `Kiss`,
+`Lick`, `Caress`, `Rub`, `Spank`, `Grope`, `Pet`, `Nibble`, `Bite`, `Tickle`, `Pinch`, `Slap`,
+`Suck`, `Scratch`, `Kick`, `Cuddle`, `Nod`, `Wiggle`. So the table is a **small alias list** for the
+compounds (`massage`→`MassageHands`, `french kiss`→`FrenchKiss`, plus the `*Item` variants), not a
+306-row mapping.
+
+**Gating — proposed, reasoning from the existing ladder:**
+
+| | Tier | Why |
+|---|---|---|
+| `commandedActivitySelf` | **Entranced (40)** | Her body performing a visible act with arousal consequences — the same weight as `undressControl` |
+| `commandedActivityOther` | **Deep (60)** | It reaches a third party who never joined this session |
+
+Neither is `earnedOnly` — that is reserved for things that outlive the session or lie to her about
+her own state, and this does neither.
+
+**⚠ Subject-authority: the collision is on HIS side, not hers.** Her client deciding to run an
+activity is exactly right. But the activity lands on *him*, and calling `ActivityRun` directly may
+bypass whatever permission checks BC's own activity dialog performs before offering the action.
+**Unverified and must be checked against `Activity.js` before any code is written.** If `ActivityRun`
+does not itself validate, the add-on must replicate BC's check rather than skip it — commanding her
+is consented; touching him without his settings being consulted is not.
+
+**Failure modes**, following the existing asymmetry (he gets plain reasons, she gets atmosphere):
+
+| Case | Her | Him |
+|---|---|---|
+| Verb unknown | nothing — the line simply does not match | nothing |
+| Activity not valid on that group now | *"Your hand stops short, and you are not sure why."* | `[activity] Refused — not available on that part right now.` |
+| She is frozen / restrained | existing `selftouch-frozen` flavour | `[activity] Refused — they cannot move.` |
+| He is not in the room | *"There is no one there."* | not delivered |
+| Permission or depth short | silent | `[activity] Refused — <depth reason>` |
+
+**Blocked on `Activity.js`? Partly.** Buildable now: parsing, target selection, group resolution,
+gating, and the common verbs. Needs the real source: the entry-point question below, and the full
+verb vocabulary — the observed matrix is a floor, not the set. The picker-UI conclusion is
+unchanged: a *spoken* command needs only the verbs people say, and the observed data covers those.
+
+#### ⚠ THE RESEARCH QUESTION — partly answered; call BC's checks, never copy them
+
+**DW's architectural call, 2026-09-11, and it reframes the safety problem correctly.** The add-on
+must not replicate BC's permission logic. It must call **the layer BC's own activity dialog relies
+on**, so that everything BC would refuse — for any reason, present or future — is refused for us
+too, by BC, without us needing to know why.
+
+**What we know from shipping code rather than memory:** `ActivityRun(actor, acted, targetGroup,
+activity)` is what `installSelfTouch()` hooks, and a hook that refuses **by not calling `next`**
+proves `ActivityRun` sits in a chain with callers above it.
+
+**The remaining question is now narrower** — see the answer below for what closed. Two things left:
+
+1. **Is the prerequisite layer the complete gate?** Ownership, blacklists and item-level
+   `AllowActivity` may be checked somewhere else entirely. `ActivityCheckPrerequisite` is proven to
+   be *a* gate; nothing proves it is the *only* one.
+2. **What entry point does the dialog itself use?** `grep -n "ActivityRun(" Scripts/*.js` — every
+   call site is a candidate, and the one reached from the dialog's click handler is the layer that
+   already composes all the checks. Related: does `ActivityRun` validate anything itself, or is it
+   purely the runner? **If purely the runner, calling it directly is a bypass and must not ship.**
+
+**What to record when answered:** the function name, its signature, whether it returns a
+success/failure the caller can read, and whether it emits its own refusal message (which would
+change the failure-mode table above).
+
+#### ✅ PARTLY ANSWERED 2026-09-11 — without the client source
+
+> **Provenance, stated plainly so nobody later thinks otherwise.** The findings below were obtained
+> by *reading* LSCG's `src/Modules/activities.ts` in its public GitHub repository, to learn **which
+> BC functions exist and what their arguments are**. No LSCG code has been copied, adapted,
+> transcribed or paraphrased into this project, and none will be — rule #7. Everything recorded here
+> is a fact about **BC's own API**, which LSCG merely happens to call; any implementation against it
+> must be written fresh, with a comment naming where the technique was learned.
+
+**`ActivityCheckPrerequisite(prereqName, acting, acted, targetGroup)`** is a real, hookable BC
+global. LSCG hooks it at priority 100 to inject its own prerequisites — the four argument positions
+are read straight out of `args[0..3]` in that hook, so the signature is observed, not recalled.
+
+**Activities declare their prerequisites by name.** LSCG's own activity definitions carry a
+`Prerequisite: ["UseArms"]` array alongside `MaxProgress`/`Targets`. So BC's availability model is:
+*an activity lists named prerequisites; each is resolved through `ActivityCheckPrerequisite`.*
+
+**Inference, flagged as such:** that BC's dialog iterates an activity's `Prerequisite` array through
+that function to decide what to offer is strongly implied by the two facts above but was **not
+directly observed**. Confirm against `Activity.js` before relying on it.
+
+**Why this matters even so:** availability can likely be tested *without* the client source, by
+calling `ActivityCheckPrerequisite` for each name in the activity's own `Prerequisite` list. That is
+BC's own logic, not a copy of it — which satisfies the architectural requirement above.
+
+**Still open:** whether `ActivityRun` validates anything itself, and which caller the dialog uses.
+The prerequisite layer is *a* gate, not proof it is the *only* gate — ownership, blacklists and
+item-level `AllowActivity` may be checked elsewhere.
+
+**Two direct checks LSCG uses for "can she use her hands right now":** `Player.CanInteract()` and
+`Player.Effect.includes("MergedFingers")`. `CanInteract()` is already one of the four BC APIs this
+project has verified against live source.
+
+**Refusal register, worth matching rather than inventing a parallel vocabulary.** LSCG answers an
+impossible action with a **third-person emote, in fiction, not an error** — of the shape
+*"%NAME% shrugs towards %OPP_NAME% apologetically, unable to high five."*
+
+Three things about that shape are worth adopting, and each already has a rule here it agrees with:
+
+- **It stays in fiction.** Matches this project's existing asymmetry — she gets atmosphere, he gets
+  plain reasons. An impossible *act* is a scene beat; an unmet *permission* is a setup problem, and
+  only the second gets a flat refusal (the rule `beginRecording()` already follows).
+- **It names the limitation, never the setting.** *"Unable to"* — not *"their preferences forbid"*.
+  That is exactly the Bob rule: when BC refuses, the hypnotist learns it did not happen and nothing
+  about which of Bob's settings caused it. A detailed refusal turns the command into a probe.
+- **The room sees it.** It is an emote, so the failure is observable rather than a private
+  disappointment — which keeps rule #5 satisfied without anyone being told why.
+
+### Commanded activities — extended range, PROPOSED 2026-09-11
+
+**Three grammars, not one.** Yesterday's `<verb> (your|my) <bodyword>` is the narrowest case.
+
+| Form | Example | Target | Group |
+|---|---|---|---|
+| Possessive-self | *"kiss your breast"* | `Player` | named |
+| Possessive-other | *"kiss my lips"*, *"spank Bob's ass"* | hypnotist / named character | named |
+| Prepositional | *"kiss me on the lips"* | as above | named, after `on the` |
+| Bare | *"spank Bob"*, *"french kiss me"* | named character | **implied by verb** |
+
+Compound verbs (`french kiss`) are a lexer problem, not a grammar one — match the longest verb
+first, exactly as the suggestion table already orders release-before-block for overlapping wording.
+
+**Name resolution is new code.** Nothing in `src/` resolves a name to a character today:
+`mentionsAnyName()` (`src/voice.ts`) only asks whether a name is *present*, and `characterFor()`
+(`src/triggers.ts`) goes from `MemberNumber` to character, never from text. The new resolver should
+reuse the existing normalisation and word-boundary matching, and check **both `Name` and `Nickname`**
+— the same pair `playerOwnNames()` already uses, and for the same reason: the nickname is what BC
+shows other players.
+
+**No partial or fuzzy matching.** Exact, word-boundary, on either field. This command performs a real
+act on a real third party; a near-miss that resolves to the wrong person is the one failure mode with
+an unconsenting victim. **Two matches refuse rather than guess.**
+
+##### Prior art: the SlaveParking bot's resolver — what to lift, what must not cross over
+
+DW's own room bot already solves most of this. `resolveMember(token)` at
+`SlaveParking/src/parking.ts:1027`, with `splitTargetAndRest()` at :4388 and `norm()` at :4363. Read
+for technique; it is DW's own code and reusable, but **its matching rule is deliberately looser than
+this feature can accept.**
+
+**Worth lifting:**
+
+| Behaviour | Why |
+|---|---|
+| Strips a leading `@` | People type it; costs one line |
+| Accepts `#1234` or bare digits as a member number | Unambiguous by construction, and the one form that can never resolve to the wrong person |
+| **Longest-known-name-wins for names containing spaces** | `splitTargetAndRest()` greedily matches the longest known name so *"Miss V"* is not split into *"Miss"* + *"V"*, requiring the match to end at a word boundary. Non-obvious, and needed the moment someone says *"Missy, spank Miss V's ass"* |
+| **Returns `null` for ambiguous and not-found alike** | The caller cannot accidentally treat "two Bobs" as success. Copy this exactly |
+
+**Must NOT cross over: prefix matching.** `resolveMember()` collects exact and prefix matches
+separately, returns the single exact match if there is one, and otherwise falls back to a *single
+prefix match*. So `!park bo` resolves to Bob.
+
+**That is right for its problem and wrong for ours.** A room bot's worst case is that somebody gets
+parked and unparks. Here, *"Missy, kiss Bo"* performs a real intimate act on a person who was never
+named, and no apology afterwards undoes that it happened. **Exact only; refuse on ambiguity; refuse
+when there is no exact match.**
+
+**One gap to close when porting:** it matches a single field, `p.name`, from the map the bot builds
+itself. Our resolver must check **both `Name` and `Nickname`** — the same pair `playerOwnNames()`
+already uses, because the nickname is what BC shows other players and therefore what a hypnotist
+would type.
+
+**Implied body parts — the observed matrix answers this, and the answer is "only sometimes".**
+Dominant group per verb, from the logged sample:
+
+| Verb | Top group | Share | Verdict |
+|---|---|---|---|
+| `Spank` | ItemButt | 98% (n=98) | safe default |
+| `FrenchKiss` | ItemMouth | 96% (n=84) | safe default |
+| `Pet` | ItemHead | 85% (n=563) | safe default |
+| `Suck` | ItemNipples | 83% (n=24) | thin sample — treat as provisional |
+| `Pinch` | ItemNipples | 59% | **no default** |
+| `Grope` | ItemButt | 50% | **no default** |
+| `Kiss` | ItemMouth | 29% (n=267) | **no default** — genuinely spread across mouth, head, vulva |
+| `Caress`, `Lick`, `MassageHands` | — | 15–18% | **no default** |
+
+**Where that evidence comes from, and its limit.** These shares are counted from real activity
+traffic in DW's own bot logs (SlaveParking, MapGame, StripDiceBot) — extracted to
+`docs/observed-activity-matrix.json`, 306 distinct activity names across 20 groups. The logs record
+`ActivityName` and `FocusGroupName` as separate fields, so pairs were matched **by proximity within
+a ±25-line window**. High-count pairs are certainly real; single-count pairs may be two unrelated
+messages sitting near each other. **It is a lower bound with a noisy tail, not the definitive
+matrix** — which is why the threshold is drawn at a share high enough that noise cannot reach it.
+
+So the bare form is allowed **only for verbs above a confidence threshold** (proposed ≥80%). For the
+rest, the bare form does not match and he is told why — silence here would violate rule #5 while he
+stands there wondering:
+
+> `[activity] "kiss" needs a body part — try "kiss Bob's cheek".`
+
+She sees nothing, because nothing happened to her.
+
+**Where the table lives:** beside `BODY_PARTS` in `src/selftouch.ts`, which already owns the
+word→group mapping. Same file, same review surface.
+
+#### Consent when the target never joined the session
+
+**Bob agreed to nothing.** He is not in the trance, has no relationship with the hypnotist, and may
+not know the add-on exists. The design holds one line:
+
+> **BC's own permission system IS Bob's consent, and the add-on must never be the thing that gets
+> around it.**
+
+This is why the entry-point question above is not a convenience. If the add-on calls the raw runner
+and BC's validation lives upstream, then a hypnotised player becomes **a vector for doing to Bob
+something Bob's own settings declined** — and she cannot be the one who checked, because she is
+under and acting on command. The add-on would have manufactured consent out of someone else's
+trance. Calling the validating entry point means Bob's refusal is honoured by Bob's own game, and
+the add-on never needs to know what he refused or why.
+
+**Where this could slip, and each needs guarding:**
+
+- **Calling the runner "just for now"** because the validating path is harder to hook. This is the
+  whole risk in one shortcut.
+- **A future BC release adding a check upstream of where we call.** Anchoring to the highest
+  validating entry point makes us inherit new checks automatically; anchoring low means silently
+  drifting out of compliance.
+- **Reporting Bob's refusal in detail to the hypnotist.** If BC refuses, the hypnotist should learn
+  only that it did not happen — not which of Bob's settings caused it. Bob's configuration is not
+  the hypnotist's information, and a detailed refusal turns the command into a probe.
+- **Repetition as pressure.** Nothing currently rate-limits a commanded activity. A hypnotist
+  telling her to touch Bob forty times is forty refusals for Bob to sit through. Worth a cooldown
+  on refused targets.
 
 ### Hypnotist Panel (per trigger)
 Fields: trigger word · effect(s) · scope (who can fire it) · strength · last reinforced · decay status · expiry (if set)
@@ -1719,6 +2240,12 @@ LSCG (a mature, popular BC add-on) already ships a mechanic close to ours — re
 - Below-certainty suggestions trigger a resistance mini-game: a random 0–100 roll compared against the influence score, full-screen blur/tint scaling with it, plus an instant "Submit" button as a conscious-allow that skips the roll entirely
 - A separate post-wake cooldown, independent of influence, blocks immediate re-triggering
 - Trigger words auto-rotate periodically and can be hidden from the subject entirely unless overridden
+
+> **Also read from LSCG, 2026-09-11, and filed elsewhere:** its `src/Modules/activities.ts` revealed
+> the BC activity-availability API — `ActivityCheckPrerequisite`, named prerequisite arrays,
+> `CanInteract()` / `MergedFingers` — plus the refusal register worth matching. That material lives
+> with the feature it serves, under *Triggers > Commanded activities*. Same discipline as this
+> section: **technique observed from a public repository, nothing copied or adapted.**
 
 This validates the shape of our trust mechanic — we're implementing our own, not depending on LSCG's, and we're deliberately differing from it, including in how it's presented to the player, not just internally:
 - Per-feature trust thresholds (our table above) vs. LSCG's single all-purpose influence number
