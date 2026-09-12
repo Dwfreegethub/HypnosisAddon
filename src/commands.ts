@@ -908,7 +908,7 @@ const COMMANDS: HypnoCommand[] = [
 		// be the way round that.
 		Tag: "agetrigger",
 		group: "Testing",
-		args: "<days> [number]",
+		args: "[days] [number]",
 		Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
 		Action: (args: string) => {
 			if (!TESTING_MODE) {
@@ -916,16 +916,20 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-			if (!parts.length) {
-				reply("Usage: /hypno agetrigger <days> [number] — see /hypno triggers for the numbering.");
-				reply("With no number it ages every planted trigger; with one it ages just that one.");
+			// BOTH ARGUMENTS OPTIONAL, DW's call: a bare `/hypno agetrigger` means one day
+			// across every planted trigger. The commonest thing to want mid-scenario is "move
+			// it on a bit and look again", and that is the form with nothing to mistype — which
+			// matters when the subject driving it may be frozen, silenced, or both.
+			//
+			// Safe to make the bare form DO something rather than print usage, because it is
+			// exactly reversible: `/hypno agetrigger -1` puts the clock back. The usage text is
+			// still one wrong word away, below.
+			const days = parts.length ? Number(parts[0]) : 1;
+			if (!Number.isFinite(days)) {
+				reply("Usage: /hypno agetrigger [days] [number] — see /hypno triggers for the numbering.");
+				reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
 				reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
 				reply(`Triggers currently fade: ${describeDecayPace()}. /hypno triggerdecay changes that.`);
-				return;
-			}
-			const days = Number(parts[0]);
-			if (!Number.isFinite(days)) {
-				reply(`"${parts[0]}" is not a number of days. Usage: /hypno agetrigger <days> [number].`);
 				return;
 			}
 			// Validated here as well as inside ageTriggers, so a mistyped number reads as a
@@ -949,6 +953,10 @@ const COMMANDS: HypnoCommand[] = [
 				"The firing credit is untouched — only the clock moved. One aged to nothing is " +
 					"swept on the next /hypno triggers, unless it is holding you.",
 			);
+			// Named explicitly because the bare form writes without being asked twice. Nothing
+			// here is recoverable from the stored data alone — the old timestamp is gone — so
+			// the way back has to be a thing you were told, not a thing you work out.
+			reply(`Undo this exact move with /hypno agetrigger ${-days}${index !== undefined ? ` ${index}` : ""}.`);
 		},
 	},
 	{

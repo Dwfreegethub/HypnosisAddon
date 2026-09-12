@@ -1848,7 +1848,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
-- ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger <days> [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
+- ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger [days] [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Both arguments optional — bare, it ages every planted trigger by one day (DW's call, 2026-09-12). Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
@@ -1860,7 +1860,7 @@ decay model and a live run was time: strength is derived from `reinforcedAt`, an
 scenario's five expected results are a day or more apart. Turning the rate up does not help, because
 a rate fast enough to sit through is too coarse to see the tier discount in.
 
-`/hypno agetrigger <days> [number]` moves the clock instead of waiting on it, with `test-age` behind
+`/hypno agetrigger [days] [number]` moves the clock instead of waiting on it, with `test-age` behind
 it for the bot and `!age` on the bot side. Three decisions worth recording, because each of them
 could have gone the other way and made the tool quietly useless:
 
@@ -1873,6 +1873,11 @@ could have gone the other way and made the tool quietly useless:
 - **By number, not by phrase.** The phrase is hidden from the subject unless they asked to see it,
   and the report names triggers the way `/hypno forgettrigger` does. A testing affordance must not
   be the hole in a privacy rule.
+- **Both arguments optional**, DW 2026-09-12 — a bare `/hypno agetrigger` is one day across every
+  planted trigger. The first draft printed usage instead, which is the wrong trade for a command
+  whose whole job is to be run repeatedly by somebody who may be frozen or silenced at the time.
+  Safe to let the bare form write because it is exactly reversible, and the result line now names
+  the `-1` that reverses it rather than leaving it to be worked out.
 
 It also does not prune. A trigger aged past zero reads *"faded away"* and disappears on the next
 list read, which is where pruning belongs and is itself part 4 of the scenario demonstrating itself.
@@ -2596,9 +2601,10 @@ Covered by unit tests, never exercised against a live client.
 
 > **The tooling this was blocked on now exists (v0.63.0).** Even at *Very fast* a Deep planting
 > takes twelve hours to die, so the first step of a decay scenario was watchable and every step
-> after it was not. **`/hypno agetrigger <days> [number]`** backdates `reinforcedAt` by a stated
-> number of days, with a `test-age` hidden handler behind it so the bot can drive the same thing
-> with `!age <days> [number]`. `TESTING_MODE`-only at three points — the command refuses, the core
+> after it was not. **`/hypno agetrigger [days] [number]`** backdates `reinforcedAt` by a stated
+> number of days — both arguments optional, so a bare `/hypno agetrigger` is one day across every
+> planted trigger — with a `test-age` hidden handler behind it so the bot can drive the same thing
+> with `!age [days] [number]`. `TESTING_MODE`-only at three points — the command refuses, the core
 > function refuses, and the handler is never registered — so it does not exist in a release build,
 > which matters more here than for `/hypno triggers full` because this one *writes*.
 >
