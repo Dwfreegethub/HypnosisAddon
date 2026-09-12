@@ -1,6 +1,6 @@
 import { suggestionHelp, ILLUSION_TRUST_THRESHOLD } from "./voice";
 import { commandHelp } from "./commands";
-import { getTriggerDuration, getTriggerScope } from "./storage";
+import { getTriggerDuration, getTriggerScope, getMaxAttempts } from "./storage";
 import { TRIGGER_SCOPES, TRIGGER_TRUST_THRESHOLD } from "./triggers";
 import { CARRY_TRUST_THRESHOLD } from "./carry";
 import {
@@ -224,6 +224,11 @@ function trustLines(): HelpLine[] {
 		dim("Never certain either way. A determined stranger keeps a"),
 		dim("sliver; a deeply trusted hypnotist can still miss."),
 		dim("/hypno chance <name> shows the real numbers."),
+		gap(),
+		head("How many tries they get"),
+		body(`${getMaxAttempts()} attempts, then ten minutes before they may try you`),
+		body("again. Permissions tab — it is your setting, and their"),
+		body("client only knows it because yours tells them."),
 	];
 }
 

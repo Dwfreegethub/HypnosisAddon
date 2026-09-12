@@ -1,7 +1,7 @@
 import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
-import { getFeatures, trustWith, experienceValue } from "./storage";
+import { getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS } from "./storage";
 import {
 	noteInductionSuccess,
 	noteInductionAttempt,
@@ -84,8 +84,9 @@ export type SessionChoice = "agree" | "ignore" | "fight";
 // wake-up grace period is ever wanted, that's where it goes.
 
 // --- Tuning constants. All guesses, meant to be played with. -------------------------
-// Eventually several of these become player settings (the doc has session duration and
-// max attempts as subject-set); constants until the flow itself is proven.
+// Eventually several of these become player settings (the doc has session duration and the
+// resistance floor as subject-set); constants until the flow itself is proven. The attempt
+// limit has already left this list — see `maxAttempts()` below.
 const PROMPT_TIMEOUT_MS = 60_000;
 /** How long the roleplay window runs before the roll.
  *
@@ -95,7 +96,12 @@ const PROMPT_TIMEOUT_MS = 60_000;
  * is the entire point of this window, and it is now also the window the RP bonus is earned
  * in. Three substantive lines in ten seconds is typing speed, not roleplay. */
 const INDUCTION_WINDOW_MS = 60_000;
-const MAX_ATTEMPTS = 3;
+/** How many attempts one hypnotist gets before the cooldown. A SETTING now, not a constant
+ * — design.md decided "default 2, with 3 available as a player setting" and the code kept
+ * the old 3. Read through the function at every use rather than captured into a local: it
+ * is the subject's own, they can change it while a session is running, and the next roll
+ * should honour what it says then. See storage.ts for the stored form. */
+const maxAttempts = () => getMaxAttempts();
 const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;
 /** Floor and ceiling on the induction chance, so neither outcome is ever certain. The
@@ -314,7 +320,7 @@ function pushUpdate(refusedReason?: string): void {
 			type: "session-update",
 			phase: session.phase,
 			attempts: session.attempts,
-			maxAttempts: MAX_ATTEMPTS,
+			maxAttempts: maxAttempts(),
 			// Bands only — never `progress`, `depth`, or `choice` themselves.
 			progressBand: session.phase === "AttemptFailed" ? progressBand(session.progress) : null,
 			depthBand: session.phase === "Hypnotized" ? depthBand(session.depth) : null,
@@ -335,7 +341,7 @@ function refuse(to: number, reason: string): void {
 			type: "session-update",
 			phase: session.hypnotistId === to ? session.phase : "Idle",
 			attempts: 0,
-			maxAttempts: MAX_ATTEMPTS,
+			maxAttempts: maxAttempts(),
 			progressBand: null,
 			depthBand: null,
 			cooldownRemaining: Math.max(0, session.cooldownUntil - Date.now()),
@@ -570,7 +576,7 @@ export function describeChances(memberId: number): string[] {
 	const floor = chemicalFloor();
 	const access = effectiveAccess(memberId);
 	const exp = experienceValue();
-	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, MAX_ATTEMPTS));
+	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, maxAttempts()));
 	return [
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
@@ -582,7 +588,7 @@ export function describeChances(memberId: number): string[] {
 			: []),
 		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
 			const c = inductionChance(memberId, choice);
-			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${MAX_ATTEMPTS}`;
+			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${maxAttempts()}`;
 		}),
 	];
 }
@@ -616,7 +622,7 @@ function runInductionRoll(): void {
 		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
 		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
 		log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
-	} else if (session.attempts >= MAX_ATTEMPTS) {
+	} else if (session.attempts >= maxAttempts()) {
 		session.phase = "CooldownRequired";
 		session.cooldownUntil = Date.now() + COOLDOWN_MS;
 		session.progress = chance;
@@ -700,7 +706,7 @@ function applyTranceState(): void {
 
 function beginInductionWindow(): void {
 	session.phase = "InductionInProgress";
-	// Fresh count per attempt. Three attempts in a session are three separate performances,
+	// Fresh count per attempt. The attempts in a session are separate performances,
 	// and letting the first one's effort pay for the third would reward giving up.
 	session.rpLines = 0;
 	session.lastRpLine = "";
@@ -883,7 +889,7 @@ export function describeSession(): string {
 	const bits = [`session: ${session.phase}`];
 	if (session.hypnotistId != null) bits.push(`hypnotist=${session.hypnotistId}`);
 	if (session.choice) bits.push(`choice=${session.choice}`);
-	if (session.attempts) bits.push(`attempts=${session.attempts}/${MAX_ATTEMPTS}`);
+	if (session.attempts) bits.push(`attempts=${session.attempts}/${maxAttempts()}`);
 	if (session.phase === "Hypnotized") bits.push(`depth=${session.depth} (${depthBand(session.depth)})`);
 	if (session.phase === "AttemptFailed") bits.push(`progress=${session.progress.toFixed(1)}`);
 	if (session.cooldownUntil > Date.now())
@@ -921,6 +927,23 @@ export function currentHypnotistId(): number | null {
 
 export function isHypnotized(): boolean {
 	return session.phase === "Hypnotized";
+}
+
+/** Is anything running on us at all — an attempt underway as well as a trance?
+ *
+ * Added v0.65.1 for the settings lock, which had always DESCRIBED itself as holding "until
+ * the session ends" and in fact only held while `isHypnotized()`. The gap is the whole
+ * induction: prompt, roleplay window and the misses between attempts are a live session in
+ * every sense, and a subject who has ticked the lock could still edit their own permissions
+ * and their own attempt limit throughout — raising it to hand a hypnotist more tries, or
+ * dropping it to cut them off mid-sequence. DW's call, 2026-09-12.
+ *
+ * CooldownRequired is deliberately NOT live. The attempts are spent, nothing can reach the
+ * subject until the cooldown expires, and a lock that outlasts what it is protecting against
+ * is just a setting nobody can change. `/hypno safeword` clears the session from any of these
+ * phases, so the lock can never be a trap — same reasoning the lock has always carried. */
+export function isSessionLive(): boolean {
+	return session.phase !== "Idle" && session.phase !== "CooldownRequired";
 }
 
 /** Is this person running a live session on us, in any phase? Broader than
@@ -1127,7 +1150,11 @@ export function installSession(): void {
 		views.set(sender, {
 			phase: (message.phase as SessionPhase) ?? "Idle",
 			attempts: Number(message.attempts ?? 0),
-			maxAttempts: Number(message.maxAttempts ?? MAX_ATTEMPTS),
+			// The SUBJECT's limit, which they sent us — never our own setting. A hypnotist
+			// whose own limit is 3 must not be shown 3 for a subject who allows 2, so the
+			// fallback for a message that carries no limit is the decided default rather
+			// than getMaxAttempts(). Only a pre-0.65.0 client sends one without it.
+			maxAttempts: Number(message.maxAttempts ?? DEFAULT_MAX_ATTEMPTS),
 			progressBand: (message.progressBand as string) ?? null,
 			depthBand: (message.depthBand as string) ?? null,
 			cooldownRemaining: Number(message.cooldownRemaining ?? 0),

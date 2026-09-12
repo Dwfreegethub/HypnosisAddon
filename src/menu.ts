@@ -23,6 +23,9 @@ import {
 	clearDepthOverrides,
 	getChemicalScope,
 	setChemicalScope,
+	getMaxAttempts,
+	setMaxAttempts,
+	nextAttemptLimit,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -30,7 +33,7 @@ import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES, decayLifetimeText } from "./triggers";
-import { isHypnotized, currentTier, hardFloorStop } from "./session";
+import { isHypnotized, isSessionLive, currentTier, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -102,8 +105,10 @@ const TABS: Tab[] = [
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion" },
 			{ key: "undressControl", label: "Undressing" },
-			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
+			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
+		extra: drawAttemptControl,
+		clickExtra: clickAttemptControl,
 	},
 	{
 		name: "Trance Defaults",
@@ -221,6 +226,59 @@ function dataButtonLeft(index: number): number {
 	return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
 }
 
+// --- Permissions tab: the attempt limit ------------------------------------------------
+// The one control on this tab that is not a checkbox. It belongs here rather than on a tab
+// of its own because it answers the same question the checkboxes do — how far someone else
+// may go with you — and a tab holding a single button would be worse than the button.
+//
+// Click-to-cycle for the same reason the depth tiers are: a DOM control has to be created,
+// positioned in canvas coordinates and explicitly removed on every exit path, which is a
+// great deal of machinery for a choice between two numbers.
+//
+// Below the checkbox rows, which stop at 662 with ten of them in two columns — the same band
+// the Depth and Stats tabs already use for their summary controls.
+const ATTEMPT_BUTTON_LEFT = BOX_LEFT;
+const ATTEMPT_BUTTON_TOP = 740;
+const ATTEMPT_BUTTON_WIDTH = 520;
+const ATTEMPT_BUTTON_HEIGHT = 44;
+/** Under the button, clear of the panel floor at 902. */
+const ATTEMPT_CAPTION_Y = 826;
+
+function drawAttemptControl(): void {
+	const locked = settingsLocked();
+	DrawButton(
+		ATTEMPT_BUTTON_LEFT,
+		ATTEMPT_BUTTON_TOP,
+		ATTEMPT_BUTTON_WIDTH,
+		ATTEMPT_BUTTON_HEIGHT,
+		`Attempts before they must wait: ${getMaxAttempts()}`,
+		locked ? "#ddd" : "White",
+		"",
+		locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
+		locked,
+	);
+	// What the setting COSTS, under the control that sets it — the same shape as the trigger
+	// decay caption. A count on its own does not say what happens when it runs out, and the
+	// ten minutes is the half a player is actually choosing between.
+	drawLeftTextFit(
+		"When they run out, they cannot try you again for ten minutes.",
+		ATTEMPT_BUTTON_LEFT,
+		ATTEMPT_CAPTION_Y,
+		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+		locked ? "Gray" : "#555",
+	);
+}
+
+function clickAttemptControl(): boolean {
+	if (!MouseIn(ATTEMPT_BUTTON_LEFT, ATTEMPT_BUTTON_TOP, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+	// Consumed either way: a greyed button that still cycles when clicked is the lock being
+	// decorative, which is the bug the checkboxes' own second check exists to stop.
+	if (settingsLocked()) return true;
+	const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
+	log(`induction attempt limit set to ${next}`);
+	return true;
+}
+
 // --- Depth tab ------------------------------------------------------------------------
 // Click-to-cycle rather than thirteen dropdowns: DOM controls have to be created, positioned
 // in canvas coordinates and explicitly removed, and thirteen of them layered over a screen
@@ -275,7 +333,7 @@ function drawDepthGates(): void {
 			tierLabel(requiredTier(gate.key)),
 			locked ? "#ddd" : granted ? "White" : "#eee",
 			"",
-			locked ? "Locked while in trance" : "Click to require a deeper trance",
+			locked ? "Locked until this session ends" : "Click to require a deeper trance",
 			locked,
 		);
 	});
@@ -680,11 +738,19 @@ function rowPosition(index: number, total: number): { left: number; top: number;
 /** Are the checkboxes currently frozen? Read live at draw and click time rather than
  * cached, so the lock lifts the instant a session ends without anything having to notice.
  *
+ * From the whole SESSION, not just the trance — v0.65.1, DW's call. It used to read
+ * `isHypnotized()`, which left the induction itself unlocked: someone could be three
+ * questions into an attempt on you and you could still edit the permissions they were about
+ * to reach, or move your own attempt limit up to give them another try. The label says "while
+ * in trance" and the blurb has always said "until the session ends"; the second one was the
+ * honest description and this makes it true. The cooldown after a spent attempt run is not
+ * live — see isSessionLive.
+ *
  * Tabs stay clickable and the exit button still works — the screen is readable while
  * locked, just not editable. `/hypno safeword` remains the way out in every case, and
  * being a chat command it's untouched by any of this. */
 function settingsLocked(): boolean {
-	return getFeatures().lockedWhileHypnotized && isHypnotized();
+	return getFeatures().lockedWhileHypnotized && isSessionLive();
 }
 
 export function installMenu(): void {
@@ -718,7 +784,7 @@ export function installMenu(): void {
 			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
 			// canvas takes on its own.
 			drawLeftTextFit(
-				locked ? "Locked while you are in trance. /hypno safeword always works." : tab.blurb,
+				locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
 				BOX_LEFT,
 				BLURB_Y,
 				PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
