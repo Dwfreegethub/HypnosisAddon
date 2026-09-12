@@ -2661,7 +2661,17 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.63.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first. Note that `test/revoke.mjs` fails against a flipped build — three of its checks stand up their trance with `forceTrance`, which correctly refuses — so expect that suite to need rewriting rather than reading the failure as a regression.
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.63.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+
+  - **`test/revoke.mjs` does not survive the flip, and the loud half is not the problem.** Its
+    checks stand their trance up with `forceTrance`, which correctly refuses in a release build, so
+    some fail outright — and more go on **passing while testing nothing**, because there was never
+    a trance for the revoke to take down. Rule 6 exactly: a check that cannot fail is not checking
+    anything, and these read green while the release build is the one build nobody has ever
+    verified revocation on. Confirmed against a flipped build, not inferred, and independently
+    reproduced. **Open decision, DW's:** the fix belongs in `build-test.mjs` — pin `TESTING_MODE`
+    true when bundling the harness, or stand a trance up some other way on a release build — so it
+    is not a rewrite to start blind.
 - [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
 
 ### Strongly recommended (testers can survive without, but experience is rough)
