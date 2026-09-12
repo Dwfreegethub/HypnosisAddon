@@ -132,6 +132,11 @@ interface Suggestion {
 	 * the same lesson the generated /hypno summary already learned. Every entry must have
 	 * at least one, and it must be a phrase the patterns above actually match. */
 	examples: string[];
+	/** OPTIONAL display override for the help screen. `examples` are the real, test-checked
+	 * phrasings; when one wording has an obvious slang twin — "come" / "cum" — listing both as
+	 * separate examples reads as clutter, so this shows the merged "come/cum" form instead
+	 * while `examples` keeps a matching entry for each spelling. Falls back to `examples`. */
+	displayExamples?: string[];
 	// NO trustThreshold any more. Depth is the gate as of v0.50.0, and it is looked up from
 	// the suggestion's PERMISSION rather than stored here — so a player who raises the tier
 	// for "clothing illusion" moves the button, the spoken phrase and the trigger action all
@@ -335,7 +340,8 @@ const SUGGESTIONS: Suggestion[] = [
 	// both. First match wins, so the most restrictive reading has to be listed first.
 	{
 		id: "orgasm-allow",
-		examples: ["you may come now", "you are allowed to orgasm"],
+		examples: ["you may come now", "you may cum now", "you are allowed to orgasm"],
+		displayExamples: ["you may come/cum now", "you are allowed to orgasm"],
 		release: true,
 		releaseOf: "orgasm-deny",
 		permission: "arousalControl",
@@ -350,7 +356,8 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "orgasm-deny",
-		examples: ["you cannot come", "you are forbidden to come"],
+		examples: ["you cannot come", "you cannot cum", "you are forbidden to come"],
+		displayExamples: ["you cannot come/cum", "you are forbidden to come"],
 		permission: "arousalControl",
 		patterns: [
 			/\byou (?:cannot|will not|may not) (?:come|cum|orgasm|climax|finish)\b/,
@@ -367,7 +374,8 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "orgasm-force",
-		examples: ["come for me", "you will come now"],
+		examples: ["come for me", "cum for me", "you will come now"],
+		displayExamples: ["come/cum for me", "you will come now"],
 		permission: "arousalControl",
 		patterns: [
 			/\b(?:come|cum) for me\b/,
@@ -924,6 +932,9 @@ export interface SuggestionHelp {
 	id: string;
 	permission: string;
 	examples: string[];
+	/** What the help screen should SHOW — the merged slang form where one exists, otherwise the
+	 * same as `examples`. The test still checks `examples`, so display can read however it likes. */
+	display: string[];
 	release: boolean;
 	/** The tier this needs, as a label. Looked up from the permission rather than stored on
 	 * the suggestion, so the help screen and the gate cannot disagree. */
@@ -948,6 +959,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		id: s.id,
 		permission: Array.isArray(s.permission) ? s.permission.join(" / ") : String(s.permission),
 		examples: s.examples,
+		display: s.displayExamples ?? s.examples,
 		release: !!s.release,
 		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));

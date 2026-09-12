@@ -123,7 +123,7 @@ function vocabularyLines(): HelpLine[] {
 		if (sug.depthTier) gateBits.push(`${sug.depthTier}+`);
 		const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
 		lines.push({
-			text: `${sug.examples.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
+			text: `${sug.display.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
 			style: sug.release ? "dim" : "body",
 		});
 	}
