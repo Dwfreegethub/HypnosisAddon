@@ -1,6 +1,14 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import { log } from "./log";
 import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
+// A deliberate cycle: session.ts imports this module, and this module imports it back. DW's
+// call, made 2026-09-12 with the cost stated — see the Known Bug #4 note in design.md. It is
+// safe because nothing here calls into session.ts at module-init time; stopForReset() is
+// reached only from inside resetSettings(), long after both modules have finished loading,
+// and both sides are hoisted `function` declarations rather than const bindings.
+// If anything in this module ever needs session.ts at TOP LEVEL, this breaks — go back to
+// the registration hook rather than reordering imports and hoping.
+import { stopForReset } from "./session";
 
 const SETTINGS_KEY = "HypnosisAddon";
 // The old un-keyed `HypnosisAddon_Backup` is abandoned rather than migrated: it was shared
@@ -725,18 +733,6 @@ export function importSettings(blob: string): { ok: boolean; message: string } {
 	};
 }
 
-/** Reset has to end an in-flight trance, not merely wipe the settings that describe one
- * (design.md, Known Bug #4). The teardown itself lives in session.ts, which imports this
- * module, so it registers itself here rather than being imported back — the same leaf trick
- * registerCarryHandlers and registerTriggerRecovery use.
- *
- * Returns what it ended, so the message below can name it instead of guessing. */
-let resetTeardown: (() => "trance" | "induction" | null) | null = null;
-
-export function registerResetTeardown(stop: () => "trance" | "induction" | null): void {
-	resetTeardown = stop;
-}
-
 /** Back to factory defaults for this account. Trust, experience and every toggle — and any
  * trance that was running, because a subject who typed "wipe everything" must not be left
  * frozen by the command that told her it had. */
@@ -746,18 +742,12 @@ export function resetSettings(): string {
 	// — which lives in its own localStorage entry, so wiping ExtensionSettings cannot reach it.
 	let ended: "trance" | "induction" | null = null;
 	let stopFailed = false;
-	if (!resetTeardown) {
-		// Can only happen if session.ts was never loaded, which in a real build cannot occur.
+	try {
+		ended = stopForReset();
+	} catch (err) {
 		// Reported rather than swallowed: a reset that quietly skipped the teardown is the bug.
 		stopFailed = true;
-		log("reset: no teardown registered — session.ts was not loaded");
-	} else {
-		try {
-			ended = resetTeardown();
-		} catch (err) {
-			stopFailed = true;
-			log("reset: could not end the session:", err);
-		}
+		log("reset: could not end the session:", err);
 	}
 	cached = defaultSettings();
 	cachedFromAccount = true;

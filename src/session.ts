@@ -1,7 +1,7 @@
 import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
-import { getFeatures, trustWith, experienceValue, registerResetTeardown } from "./storage";
+import { getFeatures, trustWith, experienceValue } from "./storage";
 import {
 	noteInductionSuccess,
 	noteInductionAttempt,
@@ -772,13 +772,6 @@ export function stopForReset(): "trance" | "induction" | null {
 	totalStop("They reset the add-on. Everything has been released.", "");
 	return ended;
 }
-
-// Pushed into storage.ts rather than imported from it: session.ts already imports storage.ts,
-// so storage.ts must not import back. Same leaf trick as registerCarryHandlers / the trigger
-// half of registerRecoveryHandlers. Module scope on purpose — resetSettings() must be whole
-// from the moment the bundle loads, not from installSession(), because the test harness and
-// the settings screen both reach it without going through main.ts.
-registerResetTeardown(stopForReset);
 
 /** Stop everything, keep nothing. The one path in this file no feature may make conditional.
  *
