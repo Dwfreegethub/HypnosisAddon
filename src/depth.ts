@@ -1,4 +1,4 @@
-import { FeatureToggles, getDepthOverride, getChemicalScope } from "./storage";
+import { FeatureToggles, getDepthOverride, getChemicalScope, getChemicalReach } from "./storage";
 
 // Trance depth as the feature gate — the design doc's ⚠ DESIGN CHANGE section, Phase 1.
 //
@@ -114,10 +114,21 @@ export function currentDepthEarned(): number {
 /** One gated feature: the permission that must be granted, and how deep they must be.
  *
  * `earnedOnly` is the structural half of the design, and the reason there are two depths
- * rather than one. Drugs and arousal may never write anything permanent nor reach a feature
- * that lies to the subject about their own state — and that is a rule about where the depth
- * CAME FROM, which a single number cannot carry. It is not a player setting; a subject who
- * turns their chemical scope up cannot thereby let an aroused stranger plant a trigger. */
+ * rather than one. Arousal and drugs may not, BY DEFAULT, write anything permanent nor reach a
+ * feature that lies to the subject about their own state — and that is a rule about where the
+ * depth CAME FROM, which a single number cannot carry.
+ *
+ * `earnedOnly` here is the DEFAULT, not the last word. As of 2026-09-08 the subject may open two
+ * of the three earned-only features — the illusion and trigger-planting — to chemical depth for
+ * themselves (`chemicalReach` in storage, the toggle on the Depth tab), accepting the tradeoff:
+ * anything seeded that way fades fast (`plantedChemical` for triggers) or is session-scoped
+ * anyway (the illusion). The default stays earned-only, so a subject who changes nothing is
+ * exactly where they were, and NOTHING a HYPNOTIST does can flip it — turning a chemical scope
+ * up still cannot let an aroused stranger plant a lasting trigger. The choice is the subject's
+ * alone, and it could not ship before the decay that prices it (v0.60.0) existed. Carry-forward
+ * is deliberately NOT toggleable yet: it has no decay clock, so its half waits for one.
+ *
+ * `effectiveEarnedOnly()` below is what everything reads; `gate.earnedOnly` is only the seed. */
 export interface DepthGate {
 	key: keyof FeatureToggles;
 	label: string;
@@ -150,6 +161,32 @@ export const DEPTH_GATES: DepthGate[] = [
 
 export function gateFor(key: keyof FeatureToggles): DepthGate | undefined {
 	return DEPTH_GATES.find((g) => g.key === key);
+}
+
+/** The two earned-only features a subject may open to chemical depth. Carry-forward is absent
+ * on purpose — it outlives the session and has no decay clock, so there is nothing yet to price
+ * the shortcut with. */
+const CHEMICAL_TOGGLEABLE = new Set<keyof FeatureToggles>(["illusionControl", "triggerControl"]);
+
+/** Is this a feature whose earned-only gate the SUBJECT may lift for themselves? */
+export function isChemicalToggleable(key: keyof FeatureToggles): boolean {
+	const g = gateFor(key);
+	return !!g && g.earnedOnly && CHEMICAL_TOGGLEABLE.has(key);
+}
+
+/** Whether this feature reads the EARNED depth right now — its `earnedOnly` default, unless the
+ * subject has opened it to chemical depth. Reading a setting needs a logged-in Player, and this
+ * is reached from the help screen and the pattern suite with no BC globals, so a failure to read
+ * is treated as "not opened" — the safe, default-earned answer. */
+export function effectiveEarnedOnly(key: keyof FeatureToggles): boolean {
+	const g = gateFor(key);
+	if (!g || !g.earnedOnly) return false;
+	if (!CHEMICAL_TOGGLEABLE.has(key)) return true; // carry-forward: locked earned-only
+	try {
+		return !getChemicalReach(key);
+	} catch {
+		return true;
+	}
 }
 
 /** The tier this feature currently needs — the player's choice if they made one, otherwise
@@ -189,7 +226,7 @@ export function depthAllows(
 ): boolean {
 	const gate = gateFor(key);
 	if (!gate) return true; // ungated feature — permission is the only check
-	const have = gate.earnedOnly ? earned : full;
+	const have = effectiveEarnedOnly(key) ? earned : full;
 	return have >= requiredDepth(key);
 }
 
@@ -201,11 +238,11 @@ export function depthRefusal(
 	earned: number = currentDepthEarned(),
 ): string | null {
 	if (depthAllows(key, full, earned)) return null;
-	const gate = gateFor(key);
 	const need = requiredTier(key);
-	const have = gate?.earnedOnly ? earned : full;
+	const earnedGate = effectiveEarnedOnly(key);
+	const have = earnedGate ? earned : full;
 	return (
 		`needs ${tierLabel(need)} (${requiredDepth(key)}), at ${have.toFixed(0)}` +
-		`${gate?.earnedOnly ? " earned — arousal does not count toward this one" : ""}`
+		`${earnedGate ? " earned — arousal does not count toward this one" : ""}`
 	);
 }

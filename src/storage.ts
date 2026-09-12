@@ -338,6 +338,15 @@ interface HypnoAddonSettings {
 	 * choice — the same principle as the decay rates. A stored copy of every default would
 	 * freeze the design at whatever it was the day somebody first opened the screen. */
 	depthGates: Record<string, string>;
+	/** Which earned-only features the subject has chosen to let CHEMICAL depth reach — the
+	 * per-feature toggle decided 2026-09-08. Sparse and true-only: a key present with `true`
+	 * means "arousal may take me here"; absence means the earned-only default. Only the two
+	 * chemically-toggleable gates (`illusionControl`, `triggerControl`) are ever written here;
+	 * carry-forward stays earned-only until it has a decay clock of its own. The safeguard for
+	 * anything seeded this way is that it fades fast — which for triggers is `plantedChemical`
+	 * driving `CHEMICAL_DECAY_PER_DAY`, and for the session-scoped illusion is simply that it
+	 * does not outlive the trance. */
+	chemicalReach: Record<string, boolean>;
 	/** How much of another hypnotist's claimed skill this subject's client honours. Absent means
 	 * "never chose" and resolves to DEFAULT_SKILL_HONOUR in code — stored only on change, so the
 	 * default stays reversible (§2, and the same reasoning as depthGates). One of
@@ -411,6 +420,7 @@ function defaultSettings(): HypnoAddonSettings {
 		// triggers that were planted under a promise they would not. Opt in.
 		triggerDecayRate: "never",
 		depthGates: {},
+		chemicalReach: {},
 		chemicalScope: "arousal",
 		relationshipOverride: {},
 		features: defaultFeatures(),
@@ -476,6 +486,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 		}
 	}
 	if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
+	if (!s.chemicalReach || typeof s.chemicalReach !== "object") s.chemicalReach = {};
 	if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
 	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
 	s.trust ??= [];
@@ -569,6 +580,19 @@ export function getTrust(memberId: number): TrustEntry | undefined {
  * import without the two depending on each other. */
 export function getDepthOverride(key: string): any {
 	return loadSettings().depthGates[key] ?? "";
+}
+
+/** Whether the subject has opened this feature to chemical depth. True-only + sparse: setting
+ * it false DELETES the key so the earned-only default keeps governing, the same reversibility
+ * the depth-gate overrides have. */
+export function getChemicalReach(key: string): boolean {
+	return loadSettings().chemicalReach[key] === true;
+}
+export function setChemicalReach(key: string, allowed: boolean): void {
+	const reach = loadSettings().chemicalReach;
+	if (allowed) reach[key] = true;
+	else delete reach[key];
+	saveSettings();
 }
 
 export function setDepthOverride(key: string, tier: string): void {

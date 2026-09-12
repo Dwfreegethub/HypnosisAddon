@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.67.0.*
+*Design notes and decision log — work in progress. Code at v0.68.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -619,13 +619,13 @@ Most features check `depthFull`. Three features default to `depthEarned` only �
 
 **The earned-only default is player-adjustable (decided 2026-09-08).** A subject can choose to allow chemical depth to reach illusion, triggers, or carry-forward for them — but the tradeoff is baked in structurally: any trigger or carried effect that was chemically seeded **decays significantly faster** than one earned through relationship trust. The fast-decay rate is fixed, not configurable — if you want the chemical shortcut, you accept the shorter shelf life. Illusion has no decay clock, but its "felt permanence" (how long it lingers as a carried impression after waking) is also shorter when chemically reached. UI: a per-feature toggle sitting alongside the depth selector and the enable/disable switch; layout to be finalised at coding time.
 
-> **Sequencing constraint — decay must ship first, and it now has (v0.60.0).** This toggle
-> reverses a rule stated flatly in `depth.ts`: *"It is not a player setting; a subject who turns
-> their chemical scope up cannot thereby let an aroused stranger plant a trigger."* The only
-> thing that makes reversing it safe is the faster decay, so the toggle could not have shipped
-> before the decay system existed. With v0.60.0 built, the remaining work is: flip `earnedOnly`
-> from a constant to a per-feature setting, add the UI, **and rewrite that comment in `depth.ts`
-> in the same commit** — a comment that contradicts the code is worse than no comment.
+> **Sequencing constraint — SATISFIED, built v0.68.0.** This toggle reverses a rule that
+> `depth.ts` used to state flatly, and the only thing that made reversing it safe was the faster
+> decay — so it could not ship before v0.60.0. It now has: `effectiveEarnedOnly()` reads the
+> `chemicalReach` map, the Depth tab flips it per feature, and the contradicting comment was
+> rewritten in the same commit. **Still important:** nothing a *hypnotist* does can flip it — the
+> map is the subject's own local storage with no cross-player writer — so "an aroused stranger
+> cannot plant a lasting trigger" holds exactly as before unless the *subject* chose otherwise.
 > Carry-forward needs the same fast-decay treatment before its half of the toggle is offered;
 > today only triggers carry a decay clock.
 
@@ -1865,8 +1865,40 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
 - ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger [days] [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Both arguments optional — bare, it ages every planted trigger by one day (DW's call, 2026-09-12). Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
-- **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
+- **Help screen pass (DW wants this)** — the `?` screen has grown a lot of features under it without the help keeping pace: walking trance and the skill honour rungs are only barely mentioned, the chemical-reach toggle and the attempt-limit setting are not, and the "What to Say" tab is generated only from the table (so the handler-based lines — wake, walking, body parts — are hand-maintained footnotes). A full read-through and rewrite of all five tabs, checking each against what actually ships. **DW asked to be reminded of this** (2026-09-12).
+- ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.68.0) — the earned-only gate becomes the subject's to lift
+
+The three earned-only features exist because arousal must not, by default, reach anything that
+outlives the session or lies to the subject about their own body. **By default** was always the
+plan: DW settled on 2026-09-08 that the subject could open two of them — the clothing illusion and
+trigger-planting — to chemical depth *for themselves*, and the reason it could not ship then was
+that the safeguard did not exist. It does now (decay, v0.60.0), so it ships.
+
+`gate.earnedOnly` stops being the last word and becomes a seed. `effectiveEarnedOnly()` in
+`depth.ts` reads a sparse, true-only `chemicalReach` map — stored exactly like `depthGates`, the
+default living in code so it stays reversible — and everything (`depthAllows`, `depthRefusal`, the
+trigger-planting `plantedChemical` check) reads that instead of the constant. A per-row toggle on
+the Depth tab flips it: *earned only* ↔ *arousal ok*.
+
+**Three things hold it safe, and they are the whole point.** The default is unchanged, so a subject
+who touches nothing is where they were. Only *their own* client writes the map — there is no
+message handler, no cross-player path, so the old guarantee stands verbatim: nothing a hypnotist
+does can let an aroused stranger plant a lasting trigger; only the subject choosing it can. And the
+shortcut is priced — a trigger planted on chemical depth is `plantedChemical` and fades at the fixed
+fast rate, while the illusion is session-scoped and clears on wake regardless.
+
+**Carry-forward is deliberately left out.** It outlives the session and has no decay clock of its
+own yet, so there is nothing to price its shortcut with. Its row is drawn locked, and
+`effectiveEarnedOnly()` ignores any value stored against it — it stays earned-only until it has a
+decay clock, which is the same sequencing rule that kept the whole toggle behind decay.
+
+`test/chemical-reach.mjs` (22 checks) drives the real gate: default unreachable, opened reachable,
+per-feature independence, the `plantedChemical` marking, carry-forward's immunity, and that turning
+it back off deletes the key rather than storing a false. The `depth.ts` comment that stated the
+opposite rule was rewritten in the same commit.
 
 ### Added 2026-09-12 (v0.67.0) — walking trance
 

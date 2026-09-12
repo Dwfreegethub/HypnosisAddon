@@ -30,6 +30,8 @@ import {
 	setSkillHonour,
 	nextSkillHonour,
 	SKILL_HONOUR_RUNGS,
+	getChemicalReach,
+	setChemicalReach,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -46,6 +48,7 @@ import {
 	nextTier,
 	nextScope,
 	ChemicalScope,
+	isChemicalToggleable,
 } from "./depth";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
@@ -141,7 +144,7 @@ const TABS: Tab[] = [
 		// permission, a scope and a duration. DW asked where the duration belonged, and
 		// the honest answer was "nowhere yet".
 		name: "Triggers",
-		blurb: "Things that outlast the session. Both need a Deep trance by default — arousal never counts toward either.",
+		blurb: "Things that outlast the session. Both need a Deep trance by default, on earned depth — though the Depth tab can let arousal reach them, at the price of fading fast.",
 		rows: [
 			{ key: "triggerControl", label: "Allow triggers to be planted in you" },
 			{ key: "carryForward", label: "Suggestions that outlive the trance" },
@@ -293,11 +296,16 @@ const DEPTH_ROW_HEIGHT = 52;
 const DEPTH_ROWS_PER_PAGE = 7;
 const DEPTH_TIER_LEFT = BOX_LEFT + 890;
 /** Room for the gate name before it reaches the tier button. The earned-only rows carry a
- * "(arousal never counts)" suffix that makes them half again as long as the rest, and page 2
- * of the Depth tab is entirely earned-only rows — so this is not a hypothetical. */
+ * earned-only rows now carry a right-hand toggle rather than a label suffix, so the label has
+ * the full column, but page 2 of the Depth tab is entirely earned-only rows and a couple of the
+ * names are long, so the cap still earns its keep. */
 const DEPTH_LABEL_MAX = 890 - 40;
-const DEPTH_TIER_WIDTH = 250;
+const DEPTH_TIER_WIDTH = 210;
 const DEPTH_BUTTON_HEIGHT = 44;
+/** The per-row "arousal may reach this" control, on the earned-only rows only. Sits just
+ * right of the (now narrower) tier button and ends a hair inside the panel edge. */
+const CHEM_TOGGLE_LEFT = DEPTH_TIER_LEFT + DEPTH_TIER_WIDTH + 12;
+const CHEM_TOGGLE_WIDTH = 136;
 const SCOPE_BUTTON_LEFT = BOX_LEFT;
 const SCOPE_BUTTON_TOP = 740;
 const SCOPE_BUTTON_WIDTH = 430;
@@ -329,7 +337,7 @@ function drawDepthGates(): void {
 		// showing that plainly stops the tier reading as the only thing standing in the way.
 		const granted = !!features[gate.key];
 		drawLeftTextFit(
-			`${gate.label}${gate.earnedOnly ? "  (arousal never counts)" : ""}`,
+			gate.label,
 			BOX_LEFT,
 			top + 30,
 			DEPTH_LABEL_MAX,
@@ -346,6 +354,28 @@ function drawDepthGates(): void {
 			locked ? "Locked until this session ends" : "Click to require a deeper trance",
 			locked,
 		);
+		// The earned-only rows carry a second control: whether arousal may reach the feature at
+		// all. Two of the three are the subject's to open (illusion, triggers); carry-forward is
+		// shown locked, because it has no decay clock yet to price the shortcut with.
+		if (gate.earnedOnly) {
+			const toggleable = isChemicalToggleable(gate.key);
+			const open = toggleable && getChemicalReach(gate.key);
+			DrawButton(
+				CHEM_TOGGLE_LEFT,
+				top,
+				CHEM_TOGGLE_WIDTH,
+				DEPTH_BUTTON_HEIGHT,
+				open ? "arousal ok" : "earned only",
+				locked || !toggleable ? "#eee" : open ? "#e7efe7" : "White",
+				"",
+				!toggleable
+					? "Waiting on carry-forward decay before arousal can be allowed here."
+					: open
+						? "Arousal can reach this — but anything seeded that way fades fast. Click for trust only."
+						: "Only trust reaches this. Click to let arousal too — it fades fast.",
+				locked || !toggleable,
+			);
+		}
 	});
 
 	if (depthPageCount() > 1) {
@@ -423,6 +453,16 @@ function clickDepthGates(): boolean {
 			const next = nextTier(requiredTier(gates[i].key));
 			setDepthOverride(gates[i].key, next);
 			log(`${gates[i].key} now needs ${next}`);
+			return true;
+		}
+		if (MouseIn(CHEM_TOGGLE_LEFT, top, CHEM_TOGGLE_WIDTH, DEPTH_BUTTON_HEIGHT) && isChemicalToggleable(gates[i].key)) {
+			const now = !getChemicalReach(gates[i].key);
+			setChemicalReach(gates[i].key, now);
+			notifyLocal(
+				now
+					? `${gates[i].label}: arousal may reach this now — anything seeded this way fades fast.`
+					: `${gates[i].label}: back to trust only.`,
+			);
 			return true;
 		}
 	}
