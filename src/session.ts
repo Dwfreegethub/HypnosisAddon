@@ -654,7 +654,16 @@ export function describeChances(memberId: number): string[] {
 		// one the descriptor reads, not the claim.
 		...(session.honouredSkill > 0
 			? [`  honoured skill +${(session.honouredSkill * SKILL_ADDITIVE_WEIGHT).toFixed(1)} (they read as ${session.honouredSkill.toFixed(0)}/100 to you)`]
-			: []),
+			// Skill is zero here for three different reasons, and saying nothing makes all three
+			// look like "skill does nothing". The common one is simply that no attempt is in
+			// flight: the claim rides IN on the attempt, so until someone actually tries, this
+			// client has no number to honour and the odds below genuinely exclude it. The note
+			// only fires when idle, so it never contradicts a live Ignore-rung zero.
+			: session.phase === "Idle"
+				? getSkillHonour() === "ignore"
+					? ["  skill: ignored by your setting — it never counts against you"]
+					: ["  skill: not counted until someone attempts (your client learns their claim from the attempt itself)"]
+				: []),
 		// Only worth a line when there is one, since it is zero outside an induction window —
 		// but silence about a live bonus would make the percentages below look wrong.
 		...(rpBonusFor(memberId) > 0

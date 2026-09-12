@@ -116,5 +116,27 @@ const refusals = storage.skillCount();
 messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: HYP, Dictionary: [{ message: { type: "session-update", phase: "Idle", attempts: 0 } }] });
 near("  a refusal (attempts 0) credits nothing", storage.skillCount(), refusals);
 
+// --- /hypno chance explains WHY skill is absent, rather than going silent --------------------
+// DW ran `!skill 80` then `/hypno chance` idle, saw no skill line, and it read as broken. The
+// claim rides in on the attempt, so idle there is nothing to honour — but silence about that is
+// a silent omission that looks like a failure (rule 5).
+session.safeword();
+storage.resetSettings();
+storage.setFeature("hypnoEnabled", true);
+storage.setSkillHonour("trusted");
+check("idle, no attempt: chance says skill waits for an attempt",
+	session.describeChances(HYP).some((l) => /not counted until someone attempts/.test(l)), true);
+storage.setSkillHonour("ignore");
+check("idle on rung Ignore: chance says it is ignored, not pending",
+	session.describeChances(HYP).some((l) => /ignored by your setting/.test(l)), true);
+// Mid-attempt the note is gone and the honoured line (or nothing, on Ignore) stands instead.
+storage.setSkillHonour("capped");
+attempt(80);
+check("mid-attempt: no 'waits for an attempt' note",
+	session.describeChances(HYP).some((l) => /not counted until someone attempts/.test(l)), false);
+check("  the honoured line is there instead",
+	session.describeChances(HYP).some((l) => /honoured skill/.test(l)), true);
+session.safeword();
+
 console.log(`skill: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);
