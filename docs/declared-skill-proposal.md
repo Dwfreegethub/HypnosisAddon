@@ -1,8 +1,15 @@
 # Hypnotist Skill — Declared and Visible
 
-*Proposal, 2026-09-09. Written for review, not yet merged into `design.md`. Everything here is a
-**proposal** unless marked **settled**, which means it is already recorded as a decision in
-`design.md`, already true in code, or decided by DW on 2026-09-09 (marked **DW**).*
+*Proposal, 2026-09-09. Everything here is a **proposal** unless marked **settled**, which means it
+is already recorded as a decision in `design.md`, already true in code, or decided by DW on
+2026-09-09 (marked **DW**).*
+
+> **BUILT 2026-09-12, v0.66.0 — rungs 1–3.** The honour ladder, the transmit, the roll terms, the
+> `depthFull`-only restriction, the instinct descriptor, `/hypno skill` and the practice accrual all
+> ship. **Rung 4 is honoured but not offered** (gated on dual fatigue, §4). Still unbuilt from below:
+> the rolling-hour **practice cap** (§5, and it owes a name), and demoting the Stats tab (§5a). The
+> A2 weights remain parked. A condensed version of this is now in design.md's appendix; this file
+> stays as the full working.
 
 ---
 

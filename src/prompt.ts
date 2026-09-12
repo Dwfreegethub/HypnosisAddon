@@ -52,7 +52,7 @@ function buttonLeft(index: number): number {
 	return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
 }
 
-function drawPrompt(hypnotistName: string, remainingMs: number): void {
+function drawPrompt(hypnotistName: string, remainingMs: number, descriptor: string | null): void {
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 4);
 
@@ -62,11 +62,14 @@ function drawPrompt(hypnotistName: string, remainingMs: number): void {
 	// long, and a name overflowing the panel would look broken at the one moment the
 	// player most needs to read it.
 	DrawTextFit(`${hypnotistName} is trying to hypnotize you.`, centre, PANEL_TOP + 55, inner, "Black");
-	DrawTextFit("They are never told which you choose.", centre, PANEL_TOP + 110, inner, "Gray");
+	DrawTextFit("They are never told which you choose.", centre, PANEL_TOP + 105, inner, "Gray");
+	// The instinct line, when she has a read on them. Grey, between the fixed lines and the
+	// countdown — a feeling about herself, not a fact about him, styled to read that way.
+	if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP + 138, inner, "#444");
 	DrawTextFit(
 		`${Math.ceil(remainingMs / 1000)}s — no answer counts as Ignore.`,
 		centre,
-		PANEL_TOP + 160,
+		PANEL_TOP + 175,
 		inner,
 		"Gray",
 	);
@@ -99,7 +102,7 @@ export function installPrompt(modApi: any): void {
 			const result = next(args);
 			// After next(), so the box paints over the room rather than under it.
 			const pending = getPendingPrompt();
-			if (pending) drawPrompt(pending.hypnotistName, pending.remainingMs);
+			if (pending) drawPrompt(pending.hypnotistName, pending.remainingMs, pending.descriptor);
 			return result;
 		}) as any,
 	);

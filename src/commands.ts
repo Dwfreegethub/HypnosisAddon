@@ -29,6 +29,7 @@ import {
 	RelationKind,
 } from "./storage";
 import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
+import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
@@ -632,6 +633,20 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Where settings loaded from, and what each source holds",
 		Action: () => describeStorage().forEach(reply),
+	},
+	{
+		// YOUR OWN number, never anyone else's — the only skill value a command will print, by
+		// the same rule that keeps trust and experience to a sought-out screen (§5a). What the
+		// far side then honours is their setting and is deliberately invisible to you.
+		Tag: "skill",
+		group: "Diagnostics",
+		Description: "Show your own hypnotist skill, and how it is read",
+		Action: () => {
+			const v = skillValue();
+			reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
+			reply("It travels with each induction you attempt. How much of it lands is the other person's setting — you are never told.");
+			reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
+		},
 	},
 	{
 		Tag: "chance",

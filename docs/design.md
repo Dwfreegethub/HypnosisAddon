@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.64.1.*
+*Design notes and decision log — work in progress. Code at v0.66.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1820,7 +1820,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
   **Body parts deliberately excluded:** 26 of them, so flat buttons are out and it would need a picker sub-screen. Speech is genuinely the better interface for a parameterised command.
 - Widen the suggestion pattern library as gaps turn up in play
-- **Hypnotist global skill in the induction roll.** ~~Needs a design answer before code.~~ **Answered 2026-09-09: the "declared and visible" model** — the hypnotist's client sends a derived 0–100 value, the subject's client alone decides whether to honour it and how far, via a four-rung setting. Subject-authority holds literally rather than by exception. Full working in [`declared-skill-proposal.md`](declared-skill-proposal.md), pending review before it is folded in here.
+- ~~**Hypnotist global skill in the induction roll.**~~ **Built v0.66.0, rungs 1–3.** The "declared and visible" model: the hypnotist's client sends a derived 0–100 value with each attempt; the subject's client alone decides how much of it counts, through a four-rung honour setting on the Depth tab (default rung 2, "Only from people I trust"). Skill feeds `depthFull` only, never `depthEarned`, so it can raise a roll but never reach the three features that outlive the session or lie about the body. The prompt gains a private instinct clause read off the *honoured* value. **Rung 4 ("Skill can beat my resistance") is honoured but not OFFERED by the settings cycle** — it is the CNC rung, and the proposal gates offering it on dual fatigue existing. Still deferred from §5: the rolling-hour practice cap (anti-grind on the stat's growth) and demoting the Stats tab behind an Advanced button. Full working in [`declared-skill-proposal.md`](declared-skill-proposal.md).
 - **The Fight-never-worse-than-Ignore invariant.** Below an honoured skill of 50 the proposed skill formula gives a fighting subject *worse* odds than one who ignores — `Fight = max(5 + 0.25v, …)` overtakes `Ignore = max(5, 0.35v)` whenever `v < 50`. Nonsense on its face and easy to find in play. Fix by computing Ignore first and using it as a hard upper bound on Fight, expressed as an invariant so it survives retuning, with a swept test assertion. **Blocks the skill ladder.** Found 2026-09-09 while pricing the rung-3 cap.
 - **First-launch guidance and the starter-set button.** Every permission ships `false`, `hypnoEnabled` included, so a fresh install does nothing at all and a new user cannot distinguish broken from off. Not the wizard — a note plus one button offering five session-scoped permissions, on the line `earnedOnly` already draws: nothing that outlives the session, nothing that lies to the subject about their own body. Set and reasoning in [`declared-skill-proposal.md`](declared-skill-proposal.md) §9.
 - ~~**`MAX_ATTEMPTS` never got its decided value.**~~ **Built v0.65.0** (and the settings lock widened to cover attempts in v0.65.1) as `maxAttempts` in storage.ts, read live through `maxAttempts()` in session.ts and set by a click-to-cycle button on the Permissions tab. Two values only, 2 and 3, because that is what was decided — a wider range would be re-deciding it. Existing saved settings have no such field, and absent means "never chose", so an upgrade moves from the old hardcoded 3 to the decided 2; see the note in `normalise()` for why that is not the decay rates' case. Covered by `test/attempts.mjs`.
@@ -1867,6 +1867,56 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.66.0) — hypnotist skill, declared and visible (rungs 1–3)
+
+The feature design.md has wanted since the beginning — *a new player should have little chance of
+resisting a very experienced hypnotist* — finally wired into the roll, by the route the proposal
+settled: **declared and visible**, not verified.
+
+**What happens between the two of them.** He attempts an induction; his client sends a 0–100 skill
+value derived from his own completed inductions (the same `100n/(n+25)` curve as everything else,
+reusing `H_EXPERIENCE`). Her client runs that claim through the **honour rung she set** and nothing
+else decides it — rule #1 holds literally, because the acting-on-a-number still happens entirely on
+her machine. Rung 1 ignores it; rung 2 scales it by how well she already knows him (a stranger gets
+zero); rung 3 caps it at the stranger ceiling of 30; rung 4 takes it whole. Default is rung 2.
+
+**He can lie about the number, and that is the point, not a hole.** It is computed on his machine
+from his own storage; both are editable. What protects her is that her client decides whether it
+counts, that she is shown a read on it before she answers, and that the rung letting a stranger's
+claim matter at all is one she had to go and choose. Inflation only reaches people who already
+opted to listen.
+
+**How it enters the roll.** Two terms, both off the *honoured* value: an additive `0.35 × v` that
+behaves like any modifier, and a floor under **Fight** of `5 + 0.25 × v` — the literal statement of
+"resisting this person leaves a wider gap than resisting a novice", and the one the design names. The
+A1 invariant from v0.62.1 (Fight never beats Ignore) was already in place waiting for exactly this,
+and `test/odds.mjs` sweeps it with the live terms now reachable. Skill counts toward **`depthFull`
+only** — `currentSkillTerms()` returns nothing for the earned pass — so the arithmetic alone keeps an
+overpowered newcomer shallow (a fought win lands ~0–25, Drifting or Yielding) and the `earnedOnly`
+features out of reach before any gate is consulted.
+
+**What she sees.** The induction prompt gains one private clause, on her own screen, about *her
+instinct* rather than about him — read off the honoured value, so two subjects meeting the same
+hypnotist read him differently, which is coherent as a feeling and incoherent as a claim (the joined
+A3/A3a decision). Below honoured 20 there is no clause at all: she has no read on this person. The
+prose is placeholder; the register — behavioural, never evaluative, never a number — is settled. The
+hypnotist is never told whether his claim was honoured, the same construction as never learning the
+Agree/Ignore/Fight choice.
+
+**What the hypnotist sees.** `/hypno skill` — his own value and the practice behind it, sought out,
+never anyone else's. Skill accrues on his client from what the subject's own `session-update`
+reports back: +0.25 a roll, +1 more on a success, mirroring the subject's experience pool, credited
+at one site off the attempts count so it cannot double-count.
+
+**Deliberately not in this build.** Rung 4's *offering* waits on dual fatigue (its "usually wins"
+feel is carried by attrition, which does not exist yet — §4). The rolling-hour **practice cap** that
+stops skill being ground out against a cooperative friend is designed (§5) but unbuilt, and owes DW a
+name first. Demoting the Stats tab behind an Advanced button (§5a) is cosmetic and separate. None of
+the three changes a number in this build; they are the hardening and the CNC top, to follow.
+
+Test bot: `!skill <n>` sets the claim it transmits (default 80, "expert"), so the rungs can be
+watched in play. `test/skill.mjs`, 34 checks.
 
 ### Added 2026-09-12 (v0.63.0) — the decay scenario is unblocked
 

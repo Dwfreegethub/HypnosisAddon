@@ -26,6 +26,10 @@ import {
 	getMaxAttempts,
 	setMaxAttempts,
 	nextAttemptLimit,
+	getSkillHonour,
+	setSkillHonour,
+	nextSkillHonour,
+	SKILL_HONOUR_RUNGS,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -299,6 +303,12 @@ const SCOPE_BUTTON_TOP = 740;
 const SCOPE_BUTTON_WIDTH = 430;
 const DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
 const DEFAULTS_BUTTON_WIDTH = 240;
+/** The skill-honour control sits a row below the chemical-scope one. Both are Depth-tab
+ * controls: chemical scope is what pushes you deeper besides trust, and this is how much of a
+ * hypnotist's claimed practice you let push at all. A wide button because the rung labels are
+ * sentences ("Only from people I trust"). */
+const HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
+const HONOUR_BUTTON_WIDTH = 720;
 let depthPage = 0;
 
 function depthPageCount(): number {
@@ -358,6 +368,14 @@ function drawDepthGates(): void {
 		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
 	);
+	const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
+	DrawButton(
+		SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
+		`A hypnotist's skill: ${honour}`, locked ? "#ddd" : "White", "",
+		"How much of another hypnotist's own practice is allowed to help them put you under. " +
+			"Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
+		locked,
+	);
 
 	// Where they are RIGHT NOW, so the numbers above mean something while reading the list.
 	//
@@ -390,6 +408,12 @@ function clickDepthGates(): boolean {
 	if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
 		clearDepthOverrides();
 		notifyLocal("Depth requirements reset to their defaults.");
+		return true;
+	}
+	if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+		const next = nextSkillHonour(getSkillHonour());
+		setSkillHonour(next);
+		log(`skill honour set to ${next}`);
 		return true;
 	}
 	const gates = visibleGates();

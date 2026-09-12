@@ -271,6 +271,10 @@ function hidden(message, target = subject?.id ?? null) {
 // and never the private choice. That is the whole architecture and it means the bot can
 // report the shape of what happened but never grade it. Hence the ask-the-human steps.
 let lastUpdate = null;
+// The skill value this bot CLAIMS on every induction. Declared, not earned — the real addon
+// derives it from practice, but the bot has none, so it just asserts one, which is exactly the
+// case the honour rungs exist to handle. 80 reads as "expert". `!skill <n>` changes it.
+let botSkill = 80;
 
 // WHAT THE SUBJECT LOOKS LIKE, in one line.
 //
@@ -436,7 +440,7 @@ const SCENARIOS = [
 		// evening — so the retry is a step of its own rather than something to discover.
 		steps: [
 			{
-				do: () => hidden({ type: "session-attempt", hypnotistName: "WinnersDice" }),
+				do: () => hidden({ type: "session-attempt", hypnotistName: "WinnersDice", skill: botSkill }),
 				want: "A box offering Agree / Ignore / Fight. Choose AGREE — the other two are separate tests.",
 				fail: "No box appears at all.",
 			},
@@ -868,6 +872,15 @@ function handleCommand(sender, text) {
 				`asked to age ${index == null ? "every trigger" : `trigger ${index}`} by ${days} day(s). ` +
 					"Their client answers with the strength before and after; /hypno triggers shows the list.",
 			);
+		}
+		case "skill": {
+			// What we CLAIM to be, on the next induction. The subject's honour rung decides how
+			// much of it reaches their roll — Ignore: none; Only-from-trust: scaled by how well
+			// they know us (nothing, to a stranger); Honour-capped: up to 30. `/hypno chance`
+			// on their side shows the honoured read.
+			const n = Number((arg ?? "").trim());
+			if (Number.isFinite(n)) botSkill = Math.max(0, Math.min(100, n));
+			return report(`Claiming skill ${botSkill}/100 on the next attempt. Their rung decides how much of it lands.`);
 		}
 		case "rooms": {
 			// The direct test of whether we share an Environment with the subject: the server

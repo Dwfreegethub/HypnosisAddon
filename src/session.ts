@@ -1,7 +1,10 @@
 import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
-import { getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS } from "./storage";
+import {
+	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
+	getSkillHonour, skillValue, addSkill,
+} from "./storage";
 import {
 	noteInductionSuccess,
 	noteInductionAttempt,
@@ -118,6 +121,11 @@ const EXPERIENCE_WEIGHT = 0.25;
  * grows a control that isn't a checkbox. At 30, a fully aroused stranger reaches the same
  * access as roughly an hour of conversation, and no further. */
 const STRANGER_CEILING = 30;
+/** Skill the local player earns as a hypnotist, per roll and per success. Deliberately the same
+ * numbers as the subject's own experience pool (ATTEMPT_EXPERIENCE / INDUCTION_EXPERIENCE in
+ * trust.ts): practice is one skill whichever chair you are in. */
+const SKILL_ATTEMPT_CREDIT = 0.25;
+const SKILL_SUCCESS_CREDIT = 1;
 /** Above this depth the subject can no longer pull themselves out — only the hypnotist,
  * the session timeout, or the safeword. */
 const SELF_WAKE_MAX_DEPTH = 40;
@@ -195,6 +203,11 @@ interface SubjectSession {
 	rpLines: number;
 	/** The last line counted, so the same one pasted repeatedly cannot farm the bonus. */
 	lastRpLine: string;
+	/** The hypnotist's skill AS THIS SUBJECT'S CLIENT CHOSE TO HONOUR IT — claimed value run
+	 * through the honour rung, 0-100, fixed when the attempt arrives. Zero means "no read on
+	 * them" (rung Ignore, or a stranger on rung Trusted). Drives the roll and the prompt
+	 * descriptor; never transmitted, never shown as a number. */
+	honouredSkill: number;
 }
 
 function freshSession(): SubjectSession {
@@ -212,6 +225,7 @@ function freshSession(): SubjectSession {
 		promptExpiresAt: 0,
 		rpLines: 0,
 		lastRpLine: "",
+		honouredSkill: 0,
 	};
 }
 
@@ -468,6 +482,59 @@ export type SkillTerms = {
 };
 const NO_SKILL: SkillTerms = { additive: 0, fightFloor: 0 };
 
+/** The two weights skill enters the roll through. PARKED as numbers (§A2) — rung-4 tuning can
+ * move them, and `test/odds.mjs` re-checks the Fight invariant if they do. 0.35 is chosen so
+ * skill outweighs the subject's own experience (EXPERIENCE_WEIGHT 0.25), which design.md settles
+ * it should. */
+const SKILL_ADDITIVE_WEIGHT = 0.35;
+const SKILL_FIGHT_FLOOR_WEIGHT = 0.25;
+
+/** The skill terms for the attempt in progress, built from `session.honouredSkill`.
+ *
+ * earnedOnly gets NONE: skill counts toward `depthFull` only, never `depthEarned`. That is the
+ * one place skill must not reach — `depthEarned` gates the three features that outlive the
+ * session or lie to the subject about her own body, and an expert stranger winning a roll is a
+ * different thing from planting a trigger that survives it (§4). resolveDepths() asks for the
+ * earned chance with earnedOnly=true, so this returns NO_SKILL there and the earned depth is
+ * skill-free by construction rather than by a later subtraction. */
+function currentSkillTerms(earnedOnly: boolean): SkillTerms {
+	if (earnedOnly) return NO_SKILL;
+	const v = session.honouredSkill;
+	if (!v || v <= 0) return NO_SKILL;
+	return { additive: v * SKILL_ADDITIVE_WEIGHT, fightFloor: RESISTANCE_FLOOR + v * SKILL_FIGHT_FLOOR_WEIGHT };
+}
+
+/** How much of a claimed 0-100 skill a rung lets through. The subject's client runs this on
+ * every attempt; the far side never learns the answer. See declared-skill-proposal.md §1.
+ *   ignore  — none, ever
+ *   trusted — in proportion to how well she already knows him (relationship trust)
+ *   capped  — anyone, but no further than the stranger ceiling
+ *   full    — whole (the CNC rung; not offered by the settings cycle yet) */
+export function honourSkill(rung: string, claimed: number, trust: number): number {
+	const v = Math.max(0, Math.min(100, claimed));
+	switch (rung) {
+		case "trusted": return (v * Math.max(0, Math.min(100, trust))) / 100;
+		case "capped": return Math.min(v, STRANGER_CEILING);
+		case "full": return v;
+		default: return 0; // "ignore", and any unknown rung, honour nothing
+	}
+}
+
+/** The private clause appended to the induction prompt — a read on HER OWN instinct, never a
+ * claim about him, and never a number (§3, the joined decision A3/A3a). Reads the HONOURED
+ * value, so two subjects meeting the same hypnotist see him differently — incoherent as a fact
+ * about him, exactly right as a fact about her. Null below 20: she has no read on this person.
+ *
+ * Placeholder prose — the register is settled (her instinct, behavioural, never evaluative),
+ * the exact words are cosmetic and open (§3, §10 B1). Gender-neutral: the hypnotist's pronouns
+ * are not ours to assume. */
+export function skillDescriptor(honoured: number): string | null {
+	if (honoured < 20) return null;
+	if (honoured < 50) return "Something about the way they say your name makes you want to listen.";
+	if (honoured < 80) return "Something in their voice puts you faintly off balance, and you are not sure why.";
+	return "Something in how they speak to you makes you want to sit down before they ask.";
+}
+
 /** The chance before the Fight invariant is applied. Split out so `inductionChance()` can
  * state the invariant over the finished number rather than over one arrangement of the
  * terms — which is what keeps it true when a term is added or retuned later. */
@@ -528,11 +595,12 @@ export function inductionChance(
 	hypnotistId: number,
 	choice: SessionChoice,
 	earnedOnly = false,
-	skill: SkillTerms = NO_SKILL,
+	skill?: SkillTerms,
 ): number {
-	const chance = chanceBeforeInvariant(hypnotistId, choice, earnedOnly, skill);
+	const terms = skill ?? currentSkillTerms(earnedOnly);
+	const chance = chanceBeforeInvariant(hypnotistId, choice, earnedOnly, terms);
 	if (choice !== "fight") return chance;
-	return Math.min(chance, chanceBeforeInvariant(hypnotistId, "ignore", earnedOnly, skill));
+	return Math.min(chance, chanceBeforeInvariant(hypnotistId, "ignore", earnedOnly, terms));
 }
 
 /** What the roleplay in this induction window is currently worth, 0-15.
@@ -581,6 +649,12 @@ export function describeChances(memberId: number): string[] {
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
+		// Skill only shows when this client honoured some — zero outside an attempt, zero on
+		// rung Ignore, zero for a stranger on rung Trusted. It is the HONOURED value, the same
+		// one the descriptor reads, not the claim.
+		...(session.honouredSkill > 0
+			? [`  honoured skill +${(session.honouredSkill * SKILL_ADDITIVE_WEIGHT).toFixed(1)} (they read as ${session.honouredSkill.toFixed(0)}/100 to you)`]
+			: []),
 		// Only worth a line when there is one, since it is zero outside an induction window —
 		// but silence about a live bonus would make the percentages below look wrong.
 		...(rpBonusFor(memberId) > 0
@@ -728,8 +802,12 @@ function showPrompt(hypnotistName: string): void {
 		notify("You didn't respond — the induction proceeds without your intent either way.");
 		beginInductionWindow();
 	}, PROMPT_TIMEOUT_MS);
+	// The instinct clause, if she has any read on them — about her, never about him, and never a
+	// number. Its own sentence so it reads as a feeling rather than as a stat tacked on.
+	const descriptor = skillDescriptor(session.honouredSkill);
 	notify(
-		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)`,
+		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)` +
+			(descriptor ? ` ${descriptor}` : ""),
 	);
 }
 
@@ -738,11 +816,12 @@ function showPrompt(hypnotistName: string): void {
  *
  * Returns the remaining time rather than the deadline so the caller can't accidentally
  * render a countdown against the wrong clock. */
-export function getPendingPrompt(): { hypnotistName: string; remainingMs: number } | null {
+export function getPendingPrompt(): { hypnotistName: string; remainingMs: number; descriptor: string | null } | null {
 	if (session.phase !== "AttemptMade") return null;
 	return {
 		hypnotistName: session.promptName || "Someone",
 		remainingMs: Math.max(0, session.promptExpiresAt - Date.now()),
+		descriptor: skillDescriptor(session.honouredSkill),
 	};
 }
 
@@ -987,8 +1066,14 @@ export function countdownRemaining(view: SessionView, field: "cooldownRemaining"
 export function requestAttempt(memberNumber: number): void {
 	// Name travels with the request so the subject's prompt can say who it is without
 	// depending on them having that character loaded and resolvable at that moment.
-	sendHiddenMessage({ type: "session-attempt", hypnotistName: Player?.Name ?? "Someone" }, memberNumber);
-	log(`sent session-attempt to ${memberNumber}`);
+	// The derived skill value rides along — how much the far side believes it is THEIR setting.
+	// Declared and visible, not verified: he can edit his own number, which is why the subject
+	// is shown a read on it before she answers and why her rung decides whether it counts at all.
+	sendHiddenMessage(
+		{ type: "session-attempt", hypnotistName: Player?.Name ?? "Someone", skill: skillValue() },
+		memberNumber,
+	);
+	log(`sent session-attempt to ${memberNumber} (skill ${skillValue().toFixed(1)})`);
 }
 
 export function requestContinue(memberNumber: number): void {
@@ -1075,6 +1160,9 @@ export function installSession(): void {
 		session = freshSession();
 		session.hypnotistId = sender;
 		session.phase = "AttemptMade";
+		// Honour the claim HERE, once, against trust as it stands at the attempt — the rung and
+		// the relationship are the subject's, and the far side never learns the result.
+		session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
 		pushUpdate();
 		showPrompt(String(message.hypnotistName ?? `#${sender}`));
 	});
@@ -1147,6 +1235,17 @@ export function installSession(): void {
 	// Incoming, as the HYPNOTIST.
 
 	registerHiddenHandler("session-update", (sender, message) => {
+		// Practice accrues on the HYPNOTIST's client, read off what the subject reports rather
+		// than guessed locally — only the hypnotist receives these, so only they credit. Mirrors
+		// the subject's own experience (ATTEMPT_EXPERIENCE 0.25 / INDUCTION_EXPERIENCE 1): every
+		// roll is +0.25, a success is +1 more. A refusal carries attempts=0 and credits nothing.
+		// NOTE: no rolling-hour practice cap yet — that is the anti-grind half of §5 and its own
+		// follow-up (it also owes DW a name). This is the progression, not the limiter.
+		const prev = views.get(sender);
+		const newAttempts = Number(message.attempts ?? 0);
+		const gained = newAttempts - (prev?.attempts ?? 0);
+		if (gained > 0) addSkill(SKILL_ATTEMPT_CREDIT * gained);
+		if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
 		views.set(sender, {
 			phase: (message.phase as SessionPhase) ?? "Idle",
 			attempts: Number(message.attempts ?? 0),

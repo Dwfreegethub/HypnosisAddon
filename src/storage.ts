@@ -86,6 +86,25 @@ export const DECAY_RATES: { key: DecayRate; label: string }[] = [
  * only because the subject's own client sends it; see session.ts's push. */
 export const ATTEMPT_LIMITS = [2, 3];
 
+/** How much of a hypnotist's CLAIMED skill the subject's client lets reach the roll. A ladder,
+ * not a switch — the subject decides in advance how much to believe a number that arrives from
+ * someone else's machine, which is the whole of what makes "declared and visible" skill obey
+ * the subject-authoritative rule (declared-skill-proposal.md §1). Rung 4 ("full") is defined
+ * here so the honour function and the test sweep are complete, but it is NOT offered by the
+ * settings cycle yet: it is the CNC rung, and the proposal gates OFFERING it on dual fatigue
+ * existing (§4). SKILL_HONOUR_OFFERED is what the button walks. */
+export const SKILL_HONOUR_RUNGS: { key: string; label: string }[] = [
+	{ key: "ignore", label: "Ignore it" },
+	{ key: "trusted", label: "Only from people I trust" },
+	{ key: "capped", label: "Honour, capped" },
+	{ key: "full", label: "Skill can beat my resistance" },
+];
+export const SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 3);
+/** Rung 2. Discoverable in an established pair, worth exactly zero to a stranger, and cheaply
+ * reversible because it is stored SPARSELY — written only when the player changes it, default
+ * in code, the same pattern as depthGates. See §2. */
+export const DEFAULT_SKILL_HONOUR = "trusted";
+
 /** The decided default. Read by anyone who has to name a limit without one to read —
  * notably the hypnotist's view of a subject who has not told us theirs. */
 export const DEFAULT_MAX_ATTEMPTS = 2;
@@ -319,6 +338,15 @@ interface HypnoAddonSettings {
 	 * choice — the same principle as the decay rates. A stored copy of every default would
 	 * freeze the design at whatever it was the day somebody first opened the screen. */
 	depthGates: Record<string, string>;
+	/** How much of another hypnotist's claimed skill this subject's client honours. Absent means
+	 * "never chose" and resolves to DEFAULT_SKILL_HONOUR in code — stored only on change, so the
+	 * default stays reversible (§2, and the same reasoning as depthGates). One of
+	 * SKILL_HONOUR_RUNGS; an invalid stored value is dropped on load. */
+	skillHonour?: string;
+	/** The player's OWN practice as a hypnotist, as an interaction COUNT through the shared
+	 * curve — never a stored value — exactly like `experience`. Transmitted (derived) on every
+	 * induction this player attempts; what the far side then does with it is their setting. */
+	skill: number;
 	/** What may contribute the chemical half of depth.
 	 *
 	 * The doc says wizard-skippers get "Neither". There is no wizard yet, and shipping that
@@ -369,6 +397,7 @@ function defaultSettings(): HypnoAddonSettings {
 		version: "0.4.0",
 		trust: [],
 		experience: 0,
+		skill: 0,
 		triggers: [],
 		triggerScope: "hypnotist",
 		triggerDurationMinutes: 5,
@@ -424,6 +453,12 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// on would have eaten stored trust, and there is no equivalent loss here — one fewer try
 	// per cooldown is a pace change, and it is the pace that was decided.
 	if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
+	if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
+	// An invalid rung is DELETED, not defaulted, so the code default keeps governing it — a
+	// stored "trusted" would freeze today's default into that install forever.
+	if (s.skillHonour !== undefined && !SKILL_HONOUR_RUNGS.some((r) => r.key === s.skillHonour)) {
+		delete s.skillHonour;
+	}
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
 	// Triggers planted before v0.60.0 have no strength history. Planting has always required
@@ -866,6 +901,38 @@ export function setTriggerScope(scope: TriggerScope): void {
  * login, and the subject is the only authority on it. */
 export function getMaxAttempts(): number {
 	return loadSettings().maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+}
+
+/** The subject's honour rung — the code default when they have never chosen. */
+export function getSkillHonour(): string {
+	return loadSettings().skillHonour ?? DEFAULT_SKILL_HONOUR;
+}
+export function setSkillHonour(rung: string): void {
+	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
+	saveSettings();
+}
+/** The next rung the settings button should show — walks the OFFERED rungs only, so the cycle
+ * can never land a player on rung 4 by clicking. */
+export function nextSkillHonour(current: string): string {
+	const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current);
+	// If they are somehow on rung 4 (set by an older build or by hand), the next click brings
+	// them back to a safe offered rung rather than leaving them stuck there.
+	return SKILL_HONOUR_OFFERED[(i + 1) % SKILL_HONOUR_OFFERED.length].key;
+}
+
+/** The player's own derived skill, 0-100, and the count that feeds it. Mirrors experience
+ * exactly, through the same curve — the comment on `skill` says why. */
+export function addSkill(delta: number): number {
+	const settings = loadSettings();
+	settings.skill = Math.max(0, settings.skill + delta);
+	saveSettings();
+	return skillValue();
+}
+export function skillValue(): number {
+	return valueFromCount(loadSettings().skill, H_EXPERIENCE);
+}
+export function skillCount(): number {
+	return loadSettings().skill;
 }
 
 /** Clamped to the allowed set rather than rejected: the only caller is a button that cycles
