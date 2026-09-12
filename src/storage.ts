@@ -73,6 +73,30 @@ export const DECAY_RATES: { key: DecayRate; label: string }[] = [
 	{ key: "veryfast", label: "Very fast" },
 ];
 
+/** How many times one hypnotist may try an induction before the cooldown shuts them out.
+ *
+ * Two values, not a range. design.md records the decision as *"default 2, with 3 available
+ * as a player setting"*, so this offers exactly what was decided and nothing more — a 1 or a
+ * 5 would be re-deciding it in code rather than implementing it. Stored as the NUMBER rather
+ * than as a name, unlike the decay rates, because unlike "Slowly" the number is the whole
+ * meaning: what a player picks here is literally how many tries someone gets, and there is
+ * nothing behind it left to retune.
+ *
+ * It is the SUBJECT's setting and nobody else's. A hypnotist is shown the subject's limit
+ * only because the subject's own client sends it; see session.ts's push. */
+export const ATTEMPT_LIMITS = [2, 3];
+
+/** The decided default. Read by anyone who has to name a limit without one to read —
+ * notably the hypnotist's view of a subject who has not told us theirs. */
+export const DEFAULT_MAX_ATTEMPTS = 2;
+
+/** Cycle to the next allowed limit, wrapping. The settings screen advances by clicking,
+ * the way the depth tiers do — a two-value choice does not earn a dropdown. */
+export function nextAttemptLimit(current: number): number {
+	const i = ATTEMPT_LIMITS.indexOf(current);
+	return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
+}
+
 /** A BC relationship, as it bears on trust. */
 export type RelationKind = "none" | "friend" | "lover" | "owner";
 
@@ -274,6 +298,9 @@ interface HypnoAddonSettings {
 	/** Minutes a fired trigger's effects last before releasing themselves. 0 means no
 	 * limit — they stay until released by name or by the safeword. */
 	triggerDurationMinutes: number;
+	/** How many induction attempts one hypnotist gets before a cooldown. One of
+	 * ATTEMPT_LIMITS; anything else is normalised back to the default on load. */
+	maxAttempts: number;
 	/** How fast trust fades without contact. */
 	decayRate: DecayRate;
 	/** How fast planted triggers fade without reinforcement. Deliberately a SEPARATE setting
@@ -339,6 +366,7 @@ function defaultSettings(): HypnoAddonSettings {
 		triggers: [],
 		triggerScope: "hypnotist",
 		triggerDurationMinutes: 5,
+		maxAttempts: DEFAULT_MAX_ATTEMPTS,
 		// OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
 		// whenever it was last touched, so shipping this switched on would decay months of
 		// stored trust the first time someone loaded the new build. Opt in.
@@ -383,6 +411,13 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
 	if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
+	// Absent means "never chose", which takes the default — the same rule the depth gates and
+	// the chemical scope already follow, and the reason defaults live in code at all. So a
+	// blob saved before this setting existed moves from the old hardcoded 3 to the decided 2.
+	// Deliberately NOT the decay rates' treatment: those ship "never" because switching them
+	// on would have eaten stored trust, and there is no equivalent loss here — one fewer try
+	// per cooldown is a pace change, and it is the pace that was decided.
+	if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
 	// Triggers planted before v0.60.0 have no strength history. Planting has always required
@@ -818,6 +853,22 @@ export function getTriggerScope(): TriggerScope {
 export function setTriggerScope(scope: TriggerScope): void {
 	loadSettings().triggerScope = scope;
 	saveSettings();
+}
+
+/** The subject's own attempt limit. Read live at every point that needs it rather than
+ * captured once — changing it mid-session should take effect on the next roll, not the next
+ * login, and the subject is the only authority on it. */
+export function getMaxAttempts(): number {
+	return loadSettings().maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+}
+
+/** Clamped to the allowed set rather than rejected: the only caller is a button that cycles
+ * through that set, so a value outside it is a bug here and not a player's typo. */
+export function setMaxAttempts(limit: number): number {
+	const value = ATTEMPT_LIMITS.includes(limit) ? limit : DEFAULT_MAX_ATTEMPTS;
+	loadSettings().maxAttempts = value;
+	saveSettings();
+	return value;
 }
 
 export function getTriggerDuration(): number {

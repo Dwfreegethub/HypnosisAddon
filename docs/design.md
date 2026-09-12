@@ -229,11 +229,11 @@ scenarios* for what each scenario proves.
 | 15 — Reinforcement & decay | Triggers weaken with disuse, hold better the deeper they were planted, and are refreshed by a re-induction; strength is their effective depth when they fire |
 | 16 — Vertical tabs | Both canvas panels moved their tabs to the left edge, which lifts the ceiling from six tabs to nine and gives the panel back the band above it |
 
-**Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while in trance". Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
+**Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while in trance". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
 A second tab holds the **trance defaults** — cannot move / cannot speak / screen fade, all ON by default, plus *Clothes Look Unchanged* (off, deliberately: the other three are things you feel, this one makes your own screen tell you something untrue) and *Others See Your Reactions* (on). A third holds **awareness** (what you can be made not to notice), a fourth **triggers** (planting, carry-forward, firing your own, showing the words, scope, duration), and a fifth is read-only **stats**. A **"?" button on both this screen and the remote panel** opens a five-tab help screen generated from the pattern library and command list themselves, so it cannot fall behind them.
 
-**The session loop.** *Attempt Hypnosis* → the subject gets a private prompt (Agree / Ignore / Fight — **the hypnotist is never told which**, by construction rather than by agreement; no answer in 60s counts as Ignore) → a 60-second induction window for actual roleplay → a **chance-based roll**: `clamp(access + choiceModifier + experienceEffect + rpBonus, 5, 95)` read literally as a percentage, where `access = max(trust, min(arousal, 30))` and `rpBonus` is up to +15 for actually roleplaying the induction. Success fixes the trance depth at entry; failure shows the hypnotist only a vague band ("slightly relaxed", "almost under"), never a number. Three attempts, then a 10-minute cooldown.
+**The session loop.** *Attempt Hypnosis* → the subject gets a private prompt (Agree / Ignore / Fight — **the hypnotist is never told which**, by construction rather than by agreement; no answer in 60s counts as Ignore) → a 60-second induction window for actual roleplay → a **chance-based roll**: `clamp(access + choiceModifier + experienceEffect + rpBonus, 5, 95)` read literally as a percentage, where `access = max(trust, min(arousal, 30))` and `rpBonus` is up to +15 for actually roleplaying the induction. Success fixes the trance depth at entry; failure shows the hypnotist only a vague band ("slightly relaxed", "almost under"), never a number. **Two attempts, then a 10-minute cooldown** — three if the subject sets it, on the Permissions tab. Built v0.65.0; it was hardcoded to three until then.
 
 **Getting out**, in ascending order of authority: the hypnotist's Wake Up button; `/hypno wake`, which works only if the trance is shallow; a 30-minute session timeout; and `/hypno safeword`, which always works from any state and can't be taken away.
 
@@ -446,7 +446,13 @@ Not name-gated, unlike suggestions: an induction is a monologue delivered *at* s
 
 **`skillBonus` remains unbuilt** — it lives on the hypnotist's client while the roll runs on the subject's, and taking a self-reported number would break the subject-authoritative rule. Still the open question it always was.
 
-Per-attempt chance (and per session, across the 3 permitted attempts):
+Per-attempt chance (and per session, across three attempts):
+
+> The per-session column assumes three, which is what the code did when this was written. The
+> limit became a player setting in v0.65.0 and **defaults to two**, so the bracketed figures are
+> the upper reading — at two attempts a 35% chance compounds to 58%, not 73%. Worth recomputing
+> if this table is ever retuned rather than read.
+
 
 | Trust | Agree | Ignore | Fight |
 |---|---|---|---|
@@ -927,7 +933,7 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
 ### Step 3 — Checking Success
 - After a short window, the hypnotist checks their panel to see if the attempt landed
 - If not successful: a **"Continue Trying"** button appears, along with a **progress indicator** showing whether the subject is getting closer (e.g., "slightly relaxed → more relaxed → almost under") — without revealing exact numbers or the subject's private choice
-- Maximum attempts allowed before a cooldown kicks in (player-set)
+- Maximum attempts allowed before a cooldown kicks in (player-set) — **built v0.65.0**, Permissions tab, 2 or 3, default 2
 - After max attempts: panel shows "try again later" — subject cannot be re-attempted until cooldown expires
 
 ### Step 4 — Success
@@ -1680,6 +1686,7 @@ BC already has a named activity system (spank, kiss, caress, kneel, etc.) with b
 | Same-room-time trust | Toggle — passive trust from time alone together |
 | Trust decay rate | ~~How fast trust fades without interaction~~ — **built** v0.36.0, on the Stats tab. Named speeds (Never / Very slowly / Slowly / Typical / Fast / Very fast) rather than a number, so the values behind them stay retunable |
 | Pace tuning (later) | `H`, rate-limit interval, induction accelerator value — or presets: slow burn / standard / quick |
+| Attempt limit | ~~Maximum attempts before a cooldown~~ — **built** v0.65.0, on the Permissions tab. Two or three, default two; a ten-minute cooldown when they run out |
 | Resistance floor | Minimum success chance when actively fighting (default 5%) |
 | No-answer behaviour | Block attempt entirely (default) or treat as Ignore |
 | Drug response | Whether drugs raise or lower effective trust |
@@ -1816,14 +1823,14 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Hypnotist global skill in the induction roll.** ~~Needs a design answer before code.~~ **Answered 2026-09-09: the "declared and visible" model** — the hypnotist's client sends a derived 0–100 value, the subject's client alone decides whether to honour it and how far, via a four-rung setting. Subject-authority holds literally rather than by exception. Full working in [`declared-skill-proposal.md`](declared-skill-proposal.md), pending review before it is folded in here.
 - **The Fight-never-worse-than-Ignore invariant.** Below an honoured skill of 50 the proposed skill formula gives a fighting subject *worse* odds than one who ignores — `Fight = max(5 + 0.25v, …)` overtakes `Ignore = max(5, 0.35v)` whenever `v < 50`. Nonsense on its face and easy to find in play. Fix by computing Ignore first and using it as a hard upper bound on Fight, expressed as an invariant so it survives retuning, with a swept test assertion. **Blocks the skill ladder.** Found 2026-09-09 while pricing the rung-3 cap.
 - **First-launch guidance and the starter-set button.** Every permission ships `false`, `hypnoEnabled` included, so a fresh install does nothing at all and a new user cannot distinguish broken from off. Not the wizard — a note plus one button offering five session-scoped permissions, on the line `earnedOnly` already draws: nothing that outlives the session, nothing that lies to the subject about their own body. Set and reasoning in [`declared-skill-proposal.md`](declared-skill-proposal.md) §9.
-- **`MAX_ATTEMPTS` never got its decided value.** This list already records *"decided: default 2, with 3 available as a player setting"*; the code has 3 and no setting. A dropped implementation, not an open question.
+- ~~**`MAX_ATTEMPTS` never got its decided value.**~~ **Built v0.65.0** as `maxAttempts` in storage.ts, read live through `maxAttempts()` in session.ts and set by a click-to-cycle button on the Permissions tab. Two values only, 2 and 3, because that is what was decided — a wider range would be re-deciding it. Existing saved settings have no such field, and absent means "never chose", so an upgrade moves from the old hardcoded 3 to the decided 2; see the note in `normalise()` for why that is not the decay rates' case. Covered by `test/attempts.mjs`.
 - **Dual fatigue system — promoted, and it now blocks something.** Both counters (subject resistance fatigue, hypnotist fatigue) are designed in *Dual Fatigue System* above and **entirely unbuilt** — `grep -ri fatigue src/` returns nothing.
 
   **Dependency, settled 2026-09-09: build fatigue BEFORE the skill ladder's fourth rung.** That rung lets a skilled hypnotist overpower a subject's Fight, and DW's justification for it being survivable is that the subject wears down across repeated attempts. That mechanic does not exist. Worse, the one term that *does* move across a session runs the other way: subject experience accrues on every attempt win or lose (`ATTEMPT_EXPERIENCE`), and under the single-pool model it is negative when the choice is Fight — so today each failed attempt makes the subject fractionally *better* at resisting. The magnitude is a rounding error (~0.7 on the roll across three attempts), but the sign is the opposite of the assumption, and fatigue will be fighting this term rather than joining it. Rungs 1–3 do not depend on fatigue and may ship first.
 - ~~**Trust decay**~~ — done in v0.36.0. Subtraction from the interaction count, lazily on read, as named speeds rather than a number. **Off by default**; the residual question is whether it should ship on, which only play can answer.
 - ~~**`STRANGER_CEILING` (30) should be a player setting**~~ — **decided: 30 is the default, adjustable as a player setting.** Range TBD but 0–100 with the trust floor logic capping effective reach.
 - **Arousal on the remote panel.** The six arousal actions exist only as speech; folds into the remote-panel item below rather than being separate work.
-- ~~Revisit `MAX_ATTEMPTS`~~ — **decided: default 2, with 3 available as a player setting.**
+- ~~Revisit `MAX_ATTEMPTS`~~ — **decided: default 2, with 3 available as a player setting.** ~~Never implemented~~ — **built v0.65.0.**
 - Revisit flavor-text wording (DW: "not sure if I like the wording") — one real pass done in v0.34.0 (apply vs attempt), never re-reviewed whole
 - ~~**Decide whether decay ships ON.**~~ **Decided: Never is the right default.** Wizard will offer the setting at setup. No change to current behavior.
 - ~~**RP reward for engaging during the induction window.**~~ **Built v0.41.0** as `rpBonus`: +5/line, cap +15, session-only, resets per attempt.

@@ -23,6 +23,9 @@ import {
 	clearDepthOverrides,
 	getChemicalScope,
 	setChemicalScope,
+	getMaxAttempts,
+	setMaxAttempts,
+	nextAttemptLimit,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -104,6 +107,8 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while in trance" },
 		],
+		extra: drawAttemptControl,
+		clickExtra: clickAttemptControl,
 	},
 	{
 		name: "Trance Defaults",
@@ -219,6 +224,59 @@ const RESET_ARM_MS = 5000;
 
 function dataButtonLeft(index: number): number {
 	return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
+}
+
+// --- Permissions tab: the attempt limit ------------------------------------------------
+// The one control on this tab that is not a checkbox. It belongs here rather than on a tab
+// of its own because it answers the same question the checkboxes do — how far someone else
+// may go with you — and a tab holding a single button would be worse than the button.
+//
+// Click-to-cycle for the same reason the depth tiers are: a DOM control has to be created,
+// positioned in canvas coordinates and explicitly removed on every exit path, which is a
+// great deal of machinery for a choice between two numbers.
+//
+// Below the checkbox rows, which stop at 662 with ten of them in two columns — the same band
+// the Depth and Stats tabs already use for their summary controls.
+const ATTEMPT_BUTTON_LEFT = BOX_LEFT;
+const ATTEMPT_BUTTON_TOP = 740;
+const ATTEMPT_BUTTON_WIDTH = 520;
+const ATTEMPT_BUTTON_HEIGHT = 44;
+/** Under the button, clear of the panel floor at 902. */
+const ATTEMPT_CAPTION_Y = 826;
+
+function drawAttemptControl(): void {
+	const locked = settingsLocked();
+	DrawButton(
+		ATTEMPT_BUTTON_LEFT,
+		ATTEMPT_BUTTON_TOP,
+		ATTEMPT_BUTTON_WIDTH,
+		ATTEMPT_BUTTON_HEIGHT,
+		`Attempts before they must wait: ${getMaxAttempts()}`,
+		locked ? "#ddd" : "White",
+		"",
+		locked ? "Locked while in trance" : "How many tries one hypnotist gets in a row",
+		locked,
+	);
+	// What the setting COSTS, under the control that sets it — the same shape as the trigger
+	// decay caption. A count on its own does not say what happens when it runs out, and the
+	// ten minutes is the half a player is actually choosing between.
+	drawLeftTextFit(
+		"When they run out, they cannot try you again for ten minutes.",
+		ATTEMPT_BUTTON_LEFT,
+		ATTEMPT_CAPTION_Y,
+		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+		locked ? "Gray" : "#555",
+	);
+}
+
+function clickAttemptControl(): boolean {
+	if (!MouseIn(ATTEMPT_BUTTON_LEFT, ATTEMPT_BUTTON_TOP, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+	// Consumed either way: a greyed button that still cycles when clicked is the lock being
+	// decorative, which is the bug the checkboxes' own second check exists to stop.
+	if (settingsLocked()) return true;
+	const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
+	log(`induction attempt limit set to ${next}`);
+	return true;
 }
 
 // --- Depth tab ------------------------------------------------------------------------

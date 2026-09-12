@@ -585,7 +585,8 @@ induction on her over and over. She agrees every time; nothing interesting happe
 them. At the end of it his number says *expert*, and the next stranger who has rung 3 or 4 set feels
 it — from practice that was never practice.
 
-**What already exists and does *not* need re-solving:** `MAX_ATTEMPTS = 3` then `COOLDOWN_MS = 10
+**What already exists and does *not* need re-solving:** the attempt limit (a player setting as of
+v0.65.0, default 2) then `COOLDOWN_MS = 10
 minutes` already blocks rapid re-attempts *at the same subject*. The gap the cap needs to close is
 grinding **across many subjects or rooms**, which nothing currently touches.
 
@@ -595,7 +596,7 @@ grinding **across many subjects or rooms**, which nothing currently touches.
   a mix. Above that, further attempts earn nothing toward skill.
 - **It does not block the attempt — DW, settled.** A deliberate departure from the original
   "too fatigued to try again" phrasing. Three reasons: the anti-spam job is already done by
-  `MAX_ATTEMPTS` + cooldown; blocking would stop two consenting players mid-scene for a reason that
+  the attempt limit + cooldown; blocking would stop two consenting players mid-scene for a reason that
   is purely about a stat; and a blocked attempt is a thing the *subject* would notice, which leaks
   the hypnotist's grind state into someone else's client. Only the earning stops.
 - **The message is private to the hypnotist**, in-fiction, once per cap period rather than per
@@ -683,7 +684,7 @@ must never mean opting out of the exits. Verified against the code, not assumed:
 | An attempt is refused outright when `hypnoEnabled` is off | **Unconditional** | `session-attempt` handler, first check |
 | 30-minute session timeout, armed whenever a trance starts | **Always armed** | `SESSION_TIMEOUT_MS` |
 | Self-wake up to depth 40, and above it a message naming the safeword | **Depth-gated by design** | `SELF_WAKE_MAX_DEPTH` |
-| 3 attempts, then a 10-minute cooldown — no grinding in one sitting | **Always** | `MAX_ATTEMPTS`, `COOLDOWN_MS` |
+| The attempt limit, then a 10-minute cooldown — no grinding in one sitting | **Always** | `maxAttempts` (player setting, default 2), `COOLDOWN_MS` |
 | A silenced subject keeps `/hypno`, emotes and whispers | **Structural** | speech block hooks `ChatRoomSendChatMessage`, after command parsing |
 | Feature permissions are booleans checked separately from depth — skill cannot switch one on | **Structural** | `depth.ts` gates are consulted *in addition to* the permission |
 | The three `earnedOnly` features stay out of skill's reach | **Proposed above** | §4 |
@@ -1314,9 +1315,10 @@ The trance defaults (`tranceCannotMove`, `tranceCannotSpeak`, `tranceScreenFade`
    pre-tick anything. The difference between "we set this up for you" and "shall we set this up for
    you" is the whole ballgame for a consent tool.
 
-**Also worth fixing while nearby, unrelated to the button:** `MAX_ATTEMPTS` is 3 in code, but
+**Also worth fixing while nearby, unrelated to the button:** ~~`MAX_ATTEMPTS` is 3 in code, but
 design.md records the decision as *"default 2, with 3 available as a player setting"*. That is a
-made decision that was never implemented, not a placeholder.
+made decision that was never implemented, not a placeholder.~~ **Done in v0.65.0** — it is
+`maxAttempts` in storage.ts now, defaulting to 2, with a button on the Permissions tab.
 
 ---
 
