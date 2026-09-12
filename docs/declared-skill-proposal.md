@@ -1351,7 +1351,7 @@ of the BC-difficulty gating.
 
 ### A. Blocking work — answer these before the relevant code is written
 
-**A1. Fighting must never make it easier for him — ✅ DECIDED 2026-09-10, implement it.**
+**A1. Fighting must never make it easier for him — ✅ DECIDED 2026-09-10, BUILT v0.62.1.**
 Below an honoured skill of 50 the formula gave a fighting subject *worse* odds than one who did
 nothing. A flaw, not a choice, and approved for fixing.
 *Implementation:* in `inductionChance()` (`src/session.ts`, alongside `RESISTANCE_FLOOR` / `CHOICE_MODIFIER`),
@@ -1359,7 +1359,18 @@ compute Ignore's chance first and use it as a hard upper bound on Fight's,
 expressed as an **invariant** so it survives any later retuning of the weights — not as a tuning
 pass. **Ships with a swept test assertion** across trust, skill, rung and experience; the failure is
 invisible at any value a person would check by hand, which is how it survived two passes here.
-*Was blocking rungs 1–3. Now the first piece of work in that tranche.*
+*Was blocking rungs 1–3. Done — it was the first piece of work in that tranche, and no longer
+blocks them.*
+
+*As built:* `inductionChance()` computes Ignore's chance and takes `Math.min` of it with Fight's, as
+the last step, so the rule holds over whatever the terms add up to rather than over one arrangement
+of them. Nothing about the live odds moves — no term in the formula carries skill yet, so the
+inversion is not reachable today and the invariant is inert. It is here to be true when the ladder
+lands. `test/odds.mjs` sweeps 23,936 states with the proposed §A2 terms supplied through a
+test-only `skill` argument (the additive and the Fight floor, at the parked `0.35`/`0.25` weights)
+across trust, experience, relationship, skill 0–100 and all four honour rungs, plus every state the
+live formula can reach; it fails without the `Math.min`. The weights are still parked — the suite
+models them to prove the rule and must keep passing if they move.
 
 **A2. Is a fought induction against an expert a coin flip, or a losing battle? — ⏸ PARKED until
 dual fatigue exists.**

@@ -429,19 +429,6 @@ export function effectiveAccess(memberId: number): number {
 	return Math.max(accessFor(memberId, "session"), chemicalFloor());
 }
 
-/** The chance this attempt lands, 0-100. Read the number literally: 35 means a 35% chance.
- *
- * Replaces the old `score >= 50` threshold, which had almost no probabilistic zone — with
- * only a 20-wide random term, outcomes swung from impossible to certain across a 20-point
- * trust window (at trust 25 + Agree it was already 100%, at trust 25 + Ignore it was 0%).
- *
- * Experience is a SINGLE POOL whose sign follows the choice, per DW: practice with
- * hypnosis is one skill, and cooperating or resisting is what you do with it. So it helps
- * you go under when you agree and helps you resist when you fight, from the same number.
- *
- * The 5/95 clamps mean nothing is ever certain either way — a determined stranger keeps a
- * sliver, and a deeply trusted hypnotist can still miss. The floor is DW's settled call
- * and is meant to become a player setting. */
 /** The roll, resolved twice: once with everything, once with only what was earned.
  *
  * Both use the SAME roll, so the two depths differ by exactly the chemical contribution and
@@ -456,7 +443,34 @@ function resolveDepths(hypnotistId: number, choice: SessionChoice, roll: number)
 	return { full: fullDepth, earned: Math.min(fullDepth, at(earned)) };
 }
 
-function inductionChance(hypnotistId: number, choice: SessionChoice, earnedOnly = false): number {
+/** Hypnotist skill's contribution to the roll. THE LADDER IS NOT BUILT — it is the
+ * declared-skill proposal's §A1-A2 and stays out of this change. This type exists only so
+ * the invariant below can be swept across the skill range by a test, which is the one thing
+ * A1 asks for that cannot be done without a seam: the inversion it describes is caused by
+ * `fightFloor`, and no value of any term the live formula carries today can produce it.
+ * Every production caller passes `NO_SKILL`.
+ *
+ * The two fields are the two shapes the proposal gives skill — an additive term every
+ * choice gets alike, and a floor under Fight alone. Their WEIGHTS are parked (§A2); a test
+ * that supplies them is modelling a proposal, not settling it. */
+export type SkillTerms = {
+	/** Added to the raw score whichever choice was made. */
+	additive: number;
+	/** A floor under Fight specifically, replacing `RESISTANCE_FLOOR` when it is higher.
+	 * This is the term that made fighting better for the hypnotist than being ignored. */
+	fightFloor: number;
+};
+const NO_SKILL: SkillTerms = { additive: 0, fightFloor: 0 };
+
+/** The chance before the Fight invariant is applied. Split out so `inductionChance()` can
+ * state the invariant over the finished number rather than over one arrangement of the
+ * terms — which is what keeps it true when a term is added or retuned later. */
+function chanceBeforeInvariant(
+	hypnotistId: number,
+	choice: SessionChoice,
+	earnedOnly: boolean,
+	skill: SkillTerms,
+): number {
 	const trust = earnedOnly ? accessFor(hypnotistId, "session") : effectiveAccess(hypnotistId);
 	const exp = experienceValue();
 	const experienceEffect = choice === "agree" ? exp * EXPERIENCE_WEIGHT : choice === "fight" ? -exp * EXPERIENCE_WEIGHT : 0;
@@ -468,8 +482,51 @@ function inductionChance(hypnotistId: number, choice: SessionChoice, earnedOnly 
 	// bloodstream, and nothing about roleplaying well should be barred from writing something
 	// lasting. Flagged in the doc as the one place this implementation reads the design
 	// rather than following it to the letter.
-	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect + rpBonusFor(hypnotistId);
-	return Math.max(RESISTANCE_FLOOR, Math.min(CHANCE_CEILING, raw));
+	const raw = trust + CHOICE_MODIFIER[choice] + experienceEffect + rpBonusFor(hypnotistId) + skill.additive;
+	const floor = choice === "fight" ? Math.max(RESISTANCE_FLOOR, skill.fightFloor) : RESISTANCE_FLOOR;
+	return Math.max(floor, Math.min(CHANCE_CEILING, raw));
+}
+
+/** The chance this attempt lands, 0-100. Read the number literally: 35 means a 35% chance.
+ *
+ * Replaces the old `score >= 50` threshold, which had almost no probabilistic zone — with
+ * only a 20-wide random term, outcomes swung from impossible to certain across a 20-point
+ * trust window (at trust 25 + Agree it was already 100%, at trust 25 + Ignore it was 0%).
+ *
+ * Experience is a SINGLE POOL whose sign follows the choice, per DW: practice with
+ * hypnosis is one skill, and cooperating or resisting is what you do with it. So it helps
+ * you go under when you agree and helps you resist when you fight, from the same number.
+ *
+ * The 5/95 clamps mean nothing is ever certain either way — a determined stranger keeps a
+ * sliver, and a deeply trusted hypnotist can still miss. The floor is DW's settled call
+ * and is meant to become a player setting. */
+/** THE INVARIANT — "fighting must never give the hypnotist a better chance than not
+ * fighting." Decided 2026-09-10 (declared-skill proposal §A1) and a flaw, not a choice.
+ *
+ * Compute Ignore's chance and use it as a hard upper bound on Fight's. Deliberately stated
+ * as a rule over the finished number rather than fixed by re-tuning a weight: the weights
+ * that produce the inversion are still parked (§A2), and any of them can move without this
+ * having to be rediscovered.
+ *
+ * What it was protecting against: with a Fight floor of `5 + 0.25v` against an additive
+ * `0.35v`, Fight beat Ignore for every honoured skill below 50 — at v=30, 12.5% against
+ * 10.5%. Choosing to resist would have made the induction MORE likely to land. Below 50
+ * Fight now ties Ignore instead of beating it, which is acceptable: the 5% floor already
+ * flattens the two at zero trust today, so the flattening is pre-existing and this only
+ * stops it inverting.
+ *
+ * None of that arithmetic is live — no term in this formula carries skill yet — so the
+ * invariant is inert today and is here to be true when the ladder lands. `test/odds.mjs`
+ * sweeps it with the proposed terms supplied, and would fail without this `Math.min`. */
+export function inductionChance(
+	hypnotistId: number,
+	choice: SessionChoice,
+	earnedOnly = false,
+	skill: SkillTerms = NO_SKILL,
+): number {
+	const chance = chanceBeforeInvariant(hypnotistId, choice, earnedOnly, skill);
+	if (choice !== "fight") return chance;
+	return Math.min(chance, chanceBeforeInvariant(hypnotistId, "ignore", earnedOnly, skill));
 }
 
 /** What the roleplay in this induction window is currently worth, 0-15.
