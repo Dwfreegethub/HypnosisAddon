@@ -54,6 +54,9 @@ import {
 	clearSuggestedPose,
 	setSpeechBlocked,
 	setScreenFade,
+	setWalkingTrance,
+	isWalkingTrance,
+	WALKING_FADE_OPACITY,
 	clearTranceStates,
 	TRANCE_FADE_OPACITY,
 } from "./effects";
@@ -785,6 +788,43 @@ function applyTranceState(): void {
 		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} ` +
 			`fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`,
 	);
+}
+
+/** "Walk with me." Still under, but ambulatory: the movement lock comes off and the veil
+ * thins to a hint. Everything else a trance is doing — speech, suppression, the illusion,
+ * arousal — carries on untouched, because those are not about stillness.
+ *
+ * Governed by the trance DEFAULTS the subject accepted, not by the on-demand
+ * `movementRestriction` permission: this is a change to what being under is like, the same
+ * class of thing as the freeze and the fade it adjusts. Only reachable while actually under —
+ * there is no walking a trance that is not happening. Returns false if there is nothing to
+ * enter. */
+export function enterWalkingTrance(): boolean {
+	if (session.phase !== "Hypnotized") return false;
+	if (isWalkingTrance()) return true; // already walking; saying it again is harmless
+	removeEffect("Freeze");
+	// The veil only thins if it was there to begin with — a subject who turned screen fade off
+	// stays with no veil rather than gaining a faint one.
+	if (getFeatures().tranceScreenFade) setScreenFade(WALKING_FADE_OPACITY);
+	setWalkingTrance(true);
+	notify("You are on your feet, moving — and still his. Nothing about that feels strange to you.");
+	log("walking trance entered");
+	return true;
+}
+
+/** "Be still." Back to a full trance: the movement lock and the full veil return, exactly as
+ * the subject set their trance defaults, and the walking flag clears. A no-op when not
+ * walking, so an ordinary "stay still" outside walking trance is left to the movement
+ * suggestion. */
+export function leaveWalkingTrance(): boolean {
+	if (!isWalkingTrance()) return false;
+	const f = getFeatures();
+	if (f.tranceCannotMove) applyEffect("Freeze");
+	if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
+	setWalkingTrance(false);
+	notify("You go still, and the world recedes again.");
+	log("walking trance left — full trance restored");
+	return true;
 }
 
 function beginInductionWindow(): void {

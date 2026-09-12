@@ -12,6 +12,7 @@ import {
 	suggestedPose,
 	setSuggestedPose,
 	clearSuggestedPose,
+	isWalkingTrance,
 } from "./effects";
 import { isSuppressed, setSuppressed, isNumb, setNumb, SuppressionCategory } from "./suppression";
 import {
@@ -258,7 +259,7 @@ export function describeCurrentState(): string[] {
 	];
 	const senses = [
 		on("cannot speak", st.speechBlocked),
-		on("screen faded", st.screenFade > 0, `${Math.round(st.screenFade * 100)}%`),
+		on("screen faded", st.screenFade > 0, `${Math.round(st.screenFade * 100)}%${isWalkingTrance() ? ", walking trance" : ""}`),
 		on("numb to touch", st.numb),
 		// "Unaware of clothing" read as "cannot see her own clothes", which is the ILLUSION,
 		// a different feature on the line below. These three hide the chat MESSAGE and nothing

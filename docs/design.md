@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.66.0.*
+*Design notes and decision log — work in progress. Code at v0.67.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1856,7 +1856,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Resistance fatigue** — the more someone fights off inductions, the more tired they get, making future attempts easier. Currently resistance is stateless. Review when developing trust/experience further.
 - **Suggestion stacking / conditionals** — "if X then Y, if Y then Z." Chains of triggers. Body part blocks already stack naturally; review for formal support.
 - **Honesty / amnesia** — compulsive truth-telling and targeted forgetting. RP-prompt features only (no way to enforce mechanically), but the add-on can emit a hint visible only to the subject reminding them to RP accordingly.
-- **Waking trance** — **decided: build it.** Subject is ambulatory but still under — screen tint drops to ~5–10% opacity (near-invisible) vs the full-trance 30%, movement restriction lifts, suggestions continue to parse and fire. Effects that require deep stillness (full freeze, etc.) do not fire in walking trance; lighter effects do. Vocal commands: *"Walk with me"* / *"Stay with me as you move"* → enters walking trance; *"Stop"* / *"Be still"* / *"Stay"* → re-applies movement lock and returns to full trance. Subject-authoritative: subject knows they are still under even if they appear conscious to others.
+- ~~**Waking trance**~~ — **built v0.67.0.** A trance MODE, governed by the trance defaults rather than the on-demand movement permission — it is a change to what being under is like, the same class of thing as the freeze and the veil it adjusts. *"Walk with me"* lifts the freeze and thins the veil to ~8% (`WALKING_FADE_OPACITY`) while the trance runs on and suggestions still parse and fire; *"be still" / "stop" / "stay still"* re-freeze and restore the full veil. A dedicated handler (`handleWalkingTrance`, alongside wake) rather than a table suggestion, so it needs no permission gate and the leave phrases pre-empt the movement suggestion only while actually walking. `/hypno effects` names the mode. The one interpretive call: the only "deep stillness" effect is the freeze itself, so "lighter effects continue" means everything except the freeze carries on — there was nothing else to suspend. `test/walking.mjs`, bot scenario 9.
 - ~~**Safe signal while silenced**~~ — resolved. Speech blocking hooks `ChatRoomSendChatMessage`, which runs *after* command parsing and after the emote and whisper branches, so a silenced subject keeps `/hypno` commands, emotes and whispers; only ordinary room speech goes. Documented in the help screen's Lasting tab (v0.32.0). The residual case is a fired trigger with the duration set to **0**, where the safeword is the only self-serve exit — DW's deliberate call.
 - **Session log** — record of what was suggested, what stuck, and when. Hypnotist-side. TBD.
 - **Setup wizard** — first-launch guided config (openness, relationship trust, depth thresholds for sensitive features, chemical floor scope, safeword, decay rate). Re-runnable from settings. Does not lock anything — just fills sensible defaults.
@@ -1867,6 +1867,36 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.67.0) — walking trance
+
+*"Walk with me."* The subject stays under but comes off the freeze and onto their feet, the veil
+dropping from ~30% to a ~8% hint. To the room they look awake; they know they are not. *"Be still"*
+puts the stillness and the full veil back. Everything else a trance is doing — speech, suppression,
+the illusion, arousal — is untouched throughout, because none of it is about stillness; the freeze
+was the only thing walking suspends, which is what the design's "lighter effects continue" comes to
+in practice.
+
+**Where it lives, and why there.** A dedicated handler (`handleWalkingTrance` in `voice.ts`,
+dispatched right after wake), not a row in the suggestion table. Walking trance is a change to *what
+being under is like* — the same category as the trance-default freeze and fade it adjusts — so it is
+governed by those defaults (`tranceCannotMove`, `tranceScreenFade`), not by the on-demand
+`movementRestriction` permission a hypnotist reaches for mid-scene. That also keeps it off the
+permission/depth framework the table entries carry, which would have been the wrong gate. The
+enter/leave state is a leaf flag in `effects.ts` (`isWalkingTrance`), cleared by
+`clearTranceStates()` so it can never outlive the trance it is a mode of.
+
+**The one ordering subtlety.** The leave phrases — "be still", "stop", "stay still", "stay" —
+overlap the movement suggestion's vocabulary. The handler only consumes them *while walking*;
+otherwise it returns and lets the movement suggestion freeze the subject as before. So an ordinary
+"stay still" still works, and "be still" only means "return to full trance" when there is a walking
+trance to return from. Enter beats leave on a tie, so "stay with me as you move" reads as entering
+rather than as the bare "stay" that leaves.
+
+`test/walking.mjs` (25 checks) drives it through `handleSpokenLine` with a forced trance, asserting
+the falsifiable core the old in-or-out model could not express: after "walk with me" the subject is
+*not frozen* yet *still under and still parsing suggestions*, and after "be still" the freeze is
+back. Bot scenario 9 walks it in play.
 
 ### Added 2026-09-12 (v0.66.0) — hypnotist skill, declared and visible (rungs 1–3)
 

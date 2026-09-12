@@ -1,10 +1,10 @@
 import { log, TESTING_MODE } from "./log";
-import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked } from "./effects";
+import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
-import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist } from "./session";
+import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist, enterWalkingTrance, leaveWalkingTrance } from "./session";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
@@ -1463,6 +1463,60 @@ export function isWakeLine(content: string): boolean {
 	return WAKE_PATTERNS.some((p) => p.test(text));
 }
 
+// Walking trance — "walk with me" thins the veil and lifts the freeze without ending the
+// trance; "be still" puts it back. ENTER phrases are checked before LEAVE, so
+// "stay with me as you move" reads as entering rather than as the bare "stay" that leaves.
+const WALK_ENTER_PATTERNS = [
+	/\bwalk with me\b/,
+	/\bcome (?:and )?walk with me\b/,
+	/\b(?:stay|come) with me as you (?:move|walk)\b/,
+	/\byou (?:can|may) (?:move|walk) (?:with me |)(?:but |and |)stay under\b/,
+	/\byou (?:can|may) walk(?: with me)?\b/,
+	/\bmove with me\b/,
+	/\bon your feet\b/,
+];
+// Only ever consulted while already walking, so these can be the plain words for "stop" —
+// outside walking trance they fall through to the movement suggestion instead.
+const WALK_LEAVE_PATTERNS = [
+	/\bbe still\b/,
+	/\bbe frozen\b/,
+	/\bstop\b/,
+	/\b(?:stand|hold|stay) still\b/,
+	/\bstay put\b/,
+	/\bstillness\b/,
+	/\bfreeze again\b/,
+	/\bstay\b/,
+];
+
+/** Returns true if the line changed walking-trance mode and has been dealt with. */
+function handleWalkingTrance(sender: number, content: string): boolean {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text)) return false;
+	const wantsEnter = WALK_ENTER_PATTERNS.some((p) => p.test(text));
+	// Leave phrases only mean "return to full trance" while walking; otherwise they belong to
+	// the movement suggestion, and swallowing them here would stop an ordinary "stay still"
+	// from ever freezing anyone.
+	const wantsLeave = isWalkingTrance() && WALK_LEAVE_PATTERNS.some((p) => p.test(text));
+	if (!wantsEnter && !wantsLeave) return false;
+	if (!hasLiveSessionWith(sender)) {
+		log(`heard a walking-trance line from ${sender} but they have no session with you`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) {
+		log(`heard a walking-trance line from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	// Enter wins a tie: "stay with me as you move" contains "stay". It only does anything from a
+	// full trance, so if we are already walking this falls through to leave, which is correct —
+	// nothing about "walk with me" should re-freeze someone already walking.
+	if (wantsEnter && !isWalkingTrance()) {
+		if (!enterWalkingTrance()) log(`walking-trance enter from ${sender} ignored — not under`);
+		return true;
+	}
+	leaveWalkingTrance();
+	return true;
+}
+
 /** Returns true if the line was a wake-up keyword and has been dealt with. */
 function handleWakeLine(sender: number, content: string): boolean {
 	if (!isWakeLine(content)) return false;
@@ -1540,6 +1594,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// trigger is that it works outside a trance.
 	if (handleTriggerFiring(sender, content)) return;
 	if (handleWakeLine(sender, content)) return;
+	// After wake (so "come back to me" wakes rather than walks) and before the matcher (so the
+	// leave phrases can pre-empt the movement suggestion while walking).
+	if (handleWalkingTrance(sender, content)) return;
 	if (handleBodyPartLine(sender, content)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched

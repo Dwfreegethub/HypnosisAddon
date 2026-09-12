@@ -665,6 +665,32 @@ const SCENARIOS = [
 		],
 	},
 	{
+		name: "walking-trance",
+		blurb: "Still under, but on your feet — and back to stillness on command.",
+		steps: [
+			{
+				do: () => trance(80, 80),
+				want: "Under at Blank. With Cannot-Move and Screen-Fade on (trance defaults), you are frozen and the screen is veiled ~30%.",
+				fail: "Not frozen, or no veil — then there is no full trance to walk out of.",
+			},
+			{
+				do: () => say("Missy, walk with me."),
+				want: "YOU CAN MOVE, and the veil thins to a faint ~8%. `/hypno effects` shows `screen faded 8%, walking trance` and STILL names a session. You are conscious to the room but know you are under.",
+				fail: "Still frozen, or you woke up. Waking is the wrong outcome — this keeps you under.",
+			},
+			{
+				do: () => say("Missy, you will ignore my touches."),
+				want: "It APPLIES while you walk — a light suggestion still lands. `/hypno effects` adds the touch line.",
+				fail: "Refused, or nothing — walking trance should still parse suggestions.",
+			},
+			{
+				do: () => say("Missy, be still."),
+				want: "FROZEN AGAIN and the full veil returns; `/hypno effects` drops 'walking trance' and you can no longer move. Still under.",
+				fail: "You woke, or stayed walking, or the touch suppression from the last step vanished.",
+			},
+		],
+	},
+	{
 		name: "hard-floor",
 		blurb: "hypnoEnabled off must release everything.",
 		steps: [

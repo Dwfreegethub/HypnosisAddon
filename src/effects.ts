@@ -113,6 +113,20 @@ let screenFade = 0;
 /** The design doc asks for "a soft white or grey veil at ~30% opacity — dreamlike without
  * cutting off visual context". Player-adjustable later. */
 export const TRANCE_FADE_OPACITY = 0.3;
+/** Walking trance: the same veil dropped to near-nothing. Still under, still parsing
+ * suggestions, but ambulatory — so the fade thins to a hint rather than lifting, and the
+ * movement lock comes off. The doc's "~5-10% opacity (near-invisible)". */
+export const WALKING_FADE_OPACITY = 0.08;
+
+/** Whether the subject is in walking trance right now. Local-only, like the fade — nobody
+ * else can see it, which is the point: to the room the subject looks awake. */
+let walkingTrance = false;
+export function setWalkingTrance(on: boolean): void {
+	walkingTrance = on;
+}
+export function isWalkingTrance(): boolean {
+	return walkingTrance;
+}
 
 export function setSpeechBlocked(blocked: boolean): void {
 	speechBlocked = blocked;
@@ -134,6 +148,10 @@ export function getScreenFade(): number {
 export function clearTranceStates(): void {
 	speechBlocked = false;
 	screenFade = 0;
+	// Walking trance is a MODE of a trance, so it cannot outlive one — every exit path that
+	// clears the veil clears this too, or a woken subject would keep a flag saying they are
+	// still walking under.
+	walkingTrance = false;
 }
 
 export function applyEffect(effectName: string, character: any = Player): boolean {

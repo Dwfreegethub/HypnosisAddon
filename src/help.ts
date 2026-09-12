@@ -122,6 +122,8 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(head("Not in the table"));
 	lines.push(body(`"wake up" · "you are awake" · "come back to me"`));
 	lines.push(dim("   always allowed — ending a trance answers to no permission"));
+	lines.push(body(`"walk with me" · "be still"`));
+	lines.push(dim("   walking trance: still under and moving; \"be still\" returns you"));
 	lines.push(body(`"you cannot touch your breasts" · "...yourself"`));
 	lines.push(dim("   (selfTouchControl) — around 40 body words are understood"));
 	lines.push(gap());
