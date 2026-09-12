@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.69.0.*
+*Design notes and decision log — work in progress. Code at v0.69.1.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1865,9 +1865,40 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
 - ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger [days] [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Both arguments optional — bare, it ages every planted trigger by one day (DW's call, 2026-09-12). Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
-- **Help screen pass (DW wants this) — LAYOUT done v0.69.0, content partly done.** The `?` screen now renders one word-wrapped column instead of two clipped ones, so nothing is cut off with "…" and headings no longer collide (`drawHelpLines` in `panel.ts`). Skill, the earned-only toggle and the Advanced-view move are written into the Trust tab, and walking trance is in "What to Say". **Still to do:** a full read-through of all five tabs — the "What each gate needs" block still frames access as trust thresholds rather than depth tiers, and the handler-based lines (wake, walking, body parts) are still hand-maintained footnotes rather than generated. **DW asked to be reminded** (2026-09-12).
+- ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.69.1) — the help content read-through
+
+With the layout fixed, the words themselves. DW: organize it simple→complex and get the commands
+right.
+
+**Five tabs, reordered simple→complex:** Start Here (the loop) · What to Say (the vocabulary) ·
+**Depth & Trust** (the model those words obey) · Lasting (what outlives a session) · Commands (the
+typed reference). "Trust" was renamed "Depth & Trust", because depth — not a trust percentage — is
+what actually gates everything now, and the tab never explained it.
+
+**The gate model is generated, not asserted.** The old Trust tab listed "Clothing illusion — trust
+65" and so on: the pre-depth-redesign framing, and wrong since v0.50.0 (those thresholds are
+vestigial; `depthAllows` is the real gate). It is replaced by a **depth ladder built from
+`DEPTH_TIERS` and `DEPTH_GATES`** — the five tiers with their blurbs, then which features each tier
+reaches, earned-only ones marked — so it cannot drift from the gates the code checks, the same
+principle the vocabulary and command tabs already followed.
+
+**Lasting caught up with two shipped systems it never mentioned:** trigger decay and reinforcement
+(triggers fade; "that trigger holds" resets the clock; the rate is on the Triggers tab), and the
+earned-only toggle (arousal can be opened to the illusion and triggers at the price of fading fast).
+The stale "both need trust 65" became "a Deep trance, on earned depth".
+
+**The Commands tab was genuinely buggy, not just stale.** Commands are not contiguous by group in
+the table, and the tab printed a header whenever the group changed — so Session/Diagnostics/Data/
+Testing headers repeated as the list flipped between them. It now buckets by a fixed simple→complex
+order, prints each group once with a one-line note, renders each command as a single wrapped line,
+and hides the Testing group entirely when `TESTING_MODE` is off (those commands do not exist in a
+release build).
+
+No mechanic changed; `help examples` and `help-layout` suites still green, 1078 total.
 
 ### Added 2026-09-12 (v0.69.0) — the help reads again, and Stats moves behind Advanced
 

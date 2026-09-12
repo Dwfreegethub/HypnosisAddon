@@ -3,6 +3,8 @@ import { commandHelp } from "./commands";
 import { getTriggerDuration, getTriggerScope, getMaxAttempts } from "./storage";
 import { TRIGGER_SCOPES, TRIGGER_TRUST_THRESHOLD } from "./triggers";
 import { CARRY_TRUST_THRESHOLD } from "./carry";
+import { DEPTH_GATES, DEPTH_TIERS, tierLabel } from "./depth";
+import { TESTING_MODE } from "./log";
 import {
 	TITLE_Y,
 	BLURB_Y,
@@ -60,203 +62,247 @@ const gap = (): HelpLine => ({ text: "", style: "gap" });
 function startedLines(): HelpLine[] {
 	return [
 		head("The short version"),
-		body("Almost nothing here is a command. You SPEAK to someone,"),
-		body("and their own client decides whether anything lands."),
+		body("Almost nothing here is a command. You SPEAK to someone, and their"),
+		body("own client decides whether anything lands. Nobody is ever made to"),
+		body("do anything — their settings answer for them."),
 		gap(),
 		head("As the subject"),
-		body("1. Tick permissions. Everything is off until you say so."),
-		body("2. Someone attempts hypnosis; you get Agree / Ignore / Fight."),
-		body("   They are never told which you chose."),
-		body("3. If it lands, they can suggest things by talking to you."),
-		body("4. /hypno safeword always works, from any state."),
+		body("1. Tick the permissions you want to allow. Everything is off until"),
+		body("   you say so — a fresh install does nothing on purpose."),
+		body("2. Someone attempts hypnosis; you privately choose Agree, Ignore or"),
+		body("   Fight. They are never told which."),
+		body("3. If it lands, they can suggest things simply by talking to you."),
+		body("4. /hypno safeword ends everything, from any state, always."),
 		gap(),
 		head("As the hypnotist"),
 		body("1. Open their profile, click the H icon, Attempt Hypnosis."),
-		dim("   The icon shows on everyone — it cannot know who has the"),
-		dim("   add-on until it asks. The panel says so within 3 seconds."),
-		body("2. Wait out the induction window — that time is for roleplay."),
-		body("3. Then just talk. See the What to Say tab."),
-		body("4. You must use their NAME for anything to land."),
+		dim("   The icon shows on everyone — it cannot know who has the add-on"),
+		dim("   until it asks. The panel says within 3 seconds whether they do."),
+		body("2. Wait out the induction window — that time is for roleplay, and"),
+		body("   roleplaying it well improves the roll."),
+		body("3. Then just talk. Use their NAME, or nothing lands."),
 		gap(),
 		head("Why nothing happened"),
-		body("Four things gate every suggestion, in this order:"),
-		body("  their permission for that feature"),
-		body("  a live trance with YOU specifically"),
-		body("  their name somewhere in the line"),
-		body("  enough trust, for the deeper features"),
-		dim("/hypno match <phrase> reports which one stopped it."),
+		body("Every suggestion is gated, and the checks run in this order:"),
+		body("  1. their permission for that feature is on"),
+		body("  2. a live trance with YOU specifically"),
+		body("  3. their name is somewhere in the line"),
+		body("  4. they are deep enough — the deeper the effect, the deeper the"),
+		body("     trance it needs (see Depth & Trust)"),
+		dim("/hypno match <phrase> reports whether the words matched; a refused"),
+		dim("suggestion tells the hypnotist which gate stopped it."),
 		gap(),
 		head("Who sees what"),
-		body("[Text in square brackets] went only to you. Nobody else"),
-		body("saw it, and nothing in the room reacted to it."),
-		body("Anything the room could actually have seen is emoted, so"),
-		body("everyone present reads it — reaching for yourself and"),
-		body("stopping, going still, opening your mouth and failing."),
-		dim("Perception effects are never emoted: nobody can watch you"),
-		dim("fail to notice something. Trance Defaults > Others See Your"),
-		dim("Reactions turns the emotes off entirely."),
+		body("[Text in square brackets] reached only you — nobody else saw it and"),
+		body("nothing in the room reacted. Anything the room could really have"),
+		body("seen is emoted instead, so everyone present reads it: reaching for"),
+		body("yourself and stopping, going still, opening your mouth and failing."),
+		dim("Perception effects are never emoted — nobody can watch you fail to"),
+		dim("notice something. Trance Defaults > Others See Your Reactions turns"),
+		dim("the emotes off entirely."),
 		gap(),
 		head("Getting out"),
-		body("Wake Up button · a spoken wake word · /hypno wake if the"),
-		body("trance is shallow · a 30 minute timeout · /hypno safeword,"),
-		body("which no setting and no suggestion can take away."),
+		body("The Wake Up button · a spoken wake word · /hypno wake while the"),
+		body("trance is still shallow · a 30-minute timeout · and /hypno safeword,"),
+		body("which no setting and no suggestion can ever take away."),
 	];
 }
 
 function vocabularyLines(): HelpLine[] {
 	const lines: HelpLine[] = [
-		head("Say these WITH their name. Releases are dim."),
+		body("Generated from the pattern library, so it can never fall behind the"),
+		body("code. Say any of these WITH the subject's name. Releases are dim."),
+		dim("Each gate shows the permission it needs and, where it matters, the"),
+		dim("least depth — so a line can match perfectly and still wait for a"),
+		dim("deeper trance. Contractions and punctuation are ignored."),
 		gap(),
 	];
-	for (const s of suggestionHelp()) {
+	for (const sug of suggestionHelp()) {
 		const gateBits: string[] = [];
-		if (!s.release) gateBits.push(s.permission);
-		if (s.depthTier) gateBits.push(`${s.depthTier}+`);
+		if (!sug.release) gateBits.push(sug.permission);
+		if (sug.depthTier) gateBits.push(`${sug.depthTier}+`);
 		const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
 		lines.push({
-			text: `${s.examples.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
-			style: s.release ? "dim" : "body",
+			text: `${sug.examples.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
+			style: sug.release ? "dim" : "body",
 		});
 	}
 	lines.push(gap());
 	lines.push(head("Not in the table"));
-	lines.push(body(`"wake up" · "you are awake" · "come back to me"`));
-	lines.push(dim("   always allowed — ending a trance answers to no permission"));
-	lines.push(body(`"walk with me" · "be still"`));
-	lines.push(dim("   walking trance: still under and moving; \"be still\" returns you"));
-	lines.push(body(`"you cannot touch your breasts" · "...yourself"`));
-	lines.push(dim("   (selfTouchControl) — around 40 body words are understood"));
-	lines.push(gap());
-	lines.push(dim("Contractions and punctuation are ignored, so \"you can't move\""));
-	lines.push(dim("and \"You cannot move!\" are the same line."));
+	lines.push(body(`"wake up" · "you are awake" · "come back to me" — ending a trance,`));
+	lines.push(dim("   always allowed, gated by no permission."));
+	lines.push(body(`"walk with me" · "be still" — walking trance: still under, but on`));
+	lines.push(dim(`   your feet with the veil lifted; "be still" puts the stillness back.`));
+	lines.push(body(`"you cannot touch your breasts" · "...touch yourself"`));
+	lines.push(dim("   (selfTouchControl) — around 40 body words are understood."));
 	return lines;
+}
+
+/** The depth ladder and the per-tier feature list, both GENERATED from depth.ts so they
+ * cannot drift from the gates the code actually checks. */
+function depthLadder(): HelpLine[] {
+	const lines: HelpLine[] = [head("The five depths")];
+	for (const t of DEPTH_TIERS) lines.push(body(`${t.label} (${t.min}+) — ${t.blurb}`));
+	lines.push(gap());
+	lines.push(head("What each depth reaches"));
+	let anyEarned = false;
+	for (const t of DEPTH_TIERS) {
+		const here = DEPTH_GATES.filter((g) => g.tier === t.key);
+		if (!here.length) continue;
+		const names = here
+			.map((g) => {
+				if (g.earnedOnly) anyEarned = true;
+				return g.earnedOnly ? `${g.label}*` : g.label;
+			})
+			.join(" · ");
+		lines.push(body(`${t.label}: ${names}`));
+	}
+	if (anyEarned) {
+		lines.push(dim("* earned depth only — arousal cannot reach these by default (below)."));
+	}
+	lines.push(dim("Deeper is a consent setting, not a difficulty: the Depth tab moves"));
+	lines.push(dim("any of these up or down for yourself."));
+	return lines;
+}
+
+function depthTrustLines(): HelpLine[] {
+	return [
+		head("Two questions, kept separate"),
+		body("A permission asks may they EVER do this to me. Depth asks how far"),
+		body("UNDER I have to be before it can. Both must be satisfied, always."),
+		gap(),
+		...depthLadder(),
+		gap(),
+		head("Trust sets how deep they can take you"),
+		body("Trust is per-person and lives on YOUR client, counted from your"),
+		body("interactions. A message in ordinary talk builds a little — at most"),
+		body("one every 5 minutes, double when they use your name — and a"),
+		body("successful induction is worth five of those."),
+		dim("Minutes to be reachable, an evening to be usable, a long time to be"),
+		dim("deeply trusted. The value is derived from the count, so retuning the"),
+		dim("curve never corrupts what you built."),
+		gap(),
+		head("Arousal is a floor, not a multiplier"),
+		body("Access is the higher of your trust and your arousal, and arousal is"),
+		body("capped at 30. So being worked up lets a stranger reach shallow,"),
+		body("session-only things — and nothing deeper, ever."),
+		gap(),
+		head("The earned-only three"),
+		body("The clothing illusion, planting triggers, and carrying a suggestion"),
+		body("past waking need EARNED depth — trust, not arousal — because they"),
+		body("outlive the session or lie to you about your own body."),
+		dim("The Depth tab can open the illusion and triggers to arousal for you,"),
+		dim("at the price of fading fast. Carry-forward stays earned only."),
+		gap(),
+		head("Relationships give a floor"),
+		body("Friend 15 · Lover 30 · Owner 65, under whatever you have earned, so"),
+		body("a relationship is never re-earned. A friend gets in the door; a"),
+		body("lover also reaches arousal; an owner reaches everything."),
+		dim("Read from BC's own friend list, lovership and ownership."),
+		gap(),
+		head("Trust fades without contact"),
+		body("In the Advanced view (button under the tabs): Never · Very slowly ·"),
+		body("Slowly · Typical · Fast · Very fast. Off unless you choose."),
+		dim("A casual acquaintance fades far faster than a deep bond, and a"),
+		dim("relationship floor is what decay can never take."),
+		gap(),
+		head("The roll, when they attempt"),
+		body("Chance = access + your choice (Agree +25 / Fight -25) + experience"),
+		body("+ their honoured skill, clamped to 5-95 — never certain either way."),
+		body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
+		body("your setting, on the Permissions tab."),
+		dim("/hypno chance <name> shows the real numbers for each choice."),
+		gap(),
+		head("Their skill, and whether you believe it"),
+		body("Practised hypnotists are better at it. Their client tells yours how"),
+		body("practised; YOUR Depth-tab setting decides how much to believe —"),
+		body("ignore it, honour it only from people you trust, or honour it up to"),
+		body("a cap for anyone. You feel it as a read on their manner at the"),
+		body("prompt, never a number, and it can never reach the earned-only three."),
+	];
 }
 
 function lastingLines(): HelpLine[] {
 	const minutes = getTriggerDuration();
 	const scope = getTriggerScope();
-	const scopeLabel = TRIGGER_SCOPES.find((s) => s.key === scope)?.label ?? scope;
+	const scopeLabel = TRIGGER_SCOPES.find((sc) => sc.key === scope)?.label ?? scope;
 	return [
 		head("Two ways to outlast a session"),
-		body("A TRIGGER sleeps until someone says its word."),
-		body("A CARRIED suggestion is simply still true when you wake."),
-		dim(`Both need trust ${TRIGGER_TRUST_THRESHOLD}. Arousal does not count toward it —`),
-		dim("the chemical floor never reaches anything persistent."),
-		dim("Firing your OWN trigger is off unless you tick it."),
+		body("A TRIGGER sleeps until someone says its word. A CARRIED suggestion"),
+		body("is simply still true when you wake."),
+		dim("Both need a Deep trance, on earned depth — see Depth & Trust. Firing"),
+		dim("your OWN trigger is off unless you tick it on the Triggers tab."),
 		gap(),
 		head("Planting a trigger — while they are under"),
 		body(`"Missy, your trigger word is sleepy time"`),
 		body(`"Missy, you cannot move"      (and any others)`),
 		body(`"Missy, remember trigger"`),
-		dim("The subject never sees the phrase. With Awareness >"),
-		dim("Trigger setup on, they see none of the exchange at all."),
+		dim("The subject never sees the phrase. With Awareness > Trigger setup"),
+		dim("on, they see none of the exchange at all."),
 		gap(),
 		head("Firing and releasing one"),
-		body("Say the phrase. It works with no session, which is the point."),
-		body(`"Missy, you are released from sleepy time"`),
-		dim("Named release only — general release wording deliberately"),
-		dim("does nothing outside a trance."),
+		body(`Say the phrase — it works with no session, which is the point.`),
+		body(`"Missy, you are released from sleepy time" releases that one by name.`),
+		dim("General release wording does nothing outside a trance."),
 		gap(),
-		head("If something is holding you"),
-		body("Wait for it to wear off · have whoever set it release you ·"),
-		body("/hypno safeword, which always works from any state."),
-		dim("/hypno forgettrigger deliberately REFUSES while a trigger has"),
-		dim("hold of you — deleting it would be too quiet an escape."),
-		dim("Chat commands survive being silenced; ordinary speech does not,"),
-		dim("so the safeword stays reachable even when you cannot talk."),
+		head("Triggers fade unless kept up"),
+		body("A planted trigger loses strength over time and eventually goes; the"),
+		body("rate is on the Triggers tab (Never by default). A deep planting"),
+		body("lasts longer than a shallow one, and neglect compounds."),
+		body(`"Missy, that trigger holds" — said while under with the one who`),
+		body("planted it — resets the clock. Firing it only slows the fade."),
+		dim("A trigger opened to arousal (above) fades fast whatever the rate."),
+		dim("/hypno triggers lists each one's strength and the tier it still reaches."),
 		gap(),
 		head("Carrying a suggestion past waking"),
 		body(`"Missy, you cannot tell what you are wearing"`),
 		body(`"Missy, that will stay with you"     ← keeps that ONE`),
 		body(`"Missy, all of this stays with you"  ← keeps everything`),
 		body(`"Missy, forget what I said"          ← takes it back`),
-		dim("Trance defaults can never be carried, so a subject always"),
-		dim("gets their movement and their voice back on waking."),
+		dim("Trance defaults can never be carried, so you always wake with your"),
+		dim("movement and your voice back."),
+		gap(),
+		head("If something is holding you"),
+		body("Wait for it to wear off · have whoever set it release you ·"),
+		body("/hypno safeword, which always works from any state."),
+		dim("/hypno forgettrigger REFUSES while a trigger has hold of you —"),
+		dim("deleting it would be too quiet an escape. Chat commands survive"),
+		dim("being silenced, so the safeword stays reachable when speech does not."),
 		gap(),
 		head("Right now, on this character"),
-		body(`Effects last ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel}.`),
+		body(`A fired trigger lasts ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel}.`),
 		dim("Both are on the Triggers tab of the settings screen."),
 	];
 }
 
-function trustLines(): HelpLine[] {
-	return [
-		head("Trust is per-person, and yours to give"),
-		body("It lives on the SUBJECT's client, counting interactions with"),
-		body("each person. The value is worked out from the count, so"),
-		body("retuning the curve never corrupts what you have built."),
-		gap(),
-		head("What builds it"),
-		body("A message during ordinary conversation — at most one every"),
-		body("5 minutes, worth double when they use your name."),
-		body("A successful induction is worth five of those."),
-		dim("So: minutes to be reachable, an evening to be usable, and"),
-		dim("a long time to be deeply trusted. That is deliberate."),
-		gap(),
-		head("Arousal is a floor, not a multiplier"),
-		body("Access = the higher of your trust and your arousal,"),
-		body("with arousal capped at 30."),
-		body("So a stranger can reach shallow, session-only things when"),
-		body("you are worked up — and nothing deeper, ever."),
-		gap(),
-		head("BC relationships give you a floor"),
-		body("Friend 15 · Lover 30 · Owner 65, under whatever you have"),
-		body("earned — so a relationship never has to be re-earned."),
-		body("A friend gets in the door; a lover also reaches arousal;"),
-		body("an owner reaches everything — triggers and the illusion"),
-		body("included, since the owner floor matches both gates."),
-		dim("Read from BC's own friend list, lovership and ownership."),
-		gap(),
-		head("Trust fades without contact"),
-		body("In the Advanced view (button under the tabs): Never ·"),
-		body("Very slowly · Slowly · Typical · Fast · Very fast."),
-		body("Off unless you pick otherwise."),
-		dim("A casual acquaintance fades far faster than a deep bond —"),
-		dim("the curve is steep at the bottom and flat at the top."),
-		dim("Relationship floors are what decay can never take."),
-		gap(),
-		head("What each gate needs"),
-		body("Everyday suggestions   the permission alone"),
-		body(`Clothing illusion      trust ${ILLUSION_TRUST_THRESHOLD}`),
-		body(`Planting a trigger     trust ${TRIGGER_TRUST_THRESHOLD}`),
-		body(`Carrying past waking   trust ${CARRY_TRUST_THRESHOLD}`),
-		dim("The illusion and triggers are earned only — arousal cannot"),
-		dim("reach them — unless you open them on the Depth tab, at the"),
-		dim("price of fading fast. Carrying past waking stays earned only."),
-		gap(),
-		head("The roll"),
-		body("Chance = access + your choice (Agree +25 / Fight -25)"),
-		body("         + experience + their honoured skill, clamped to 5-95."),
-		dim("Never certain either way. A determined stranger keeps a"),
-		dim("sliver; a deeply trusted hypnotist can still miss."),
-		dim("/hypno chance <name> shows the real numbers."),
-		gap(),
-		head("A hypnotist's own skill"),
-		body("Practised hypnotists get better at it. Their client sends how"),
-		body("practised they are; YOUR setting on the Depth tab decides how"),
-		body("much to believe — ignore it, honour it only from people you"),
-		body("already trust, or honour it up to a cap for anyone."),
-		dim("You feel it as a read on their manner at the prompt, never a"),
-		dim("number, and it can never reach the earned-only three."),
-		gap(),
-		head("How many tries they get"),
-		body(`${getMaxAttempts()} attempts, then ten minutes before they may try you`),
-		body("again. Permissions tab — it is your setting, and their"),
-		body("client only knows it because yours tells them."),
-	];
-}
-
 function commandLines(): HelpLine[] {
-	const lines: HelpLine[] = [];
-	let lastGroup = "";
-	for (const c of commandHelp()) {
-		if (c.group !== lastGroup) {
-			if (lastGroup) lines.push(gap());
-			lines.push(head(c.group));
-			lastGroup = c.group;
+	// Bucketed by group in a fixed order, each group printed once — the commands are NOT
+	// contiguous by group in the table, so the old print-a-header-when-it-changes approach
+	// repeated headers as it flipped back and forth. Ordered simple to complex: what you use
+	// in a scene, then what you read, then your data, then the dev-only ones.
+	const ORDER = ["Session", "Diagnostics", "Data", "Testing"];
+	const NOTE: Record<string, string> = {
+		Session: "In a scene. Usable from any state; the safeword never fails.",
+		Diagnostics: "Look without changing anything.",
+		Data: "Your stored settings and stats.",
+		Testing: "Development only — these vanish from a release build.",
+	};
+	const cmds = commandHelp();
+	const lines: HelpLine[] = [
+		dim("Most features are SPOKEN, not typed — these are the exceptions."),
+		gap(),
+	];
+	for (const group of ORDER) {
+		// The Testing group only exists in a testing build; do not document it in a release one.
+		if (group === "Testing" && !TESTING_MODE) continue;
+		const inGroup = cmds.filter((c) => c.group === group);
+		if (!inGroup.length) continue;
+		lines.push(head(group));
+		if (NOTE[group]) lines.push(dim(NOTE[group]));
+		for (const c of inGroup) {
+			lines.push(body(`/hypno ${c.tag}${c.args ? ` ${c.args}` : ""} — ${c.description}`));
 		}
-		lines.push(body(`/hypno ${c.tag}${c.args ? ` ${c.args}` : ""}`));
-		lines.push(dim(`   ${c.description}`));
+		lines.push(gap());
 	}
 	return lines;
 }
@@ -267,16 +313,18 @@ interface HelpTab {
 	lines: () => HelpLine[];
 }
 
+// Ordered simple to complex: the loop, then the words, then the model those words obey,
+// then the things that outlast a session, then the typed reference.
 const TABS: HelpTab[] = [
 	{ name: "Start Here", blurb: "The loop, both sides of it, and every way out.", lines: startedLines },
 	{
 		name: "What to Say",
-		blurb: "Generated from the pattern library itself, so it cannot fall behind it.",
+		blurb: "Everything you can say to a subject, generated from the patterns themselves.",
 		lines: vocabularyLines,
 	},
+	{ name: "Depth & Trust", blurb: "How deep someone can take you, how that is earned, and what each depth reaches.", lines: depthTrustLines },
 	{ name: "Lasting", blurb: "Triggers and carried suggestions — the things that outlive a session.", lines: lastingLines },
-	{ name: "Trust", blurb: "How access is earned, and what each depth costs.", lines: trustLines },
-	{ name: "Commands", blurb: "Mostly diagnostics. The features themselves are spoken, not typed.", lines: commandLines },
+	{ name: "Commands", blurb: "The typed commands. The features themselves are spoken, not typed.", lines: commandLines },
 ];
 
 // --- Page control ---------------------------------------------------------------------
