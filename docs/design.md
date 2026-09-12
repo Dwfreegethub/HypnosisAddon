@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.62.0.*
+*Design notes and decision log — work in progress. Code at v0.64.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -40,7 +40,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion · Word-Level Control |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.62.0 |
+| **What to test next** | Needs Testing — as of v0.64.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -118,6 +118,14 @@ and `depth.ts`, so none of those may import it back.** State that several module
 *leaf* module that imports little or nothing, and the owner pushes into it. That is why `timers.ts`,
 `log.ts`, `notify.ts`, `effects.ts` and `depth.ts` look thinner than their importance suggests.
 
+**One deliberate exception, added v0.63.1: `storage.ts` and `session.ts` import each other.**
+`resetSettings()` calls `stopForReset()` so that a reset ends the trance it is wiping the settings for
+(Known Bug #4). It is safe only because nothing in `storage.ts` touches `session.ts` at module-init
+time — esbuild flattens both into one scope as hoisted functions, and the call happens long after
+load. **If you ever need `session.ts` at the top level of `storage.ts`, that breaks**; use a
+registration hook (`registerCarryHandlers` is the pattern) rather than reordering imports. The full
+reasoning, and the evidence it was checked rather than assumed, is under Known Bug #4.
+
 | Module | What it owns |
 |---|---|
 | `main.ts` | Entry point: installs every hook, wires the modules, runs load-time recovery |
@@ -172,8 +180,8 @@ scenarios* for what each scenario proves.
 ### Build flags and release steps
 
 - `TESTING_MODE` in `src/log.ts` is **`true`**. It gates `/hypno triggers full`, `/hypno trance`,
-  `/hypno depth` and `/bot`, and announces itself in the console at startup so it cannot quietly
-  ship switched on. Flipping it to `false` is a release step — and it **disables the test harness**,
+  `/hypno depth`, `/hypno agetrigger` and `/bot`, and announces itself in the console at startup so
+  it cannot quietly ship switched on. Flipping it to `false` is a release step — and it **disables the test harness**,
   so it must be the last thing done before shipping, not the first.
 - `dist/` is gitignored; the built userscript is not committed.
 
@@ -699,7 +707,7 @@ Both counters are session-scoped (reset between sessions) unless carrying fatigu
 **Full lock (opt-in).** Some players want to be genuinely locked out of changes. Available as an explicit setting. Still subject to the hard floor override.
 
 **Reset:**
-- Hard reset (LSCG-style) always available — restores factory defaults. **Today it does not end an in-flight trance** (Known Bug #4); the decided fix is that it ends the trance itself and says so, never refusing — see the note under the Known Bugs table.
+- Hard reset (LSCG-style) always available — restores factory defaults, **and ends an in-flight trance first, through the same teardown as the safeword** (`hardFloorStop()`'s `totalStop()`). Built v0.63.1, closing Known Bug #4; it ends the trance and says so rather than refusing — see the note under the Known Bugs table for why refuse-and-instruct was rejected.
 - **Named save states** — reset to a specific saved configuration rather than factory defaults (e.g., "reset to how my owner set me up")
 
 **Architect role — the owner model:**
@@ -1848,10 +1856,39 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
-- **Trigger aging for the harness** — a `TESTING_MODE`-only `/hypno agetrigger <days>` plus a `test-age` hidden handler, backdating `reinforcedAt` so decay can be observed in a sitting instead of a fortnight. Same shape as `/hypno trance`/`test-trance`, and it disappears at release for the same reason. Blocks the decay scenario, which is the last open item in *Needs Testing*.
+- ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger [days] [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Both arguments optional — bare, it ages every planted trigger by one day (DW's call, 2026-09-12). Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
 - **Make `earnedOnly` a per-feature player setting** — the toggle decided on 2026-09-08, letting a subject allow chemical depth to reach illusion, triggers or carry-forward. Its safeguard is the faster decay, which now exists, so this is unblocked. Three parts: turn `earnedOnly` from a constant in `DEPTH_GATES` into a stored per-feature setting, add the toggle beside each Depth-tab row, and **rewrite the comment in `depth.ts` that currently states the opposite rule**. Carry-forward has no decay clock yet, so its half of the toggle waits for one.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.63.0) — the decay scenario is unblocked
+
+**v0.63.0 — trigger aging, so decay can be looked at.** The one thing standing between the v0.60.0
+decay model and a live run was time: strength is derived from `reinforcedAt`, and four of the
+scenario's five expected results are a day or more apart. Turning the rate up does not help, because
+a rate fast enough to sit through is too coarse to see the tier discount in.
+
+`/hypno agetrigger [days] [number]` moves the clock instead of waiting on it, with `test-age` behind
+it for the bot and `!age` on the bot side. Three decisions worth recording, because each of them
+could have gone the other way and made the tool quietly useless:
+
+- **It moves the clock and nothing else.** `firings` is untouched. Clearing it would have been
+  tidier and would have made *"firing slows decay but never resets it"* pass against an
+  implementation with the rule backwards — a step that cannot fail is not testing anything.
+- **Relative, not absolute.** Each call subtracts from what the clock already reads, so the two
+  readings the acceleration check needs come from *age a day, look, age another day* rather than
+  from arithmetic done in someone's head.
+- **By number, not by phrase.** The phrase is hidden from the subject unless they asked to see it,
+  and the report names triggers the way `/hypno forgettrigger` does. A testing affordance must not
+  be the hole in a privacy rule.
+- **Both arguments optional**, DW 2026-09-12 — a bare `/hypno agetrigger` is one day across every
+  planted trigger. The first draft printed usage instead, which is the wrong trade for a command
+  whose whole job is to be run repeatedly by somebody who may be frozen or silenced at the time.
+  Safe to let the bare form write because it is exactly reversible, and the result line now names
+  the `-1` that reverses it rather than leaving it to be worked out.
+
+It also does not prune. A trigger aged past zero reads *"faded away"* and disappears on the next
+list read, which is where pruning belongs and is itself part 4 of the scenario demonstrating itself.
 
 ---
 
@@ -1864,7 +1901,7 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 | ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
 | ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
 | ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | **Not** found by scenario 8, which passed — it only asked whether the effects came off. Found when scenario 1 would not start afterwards, refusing an induction with "Already under." Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build; the scenario was rewritten to ask `/hypno session` and re-confirmed in play the same day. |
-| 4 | ✅ **FIX DECIDED 2026-09-10 — reset ends the trance itself rather than refusing.** See the note directly below this table for the decision and the pressure-test that produced it. Original report: **`/hypno reset confirm` does not stop an in-flight trance.** `resetSettings()` replaces the settings object and saves — that is all. It does not call `hardFloorStop()`, does not touch the module-level session state or its timers, does not remove the Emoticon effects, and does not clear the recovery key (which lives in its own `localStorage` entry, so wiping `ExtensionSettings` cannot reach it). After a reset mid-trance the subject is still frozen and still under, with `hypnoEnabled` now reading false. Same class as Bug #3 and the same fix: delegate to `hardFloorStop()`, and clear the recovery key. Found by code inspection 2026-09-09 while checking whether "reset the add-on" is a sufficient exit for extreme mode. **Not yet observed in play — no repro has been run.** | 2026-09-09 | Matters more than it looks: reset is one of two exits DW has proposed as sufficient in extreme mode. The other — logging in with the *userscript* disabled — is worse, since a script that is not running cannot clear the server-side effects that come back on reload. See `declared-skill-proposal.md` §8. |
+| ~~4~~ | ~~**`/hypno reset confirm` does not stop an in-flight trance**~~ — **fixed v0.63.1**, as decided 2026-09-10; the note directly below this table carries the decision and the pressure-test that produced it. `resetSettings()` now runs the same `totalStop()` teardown the safeword and the hard floor use, before it wipes, and reports the release ahead of the wipe. Fourteen assertions in `test/revoke.mjs`, ten of them verified failing (20/30) against the previous build. **Confirmed in play 2026-09-12** by DW, on the v0.64.0 combined build: forced trance, the warning named the trance, `reset confirm` released immediately and reported the release first, `/hypno session` read Idle, and a tab reload brought nothing back. That last step is the one the unit suite could never reach. Original report: `resetSettings()` replaces the settings object and saves — that is all. It does not call `hardFloorStop()`, does not touch the module-level session state or its timers, does not remove the Emoticon effects, and does not clear the recovery key (which lives in its own `localStorage` entry, so wiping `ExtensionSettings` cannot reach it). After a reset mid-trance the subject is still frozen and still under, with `hypnoEnabled` now reading false. Same class as Bug #3 and the same fix: delegate to `hardFloorStop()`, and clear the recovery key. Found by code inspection 2026-09-09 while checking whether "reset the add-on" is a sufficient exit for extreme mode. **Not yet observed in play — no repro has been run.** | 2026-09-09 | Matters more than it looks: reset is one of two exits DW has proposed as sufficient in extreme mode. The other — logging in with the *userscript* disabled — is worse, since a script that is not running cannot clear the server-side effects that come back on reload. See `declared-skill-proposal.md` §8. |
 
 ### Known Bug #4 — the fix, and why it is not the obvious one
 
@@ -1921,10 +1958,57 @@ After `/hypno reset confirm`:
 The second line names the release **first**, because that is the part she needs to trust immediately.
 The parenthetical on the first line offers the gentler option without withholding the stronger one.
 
-**Implementation:** `resetSettings()` (`src/storage.ts`) delegates to `hardFloorStop()`
-(`src/session.ts`) before replacing the settings object, and clears the recovery key. The two-step
-warning lives in the `reset` entry of the command table (`src/commands.ts`). Extend
-`test/revoke.mjs`, which was built for this class of bug when #3 was fixed.
+**Implementation — built v0.63.1.** `resetSettings()` (`src/storage.ts`) runs the teardown before
+it replaces the settings object, and the recovery key goes with it (`totalStop()` already calls
+`clearSaved()`).
+
+`stopForReset()` (`src/session.ts`) is a **third entry point onto the one shared `totalStop()`** — not
+a second copy of the everything-off list, which is the whole reason #3 happened. It differs from
+`safeword()` and `hardFloorStop()` only in what it says: it passes an empty local message, because the
+reset path speaks in one line with the release named first, and it returns what it ended (`"trance"`,
+`"induction"` or `null`) so the reply names it rather than guessing. An idle reset still says only
+`"settings reset to defaults"`; a reset that lands mid-induction says *Induction stopped*, not *Trance
+ended*.
+
+**`storage.ts` imports `session.ts` directly for this, and that is a deliberate cycle — DW's call,
+made 2026-09-12 with the cost stated first.** `session.ts` has imported `storage.ts` since it was
+written, so the two now import each other, which is the shape the module map's import rule exists to
+discourage. The alternative on the table was a registration hook (`registerResetTeardown()`, the leaf
+trick `registerCarryHandlers` and the trigger half of `registerRecoveryHandlers` use); the direct
+import was chosen for being the plainer thing to read. It was built both ways, and the direct import
+was checked rather than assumed:
+
+- **It bundles clean.** esbuild flattens both modules into one IIFE scope as hoisted `function`
+  declarations, so there is no live-binding indirection to be undefined and no TDZ. `stopForReset` is
+  defined well before `resetSettings` reaches it, and neither is a `const` arrow.
+- **It loads clean.** The shipped `dist/HypnosisAddon.user.js` was executed under Node against stubbed
+  BC globals. It reaches `script loaded`, and every error it raises is a missing BC function in the
+  stub, caught by `safely()`. None is a reference error from our own modules.
+- **Every suite still passes**, `revoke` at 30/30.
+
+**What would break it, for whoever reads this next:** nothing in `storage.ts` may call into
+`session.ts` at **module-init time**. `stopForReset()` is reached only from inside `resetSettings()`,
+long after both module bodies have run. A top-level call — a `const` initialised from a session
+function, say — would put one side's binding in the other's way, and the fix then is to go back to the
+registration hook rather than to reorder imports and hope. The same warning is in the code, above the
+import.
+
+The two-step warning lives in the `reset` entry of the command table (`src/commands.ts`), and the
+extra trance sentence and the safeword parenthetical appear only when `isHypnotized()`.
+
+Fourteen assertions added to `test/revoke.mjs`, which was built for this class of bug when #3 was
+fixed. Ten of them were verified failing against the previous `resetSettings()` (20/30) before the fix
+went in; the four that pass either way are the guards that ending the trance did not cost the wipe,
+and that an idle reset does not announce a trance nobody was in.
+
+> **One caveat on those assertions, and it is not specific to this fix.** `revoke.mjs` cannot pass
+> against a `TESTING_MODE: false` build: it stands a trance up with `forceTrance()`, which a release
+> build correctly refuses. Measured at **25/30** with the flag off. Two of the fourteen fail loudly,
+> which is fine — but nine of the rest then pass without testing anything, because there was never a
+> trance for reset to end, and that is rule 6. This predates the fix (the first `forceTrance` check
+> does the same) and it is shared with the trigger-ageing work, so it is filed here rather than
+> patched here. It must be settled before `TESTING_MODE` is flipped, not after.
+
 
 ---
 
@@ -1962,9 +2046,13 @@ BC stores character data in `localStorage` and the server. Corrupting `Player.Ex
 *Last updated: 2026-09-10 — two days of design work with the dispatch bot: hypnotist skill answered
 ("declared and visible", in `declared-skill-proposal.md`, being folded in section by section),
 touch-fired triggers proposed, word-level control approved to spec, the vanishing hypnotist closed
-with no special handling, and Known Bug #4 found by inspection — reset does not end a trance. This
+with no special handling, and Known Bug #4 found by inspection — reset does not end a trance (fixed
+in v0.63.1). This
 pass refiled that material into the sections it belongs to and cut `CLAUDE.md` down to rules and
-pointers after it drifted in a day. Decay still owes its live run. Code at v0.62.0.*
+pointers after it drifted in a day. Decay still owes its live run. Code at v0.64.0.*
+
+*Updated 2026-09-12 — Known Bug #4 fixed in v0.63.1: reset now runs the shared teardown before it
+wipes. Confirmed in play by DW the same day, reload included, so item 9 of Needs Testing is closed.*
 
 ## Appendix: Version History
 
@@ -2290,6 +2378,36 @@ hypnotist) remains a separate, larger idea and is not planned.
 
 ---
 
+### Added 2026-09-12 (v0.63.1) — reset stops what it wipes
+
+**Known Bug #4 closed.** `/hypno reset confirm` wiped the settings and left the trance running: the
+subject stayed frozen, the timers kept counting, the Emoticon effects stayed applied and the recovery
+key — which lives in its own `localStorage` entry, out of reach of an `ExtensionSettings` wipe —
+would have rebuilt the whole session on the next load, with `hypnoEnabled` now reading false. Found
+by inspection on 2026-09-09, never observed in play.
+
+The decision this implements was made on 2026-09-10 and is argued at length under the Known Bugs
+table: reset **ends the trance itself** rather than refusing and telling her to safeword first. The
+short version is that refuse-and-instruct is not dangerous — the pressure-test found no state where
+the safeword fails and reset would have saved her — it is just worse, and its worst part is that it
+adds a second refusal path that has to be kept correct, which is exactly how #3 happened.
+
+**What went in:** a third entry point onto the one shared `totalStop()`, not a second teardown list.
+`stopForReset()` differs from `safeword()` and `hardFloorStop()` only in its wording, and it returns
+what it ended so the reply can name it. `storage.ts` imports it directly, which makes storage and
+session import each other — a deliberate cycle, taken knowingly after the alternative (a registration
+hook) was built and compared, and verified by bundling it, loading the real user script under Node and
+running the suites. The full note, including what would break it, is under the Known Bugs table.
+
+**The wording is part of the fix.** *"Trance ended and every effect released. Settings reset to
+defaults."* — release first, because that is the half she needs to trust immediately. The unconfirmed
+`/hypno reset` now tells her the trance will end too, and offers the gentler option
+(`/hypno safeword` keeps the settings) without withholding the stronger one.
+
+**Confirmed in play 2026-09-12**, the same day, by DW on the combined v0.64.0 build — including the
+tab reload afterwards, which is the half the unit suite cannot see, since the recovery key lives in
+its own `localStorage` entry. Nothing came back.
+
 ### Added 2026-09-08 (v0.57.1 – v0.62.0) — the pass finished, reinforcement and decay, vertical tabs
 
 **v0.57.1 — the two gaps in the pass.** Seven scenarios, and neither of the two things most worth
@@ -2495,12 +2613,55 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ---
 
-## Needs Testing — as of v0.62.0
+## Needs Testing — as of v0.64.0
 
 Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
-scenario was rewritten to be capable of failing. **One thing is open:** decay has never run outside
-the unit suite. Its expected result is spelled out below, because DW asked for that after a run
-whose output could not be graded.
+scenario was rewritten to be capable of failing. Item 9, the Known Bug #4 fix, was confirmed by DW on
+2026-09-12. **Two things are open:** decay has never run outside the unit suite, and the Data tab's
+Reset button (item 10) has never been exercised in play. Expected results are spelled out, because DW
+asked for that after a run whose output could not be graded.
+
+### ~~9. Reset while in a trance (v0.63.1)~~ — **confirmed in play 2026-09-12**
+
+Run by DW on the combined v0.64.0 build, the same day the fix was written. Every step below passed,
+**including step 5** — which is the one that mattered, since the recovery key lives in its own
+`localStorage` entry and a settings wipe cannot reach it, so a reload was the only way to prove it
+had gone. Nothing came back.
+
+The steps are kept rather than deleted: this is the script to re-run if `resetSettings()` or
+`totalStop()` is ever touched again.
+
+The unit suite proves the in-memory state comes down. What it could not prove is the half that only
+exists in the browser: the BC effects riding on the Emoticon item, and the recovery key surviving a
+reload. Both are the parts that made this bug matter.
+
+1. Go under. Confirm with `/hypno session` that the phase is `Hypnotized`, and that you are frozen.
+2. Type `/hypno reset` — **not** confirmed. *Expect:* the warning names the trance and offers
+   `/hypno safeword` as the gentler option. *Failure looks like:* the old one-line warning, with no
+   mention of the trance; or a refusal.
+3. Type `/hypno reset confirm`. *Expect:* one line reading *"Trance ended and every effect released.
+   Settings reset to defaults."*, movement back immediately, and the hypnotist seeing *"They reset
+   the add-on. Everything has been released."* *Failure looks like:* still frozen, or only the wipe
+   reported.
+4. `/hypno session` → `Idle`, no hypnotist. `/hypno effects` → nothing applied.
+5. **Reload the tab.** *Expect:* still clear — nothing restored, no orphaned-effect message. *Failure
+   looks like:* the trance or any effect coming back, which is the recovery key not having been
+   cleared and is the specific thing a settings wipe cannot reach on its own.
+6. Check the settings screen actually reset: trust empty, every permission off.
+
+### 10. The Data tab's Reset button, while in a trance — **open, never run live**
+
+Item 9 covered the `/hypno reset` command. The **Reset button on the Data tab** was not tested, and
+it is not quite the same path: it goes through the same `resetSettings()`, so the teardown is
+identical and it should free you the same way — but it has its own two-step arm (click twice within
+five seconds) and it carries **no trance warning**, because the warning added for Bug #4 lives in the
+command table. So from the screen you get the release without the heads-up the command now gives.
+
+*Expect:* the trance ends and everything releases, exactly as the command does. *Failure looks like:*
+still frozen after the second click, which would mean the button is not reaching the same teardown.
+Worth deciding separately whether the missing warning is a bug or acceptable — the settings screen may
+be locked while hypnotized anyway (`lockedWhileHypnotized`), which would make it unreachable and the
+question moot. That has not been checked either.
 
 > Note on numbering: this list is a list of *topics*. The harness has eight scenarios and its own
 numbers — see *Test Harness — the eight scenarios*.
@@ -2570,14 +2731,24 @@ Both versions pass now, because the code is correct. Only the five-step one demo
 
 Covered by unit tests, never exercised against a live client.
 
-> **Blocked on one small piece of tooling — this is where the next session starts.** The harness
-> has no decay steps yet, and cannot usefully have them until a trigger can be **aged**. Even at
-> *Very fast* a Deep planting takes twelve hours to die, so the first step of a decay scenario is
-> watchable and every step after it is not. What is needed is a `TESTING_MODE`-only affordance that
-> backdates `reinforcedAt` by a stated number of days — `/hypno agetrigger <days>` plus a `test-age`
-> hidden handler so the bot can drive it, the same shape as `/hypno trance` and `test-trance`, and
-> disappearing at release for the same reason. With it, the eight-step scenario below runs in about
-> ten minutes; without it, steps 3 onward cannot be run at all.
+> **The tooling this was blocked on now exists (v0.63.0).** Even at *Very fast* a Deep planting
+> takes twelve hours to die, so the first step of a decay scenario was watchable and every step
+> after it was not. **`/hypno agetrigger [days] [number]`** backdates `reinforcedAt` by a stated
+> number of days — both arguments optional, so a bare `/hypno agetrigger` is one day across every
+> planted trigger — with a `test-age` hidden handler behind it so the bot can drive the same thing
+> with `!age [days] [number]`. `TESTING_MODE`-only at three points — the command refuses, the core
+> function refuses, and the handler is never registered — so it does not exist in a release build,
+> which matters more here than for `/hypno triggers full` because this one *writes*.
+>
+> It is **relative**: `/hypno agetrigger 1` twice is two days, which is how the two readings part 5
+> needs are taken without working out a total. It moves the clock and **nothing else** — the firing
+> credit is left alone on purpose, because zeroing it would make part 2 unfalsifiable. A negative
+> number winds the clock forward again, capped at now, for a run that overshoots. Triggers are named
+> by their **number** in `/hypno triggers`, never by phrase, so the hidden-phrase rule survives the
+> testing affordance. It does not prune: something aged past zero reads *"faded away"* and goes on
+> the next list read, which is part 4 demonstrating itself.
+>
+> **The run is still owed.** With aging, the scenario below is about ten minutes of work.
 
 **How to run it, once aging exists:** `/hypno triggerdecay veryfast` — since v0.62.0 that is a Deep
 planting gone in about twelve hours and a Blank one in about a day, so step 1 is observable
@@ -2628,7 +2799,17 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.62.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.63.0. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+
+  - **`test/revoke.mjs` does not survive the flip, and the loud half is not the problem.** Its
+    checks stand their trance up with `forceTrance`, which correctly refuses in a release build, so
+    some fail outright — and more go on **passing while testing nothing**, because there was never
+    a trance for the revoke to take down. Rule 6 exactly: a check that cannot fail is not checking
+    anything, and these read green while the release build is the one build nobody has ever
+    verified revocation on. Confirmed against a flipped build, not inferred, and independently
+    reproduced. **Open decision, DW's:** the fix belongs in `build-test.mjs` — pin `TESTING_MODE`
+    true when bundling the harness, or stand a trance up some other way on a release build — so it
+    is not a rewrite to start blind.
 - [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
 
 ### Strongly recommended (testers can survive without, but experience is rough)

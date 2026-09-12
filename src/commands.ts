@@ -29,7 +29,7 @@ import {
 	RelationKind,
 } from "./storage";
 import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
-import { describeRecording, describeDecayPace } from "./triggers";
+import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import {
@@ -40,6 +40,7 @@ import {
 	describeChances,
 	forceTrance,
 	currentHypnotistId,
+	isHypnotized,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import {
@@ -505,6 +506,17 @@ const COMMANDS: HypnoCommand[] = [
 		Description: "Wipe all settings and stats back to defaults (asks first)",
 		Action: (args: string) => {
 			if (firstWord(args).toLowerCase() !== "confirm") {
+				// Told before anything happens, never blocked. The existing two-step IS the
+				// accidental-use protection, so reset does not additionally refuse while under
+				// — see design.md, Known Bug #4, for why refuse-and-instruct was rejected.
+				if (isHypnotized()) {
+					reply(
+						"This erases all trust, experience and settings. You are also in a trance right now — " +
+							"resetting will end it and release everything first. Run: /hypno reset confirm",
+					);
+					reply("(If you only want out of the trance, /hypno safeword does that and keeps your settings.)");
+					return;
+				}
 				reply("This erases all trust, experience and settings. Run: /hypno reset confirm");
 				return;
 			}
@@ -891,6 +903,72 @@ const COMMANDS: HypnoCommand[] = [
 				`Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned — ` +
 					`${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /hypno wake to come out.`,
 			);
+		},
+	},
+	{
+		// TESTING ONLY, and the piece the decay scenario is blocked on.
+		//
+		// Trigger strength is derived from a clock, and every reading after the first one is
+		// days away: even at *very fast* a Deep planting takes twelve hours to die. So the
+		// scenario could watch a trigger start to fade and could not reach the compounding, the
+		// firing credit, the ghost threshold or the sweep — four of its five expected results.
+		// Turning the rate up further does not help, because a rate fast enough to sit through
+		// is a rate too coarse to see the tier discount in.
+		//
+		// By NUMBER, not phrase — the same reasoning as /hypno forgettrigger. The phrase is
+		// hidden from the subject unless they asked to see it, and a testing command must not
+		// be the way round that.
+		Tag: "agetrigger",
+		group: "Testing",
+		args: "[days] [number]",
+		Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
+		Action: (args: string) => {
+			if (!TESTING_MODE) {
+				reply("Not available — this build is not in testing mode.");
+				return;
+			}
+			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			// BOTH ARGUMENTS OPTIONAL, DW's call: a bare `/hypno agetrigger` means one day
+			// across every planted trigger. The commonest thing to want mid-scenario is "move
+			// it on a bit and look again", and that is the form with nothing to mistype — which
+			// matters when the subject driving it may be frozen, silenced, or both.
+			//
+			// Safe to make the bare form DO something rather than print usage, because it is
+			// exactly reversible: `/hypno agetrigger -1` puts the clock back. The usage text is
+			// still one wrong word away, below.
+			const days = parts.length ? Number(parts[0]) : 1;
+			if (!Number.isFinite(days)) {
+				reply("Usage: /hypno agetrigger [days] [number] — see /hypno triggers for the numbering.");
+				reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
+				reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
+				reply(`Triggers currently fade: ${describeDecayPace()}. /hypno triggerdecay changes that.`);
+				return;
+			}
+			// Validated here as well as inside ageTriggers, so a mistyped number reads as a
+			// typo rather than as "no trigger NaN".
+			const index = parts.length > 1 ? Number(parts[1]) : undefined;
+			if (index !== undefined && !Number.isInteger(index)) {
+				reply(`"${parts[1]}" is not a trigger number. /hypno triggers lists them by number.`);
+				return;
+			}
+			const result = ageTriggers(days, index);
+			if (result.refusal) {
+				reply(`Can't: ${result.refusal}.`);
+				return;
+			}
+			reply(`Aged ${result.aged} trigger(s) by ${days} day(s) — strength before and after:`);
+			result.lines.forEach(reply);
+			// Says what it did NOT do, because both would otherwise look like bugs from the
+			// outside: a firing count that survived, and a trigger reading "faded away" that is
+			// still in the list until something reads the list.
+			reply(
+				"The firing credit is untouched — only the clock moved. One aged to nothing is " +
+					"swept on the next /hypno triggers, unless it is holding you.",
+			);
+			// Named explicitly because the bare form writes without being asked twice. Nothing
+			// here is recoverable from the stored data alone — the old timestamp is gone — so
+			// the way back has to be a thing you were told, not a thing you work out.
+			reply(`Undo this exact move with /hypno agetrigger ${-days}${index !== undefined ? ` ${index}` : ""}.`);
 		},
 	},
 	{

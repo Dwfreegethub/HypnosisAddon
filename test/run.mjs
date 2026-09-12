@@ -12,7 +12,7 @@
 // RUN THIS AFTER ANY CHANGE TO voice.ts PATTERNS. Adding a suggestion whose wording
 // overlaps an existing one is the easiest mistake to make here and the hardest to notice.
 import { execFileSync } from "node:child_process";
-const suites = ["voicetest", "speech", "sup", "part", "wake", "triggers", "scope", "arousal", "carry", "notify", "presence", "relation", "rp", "undress", "ooc", "revoke", "recovery", "illusion", "depth"];
+const suites = ["voicetest", "speech", "sup", "part", "wake", "triggers", "scope", "arousal", "carry", "notify", "presence", "relation", "rp", "undress", "ooc", "revoke", "recovery", "illusion", "depth", "odds"];
 let failed = false;
 for (const s of suites) {
 	const out = execFileSync(process.execPath, [new URL(`${s}.mjs`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")], { encoding: "utf8" });
