@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.68.0.*
+*Design notes and decision log — work in progress. Code at v0.69.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1865,9 +1865,35 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
 - ~~**Trigger aging for the harness**~~ — **built v0.63.0.** `/hypno agetrigger [days] [number]` plus a `test-age` hidden handler and `!age` on the bot, all `TESTING_MODE`-only and all gone at release, same shape as `/hypno trance`/`test-trance`. Backdates `reinforcedAt` and nothing else — the firing credit is left alone deliberately, since it is one of the things the scenario is checking. Both arguments optional — bare, it ages every planted trigger by one day (DW's call, 2026-09-12). Relative, so `1` twice is two days; negative winds it forward; triggers are named by their number in `/hypno triggers`, not by phrase, so the hidden-phrase rule survives it. This unblocks scenario 8 in *Needs Testing*, which still owes its live run.
 - ~~**Trigger reinforcement and decay**~~ — **built v0.60.0**, retuned v0.62.0. Formal re-induction resets the clock; firing credits capped time only; rate is separate from trust decay and defaults to Never.
-- **Help screen pass (DW wants this)** — the `?` screen has grown a lot of features under it without the help keeping pace: walking trance and the skill honour rungs are only barely mentioned, the chemical-reach toggle and the attempt-limit setting are not, and the "What to Say" tab is generated only from the table (so the handler-based lines — wake, walking, body parts — are hand-maintained footnotes). A full read-through and rewrite of all five tabs, checking each against what actually ships. **DW asked to be reminded of this** (2026-09-12).
+- **Help screen pass (DW wants this) — LAYOUT done v0.69.0, content partly done.** The `?` screen now renders one word-wrapped column instead of two clipped ones, so nothing is cut off with "…" and headings no longer collide (`drawHelpLines` in `panel.ts`). Skill, the earned-only toggle and the Advanced-view move are written into the Trust tab, and walking trance is in "What to Say". **Still to do:** a full read-through of all five tabs — the "What each gate needs" block still frames access as trust thresholds rather than depth tiers, and the handler-based lines (wake, walking, body parts) are still hand-maintained footnotes rather than generated. **DW asked to be reminded** (2026-09-12).
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.69.0) — the help reads again, and Stats moves behind Advanced
+
+Two things, from DW's screenshots of a help screen that was mostly ellipses.
+
+**The help is one word-wrapped column now, not two clipped ones.** The two-column layout halved
+the width, so nearly every authored line overran and was cut off with "…" — and a heading that
+took its lead pushed down into the body under it, so the *Lasting* tab's headings overlapped their
+own text. `drawHelpLines` (`panel.ts`) was rewritten: a single ~1220px column, each line wrapped to
+as many physical rows as it needs rather than clipped, and pagination by vertical budget rather than
+a fixed line count (wrapping makes line heights variable). Headings get real space before them, so
+groups read as groups. `test/help-layout.mjs` drives it through a stubbed canvas and holds the three
+things that were wrong: nothing drawn wider than the column, nothing below the panel floor, long
+content paginating instead of piling up.
+
+**The Stats tab moved behind an "Advanced" button** (declared-skill proposal §5a). It lists every
+hypnotist's trust and interaction counts and the player's own experience — DW's debugging
+visibility, and noise on the main screen. The five everyday tabs are always up; an Advanced button
+in the tab column reveals Stats (and with it the trust-decay control and the export/import/reset
+data buttons, which live on that tab). Reachable, but sought out.
+
+**Help content caught up part-way.** Skill now appears in the Trust tab (how it enters the roll, and
+that your Depth-tab rung decides how much to believe), the earned-only toggle is noted under the
+gates, and the trust-decay reference points at the Advanced view rather than a "Stats tab" that is
+no longer a tab. The full five-tab rewrite is still a todo — the gate block still talks trust
+thresholds rather than depth tiers, and the handler-driven phrases are still hand-maintained.
 
 ### Added 2026-09-12 (v0.68.0) — the earned-only gate becomes the subject's to lift
 

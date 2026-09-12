@@ -157,10 +157,13 @@ export function drawTabsAndPanel(names: readonly string[], activeIndex: number):
 	DrawRect(PANEL_LEFT, panelBottom - BORDER, PANEL_WIDTH, BORDER, "Black");
 }
 
-// --- Two-column text layout ----------------------------------------------------------
-// The help screen is mostly prose in short lines. Two columns rather than one because the
-// panel is 1600 wide and a single column of 16 lines wastes half the screen and forces
-// pagination on content that would otherwise fit whole.
+// --- Help text layout: one column, word-wrapped ----------------------------------------
+// One column, not two. Two columns halved the width, so nearly every authored line overran
+// COLUMN_WIDTH and was cut off with an ellipsis — the whole point of the help is to be read,
+// and half of it was "…". A single column across the panel is ~1220px, wide enough that most
+// lines fit whole, and the ones that do not WRAP onto a second physical line rather than being
+// clipped. Wrapping means a line's height is no longer fixed, so pagination is by vertical
+// budget rather than a fixed line count.
 
 export type LineStyle = "head" | "body" | "dim" | "gap";
 
@@ -169,26 +172,18 @@ export interface HelpLine {
 	style?: LineStyle;
 }
 
-// Both columns are offsets from CONTENT_LEFT now, and 100px narrower each: the tab column
-// took 280px off the panel, and two 700-wide columns no longer fit in what is left. The cost
-// is real — clip() trims to COLUMN_WIDTH, so a few more help lines will end in an ellipsis.
-// The 72px the panel gained at the top would buy two more lines per column back; that means
-// moving BLURB_Y, which both screens share, so it is deliberately a separate change.
-const COLUMN_LEFTS = [CONTENT_LEFT, CONTENT_LEFT + 640];
-const COLUMN_WIDTH = 600;
-const LINE_TOP = 282;
-const LINE_HEIGHT = 32;
-/** Extra breathing room above a heading, so groups read as groups. */
-const HEAD_LEAD = 14;
+const HELP_LEFT = CONTENT_LEFT;
+/** The full content width, edge to edge inside the panel with a small right margin. */
+const HELP_WIDTH = PANEL_LEFT + PANEL_WIDTH - CONTENT_LEFT - 40;
+const HELP_TOP = 282;
+/** Stops clear of the page control, which sits at PANEL bottom - 72. */
+const HELP_BOTTOM = PANEL_TOP + PANEL_HEIGHT - 96;
 const BODY_SIZE = 24;
 const HEAD_SIZE = 26;
-/** Leaves room for the page control along the panel floor.
- *
- * Was 14, when LINE_TOP was 352 and 16 put the last line at y=832 — 846 with a heading's
- * lead — against page buttons at 830. The panel now starts 72px higher and LINE_TOP with it,
- * so 16 lands at 762 (776 with the lead) against buttons at 830: the two lines that the
- * narrower columns cost, given back. */
-const LINES_PER_COLUMN = 16;
+/** Blank space before a heading, so groups read as groups. */
+const HEAD_LEAD = 18;
+/** A "gap" line's own height. */
+const GAP_SIZE = 14;
 
 function styleOf(style: LineStyle | undefined): { size: number; color: string } {
 	if (style === "head") return { size: HEAD_SIZE, color: "Black" };
@@ -196,44 +191,83 @@ function styleOf(style: LineStyle | undefined): { size: number; color: string } 
 	return { size: BODY_SIZE, color: "#222" };
 }
 
-/** Fit `text` to COLUMN_WIDTH by trimming and appending an ellipsis. Cheaper and steadier
- * than wrapping: every help line is authored short, and a line that silently rewrapped
- * would shift everything below it out of its column. */
-function clip(text: string, size: number): string {
-	MainCanvas.save();
-	MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(size) : `${size}px arial`;
-	let out = text;
-	if (MainCanvas.measureText(out).width > COLUMN_WIDTH) {
-		while (out.length > 1 && MainCanvas.measureText(`${out}…`).width > COLUMN_WIDTH) out = out.slice(0, -1);
-		out = `${out}…`;
-	}
-	MainCanvas.restore();
-	return out;
+function helpFont(size: number): string {
+	return typeof CommonGetFont === "function" ? CommonGetFont(size) : `${size}px arial`;
 }
 
-/** Lay lines out into two columns, paginating if they overrun. Returns the page count so
- * the caller can draw its own page control. */
-export function drawHelpLines(lines: readonly HelpLine[], page: number): number {
-	const perPage = LINES_PER_COLUMN * COLUMN_LEFTS.length;
-	const pages = Math.max(1, Math.ceil(lines.length / perPage));
-	const start = Math.min(page, pages - 1) * perPage;
-	const slice = lines.slice(start, start + perPage);
+/** The band a line of this size occupies — a little more than the glyph height, for leading. */
+function lineBand(size: number): number {
+	return Math.round(size * 1.34);
+}
 
-	slice.forEach((line, i) => {
-		if (line.style === "gap") return;
-		const column = Math.floor(i / LINES_PER_COLUMN);
-		const row = i % LINES_PER_COLUMN;
+/** Break `text` into as many pieces as fit HELP_WIDTH at this size. A single word wider than the
+ * column is left whole rather than hard-split — it will overhang slightly, which never happens
+ * with authored help but is better than an infinite loop. */
+function wrapText(text: string, size: number): string[] {
+	MainCanvas.save();
+	MainCanvas.font = helpFont(size);
+	const words = text.split(/\s+/).filter(Boolean);
+	const out: string[] = [];
+	let line = "";
+	for (const w of words) {
+		const trial = line ? `${line} ${w}` : w;
+		if (!line || MainCanvas.measureText(trial).width <= HELP_WIDTH) line = trial;
+		else {
+			out.push(line);
+			line = w;
+		}
+	}
+	if (line) out.push(line);
+	MainCanvas.restore();
+	return out.length ? out : [""];
+}
+
+interface Placed {
+	text: string;
+	size: number;
+	color: string;
+	/** Band centre, since drawSmallText draws on the middle baseline. */
+	y: number;
+}
+
+/** Wrap every line, then pour the physical rows into pages by vertical budget. Returns one
+ * array of placed rows per page. */
+function paginateHelp(lines: readonly HelpLine[]): Placed[][] {
+	const pages: Placed[][] = [[]];
+	let y = HELP_TOP;
+	const newPage = () => {
+		pages.push([]);
+		y = HELP_TOP;
+	};
+	for (const line of lines) {
+		const cur = () => pages[pages.length - 1];
+		if (line.style === "gap") {
+			// A gap at the top of a page would just waste a strip of it, so it is dropped there.
+			if (cur().length) y += GAP_SIZE;
+			continue;
+		}
 		const { size, color } = styleOf(line.style);
-		// A heading gets its lead only when it isn't the first line of its column, so the
-		// two columns stay on the same baselines.
-		const lead = line.style === "head" && row > 0 ? HEAD_LEAD : 0;
-		drawSmallText(
-			clip(line.text, size),
-			COLUMN_LEFTS[column],
-			LINE_TOP + row * LINE_HEIGHT + lead,
-			size,
-			color,
-		);
-	});
+		const lead = line.style === "head" ? HEAD_LEAD : 0;
+		const segments = wrapText(line.text, size);
+		segments.forEach((seg, i) => {
+			const band = lineBand(size);
+			const gapBefore = i === 0 && cur().length ? lead : 0;
+			if (y + gapBefore + band > HELP_BOTTOM && cur().length) newPage();
+			const top = y + (cur().length ? gapBefore : 0);
+			cur().push({ text: seg, size, color, y: top + band / 2 });
+			y = top + band;
+		});
+	}
 	return pages;
+}
+
+/** Draw one page of help, single column and word-wrapped. Returns the page count so the caller
+ * can draw its own control. */
+export function drawHelpLines(lines: readonly HelpLine[], page: number): number {
+	const pages = paginateHelp(lines);
+	const p = Math.min(Math.max(0, page), pages.length - 1);
+	for (const row of pages[p]) {
+		if (row.text) drawSmallText(row.text, HELP_LEFT, row.y, row.size, row.color);
+	}
+	return pages.length;
 }

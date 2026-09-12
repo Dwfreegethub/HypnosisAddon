@@ -66,6 +66,9 @@ import {
 	drawLeftText,
 	drawLeftTextFit,
 	drawTabsAndPanel,
+	tabTop,
+	TAB_LEFT,
+	TAB_WIDTH,
 } from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -169,6 +172,23 @@ const TABS: Tab[] = [
 		render: drawStats,
 	},
 ];
+
+// The Stats tab is DEMOTED behind an Advanced button (declared-skill-proposal §5a): it lists
+// every hypnotist's trust and interaction counts plus the player's own experience, which was
+// DW's debugging visibility and reads as noise on the main screen. It is sought out, not shown.
+// The five everyday tabs are always visible; Stats is appended only while `showAdvanced` is on.
+const STATS_TAB = TABS[TABS.length - 1];
+const BASE_TABS = TABS.slice(0, TABS.length - 1);
+let showAdvanced = false;
+function visibleTabs(): Tab[] {
+	return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+}
+
+/** Y of the Advanced button — one tab-slot below the last visible tab, in the tab column. */
+function advancedButtonTop(): number {
+	return tabTop(visibleTabs().length) + 4;
+}
+const ADVANCED_BUTTON_HEIGHT = 52;
 
 let activeTab = 0;
 
@@ -841,9 +861,21 @@ export function installMenu(): void {
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 
-			drawTabsAndPanel(TABS.map((t) => t.name), activeTab);
+			const tabs = visibleTabs();
+			if (activeTab >= tabs.length) activeTab = 0;
+			drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
+			DrawButton(
+				TAB_LEFT,
+				advancedButtonTop(),
+				TAB_WIDTH,
+				ADVANCED_BUTTON_HEIGHT,
+				showAdvanced ? "Hide advanced" : "Advanced \u25B8",
+				"White",
+				"",
+				showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
+			);
 
-			const tab = TABS[activeTab];
+			const tab = tabs[activeTab];
 			const locked = settingsLocked();
 			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
 			// canvas takes on its own.
@@ -887,7 +919,16 @@ export function installMenu(): void {
 				PreferenceSubscreenExtensionsClear();
 				return;
 			}
-			const hitTab = tabHitIndex(TABS.length);
+			if (MouseIn(TAB_LEFT, advancedButtonTop(), TAB_WIDTH, ADVANCED_BUTTON_HEIGHT)) {
+				showAdvanced = !showAdvanced;
+				// Leaving Stats behind when it is hidden, so a stale index cannot point past the
+				// visible list.
+				if (!showAdvanced && activeTab >= BASE_TABS.length) activeTab = 0;
+				removeScopeControl();
+				return;
+			}
+			const tabs = visibleTabs();
+			const hitTab = tabHitIndex(tabs.length);
 			if (hitTab !== null) {
 				activeTab = hitTab;
 				depthPage = 0;
@@ -896,9 +937,9 @@ export function installMenu(): void {
 			}
 			// A self-drawing tab handles its own clicks first. Stats predates this and keeps
 			// its handling inline below; Depth uses the hook.
-			if (TABS[activeTab].clickExtra?.()) return;
+			if (tabs[activeTab].clickExtra?.()) return;
 			// Data buttons live on the Stats tab, which has no rows.
-			if (TABS[activeTab].render) {
+			if (tabs[activeTab].render) {
 				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
 					statPage = Math.max(0, statPage - 1);
 					return;
@@ -921,7 +962,7 @@ export function installMenu(): void {
 			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
-			const clickRows = TABS[activeTab].rows ?? [];
+			const clickRows = visibleTabs()[activeTab].rows ?? [];
 			clickRows.forEach((row, i) => {
 				const { left, top } = rowPosition(i, clickRows.length);
 				if (MouseIn(left, top, BOX_SIZE, BOX_SIZE)) {

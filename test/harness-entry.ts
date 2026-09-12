@@ -18,5 +18,6 @@ export * as trust from "../src/trust";
 export * as illusion from "../src/illusion";
 export * as undress from "../src/undress";
 export * as menu from "../src/menu";
+export * as panel from "../src/panel";
 export * as effects from "../src/effects";
 export * as recovery from "../src/recovery";
