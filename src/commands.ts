@@ -40,6 +40,7 @@ import {
 	describeChances,
 	forceTrance,
 	currentHypnotistId,
+	isHypnotized,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import {
@@ -505,6 +506,17 @@ const COMMANDS: HypnoCommand[] = [
 		Description: "Wipe all settings and stats back to defaults (asks first)",
 		Action: (args: string) => {
 			if (firstWord(args).toLowerCase() !== "confirm") {
+				// Told before anything happens, never blocked. The existing two-step IS the
+				// accidental-use protection, so reset does not additionally refuse while under
+				// — see design.md, Known Bug #4, for why refuse-and-instruct was rejected.
+				if (isHypnotized()) {
+					reply(
+						"This erases all trust, experience and settings. You are also in a trance right now — " +
+							"resetting will end it and release everything first. Run: /hypno reset confirm",
+					);
+					reply("(If you only want out of the trance, /hypno safeword does that and keeps your settings.)");
+					return;
+				}
 				reply("This erases all trust, experience and settings. Run: /hypno reset confirm");
 				return;
 			}

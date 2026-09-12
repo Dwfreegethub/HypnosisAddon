@@ -1,6 +1,14 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import { log } from "./log";
 import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
+// A deliberate cycle: session.ts imports this module, and this module imports it back. DW's
+// call, made 2026-09-12 with the cost stated — see the Known Bug #4 note in design.md. It is
+// safe because nothing here calls into session.ts at module-init time; stopForReset() is
+// reached only from inside resetSettings(), long after both modules have finished loading,
+// and both sides are hoisted `function` declarations rather than const bindings.
+// If anything in this module ever needs session.ts at TOP LEVEL, this breaks — go back to
+// the registration hook rather than reordering imports and hoping.
+import { stopForReset } from "./session";
 
 const SETTINGS_KEY = "HypnosisAddon";
 // The old un-keyed `HypnosisAddon_Backup` is abandoned rather than migrated: it was shared
@@ -725,11 +733,32 @@ export function importSettings(blob: string): { ok: boolean; message: string } {
 	};
 }
 
-/** Back to factory defaults for this account. Trust, experience and every toggle. */
+/** Back to factory defaults for this account. Trust, experience and every toggle — and any
+ * trance that was running, because a subject who typed "wipe everything" must not be left
+ * frozen by the command that told her it had. */
 export function resetSettings(): string {
+	// Stop BEFORE the wipe. The teardown reads the live session rather than the settings, but
+	// it also has to know what it is ending in order to say so, and it clears the recovery key
+	// — which lives in its own localStorage entry, so wiping ExtensionSettings cannot reach it.
+	let ended: "trance" | "induction" | null = null;
+	let stopFailed = false;
+	try {
+		ended = stopForReset();
+	} catch (err) {
+		// Reported rather than swallowed: a reset that quietly skipped the teardown is the bug.
+		stopFailed = true;
+		log("reset: could not end the session:", err);
+	}
 	cached = defaultSettings();
 	cachedFromAccount = true;
 	saveSettings();
+	if (stopFailed) {
+		return "Settings reset to defaults — but the trance could not be ended. Use /hypno safeword.";
+	}
+	// Release first, wipe second, in the wording as well as the order: the release is the half
+	// she needs to trust immediately.
+	if (ended === "trance") return "Trance ended and every effect released. Settings reset to defaults.";
+	if (ended === "induction") return "Induction stopped and every effect released. Settings reset to defaults.";
 	return "settings reset to defaults";
 }
 

@@ -812,6 +812,24 @@ export function hardFloorStop(): void {
 	);
 }
 
+/** The third total stop: a full settings reset (Known Bug #4).
+ *
+ * Reset used to replace the settings object and nothing else, which left a subject who had
+ * just typed "wipe everything" frozen, still under, and now reading hypnoEnabled false — the
+ * exact half-working the safeword exists to make impossible. design.md pressure-tested
+ * refuse-and-instruct against this and rejected it: nobody types "wipe everything" and wants
+ * to stay frozen, and a second refusal path is how Bug #3 happened. So reset stops first,
+ * through the same teardown as the other two, and says so.
+ *
+ * Returns what it actually ended, so the reply can name it rather than guess. Nothing is
+ * spoken locally here: the reset path says the release and the wipe in one line, in that
+ * order, because the release is the half the subject needs to trust immediately. */
+export function stopForReset(): "trance" | "induction" | null {
+	const ended = session.phase === "Hypnotized" ? "trance" : session.phase === "Idle" ? null : "induction";
+	totalStop("They reset the add-on. Everything has been released.", "");
+	return ended;
+}
+
 /** Stop everything, keep nothing. The one path in this file no feature may make conditional.
  *
  * Shared rather than duplicated on purpose: the safeword's list had already drifted from the
@@ -847,7 +865,9 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 		pushUpdate(hypnotistMessage);
 		session.hypnotistId = null;
 	}
-	notify(localMessage);
+	// Empty means the caller is saying it instead, in its own wording — only stopForReset
+	// does that. It is never a silent stop: the subject is told either way.
+	if (localMessage) notify(localMessage);
 }
 
 export function describeSession(): string {
