@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.63.0.*
+*Design notes and decision log — work in progress. Code at v0.64.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -40,7 +40,7 @@ Appendix at the end.
 | **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
 | **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion · Word-Level Control |
 | **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.63.0 |
+| **What to test next** | Needs Testing — as of v0.64.0 |
 | **Undecided** | Open Questions |
 | **History** | Appendix: Version History |
 
@@ -2049,7 +2049,7 @@ touch-fired triggers proposed, word-level control approved to spec, the vanishin
 with no special handling, and Known Bug #4 found by inspection — reset does not end a trance (fixed
 in v0.63.1). This
 pass refiled that material into the sections it belongs to and cut `CLAUDE.md` down to rules and
-pointers after it drifted in a day. Decay still owes its live run. Code at v0.63.0.*
+pointers after it drifted in a day. Decay still owes its live run. Code at v0.64.0.*
 
 *Updated 2026-09-12 — Known Bug #4 fixed in v0.63.1: reset now runs the shared teardown before it
 wipes. Confirmed in play by DW the same day, reload included, so item 9 of Needs Testing is closed.*
