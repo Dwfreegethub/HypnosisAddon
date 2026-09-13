@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.0.*
+*Design notes and decision log — work in progress. Code at v0.72.1.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1869,6 +1869,44 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
 
+### Added 2026-09-12 (v0.72.1) — a command always wins over our own restrictions
+
+DW, testing v0.72.0: *"there is still an issue with player touch VS commanded."* The self-touch
+block was correctly pierced by a command, but two other spoken restrictions were not, and the
+inconsistency showed in play: **"you cannot move" made every touch command fail, and "you cannot
+cum" overrode "cum for me".**
+
+**Settled rule (revises the v0.72.0 three-layer note above).** A hypnotist's direct **command** is
+involuntary — not the subject's choice — so it **overrides any restriction WE applied to her own
+volition**: the self-touch block, our hypnotic **Freeze** ("you cannot move"), and our
+**orgasm-denial** ("you cannot cum") alike. What still wins is **real BC physical reality** — a
+restraint that binds or freezes her, a real chastity/edging item — because that is not ours to lift
+and is not a choice of hers we are overriding. `ActivityAllowedForGroup` already enforces real
+bondage/chastity for touches; for the two effects we inject, `hasOwnEffect()` tells our copy from a
+real item's, so we pierce only our own.
+
+- **Freeze:** `handleActivityCommand` refuses a commanded activity only for a freeze we did *not*
+  apply (`HasEffect("Freeze") && !hasOwnEffect("Freeze")`). Our hypnotic freeze stands aside; the
+  selftouch hook already bypasses its own Freeze check while a command is in progress.
+- **Orgasm denial:** a forced "cum for me" lifts *our* `DenialMode` off the Emoticon carrier,
+  rebuilds the cached `C.Effect` (`CharacterLoadEffect` — `ActivityOrgasmPrepare` reads that cache,
+  not the appearance live; verified in R131), forces the orgasm normally, then puts our denial
+  straight back. A real belt's `DenialMode` is a separate item, survives the rebuild, and still
+  bails the orgasm — so physical denial is untouched. Bypass was rejected: it produces a *ruined*
+  orgasm and would override a real belt too. The command pierces the standing restriction for one
+  act; it does not repeal it.
+
+`test/activity.mjs` grows to 27 checks (our freeze pierced vs a real freeze refused; our denial
+overridden then restored vs a real belt refused). Bot scenario `compel` gains the two matching
+play-test steps.
+
+**Test-runner fix (same pass).** `test/run.mjs` graded a run by scanning every suite's output for
+`/want|MISMATCH|expected/` — which the trance flavor line *"...makes you want to listen."* matched,
+so `npm test` had been exiting non-zero on *every* run regardless of the checks (v0.72.0 included).
+It now trusts each suite's exit code (`execFileSync` throws on non-zero) and scans only the suites'
+own diagnostic lines, with the add-on's `[HypnosisAddon]` log output stripped first. The exit code
+is truthful again — the check counts were always right, the pass/fail signal was not.
+
 ### Added 2026-09-12 (v0.72.0) — compelled activities (Phase 1: self, one-shot)
 
 The subject can now be *made to act*, not just stopped. "Missy, touch your breasts" makes her
@@ -1891,9 +1929,15 @@ the hypnotist gets a private nudge to be specific. It never no-ops, and it teach
 **The consent boundary (DW's rule, 2026-09-12), three layers:** BC physical reality (bound/chaste/
 frozen) always applies; the subject's own *self-touch block* is pierced by a command, because a
 command is *involuntary* — not the subject's choice; and a **new permission, "Made to Act"**
-(`compelActivity`, Yielding depth) gates whether the subject can be commanded at all. Freeze still
-stops everything — you cannot move to act. This is exactly the old "touch yourself whenever X **and**
-you can't on your own" combination, now that the block and the compel are separate layers.
+(`compelActivity`, Yielding depth) gates whether the subject can be commanded at all. This is
+exactly the old "touch yourself whenever X **and** you can't on your own" combination, now that the
+block and the compel are separate layers.
+
+> **Revised in v0.72.1 (see below).** This entry originally read "Freeze still stops everything."
+> That turned out inconsistent in play: a command pierced the self-touch block but *not* our
+> hypnotic freeze or our orgasm-denial. The settled rule is now **a command overrides every
+> restriction WE applied** (block, our Freeze, our denial); only **real** BC restraints/chastity
+> still stop it.
 
 `selftouch.ts` gains a `beginCommandedActivity`/`endCommandedActivity` bracket the resolver wraps
 its `ActivityRun` in, so the block hook stands aside for a commanded action without weakening the

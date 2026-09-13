@@ -1,5 +1,5 @@
 import { log, TESTING_MODE } from "./log";
-import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
+import { applyEffect, removeEffect, hasOwnEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
@@ -173,13 +173,33 @@ function applyUndress(count: number): FlavorKey | void {
 }
 
 function applyForcedOrgasm(): FlavorKey | void {
-	const result = forceOrgasm();
-	if (result === "unavailable") return "arousal-unavailable";
-	// "denied" is BC's own refusal — our denial suggestion, an edging item, or a chastity
-	// belt. Deliberately not distinguished any further: the subject shouldn't be told which
-	// of those is holding them.
-	if (result === "denied") return "orgasm-refused";
-	// "already" means one is running; the ordinary flavor still reads correctly.
+	// A forced orgasm is a COMMAND — the hypnotist tipping her over, not her own choice — so it
+	// overrides OUR standing denial ("you cannot cum") the same way a commanded touch overrides
+	// the self-touch block (DW, 2026-09-12: command always wins). We lift only the DenialMode WE
+	// applied; a REAL chastity/edging item is a separate appearance item, survives the cache
+	// rebuild below, and still bails ActivityOrgasmPrepare — so "physical always wins" holds.
+	//
+	// The denial is a standing restriction on her OWN volition, so it goes straight back: this
+	// one act pierced it, it did not repeal it. CharacterLoadEffect rebuilds the cached C.Effect
+	// that ActivityOrgasmPrepare actually reads — without it BC keeps seeing the stale denial.
+	const liftedOwnDenial = hasOwnEffect("DenialMode");
+	if (liftedOwnDenial) {
+		removeEffect("DenialMode");
+		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
+	}
+	try {
+		const result = forceOrgasm();
+		if (result === "unavailable") return "arousal-unavailable";
+		// "denied" now means a REAL item held it — ours is already lifted. Still not spelled out
+		// to the subject: she shouldn't be told which of a belt, an edge, or a lock stopped her.
+		if (result === "denied") return "orgasm-refused";
+		// "already" means one is running; the ordinary flavor still reads correctly.
+	} finally {
+		if (liftedOwnDenial) {
+			applyEffect("DenialMode");
+			if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
+		}
+	}
 }
 
 /** Why this suggestion cannot run for this speaker, or null if it can. Returns a reason
@@ -1708,10 +1728,14 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		tellHypnotist(sender, `[command] Refused — ${refusal}.`);
 		return true;
 	}
-	// Freeze is physical: a frozen subject cannot move to do anything, commanded or not. The
-	// self-touch BLOCK, by contrast, is pierced by a command (it only stopped the voluntary hand).
-	if (Player?.HasEffect?.("Freeze")) {
-		tellHypnotist(sender, "[command] Refused — they are frozen; they cannot move to.");
+	// Command always wins over OUR OWN spoken restrictions (DW, 2026-09-12). "You cannot move"
+	// is a hypnotic freeze WE applied, and a commanded touch is involuntary — the hypnotist is
+	// driving her hand — so it pierces our freeze exactly as it pierces the self-touch block.
+	// A REAL restraint that freezes her (a heavy item) is physical and still stops her:
+	// hasOwnEffect tells our freeze from a real one, and BC's ActivityAllowedForGroup filters
+	// real bondage/chastity regardless of this check.
+	if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+		tellHypnotist(sender, "[command] Refused — a restraint has them frozen; they cannot move to.");
 		return true;
 	}
 

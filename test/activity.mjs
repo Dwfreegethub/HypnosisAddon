@@ -15,12 +15,31 @@ globalThis.AssetGroupGet = (_family, groupName) => ({ Name: groupName });
 globalThis.ActivityRun = (_actor, _acted, groupObj, itemActivity) =>
 	runCalls.push({ activity: itemActivity?.Activity?.Name, group: groupObj?.Name });
 
-let frozen = false;
+// BC keeps effects in a CACHED Player.Effect array — both HasEffect and ActivityOrgasmPrepare
+// read it — and CharacterLoadEffect rebuilds it from appearance. Our effects.ts writes onto the
+// invisible "Emoticon" carrier's Property.Effect. To model "OUR freeze/denial" versus a REAL
+// restraint we keep both sources — the carrier we control, and realItemEffects we do not — and
+// rebuild the cache from both exactly as BC would. That is what lets the suite prove a command
+// pierces OUR restriction while a real one still stands.
+const emoticon = { Asset: { Name: "Emoticon", AllowEffect: ["Freeze", "DenialMode", "BlockWardrobe"] }, Property: { Effect: [] } };
+let realItemEffects = [];
+const orgasmStarts = [];
+globalThis.CurrentTime = 1_000_000;
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", AssetFamily: "Female3DCG", ExtensionSettings: {},
-	ArousalSettings: { Active: "Hybrid", Progress: 0 },
-	HasEffect: (e) => e === "Freeze" && frozen,
+	Appearance: [emoticon], Effect: [],
+	ArousalSettings: { Active: "Hybrid", Progress: 0, OrgasmTimer: 0 },
+	IsPlayer: () => true,
+	HasEffect(e) { return this.Effect.includes(e); },
 };
+globalThis.Asset = [emoticon.Asset];
+globalThis.ChatRoomCharacterUpdate = () => {};
+globalThis.CharacterLoadEffect = (C) => (C.Effect = [...emoticon.Property.Effect, ...realItemEffects]);
+// ActivityOrgasmPrepare bails (leaving OrgasmTimer untouched) when the CACHE says denied,
+// modelling BC's own `C.Effect.includes("DenialMode")` check; otherwise it arms the timer.
+globalThis.ActivityOrgasmPrepare = (C) => { if (!C.Effect.includes("DenialMode")) C.ArousalSettings.OrgasmTimer = CurrentTime + 5000; };
+globalThis.ActivityOrgasmStart = () => orgasmStarts.push(true);
+globalThis.ActivitySetArousal = () => {};
 globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }];
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; }, removeItem(k) { delete this._d[k]; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
@@ -42,6 +61,7 @@ const check = (label, got, want) => {
 const say = (line) => voice.handleSpokenLine(HYP, line);
 const lastRun = () => runCalls[runCalls.length - 1];
 const lastReport = () => toHyp.filter((t) => t.startsWith("[command]")).at(-1) ?? "";
+const lastSuggestionReport = () => toHyp.filter((t) => t.startsWith("[suggestion]")).at(-1) ?? "";
 const reset = () => { runCalls.length = 0; toHyp.length = 0; };
 
 // --- the grammar, pure ----------------------------------------------------------------------
@@ -90,13 +110,21 @@ reset();
 say("Missy, touch your breasts.");
 check("a command overrides the self-touch block (involuntary)", lastRun(), { activity: "Caress", group: "ItemBreast" });
 
-// --- but Freeze is physical and stops it ----------------------------------------------------
+// --- Freeze: OUR hypnotic freeze yields to a command; a REAL restraint still stops it --------
+// "You cannot move" is a freeze WE applied; a command is involuntary, so it pierces our freeze
+// exactly as it pierces the self-touch block (DW: command always wins). A heavy item that
+// freezes her is physical and still refuses — hasOwnEffect tells the two apart.
 reset();
-frozen = true;
+emoticon.Property.Effect = ["Freeze"]; realItemEffects = []; CharacterLoadEffect(Player); // OUR freeze
 say("Missy, touch your breasts.");
-check("frozen: nothing runs", runCalls.length, 0);
+check("our own freeze does NOT stop a command", lastRun(), { activity: "Caress", group: "ItemBreast" });
+
+reset();
+emoticon.Property.Effect = []; realItemEffects = ["Freeze"]; CharacterLoadEffect(Player); // a REAL restraint
+say("Missy, touch your breasts.");
+check("a real restraint's freeze still stops it", runCalls.length, 0);
 check("  and the hypnotist is told they cannot move", /frozen/.test(lastReport()), true);
-frozen = false;
+realItemEffects = []; emoticon.Property.Effect = []; CharacterLoadEffect(Player);
 
 // --- bare 'touch yourself' wanders to an allowed zone and hints to the hypnotist -------------
 reset();
@@ -104,6 +132,27 @@ say("Missy, touch yourself.");
 check("vague touch still performs a Caress", lastRun()?.activity, "Caress");
 check("  on one of the reachable zones", ["ItemBreast"].includes(lastRun()?.group), true);
 check("  and the hypnotist is nudged to be specific", /wander/.test(lastReport()), true);
+
+// --- orgasm: a forced "cum for me" overrides OUR denial, but not a real chastity item --------
+// Same rule as the touch block: "you cannot cum" restricts HER volition, and a command is not
+// her choice — so it pierces our denial and puts it straight back. A real belt (its own item)
+// survives the effect-cache rebuild and still holds. Drives the real orgasm-force suggestion.
+storage.setFeature("arousalControl", true);
+
+reset(); orgasmStarts.length = 0;
+emoticon.Property.Effect = ["DenialMode"]; realItemEffects = []; CharacterLoadEffect(Player); // OURS
+Player.ArousalSettings.OrgasmTimer = 0;
+say("Missy, cum for me.");
+check("our denial is overridden — the orgasm lands", orgasmStarts.length, 1);
+check("  and our denial is put straight back afterward", emoticon.Property.Effect.includes("DenialMode"), true);
+
+reset(); orgasmStarts.length = 0;
+emoticon.Property.Effect = []; realItemEffects = ["DenialMode"]; CharacterLoadEffect(Player); // a real belt
+Player.ArousalSettings.OrgasmTimer = 0;
+say("Missy, cum for me.");
+check("a real chastity item is NOT overridden — no orgasm", orgasmStarts.length, 0);
+check("  and the hypnotist is told it did not land", /did not land/.test(lastSuggestionReport()), true);
+realItemEffects = []; emoticon.Property.Effect = []; CharacterLoadEffect(Player);
 
 // --- depth gate: too shallow refuses --------------------------------------------------------
 reset();

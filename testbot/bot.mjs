@@ -670,7 +670,7 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => {},
-				want: "FIRST enable it: Permissions tab > 'Made to Act (touch yourself on command)'. Then /bot next. (Yielding+ depth needed — this scenario forces Blank.)",
+				want: "FIRST enable it: Permissions tab > 'Made to Act (touch yourself on command)'. Then /bot next. (Yielding+ depth needed — this scenario forces Blank.) The last three steps also want Self-Touch Control and Orgasm Control enabled, and an active arousal meter.",
 				fail: "If you skip this, every step below refuses with 'have not enabled Made to Act'.",
 			},
 			{ do: () => trance(80, 80), want: "Under at Blank, so depth is not the limit." },
@@ -697,6 +697,24 @@ const SCENARIOS = [
 				},
 				want: "THE KEY TEST: the block stops YOUR hand, but my command still lands — it is not your choice. Requires Self-Touch Control also enabled to set the block.",
 				fail: "The command is blocked too — then the override is broken.",
+			},
+			{
+				do: async () => {
+					say("Missy, you cannot move.");
+					await wait(1200);
+					say("Missy, touch your breasts.");
+				},
+				want: "COMMAND BEATS OUR FREEZE: 'you cannot move' freezes you, but my touch command is involuntary, so it still lands. (A REAL restraint would still stop it — this only pierces the hypnotic freeze.)",
+				fail: "The touch is refused as 'frozen' — then a spoken freeze is wrongly outranking a direct command.",
+			},
+			{
+				do: async () => {
+					say("Missy, you cannot cum.");
+					await wait(1200);
+					say("Missy, cum for me.");
+				},
+				want: "COMMAND BEATS OUR DENIAL: 'you cannot cum' denies you, but 'cum for me' is my command, so you go over anyway — then the denial is put straight back. Requires Orgasm Control also enabled, and an active arousal meter.",
+				fail: "The orgasm is refused — then our own denial is wrongly outranking a direct command. (A real chastity belt SHOULD still refuse.)",
 			},
 		],
 	},
