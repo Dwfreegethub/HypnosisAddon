@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.2.*
+*Design notes and decision log — work in progress. Code at v0.72.3.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1868,6 +1868,28 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Fixed 2026-09-13 (v0.72.3) — a strip command overrides our freeze too
+
+DW, in play: *"'Missy you cannot move' is still taking priority to a command to strip."* The
+v0.72.1 "command always wins" rule reached the touch and orgasm commands but not undress — a
+third thing our freeze was blocking — so it was still refused while frozen.
+
+`undress()` gates only on `undressBlockedReason()`; `InventoryRemove` itself does not re-check
+restraint. But our Freeze trips that reason two ways: directly (`hasOwnEffect("Freeze")` →
+`"frozen"`) and via BC's `CanChangeOwnClothes()`, which is false whenever `IsRestrained()`
+(`Freeze || Block || BlockWardrobe`) → `"locked"`. That boolean can't be decomposed by
+inspection, so the only honest way to tell "only OUR freeze blocks" from "a real lock also
+blocks" is to lift our own effect and re-read it.
+
+So `applyUndress` now does exactly what the orgasm path does: if we own the Freeze, lift it,
+rebuild the cached `C.Effect` (`CharacterLoadEffect`), run `undress()` — which re-reads
+`CanChangeOwnClothes` and still refuses a REAL lock/freeze, and `CanInteract` still refuses bound
+hands (`Block`) — then restore our Freeze. The command pierces our freeze for the one act; it
+does not lift it. `undress()` and its "frozen" unit test are unchanged; the override is purely at
+the command layer. New suite `test/undress-command.mjs` (7 checks) drives the real
+`handleSpokenLine("strip")` path: our freeze pierced and restored, a real freeze refused, bound
+hands refused even with our freeze also on.
 
 ### Fixed 2026-09-13 (v0.72.2) — the cooldown never ended, so the attempt button never came back
 

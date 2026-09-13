@@ -159,17 +159,39 @@ function applyArousal(level: ArousalLevel): FlavorKey | void {
 /** Undressing can match, be permitted, and still not happen — bound hands, a lock that is not
  * ours, or nothing left to take off. Each gets its own line rather than silence. */
 function applyUndress(count: number): FlavorKey | void {
-	const result: UndressResult = undress(count);
-	if (result.refusal === "already bare") return "undress-bare";
-	// Our own freeze gets its own line. "Something else has that decision" is true of a lock
-	// and false of us, and saying it when we are the obstacle sends people looking for a
-	// restraint that is not there.
-	if (result.refusal === "frozen") return "undress-frozen";
-	if (result.refusal) return "undress-blocked";
-	// The flavor is deliberately generic about WHICH garment. Naming it would read better
-	// ("your skirt comes off") and garmentWord() exists for it — but it needs a built line
-	// like announceBodyPartApplied rather than a fixed one, so it is a follow-up, not a gap.
-	return count === 1 ? "undress" : "undress-all";
+	// A command to undress is involuntary — the hypnotist's, not the subject's own choice — so
+	// it overrides OUR hypnotic freeze ("you cannot move") the same way a commanded touch or a
+	// forced orgasm does (DW, 2026-09-13: command always wins). We lift only the Freeze WE
+	// applied and rebuild BC's effect cache; undress() then re-reads CanChangeOwnClothes, so a
+	// REAL restraint (bound hands, a real freeze, a locked outfit) still refuses on its own —
+	// the lift can only ever clear our own obstacle, never someone else's. Restored afterward:
+	// the command pierced the freeze for this act, it did not lift it.
+	//
+	// Note it is NOT enough to skip undress()'s "frozen" line: our Freeze also makes BC's
+	// CanChangeOwnClothes() answer false, which the "locked" branch would then blame. Actually
+	// lifting the effect and re-reading is the only way to tell our freeze from a real lock.
+	const liftedOwnFreeze = hasOwnEffect("Freeze");
+	if (liftedOwnFreeze) {
+		removeEffect("Freeze");
+		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
+	}
+	try {
+		const result: UndressResult = undress(count);
+		if (result.refusal === "already bare") return "undress-bare";
+		// "frozen" now means a real freeze we could not lift — still its own line rather than
+		// "somebody else's lock", the same distinction selftouch-frozen draws.
+		if (result.refusal === "frozen") return "undress-frozen";
+		if (result.refusal) return "undress-blocked";
+		// The flavor is deliberately generic about WHICH garment. Naming it would read better
+		// ("your skirt comes off") and garmentWord() exists for it — but it needs a built line
+		// like announceBodyPartApplied rather than a fixed one, so it is a follow-up, not a gap.
+		return count === 1 ? "undress" : "undress-all";
+	} finally {
+		if (liftedOwnFreeze) {
+			applyEffect("Freeze");
+			if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
+		}
+	}
 }
 
 function applyForcedOrgasm(): FlavorKey | void {
