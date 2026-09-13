@@ -245,12 +245,16 @@ function sessionButton(view: SessionView | undefined): { label: string; enabled:
 			};
 		case "Hypnotized":
 			return { label: "Wake Up", enabled: true, tooltip: "End the session" };
-		case "CooldownRequired":
-			return {
-				label: `Cooldown (${seconds(countdownRemaining(view, "cooldownRemaining"))}s)`,
-				enabled: false,
-				tooltip: "They can't be attempted again yet",
-			};
+		case "CooldownRequired": {
+			const left = seconds(countdownRemaining(view, "cooldownRemaining"));
+			// Once the local countdown has run out, offer the attempt even if the subject's
+			// "back to Idle" push hasn't landed yet (it can be delayed or lost) — otherwise a
+			// zeroed cooldown strands the button forever. The subject re-checks the real
+			// cooldown itself and refuses if we jumped the gun, so this can only ever be early,
+			// never a bypass.
+			if (left <= 0) return { label: "Attempt Hypnosis", enabled: true, tooltip: "Begin an induction" };
+			return { label: `Cooldown (${left}s)`, enabled: false, tooltip: "They can't be attempted again yet" };
+		}
 		default:
 			return { label: "Attempt Hypnosis", enabled: true, tooltip: "Begin an induction" };
 	}

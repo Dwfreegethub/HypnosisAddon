@@ -265,6 +265,42 @@ check("an attempt after the cooldown is refused", session.isSessionLive(), false
 session.safeword();
 check("the safeword leaves nothing live", session.isSessionLive(), false);
 
+// --- the cooldown ENDS on its own (the bug DW hit, v0.72.2) --------------------------------
+// Entering CooldownRequired scheduled no timer, so the phase sat there forever: the hypnotist's
+// countdown reached zero and the button never re-enabled (nothing pushed a fresh view), and any
+// OTHER hypnotist stayed refused with "someone else is already working on them". Now a timer
+// drops the subject back to Idle and pushes one last view.
+//
+// The cooldown timer is the LAST one scheduled when the final miss lands, so runRoll() — which
+// fires the most recent live timer — fires it, exactly as it fires an induction window.
+storage.setMaxAttempts(2);
+session.safeword();
+attempt(); runRoll(); retry(); runRoll();
+check("spent — sitting in cooldown", phase(), "CooldownRequired");
+sent.length = 0;
+runRoll(); // fire the cooldown-end timer
+check("the cooldown ends on its own", phase(), "Idle");
+check(
+	"  and pushes a fresh Idle view so the button re-enables",
+	sent.some((m) => m.type === "session-update" && m.phase === "Idle"),
+	true,
+);
+// The same hypnotist can now attempt again rather than being refused.
+attempt();
+check("the same hypnotist can attempt again once the cooldown has ended", phase(), "InductionInProgress");
+
+// A DIFFERENT hypnotist is no longer wrongly refused either — the phase used to sit at
+// CooldownRequired with the old hypnotist's id, which tripped the "someone else" gate forever.
+const OTHER = 777;
+globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }, { MemberNumber: OTHER, Name: "Nyx" }];
+storage.setMaxAttempts(2);
+session.safeword();
+attempt(); runRoll(); retry(); runRoll();
+check("spent again", phase(), "CooldownRequired");
+runRoll(); // cooldown ends → Idle
+incoming(OTHER, { type: "session-attempt", hypnotistName: "Nyx" });
+check("a different hypnotist can attempt once the cooldown has ended", phase(), "AttemptMade");
+
 session.safeword();
 storage.setMaxAttempts(2);
 

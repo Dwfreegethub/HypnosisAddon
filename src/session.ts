@@ -236,10 +236,11 @@ let session: SubjectSession = freshSession();
 let promptTimer: ReturnType<typeof setTimeout> | null = null;
 let windowTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionTimer: ReturnType<typeof setTimeout> | null = null;
+let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearTimers(): void {
-	for (const t of [promptTimer, windowTimer, sessionTimer]) if (t) clearTimeout(t);
-	promptTimer = windowTimer = sessionTimer = null;
+	for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
+	promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
 }
 
 function notify(message: string): void {
@@ -712,6 +713,7 @@ function runInductionRoll(): void {
 		session.phase = "CooldownRequired";
 		session.cooldownUntil = Date.now() + COOLDOWN_MS;
 		session.progress = chance;
+		scheduleCooldownEnd();
 		notify("The attempt fades. You feel clear-headed, and harder to reach for a while.");
 		log(`induction FAILED (final): ${detail}`);
 	} else {
@@ -721,6 +723,40 @@ function runInductionRoll(): void {
 		log(`induction failed: ${detail} attempt=${session.attempts}`);
 	}
 	pushUpdate();
+}
+
+/** Return the subject to Idle when the cooldown runs out, and push one last view.
+ *
+ * The cooldown is the ONLY phase nothing else re-evaluates: a success ends on the running
+ * session timer, a miss with tries left waits on the hypnotist, but a spent attempt just sat
+ * there. So the phase stayed CooldownRequired forever — the hypnotist's countdown reached zero
+ * and the button never re-enabled (there was no fresh view to re-enable it, and its disabled
+ * state keys on the phase), and any OTHER hypnotist stayed refused with "someone else is already
+ * working on them" (the phase-not-Idle gate). DW hit exactly this, 2026-09-13.
+ *
+ * A new attempt arriving DURING the cooldown was always handled correctly — the handler gates on
+ * `cooldownUntil`, not the phase — so this only covers the case where none does: the clock simply
+ * runs out and we drop back to Idle on our own. */
+function scheduleCooldownEnd(): void {
+	if (cooldownTimer) clearTimeout(cooldownTimer);
+	cooldownTimer = setTimeout(
+		() => {
+			cooldownTimer = null;
+			// A fresh attempt or a wake may already have moved us on — never stomp that.
+			if (session.phase !== "CooldownRequired") return;
+			const hypnotist = session.hypnotistId;
+			session = freshSession();
+			// pushUpdate() keys on hypnotistId, which freshSession just cleared — restore it just
+			// long enough to send the Idle view, the same idiom totalStop uses.
+			if (hypnotist != null) {
+				session.hypnotistId = hypnotist;
+				pushUpdate();
+				session.hypnotistId = null;
+			}
+			log("cooldown expired — subject reachable again");
+		},
+		Math.max(0, session.cooldownUntil - Date.now()),
+	);
 }
 
 /** TESTING ONLY: put the player straight into a trance with `hypnotistId`, skipping the
