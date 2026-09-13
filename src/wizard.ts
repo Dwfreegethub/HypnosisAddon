@@ -287,7 +287,8 @@ export function drawWizard(): void {
 			on ? "#dfe9df" : "White", "", "");
 	});
 	drawNav(typeof stage === "number" && stage > 0, "Next");
-	drawLeftText(`${(stage as number) + 1} of ${QUESTIONS.length}`, CONTENT_X, NAV_TOP + 34, "Gray");
+	// Centred in the nav bar, clear of the Back button on the left and Next on the right.
+	DrawText(`${(stage as number) + 1} of ${QUESTIONS.length}`, WZ_LEFT + WZ_WIDTH / 2, NAV_TOP + NAV_HEIGHT / 2, "Gray");
 }
 
 function drawWelcome(): void {
