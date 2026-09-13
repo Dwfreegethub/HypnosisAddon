@@ -1270,7 +1270,7 @@ one list to read.
 
 ## 9. The starter set — a first-launch "sensible defaults" button
 
-> **BUILT v0.70.0.** The five-switch offer on the Permissions tab, offered-not-applied, says-what-it-did, one-click undo, dismisses for good. `STARTER_FEATURES` + `starterState` in storage.ts; `test/starter.mjs` pins the set.
+> **BUILT v0.70.0, folded into the full wizard v0.71.0.** The standalone button DW did not like; its five safe switches are now the wizard's "Light / safe" preset. See design.md's v0.71.0 appendix and `src/wizard.ts`. `STARTER_FEATURES` + `starterState` survive in storage.ts.
 
 **Not a wizard.** DW is leaving the wizard alone; this is the cheap stand-in already on CLAUDE.md's
 list as *First-launch guidance*.

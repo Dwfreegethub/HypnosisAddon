@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.70.0.*
+*Design notes and decision log — work in progress. Code at v0.71.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -646,7 +646,7 @@ Default: set by wizard answers. A player who skips the wizard gets Neither (disa
 
 ### Setup Wizard
 
-A setup wizard runs on first launch (and can be re-run from settings) to generate a sensible starting config. The wizard does not lock anything — it just fills in defaults that would otherwise be all-off.
+A setup wizard runs on first launch (and can be re-run from settings) to generate a sensible starting config. The wizard does not lock anything — it just fills in defaults that would otherwise be all-off. **Built v0.71.0** — see the Todo entry and the appendix.
 
 **First question — role:**
 > "What is your role going to be?"
@@ -1859,7 +1859,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Waking trance**~~ — **built v0.67.0.** A trance MODE, governed by the trance defaults rather than the on-demand movement permission — it is a change to what being under is like, the same class of thing as the freeze and the veil it adjusts. *"Walk with me"* lifts the freeze and thins the veil to ~8% (`WALKING_FADE_OPACITY`) while the trance runs on and suggestions still parse and fire; *"be still" / "stop" / "stay still"* re-freeze and restore the full veil. A dedicated handler (`handleWalkingTrance`, alongside wake) rather than a table suggestion, so it needs no permission gate and the leave phrases pre-empt the movement suggestion only while actually walking. `/hypno effects` names the mode. The one interpretive call: the only "deep stillness" effect is the freeze itself, so "lighter effects continue" means everything except the freeze carries on — there was nothing else to suspend. `test/walking.mjs`, bot scenario 9.
 - ~~**Safe signal while silenced**~~ — resolved. Speech blocking hooks `ChatRoomSendChatMessage`, which runs *after* command parsing and after the emote and whisper branches, so a silenced subject keeps `/hypno` commands, emotes and whispers; only ordinary room speech goes. Documented in the help screen's Lasting tab (v0.32.0). The residual case is a fired trigger with the duration set to **0**, where the safeword is the only self-serve exit — DW's deliberate call.
 - **Session log** — record of what was suggested, what stuck, and when. Hypnotist-side. TBD.
-- **Setup wizard** — first-launch guided config (openness, relationship trust, depth thresholds for sensitive features, chemical floor scope, safeword, decay rate). Re-runnable from settings. Does not lock anything — just fills sensible defaults.
+- ~~**Setup wizard**~~ — **built v0.71.0** (`src/wizard.ts`). Runs on first launch and reset (starterState "new"), and re-runnable from a **Setup** button in the settings top bar. First screen offers four presets — **Hypnotist only · Light / safe · Balanced · Extreme** — or "answer a few questions": five single-decision screens (which feature groups, how easy to reach them, arousal as a shortcut, whose skill you honour, whether triggers fade), a summary, and Apply. Presets and the wizard converge on one `applySetup()`, so they cannot mean different things. It **locks nothing** and never runs mid-session. `test/wizard.mjs` pins every preset's storage result. **Two calls made and flagged:** "Hypnotist only" turns the subject side off (`hypnoEnabled` off + all permissions off) but cannot hide the H-icon on your sheet — the icon is drawn by whoever views you and the anti-directory rule keeps it universal; and "Extreme" sets skill honour to **capped**, not full, since rung 4 is still gated on dual fatigue.
 - **Depth system implementation** — implement the 5-tier depth gate (Drifting/Yielding/Entranced/Deep/Blank), per-feature depth selectors in settings UI, chemical floor per-feature dropdown (Both/Arousal/Drugs/Neither), fractionation bonus, dual fatigue counters. See design change section above.
 - **Trigger discovery (probe mechanic)** — depth-gated involuntary reveal during a session. Trigger word never spoken aloud; effect and vague hints surface based on depth tier.
 - **Trigger removal by another hypnotist** — depth comparison check: must match or exceed the depth at which the trigger was planted. Override (replace) requires one tier higher.
@@ -1868,6 +1868,37 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.71.0) — the setup wizard
+
+The starter button grew up into the real thing DW wanted (and the design doc always specced). On a
+fresh install or a reset — while `starterState` is "new" — opening settings shows a **setup screen**
+instead of the tabs; a **Setup** button in the top bar re-runs it any time. It locks nothing and
+never appears mid-session, because it changes consent settings and those are locked while a trance
+is on you.
+
+**Two ways through it.** Four one-click **presets** — *Hypnotist only · Light / safe · Balanced ·
+Extreme* — spanning "I only drive" to "everything on, easiest access". Or **answer a few questions**:
+five single-decision screens — which feature groups others may use, how easy to reach them (one
+global easy / earned / deep), whether arousal is a shortcut, how much of a hypnotist's claimed skill
+you honour, and whether triggers fade — then a plain-language summary and Apply.
+
+**Presets and the wizard converge on one `applySetup()`** (`src/wizard.ts`), which writes the
+features, the depth-tier overrides, the chemical scope, the skill rung and the decay rate together —
+so a preset and the matching answers can never drift into meaning different things. The composition
+is the safety-critical part, and `test/wizard.mjs` pins each preset: Hypnotist-only leaves the
+subject side entirely off; Light is exactly the five session basics; Balanced adds undressing,
+arousal and awareness but **nothing that outlives the session**; only Extreme opens the earned-only
+illusion and triggers to arousal.
+
+**Two judgement calls, both flagged and reversible.** "Hypnotist only" turns the subject side off,
+but the H-icon on your own sheet cannot be hidden — it is drawn by whoever views you, and the
+anti-directory rule (design.md, the H-icon note) keeps it universal; turning your subject side off is
+the functional whole of it. And "Extreme" sets skill honour to **capped** rather than full, because
+rung 4 is still gated on dual fatigue — a one-line bump when that lands.
+
+This replaces the v0.70.0 lower-right starter button, which DW did not like; its `STARTER_FEATURES`
+survive as the Light preset.
 
 ### Added 2026-09-12 (v0.70.0) — the starter set
 
