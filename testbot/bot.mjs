@@ -670,7 +670,7 @@ const SCENARIOS = [
 		steps: [
 			{
 				do: () => {},
-				want: "FIRST enable it: Permissions tab > 'Made to Act (touch yourself on command)'. Then /bot next. (Yielding+ depth needed — this scenario forces Blank.) The last three steps also want Self-Touch Control and Orgasm Control enabled, and an active arousal meter.",
+				want: "FIRST enable it: Permissions tab > 'Made to Act (touch yourself on command)'. Then /bot next. (Yielding+ depth needed — this scenario forces Blank.) Later steps also want Self-Touch Control, Orgasm Control and Triggers enabled, and an active arousal meter.",
 				fail: "If you skip this, every step below refuses with 'have not enabled Made to Act'.",
 			},
 			{ do: () => trance(80, 80), want: "Under at Blank, so depth is not the limit." },
@@ -715,6 +715,26 @@ const SCENARIOS = [
 				},
 				want: "COMMAND BEATS OUR DENIAL: 'you cannot cum' denies you, but 'cum for me' is my command, so you go over anyway — then the denial is put straight back. Requires Orgasm Control also enabled, and an active arousal meter.",
 				fail: "The orgasm is refused — then our own denial is wrongly outranking a direct command. (A real chastity belt SHOULD still refuse.)",
+			},
+			{
+				do: () => say("Missy, your trigger word is deep breath."),
+				want: "RECORDING starts — my log says a trigger is recording. (Needs 'Triggers' enabled too; the Blank depth this scenario forces is deep enough to plant.)",
+				fail: "Refused — then 'Triggers' is not enabled, or the depth is too shallow to plant.",
+			},
+			{
+				do: () => say("Missy, touch your breasts."),
+				want: "CAPTURED, NOT PERFORMED: my log says 'Recorded act:Caress:breasts', and your body does NOT move. THIS is the fix — before, it performed the touch instead of joining the trigger.",
+				fail: "Your breasts get caressed right now — then the command is still performing instead of being recorded.",
+			},
+			{
+				do: () => say("Missy, remember trigger."),
+				want: "SAVED — my log says the trigger saved with the act: action in it.",
+				fail: "Nothing saved, or an empty trigger.",
+			},
+			{
+				do: async () => { say("Missy, wake up."); await wait(1500); say("deep breath."); },
+				want: "The word FIRES it: you caress your own breasts for real, out of trance — a normal-looking activity in the room. (Waking first so my own live session does not suppress the fire.)",
+				fail: "Nothing happens when the word is said — then the recorded activity is not replaying.",
 			},
 		],
 	},

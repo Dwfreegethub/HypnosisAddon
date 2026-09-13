@@ -1060,7 +1060,7 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	// Covers the opening line too, which arrives before recording is technically running.
 	if (parseTriggerControl(content)) return true;
 	if (!isRecording()) return false;
-	return !!matchSuggestion(content) || !!matchBodyPartCommand(content);
+	return !!matchSuggestion(content) || !!matchBodyPartCommand(content) || !!matchActivityCommand(content);
 }
 
 export type TriggerControl = { kind: "start"; phrase: string } | { kind: "commit" } | { kind: "cancel" } | null;
@@ -1155,6 +1155,26 @@ function fireTrigger(trigger: Trigger): void {
 			// which is the one thing triggers deliberately keep back.
 			announce(word === "all" ? "selftouch-applied" : "restriction-settles");
 			fired++;
+			continue;
+		}
+		// Compelled activities ("act:Caress:breasts") — a real BC activity the trigger makes the
+		// subject perform on themselves. Permission re-checked here like everything else; a real
+		// restraint that freezes still stops it, while our own freeze is overridden because the
+		// trigger is a planted command. It is a one-shot event, so there is nothing for the
+		// auto-release to undo — undoTrigger no-ops it, the same as orgasm-force.
+		if (id.startsWith("act:")) {
+			if (!features.compelActivity) {
+				log(`trigger "${trigger.phrase}": ${id} skipped, compelActivity not granted`);
+				continue;
+			}
+			if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+				log(`trigger "${trigger.phrase}": ${id} skipped, a real restraint has them frozen`);
+				continue;
+			}
+			// No announce: ActivityRun renders the activity as a visible room message, exactly
+			// like she clicked it, so that IS the feedback — a separate local line would be a
+			// second, redundant tell of the same thing.
+			if (performActivityAction(id)) fired++;
 			continue;
 		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
@@ -1694,12 +1714,35 @@ export function matchActivityCommand(content: string): ActivityCommand | null {
 	return null;
 }
 
+/** The trigger-action id for a compelled-activity command — so "touch your breasts" can be
+ * RECORDED into a trigger and replayed later, exactly as a body-part block records "touch:breasts".
+ * The `act:` prefix keeps it distinct from those blocks; performActivityAction() reads it back. */
+function activityActionId(cmd: ActivityCommand): string {
+	if (cmd.kind === "vague") return "act:vague";
+	if (cmd.kind === "genital") return "act:genital";
+	return `act:${cmd.activity}:${cmd.word}`;
+}
+
 // Where a bare "touch yourself" may wander. The commonplace zones; the pick is filtered to what
 // is actually reachable right now, so a bound subject's hands go somewhere they still can.
 const VAGUE_ZONES = [
 	"ItemBreast", "ItemButt", "ItemArms", "ItemLegs", "ItemTorso",
 	"ItemNeck", "ItemHead", "ItemPelvis", "ItemHands", "ItemFeet", "ItemNipples",
 ];
+
+/** A random reachable zone for a bare "touch yourself", or null if nothing is within reach —
+ * filtered to where BC currently allows a Caress, so a bound subject's hands go somewhere they
+ * still can. Shared by the live command and a fired trigger. */
+function pickVagueZone(): string | null {
+	const reachable = VAGUE_ZONES.filter((g) => {
+		try {
+			return (ActivityAllowedForGroup(Player, g) || []).some((a: any) => a?.Activity?.Name === "Caress");
+		} catch {
+			return false;
+		}
+	});
+	return reachable.length ? reachable[Math.floor(Math.random() * reachable.length)] : null;
+}
 
 /** Perform `activityName` on the first of `groupNames` where BC currently allows it, as a
  * COMMANDED (involuntary) activity — the self-touch block stands aside, the physical filters do
@@ -1728,6 +1771,21 @@ function runCommandedActivity(activityName: string, groupNames: string[]): strin
 	return null;
 }
 
+/** Replay a compelled-activity trigger action (an `act:` id from activityActionId). Returns
+ * whether it landed. Used only by a FIRING trigger — the live command path builds its own cmd
+ * and reports to the hypnotist; here there is no hypnotist to nudge, so a vague one just wanders
+ * silently. The caller (fireTrigger) has already checked the permission and the freeze. */
+function performActivityAction(id: string): boolean {
+	if (id === "act:vague") {
+		const zone = pickVagueZone();
+		return zone ? runCommandedActivity("Caress", [zone]) != null : false;
+	}
+	if (id === "act:genital") return runCommandedActivity("MasturbateHand", ["ItemVulva"]) != null;
+	const [, activity, word] = id.split(":");
+	const groups = word ? BODY_PARTS[word] ?? [] : [];
+	return activity && groups.length ? runCommandedActivity(activity, groups) != null : false;
+}
+
 /** Returns true if the line was a compelled-activity command and has been dealt with. */
 function handleActivityCommand(sender: number, content: string): boolean {
 	const cmd = matchActivityCommand(content);
@@ -1743,6 +1801,16 @@ function handleActivityCommand(sender: number, content: string): boolean {
 	const f = getFeatures();
 	if (!f.hypnoEnabled || !f.compelActivity) {
 		tellHypnotist(sender, '[command] Refused — they have not enabled "Made to act".');
+		return true;
+	}
+	// Recordable into a trigger, captured not performed, while one is being built — the same
+	// reason handleBodyPartLine records before it acts. Without this, "touch your breasts" said
+	// during trigger setup fired the touch instead of joining the trigger (DW, 2026-09-13). After
+	// the permission check (so recording needs "Made to act" like firing does) and before the
+	// perform-time gates below, which are about doing it NOW, not planting it.
+	const recorded = recordAction(activityActionId(cmd));
+	if (recorded) {
+		tellPlayer(recorded);
 		return true;
 	}
 	const refusal = depthRefusal("compelActivity");
@@ -1776,18 +1844,11 @@ function handleActivityCommand(sender: number, content: string): boolean {
 /** Bare "touch yourself" — too generic, so the hands go somewhere at random, and the hypnotist
  * is quietly told it was vague (DW's call: it still happens, and it teaches specificity). */
 function runVagueTouch(sender: number): boolean {
-	const reachable = VAGUE_ZONES.filter((g) => {
-		try {
-			return (ActivityAllowedForGroup(Player, g) || []).some((a: any) => a?.Activity?.Name === "Caress");
-		} catch {
-			return false;
-		}
-	});
-	if (!reachable.length) {
+	const pick = pickVagueZone();
+	if (!pick) {
 		tellHypnotist(sender, "[command] Too vague — and nothing is within reach right now anyway.");
 		return true;
 	}
-	const pick = reachable[Math.floor(Math.random() * reachable.length)];
 	const landed = runCommandedActivity("Caress", [pick]);
 	tellHypnotist(sender, "[command] Too vague — her hands wander on their own. Name a part to steer them.");
 	if (landed) tellPlayer("Your hands move on their own, with no place in mind.");

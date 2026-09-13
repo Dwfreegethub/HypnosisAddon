@@ -162,6 +162,32 @@ say("Missy, touch your breasts.");
 check("too shallow: refused for depth", runCalls.length, 0);
 check("  named as a depth refusal", /needs Yielding/.test(lastReport()), true);
 
+// --- recordable into a trigger, then fired (the bug DW hit, v0.72.4) ------------------------
+// A compelled command was PERFORMED instead of joining the trigger being recorded. It must be
+// captured during setup — like a body-part block already is — and perform only when the phrase
+// fires later.
+reset();
+session.safeword();
+emoticon.Property.Effect = []; realItemEffects = []; CharacterLoadEffect(Player);
+ALLOWED = { ItemBreast: ["Caress", "Grope"], ItemNipples: ["Pinch"], ItemVulva: ["MasturbateHand"] };
+storage.setFeature("triggerControl", true);
+storage.setFeature("compelActivity", true);
+session.forceTrance(HYP, 80, 80);
+
+say("Missy, your trigger word is sleepy."); // begin recording
+reset();
+say("Missy, touch your breasts."); // should RECORD, not perform
+check("a compelled command is recorded, not performed, while a trigger records", runCalls.length, 0);
+check("  and it is captured as an act: action", /Recorded act:Caress:breasts/.test(toHyp.at(-1) ?? ""), true);
+say("Missy, remember trigger."); // commit
+
+// Fire it — out of session, so the installer's own live trance does not suppress it.
+session.safeword();
+emoticon.Property.Effect = []; realItemEffects = []; CharacterLoadEffect(Player);
+reset();
+say("sleepy");
+check("firing the trigger performs the activity for real", lastRun(), { activity: "Caress", group: "ItemBreast" });
+
 session.safeword();
 console.log(`activity: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);
