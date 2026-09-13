@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.3.*
+*Design notes and decision log — work in progress. Code at v0.72.4.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1648,6 +1648,376 @@ they are things done *to* her expression rather than to her perception.
 
 ---
 
+## Commanded Activities — pacing (detail), spec'd 2026-09-13, not built
+
+> **Related:** Phase 1 of commanded activities is **built v0.72.0** — the grammar, the three consent
+> layers and the command-beats-our-own-restrictions rule are in *Added 2026-09-12 (v0.72.0)* and
+> *(v0.72.1)*. The queue below would share `timers.ts` with trigger auto-release; the teardown it
+> leans on is `endSession()` / `totalStop()` in *Control & Reset*.
+>
+> **Promoted to a dependency, 2026-09-13.** *Commanded Activities — as trigger actions* (below) lets
+> one spoken word fire up to eight compels in a single synchronous tick, so this queue is no longer a
+> nicety that can follow the feature. Build it first.
+
+**DW's ask, 2026-09-13:** *a slight delay between each commanded activity* — everything resolves
+instantly and he wants pauses, so a compelled touch is more interesting to watch from inside the
+room.
+
+### First, the correction: there is nothing within one command to pace
+
+A command produces exactly **one** activity today, not several. `runCommandedActivity()`
+(`voice.ts:1707`) walks the group list for the spoken part and `return`s on the first group BC
+allows — "breasts" is `["ItemBreast", "ItemNipples"]`, `ItemBreast` succeeds, `ItemNipples` is never
+reached. So "a delay between each activity" has nothing to sit between until one of three things
+exists: a **repeat** count ("touch your breasts three times"), the **sustained** form ("keep going"),
+or a deliberate change to run *every* allowed group rather than the first.
+
+That reframes the ask rather than refusing it. What is actually visible today is **the rhythm
+between successive commands** — the hypnotist saying three lines in five seconds and getting three
+activity messages stacked on top of each other. Pace that, and build the mechanism as a **queue**,
+because the queue is what the repeat and sustained forms will both need and it costs nothing extra
+now.
+
+| What the pause sits between | Exists today | Worth pacing |
+|---|---|---|
+| Activities within one command | No — one command, one activity | Not yet; the queue makes it free when it does |
+| Successive commands | Yes | **This is the visible case.** Pace it |
+| Repeats of one command ("three times") | No | The reason to build a queue and not a `setTimeout` |
+
+### Where the delay sits, and what breaks when it does
+
+`handleActivityCommand()` (`voice.ts:1732`) currently gates and runs in one synchronous pass.
+The shape that survives becoming asynchronous:
+
+- **Gating stays where it is, at command time.** A refusal has to reach the hypnotist in reply to
+  the line she spoke — that is Rule 5, and a refusal arriving 1.5s later attached to nothing is
+  worse than no pause at all.
+- **The activity moves into a queue step**, drained by `scheduleTimer("compel:next", …)` from
+  `timers.ts`. Not a bare `setTimeout`: the registry is the module that imports nothing, it is
+  keyed, and it is what the two teardown paths already sweep. Namespace the key `compel:` the way
+  trigger auto-release uses `trigger:` (`voice.ts:1279`).
+- **`markActive()` is the wrong tool here** and must not be used. A pending one-shot touch is not an
+  effect holding the subject, and marking it active would make `/hypno` and the remote report that
+  something has her when nothing does.
+
+**The `commandInProgress` boolean does not need to become a counter — provided the bracket stays
+inside the step.** Today `beginCommandedActivity()` / `endCommandedActivity()` (`selftouch.ts:103`)
+wrap one `ActivityRun` inside one `finally`, in one tick, which is the only reason a boolean is
+safe. Keep the bracket *around the single `ActivityRun` in each queue step* and that property is
+untouched: each step is still synchronous, still self-closing, still cannot interleave with another.
+
+The boolean breaks the moment somebody wraps the **whole sequence** — `begin…`, await, await,
+`end…`. Then a second command's inner `end` clears the outer's flag, the self-touch block snaps back
+on mid-sequence, and the remaining steps are silently refused by our own hook. If the sequence ever
+does need wrapping, it must become a depth counter (`begin` increments, `end` decrements, the hook
+stands aside while `> 0`) **and** be reset to zero by `totalStop()`, which today it is not and does
+not need to be. Write the reason down next to the boolean, because the next person to reach for
+`await` here will not know it is load-bearing.
+
+### Re-validation on the subject's turn is mandatory — and it is the real work
+
+DW's instinct is right, and it is the strongest argument for the queue being cancellable.
+`ActivityAllowedForGroup` was asked at command time; by the time step 3 of 5 runs, seconds later,
+somebody may have cuffed her, locked a chastity belt, or walked out of range — and **`ActivityRun`
+validates nothing**. It checks that the group resolves and then applies arousal and publishes the
+message. Fire a stale queue step and the room sees her masturbate through a belt.
+
+So each step re-runs the full check, not just BC's filter:
+
+| Re-checked on the step | Why it can change mid-queue | Covered by teardown instead? |
+|---|---|---|
+| `ActivityAllowedForGroup` | She gets restrained, chaste, or moved out of range | No — must be re-read |
+| `depthRefusal("compelActivity")` | She drifts shallower than Yielding as the session decays | No — must be re-read |
+| `Player.HasEffect("Freeze") && !hasOwnEffect("Freeze")` | A real restraint lands mid-queue | No — must be re-read |
+| `isSessionActiveWith(sender)` | She wakes, or the window expires | Yes — `endSession()` calls `clearAllTimers()` |
+| `hypnoEnabled` / `compelActivity` off | She unticks it | Yes — `hardFloorStop()` → `totalStop()` → `clearAllTimers()` |
+| Safeword | — | Yes — same path |
+
+**Two of those come free and three do not.** `endSession()` (`session.ts:399`) and `totalStop()`
+(`session.ts:1031`) both already call `clearAllTimers()`, so a wake, a hard floor and a safeword
+cancel a pending queue with no new code — which is the part of this that is genuinely cheap, and the
+reason to use `timers.ts` rather than roll a timer locally. Depth drift, a real restraint arriving,
+and BC's own filter are *not* reachable from a teardown and have to be asked again on the step.
+
+The cost is structural, not large: the gate block inside `handleActivityCommand` has to come out
+into something callable twice, and the second call has a different obligation — **say what happened
+to the rest of the queue.** "Refused" was said at command time and cannot be said again; a
+mid-queue stop needs its own wording ("`[command] stopped after 2 of 5 — a restraint reached her`"),
+or the hypnotist watches the rhythm die and cannot tell a refusal from a dropped message. This is
+the same class of silence as the one v0.72.1's test pass was written to close.
+
+### Magnitude, and why it should not be a metronome
+
+**1.2s–2.0s, jittered, per step.** Reasoning rather than a number picked to feel right: a person
+clicking an activity button in BC takes roughly that long, so it reads as a body doing something
+rather than a script draining a list. Under about 800ms the messages still arrive as a block and
+nothing is gained; over about 3s the hypnotist starts to wonder whether the command landed at all,
+which is a refusal-versus-silence problem wearing a stopwatch.
+
+**Jittered, not fixed.** The fiction the feature sells is the line the subject already gets — *"Your
+body does it without waiting for you to decide"* — and a body is not evenly spaced. A fixed interval
+reads as a cron job, which is the one thing a compelled touch should not look like. ±30% around the
+base is enough to break the pattern without becoming erratic. It also incidentally spaces the
+`Type:"Activity"` sends, which rapid-fire commands currently push out back-to-back.
+
+Not a player setting, at least not first. The pace is atmosphere, not consent, and the settings
+surface is already the thing the wizard exists to apologise for.
+
+### A second command arriving mid-delay — this needs deciding, not defaulting
+
+`scheduleTimer` **replaces by key**, so the naive one-key implementation makes a second command
+silently cancel the first's pending step. That is the wrong default and it fails Rule 5 invisibly.
+Three honest shapes:
+
+1. **Queue behind it** — append, drain at the paced interval, cap the depth (the `MAX_ACTIONS = 8`
+   precedent in `triggers.ts:104` is the house answer to "not unbounded"). Best fit for what DW
+   wants: rapid commands become a rhythm instead of a pile-up.
+2. **Refuse while one is pending** — `[command] still resolving the last one`. Cheapest, honest,
+   reads like the attempt cooldown. But it makes a hypnotist who talks fast feel broken.
+3. **Last command wins**, and *says so*. Defensible for the sustained form later ("keep going" then
+   "stop"), wrong for one-shots.
+
+**Recommend 1, with the cap, and 2's wording kept for when the cap is hit.**
+
+### What this does to the collisions already on the books
+
+**It makes the recording collision harder to diagnose, not worse in kind.** Today a deepening line
+misread as a command (`your arms feel heavy` → `Caress`, `voice.ts:1664`) executes on the same line
+it was spoken, so at least the cause sits next to the effect. Add a pause and the caress lands a
+second and a half later, during the *next* line — so a hypnotist mid-recording sees an activity she
+cannot attribute to anything she said. Cause and effect come apart, which is exactly what made the
+swallowed-command case hard to find in the first place.
+
+**A queue is not where that gets fixed.** The guard belongs at parse time in
+`handleActivityCommand`, because refusing is what tells the hypnotist; a drain-time check would only
+add a second place to get it wrong. Fix the verb list and the recording guard **before** adding the
+delay, or the delay will be blamed for a bug it merely hid.
+
+### Verdict on size
+
+**The pacing is small. The re-validation is not, and it is not optional.** Keyed timer, existing
+registry, both teardown paths already sweep it, boolean stays a boolean if the bracket stays inside
+the step — that half is an afternoon. Re-asking the gates on each step means lifting the gate block
+out of `handleActivityCommand`, inventing wording for a mid-queue stop, and a suite that proves a
+step refuses when the world changed under it (Rule 6: a step that cannot fail is not testing
+anything — the test that matters is *restrain her between command and step, assert nothing ran and
+the hypnotist was told*). That is the work. Doing the first half without the second ships a path
+that publishes activities BC would have refused, which is worse than instant resolution.
+
+---
+
+## Commanded Activities — as trigger actions (detail), approved 2026-09-13, not built
+
+> **Related:** Phase 1 of the feature is **built v0.72.0** (*Added 2026-09-12 (v0.72.0)*, *(v0.72.1)*).
+> The queue this now depends on is specified in *Commanded Activities — pacing* above. The recording
+> and firing machinery it plugs into is *Triggers* → *Programming Triggers* and *Trigger Reinforcement
+> and Decay*; the gates are in *Trance Depth as the Feature Gate*.
+
+**DW's decision, 2026-09-13: YES — a commanded activity is recordable as a trigger action.** So
+"Missy, your trigger word is sleepy time / Missy, touch your breasts / Missy, remember trigger"
+plants a word that later makes her do it, in or out of trance, with no hypnotist speaking.
+
+### The encoding: `compel:<activity>:<part>`
+
+`compel:Caress:breasts`, `compel:Pinch:nipples`, `compel:Spank:bottom`. This is the right shape and
+the precedent is already load-bearing: `touch:<word>` exists because *"the pattern library can't hold
+a per-part entry for all 26 of them"* (`voice.ts:1142`), and a compel has two parameters rather than
+one for exactly the same reason.
+
+**A second colon breaks nothing — checked, not assumed.** Every consumer of an action id tests
+`startsWith("touch:")` and then `slice`s a fixed prefix; **nothing in `src/` splits an id on colons**
+(`fireTrigger` `voice.ts:1144`, `undoTrigger` `:1222`, `applyActionById` `:1398`, `undoActionById`
+`:1408`). Ids are otherwise opaque strings — pushed into `Recording.actions`, `join(", ")`ed for
+display, and persisted as JSON in `Trigger.actions`. `timerKey()` (`:1279`) already emits
+`trigger:<member>:<phrase>`, a three-part colon key, so multi-colon strings are established here.
+Each site gains a `startsWith("compel:")` branch **before** the `SUGGESTIONS.find` fallback, and
+parses with `slice("compel:".length).split(":")` into exactly two fields. Activity names (BC's, e.g.
+`MasturbateHand`) and `BODY_PARTS` keys (`selftouch.ts:43`) contain no colons, so the round trip is
+lossless.
+
+**Two sigil forms, because the grammar has three kinds and only one names a part.**
+`matchActivityCommand` (`voice.ts:1681`) returns `part`, `genital` or `vague`:
+
+| Spoken | Recorded as | Resolved when |
+|---|---|---|
+| "pinch your nipples" | `compel:Pinch:nipples` | Groups from `BODY_PARTS` at fire time |
+| "finger yourself" | `compel:MasturbateHand:@genital` | Fixed `["ItemVulva"]` at fire time |
+| "touch yourself" | `compel:Caress:@wander` | **Zone re-rolled at fire time** from what is reachable then |
+
+The `@` sigil rather than overloading a body word: a recorded id must resolve to the same groups the
+spoken line did, and `genital` uses `["ItemVulva"]` while the body word "pussy" is
+`["ItemVulva", "ItemVulvaPiercings"]` — close enough to look interchangeable and not be. Re-rolling
+`@wander` at fire time is not a shortcut; it keeps the *"her hands wander on their own"* fiction and
+gets the reachability re-check for free.
+
+**Not carryable, and not undoable — both deliberate, both need writing down at the call site.** A
+compel is a one-shot event, so there is nothing for `undoTrigger` or `undoActionById` to reverse:
+both must skip `compel:` ids explicitly. `applyActionById` must *refuse* them, because its only
+caller is carry-forward's re-apply (`carry.ts`, `registerCarryHandlers`) and re-running a one-shot on
+waking is a touch nobody asked for. The spoken path already never calls `noteApplied` for a command,
+so a compel cannot reach carry's `applied` list — the refusal is the belt to that braces.
+
+### Recording: this is the fix for the ordering collision, and the two close together
+
+Today a touch command spoken mid-recording **executes and is not recorded** — `handleActivityCommand`
+runs at `voice.ts:1820`, `recordAction` is only reached at `:1875`, and `handleActivityCommand` never
+calls it. That is the bug found in review on 2026-09-13, and this feature is its fix: they are one
+change, not two.
+
+**The check goes inside `handleActivityCommand`, after the gates and before `runCommandedActivity`** —
+the identical shape `handleBodyPartLine` already uses at `:1612`:
+
+- Gates first (session, name, `hypnoEnabled && compelActivity`, `depthRefusal`, not-our-Freeze), so
+  a refusal still reaches the hypnotist in reply to the line she spoke.
+- Then `recordAction(id)`; if it returns a message, `tellPlayer` it and return. Nothing runs.
+- Only if we are not recording does the activity fire.
+
+**Why gates-before-record and not the reverse:** planting an action she has not permitted, to fire
+weeks later, is worse than executing one now. It also matches the suggestion path, where
+`blockedReason` (`:1856`) is checked before `recordAction` (`:1875`). Note the *existing*
+inconsistency this exposes — `handleBodyPartLine` checks `selfTouchControl` but **no depth** before
+recording. Compel must not copy that; flagged here rather than fixed in passing.
+
+**One more site:** `isTriggerSetupLine` (`:1057`) hides setup lines from the subject under the
+Awareness toggle, and currently tests `matchSuggestion` and `matchBodyPartCommand` only. It must gain
+`matchActivityCommand`, or the hypnotist's own compel lines render to her during planting and hand
+her the contents of her trigger.
+
+### Firing: re-check everything, trust nothing from plant time
+
+`fireTrigger` (`:1113`) gains a `compel:` branch beside the `touch:` one. **The trigger may fire
+weeks later, in a different room, with her restrained, at a fraction of its planted strength** —
+which is precisely the case the existing design already answers, and the composition falls out of it
+rather than needing new machinery:
+
+| Checked at fire time | Mechanism | Already how triggers work? |
+|---|---|---|
+| `hypnoEnabled && triggerControl` | `triggersArmed()` (`triggers.ts:599`) | Yes |
+| `compelActivity` granted **now** | the per-action `permissionReason` re-check (`:1166`) | Yes — *"revoking a permission disarms that action of every trigger already planted"* |
+| Deep enough **now** | `depthAllows("compelActivity", strength, strength)` | Yes — the trigger's own strength is its firing depth |
+| Not a Freeze we did not apply | `HasEffect("Freeze") && !hasOwnEffect("Freeze")` | **New here** — lift from `handleActivityCommand:1759` |
+| Bound / chaste / out of range / zone she disabled | `ActivityAllowedForGroup` on the step | **New here — and non-negotiable** |
+
+**That last row is the one that must not be skipped.** `ActivityRun` validates nothing — it resolves
+the group, applies arousal, publishes the message (verified against R131 `Activity.js`). BC's
+validating entry point is `ActivityAllowedForGroup`, and it is the only thing standing between a
+word spoken in a corridor and the room seeing her masturbate through a chastity belt. It is also
+where her *own BC preferences* still hold: `ActivityPossibleOnGroup` refuses a zone whose arousal
+factor she set to zero, and `ActivityCheckPermissions` refuses an activity she disabled — a veto that
+survives the trigger completely and that the add-on does not have to know about.
+
+Structurally this is the same requirement the pacing note reached from the other direction: **a
+queued step re-validates on its turn.** One implementation serves both.
+
+### Depth: the trigger's gate and the action's gate are different questions
+
+- **To plant one:** she must clear `triggerControl` (Deep by default, against `depthEarned`) **and**
+  `compelActivity` (Yielding, `depth.ts:153`). Two gates, both required, for two different reasons —
+  the first is "may something persistent be put in me", the second is "may I be made to act at all".
+  With the defaults, Deep dominates and Yielding is satisfied on the way; state the rule, not the
+  arithmetic, because both tiers are player-adjustable and a subject who raises `compelActivity` to
+  Blank must not find planting still open at Deep.
+- **When it fires:** the trigger's current `triggerStrength()` is the depth, per the existing rule.
+  A Deep-planted trigger faded to 45 still reaches Yielding, so the compel still lands; faded to 20
+  it does not, and the trigger's other actions may still work. That disagreement between
+  `plantedDepth` and the action's gate is not a conflict to resolve — **it is the decay mechanic
+  doing its job**, and it means a neglected compel trigger loses its teeth before it loses its word.
+- **`compelActivity` is `earnedOnly: false`**, so unlike the illusion it can be reached on chemical
+  depth. That stays true at plant time only in the sense that `triggerControl` is earned-only and
+  gates the planting; `plantedChemical` then prices the shortcut through the fast decay rate
+  (`CHEMICAL_DECAY_PER_DAY`). No new rule needed — but worth noting that a compel is the first
+  *session-only* action to become persistent by proxy, and the earned-only split is what keeps that
+  honest.
+
+### Multiple compels in one trigger — pacing stops being optional
+
+`MAX_ACTIONS = 8` (`triggers.ts:104`), so one word can carry up to eight compels. `fireTrigger`'s
+loop is synchronous: today that means **eight `ActivityRun` calls and eight `Type:"Activity"`
+publishes in a single tick**, which is the pile-up the pacing note exists to prevent, arriving all at
+once from a single spoken word.
+
+**So pacing is promoted from a nicety to a dependency of this feature.** The multi-activity sequence
+the pacing note said did not exist yet is exactly what a multi-compel trigger produces. Build the
+queue first, have `fireTrigger` *enqueue* rather than run, and the re-validation requirement, the
+`compel:` prefix on the timer key and the teardown sweep all land in one place. Building this feature
+on the synchronous loop means shipping the pile-up and then unpicking it.
+
+**A related trap in the same loop:** `fired++` drives `markActive(timerKey)` and
+`scheduleAutoRelease` (`:1190`). A compel has nothing to hold and nothing to release, so a
+compel-only trigger would mark itself active, schedule a release that undoes nothing, report
+`** HOLDING YOU NOW **` in `describeTriggerList` (`:1273`), and refuse `/hypno forgettrigger` on the
+grounds that it is gripping her. **Compels must be counted separately from `fired`** — log them, do
+not let them reach the holding machinery.
+
+### What each side sees, following the existing asymmetry
+
+The rule is already set and this inherits it: setup feedback goes to the **hypnotist**, because
+showing the subject her own trigger contents defeats the point (`triggers.ts:18`).
+
+| Moment | Hypnotist | Subject |
+|---|---|---|
+| Planting | `[trigger] Recorded compel:Caress:breasts into "sleepy time" (2 so far)` — needs a human label, see below | *"That settles into place, waiting."* No phrase, no action |
+| Committed | `[trigger] SAVED … 3 action(s): …` | *"It settles somewhere you won't think to look for it."* |
+| Firing | **Nothing** — a trigger fires with no hypnotist necessarily present, and that is deliberate | She cannot be kept in the dark: her body just did it and the room watched. She gets the line the spoken path already uses — *"Your body does it without waiting for you to decide"* |
+| Refused at fire time | Nothing (no channel) | Nothing spoken; log only, as the other actions do |
+
+**No public flavor half for a compel, unlike every other trigger action.** `announce()` (`flavor.ts:404`)
+publishes a room line, and `ActivityRun` has *already* published the activity message — the room sees
+*Missy caresses her breasts* either way. A second narration would double-narrate the same event.
+
+**`describeTriggerList` needs a label.** It prints `t.actions.join(", ")` raw, so her own list would
+read `compel:MasturbateHand:@genital`. Her seeing *what* a trigger does is correct and already the
+case for `touch:breasts`; seeing it as an internal id is not. One `describeActionLabel(id)` helper,
+used by both the list and the recorded-confirmation line.
+
+### ⚠ Scope — the sharpest edge in the feature, and it needs a decision
+
+A compel action inherits the trigger's scope, and scope is the seven-rung ladder in
+`TRIGGER_SCOPES` (`triggers.ts:519`) topping out at **"Hypnotist and everyone, no exceptions"**.
+Follow that through: a subject who set a permissive ceiling has made it so that **any stranger in the
+room, with no session, no induction and no relationship, can say a word and make her masturbate in
+public — and the room sees an ordinary activity message, indistinguishable from her choosing it.**
+
+**Mechanically this is coherent.** `triggersArmed()` still requires `hypnoEnabled` and
+`triggerControl`; the per-action re-check still requires `compelActivity` ticked; BC still refuses
+zones and activities she disabled; she chose the rung, the default is *Hypnotist only*, and a
+stranger on that ceiling can already freeze her or block her hands. Nothing here bypasses a gate.
+
+**But the consent shape is new, and this is the thing to decide before building.** Every existing
+trigger action is a *restriction* — something taken from her. A compel is the first that makes her
+**perform a sexual act, on her own body, publicly, attributed to her**. "Yes, anyone may fire my
+triggers" was answered about being stopped; it is being read as an answer about being made to
+perform. That is the same objection recorded against word-level control — *"the consent shape is
+genuinely different… cannot be reviewed in advance the way 'yes, you may freeze me' can"* — and it
+arrives here by inheritance rather than by anyone choosing it.
+
+**Recommendation: clamp a compel action to the installer, regardless of the trigger's scope, until
+DW rules otherwise.** `triggersFiredBy` keeps returning the trigger on whatever rung she set — the
+other actions still fire for the wider audience — and the `compel:` branch in `fireTrigger` skips
+unless the speaker is `trigger.installedBy`. Reasons: it is the same *"installer-only is the safe
+start"* reasoning the scope ladder itself was built on (`triggers.ts:95`); it is one condition, and
+reversible in one line the day he decides otherwise; and it fails in the direction that costs a
+feature rather than the direction that costs consent. The alternatives, if he wants them on the
+table: a separate rung-cap for compel actions, or letting the ladder stand and making the scope
+setting's own wording say plainly what the top rung now includes.
+
+### ⚠ Question 2 just got more urgent
+
+The `Caress`-on-`feel` false positive (`ACTIVITY_VERBS`, `voice.ts:1664`) is still open and still
+deferred — but recording changes what it costs. **Today** a misread deepening line ("Missy, your arms
+feel heavy") fires one stray caress; annoying, visible, over. **Once commands are recordable**, the
+same line spoken during planting **silently writes `compel:Caress:arms` into a trigger she will carry
+for weeks** — and she cannot audit it, because the confirmation goes to the hypnotist and her own
+list shows the action without telling her it was never meant. A parser false positive stops being a
+stray event and becomes a persistent one.
+
+**This should be fixed before recording ships, not after.** Two other items stay deferred by DW's
+call and are recorded here so they are not lost: **question 2** (drop `feel` from the `Caress` verb
+list) and **question 3** (`handleTriggerFiring` returning `false` when it suppresses a double-fire,
+so a trigger phrase inside a command line stops swallowing the command).
+
+---
+
 ## Clothing & Bondage Consent Interfaces
 
 ### Clothing Removal Consent
@@ -1812,6 +2182,26 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Clothing consent interface** — see below
 - **Bondage consent interface** — see below
 - Free-form command parser using BC's existing activity system as a base library
+- **Pacing for commanded activities — spec'd 2026-09-13, see *Commanded Activities — pacing*.** DW
+  wants a delay between compelled touches so they are watchable in the room. The pause itself is
+  small (a keyed `timers.ts` step; both teardown paths already sweep it), but going asynchronous
+  means **every queued step must re-ask the gates on its turn** — `ActivityRun` validates nothing,
+  so a stale step publishes an activity BC would have refused. **Fix the `Caress`-on-"feel" false
+  positive and the recording guard first**, or the delay will separate that bug from its cause.
+  **Now a dependency of the item below, not a separate nicety.**
+- **Commanded activities as trigger actions — approved by DW 2026-09-13, spec'd, see *Commanded
+  Activities — as trigger actions*.** A word that later makes her act, encoded `compel:<activity>:<part>`
+  beside the existing `touch:<word>`. **This is also the fix for the recording collision** — a touch
+  command spoken mid-planting currently executes instead of being captured, and the guard that
+  records it is the same change. Permissions, depth *and* `ActivityAllowedForGroup` all re-check at
+  fire time, because the word may land weeks later with her restrained. **Two things to settle before
+  building:** whether a compel inherits the trigger's scope (a stranger on a permissive ceiling could
+  otherwise make her perform in public — recommendation is to clamp compels to the installer), and
+  question 2 below, which stops being cosmetic once a misparse writes itself into a trigger.
+- **Still open, deferred by DW 2026-09-13.** (2) Drop `feel` from the `Caress` verb list
+  (`voice.ts:1664`) — "your arms feel heavy" currently parses as a command. (3) Make
+  `handleTriggerFiring` (`:1355`) return `false` when it suppresses a double-fire, so a trigger phrase
+  inside a command line stops silently swallowing the command.
 - **Remote panel: the eight missing toggles + live state sync.** The panel has Session, Movement, Clothing and Kneel/Stand; speech, self-touch, and the three awareness categories exist only as speech. Eight binary toggles would fit in two columns of four under the session button without paging.
 
   **The work is the sync, not the buttons.** The three existing feature buttons know whether to read "Apply" or "Release" because their state comes from *synced* character data — `HasEffect("Freeze")`, `HasEffect("BlockWardrobe")`, `IsKneeling()`. None of the new ones are synced: speech blocking, self-touch blocks and suppression are all local state in our own modules, invisible to the viewer's client. So this needs `state-response` extended to carry live state alongside permissions, *and* the subject pushing an update whenever any of it changes — a one-shot query at panel-open goes stale the moment anything toggles. Same class of work as the original gray-out feature.
@@ -1868,6 +2258,36 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Fixed 2026-09-13 (v0.72.4) — compelled activities can be recorded into a trigger
+
+DW, in play: the new activity commands "do the reaction instead of adding to the trigger" — say
+"touch your breasts" while recording a trigger and it performed the touch rather than joining the
+trigger being built.
+
+Cause: `handleActivityCommand` is dispatched in `handleSpokenLine` BEFORE the `matchSuggestion` →
+`recordAction` gate that captures ordinary suggestions during recording, and it never consulted
+`isRecording()` — so it always performed. The body-part block handler already had the fix
+(`handleBodyPartLine` calls `recordAction` before it acts); the activity handler just hadn't grown
+it yet.
+
+- **Record, don't perform, while recording.** `handleActivityCommand` now calls
+  `recordAction(activityActionId(cmd))` right after the permission check (so recording needs "Made
+  to act", as firing does) and before the perform-time gates (depth, freeze) — those are about
+  doing it NOW, not planting it. The action id mirrors the block ids: `act:<Activity>:<word>` (e.g.
+  `act:Caress:breasts`), `act:genital`, `act:vague`.
+- **Replay on fire.** `fireTrigger` gains an `act:` branch beside the `touch:` one:
+  `performActivityAction(id)` re-runs the real BC activity via `runCommandedActivity`. Permission
+  (`compelActivity`) is re-checked at fire time like every other trigger action; our own freeze is
+  overridden (planted command) while a real restraint still stops it. It is a one-shot event, so —
+  like `orgasm-force` — there is nothing for the auto-release to undo, and `undoTrigger` no-ops it.
+  No local flavor line: `ActivityRun` already renders it as a visible room message.
+- `isTriggerSetupLine` now also hides a compelled command during setup, so a subject with the
+  Awareness toggle on does not read their own trigger's contents.
+
+`test/activity.mjs` → 30 checks: a command is recorded (not performed) while a trigger records, then
+the phrase fires the real activity out of trance. Bot scenario `compel` gains a record-and-fire
+sequence.
 
 ### Fixed 2026-09-13 (v0.72.3) — a strip command overrides our freeze too
 
