@@ -1,7 +1,7 @@
 import { log, TESTING_MODE } from "./log";
 import { applyEffect, removeEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
-import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked } from "./selftouch";
+import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist, enterWalkingTrance, leaveWalkingTrance } from "./session";
@@ -1590,6 +1590,164 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 
 /** Called for every ordinary chat line we receive. Does nothing unless the speaker is the
  * person currently running a session on us. */
+// --- Compelled activities (v0.72.0) ------------------------------------------------------
+// "Missy, touch your breasts" makes the SUBJECT perform a real BC activity on themselves — run
+// through ActivityRun so it renders in the room exactly like she clicked it, and validated with
+// ActivityAllowedForGroup so anything impossible while bound/chaste/out-of-reach simply is not
+// offered. One standardized grammar: <verb> your <part>. Learn "touch your breasts" and
+// "pinch your nipples", "lick your thighs", "spank your bottom" all follow.
+//
+// The verb picks the BC activity; "your <part>" picks the zone, reusing BODY_PARTS. First match
+// wins, so the specific verbs sit above the catch-all Caress. Bare "touch yourself" is handled
+// separately (a random spot). No held-item activities here — those want a "with the <toy>"
+// extension later.
+const ACTIVITY_VERBS: { activity: string; re: RegExp }[] = [
+	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
+	{ activity: "Pinch", re: /\bpinch\b/ },
+	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
+	{ activity: "Slap", re: /\bslap\b/ },
+	{ activity: "Scratch", re: /\bscratch\b/ },
+	{ activity: "Tickle", re: /\btickle\b/ },
+	{ activity: "Pull", re: /\b(?:pull|tug)\b/ },
+	{ activity: "Choke", re: /\bchoke\b/ },
+	{ activity: "MassageHands", re: /\b(?:massage|knead)\b/ },
+	{ activity: "Nibble", re: /\bnibble\b/ },
+	{ activity: "Lick", re: /\blick\b/ },
+	{ activity: "Kiss", re: /\bkiss\b/ },
+	{ activity: "Suck", re: /\bsuck\b/ },
+	{ activity: "Bite", re: /\bbite\b/ },
+	{ activity: "Pet", re: /\bpet\b/ },
+	{ activity: "MasturbateHand", re: /\b(?:finger|masturbate|pleasure|play with)\b/ },
+	// The universal — Caress reaches almost every zone, so "touch your <anything>" lands.
+	{ activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ },
+];
+// A positive command never contains a negation; if one is present this is a block/stop, which
+// the body-part handler (run earlier) owns. Guards against "do not touch your breasts" being
+// read as a command to do it.
+const COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will ?not|no longer|stop)\b/;
+/** Bare self-pleasure with no part named — the obvious intent is the genitals. */
+const GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
+/** Bare generic self-touch — too vague, so it wanders (see handleActivityCommand). */
+const VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
+
+export type ActivityCommand =
+	| { kind: "genital" }
+	| { kind: "vague" }
+	| { kind: "part"; activity: string; word: string };
+
+/** Parse a compelled-activity command. Pure — no BC calls — so the grammar is unit-testable. */
+export function matchActivityCommand(content: string): ActivityCommand | null {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
+	if (GENITAL_SELF.test(text)) return { kind: "genital" };
+	if (VAGUE_SELF.test(text)) return { kind: "vague" };
+	// Longest part word first, so "clitoris" is not shadowed by "clit" etc.
+	const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
+	for (const v of ACTIVITY_VERBS) {
+		if (!v.re.test(text)) continue;
+		for (const word of words) {
+			if (new RegExp(`\\byour ${word}\\b`).test(text)) return { kind: "part", activity: v.activity, word };
+		}
+	}
+	return null;
+}
+
+// Where a bare "touch yourself" may wander. The commonplace zones; the pick is filtered to what
+// is actually reachable right now, so a bound subject's hands go somewhere they still can.
+const VAGUE_ZONES = [
+	"ItemBreast", "ItemButt", "ItemArms", "ItemLegs", "ItemTorso",
+	"ItemNeck", "ItemHead", "ItemPelvis", "ItemHands", "ItemFeet", "ItemNipples",
+];
+
+/** Perform `activityName` on the first of `groupNames` where BC currently allows it, as a
+ * COMMANDED (involuntary) activity — the self-touch block stands aside, the physical filters do
+ * not. Returns the group it landed on, or null if none were possible. */
+function runCommandedActivity(activityName: string, groupNames: string[]): string | null {
+	const family = Player?.AssetFamily ?? "Female3DCG";
+	for (const groupName of groupNames) {
+		let allowed: any[] = [];
+		try {
+			allowed = ActivityAllowedForGroup(Player, groupName) || [];
+		} catch {
+			allowed = [];
+		}
+		const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName);
+		if (!itemActivity) continue;
+		const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
+		if (!groupObj) continue;
+		try {
+			beginCommandedActivity();
+			ActivityRun(Player, Player, groupObj, itemActivity);
+		} finally {
+			endCommandedActivity();
+		}
+		return groupName;
+	}
+	return null;
+}
+
+/** Returns true if the line was a compelled-activity command and has been dealt with. */
+function handleActivityCommand(sender: number, content: string): boolean {
+	const cmd = matchActivityCommand(content);
+	if (!cmd) return false;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard an activity command from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) {
+		log(`heard an activity command from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	const f = getFeatures();
+	if (!f.hypnoEnabled || !f.compelActivity) {
+		tellHypnotist(sender, '[command] Refused — they have not enabled "Made to act".');
+		return true;
+	}
+	const refusal = depthRefusal("compelActivity");
+	if (refusal) {
+		tellHypnotist(sender, `[command] Refused — ${refusal}.`);
+		return true;
+	}
+	// Freeze is physical: a frozen subject cannot move to do anything, commanded or not. The
+	// self-touch BLOCK, by contrast, is pierced by a command (it only stopped the voluntary hand).
+	if (Player?.HasEffect?.("Freeze")) {
+		tellHypnotist(sender, "[command] Refused — they are frozen; they cannot move to.");
+		return true;
+	}
+
+	if (cmd.kind === "vague") return runVagueTouch(sender);
+	const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;
+	const groups = cmd.kind === "genital" ? ["ItemVulva"] : BODY_PARTS[cmd.word] ?? [];
+	const landed = runCommandedActivity(activity, groups);
+	if (!landed) {
+		tellHypnotist(sender, `[command] "${activity.toLowerCase()}" won't land there right now — bound, out of reach, or not somewhere it works.`);
+		return true;
+	}
+	tellPlayer("Your body does it without waiting for you to decide.");
+	return true;
+}
+
+/** Bare "touch yourself" — too generic, so the hands go somewhere at random, and the hypnotist
+ * is quietly told it was vague (DW's call: it still happens, and it teaches specificity). */
+function runVagueTouch(sender: number): boolean {
+	const reachable = VAGUE_ZONES.filter((g) => {
+		try {
+			return (ActivityAllowedForGroup(Player, g) || []).some((a: any) => a?.Activity?.Name === "Caress");
+		} catch {
+			return false;
+		}
+	});
+	if (!reachable.length) {
+		tellHypnotist(sender, "[command] Too vague — and nothing is within reach right now anyway.");
+		return true;
+	}
+	const pick = reachable[Math.floor(Math.random() * reachable.length)];
+	const landed = runCommandedActivity("Caress", [pick]);
+	tellHypnotist(sender, "[command] Too vague — her hands wander on their own. Name a part to steer them.");
+	if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
+	return true;
+}
+
 export function handleSpokenLine(sender: number, content: string): void {
 	// Trigger control first, so "remember trigger" can't be read as anything else.
 	if (handleTriggerControl(sender, content)) return;
@@ -1610,6 +1768,10 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// leave phrases can pre-empt the movement suggestion while walking).
 	if (handleWalkingTrance(sender, content)) return;
 	if (handleBodyPartLine(sender, content)) return;
+	// Positive activity COMMANDS ("touch your breasts") after the block/release handler above,
+	// so "you cannot touch your breasts" stays a block, and before the table matcher, which does
+	// not know these verbs.
+	if (handleActivityCommand(sender, content)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched
 	// line with no session looked identical from the outside, which is exactly the case

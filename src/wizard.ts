@@ -31,6 +31,7 @@ const GROUP_FEATURES: Record<string, (keyof FeatureToggles)[]> = {
 	movement: ["movementRestriction", "speechRestriction", "postureControl", "clothingRestriction"],
 	undress: ["undressControl", "selfTouchControl"],
 	arousal: ["arousalControl"],
+	compel: ["compelActivity"],
 	perception: ["suppressClothing", "suppressBondage", "suppressActivities", "illusionControl"],
 	lasting: ["triggerControl", "carryForward"],
 };
@@ -170,6 +171,7 @@ const QUESTIONS: WizardQuestion[] = [
 			{ value: "movement", label: "Hold you still, quiet, kneeling; block the wardrobe" },
 			{ value: "undress", label: "Undress you, and stop you touching yourself" },
 			{ value: "arousal", label: "Set your arousal, force or deny an orgasm" },
+			{ value: "compel", label: "Make you perform actions — touch yourself on command" },
 			{ value: "perception", label: "Make you not notice things, or misread your own clothes" },
 			{ value: "lasting", label: "Plant triggers and suggestions that outlive the trance" },
 		],
@@ -316,7 +318,7 @@ function drawSummary(): void {
 function describeConfig(cfg: SetupConfig): string[] {
 	const groupNames: Record<string, string> = {
 		movement: "movement & speech", undress: "undressing & touch", arousal: "arousal",
-		perception: "perception tricks", lasting: "lasting triggers",
+		perception: "perception tricks", compel: "made to act", lasting: "lasting triggers",
 	};
 	const chosen = Object.keys(GROUP_FEATURES).filter((g) =>
 		GROUP_FEATURES[g].every((k) => cfg.features.includes(k)));

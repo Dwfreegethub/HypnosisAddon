@@ -135,6 +135,10 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim(`   your feet with the veil lifted; "be still" puts the stillness back.`));
 	lines.push(body(`"you cannot touch your breasts" · "...touch yourself"`));
 	lines.push(dim("   (selfTouchControl) — around 40 body words are understood."));
+	lines.push(body(`"touch your breasts" · "pinch your nipples" · "lick your thighs"`));
+	lines.push(dim("   (Made to Act) — one grammar: <verb> your <part>. touch · caress · rub ·"));
+	lines.push(dim("   pinch · spank · slap · scratch · tickle · pull · lick · kiss · bite ·"));
+	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
 	return lines;
 }
 

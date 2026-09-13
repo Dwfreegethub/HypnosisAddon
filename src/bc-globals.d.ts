@@ -74,6 +74,15 @@ declare function ChatRoomMessageInvolvesPlayer(data: any): boolean;
 // Activity.js — resolves a group to the one activities are actually mirrored from
 // (ItemNipples mirrors to ItemBreast), so a per-part block can't be sidestepped.
 declare function ActivityGetGroupOrMirror(family: string, groupName: string): any;
+// Activity.js — the list of activities currently ALLOWED on a group, already filtered by
+// distance, chastity, access, gag/bondage prerequisites and BC's own permissions. We ask this
+// so "impossible while bound" costs us nothing. Returns ItemActivity[] ({ Activity, Group }).
+declare function ActivityAllowedForGroup(character: any, groupName: string): any[];
+// Activity.js — PERFORM an activity: runs arousal + progress and sends the room's Type:"Activity"
+// message, so a commanded touch renders exactly like the subject clicking it.
+declare function ActivityRun(actor: any, acted: any, targetGroup: any, itemActivity: any, sendMessage?: boolean): void;
+// Assets — resolve a group name to its group object (for ActivityRun's targetGroup arg).
+declare function AssetGroupGet(family: string, groupName: string): any;
 
 // DOM controls layered over the canvas (Scripts/Element.js). They are real elements in
 // document.body, positioned in CANVAS coordinates — X,Y is the element's CENTRE, and the

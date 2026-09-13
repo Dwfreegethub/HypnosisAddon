@@ -113,6 +113,7 @@ const TABS: Tab[] = [
 			{ key: "postureControl", label: "Posture Control" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
+			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion" },
 			{ key: "undressControl", label: "Undressing" },

@@ -94,6 +94,19 @@ const blockedGroups = new Map<string, string>();
 /** Set by "you cannot touch yourself" — everything, without naming a part. */
 let blockAllSelfTouch = false;
 
+// A commanded activity is INVOLUNTARY — the hypnotist is driving it — so it must pierce the
+// self-touch block, which only ever meant to stop the subject's OWN hand (DW's rule, 2026-09-12).
+// The command resolver in voice.ts wraps its ActivityRun in begin/endCommandedActivity, and this
+// hook then stands aside. It does NOT weaken the physical checks: the resolver vets Freeze itself
+// before it ever runs, and BC's own ActivityAllowedForGroup still filters chastity/bound/distance.
+let commandInProgress = false;
+export function beginCommandedActivity(): void {
+	commandInProgress = true;
+}
+export function endCommandedActivity(): void {
+	commandInProgress = false;
+}
+
 export function setBodyPartBlocked(word: string, groups: string[], on: boolean): void {
 	for (const g of groups) {
 		if (on) blockedGroups.set(g, word);
@@ -154,6 +167,9 @@ export function installSelfTouch(modApi: any): void {
 		10,
 		((args: any[], next: (args: any[]) => any) => {
 			try {
+				// A commanded activity was already vetted by the resolver; the voluntary-touch
+				// block must not stop it. Physical limits are handled elsewhere, not here.
+				if (commandInProgress) return next(args);
 				const [actor, acted, targetGroup] = args;
 				if (isSelfActivity(actor, acted)) {
 					// Frozen means frozen. Reaching for yourself is still moving, so the

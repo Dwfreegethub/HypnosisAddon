@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.71.0.*
+*Design notes and decision log — work in progress. Code at v0.72.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1850,7 +1850,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Persona / alter ego** — "when you hear X, you become [name/personality]." Mostly RP, but add-on can nudge: if the alter ego is defined as wearing little clothing, add-on resists attempts to get fully dressed while the persona is active. Add to trigger effects.
 - **Custom phrase localization** — let subjects replace built-in flavor text and suggestion patterns with their own wording. Stored as a small `effect_id → custom phrase` map in ExtensionSettings (minimal storage impact after LZString compression). Two layers: flavor text (what the subject sees when an effect fires — subject-side only, simple substitution) and suggestion aliases (what the hypnotist says to trigger it — harder, requires exposing the subject's aliases to the hypnotist via help screen or OOC). Primary use case: players for whom English is not their first language, and players who want more personal or thematic phrasing. Ship flavor text first; aliases as a later extension.
 - **Phantom sensation** — feeling touch that isn't there, or not feeling touch that is. Separate category from clothing illusion. Excellent trigger effect: warmth, numbness, phantom touch on specific body parts. Many implementation paths — explore.
-- **Compelled self-touch + block combination** — "touch yourself whenever arousal drops below X" AND "you cannot touch yourself on your own." Both halves are already built separately; needs a combined trigger or conditional.
+- ~~**Compelled self-touch + block combination**~~ — **the compel half built v0.72.0** (see *Compelled activities*): a command pierces the self-touch block because it is involuntary, so "you cannot touch yourself" + "touch your breasts" already coexist as DW's rule intends. The *conditional* form ("...whenever arousal drops below X") is the remaining piece, waiting on the conditional command type.
 - **Fractionation** — waking and re-inducing repeatedly, each time going deeper. As a named mechanic: if re-induction follows a wake within a short window, the roll gets a bonus (subject still partway primed, rapport warm). Currently no mechanic distinguishes first from second induction.
 - **Anchoring** *(maybe)* — physical gesture re-triggers trance, separate from verbal triggers. Could tie to existing induction with a trust/depth advantage for using it.
 - **Resistance fatigue** — the more someone fights off inductions, the more tired they get, making future attempts easier. Currently resistance is stateless. Review when developing trust/experience further.
@@ -1868,6 +1868,44 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.72.0) — compelled activities (Phase 1: self, one-shot)
+
+The subject can now be *made to act*, not just stopped. "Missy, touch your breasts" makes her
+perform the real BC activity on herself — run through `ActivityRun`, so it renders in the room
+identically to her clicking it, and validated with `ActivityAllowedForGroup`, so anything
+impossible while bound, chaste or out of reach is simply never offered. Filtering costs us nothing;
+BC already knows.
+
+**One standardized grammar, by DW's request:** `<verb> your <part>`. The verb picks the activity,
+"your <part>" picks the zone (reusing the ~40 body-words), first match wins so specific verbs sit
+above the universal `Caress` (touch/rub/stroke). Learn "touch your breasts" and *"pinch your
+nipples", "lick your thighs", "spank your bottom"* all follow. Curated to the bare-handed / mouth
+set (Caress, Grope, Pinch, Spank, Slap, Scratch, Tickle, Pull, Choke, Massage, Nibble, Lick, Kiss,
+Suck, Bite, Pet, and genital MasturbateHand); the held-toy `…Item` activities want a later
+"with the <toy>" extension.
+
+**Bare "touch yourself" wanders** — no part named, so the hands go to a random reachable zone and
+the hypnotist gets a private nudge to be specific. It never no-ops, and it teaches the grammar.
+
+**The consent boundary (DW's rule, 2026-09-12), three layers:** BC physical reality (bound/chaste/
+frozen) always applies; the subject's own *self-touch block* is pierced by a command, because a
+command is *involuntary* — not the subject's choice; and a **new permission, "Made to Act"**
+(`compelActivity`, Yielding depth) gates whether the subject can be commanded at all. Freeze still
+stops everything — you cannot move to act. This is exactly the old "touch yourself whenever X **and**
+you can't on your own" combination, now that the block and the compel are separate layers.
+
+`selftouch.ts` gains a `beginCommandedActivity`/`endCommandedActivity` bracket the resolver wraps
+its `ActivityRun` in, so the block hook stands aside for a commanded action without weakening the
+physical checks. `test/activity.mjs` (22 checks) drives the whole path with BC's activity calls
+stubbed — right activity on the right zone, BC's filter authoritative, the block pierced, Freeze
+respected, the depth gate. Bot scenario 9 (`compel`) walks it in play.
+
+**Phased, as agreed.** Phase 1 is **self-only, one-shot**. Kept in mind for later: *sustained*
+("keep going"), *conditional* ("whenever arousal drops below X"), *others* (act on another player),
+and the split of gentle vs rough into separate consents. The help's What-to-Say tab and the wizard
+(new "made to act" group) already carry it; the depth ladder shows it because it is generated from
+`DEPTH_GATES`.
 
 ### Added 2026-09-12 (v0.71.0) — the setup wizard
 

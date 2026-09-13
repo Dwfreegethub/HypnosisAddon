@@ -665,6 +665,42 @@ const SCENARIOS = [
 		],
 	},
 	{
+		name: "compel",
+		blurb: "Made to act — the subject performs real activities on command.",
+		steps: [
+			{
+				do: () => {},
+				want: "FIRST enable it: Permissions tab > 'Made to Act (touch yourself on command)'. Then /bot next. (Yielding+ depth needed — this scenario forces Blank.)",
+				fail: "If you skip this, every step below refuses with 'have not enabled Made to Act'.",
+			},
+			{ do: () => trance(80, 80), want: "Under at Blank, so depth is not the limit." },
+			{
+				do: () => say("Missy, touch your breasts."),
+				want: "You caress your own breasts — a REAL BC activity in the room, exactly like you clicked it.",
+				fail: "Nothing happens, or I get a refusal in my log.",
+			},
+			{
+				do: () => say("Missy, pinch your nipples."),
+				want: "A different activity on a different zone — Pinch. Same grammar, verb swapped.",
+				fail: "Refused or nothing.",
+			},
+			{
+				do: () => say("Missy, touch yourself."),
+				want: "TOO VAGUE on purpose: your hands go somewhere at random, and I get a private nudge to name a part.",
+				fail: "Nothing happens at all.",
+			},
+			{
+				do: async () => {
+					say("Missy, you cannot touch your breasts.");
+					await wait(1200);
+					say("Missy, touch your breasts.");
+				},
+				want: "THE KEY TEST: the block stops YOUR hand, but my command still lands — it is not your choice. Requires Self-Touch Control also enabled to set the block.",
+				fail: "The command is blocked too — then the override is broken.",
+			},
+		],
+	},
+	{
 		name: "walking-trance",
 		blurb: "Still under, but on your feet — and back to stillness on command.",
 		steps: [

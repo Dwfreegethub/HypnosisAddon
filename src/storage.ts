@@ -198,6 +198,10 @@ export interface FeatureToggles {
 	postureControl: boolean;
 	/** Blocking the subject from touching themselves, or named body parts. */
 	selfTouchControl: boolean;
+	/** May a hypnotist make the subject PERFORM activities (touch themselves, on command).
+	 * The mirror of selfTouchControl, which only ever BLOCKS: this compels. Separate consent,
+	 * because being driven to act is a different thing from being stopped. */
+	compelActivity: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
 	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
 	 * on top of this permission — the same number as triggers and carry-forward, and the
@@ -393,6 +397,7 @@ function defaultFeatures(): FeatureToggles {
 		postureControl: false,
 		speechRestriction: false,
 		selfTouchControl: false,
+		compelActivity: false,
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
