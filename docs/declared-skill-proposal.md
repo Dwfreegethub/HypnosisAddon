@@ -1270,6 +1270,8 @@ one list to read.
 
 ## 9. The starter set — a first-launch "sensible defaults" button
 
+> **BUILT v0.70.0.** The five-switch offer on the Permissions tab, offered-not-applied, says-what-it-did, one-click undo, dismisses for good. `STARTER_FEATURES` + `starterState` in storage.ts; `test/starter.mjs` pins the set.
+
 **Not a wizard.** DW is leaving the wizard alone; this is the cheap stand-in already on CLAUDE.md's
 list as *First-launch guidance*.
 

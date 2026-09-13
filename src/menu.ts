@@ -32,6 +32,9 @@ import {
 	SKILL_HONOUR_RUNGS,
 	getChemicalReach,
 	setChemicalReach,
+	STARTER_FEATURES,
+	getStarterState,
+	setStarterState,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -117,8 +120,8 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
-		extra: drawAttemptControl,
-		clickExtra: clickAttemptControl,
+		extra: drawPermissionsExtra,
+		clickExtra: clickPermissionsExtra,
 	},
 	{
 		name: "Trance Defaults",
@@ -270,6 +273,114 @@ const ATTEMPT_BUTTON_WIDTH = 520;
 const ATTEMPT_BUTTON_HEIGHT = 44;
 /** Under the button, clear of the panel floor at 902. */
 const ATTEMPT_CAPTION_Y = 826;
+
+// The Permissions tab has two extras: the attempt control (bottom-left) and, for a first-time
+// user, the starter offer (the empty lower-right, below the four right-column rows).
+function drawPermissionsExtra(): void {
+	drawAttemptControl();
+	drawStarterOffer();
+}
+function clickPermissionsExtra(): boolean {
+	return clickStarterOffer() || clickAttemptControl();
+}
+
+// --- First-launch starter offer (proposal §9) ----------------------------------------------
+// A fresh install has every permission off, so an attempt is refused and the subject looks like
+// she said no — with no way to tell "off" from "broken". This OFFERS a safe starter set: it
+// pre-ticks nothing, says exactly what it turned on, and undoes in one click. It sits in the
+// empty lower-right of the Permissions tab and disappears once taken or waved off.
+const STARTER_LEFT = BOX_LEFT + 650; // matches COLUMN_TWO_LEFT, which is declared lower down
+const STARTER_TOP = 588;
+const STARTER_WIDTH = PANEL_LEFT + PANEL_WIDTH - STARTER_LEFT - 40;
+const STARTER_HEIGHT = 234;
+const STARTER_TEXT_LEFT = STARTER_LEFT + 18;
+const STARTER_TEXT_MAX = STARTER_WIDTH - 36;
+const STARTER_BTN_TOP = STARTER_TOP + STARTER_HEIGHT - 60;
+const STARTER_BTN_HEIGHT = 44;
+const STARTER_BTN_A_LEFT = STARTER_TEXT_LEFT;
+const STARTER_BTN_A_WIDTH = 230;
+const STARTER_BTN_B_LEFT = STARTER_BTN_A_LEFT + STARTER_BTN_A_WIDTH + 16;
+const STARTER_BTN_B_WIDTH = 130;
+/** The five, in the word a person reads rather than the flag name. */
+const STARTER_WORDS = "Hypnosis, Movement, Speech, Posture, Wardrobe";
+
+function drawStarterOffer(): void {
+	const state = getStarterState();
+	if (state === "done") return;
+	const locked = settingsLocked();
+	DrawRect(STARTER_LEFT, STARTER_TOP, STARTER_WIDTH, STARTER_HEIGHT, "#eef0ff");
+	DrawEmptyRect(STARTER_LEFT, STARTER_TOP, STARTER_WIDTH, STARTER_HEIGHT, "#8890c0", 2);
+	const line = (text: string, y: number, color = "Black") =>
+		drawLeftTextFit(text, STARTER_TEXT_LEFT, y, STARTER_TEXT_MAX, color);
+	if (state === "new") {
+		line("New here?", STARTER_TOP + 30, "Black");
+		line("Nothing works until you allow it. Turn on a", STARTER_TOP + 66, "#333");
+		line("safe starter set: hypnosis, movement, speech,", STARTER_TOP + 96, "#333");
+		line("posture and wardrobe — all session-only and", STARTER_TOP + 126, "#333");
+		line("reversible, nothing that lasts or hides anything.", STARTER_TOP + 156, "#333");
+		DrawButton(STARTER_BTN_A_LEFT, STARTER_BTN_TOP, STARTER_BTN_A_WIDTH, STARTER_BTN_HEIGHT,
+			"Turn these on", locked ? "#ddd" : "White", "",
+			locked ? "Locked until this session ends" : "Allows the five above — you can untick any", locked);
+		DrawButton(STARTER_BTN_B_LEFT, STARTER_BTN_TOP, STARTER_BTN_B_WIDTH, STARTER_BTN_HEIGHT,
+			"Not now", "White", "", "Hide this");
+	} else {
+		line("Turned on:", STARTER_TOP + 30, "Black");
+		line(STARTER_WORDS + ".", STARTER_TOP + 66, "#333");
+		line("Untick any you don't want on the left, or", STARTER_TOP + 108, "#333");
+		line("undo the whole set.", STARTER_TOP + 138, "#333");
+		DrawButton(STARTER_BTN_A_LEFT, STARTER_BTN_TOP, STARTER_BTN_A_WIDTH, STARTER_BTN_HEIGHT,
+			"Undo", locked ? "#ddd" : "White", "",
+			locked ? "Locked until this session ends" : "Turn the five back off", locked);
+		DrawButton(STARTER_BTN_B_LEFT, STARTER_BTN_TOP, STARTER_BTN_B_WIDTH, STARTER_BTN_HEIGHT,
+			"OK", "White", "", "Done");
+	}
+}
+
+function clickStarterOffer(): boolean {
+	const state = getStarterState();
+	if (state === "done") return false;
+	if (!MouseIn(STARTER_LEFT, STARTER_TOP, STARTER_WIDTH, STARTER_HEIGHT)) return false;
+	const onA = MouseIn(STARTER_BTN_A_LEFT, STARTER_BTN_TOP, STARTER_BTN_A_WIDTH, STARTER_BTN_HEIGHT);
+	const onB = MouseIn(STARTER_BTN_B_LEFT, STARTER_BTN_TOP, STARTER_BTN_B_WIDTH, STARTER_BTN_HEIGHT);
+	if (state === "new") {
+		if (onA && !settingsLocked()) {
+			applyStarterSet();
+		} else if (onB) {
+			setStarterState("done");
+		}
+	} else if (onA && !settingsLocked()) {
+		undoStarterSet();
+	} else if (onB) {
+		setStarterState("done");
+	}
+	// Swallow every click inside the box, so a miss on the buttons cannot toggle a checkbox
+	// hidden behind the panel or reach the row underneath.
+	return true;
+}
+
+/** Turn on exactly the starter five, announce them, and switch to the undo state. Offered,
+ * never automatic — only reached from a deliberate click, and never while locked. */
+function applyStarterSet(): void {
+	for (const key of STARTER_FEATURES) {
+		if (!getFeatures()[key]) {
+			setFeature(key, true);
+			onToggle(key, true);
+		}
+	}
+	setStarterState("applied");
+	notifyLocal(`Turned on the basics: ${STARTER_WORDS}. All session-only — untick any, or press Undo.`);
+}
+
+function undoStarterSet(): void {
+	for (const key of STARTER_FEATURES) {
+		if (getFeatures()[key]) {
+			setFeature(key, false);
+			onToggle(key, false);
+		}
+	}
+	setStarterState("new");
+	notifyLocal("Reverted the starter set — everything is off again.");
+}
 
 function drawAttemptControl(): void {
 	const locked = settingsLocked();

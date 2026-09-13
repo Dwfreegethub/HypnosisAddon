@@ -105,6 +105,18 @@ export const SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 3);
  * in code, the same pattern as depthGates. See §2. */
 export const DEFAULT_SKILL_HONOUR = "trusted";
 
+/** The starter set offered on first launch (proposal §9). Deliberately the mildest, most
+ * obviously-reversible five: enough to show what the add-on does, nothing that persists past
+ * the session or deceives the subject. Kept here as the single source so the button and its
+ * test agree on exactly which. */
+export const STARTER_FEATURES: (keyof FeatureToggles)[] = [
+	"hypnoEnabled",
+	"movementRestriction",
+	"speechRestriction",
+	"postureControl",
+	"clothingRestriction",
+];
+
 /** The decided default. Read by anyone who has to name a limit without one to read —
  * notably the hypnotist's view of a subject who has not told us theirs. */
 export const DEFAULT_MAX_ATTEMPTS = 2;
@@ -352,6 +364,9 @@ interface HypnoAddonSettings {
 	 * default stays reversible (§2, and the same reasoning as depthGates). One of
 	 * SKILL_HONOUR_RUNGS; an invalid stored value is dropped on load. */
 	skillHonour?: string;
+	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
+	 * dismissed. Sparse, so a fresh install is "new" with nothing stored. */
+	starterState?: string;
 	/** The player's OWN practice as a hypnotist, as an interaction COUNT through the shared
 	 * curve — never a stored value — exactly like `experience`. Transmitted (derived) on every
 	 * induction this player attempts; what the far side then does with it is their setting. */
@@ -930,6 +945,19 @@ export function getMaxAttempts(): number {
 /** The subject's honour rung — the code default when they have never chosen. */
 export function getSkillHonour(): string {
 	return loadSettings().skillHonour ?? DEFAULT_SKILL_HONOUR;
+}
+
+/** First-launch starter state: "new" until the subject either takes the offer or waves it off. */
+export function getStarterState(): "new" | "applied" | "done" {
+	const s = loadSettings().starterState;
+	return s === "applied" || s === "done" ? s : "new";
+}
+export function setStarterState(state: "new" | "applied" | "done"): void {
+	// "new" is the ABSENCE of a choice, so it is stored as absence — the same sparse pattern as
+	// every other reversible default here.
+	if (state === "new") delete loadSettings().starterState;
+	else loadSettings().starterState = state;
+	saveSettings();
 }
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;

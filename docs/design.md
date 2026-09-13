@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.69.1.*
+*Design notes and decision log — work in progress. Code at v0.70.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1822,7 +1822,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - Widen the suggestion pattern library as gaps turn up in play
 - ~~**Hypnotist global skill in the induction roll.**~~ **Built v0.66.0, rungs 1–3.** The "declared and visible" model: the hypnotist's client sends a derived 0–100 value with each attempt; the subject's client alone decides how much of it counts, through a four-rung honour setting on the Depth tab (default rung 2, "Only from people I trust"). Skill feeds `depthFull` only, never `depthEarned`, so it can raise a roll but never reach the three features that outlive the session or lie about the body. The prompt gains a private instinct clause read off the *honoured* value. **Rung 4 ("Skill can beat my resistance") is honoured but not OFFERED by the settings cycle** — it is the CNC rung, and the proposal gates offering it on dual fatigue existing. Still deferred from §5: the rolling-hour practice cap (anti-grind on the stat's growth) and demoting the Stats tab behind an Advanced button. Full working in [`declared-skill-proposal.md`](declared-skill-proposal.md).
 - **The Fight-never-worse-than-Ignore invariant.** Below an honoured skill of 50 the proposed skill formula gives a fighting subject *worse* odds than one who ignores — `Fight = max(5 + 0.25v, …)` overtakes `Ignore = max(5, 0.35v)` whenever `v < 50`. Nonsense on its face and easy to find in play. Fix by computing Ignore first and using it as a hard upper bound on Fight, expressed as an invariant so it survives retuning, with a swept test assertion. **Blocks the skill ladder.** Found 2026-09-09 while pricing the rung-3 cap.
-- **First-launch guidance and the starter-set button.** Every permission ships `false`, `hypnoEnabled` included, so a fresh install does nothing at all and a new user cannot distinguish broken from off. Not the wizard — a note plus one button offering five session-scoped permissions, on the line `earnedOnly` already draws: nothing that outlives the session, nothing that lies to the subject about their own body. Set and reasoning in [`declared-skill-proposal.md`](declared-skill-proposal.md) §9.
+- ~~**First-launch guidance and the starter-set button.**~~ **Built v0.70.0.** A first-time subject sees an offer in the empty lower-right of the Permissions tab: *turn on a safe starter set* — `hypnoEnabled`, movement, speech, posture, wardrobe (`STARTER_FEATURES` in storage.ts). It **pre-ticks nothing** (offered, not applied), **says what it turned on**, and undoes in one click; it then dismisses and does not return. The set is pinned by `test/starter.mjs` against the earned-only gates, so no persistent or deceiving flag can be added to it without failing. Reasoning: `declared-skill-proposal.md` §9.
 - ~~**`MAX_ATTEMPTS` never got its decided value.**~~ **Built v0.65.0** (and the settings lock widened to cover attempts in v0.65.1) as `maxAttempts` in storage.ts, read live through `maxAttempts()` in session.ts and set by a click-to-cycle button on the Permissions tab. Two values only, 2 and 3, because that is what was decided — a wider range would be re-deciding it. Existing saved settings have no such field, and absent means "never chose", so an upgrade moves from the old hardcoded 3 to the decided 2; see the note in `normalise()` for why that is not the decay rates' case. Covered by `test/attempts.mjs`.
 - **Dual fatigue system — promoted, and it now blocks something.** Both counters (subject resistance fatigue, hypnotist fatigue) are designed in *Dual Fatigue System* above and **entirely unbuilt** — `grep -ri fatigue src/` returns nothing.
 
@@ -1868,6 +1868,28 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-12 (v0.70.0) — the starter set
+
+The onboarding cliff, closed. Two people install this to try it together; he attempts an
+induction; her client refuses — every permission ships `false`, `hypnoEnabled` included — and all
+he is told is *"They aren't open to hypnosis."* She never refused; she was never asked. Neither can
+tell the add-on being off from the add-on being broken, and the first thing it did was make her
+look like she said no.
+
+A first-time subject now sees an offer in the empty lower-right of the Permissions tab: **turn on a
+safe starter set** — hypnosis, movement, speech, posture, wardrobe. The five are the mildest and
+most obviously reversible, all session-scoped, chosen on the same line `earnedOnly` already draws:
+nothing that outlives the trance, nothing that deceives the subject about their own body. The flags
+that persist (triggers, carry), deceive (illusion, the awareness suppressors) or remove an exit
+(`lockedWhileHypnotized`) are deliberately out, and `test/starter.mjs` pins the set against the
+earned-only gates so none can creep in.
+
+Three properties the proposal insisted on, all held: it is **offered, not applied** — the note
+pre-ticks nothing and does nothing until clicked; it **says exactly what it turned on**; and it
+**undoes in one click**. Taking it or waving it off dismisses it for good (`starterState`, sparse,
+so a fresh install is "new" and a reset returns to "new"). `STARTER_FEATURES` in storage.ts is the
+single source the button and the test share.
 
 ### Added 2026-09-12 (v0.69.1) — the help content read-through
 
@@ -3000,7 +3022,7 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 - [x] ~~**Per-feature depth selectors in the settings UI**~~ — **done in v0.50.0 after all.** The **Depth** tab carries one row per gated feature with a click-to-cycle tier button, the earned-only three marked as such, a chemical-scope control and a reset-to-defaults. This item was written from the deviation note ("per-feature UI selectors can follow in a later pass"), which referred to the *chemical scope* dropdown below, not the tier selectors.
 - [ ] **Chemical floor per-feature dropdown** — currently one global control (deferred from v0.50.0 spec). The design calls for Both/Arousal/Drugs/Neither per feature; right now it's one setting for everything.
-- [ ] **First-launch guidance** — full wizard can wait, but new users need some indication of what to enable and in what order. Even a simple "start here" note on the Permissions tab would help.
+- [x] ~~**First-launch guidance**~~ — **built v0.70.0.** The starter-set offer on the Permissions tab: a "New here?" note plus a one-click, one-click-undo button that turns on the five safe session-scoped basics. Not the wizard, but it closes the "a fresh install looks broken" cliff.
 
 ### Makes it feel right (do before wider release)
 
