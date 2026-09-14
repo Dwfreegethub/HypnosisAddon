@@ -2259,6 +2259,17 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
 
+### Decided 2026-09-13 — a compel action follows the trigger's scope (no installer clamp)
+
+Answers the ⚠ Scope question raised in *Commanded Activities — as trigger actions*: whether a compel
+action in a trigger should be clamped to the installer regardless of the trigger's scope. **DW's
+call: no clamp — a compel follows the trigger's scope like any other action.** The subject chooses
+the rung (default *Hypnotist only*), and nothing here bypasses a gate: `triggersArmed()` still needs
+`hypnoEnabled` + `triggerControl`, the per-action re-check still needs `compelActivity`, and BC still
+refuses zones/activities she disabled. So a subject who widens the scope has chosen that a compel
+fires that widely. No code change — v0.72.4 already behaves this way; recorded so it is not
+re-opened.
+
 ### Added 2026-09-13 (v0.72.5) — a fired trigger's actions are paced, one at a time
 
 DW: when a trigger hits, "the character basically does them all at once" — he wants a slight delay
