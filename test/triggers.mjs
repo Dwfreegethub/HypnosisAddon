@@ -19,6 +19,25 @@ globalThis.CharacterSetActivePose = () => {};
 let said = [];
 globalThis.ChatRoomSendLocal = (m) => said.push(m);
 
+// A controllable clock. A fired trigger's actions are now PACED (v0.72.5) — the first lands at
+// once, the rest drain through timers.ts on a short jittered delay — and the auto-release runs
+// through timers.ts too. So capture setTimeout and fire the sub-minute paced steps by hand with
+// drainPaced(), leaving the minutes-long release timers pending. timers.ts reads the global
+// setTimeout at scheduling time, so this has to be in place before the first fire.
+const pendingTimers = [];
+globalThis.setTimeout = (fn, ms = 0) => { pendingTimers.push({ fn, ms, live: true }); return pendingTimers.length; };
+globalThis.clearTimeout = (id) => { if (typeof id === "number" && pendingTimers[id - 1]) pendingTimers[id - 1].live = false; };
+/** Fire all pending SHORT timers (the paced drain), repeatedly since each step schedules the next.
+ * Leaves the long auto-release timers alone, which is what every assertion here depends on. */
+const drainPaced = () => {
+	for (let guard = 0; guard < 1000; guard++) {
+		const i = pendingTimers.findIndex((t) => t.live && t.ms < 60_000);
+		if (i < 0) return;
+		pendingTimers[i].live = false;
+		pendingTimers[i].fn();
+	}
+};
+
 const { depth, voice, storage, triggers, timers, build } = await import("./harness-bundle.mjs");
 // Depth is the gate now, not trust. Planting a trigger, carrying a suggestion and the
 // clothing illusion all need a Deep trance by default, measured against the EARNED depth —
@@ -94,6 +113,7 @@ check("ignores unrelated line", triggers.triggersFiredBy(HYP, "hello there").len
 // --- firing, with NO session (the whole point) ---
 said = [];
 voice.handleSpokenLine(HYP, "sleepy time");
+drainPaced(); // let the paced steps past the first land before counting
 check("fires outside a session", said.length >= 2, true);
 
 // permission revoked disarms that action
@@ -160,6 +180,7 @@ check("body parts stored as parameterised ids", storage.listTriggers()[0].action
 // --- firing a body-part trigger ---
 said = [];
 voice.handleSpokenLine(HYP, "no touchy");
+drainPaced(); // both parts, one paced step at a time
 check("body-part trigger fires both", said.length, 2);
 
 storage.setFeature("selfTouchControl", false);
@@ -167,6 +188,34 @@ said = [];
 voice.handleSpokenLine(HYP, "no touchy");
 check("revoked self-touch disarms them", said.length, 0);
 storage.setFeature("selfTouchControl", true);
+
+// --- pacing: a multi-action trigger lands one step at a time (v0.72.5) --------------------------
+// DW: a trigger used to do everything in one tick, so the body did them all at once. Now the first
+// action lands immediately and the rest drain on a short delay — one at a time, more watchable.
+storage.forgetAllTriggers();
+triggers.beginRecording(HYP, "GameBot", "one by one");
+triggers.recordAction("touch:breasts");
+triggers.recordAction("touch:pussy");
+triggers.recordAction("touch:ass");
+triggers.commitRecording();
+said = [];
+voice.handleSpokenLine(HYP, "one by one");
+check("only the first action lands at once", said.length, 1);
+drainPaced();
+check("the rest arrive on the paced clock", said.length, 3);
+
+// --- a compel action does not put the trigger into "holding" (v0.72.4/.5) -----------------------
+// A compel is a one-shot event, not a grip. It must not mark the trigger active, or the list would
+// show ** HOLDING YOU NOW ** and /hypno forgettrigger would refuse — for something holding nothing.
+storage.setFeature("compelActivity", true);
+storage.forgetAllTriggers();
+triggers.beginRecording(HYP, "GameBot", "act now");
+triggers.recordAction("act:Caress:breasts");
+triggers.commitRecording();
+voice.handleSpokenLine(HYP, "act now");
+drainPaced();
+check("a compel-only trigger is not 'holding' the subject", voice.isTriggerInEffect(storage.listTriggers()[0]), false);
+storage.forgetAllTriggers();
 
 // --- the phrase never reaches the subject ---
 // The subject sees atmosphere; the hypnotist gets the phrase. A subject who can read their

@@ -1110,6 +1110,34 @@ function handleTriggerControl(sender: number, content: string): boolean {
 
 /** Run a trigger's stored actions. Each one re-checks its own permission NOW, not when the
  * trigger was planted — revoking a permission has to disarm that part of every trigger. */
+// Pacing a fired trigger's actions (DW, 2026-09-13). A trigger used to apply everything in one
+// synchronous tick, so a multi-action trigger read as a pile-up — the body did them all at once.
+// Now each action lands on its own jittered tick. 1.2s-2.0s per step: about as long as clicking
+// an activity in BC takes, so it reads as a body doing something rather than a list draining;
+// jittered so it is not a metronome. (This paces actions WITHIN a fired trigger; pacing successive
+// LIVE commands is a separate, still-unbuilt piece — see design.md's "Commanded Activities —
+// pacing".)
+const TRIGGER_STEP_BASE_MS = 1200;
+const TRIGGER_STEP_JITTER_MS = 800;
+
+/** Apply an ordered list of trigger steps, one per paced tick. The first runs immediately so the
+ * trigger feels responsive; the rest drain through a keyed timer, so a safeword / wake / hard
+ * floor cancels a half-drained sequence (endSession and totalStop both call clearAllTimers)
+ * rather than leaving it running against a subject who is no longer under. Re-firing restarts it —
+ * scheduleTimer replaces by key, so one trigger can never stack two drains. */
+function drainTriggerSteps(trigger: Trigger, steps: (() => void)[]): void {
+	if (!steps.length) return;
+	steps[0]();
+	if (steps.length === 1) return;
+	const key = `trigger-drain:${trigger.installedBy}:${trigger.phrase}`;
+	let i = 1;
+	const tick = () => {
+		steps[i++]();
+		if (i < steps.length) scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+	};
+	scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+}
+
 function fireTrigger(trigger: Trigger): void {
 	if (!triggersArmed()) {
 		log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
@@ -1136,7 +1164,14 @@ function fireTrigger(trigger: Trigger): void {
 		noteTriggerFired(trigger);
 		return;
 	}
-	let fired = 0;
+	// Gate every action NOW (permission, strength), but defer its APPLICATION into a paced step
+	// list. `holding` counts the restriction actions (blocks, suggestions) that grip the subject
+	// and so arm the auto-release; a compel is a one-shot event and must NOT reach that machinery,
+	// or a compel-only trigger would report itself as gripping her and refuse forgettrigger — so
+	// it is counted apart.
+	const steps: (() => void)[] = [];
+	let holding = 0;
+	let compels = 0;
 	let tooWeak = 0;
 	for (const id of trigger.actions) {
 		// Body-part actions carry their parameter in the id ("touch:breasts"), since the
@@ -1147,34 +1182,42 @@ function fireTrigger(trigger: Trigger): void {
 				continue;
 			}
 			const word = id.slice("touch:".length);
-			if (word === "all") setAllSelfTouchBlocked(true);
-			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], true);
-			else continue;
-			// A trigger fires with no spoken instruction behind it, so the subject has no idea
-			// which part was just closed off. Saying so would hand them what the trigger does,
-			// which is the one thing triggers deliberately keep back.
-			announce(word === "all" ? "selftouch-applied" : "restriction-settles");
-			fired++;
+			if (word !== "all" && !BODY_PARTS[word]) continue;
+			holding++;
+			steps.push(() => {
+				if (word === "all") setAllSelfTouchBlocked(true);
+				else setBodyPartBlocked(word, BODY_PARTS[word], true);
+				// A trigger fires with no spoken instruction behind it, so the subject has no idea
+				// which part was just closed off. Saying so would hand them what the trigger does.
+				announce(word === "all" ? "selftouch-applied" : "restriction-settles");
+			});
 			continue;
 		}
 		// Compelled activities ("act:Caress:breasts") — a real BC activity the trigger makes the
-		// subject perform on themselves. Permission re-checked here like everything else; a real
-		// restraint that freezes still stops it, while our own freeze is overridden because the
-		// trigger is a planted command. It is a one-shot event, so there is nothing for the
-		// auto-release to undo — undoTrigger no-ops it, the same as orgasm-force.
+		// subject perform on themselves. A one-shot event: undoTrigger no-ops it, like orgasm-force.
 		if (id.startsWith("act:")) {
 			if (!features.compelActivity) {
 				log(`trigger "${trigger.phrase}": ${id} skipped, compelActivity not granted`);
 				continue;
 			}
-			if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
-				log(`trigger "${trigger.phrase}": ${id} skipped, a real restraint has them frozen`);
-				continue;
-			}
-			// No announce: ActivityRun renders the activity as a visible room message, exactly
-			// like she clicked it, so that IS the feedback — a separate local line would be a
-			// second, redundant tell of the same thing.
-			if (performActivityAction(id)) fired++;
+			compels++;
+			// Re-validated on its OWN tick, not here: a restraint, a chastity belt, or an untick
+			// can land during the pause between steps, and ActivityRun validates nothing.
+			// runCommandedActivity re-reads ActivityAllowedForGroup (so a belt landing mid-drain
+			// yields nothing), and the permission and our-vs-real freeze are re-checked here too.
+			steps.push(() => {
+				if (!getFeatures().compelActivity) {
+					log(`trigger "${trigger.phrase}": ${id} dropped mid-pace — compelActivity revoked`);
+					return;
+				}
+				if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+					log(`trigger "${trigger.phrase}": ${id} dropped mid-pace — a real restraint has them frozen`);
+					return;
+				}
+				// No announce: ActivityRun renders the activity as a visible room message, so that
+				// IS the feedback — a separate local line would double-tell the same thing.
+				performActivityAction(id);
+			});
 			continue;
 		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
@@ -1197,20 +1240,24 @@ function fireTrigger(trigger: Trigger): void {
 			tooWeak++;
 			continue;
 		}
-		announce(suggestion.run() || suggestion.id);
-		fired++;
+		holding++;
+		steps.push(() => announce(suggestion.run() || suggestion.id));
 	}
 	log(
-		`trigger "${trigger.phrase}" fired ${fired}/${trigger.actions.length} actions ` +
+		`trigger "${trigger.phrase}" firing ${steps.length} step(s) — ${holding} holding, ${compels} compel — ` +
 			`at strength ${strength}${tooWeak ? ` (${tooWeak} too weak)` : ""}`,
 	);
 	// Counted whether or not anything landed. A trigger that fired and reached nothing was
 	// still USED, and passive reinforcement is about use rather than success.
 	noteTriggerFired(trigger);
-	if (fired) {
+	// A holding action grips the subject, so it arms the auto-release even though it is applied on
+	// a paced tick — the few seconds of drain is nothing against a release measured in minutes,
+	// and a teardown clears the drain and the release together. A compel holds nothing.
+	if (holding) {
 		markActive(timerKey(trigger));
 		scheduleAutoRelease(trigger);
 	}
+	drainTriggerSteps(trigger, steps);
 }
 
 /** Which permission a suggestion is actually running under right now — the shallowest one
