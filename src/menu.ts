@@ -842,9 +842,45 @@ function settingsLocked(): boolean {
 	return getFeatures().lockedWhileHypnotized && isSessionLive();
 }
 
+/** The Identifier this add-on registers under, used both to register the settings screen
+ * below and to find it again when a chat command jumps straight to the help. */
+const EXTENSION_ID = "HypnosisAddon";
+
+/** Open Preferences > Extensions > Hypnosis Add-on with the on-screen guide already showing —
+ * the target of `/hypno help`, so the full illustrated guide is one line away from chat.
+ *
+ * This does exactly what clicking our entry in the Extensions list does (verified against
+ * R131): PreferenceOpenSubscreen switches to Preferences and builds the list from any screen,
+ * then we enter our own entry — set it current, hide BC's list DOM, run its load — and open
+ * help on top. load() closes help as part of its reset, so openHelp() comes last.
+ *
+ * Every BC global it touches is typeof-guarded: if a future release renames one, this returns
+ * false rather than throwing, and the caller points the user at the manual path instead. */
+export async function openHelpScreen(): Promise<boolean> {
+	try {
+		if (typeof PreferenceOpenSubscreen !== "function" || typeof PreferenceExtensionsSettings === "undefined") {
+			return false;
+		}
+		await PreferenceOpenSubscreen("Extensions");
+		const screen = PreferenceExtensionsSettings[EXTENSION_ID];
+		if (!screen) return false;
+		PreferenceExtensionsCurrent = screen;
+		// Mirror the list-entry click: hide BC's own Extensions list DOM so it does not float
+		// over our canvas help. Best-effort — the guide still draws if these globals moved.
+		if (typeof ElementWrap === "function" && typeof PreferenceIDs !== "undefined") {
+			ElementWrap(PreferenceIDs.subscreen)?.toggleAttribute("hidden", true);
+		}
+		screen.load?.();
+		openHelp();
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
-		Identifier: "HypnosisAddon",
+		Identifier: EXTENSION_ID,
 		ButtonText: "Hypnosis Add-on",
 		// Our spiral icon beside the label in Preferences > Extensions (icon.ts). Undefined
 		// if it could not be built, which BC accepts — the entry then shows text only.

@@ -52,6 +52,21 @@ declare function DrawButton(
 // own back button entirely while PreferenceExtensionsCurrent is set, so without calling
 // this from our own UI there is no way out of the screen at all.
 declare function PreferenceSubscreenExtensionsClear(): Promise<void>;
+// Opening our own settings screen straight from a chat command — the pieces BC's own
+// Extensions list uses when you click an entry, verified against R131 (Preference.js and
+// Screens/Character/Preference/Extensions.js):
+//  - PreferenceOpenSubscreen is self-sufficient: from any screen it loads Preferences and
+//    builds the named subscreen's DOM, awaiting that subscreen's own load().
+//  - Registered extension settings live in PreferenceExtensionsSettings, keyed by Identifier.
+//  - PreferenceExtensionsCurrent is the open one; the Extensions run() delegates to
+//    PreferenceExtensionsCurrent.run() while it is set. Clicking an entry also hides BC's
+//    own list DOM (ElementWrap(PreferenceIDs.subscreen)), which we mirror. Every one of
+//    these is typeof-guarded at the call site, so a renamed global degrades gracefully.
+declare function PreferenceOpenSubscreen(subscreen: string, page?: number): Promise<void>;
+declare const PreferenceExtensionsSettings: Record<string, { load?: () => void; run?: () => void } | undefined>;
+declare let PreferenceExtensionsCurrent: { load?: () => void; run?: () => void } | null;
+declare const PreferenceIDs: { subscreen: string; [key: string]: string };
+declare function ElementWrap(id: string): HTMLElement | null | undefined;
 // The character currently shown on the Information Sheet screen (module-level global in
 // Screens/Character/InformationSheet/InformationSheet.js, not a hook argument).
 declare const InformationSheetSelection: any;

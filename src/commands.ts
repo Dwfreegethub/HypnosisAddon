@@ -44,6 +44,7 @@ import {
 	isHypnotized,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
+import { openHelpScreen } from "./menu";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -162,37 +163,106 @@ interface HypnoCommand {
 // not by hooking CommandParse — that runs BEFORE registry lookup and would still hit
 // BC's "no such command" path for anything we didn't recognize ourselves, fighting the
 // game's own validation instead of using the extension point it already provides.
+// Where the full guide lives if the on-screen jump can't run — the manual path is the
+// fallback for `/hypno help`, and the tail of the bare `/hypno` menu.
+const GUIDE_LOCATION = "Preferences > Extensions > Hypnosis Add-on — the ? button (or the Help button in the remote panel).";
+
+/** The bare `/hypno` menu: a short, friendly signpost rather than a wall of commands.
+ * Points at the two ways to go deeper — the on-screen guide and the full typed list —
+ * so the dense command dump moved to `/hypno commands` for anyone who wants it. */
+function menuLines(): string[] {
+	return [
+		"BC Hypnosis Add-on — most of this works by SPEAKING to someone in a session, not by typing.",
+		"  /hypno help — open the full on-screen guide: what to say, trust, depth, triggers",
+		"  /hypno commands — list every typed command",
+		"  /hypno match <phrase> — check what a phrase would do, and why nothing happened",
+		"  /hypno safeword — hard stop; clears everything, always works",
+	];
+}
+
+/** `/hypno commands`: the typed commands, one readable line per group instead of the old
+ * single pipe-delimited dump. GENERATED from COMMANDS so it can't drift, and the Testing
+ * group is listed only inside the Hypno Testing room — the same gate the commands obey. */
+function commandListLines(): string[] {
+	const ORDER: HypnoCommand["group"][] = ["Session", "Diagnostics", "Data", "Testing"];
+	const NOTE: Record<HypnoCommand["group"], string> = {
+		Session: "safeword never fails",
+		Diagnostics: "look, change nothing",
+		Data: "your settings & stats",
+		Testing: "Hypno Testing room only",
+	};
+	const lines: string[] = ["Typed commands — most features are SPOKEN, not typed:"];
+	for (const group of ORDER) {
+		// Same room gate the commands themselves use: don't even name the Testing group elsewhere.
+		if (group === "Testing" && !isTestingMode()) continue;
+		const inGroup = COMMANDS.filter((c) => c.group === group);
+		if (!inGroup.length) continue;
+		const tags = inGroup.map((c) => (c.args ? `${c.Tag} ${c.args}` : c.Tag)).join(", ");
+		lines.push(`${group} (${NOTE[group]}): ${tags}`);
+	}
+	lines.push("Full illustrated guide: /hypno help · what a phrase does and why not: /hypno match <phrase>");
+	return lines;
+}
+
 export function installCommands(): void {
-	// The bare `/hypno` summary is GENERATED from this list rather than written out
-	// separately. It was a hand-maintained string and had drifted behind the commands it
-	// described — which is what a duplicated source of truth always eventually does.
-	const summary = ["Session", "Diagnostics", "Data", "Testing"]
-		.map((g) => {
-			const inGroup = COMMANDS.filter((c) => c.group === g).map((c) => (c.args ? `${c.Tag} ${c.args}` : c.Tag));
-			return `${g}: ${inGroup.join(", ")}`;
-		})
-		.join(" | ");
+	// Two meta-commands sit ahead of the feature list: `help` jumps into the on-screen guide,
+	// `commands` prints the full typed list. They are NOT in COMMANDS — the guide and the
+	// command list document the features, and would only point back at themselves.
+	const metaCommands = [
+		{
+			Tag: "help",
+			Description: "Open the full on-screen guide",
+			Action: () => {
+				openHelpScreen()
+					.then((ok) => {
+						// A silent success is fine here — the screen visibly changes. Only a failure
+						// needs words, and it gets the manual path rather than nothing (design rule 5).
+						if (!ok) reply(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`);
+					})
+					.catch(() => reply(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`));
+			},
+		},
+		{
+			Tag: "commands",
+			Description: "List every typed command",
+			Action: () => {
+				for (const line of commandListLines()) reply(line);
+			},
+		},
+	];
 
 	CommandCombine({
 		Tag: "hypno",
 		Description:
 			"BC Hypnosis Add-on — session control, diagnostics and test commands",
 		Action: () => {
-			reply(
-				"Most of this add-on is used by SPEAKING to someone during a session, not by command. " +
-					"The full guide — what to say, how trust works, every command — is under " +
-					"Preferences > Extensions > Hypnosis Add-on > Help, and on the Help button in the " +
-					"remote panel.",
-			);
-			reply(summary);
-			reply("Stuck on a phrase? /hypno match <phrase> reports what it would do and why not.");
+			for (const line of menuLines()) reply(line);
 		},
 		// Fold the argument hint into the Description BC renders, so its own help screen
 		// shows it too rather than only our summary line.
-		Subcommands: COMMANDS.map(({ group: _group, args, Description, ...cmd }) => ({
-			...cmd,
-			Description: args ? `${args} — ${Description}` : Description,
-		})),
+		//
+		// Every Testing-group command is gated to the testing room HERE, at the one place they
+		// are all registered — so the gate covers the whole group at once, including the ones
+		// (settrust, relate, …) that never carried their own runtime check and any added later,
+		// rather than depending on each Action to remember to check. The help screen already
+		// hides the group outside the room; this is what actually stops them running.
+		Subcommands: [
+			...metaCommands,
+			...COMMANDS.map(({ group, args, Description, ...cmd }) => ({
+				...cmd,
+				Description: args ? `${args} — ${Description}` : Description,
+				Action:
+					group === "Testing"
+						? (a: string) => {
+								if (!isTestingMode()) {
+									reply("Not available — join the Hypno Testing room to use this test command.");
+									return;
+								}
+								cmd.Action(a);
+							}
+						: cmd.Action,
+			})),
+		],
 	});
 
 	installBotCommand();
