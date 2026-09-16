@@ -178,6 +178,24 @@ check("body part, public names the character", /Missy/.test(room[0] ?? ""), true
 check("  and uses their pronoun", /\bher\b/.test(room[0] ?? ""), true);
 check("  with nothing left unfilled", /\{\w+\}/.test(room[0] ?? ""), false);
 
+// --- the two spectator-only moments: induction begins, and the subject goes under ---------
+// These are room-only signals (the subject gets their own lines elsewhere): the induction
+// start was previously invisible to onlookers, and going under gave the hypnotist no cue.
+for (const [label, fn] of [["induction begins", flavor.announceInductionBegin], ["goes under", flavor.announceTranceEnter]]) {
+	local = []; room = [];
+	fn();
+	check(`${label}: the room sees one line`, room.length, 1);
+	check(`  ${label}: names the character`, /Missy/.test(room[0] ?? ""), true);
+	check(`  ${label}: nothing left unfilled`, /\{\w+\}/.test(room[0] ?? ""), false);
+	check(`  ${label}: says nothing privately to the subject`, local.length, 0);
+}
+
+// The trigger-ghost public line used {they}, which fillTokens does not fill — it would have
+// reached the room as a literal "{they}". Guard every filled public line against that class.
+for (const key of ["trigger-ghost", "undress", "undress-all", "kneel", "selftouch-blocked", "orgasm-refused"]) {
+	check(`public "${key}" leaves no token unfilled`, /\{\w+\}/.test(flavor.publicFlavor(key) ?? ""), false);
+}
+
 // --- who is allowed to draw the brackets --------------------------------------------------
 // notify.ts owns them. v0.33.0 made half of that structural — no direct ChatRoomSendLocal
 // anywhere else — but nothing stopped a caller ALSO wrapping its own text, and recovery.ts

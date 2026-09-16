@@ -1,5 +1,6 @@
 import { log, TESTING_MODE } from "./log";
 import { tellPlayer } from "./notify";
+import { announceInductionBegin, announceTranceEnter } from "./flavor";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
@@ -708,6 +709,10 @@ function runInductionRoll(): void {
 		// The accelerator, and the practice. Both halves only on success.
 		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
 		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
+		// The room's cue that it landed — the only signal the hypnotist gets, since the line
+		// above is the subject's alone. Here rather than in applyTranceState so a reconnect,
+		// which reuses that path, does not re-announce the drop.
+		announceTranceEnter();
 		log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
 	} else if (session.attempts >= maxAttempts()) {
 		session.phase = "CooldownRequired";
@@ -865,6 +870,9 @@ export function leaveWalkingTrance(): boolean {
 
 function beginInductionWindow(): void {
 	session.phase = "InductionInProgress";
+	// What onlookers see now that the hypnotist is actually working — until now the whole
+	// induction was silent to the room. Choice-agnostic, so it never leaks agree/ignore/fight.
+	announceInductionBegin();
 	// Fresh count per attempt. The attempts in a session are separate performances,
 	// and letting the first one's effort pay for the third would reward giving up.
 	session.rpLines = 0;

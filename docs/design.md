@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.8.*
+*Design notes and decision log — work in progress. Code at v0.72.9.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -2282,6 +2282,31 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Changed 2026-09-15 (v0.72.9) — flirtier flavor, and two spectator moments that were silent
+
+DW's polish pass. Two parts.
+
+**Flirtier flavor.** Rewrote the sensual/submission lines (`flavor.ts`) a shade warmer and more
+playful while keeping the house register — the body acts, the subject notices late, control is
+something that happens *to* them. Touched the arousal, orgasm, undress, kneel and self-touch
+families, both the private (subject) and public (room) halves. Left the **"absence" lines**
+deliberately alone — awareness, numbness, speech-block, the illusion, movement/perception — because
+they are about *nothing arriving*, and flirty does not fit them. DW's call, 2026-09-15: "adjust all
+in that direction."
+
+**Two spectator moments that showed nothing.** Onlookers saw nothing when an induction *began*, and
+the hypnotist had no cue the subject had *gone under* (the "you slip under" line is the subject's
+alone). Added two room-only lines via new `flavor.ts` helpers, both gated by the subject's "Others
+see your reactions" setting like every public line:
+- `announceInductionBegin()` — fired from `beginInductionWindow` (`session.ts`). **Choice-agnostic**,
+  so it never leaks the private agree/ignore/fight.
+- `announceTranceEnter()` — fired from the success branch of `runInductionRoll`, **not** from
+  `applyTranceState`, so a reconnect (which reuses that path) does not re-announce the drop.
+
+**Also fixed a latent bug found in passing:** the `trigger-ghost` public line used `{they}`, which
+`fillTokens` does not fill — it would have reached the room as a literal "{they}". Reworded to drop
+it, and `test/notify.mjs` now guards every filled public line against an unfilled token (→ 84).
 
 ### Added 2026-09-15 (v0.72.8) — a real icon: the two-arm spiral
 

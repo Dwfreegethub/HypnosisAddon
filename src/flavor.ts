@@ -93,7 +93,7 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} stops moving, as though the idea had gone.",
 	],
 	"movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
-	kneel: ["{name} sinks to {their} knees without seeming to decide to.", "{name} kneels, unhurried and unquestioning."],
+	kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
 	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
 	// INTO one is observable, which is why the attempt keys carry the public lines and the
@@ -103,13 +103,13 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	// everyone in the room is looking at, so unlike every other apply-time effect these get
 	// a public line rather than staying silent.
 	undress: [
-		"{name} slips out of something, unhurried, without seeming to decide to.",
-		"{name}'s hands undo a fastening while {their} face stays somewhere far away.",
-		"Something of {name}'s comes off, set aside without a glance.",
+		"{name} slips out of something slow and dreamy, and doesn't seem to mind being watched.",
+		"{name}'s hands undo a fastening while {their} face stays somewhere soft and far away.",
+		"Something of {name}'s comes off, set aside without a glance, unhurried and unbothered.",
 	],
 	"undress-all": [
-		"{name} undresses steadily, piece after piece, attending to none of it.",
-		"{name} takes everything off with the unbothered thoroughness of a habit.",
+		"{name} undresses steadily, piece after piece, dreamy and unhurried and glad to be seen.",
+		"{name} bares everything with the soft, unbothered thoroughness of a habit.",
 	],
 	"undress-blocked": [
 		"{name}'s hands move to undress and stop, held.",
@@ -121,7 +121,7 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	// A ghost is visible from outside as a hesitation and no more — which is exactly what it
 	// is. The room should not be able to tell it apart from someone losing their thread.
 	"trigger-ghost": [
-		"{name} pauses, as though {they} had half-heard {their} name.",
+		"{name} pauses, as though half-hearing {their} own name.",
 		"Something goes across {name}'s face and does not stay.",
 	],
 	"clothing-blocked-attempt": [
@@ -130,14 +130,14 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	],
 	"selftouch-frozen": ["{name} twitches towards {themselves}, and nothing moves."],
 	"selftouch-blocked": [
-		"{name} starts to reach for {themselves}, and thinks better of it.",
-		"{name}'s hands stay exactly where they are.",
+		"{name} starts to reach for {themselves}, aches to, and doesn't.",
+		"{name}'s hands stay exactly where they are, though {their} whole body plainly wishes otherwise.",
 	],
 	"speech-blocked-attempt": [
 		"{name} opens {their} mouth, and nothing comes out.",
 		"{name} tries to say something, and does not.",
 	],
-	"orgasm-refused": ["{name} strains for it, and something holds {them} back."],
+	"orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."],
 };
 
 const LINES: Record<FlavorKey, string[]> = {
@@ -169,9 +169,9 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your hands remember what they were for.",
 	],
 	kneel: [
-		"Your knees fold under you before you decide to kneel.",
-		"The floor is where you should be, and you are already going down.",
-		"You are kneeling. You don't remember choosing to.",
+		"Your knees fold sweetly under you before you decide anything.",
+		"Down feels right, and something in you is quietly pleased to go there.",
+		"You are kneeling. You don't remember choosing to, and you like it here.",
 	],
 	stand: [
 		"You rise, without quite deciding to.",
@@ -251,14 +251,14 @@ const LINES: Record<FlavorKey, string[]> = {
 	// everyone in the room is looking at. These read as the hands acting first and the
 	// intention arriving late, same register as the rest, but they are not secrets.
 	undress: [
-		"Your hands find the fastening before you have decided anything.",
-		"It comes off. You are not sure you chose that, and you are not troubled by it.",
-		"Taking it off seems like the obvious thing to have been doing.",
+		"Your hands find the fastening before you've decided anything, and go willingly.",
+		"It comes off easy, and some warm, unhurried part of you is glad to be seen.",
+		"Taking it off feels like the obvious, pleasant thing to have been doing.",
 	],
 	"undress-all": [
-		"Your hands work without consulting you, and keep working until there is nothing left.",
-		"Piece by piece, and none of it feels like a decision.",
-		"You undress the way you would follow a habit — thoroughly, and without noticing.",
+		"Your hands work without consulting you, unhurried, until there is nothing left to bare.",
+		"Piece by piece it goes, and none of it feels like a decision — only something easy and warm.",
+		"You undress the way you would sink into a habit — thorough, dreamy, glad to.",
 	],
 	"undress-bare": [
 		"Your hands go looking for something to take off and find nothing there.",
@@ -292,14 +292,14 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Reaching would require moving, and you cannot move at all.",
 	],
 	"selftouch-blocked": [
-		"Your hands stay exactly where they are.",
-		"You were going to touch yourself. The impulse arrives and quietly leaves.",
-		"Touching yourself isn't among the things you're going to do.",
+		"Your hands stay exactly where they are, however much you would like them not to.",
+		"You want to touch yourself — and your hands stay put, and the wanting only sharpens.",
+		"Touching yourself isn't among the things you're allowed right now, and the ache of that is its own reward.",
 	],
 	"selftouch-applied": [
-		"Reaching for yourself quietly stops being one of your options.",
-		"Something closes off between you and your own hands.",
-		"You will not be touching yourself. The decision is already made, and it was not yours.",
+		"Reaching for yourself quietly stops being one of your options, and part of you thrills at that.",
+		"Something closes off between you and your own hands, and leaves the wanting nowhere to go.",
+		"You will not be touching yourself. The decision is already made, it was not yours, and you find you don't mind.",
 	],
 	// DW's wording, near enough: a restriction lands and the subject finds the not-knowing
 	// interesting rather than alarming. It has to stay vague — a trigger fires with no
@@ -322,39 +322,39 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your body cools, and takes the wanting with it.",
 	],
 	"arousal-light": [
-		"Something warm settles low in you, and stays.",
-		"A small heat starts up somewhere, uninvited.",
-		"You notice you are interested. You don't remember becoming interested.",
+		"A slow warmth curls low in you and gets comfortable, like it means to stay.",
+		"A small heat starts up somewhere, uninvited and not unwelcome.",
+		"You catch yourself wanting, and you don't remember when that started.",
 	],
 	"arousal-high": [
-		"The wanting arrives all at once and takes the room with it.",
-		"Your body is suddenly, obviously desperate, and no part of that was your idea.",
-		"Heat climbs through you faster than you can have an opinion about it.",
+		"The wanting floods in all at once, and suddenly nothing in the room exists but how much you want it.",
+		"Your body goes suddenly, shamelessly desperate, and no part of that was your idea.",
+		"Heat climbs through you faster than you can have an opinion about it, and you stop trying to.",
 	],
 	"arousal-full": [
-		"You are right at the edge and something is holding you there.",
-		"Everything in you is gathered and waiting, one word from going over.",
-		"You are so close it hurts, and going the rest of the way is not up to you.",
+		"You are right at the edge, trembling, and something is holding you there.",
+		"Everything in you is gathered and waiting, aching, one word from going over.",
+		"You are so close it hurts, and going the rest of the way is not up to you — and oh, you want it to be.",
 	],
 	"orgasm-force": [
-		"You go over, because you were told to. There was never a moment to decide.",
-		"Your body obeys before you understand what it was asked.",
+		"You go over, because you were told to, and the relief of not choosing is its own sweetness.",
+		"Your body obeys before you understand what it was asked, and it feels wonderful to.",
 		"It takes you, and you let it, because letting it was never the question.",
 	],
 	"orgasm-deny": [
-		"The way over closes quietly, and you accept that it is closed.",
-		"You could get close. You will not get past it, and you find you don't argue.",
-		"Finishing stops being one of the things available to you.",
+		"The way over closes quietly, and you accept that it is closed — even as you strain toward it.",
+		"You can get close, deliciously close, and no further, and you find you don't argue.",
+		"Finishing stops being one of the things available to you, and the wanting just pools and stays.",
 	],
 	"orgasm-allow": [
-		"The way over is open again, whenever it's offered.",
-		"Something unlocks, low down, and you could finish now.",
-		"Whatever was standing in the way steps aside.",
+		"The way over is open again, warm and waiting, whenever you're offered it.",
+		"Something unlocks low in you, eager, and you could finish now.",
+		"Whatever was standing in the way steps aside, and your body knows it at once.",
 	],
 	"orgasm-refused": [
-		"You strain for it and something holds you back. Nothing gives.",
-		"You are told to go over, and you cannot. The wanting has nowhere to go.",
-		"Your body reaches for it, finds the way shut, and stays where it is.",
+		"You strain for it, right to the edge, and something holds you back. Nothing gives.",
+		"You are told to go over, and you cannot — the wanting only builds with nowhere to go.",
+		"Your body reaches for it, finds the way shut, and hangs there aching.",
 	],
 	// The illusion's flavor has one job the others don't: it must not describe a CHANGE,
 	// because the subject is supposed to believe nothing has changed. So it reads as
@@ -449,4 +449,37 @@ export function bodyPartFlavor(part: string): string {
 		`Your hands get as far as your ${part} before forgetting why.`,
 	];
 	return options[Math.floor(Math.random() * options.length)];
+}
+
+/** The room-visible half of an induction beginning — what onlookers see while the hypnotist
+ * works, before anything has landed. Choice-agnostic on purpose: the subject's private
+ * agree / ignore / fight must never leak into what the room sees. Room-only (the subject gets
+ * their own prompt), and gated by their "Others see your reactions" setting through tellRoom,
+ * like every other public line. */
+export function announceInductionBegin(): void {
+	tellRoom(
+		fillTokens(
+			pick([
+				"{name}'s eyes soften and go distant as a low voice draws {their} attention in.",
+				"{name} goes quiet and still, {their} whole focus narrowing to a single voice.",
+				"{name}'s gaze drifts, catches, and settles on something the rest of the room cannot hear.",
+			]),
+		),
+	);
+}
+
+/** The room-visible half of the subject going under — the hypnotist's signal that it landed,
+ * since the private "you slip under" line never reaches them. Room-only, fired once on a real
+ * successful induction and NOT on reconnect: recovery reuses the trance-apply path, which is
+ * why this is called from the success branch rather than from applyTranceState. */
+export function announceTranceEnter(): void {
+	tellRoom(
+		fillTokens(
+			pick([
+				"{name}'s eyes slip half-closed, and {their} whole body lets go.",
+				"Something in {name} gives way, and the tension goes out of {them}, soft and unhurried.",
+				"{name} sinks, breath slowing, wearing the loose calm of someone gone well under.",
+			]),
+		),
+	);
 }
