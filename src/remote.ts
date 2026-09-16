@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { SPIRAL_ICON } from "./icon";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
@@ -455,9 +456,18 @@ export function installRemote(modApi: any): void {
 			next([]);
 			const C = getViewedOtherCharacter();
 			if (C) {
-				// No custom icon asset of our own yet — a plain label is safer than a
-				// guessed-at image path that might not exist.
-				DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, "H", "White", "", "Hypnosis Add-on Remote");
+				// Our own spiral icon (icon.ts, built at load). Falls back to a plain "H"
+				// label if the icon could not be built, so the button is never blank.
+				DrawButton(
+					ICON_LEFT,
+					ICON_TOP,
+					ICON_SIZE,
+					ICON_SIZE,
+					SPIRAL_ICON ? "" : "H",
+					"White",
+					SPIRAL_ICON ?? "",
+					"Hypnosis Add-on Remote",
+				);
 			}
 		}) as any,
 	);

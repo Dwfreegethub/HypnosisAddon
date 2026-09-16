@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
 import {
@@ -845,6 +846,9 @@ export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
 		Identifier: "HypnosisAddon",
 		ButtonText: "Hypnosis Add-on",
+		// Our spiral icon beside the label in Preferences > Extensions (icon.ts). Undefined
+		// if it could not be built, which BC accepts — the entry then shows text only.
+		Image: SPIRAL_ICON,
 		// Always open on the first tab — coming back to a screen part-way through a
 		// previous visit's navigation is disorienting.
 		load: () => {
