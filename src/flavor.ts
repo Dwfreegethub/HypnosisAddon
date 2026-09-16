@@ -82,7 +82,8 @@ export type FlavorKey =
  * reaching for yourself and stopping, or opening your mouth and producing nothing, are
  * plainly visible and should not be silent to the room.
  *
- * {name} is required, since an emote carries no name of its own. {their} / {them} /
+ * {name} is required: room lines are emitted verbatim (see notify.tellRoom), so nothing
+ * else supplies the name. {their} / {them} /
  * {themselves} come from the player's chosen pronouns; the character's NAME is always the
  * subject of the sentence, which fixes the verb as third-person singular and saves writing
  * a they/them variant of every line. */

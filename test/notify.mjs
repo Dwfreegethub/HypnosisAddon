@@ -12,7 +12,24 @@ globalThis.ServerPlayerExtensionSettingsSync = () => {};
 globalThis.ServerPlayerIsInChatRoom = () => true;
 let local = [], room = [];
 globalThis.ChatRoomSendLocal = (m) => local.push(m);
-globalThis.ChatRoomSendEmote = (m) => room.push(m);
+// A faithful model of BC R131's emote pipeline, so `room` holds what a viewer actually
+// SEES rather than the raw argument we handed the API. Verified against
+// Screens/Online/ChatRoom/ChatRoom.js — ChatRoomSendEmote strips one wrapping "*", and the
+// "Emote messages formatting" display processor then PREPENDS the sender's name unless the
+// sent text still begins with "*" (a "**"-style emote, printed verbatim). This is the
+// machinery behind Known Bug #5. (The /attempt-% and Mu-style ":" paths are not modelled;
+// nothing here exercises them.)
+globalThis.ChatRoomSendEmote = (msg) => {
+	const sent = msg.replace(/^\*/, "").replace(/\*$/, "").trim(); // send side
+	if (sent === "" || sent === "*") return;
+	const name = String(Player?.Nickname || Player?.Name || "Someone");
+	if (sent.indexOf("*") === 0) {
+		room.push(sent.substring(1));                              // "**": verbatim, no name
+	} else {
+		const sep = sent[0] === "'" || sent[0] === ",";
+		room.push(name + (sep ? "" : " ") + sent);                // "*": name prepended
+	}
+};
 
 const { notify, flavor } = await import("./harness-bundle.mjs");
 const { readdirSync, readFileSync } = await import("node:fs");
@@ -32,9 +49,20 @@ check("  and never reaches the room", room.length, 0);
 
 // --- the room gate ---
 notify.setRoomVoice(() => true);
+
+// Known Bug #5 — the name doubling, and the guard against it. Our flavor lines already
+// carry the character's name (fillTokens), so a PLAIN emote of one renders it twice,
+// because BC prepends the sender's name. The model above reproduces that first — a check
+// that cannot fail proves nothing (rule 6) — then tellRoom must avoid it by emitting a
+// verbatim "**"-style emote.
+room = [];
+ChatRoomSendEmote("Missy goes very still."); // exactly what tellRoom did BEFORE the fix
+check("a plain emote doubles the name — Bug #5 reproduced", room[0], "Missy Missy goes very still.");
+
 room = [];
 notify.tellRoom("Missy goes very still.");
 check("the room hears when allowed", room, ["Missy goes very still."]);
+check("  and the name is not doubled", /Missy[\s,'].*\bMissy\b/.test(room[0]), false);
 
 notify.setRoomVoice(() => false);
 room = [];
@@ -68,8 +96,8 @@ for (const key of [
 }
 
 // --- name and pronouns ---
-// An emote carries no name of its own, so every public line must name the character or it
-// reads as coming from nowhere.
+// We emit room lines verbatim (tellRoom's "**"-emote), so BC supplies no name — every
+// public line must name the character itself or it reads as coming from nowhere.
 for (const key of ["movement-block", "kneel", "selftouch-blocked", "speech-blocked-attempt"]) {
 	check(`${key} names the character`, /Missy/.test(flavor.publicFlavor(key)), true);
 	check(`  ${key} leaves no tokens unfilled`, /\{\w+\}/.test(flavor.publicFlavor(key)), false);

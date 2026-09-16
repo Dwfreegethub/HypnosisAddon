@@ -15,9 +15,12 @@ import { log } from "./log";
 // Activity both render as "(text)" — exactly the shape we want — but both look their
 // Content up as a translation key first (TextQueryMultiple / ActivityDictionaryText), and
 // an unknown key renders as `MISSING TEXT IN "...": <key>` rather than falling back to the
-// literal string. Emote is the one type that prints what it is given. It renders as
-// "*text*" and is tinted with the sender's own label colour, so it is still visually
-// distinct from ordinary chat.
+// literal string. Emote is the one type that prints a literal string at all — but not quite
+// "what it is given": BC prepends the SENDER'S NAME to a plain "*"-emote at display time
+// (ChatRoom.js, the "Emote messages formatting" processor). A "**"-style emote — what
+// tellRoom sends — is the one that prints verbatim with no name of BC's own, which is what
+// we need because our text already carries the name. It is tinted with the sender's own
+// label colour, so it stays visually distinct from ordinary chat. Verified against R131.
 
 /** Whether the room hears anything at all. Read live from settings by the caller; kept as
  * a parameter rather than an import so this module stays a leaf. */
@@ -45,7 +48,13 @@ export function tellRoom(message: string): void {
 	if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
 	if (!ServerPlayerIsInChatRoom()) return;
 	try {
-		ChatRoomSendEmote(message);
+		// The leading "**" is load-bearing, not decoration. BC prepends the sender's name to
+		// a plain "*"-emote at display time, so a line that already contains the character's
+		// name — every line we build does, via fillTokens — would render it TWICE ("Missy
+		// Missy goes still"). Sending it as a "**"-style emote makes BC print the text
+		// verbatim and add no name of its own, so the one we placed stands alone. This was
+		// Known Bug #5; verified against R131's ChatRoomSendEmote + emote display processor.
+		ChatRoomSendEmote(`**${message}`);
 	} catch (err) {
 		log("could not emote to the room:", err);
 	}
@@ -80,8 +89,8 @@ function pronouns(): Pronouns {
 	return PRONOUNS[name] ?? PRONOUNS.TheyThem;
 }
 
-/** An emote has no name prefix of its own — BC renders exactly the text it is given — so
- * the character's name has to be in the string, and being the subject of the sentence it
+/** We emit room text as a verbatim "**"-emote (see tellRoom), so BC adds no name of its
+ * own — the character's name has to be in the string. Being the subject of the sentence it
  * also settles the verb: "Missy reaches" is third-person singular whoever Missy is, which
  * is what keeps they/them from needing a whole second set of phrasings. */
 export function fillTokens(template: string): string {

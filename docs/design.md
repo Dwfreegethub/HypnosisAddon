@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.6.*
+*Design notes and decision log — work in progress. Code at v0.72.7.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -2282,6 +2282,29 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Fixed 2026-09-15 (v0.72.7) — the doubled name on emotes (Known Bug #5)
+
+Resolves **Known Bug #5** — every emote rendered the character's name twice ("Missy Missy goes
+very still"). DW's hypothesis was right: the add-on and BC were both prefixing the name. Traced to
+the send/display split, verified against R131 (`Screens/Online/ChatRoom/ChatRoom.js`):
+`ChatRoomSendEmote` strips one wrapping `*` and sends the text; the **display** side ("Emote
+messages formatting" processor) then **prepends the sender's name** to any plain `*`-emote, and
+only leaves the text verbatim when it still begins with `*` (a `**`-style emote). Our lines already
+carry the name via `fillTokens`, so BC's prepend stacked a second copy on top.
+
+The comment in `notify.ts` claimed "an emote has no name prefix of its own — BC renders exactly the
+text it is given," which is simply false for R131 and is why the name was placed inline in the first
+place. **Fix:** `tellRoom` now sends `**${message}` — a verbatim `**`-emote, so BC adds no name and
+the one we placed (subject, possessive or mid-sentence — the templates use all three) stands alone.
+One line, at the single emote chokepoint; the misleading comments in `notify.ts` and `flavor.ts`
+were corrected to match.
+
+`test/notify.mjs` → 70: its `ChatRoomSendEmote` stub was a passthrough that recorded the raw
+argument, so it **encoded the bug** (it expected the un-prefixed text). It is now a faithful model
+of R131's send-strip + display-prepend, so `room` holds what a viewer actually sees; it first
+reproduces the doubling from a plain emote (rule 6 — the guard must be able to fail) and then
+asserts `tellRoom` shows the name exactly once.
 
 ### Fixed 2026-09-15 (v0.72.6) — a trigger planted at Drifting is dead; three fixes
 
