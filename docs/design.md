@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.5.*
+*Design notes and decision log — work in progress. Code at v0.72.6.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -1658,6 +1658,14 @@ they are things done *to* her expression rather than to her perception.
 > **Promoted to a dependency, 2026-09-13.** *Commanded Activities — as trigger actions* (below) lets
 > one spoken word fire up to eight compels in a single synchronous tick, so this queue is no longer a
 > nicety that can follow the feature. Build it first.
+>
+> **Partly shipped v0.72.5, and a suspected shortfall — DW, from play, 2026-09-14.** A fired
+> trigger's actions are now drained one per tick (*Added 2026-09-13 (v0.72.5)*); pacing successive
+> *live* commands is still unbuilt, so this section's heading is stale. **DW's observation:** the
+> pause looks like it is only spacing the **flavour text**, with the actual activities still
+> arriving together. Recorded as observed, **not verified** — nobody has read the drain path or
+> reproduced it against the code, and it is equally possible the pacing is correct and only the
+> narration reads wrong. His report, not a diagnosis.
 
 **DW's ask, 2026-09-13:** *a slight delay between each commanded activity* — everything resolves
 instantly and he wants pauses, so a compelled touch is more interesting to watch from inside the
@@ -2202,6 +2210,22 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   (`voice.ts:1664`) — "your arms feel heavy" currently parses as a command. (3) Make
   `handleTriggerFiring` (`:1355`) return `false` when it suppresses a double-fire, so a trigger phrase
   inside a command line stops silently swallowing the command.
+- **The add-on is close to invisible to everyone except the two people in the scene — DW, 2026-09-14.**
+  Three separate asks that are one observation from three angles, grouped so whoever picks up one sees
+  the others. BC is a multiplayer social game and the audience is part of the point; a room watching a
+  hypnosis happen currently has almost nothing to see.
+
+  - **An icon for the add-on.** DW's thought: **spirals.** Nothing else specified yet.
+  - **Spirals on screen during an induction** — a visual effect while an attempt runs, presumably on
+    the *subject's* own screen. There is already an *Induction Visual — Spiral Overlay (planned)*
+    section above; this is DW asking for it, not a new idea.
+  - **More flavour text for onlookers**, and the question underneath it: **DW does not think anything
+    currently shows the room that the subject *was* hypnotised**, during or after the induction. Recorded
+    as his impression — *"I don't think there is anything"* — and **to be confirmed, not treated as an
+    established gap.** If it is true it is probably the most consequential of the three: the trigger and
+    command paths do publish activity messages, so the room already sees the **effects** and may never
+    see the **cause**.
+
 - **Remote panel: the eight missing toggles + live state sync.** The panel has Session, Movement, Clothing and Kneel/Stand; speech, self-touch, and the three awareness categories exist only as speech. Eight binary toggles would fit in two columns of four under the session button without paging.
 
   **The work is the sync, not the buttons.** The three existing feature buttons know whether to read "Apply" or "Release" because their state comes from *synced* character data — `HasEffect("Freeze")`, `HasEffect("BlockWardrobe")`, `IsKneeling()`. None of the new ones are synced: speech blocking, self-touch blocks and suppression are all local state in our own modules, invisible to the viewer's client. So this needs `state-response` extended to carry live state alongside permissions, *and* the subject pushing an update whenever any of it changes — a one-shot query at panel-open goes stale the moment anything toggles. Same class of work as the original gray-out feature.
@@ -2258,6 +2282,33 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Fixed 2026-09-15 (v0.72.6) — a trigger planted at Drifting is dead; three fixes
+
+DW planted "funtime" (8 actions) and it fired nothing but the vague-pull flavour, except the very
+first utterance which spanked once. The save line was the tell: **"Planted at 0 (Drifting)."** A
+trigger's firing strength IS its planted depth, so a depth-0 trigger has strength 0 and is a
+permanent **ghost** (below `TRIGGER_GHOST_THRESHOLD` = 10, fireTrigger fires flavour and no
+actions). It planted at 0 because the `triggerControl` depth gate had been set low enough to plant
+at Drifting. DW's read — *not deep enough* — was exactly right, at PLANT time.
+
+The "spanked once, then inert" was a real bug on top of it:
+1. **`triggerStrength` returned `NaN` for a depth-0 trigger on its first fire.** `lifeDays(0)` is
+   `Infinity` and the first-fire firing credit is `0`, so `0 * Infinity = NaN`; `NaN < 10` is
+   **false**, so the ghost guard was skipped that once, the depth-gated suggestions were dropped
+   (NaN fails their depth check) but the **compels weren't depth-gated at all**, so the spank fired.
+   Every later fire had credit > 0, the NaN became a clean 0, the ghost guard caught it. Fixed with
+   an early `if (t.plantedDepth <= 0) return 0;`.
+2. **Planting is now refused below the ghost threshold** (`beginRecording`), with a "take them
+   deeper" message — a born-dead trigger can no longer be saved. Only reachable when the gate is
+   lowered to Drifting; otherwise the ordinary Deep requirement already prevents it.
+3. **Compel actions in a trigger are now gated by the trigger's strength** like suggestion actions
+   (`depthAllows("compelActivity", strength, strength)`), not by permission alone — a faded trigger
+   loses its compels along with everything else, rather than firing them from a husk. DW's call.
+
+`test/triggers.mjs` → 128 (depth-0 reads 0 not NaN; planting below the ghost line refused, just
+above it plants). `test/activity.mjs` → 32 (a strength-15 trigger skips its compel; a strength-40
+one fires it).
 
 ### Decided 2026-09-13 — a compel action follows the trigger's scope (no installer clamp)
 
@@ -2728,6 +2779,7 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 | ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
 | ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
 | ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | **Not** found by scenario 8, which passed — it only asked whether the effects came off. Found when scenario 1 would not start afterwards, refusing an induction with "Already under." Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build; the scenario was rewritten to ask `/hypno session` and re-confirmed in play the same day. |
+| 5 | **Missy's name is printed twice on an emote** — any line starting with `*` renders her name doubled. Reported by DW from in-game play 2026-09-14. **His hypothesis, and it is a hypothesis:** both the add-on and BC are prefixing the name, so the two prefixes stack. He puts himself at "almost 100%" on that, but **nothing has been traced, read or reproduced against the code yet** — the doubled name is the observation, the double-prefix is the guess. Not investigated at his instruction. | 2026-09-14 | No repro steps recorded beyond "use an emote". Unverified: do not treat the cause as established until someone reads the two send paths. |
 | ~~4~~ | ~~**`/hypno reset confirm` does not stop an in-flight trance**~~ — **fixed v0.63.1**, as decided 2026-09-10; the note directly below this table carries the decision and the pressure-test that produced it. `resetSettings()` now runs the same `totalStop()` teardown the safeword and the hard floor use, before it wipes, and reports the release ahead of the wipe. Fourteen assertions in `test/revoke.mjs`, ten of them verified failing (20/30) against the previous build. **Confirmed in play 2026-09-12** by DW, on the v0.64.0 combined build: forced trance, the warning named the trance, `reset confirm` released immediately and reported the release first, `/hypno session` read Idle, and a tab reload brought nothing back. That last step is the one the unit suite could never reach. Original report: `resetSettings()` replaces the settings object and saves — that is all. It does not call `hardFloorStop()`, does not touch the module-level session state or its timers, does not remove the Emoticon effects, and does not clear the recovery key (which lives in its own `localStorage` entry, so wiping `ExtensionSettings` cannot reach it). After a reset mid-trance the subject is still frozen and still under, with `hypnoEnabled` now reading false. Same class as Bug #3 and the same fix: delegate to `hardFloorStop()`, and clear the recovery key. Found by code inspection 2026-09-09 while checking whether "reset the add-on" is a sufficient exit for extreme mode. **Not yet observed in play — no repro has been run.** | 2026-09-09 | Matters more than it looks: reset is one of two exits DW has proposed as sufficient in extreme mode. The other — logging in with the *userscript* disabled — is worse, since a script that is not running cannot clear the server-side effects that come back on reload. See `declared-skill-proposal.md` §8. |
 
 ### Known Bug #4 — the fix, and why it is not the obvious one
