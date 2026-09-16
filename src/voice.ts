@@ -1,4 +1,4 @@
-import { log, TESTING_MODE } from "./log";
+import { log, isTestingMode } from "./log";
 import { applyEffect, removeEffect, hasOwnEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
@@ -1318,17 +1318,18 @@ export function isTriggerInEffect(trigger: Trigger): boolean {
 /** Should `/hypno triggers` print the phrases?
  *
  * Two ways to yes, and they are different in kind. The player's own **setting** is the
- * shipping answer — hidden by default, theirs to change. `full` is a **testing** argument
- * that stops existing when TESTING_MODE goes false; it is not a second setting and must
+ * shipping answer — hidden by default, theirs to change. `full` is a **testing** argument that
+ * only works while testing mode is live (the testing room); it is not a second setting and must
  * never become one, because an argument anybody can type is not a preference anybody chose.
  *
- * Not gated on being a room admin, which was the earlier idea and does not survive contact:
- * admin is a property of a chat room, this add-on is not, and a subject can make their own
- * room and be admin of it — so the gate would have been one room-creation away from no gate
- * at all, for exactly the person it was meant to keep the words from. */
+ * The testing gate is deliberately defeatable — a subject could name their own room the testing
+ * room, the same objection that once ruled out gating this on room-admin. It is accepted for the
+ * same reason it does not matter: like the setting, `full` only ever reveals the subject's OWN
+ * trigger words to themselves, so the worst case is someone spoiling their own surprise, never
+ * exposing them to anyone else. */
 export function triggerPhrasesVisible(fullRequested: boolean): boolean {
 	if (getFeatures().showTriggerWords) return true;
-	return TESTING_MODE && fullRequested;
+	return isTestingMode() && fullRequested;
 }
 
 /** The trigger list as the player sees it. Lives here rather than in commands.ts so the

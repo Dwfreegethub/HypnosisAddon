@@ -360,17 +360,17 @@ check("  with who planted it", /GameBot/.test(listed(false)), true);
 check("the setting reveals it", /butterfly/.test((storage.setFeature("showTriggerWords", true), listed(false))), true);
 check("  and says so plainly", /phrase hidden/.test(listed(false)), false);
 
-// `full` is the testing override, independent of the setting. Asserted AGAINST THE FLAG
-// rather than against `true`, so this suite stays correct after the release flip instead of
-// failing at the exact moment somebody is trying to ship.
+// `full` is the testing override, independent of the setting. Asserted against isTestingMode()
+// rather than `true`, so this stays correct in a shipped build where testing is room-gated and
+// off by default — here the harness pins it on, so isTestingMode() is true.
 storage.setFeature("showTriggerWords", false);
-check("full reveals only while testing", /butterfly/.test(listed(true)), build.TESTING_MODE);
+check("full reveals only while testing", /butterfly/.test(listed(true)), build.isTestingMode());
 check("  without changing the setting", storage.getFeatures().showTriggerWords, false);
 check("  so the plain listing still hides", /butterfly/.test(listed(false)), false);
 
 // The whole point of routing both through one predicate: it is the only thing to check.
 check("predicate agrees — setting off, no full", voice.triggerPhrasesVisible(false), false);
-check("predicate agrees — full asked", voice.triggerPhrasesVisible(true), build.TESTING_MODE);
+check("predicate agrees — full asked", voice.triggerPhrasesVisible(true), build.isTestingMode());
 storage.setFeature("showTriggerWords", true);
 check("predicate agrees — setting on", voice.triggerPhrasesVisible(false), true);
 storage.setFeature("showTriggerWords", false);
@@ -501,8 +501,8 @@ const young = plant("young", 60, false, 0);
 check("a fresh planting is at full strength", triggers.triggerStrength(young), 60);
 
 const firstAge = triggers.ageTriggers(1);
-check("aging works only in a testing build", firstAge.refusal === null, build.TESTING_MODE);
-if (build.TESTING_MODE) {
+check("aging works only while testing", firstAge.refusal === null, build.isTestingMode());
+if (build.isTestingMode()) {
 	check("  and says what it moved", firstAge.aged, 1);
 	// The point of the whole thing: a day of clock is a day of decay, identical to a day of
 	// waiting. If these two ever disagree the tool is measuring itself rather than the model.

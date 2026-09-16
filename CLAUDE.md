@@ -38,7 +38,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
 8. **Verify against the live BC client source before writing against any BC API.** Not from memory, not from the wiki. It has changed the answer four times.
 9. **Bump `package.json` on every change that touches code.**
 10. **`testbot/secrets.json` is never committed or printed.** It is gitignored; DW fills it in.
-11. **`TESTING_MODE` in `src/log.ts` stays `true` until release, and flipping it is the last step** — it disables the test harness.
+11. **Testing affordances are gated by the room, not a build flag.** `isTestingMode()` in `src/log.ts` returns true only in the **Hypno Testing** room (case-insensitive), off everywhere else and when not in a room — so the shipped build is safe by default with no release flip to remember. The unit suites force it on via the `FORCE_TESTING` seed that `build-test.mjs` rewrites (`build.mjs` does not); keep that arrangement intact.
 12. **Do not restart either live bot in this workspace (BD or SSS) without explicit confirmation from DW.**
 
 ## Build and test

@@ -1,4 +1,4 @@
-import { log, TESTING_MODE } from "./log";
+import { log, isTestingMode } from "./log";
 import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch, isTriggerInEffect, describeTriggerList } from "./voice";
@@ -222,8 +222,8 @@ export function installCommands(): void {
  * refusals and the dropped emotes: a silent success is indistinguishable from a silent
  * failure, so it is not a success worth having. */
 function sendToBot(args: string): void {
-	if (!TESTING_MODE) {
-		reply("Not available — this build is not in testing mode.");
+	if (!isTestingMode()) {
+		reply("Not available — join the Hypno Testing room to use the test bot.");
 		return;
 	}
 	const text = (args ?? "").trim();
@@ -260,7 +260,9 @@ function sendToBot(args: string): void {
  * is only "no such command" when NOTHING owns it. `/hypno bot` in COMMANDS below cannot be
  * shadowed, because the tag it hangs off is ours. */
 function installBotCommand(): void {
-	if (!TESTING_MODE) return;
+	// Registered unconditionally now that testing mode is a runtime, room-based check — the
+	// command must exist before you enter the testing room. sendToBot refuses when isTestingMode()
+	// is false, so outside the room it says so rather than doing anything.
 	CommandCombine({
 		Tag: "bot",
 		Description: "TESTING: send a command to the test bot (works while silenced)",
@@ -555,10 +557,13 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "triggers",
 		group: "Diagnostics",
-		// `full` is advertised only while it exists. When TESTING_MODE goes false the
-		// argument stops working AND stops being mentioned, so the help screen cannot end up
-		// documenting a command that ignores you.
-		args: TESTING_MODE ? "[full]" : "",
+		// `full` is advertised only where it works. A getter, not a fixed value, because testing
+		// mode is now a runtime room check: read afresh each time the help is drawn, the hint
+		// appears in the testing room and is gone outside it, so the screen never documents an
+		// argument that would ignore you.
+		get args() {
+			return isTestingMode() ? "[full]" : "";
+		},
 		Description: "List the triggers planted in you, and which are currently holding you",
 		Action: (args: string) => {
 			const all = listTriggers();
@@ -570,7 +575,7 @@ const COMMANDS: HypnoCommand[] = [
 			// trigger words" setting, or `full` while we are still the only ones running
 			// this. You always see that a trigger exists, who planted it and what it does,
 			// so nothing is ever happening to you unseen; only the word itself is optional.
-			describeTriggerList(TESTING_MODE && firstWord(args).toLowerCase() === "full").forEach(reply);
+			describeTriggerList(isTestingMode() && firstWord(args).toLowerCase() === "full").forEach(reply);
 			reply(
 				"Remove one with /hypno forgettrigger <number>, or all of them with 'all' — " +
 					"but not while it is holding you. /hypno safeword is the way out of that.",
@@ -854,8 +859,8 @@ const COMMANDS: HypnoCommand[] = [
 		args: "<0-100> [earned]",
 		Description: "TESTING: force the current trance depth, and optionally the earned half",
 		Action: (args: string) => {
-			if (!TESTING_MODE) {
-				reply("Not available — this build is not in testing mode.");
+			if (!isTestingMode()) {
+				reply("Not available — join the Hypno Testing room to use this.");
 				return;
 			}
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
@@ -895,8 +900,8 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[who] [depth] [earned]",
 		Description: "TESTING: go straight under with someone, at a chosen depth, skipping the roll",
 		Action: (args: string) => {
-			if (!TESTING_MODE) {
-				reply("Not available — this build is not in testing mode.");
+			if (!isTestingMode()) {
+				reply("Not available — join the Hypno Testing room to use this.");
 				return;
 			}
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
@@ -938,8 +943,8 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[days] [number]",
 		Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
 		Action: (args: string) => {
-			if (!TESTING_MODE) {
-				reply("Not available — this build is not in testing mode.");
+			if (!isTestingMode()) {
+				reply("Not available — join the Hypno Testing room to use this.");
 				return;
 			}
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);

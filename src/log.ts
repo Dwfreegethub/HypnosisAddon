@@ -4,25 +4,39 @@ export function log(...args: unknown[]): void {
 	console.log(TAG, ...args);
 }
 
-/** Build flag: are we still the only people running this?
+// The testing room. While the player is in a chat room with this name (case-insensitive,
+// whitespace-trimmed) the testing affordances are live; everywhere else — and when not in a
+// room at all — they are off. So the shipped build is safe by default and there is no release
+// flag anyone can forget to flip. DW's call, 2026-09-15.
+const TESTING_ROOM = "hypno testing";
+
+// Test-harness override. build-test.mjs rewrites this ONE line to `true` so the unit suites run
+// with the testing affordances on without simulating a room (many stand their fixtures up
+// through forceTrance / agetrigger). build.mjs does NOT touch it, so the shipped userscript is
+// governed purely by the room check below. Typed `boolean` on purpose, so the harness can flip
+// it without `if (FORCE_TESTING)` reading as statically dead. Keep this line's exact shape —
+// build-test.mjs matches it and throws if it cannot find it.
+const FORCE_TESTING: boolean = false;
+
+/** Whether the testing affordances are available right now: the force-state commands
+ * (`/hypno trance`, `/hypno depth`, `/hypno agetrigger`), `/hypno triggers full`, and the
+ * `/bot` test-bot channel. True in the testing room (or when the harness has pinned it on),
+ * false everywhere else.
  *
- * Lives here because log.ts is the one module everything imports and that imports nothing,
- * so a build-time switch can be read from anywhere without risking a cycle.
+ * A RUNTIME check, not a build constant — re-evaluated on every call, so leaving and re-entering
+ * the room turns the affordances off and on with no reload. Every command handler that offered
+ * one refuses when this is false, so a command that exists but is out of its room says so rather
+ * than misbehaving. Lives here because log.ts is the one module everything imports and that
+ * imports nothing, so it can be read from anywhere without a cycle.
  *
- * What it gates, and why each one is a testing affordance rather than a feature:
- *
- * - `/hypno triggers full`, which reveals the subject's own trigger phrases. That defeats the
- *   hiding it sits next to — a subject who can read their own trigger word can simply decide
- *   not to react to it. Once testing is over this goes false, `full` stops existing, and
- *   `/hypno triggers` alone is the command, showing phrases or not according to the player's
- *   own "Show trigger words" setting.
- * - `/hypno trance` and its `test-trance` handler, which force a session with no consent step.
- * - `/hypno depth`, which sets a number the gates read.
- * - `/hypno agetrigger` and its `test-age` handler, which wind a trigger's decay clock back.
- *   The only one of these that WRITES to stored data, which is why it refuses in three places
- *   rather than one.
- * - `/bot` and `/hypno bot`, the channel to the test bot.
- *
- * Flipping this to false is a release step. It announces itself in the console at startup
- * so it cannot quietly ship switched on. */
-export const TESTING_MODE = true;
+ * Reads BC's own current-room global; not being in a room (ChatRoomData null) reads as off, the
+ * safe default. Wrapped so a missing or unexpected global can never throw into a handler. */
+export function isTestingMode(): boolean {
+	if (FORCE_TESTING) return true;
+	try {
+		const name = typeof ChatRoomData !== "undefined" && ChatRoomData ? ChatRoomData.Name : null;
+		return typeof name === "string" && name.trim().toLowerCase() === TESTING_ROOM;
+	} catch {
+		return false;
+	}
+}

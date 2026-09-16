@@ -3,6 +3,8 @@
 declare const ServerSocket: any;
 declare const Player: any;
 declare const ChatRoomCharacter: any[];
+// The current chat room's server data, or null when not in a room. `.Name` is the room name.
+declare const ChatRoomData: { Name?: string } | null;
 // BC's shared asset definitions. Item.Asset points into this array, so mutating an entry
 // affects that asset on every character at once (see effects.ts's ensureEffectsAllowed).
 declare const Asset: any[];

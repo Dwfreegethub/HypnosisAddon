@@ -1,5 +1,5 @@
 import bcModSdk from "bondage-club-mod-sdk";
-import { log, TESTING_MODE } from "./log";
+import { log } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, isSpeechBlocked, getScreenFade, hasOwnEffect } from "./effects";
@@ -47,10 +47,9 @@ function safely(label: string, fn: () => void): void {
 // These two run first and unconditionally — if anything below throws, this is still what
 // confirms the script itself executed at all, instead of everything going silent.
 log(`script loaded (v${__VERSION__})`);
-// Says so out loud rather than waiting to be noticed. TESTING_MODE gates `/hypno triggers
-// full`, which reveals the subject's own trigger phrases — a thing that must not quietly
-// ship switched on, and the same trap the induction window is already sitting in.
-if (TESTING_MODE) log("TESTING MODE is ON — /hypno triggers full will reveal trigger words");
+// No load-time "TESTING MODE is ON" line any more: testing mode is now a runtime check on the
+// chat room (isTestingMode in log.ts), off by default and on only in the Hypno Testing room, so
+// there is nothing that could quietly ship switched on for it to warn about.
 showIndicator();
 
 const modApi = bcModSdk.registerMod(

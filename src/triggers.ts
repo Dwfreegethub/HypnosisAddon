@@ -1,4 +1,4 @@
-import { log, TESTING_MODE } from "./log";
+import { log, isTestingMode } from "./log";
 import { tellPlayer } from "./notify";
 import {
 	getFeatures,
@@ -33,36 +33,35 @@ export function installTriggers(): void {
 		if (text) tellPlayer(text);
 	});
 
-	// TESTING ONLY, and registered only in a testing build so it does not so much as exist in
-	// a release one — the same belt-and-braces as `test-trance` in session.ts, and for a
-	// sharper reason: this one WRITES. An ungated version would let anyone in the room age
-	// somebody's triggers to nothing, which is the opposite of what the decay clock is for.
+	// TESTING ONLY. Registered unconditionally — it has to already exist when you enter the
+	// testing room — but `ageTriggers` below refuses unless testing mode is live, so outside the
+	// room a stray message only gets a refusal back. This one WRITES, which is why its gate is
+	// the sharp one: an ungated version would let anyone in the room age somebody's triggers to
+	// nothing, which is the opposite of what the decay clock is for.
 	//
 	// It exists so the bot can drive the decay scenario. Eight steps, of which only the first
 	// happens on a timescale a person can sit through: see ageTriggers below.
-	if (TESTING_MODE) {
-		registerHiddenHandler("test-age", (sender, message) => {
-			const days = Number(message.days ?? 1);
-			const index = message.index == null ? undefined : Number(message.index);
-			const result = ageTriggers(days, index);
-			// BOTH SIDES ARE TOLD, because neither can see the other's screen. A silent
-			// success here would be indistinguishable from a message that never arrived,
-			// which is the defect this codebase has fixed in three other places already.
-			if (result.refusal) {
-				tellHypnotist(sender, `[trigger] Aging refused — ${result.refusal}.`);
-				return;
-			}
-			tellHypnotist(
-				sender,
-				`[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`,
-			);
-			// The subject is told too. Nothing may happen to their triggers unseen, and a
-			// testing affordance is not an exception to that.
-			const who = characterFor(sender)?.Name ?? `#${sender}`;
-			tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
-			result.lines.forEach(tellPlayer);
-		});
-	}
+	registerHiddenHandler("test-age", (sender, message) => {
+		const days = Number(message.days ?? 1);
+		const index = message.index == null ? undefined : Number(message.index);
+		const result = ageTriggers(days, index);
+		// BOTH SIDES ARE TOLD, because neither can see the other's screen. A silent
+		// success here would be indistinguishable from a message that never arrived,
+		// which is the defect this codebase has fixed in three other places already.
+		if (result.refusal) {
+			tellHypnotist(sender, `[trigger] Aging refused — ${result.refusal}.`);
+			return;
+		}
+		tellHypnotist(
+			sender,
+			`[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`,
+		);
+		// The subject is told too. Nothing may happen to their triggers unseen, and a
+		// testing affordance is not an exception to that.
+		const who = characterFor(sender)?.Name ?? `#${sender}`;
+		tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
+		result.lines.forEach(tellPlayer);
+	});
 }
 
 // Persistent triggers: a word planted during a trance that fires afterwards.
@@ -363,7 +362,7 @@ export interface AgeResult {
  * is checking. */
 export function ageTriggers(days: number, index?: number): AgeResult {
 	const refuse = (why: string): AgeResult => ({ refusal: why, lines: [], aged: 0 });
-	if (!TESTING_MODE) return refuse("not available — this build is not in testing mode");
+	if (!isTestingMode()) return refuse("not available outside the testing room");
 	if (!Number.isFinite(days) || days === 0) {
 		return refuse("give a number of days to age by — 1, 0.5, or a negative number to wind it back");
 	}

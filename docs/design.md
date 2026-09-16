@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.72.9.*
+*Design notes and decision log — work in progress. Code at v0.73.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -2282,6 +2282,36 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Changed 2026-09-16 (v0.73.0) — testing mode is now the room you are in, not a build flag
+
+DW's call: replace the compile-time `TESTING_MODE` flag with a runtime check on the chat room.
+While the player is in a room named **"Hypno testing"** (case-insensitive, whitespace-trimmed) the
+testing affordances are live; everywhere else, and when not in a room at all, they are off. So the
+shipped build is safe by default and **there is no release flip to remember** — the old rule 11
+becomes "nothing to do" (CLAUDE.md rule 11 rewritten to match).
+
+`log.ts` now exports `isTestingMode()` instead of a `TESTING_MODE` const; it reads BC's own
+`ChatRoomData?.Name` (verified R131), null-safe and wrapped so a missing global can never throw
+into a handler. All ~15 sites became runtime calls (`voice`, `commands`, `triggers`, `session`,
+`help`, `main`). Everything currently behind it — the force-state commands (`trance`, `depth`,
+`agetrigger`), `triggers full`, and the `/bot` channel — is now available only in that room; the
+help screen's Testing group appears and vanishes as you enter and leave.
+
+**What needed care:** the hidden-message handlers (`test-note`, `test-trance`, `test-age`) and the
+`/bot` command used to register *inside* `if (TESTING_MODE)`, which runs at load — before you are
+in any room. They now register unconditionally and gate at use (the ones that call a gated core
+function refuse through it; `test-note`, which just relays text, got its own check). The unit
+harness keeps forcing testing on through a new `FORCE_TESTING` seed line in `log.ts` that
+`build-test.mjs` rewrites — verified `dist/` ships `FORCE_TESTING = false`, so nothing is pinned on
+in the shipped build.
+
+**Accepted trade-off (DW aware):** anyone in a room with that name gets the affordances. They only
+ever act on that player's own client (force your *own* depth, age your *own* triggers, reveal your
+*own* trigger words), so the sole real exposure is a curious user spoiling their own surprise —
+much weaker than a compile flag, fine for an alpha. This is the same "a subject can make their own
+room" objection that once ruled out gating `triggers full` on room-admin; the comment there was
+updated to record that it is now accepted for the same reason it does not matter.
 
 ### Changed 2026-09-15 (v0.72.9) — flirtier flavor, and two spectator moments that were silent
 

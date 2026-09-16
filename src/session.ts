@@ -1,4 +1,4 @@
-import { log, TESTING_MODE } from "./log";
+import { log, isTestingMode } from "./log";
 import { tellPlayer } from "./notify";
 import { announceInductionBegin, announceTranceEnter } from "./flavor";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
@@ -778,12 +778,12 @@ function scheduleCooldownEnd(): void {
  * enormously experienced, or later runs would be measuring the test runs instead of the
  * mechanic.
  *
- * Gated on TESTING_MODE at both call sites, and again here. This one is worth the
+ * Gated on isTestingMode() at both call sites, and again here. This one is worth the
  * belt-and-braces: a remote party being able to force a trance with no consent step is
  * precisely the thing the whole subject-authoritative design exists to prevent, so it must
- * be impossible in a release build rather than merely unreachable. */
+ * be impossible outside the testing room rather than merely unreachable. */
 export function forceTrance(hypnotistId: number, full: number, earned: number): string | null {
-	if (!TESTING_MODE) return "not available — this build is not in testing mode";
+	if (!isTestingMode()) return "not available outside the testing room";
 	if (!getFeatures().hypnoEnabled) return "hypnoEnabled is off — turn hypnosis on first";
 	clearTimers();
 	session.phase = "Hypnotized";
@@ -1272,29 +1272,30 @@ export function installSession(): void {
 	//
 	// So the harness gets its own channel. Instructions arrive as private text and never touch
 	// the speech pipeline; only the lines that are deliberately under test are spoken aloud.
-	if (TESTING_MODE) {
-		registerHiddenHandler("test-note", (_sender, message) => {
-			const text = typeof message.text === "string" ? message.text : "";
-			if (text) tellPlayer(text);
-		});
-	}
+	// Registered unconditionally so it exists the moment you enter the testing room; the gate
+	// is the isTestingMode() check inside, since this one relays raw text rather than calling a
+	// core function that would refuse on its own.
+	registerHiddenHandler("test-note", (_sender, message) => {
+		if (!isTestingMode()) return;
+		const text = typeof message.text === "string" ? message.text : "";
+		if (text) tellPlayer(text);
+	});
 
-	// TESTING ONLY, and registered only in a testing build so it does not so much as exist
-	// in a release one. Lets the test bot set up the precondition every depth scenario needs
-	// — a live session at a known depth — in one message instead of a handshake, a 60-second
-	// window, a dice roll and a plea to the RNG for the tier you wanted.
-	if (TESTING_MODE) {
-		registerHiddenHandler("test-trance", (sender, message) => {
-			const full = Number(message.depth ?? 80);
-			const earned = Number(message.earned ?? full);
-			const refused = forceTrance(sender, full, earned);
-			if (refused) {
-				refuse(sender, refused);
-				return;
-			}
-			notify(`TESTING: forced under by ${findCharacterName(sender)} at depth ${full}/${earned}.`);
-		});
-	}
+	// TESTING ONLY. Registered unconditionally — it has to exist before you are in the room —
+	// but forceTrance refuses unless testing mode is live, so outside the testing room a stray
+	// message just gets refused back. Lets the test bot set up the precondition every depth
+	// scenario needs — a live session at a known depth — in one message instead of a handshake,
+	// a 60-second window, a dice roll and a plea to the RNG for the tier you wanted.
+	registerHiddenHandler("test-trance", (sender, message) => {
+		const full = Number(message.depth ?? 80);
+		const earned = Number(message.earned ?? full);
+		const refused = forceTrance(sender, full, earned);
+		if (refused) {
+			refuse(sender, refused);
+			return;
+		}
+		notify(`TESTING: forced under by ${findCharacterName(sender)} at depth ${full}/${earned}.`);
+	});
 
 	registerHiddenHandler("session-continue", (sender) => {
 		if (session.hypnotistId !== sender) return;

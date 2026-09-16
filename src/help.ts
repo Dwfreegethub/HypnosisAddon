@@ -4,7 +4,7 @@ import { getTriggerDuration, getTriggerScope, getMaxAttempts } from "./storage";
 import { TRIGGER_SCOPES, TRIGGER_TRUST_THRESHOLD } from "./triggers";
 import { CARRY_TRUST_THRESHOLD } from "./carry";
 import { DEPTH_GATES, DEPTH_TIERS, tierLabel } from "./depth";
-import { TESTING_MODE } from "./log";
+import { isTestingMode } from "./log";
 import {
 	TITLE_Y,
 	BLURB_Y,
@@ -297,8 +297,9 @@ function commandLines(): HelpLine[] {
 		gap(),
 	];
 	for (const group of ORDER) {
-		// The Testing group only exists in a testing build; do not document it in a release one.
-		if (group === "Testing" && !TESTING_MODE) continue;
+		// The Testing group is live only in the testing room; do not document it elsewhere. This
+		// is re-evaluated every render, so the group appears and vanishes as you enter and leave.
+		if (group === "Testing" && !isTestingMode()) continue;
 		const inGroup = cmds.filter((c) => c.group === group);
 		if (!inGroup.length) continue;
 		lines.push(head(group));
