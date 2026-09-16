@@ -208,6 +208,14 @@ export const TRIGGER_GHOST_THRESHOLD = 10;
  * This IS its effective depth when it fires: a Deep trigger faded to 45 reaches only what
  * Yielding reaches, so its deeper actions stop landing while the shallow ones still do. */
 export function triggerStrength(t: Trigger): number {
+	// A trigger planted at zero (or negative) depth has no strength to decay — return 0 before
+	// the maths, not just for tidiness: lifeDays(0) is Infinity, and on the FIRST fire the firing
+	// credit is 0, so `0 * Infinity` below would make the result NaN. `NaN < GHOST_THRESHOLD` is
+	// false, so the ghost guard in fireTrigger would be skipped that one time and the trigger's
+	// ungated actions would fire once from a husk (exactly the "worked once, then went inert" bug
+	// DW hit). Planting now refuses below the ghost threshold, so a saved trigger should never be
+	// here — this keeps an older or edge-case zero-depth trigger honestly a ghost.
+	if (t.plantedDepth <= 0) return 0;
 	const perDay = decayPerDayFor(t);
 	if (perDay <= 0) return t.plantedDepth;
 	const creditFraction = Math.min((t.firings ?? 0) * FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION);
@@ -437,12 +445,26 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 	// and on the day the earned-only default becomes adjustable it starts being true without
 	// this line changing.
 	const plantedChemical = !depthAllows("triggerControl", currentDepthEarned(), currentDepthEarned());
+	const plantedDepth = plantedChemical ? currentDepth() : currentDepthEarned();
+	// A trigger's firing strength IS its planted depth (see triggerStrength). Planted below the
+	// ghost threshold it is born dead — it can never fire more than a vague pull. That only
+	// happens when the triggerControl depth gate has been set low enough to plant at Drifting;
+	// refuse it here rather than silently save something that will never work. DW hit exactly this
+	// (planted at 0, fired nothing but flavour), 2026-09-15. Same "take them deeper" shape as the
+	// depth refusal above.
+	if (plantedDepth < TRIGGER_GHOST_THRESHOLD) {
+		log(`trigger plant refused: would be born a ghost at depth ${plantedDepth}`);
+		return refuse(
+			`[trigger] Refused — at this depth a trigger is too faint to ever fire (it would be a ghost). ` +
+				"Take them deeper first.",
+		);
+	}
 	recording = {
 		hypnotistId,
 		hypnotistName,
 		phrase,
 		actions: [],
-		plantedDepth: plantedChemical ? currentDepth() : currentDepthEarned(),
+		plantedDepth,
 		plantedChemical,
 	};
 	log(`recording trigger "${phrase}" for ${hypnotistName}`);

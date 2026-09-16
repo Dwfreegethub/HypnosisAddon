@@ -188,6 +188,36 @@ reset();
 say("sleepy");
 check("firing the trigger performs the activity for real", lastRun(), { activity: "Caress", group: "ItemBreast" });
 
+// --- a compel in a trigger is gated by the trigger's STRENGTH, not just permission (v0.72.6) ----
+// A faded/shallow trigger loses its compels along with everything else — compelActivity needs
+// Yielding (20). A trigger at strength 15 is above the ghost line (10) but below that, so its
+// compel is skipped as "too weak"; at 40 it fires. (Plant shallow on purpose via a lowered gate.)
+session.safeword();
+storage.forgetAllTriggers();
+storage.setTriggerDecayRate("never"); // strength == planted depth, no decay to reason about
+storage.setDepthOverride("triggerControl", "drifting"); // so we can deliberately plant shallow
+
+session.forceTrance(HYP, 15, 15);
+say("Missy, your trigger word is weakone.");
+say("Missy, touch your breasts.");
+say("Missy, remember trigger.");
+session.safeword();
+reset();
+say("weakone");
+check("a below-Yielding trigger does NOT fire its compel", runCalls.length, 0);
+
+storage.forgetAllTriggers();
+session.forceTrance(HYP, 40, 40);
+say("Missy, your trigger word is strongone.");
+say("Missy, touch your breasts.");
+say("Missy, remember trigger.");
+session.safeword();
+reset();
+say("strongone");
+check("a deep-enough trigger DOES fire its compel", lastRun(), { activity: "Caress", group: "ItemBreast" });
+storage.setDepthOverride("triggerControl", "deep");
+storage.forgetAllTriggers();
+
 session.safeword();
 console.log(`activity: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

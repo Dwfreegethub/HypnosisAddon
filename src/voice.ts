@@ -1200,6 +1200,15 @@ function fireTrigger(trigger: Trigger): void {
 				log(`trigger "${trigger.phrase}": ${id} skipped, compelActivity not granted`);
 				continue;
 			}
+			// Gated by the trigger's STRENGTH like the suggestion actions below, not by permission
+			// alone — a faded trigger loses its compels along with everything else, rather than
+			// firing them from a husk. (DW's call, 2026-09-15: compels behave like every other
+			// action under decay.)
+			if (!depthAllows("compelActivity", strength, strength)) {
+				log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+				tooWeak++;
+				continue;
+			}
 			compels++;
 			// Re-validated on its OWN tick, not here: a restraint, a chastity belt, or an untick
 			// can land during the pause between steps, and ActivityRun validates nothing.

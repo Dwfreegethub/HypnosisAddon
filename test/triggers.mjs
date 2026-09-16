@@ -557,5 +557,35 @@ if (build.TESTING_MODE) {
 storage.forgetAllTriggers();
 storage.setTriggerDecayRate("never");
 
+// --- born-ghost guard (v0.72.6) -----------------------------------------------------------------
+// DW planted "funtime" at Drifting (depth 0) and it fired nothing but flavour. Two fixes:
+//   1. triggerStrength of a depth-0 trigger is 0, not NaN. lifeDays(0) is Infinity and the
+//      first-fire firing credit is 0, so `0 * Infinity` used to make it NaN — and
+//      `NaN < GHOST_THRESHOLD` is false, so the ghost guard was skipped that once and the
+//      trigger fired its ungated (compel) actions from a husk. Hence "spanked once, then inert".
+const bornZero = plant("bornzero", 0, false, 0);
+check("a depth-0 trigger is strength 0, never NaN", triggers.triggerStrength(bornZero), 0);
+check("  so it reads as a ghost, not a one-time flicker", triggers.triggerStrength(bornZero) < triggers.TRIGGER_GHOST_THRESHOLD, true);
+storage.forgetAllTriggers();
+
+//   2. Planting is refused below the ghost threshold, so a born-dead trigger cannot be saved.
+//      Only reachable when the triggerControl gate is lowered enough to plant at Drifting.
+storage.setFeature("hypnoEnabled", true);
+storage.setFeature("triggerControl", true);
+storage.setDepthOverride("triggerControl", "drifting"); // let planting reach shallow depths at all
+depth.setCurrentDepths(5, 5); // below the ghost threshold (10)
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "dead on arrival");
+check("planting below the ghost line is refused", triggers.isRecording(), false);
+check("  and the hypnotist is told it would be a ghost", /ghost|faint/i.test(lastToHypnotist()), true);
+// Just above the threshold it plants — shallow, but able to fire.
+depth.setCurrentDepths(15, 15);
+triggers.beginRecording(HYP, "GameBot", "faint but alive");
+check("just above the ghost line plants", triggers.isRecording(), true);
+triggers.cancelRecording();
+storage.setDepthOverride("triggerControl", "deep"); // restore the default gate
+depth.setCurrentDepths(80, 80);
+storage.forgetAllTriggers();
+
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
