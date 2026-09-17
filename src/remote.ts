@@ -32,6 +32,10 @@ export type RemoteFeature = "movement" | "clothing" | "posture";
 const ICON_LEFT = 90;
 const ICON_TOP = 130;
 const ICON_SIZE = 60;
+/** Padding between the button edge and the icon, so the spiral sits INSIDE the box (centred,
+ * since it is inset equally on all four sides) rather than filling it edge-to-edge — matching
+ * the lighter footprint of LSCG's remote icon above. Tune this one number to resize the icon. */
+const ICON_INSET = 8;
 
 // Same verified coordinate as menu.ts's exit icon now (see there for how it was
 // confirmed) — reusing it here too rather than a second guessed spot.
@@ -456,18 +460,23 @@ export function installRemote(modApi: any): void {
 			next([]);
 			const C = getViewedOtherCharacter();
 			if (C) {
-				// Our own spiral icon (icon.ts, built at load). Falls back to a plain "H"
-				// label if the icon could not be built, so the button is never blank.
-				DrawButton(
-					ICON_LEFT,
-					ICON_TOP,
-					ICON_SIZE,
-					ICON_SIZE,
-					SPIRAL_ICON ? "" : "H",
-					"White",
-					SPIRAL_ICON ?? "",
-					"Hypnosis Add-on Remote",
-				);
+				// Our own spiral icon (icon.ts, built at load). Draw the button CHROME first with
+				// no image, then place the icon scaled into the box ourselves. BC's DrawButton draws
+				// an Image at its NATURAL size anchored at the top-left, with no fit (Drawing.js:
+				// DrawButton → DrawImage, verified R131) — so passing the 120px SVG there rendered it
+				// full-size, spilling well out of the 60px button (the second half of Known Bug #6).
+				// DrawImageResize scales it to the padded rect. Falls back to a plain "H" label if the
+				// icon could not be built, so the button is never blank.
+				DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "Hypnosis Add-on Remote");
+				if (SPIRAL_ICON) {
+					DrawImageResize(
+						SPIRAL_ICON,
+						ICON_LEFT + ICON_INSET,
+						ICON_TOP + ICON_INSET,
+						ICON_SIZE - 2 * ICON_INSET,
+						ICON_SIZE - 2 * ICON_INSET,
+					);
+				}
 			}
 		}) as any,
 	);

@@ -30,6 +30,11 @@ declare function DrawText(text: string, x: number, y: number, color: string, bac
 declare function DrawRect(left: number, top: number, width: number, height: number, color: string): void;
 declare function DrawEmptyRect(left: number, top: number, width: number, height: number, color: string, thickness?: number): void;
 declare function DrawTextFit(text: string, x: number, y: number, width: number, color: string, backColor?: string): void;
+// Draws an image SCALED to width×height at (x,y) (Drawing.js: DrawImageResize → DrawImageEx
+// { Width, Height }, verified R131). DrawButton's own Image argument does NOT scale — it draws
+// at the image's natural size anchored at Left+2,Top+2 — so to size our icon into its button we
+// draw the chrome with DrawButton and the icon with this.
+declare function DrawImageResize(source: string, x: number, y: number, width: number, height: number): boolean;
 declare function MouseIn(left: number, top: number, width: number, height: number): boolean;
 declare const MouseX: number;
 declare const MouseY: number;
