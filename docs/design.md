@@ -1648,7 +1648,524 @@ they are things done *to* her expression rather than to her perception.
 
 ---
 
-## Commanded Activities — pacing (detail), spec'd 2026-09-13, not built
+## Trigger Phrase Uniqueness and Override — decided 2026-09-16
+
+> **DW's decision.** A trigger phrase is **unique per subject**. Two people cannot both hold
+> "sleepy time" on Missy. A hypnotist who names an existing phrase either overrides it or is refused;
+> one who names a phrase that merely *overlaps* an existing one is always refused.
+>
+> **Status: fully settled as of 2026-09-16.** Every question this raised has an answer below — the
+> collision test, the two override branches, the holding-trigger refusal, history, what she sees, the
+> rename flow, the disclosure shape, the rate limit and the minimum length. Superseded wording is
+> struck in place rather than removed. The only outstanding items are listed at the end.
+
+### The rules, settled
+
+A phrase collides if it is **exactly equal to**, **contains**, or **is contained by** an existing
+phrase on this subject. What happens then depends on which kind of collision it is:
+
+| Collision | Who is planting | Outcome |
+|---|---|---|
+| **Exact** | The original installer | **Override** — always, **even at a shallower depth** than the original planting |
+| **Exact** | Anyone else | **Override** only when their current **earned** depth exceeds the existing trigger's stored `plantedDepth`; otherwise refused |
+| **Containment** | Anyone, including the original installer | **Always refused. There is no entitlement path.** |
+| Any | Anyone | **Refused outright** while the conflicting trigger is currently **holding her** |
+
+**Why the installer asymmetry.** Re-planting your own word is maintenance, not conquest — a hypnotist
+correcting a trigger they built should not have to re-earn the depth to do it. Taking somebody else's
+word away from them is a different act and should cost more than they paid.
+
+**Why containment never overrides.** Override means *"he named the word that exists."* In a
+containment collision he named something else, and overriding would silently destroy a trigger he
+never mentioned and cannot see. Entitlement does not apply because there is nothing he has claimed a
+right to. This also closes the disclosure hole — see below.
+
+**Minimum phrase length is 6.** A phrase is meant to be a phrase, and under the containment rule
+anything shorter poisons too much ordinary speech: at the old minimum of 3, a trigger "cat" would
+block *"catch your breath"*, *"delicate"* and *"scatter"*. Those blocks are *correct* — all of them
+would fire it — which is exactly why the floor has to rise rather than the rule bend. Six is also the
+shortest phrase any existing fixture uses (`"sleepy"`), so the suites and the bot scenarios are
+unaffected. Plant-time refusals should say what the minimum is; it is not sensitive.
+
+### Existing data at the new minimum: grandfather, do not invalidate
+
+**Nothing is at risk today.** `normalise()` does not read `phrase` at all — it back-fills
+`plantedDepth`, `plantedChemical`, `reinforcedAt` and `firings` and touches nothing else. So raising
+the constant cannot retroactively affect stored data unless somebody *adds* a length check to the
+migration path.
+
+**Do not add one.** The new minimum belongs in `beginRecording()` — the plant path — and nowhere
+else. A stored phrase shorter than 6 keeps working: it fires, it decays, it can be reinforced,
+released and deleted exactly as before.
+
+**Why grandfathering is right here, against the house precedent that points the other way.**
+`normalise()` *does* delete invalid enum values (`skillHonour`), so that the code default keeps
+governing. That reasoning does not transfer: an invalid rung has a safe substitute — the default — and
+a too-short phrase has none. Deleting it destroys a trigger somebody planted under rules that were
+valid when they planted it, and the subject may have been reinforcing it for weeks. **Retroactively
+deleting a working trigger is a worse outcome than a temporary inconsistency**, and the
+inconsistency is self-clearing: the old phrase cannot be re-planted at its current length, so it
+disappears the first time anyone replaces or forgets it.
+
+The one live consequence to note: a grandfathered short phrase **still blocks by containment**, so a
+legacy `"cat"` will keep refusing longer phrases. That is correct — it would still fire on them — and
+it is a reason to mention the minimum in the refusal, not a reason to purge the record.
+
+### The comparison basis: `plantedDepth`, not `strength`
+
+Both are numbers on the same 0–100 scale, so both are *comparable*; they are not equally *good*.
+
+**Settled: compare the challenger's current earned depth against the stored `plantedDepth`.** Apples
+to apples — `plantedDepth` is itself recorded as `currentDepthEarned()` (except in the chemical
+case), and planting is gated on earned depth, so the challenger's earned depth is the right side of
+the comparison.
+
+**Why not `strength`.** It decays, so an old neglected trigger becomes progressively easier to take.
+That has a certain logic — *the word faded, someone stronger claimed it* — but it turns theft into a
+**waiting game**: sit out a rival's decay and take their word at a depth they would never have
+allowed. Worse, it is unpredictable to both parties, because neither can see the other's numbers.
+
+**And the case it was meant to serve is already handled.** `pruneFadedTriggers()` deletes any trigger
+whose strength reaches zero, on every list read. So a genuinely dead trigger's phrase **frees itself
+naturally** — no override needed, no rule required. Decay already does this job.
+
+Note also that trigger decay is **off by default**, so for most installs `strength === plantedDepth`
+permanently and the two rules are indistinguishable. Choosing the one that behaves better when decay
+*is* on costs nothing.
+
+### ⚠ Normalisation — and exact equality is not enough
+
+Phrases are already normalised on the way in: `parseTriggerControl` runs `normalize()` (lowercase,
+contractions expanded, punctuation folded) and `cleanPhrase()` strips the subject's own names. So
+"Sleepy Time" and "sleepy time" are already the same stored string, and uniqueness on `===` gets
+case and punctuation for free. **Use the stored form; do not re-normalise or compare raw input.**
+
+**But exact equality does not deliver what the decision asks for.** `triggersFiredBy()` matches with
+`normalisedText.includes(t.phrase)` — a **substring** test. So:
+
+> Alice plants **"sleep"**. Bob plants **"sleepy time"** — no exact collision, so it is allowed.
+> Anyone saying *"sleepy time"* now fires **both triggers**. Two people effectively hold the same
+> word, which is the thing the decision exists to prevent.
+
+**Containment counts as collision** (decided, stated in the rules table above). Comparison is on the
+**stored** normalised form, both sides — do not re-normalise, and do not compare raw input.
+
+~~The refusal wording should say which way round it is (*"'sleep' is already in use and your phrase
+contains it"*).~~ — **withdrawn, and it was a bad suggestion.** See the disclosure section below: that
+wording hands the challenger somebody else's trigger phrase. The clarity it buys is also worth very
+little, because **the remedy is identical either way** — pick a different word. Knowing whether his
+phrase was too long or too short does not help him choose the next one.
+
+### ⚠ The collision message is an information leak — and containment amplifies it
+
+**This is the part to get right.** An *exact* refusal tells the challenger only that the word he just
+typed is taken; he already knew the word, so nothing escapes. A *containment* refusal is different in
+kind:
+
+> Bob tries **"sleepy time"**, is refused because Alice planted **"sleep"** — and Bob has now learned
+> one of Missy's trigger phrases that he never guessed.
+
+Trigger phrases are hidden from **the subject herself** by default (`showTriggerWords`). They are
+emphatically not meant to be readable by a third party.
+
+**And it is probeable, which is the real problem.** Exact matching already permits a limited oracle —
+guess a word, read the refusal, confirm. Containment turns that from *confirming a guess* into
+**discovery**: probe with a long ordinary sentence, and a refusal means some substring of it is a
+trigger; then bisect down to the exact phrase. One long probe covers an enormous phrase space, and
+`MIN_PHRASE_LENGTH` bounds how far the bisection has to run.
+
+#### The residual: silence alone does not fix this
+
+Worth stating plainly rather than assuming the wording carries the defence. **A refusal is one bit,
+and with containment one bit is enough** — bisection extracts the phrase from yes/no answers alone.
+So an uncharacterised refusal fixes the *accidental* leak (Bob learning "sleep" without trying) and
+barely dents the *deliberate* one.
+
+**What actually bounds the threat is who can attempt at all.** `handleTriggerControl` requires a live
+session with her, and `beginRecording` requires `hypnoEnabled`, the `triggerControl` permission, and
+Deep depth **on earned trust**. A prober is therefore not a stranger in the room — it is someone she
+has granted persistent-trigger permission to and taken deeply under. That is a high bar and it is
+most of the actual defence.
+
+The realistic threat is narrow and worth naming: **her regular hypnotist mapping a rival's triggers.**
+Everything below is aimed at that, not at outsiders.
+
+#### The disclosure shape, settled
+
+**1. Containment collisions always refuse, and never override.** Decided 2026-09-16 and stated in the
+rules table above; repeated here because it is half the disclosure defence, not only a fairness rule.
+It removes the branch in which a challenger could act on a phrase he never named.
+
+**2. The default refusal is uncharacterised.** No phrase, no direction, no planter, no depth, no
+count. Something in the register of:
+
+> `[trigger] Refused — that phrase is too close to something already set aside in her. Choose a
+> different, more distinctive word.`
+
+**3. Exact collision where he is entitled to override → there is no refusal**, so the question does
+not arise. He named the word, he takes it, he learns nothing he did not supply.
+
+**4. Exact collision where he is NOT entitled → refuse without the number.**
+*"You are not deep enough with her to take that word."* **Never state the threshold**, which would
+leak another hypnotist's `plantedDepth`. He still learns one bit — their planting depth exceeds his
+current depth — which is unavoidable if the rule exists at all, and bounding it further would take
+repeated re-inductions at depths he cannot choose. Accepted residual; not worth solving.
+
+**5. Exception — name it when the conflict is his own trigger.** No leak: it is his word, planted by
+him. And it is the case where detail is genuinely useful: *"your own 'sleep' already covers this."*
+This is the one branch that should be chatty.
+
+**6. Rate-limit collision refusals.** This is the only measure that attacks the oracle rather than the
+wording. A small per-session cap, after which further collisions return a flat *"too many attempts;
+try again later"* and stop distinguishing. Bisection needs many queries; capping queries is what
+makes it impractical.
+
+**Never, in any branch: the conflicting phrase** (except 5), **who planted it**, **its planting
+depth**, or **how many triggers she has.** The success message after an override must be identical
+whether he overwrote his own trigger or somebody else's — otherwise success itself becomes the
+oracle.
+
+**Offered, not recommended: tell her.** A subject-side line when someone repeatedly trips collisions
+has some appeal — it is her data being probed. It is not recommended now, because it would disclose
+to her that a trigger exists at all, which the default `showTriggerWords: false` deliberately does
+not. Worth revisiting alongside *Trigger Discovery*, which is the mechanic meant to own that
+question.
+
+#### The rest of the flow, checked for the same problem
+
+- **The subject's override line** — atmosphere only, no phrase, no planter. Already right.
+- **Attribution** stays where it belongs: `/hypno triggers` shows `by <installedByName>` **to her**,
+  and nothing shows it to the challenger.
+- **The preserved-recording collision at commit** leaks nothing extra — he has already narrated the
+  actions, and the message names his own phrase back to him, not the conflicting one.
+- **`/hypno triggers full`** is room-gated testing only and is not a disclosure path in play.
+
+### What is still open on this feature
+
+Three, and none of them block building it:
+
+1. **The rate-limit numbers** — how many collision refusals per session before it goes flat, and
+   whether "later" means a cooldown or the end of the session. The mechanism is decided; the dials
+   are not. Pick them in play.
+2. **Telling her when someone is probing** — offered above, not recommended now, parked against
+   *Trigger Discovery*. Needs DW only if he wants it sooner.
+3. **Per-trigger scope** (item 2 of the schema section) is still recorded two different ways
+   elsewhere in this document. It does not interact with uniqueness — scope is a property of one
+   record — but it is the one unresolved thing the same schema pass touches.
+
+Everything else in this section is decided. The exact wording of the refusal strings and of her
+displacement line is drafting, not design, and should follow the house register rather than be
+copied verbatim from here.
+
+### ⚠ Refuse the override while the existing trigger is holding her
+
+If the trigger being overridden is currently **in effect**, overriding it would replace the record
+while its effects are still applied — stranding them with nothing left to release them. That is the
+exact bug class this codebase has fixed twice.
+
+**Settled: refuse, and say so** — the same rule and the same reasoning
+`/hypno forgettrigger` already uses (*"you do not get to quietly delete the thing that is holding
+you"*). `isTriggerInEffect()` is the check and it already exists. The alternative — running
+`undoTrigger()` first — works, but it means a stranger's plant silently releases effects she is
+currently under, which is a surprising side effect for the hypnotist and for her.
+
+### History: a fresh record
+
+The overriding trigger is a **new trigger that reuses a word**, not a continuation. So:
+`installedAt`, `reinforcedAt` and `firings` reset; `installedBy`, `installedByName`, `plantedDepth`
+and `plantedChemical` are the new planter's. Nothing is inherited.
+
+Inheriting would be worse in an obvious way: a stranger's trigger would arrive pre-strengthened by
+**the previous hypnotist's** weeks of reinforcement, which is somebody else's work.
+
+**Say plainly what this costs her, because it is not nothing.** A subject who reinforced a trigger for
+weeks loses all of that strength the moment it is overridden. The word survives; the thing behind it
+does not. That is the single strongest argument for telling her something happened.
+
+### What she experiences
+
+The convention holds — **atmosphere, never the phrase**. But an override is a genuinely notable
+event: something she has been carrying, possibly planted by someone else entirely, has just been
+displaced.
+
+**Settled: a distinct line, conveying displacement without detail.** Something in the register
+of *"Something already set aside in you comes loose, and something else settles into the space."*
+She learns that a replacement happened; she learns neither the word nor who held it before.
+
+**Attribution is already solved and needs nothing new.** `/hypno triggers` prints `by
+<installedByName>` for every trigger, so she can read at her leisure that a trigger is now attributed
+to someone else. Atmosphere in the moment, full attribution in the list she can consult whenever she
+likes — which is the same split the whole feature already uses.
+
+### The collision flow, and preserving the recording
+
+**Check in both places.** At `beginRecording()`, because that is cheapest and nothing has been
+recorded yet; and again at `commitRecording()`, because the window between them is real — another
+hypnotist could plant the same phrase while this one is still narrating.
+
+**At the start** — nothing is lost, so this is an ordinary refusal in the existing shape:
+`return refuse('[trigger] Refused — "sleepy time" is already in use. Choose another word.')`
+
+**At commit** — the actions must survive. `commitRecording()` gains a third outcome beside *saved*
+and *nothing recorded*: **hold the recording open and report the collision.**
+
+> `[trigger] "sleepy time" is already in use and you cannot override it. Say a different trigger
+> word to rename this one — the 3 suggestions you recorded are kept.`
+
+**Renaming needs no new grammar.** A `TRIGGER_START` line arriving *while already recording* should
+**rename in place, preserving `actions`**. Today `handleTriggerControl` calls `beginRecording()`
+again, which replaces `recording` wholesale and **silently discards everything recorded so far** —
+a latent wart that this change fixes as a side effect. Saying the start phrase twice should never
+have cost you your work.
+
+**Abandoning** is unchanged: *"forget the trigger"* → `cancelRecording()`, which already exists and
+already tells her *"Whatever was being set aside comes apart again."*
+
+### No extra permission or depth gate
+
+**Settled: none.** Planting is already gated three ways — the `triggerControl` permission, the
+`triggerControl` depth tier against earned depth, and now the override rule itself. A fourth gate
+would be consent theatre.
+
+A subject setting — *"others may overwrite my triggers"*, off by default — was considered and is
+**not** recommended now: it would make the different-person branch of DW's rule unreachable by
+default, which contradicts the decision that was just made. It is worth revisiting under **Extreme
+mode**, where "your triggers cannot be taken from whoever planted them" is a coherent thing to want.
+
+### What this does not break
+
+Checked against the open design items:
+
+- **Per-trigger scope** — unaffected. Scope is a property of one record; uniqueness does not touch it.
+- **Third-party targets in `act:` actions** — unaffected.
+- **Emote-fired triggers (parked)** — unaffected; "scanned" reuses `phrase` unchanged.
+- **Nothing in the design ever assumed same-named triggers coexisting.** One *implementation* detail
+  permitted it: `saveTrigger()` de-duplicates on `(phrase, installedBy)` (`storage.ts:910`). **That
+  must change to de-duplicate on the phrase alone**, or an override by a different installer leaves
+  two records with the same phrase — exactly what the decision forbids. This is a required change,
+  not an optional one.
+- **Touch-fired triggers need their own uniqueness rule**, because they have no phrase. See below.
+
+---
+
+## Trigger Storage — one consolidated schema change (detail), 2026-09-16
+
+> **Why now.** Missy is currently the only person with any planted triggers. Every change to the
+> `Trigger` record is free while that is true and becomes a migration the moment alpha testers have
+> real triggers on real accounts. This section collects every open design item that would touch the
+> record, so the shape changes **once**.
+
+### First, the good news: almost nothing here is breaking
+
+`normalise()` (`storage.ts:467`) is the migration machinery, and it already does exactly this job.
+It runs on **load and on import**, so a blob exported from an older build is brought forward on the
+way in. The pattern is field-presence back-fill with a reasoned default:
+
+```ts
+if (typeof t.plantedDepth !== "number") t.plantedDepth = 60;
+if (typeof t.reinforcedAt !== "number") t.reinforcedAt = t.installedAt ?? Date.now();
+```
+
+**v0.60.0 is the precedent and it is the same case as this one** — four fields added to `Trigger`,
+back-filled in `normalise` with defaults chosen by argument rather than convenience (`plantedDepth`
+60 "because planting has always required Deep"; `reinforcedAt` from `installedAt`, *not* now,
+because "a trigger planted three weeks ago has not just been reinforced"). Two other house rules
+worth keeping: an **invalid enum value is deleted rather than defaulted**, so the code default keeps
+governing (`skillHonour`), and **defaults live in code**, so "absent" means "never chose".
+
+So: **an optional field with a sensible default needs one line in `normalise` and no migration.**
+
+**The urgency is therefore not what it looks like.** The risk of waiting is not data loss — it is
+**touching the same four call sites over and over**. `timerKey()`, `forgetTrigger()`, `saveTrigger()`
+and `describeTriggerList()` all key off `phrase`, and every item below moves at least one of them.
+Doing that once is the saving; the migration was never the expensive part.
+
+### Everything open that touches the record
+
+| # | Design item | Status | Needs |
+|---|---|---|---|
+| 1 | **Identity** — `phrase` is not a key | *resolved by the uniqueness decision; see below* | `key` |
+| 2 | **Per-trigger scope**, capped by the global setting | recorded twice, **inconsistently** | `scope?` |
+| 3 | **Touch-fired triggers** — "when I do this three times" | proposed, 3-in-60s confirmed | `fireOn`, `activityName`, `focusGroup`, `repeat` |
+| 4 | **Third-party targets in `act:` actions** | decided 2026-09-16 | richer action records |
+| 5 | **Ephemeral / expiring triggers** | listed, not spec'd | `expiresAt?` |
+| 6 | **Emote-fired triggers** | parked 2026-09-10 | nothing — reuses `phrase` |
+| 7 | Sensory suppression as trigger actions | unbuilt, undecided | nothing — action ids are strings |
+
+### ⚠ Item 1, revised by the uniqueness decision
+
+**The uniqueness decision (section above) dissolves most of this item, and changes what is left.**
+
+~~`forgetTrigger(phrase)` deleting every trigger sharing a phrase is a live bug.~~ — **no longer a
+bug.** Once a phrase is unique per subject there is at most one match, so filtering on the phrase
+deletes exactly the right record. `/hypno forgettrigger <n>` resolving an index to a phrase becomes
+correct by construction. *(It was a real defect before the decision: two hypnotists both planting
+"sleepy time" meant deleting one deleted both.)*
+
+**What the decision creates instead is a required fix in the other direction.** `saveTrigger()`
+de-duplicates on **`(phrase, installedBy)`** (`storage.ts:910`) — that pair is what *allowed*
+coexistence. Under uniqueness it must de-duplicate on the **phrase alone**, or an override by a
+different installer leaves two records with the same phrase.
+
+`timerKey()` is `trigger:${installedBy}:${phrase}`, which stays correct; `installedBy` simply becomes
+redundant in it. Harmless, and not worth churning.
+
+**So phrase is identity again — for phrase triggers.** Touch-fired triggers still have none, and that
+is the only remaining identity problem.
+
+### The consolidated schema
+
+```ts
+export interface Trigger {
+  /** NEW — the NATURAL key: whatever fires this trigger, and unique per subject.
+   *  Phrase triggers: identical to `phrase`.
+   *  Activity triggers: `gesture:<ActivityName>:<FocusGroup>`.
+   *  Stored rather than computed so deletion and timer keying need no discriminator branch. */
+  key: string;
+
+  /** What fires it. Absent means "phrase", so existing records read correctly. */
+  fireOn?: "phrase" | "activity";
+  /** Phrase triggers only. Stays required for them; empty string for activity triggers. */
+  phrase: string;
+  /** Activity triggers only — the demonstrated gesture. */
+  activityName?: string;
+  focusGroup?: string;
+  /** Qualifying repetitions needed. Absent = 1. "three times" plants 3. */
+  repeat?: number;
+
+  /** Ordered actions. See the note below on why this is the hard one. */
+  actions: string[];
+
+  installedBy: number;
+  installedByName: string;
+  installedAt: number;
+
+  /** NEW — requested scope, always capped by the subject's global setting at fire time.
+   *  Absent = follow the global setting, which is exactly today's behaviour. */
+  scope?: TriggerScope;
+
+  /** NEW — optional hard expiry, independent of decay. Absent = no expiry. */
+  expiresAt?: number;
+
+  plantedDepth: number;
+  plantedChemical: boolean;
+  reinforcedAt: number;
+  firings: number;
+}
+```
+
+**Field by field:**
+
+| Field | For | Required | Default for existing records |
+|---|---|---|---|
+| `key` | item 1 | **yes** | `t.key ??= t.phrase` — every existing record is a phrase trigger, so the natural key is already there |
+| `fireOn` | item 3 | no | absent ⇒ `"phrase"` |
+| `activityName` / `focusGroup` | item 3 | no | absent — meaningless for phrase triggers |
+| `repeat` | item 3 | no | absent ⇒ `1` |
+| `scope` | item 2 | no | absent ⇒ follow global, i.e. today's behaviour exactly |
+| `expiresAt` | item 5 | no | absent ⇒ never expires, i.e. today's behaviour |
+
+`windowMs` is deliberately **not** a field. DW confirmed 60 seconds; a constant in `triggers.ts` is
+right until somebody wants it per-trigger, and nobody has asked.
+
+### Item 4 is the one that is genuinely awkward
+
+`actions: string[]` carries parameters by string encoding — `touch:breasts`, `act:Caress:breasts`,
+plus the two bare literals `act:genital` and `act:vague`. That already has **inconsistent arity** and
+is parsed by `split(":")` with literal-matching in front of it.
+
+A third-party target needs **two** values that a string cannot hold safely: a member number (identity)
+and a name (display, and the absent-target message). Encoding `act:Caress:breasts:1234:Elena` works
+right up until somebody is called `Bob:Jr`.
+
+**Recommendation — additive, not a rewrite:**
+
+```ts
+actions: string[];                      // unchanged, still the ordered list
+actionData?: Record<string, {           // keyed by the action id
+  targetId?: number;
+  targetName?: string;
+}>;
+```
+
+Existing records have no `actionData` and behave identically. A self-targeted `act:` id has no entry.
+Only third-party targets add one. **Nothing has to be re-encoded and no parser changes.**
+
+The alternative — promoting `actions` to `TriggerAction[]` objects — is cleaner on paper and is the
+thing I would design from scratch today. It is also the one genuinely **breaking** change here: it
+rewrites every stored record, every consumer in `voice.ts` (`fireTrigger`, `undoTrigger`,
+`applyActionById`, `undoActionById`), `recordAction`, `commitRecording`, and the display path. If it
+is ever going to happen, **now is the only cheap moment** — but it should not be done speculatively
+for a Phase 2 feature that is still being designed.
+
+### What is safe to lock in today
+
+Honestly: **three, and only three.**
+
+1. **Uniqueness itself — the `saveTrigger` de-dupe fix, the collision check, and `key`.** The de-dupe
+   change is *required* by the decision, not optional. `key` back-fills from `phrase` and costs
+   nothing today, but it is what lets phrase-less triggers exist later without revisiting deletion
+   and timer keying a second time.
+2. **`scope?`.** Its default *is* current behaviour, so adding the field commits to nothing — it can
+   sit unread until DW picks option 1 or option 2 below. Zero risk, removes a future migration.
+3. **`expiresAt?`.** Same argument: optional, defaults to today's behaviour, costs one line.
+
+**A defensible smaller version:** do the uniqueness work and skip `key` entirely, since phrase *is*
+identity now and nothing phrase-less exists. That is honest and it works. It costs a second pass
+through `forgetTrigger`, `saveTrigger` and `timerKey` on the day touch triggers land — which is the
+same four-call-site churn this whole exercise exists to avoid paying twice.
+
+**Not yet:**
+
+- **Touch-trigger fields** (`fireOn`, `activityName`, `focusGroup`, `repeat`). The shape is settled
+  enough that the *names* are safe, but the feature is proposed rather than approved, and adding four
+  fields nothing writes is clutter that will be read as intent. Cheap to add when it is built —
+  they are all optional.
+
+  **When they do land, uniqueness has to extend to them, and it is a different question.** Two touch
+  triggers on the same gesture would both fire on the same touch, exactly as two identical phrases
+  would — so `gesture:<ActivityName>:<FocusGroup>` must be unique per subject too, with the same
+  override rules. Whether a *gesture* and a *phrase* can collide is moot: different key namespaces,
+  different intake. Note there is no substring problem here — a gesture key is a pair of exact
+  enum-ish values, not free text, so exact equality is genuinely sufficient for that half.
+- **`actionData`.** Waits on the Phase 2 decisions. Adding it now bakes in a shape for a feature that
+  is still moving.
+
+**So the pass DW should authorise is small:** one required field with a computed back-fill, two
+optional fields that change no behaviour, and a fix to the deletion path. Everything else stays
+genuinely free because `normalise()` makes optional fields free.
+
+### ⚠ Item 2 is recorded two different ways — this needs DW
+
+*Trigger firing* (above) presents per-trigger scope as **option 2 of 2, explicitly "this needs DW"**.
+The earlier *Detail* section states it as settled: *"individual triggers can be set to a wider scope
+at plant time, subject to the global cap."* Those are not the same claim. **The field is safe to add
+either way** — absent means follow the global — but which one is true governs whether anything ever
+writes it.
+
+### While the window is open — what I would design differently
+
+Independent of new features:
+
+- ~~**`phrase` does three jobs**: identity, match key, and display.~~ — **the uniqueness decision
+  settles this by making the three jobs the same job.** A phrase that is unique per subject *is* a
+  legitimate natural key, and "identity is whatever fires it" is a better rule than a synthetic id
+  would have been. `key` exists only to extend that rule to things with no phrase.
+- **`installedByName` is a snapshot.** Names and nicknames change; a trigger planted a month ago can
+  attribute itself to a name that no longer exists. Harmless (display only), but the member number is
+  there and could be resolved live with the stored name as a fallback.
+- **Parameters encoded into action id strings** — covered under item 4. This is the single thing I
+  would do differently from scratch.
+- **Nothing records the add-on version a trigger was planted under.** The settings blob has
+  `version`, but `normalise` correctly migrates by field presence rather than version number, which
+  is more robust. Not worth adding — noted so nobody "fixes" it later.
+- **`describeTriggerList` indexes by array position**, and `/hypno forgettrigger <n>` uses that index.
+  That is fine and should stay — an index is the right *display* key precisely because the phrase is
+  hidden. It just must not be the *storage* key, which is item 1.
+
+---
+
+## Commanded Activities — pacing (detail), spec'd 2026-09-13, half built v0.72.5
 
 > **Related:** Phase 1 of commanded activities is **built v0.72.0** — the grammar, the three consent
 > layers and the command-beats-our-own-restrictions rule are in *Added 2026-09-12 (v0.72.0)* and
@@ -1700,10 +2217,10 @@ The shape that survives becoming asynchronous:
 - **Gating stays where it is, at command time.** A refusal has to reach the hypnotist in reply to
   the line she spoke — that is Rule 5, and a refusal arriving 1.5s later attached to nothing is
   worse than no pause at all.
-- **The activity moves into a queue step**, drained by `scheduleTimer("compel:next", …)` from
-  `timers.ts`. Not a bare `setTimeout`: the registry is the module that imports nothing, it is
-  keyed, and it is what the two teardown paths already sweep. Namespace the key `compel:` the way
-  trigger auto-release uses `trigger:` (`voice.ts:1279`).
+- **The activity moves into a queue step**, drained by a keyed `scheduleTimer` from `timers.ts`. Not a
+  bare `setTimeout`: the registry is the module that imports nothing, it is keyed, and it is what the
+  two teardown paths already sweep. Namespace the key the way trigger auto-release uses `trigger:`.
+  *(Shipped for the fired-trigger half in v0.72.5 as `trigger-drain:<installer>:<phrase>`.)*
 - **`markActive()` is the wrong tool here** and must not be used. A pending one-shot touch is not an
   effect holding the subject, and marking it active would make `/hypno` and the remote report that
   something has her when nothing does.
@@ -1814,8 +2331,13 @@ that publishes activities BC would have refused, which is worse than instant res
 
 ---
 
-## Commanded Activities — as trigger actions (detail), approved 2026-09-13, not built
+## Commanded Activities — as trigger actions (detail), approved and built 2026-09-13, v0.72.4
 
+> **Built, and this section is the spec it was built from.** Recording and firing shipped in
+> **v0.72.4**, the pacing of a fired trigger's actions in **v0.72.5**, and the fire-time depth gate in
+> **v0.72.6**. Where the shipped code chose differently from this spec it is marked inline; **one
+> item, the plant-time depth gate, is still divergent and awaiting DW's ruling** (see *Depth* below).
+>
 > **Related:** Phase 1 of the feature is **built v0.72.0** (*Added 2026-09-12 (v0.72.0)*, *(v0.72.1)*).
 > The queue this now depends on is specified in *Commanded Activities — pacing* above. The recording
 > and firing machinery it plugs into is *Triggers* → *Programming Triggers* and *Trigger Reinforcement
@@ -1825,12 +2347,16 @@ that publishes activities BC would have refused, which is worse than instant res
 "Missy, your trigger word is sleepy time / Missy, touch your breasts / Missy, remember trigger"
 plants a word that later makes her do it, in or out of trance, with no hypnotist speaking.
 
-### The encoding: `compel:<activity>:<part>`
+### The encoding: `act:<Activity>:<word>` (shipped) — specced as `compel:`
 
-`compel:Caress:breasts`, `compel:Pinch:nipples`, `compel:Spank:bottom`. This is the right shape and
-the precedent is already load-bearing: `touch:<word>` exists because *"the pattern library can't hold
-a per-part entry for all 26 of them"* (`voice.ts:1142`), and a compel has two parameters rather than
-one for exactly the same reason.
+**This section originally specced the prefix `compel:`. The shipped scheme is `act:`** — v0.72.4 chose
+the shorter prefix and it is what is in the code, the saved triggers and the tests. The doc follows the
+code. The only thing lost is the word "compel" reading more plainly in a saved trigger list, which the
+label helper below covers anyway; nothing about the argument for the shape changed.
+
+`act:Caress:breasts`, `act:Pinch:nipples`, `act:Spank:bottom`. The precedent is already load-bearing:
+`touch:<word>` exists because *"the pattern library can't hold a per-part entry for all 26 of them"*
+(`voice.ts:1142`), and a compel has two parameters rather than one for exactly the same reason.
 
 **A second colon breaks nothing — checked, not assumed.** Every consumer of an action id tests
 `startsWith("touch:")` and then `slice`s a fixed prefix; **nothing in `src/` splits an id on colons**
@@ -1838,73 +2364,92 @@ one for exactly the same reason.
 `:1408`). Ids are otherwise opaque strings — pushed into `Recording.actions`, `join(", ")`ed for
 display, and persisted as JSON in `Trigger.actions`. `timerKey()` (`:1279`) already emits
 `trigger:<member>:<phrase>`, a three-part colon key, so multi-colon strings are established here.
-Each site gains a `startsWith("compel:")` branch **before** the `SUGGESTIONS.find` fallback, and
-parses with `slice("compel:".length).split(":")` into exactly two fields. Activity names (BC's, e.g.
-`MasturbateHand`) and `BODY_PARTS` keys (`selftouch.ts:43`) contain no colons, so the round trip is
-lossless.
+Each site gains a `startsWith("act:")` branch **before** the `SUGGESTIONS.find` fallback, and
+`performActivityAction` parses with `split(":")`. Activity names (BC's, e.g. `MasturbateHand`) and
+`BODY_PARTS` keys (`selftouch.ts:43`) contain no colons, so the round trip is lossless.
 
-**Two sigil forms, because the grammar has three kinds and only one names a part.**
-`matchActivityCommand` (`voice.ts:1681`) returns `part`, `genital` or `vague`:
+**Three kinds, because the grammar has three and only one names a part.** `matchActivityCommand`
+(`voice.ts`) returns `part`, `genital` or `vague`, and `activityActionId()` encodes each:
 
-| Spoken | Recorded as | Resolved when |
+| Spoken | Recorded as (shipped) | Resolved when |
 |---|---|---|
-| "pinch your nipples" | `compel:Pinch:nipples` | Groups from `BODY_PARTS` at fire time |
-| "finger yourself" | `compel:MasturbateHand:@genital` | Fixed `["ItemVulva"]` at fire time |
-| "touch yourself" | `compel:Caress:@wander` | **Zone re-rolled at fire time** from what is reachable then |
+| "pinch your nipples" | `act:Pinch:nipples` | Groups from `BODY_PARTS` at fire time |
+| "finger yourself" | `act:genital` | Fixed `["ItemVulva"]` at fire time |
+| "touch yourself" | `act:vague` | **Zone re-rolled at fire time** via `pickVagueZone()` |
 
-The `@` sigil rather than overloading a body word: a recorded id must resolve to the same groups the
-spoken line did, and `genital` uses `["ItemVulva"]` while the body word "pussy" is
-`["ItemVulva", "ItemVulvaPiercings"]` — close enough to look interchangeable and not be. Re-rolling
-`@wander` at fire time is not a shortcut; it keeps the *"her hands wander on their own"* fiction and
-gets the reachability re-check for free.
+> **Specced as `act:MasturbateHand:@genital` / `act:Caress:@wander`; shipped as the bare `act:genital`
+> and `act:vague`.** The sigil existed to keep one shape across all three forms, so every id read as
+> `<prefix>:<activity>:<target>`. The shipped forms are two-field literals matched before the split,
+> which means the ids have **inconsistent arity** — deliberate on the implementation's part, and it
+> works because `performActivityAction` tests the two literals first. The reason the sigil was proposed
+> still stands and is worth keeping in view if a fourth kind ever arrives: a recorded id must resolve to
+> the same groups the spoken line did, and overloading a body word would not have — `genital` uses
+> `["ItemVulva"]` while the body word "pussy" is `["ItemVulva", "ItemVulvaPiercings"]`, close enough to
+> look interchangeable and not be. The shipped literals avoid that trap by naming neither.
 
-**Not carryable, and not undoable — both deliberate, both need writing down at the call site.** A
-compel is a one-shot event, so there is nothing for `undoTrigger` or `undoActionById` to reverse:
-both must skip `compel:` ids explicitly. `applyActionById` must *refuse* them, because its only
-caller is carry-forward's re-apply (`carry.ts`, `registerCarryHandlers`) and re-running a one-shot on
-waking is a touch nobody asked for. The spoken path already never calls `noteApplied` for a command,
-so a compel cannot reach carry's `applied` list — the refusal is the belt to that braces.
+Re-rolling the vague zone at fire time is not a shortcut: it keeps the *"her hands wander on their
+own"* fiction and gets the reachability re-check for free.
 
-### Recording: this is the fix for the ordering collision, and the two close together
+**Not carryable, and not undoable — both deliberate.** A compel is a one-shot event, so there is
+nothing for `undoTrigger` or `undoActionById` to reverse: both skip `act:` ids, the same way
+`orgasm-force` is skipped. `applyActionById` must not run one either, because its only caller is
+carry-forward's re-apply (`carry.ts`, `registerCarryHandlers`) and re-running a one-shot on waking is
+a touch nobody asked for. The spoken path never calls `noteApplied` for a command, so a compel cannot
+reach carry's `applied` list — that is the belt; the skip is the braces.
 
-Today a touch command spoken mid-recording **executes and is not recorded** — `handleActivityCommand`
-runs at `voice.ts:1820`, `recordAction` is only reached at `:1875`, and `handleActivityCommand` never
-calls it. That is the bug found in review on 2026-09-13, and this feature is its fix: they are one
-change, not two.
+### Recording: this was also the fix for the ordering collision — **done v0.72.4**
 
-**The check goes inside `handleActivityCommand`, after the gates and before `runCommandedActivity`** —
-the identical shape `handleBodyPartLine` already uses at `:1612`:
+Before v0.72.4 a touch command spoken mid-recording **executed and was not recorded**:
+`handleActivityCommand` is dispatched in `handleSpokenLine` ahead of the `matchSuggestion` →
+`recordAction` gate, and it never consulted `isRecording()`. That was the bug found in review on
+2026-09-13, and this feature was its fix — one change, not two, exactly as specced.
 
-- Gates first (session, name, `hypnoEnabled && compelActivity`, `depthRefusal`, not-our-Freeze), so
-  a refusal still reaches the hypnotist in reply to the line she spoke.
-- Then `recordAction(id)`; if it returns a message, `tellPlayer` it and return. Nothing runs.
-- Only if we are not recording does the activity fire.
+**Shipped:** `handleActivityCommand` calls `recordAction(activityActionId(cmd))`; if it returns a
+message, `tellPlayer` it and return, so nothing is performed. `isTriggerSetupLine` also gained
+`matchActivityCommand`, so the hypnotist's own compel lines no longer render to a subject with the
+Awareness toggle on and hand her the contents of her trigger.
 
-**Why gates-before-record and not the reverse:** planting an action she has not permitted, to fire
-weeks later, is worse than executing one now. It also matches the suggestion path, where
-`blockedReason` (`:1856`) is checked before `recordAction` (`:1875`). Note the *existing*
-inconsistency this exposes — `handleBodyPartLine` checks `selfTouchControl` but **no depth** before
-recording. Compel must not copy that; flagged here rather than fixed in passing.
+**⚠ One divergence, still open — where the record call sits relative to the depth gate.** This spec
+said **gates first, then record**: planting an action she has not permitted, to fire weeks later, is
+worse than executing one now, and it matches the suggestion path, where `blockedReason` (which
+includes depth) runs before `recordAction`. The shipped order records **after the permission check but
+before `depthRefusal("compelActivity")`**, on the reasoning that depth and freeze *"are about doing it
+NOW, not planting it"* — which is a real argument, not an oversight.
 
-**One more site:** `isTriggerSetupLine` (`:1057`) hides setup lines from the subject under the
-Awareness toggle, and currently tests `matchSuggestion` and `matchBodyPartCommand` only. It must gain
-`matchActivityCommand`, or the hypnotist's own compel lines render to her during planting and hand
-her the contents of her trigger.
+Effect of the difference is narrow, because `beginRecording` already demands `triggerControl` (Deep,
+earned) to be recording at all, so she was deep enough moments earlier; the gap is depth drifting down
+mid-recording. It also means compel now matches `handleBodyPartLine`, which likewise checks its
+permission but no depth before recording — so the two parameterised paths at least agree with each
+other and disagree with the suggestion path.
 
-### Firing: re-check everything, trust nothing from plant time
+**Awaiting DW's ruling: pick one and delete the other.** Either move the record call below
+`depthRefusal` (and consider doing the same for `handleBodyPartLine`), or record here that
+plant-time depth is deliberately not gated for parameterised actions and strike this flag.
 
-`fireTrigger` (`:1113`) gains a `compel:` branch beside the `touch:` one. **The trigger may fire
-weeks later, in a different room, with her restrained, at a fraction of its planted strength** —
-which is precisely the case the existing design already answers, and the composition falls out of it
-rather than needing new machinery:
+### Firing: re-check everything, trust nothing from plant time — **done, v0.72.4 + v0.72.6**
 
-| Checked at fire time | Mechanism | Already how triggers work? |
+`fireTrigger` has an `act:` branch beside the `touch:` one. **The trigger may fire weeks later, in a
+different room, with her restrained, at a fraction of its planted strength** — which is precisely the
+case the existing design already answers, so the composition fell out of it rather than needing new
+machinery. All five checks are in the shipped code:
+
+| Checked at fire time | Mechanism | Status |
 |---|---|---|
-| `hypnoEnabled && triggerControl` | `triggersArmed()` (`triggers.ts:599`) | Yes |
-| `compelActivity` granted **now** | the per-action `permissionReason` re-check (`:1166`) | Yes — *"revoking a permission disarms that action of every trigger already planted"* |
-| Deep enough **now** | `depthAllows("compelActivity", strength, strength)` | Yes — the trigger's own strength is its firing depth |
-| Not a Freeze we did not apply | `HasEffect("Freeze") && !hasOwnEffect("Freeze")` | **New here** — lift from `handleActivityCommand:1759` |
-| Bound / chaste / out of range / zone she disabled | `ActivityAllowedForGroup` on the step | **New here — and non-negotiable** |
+| `hypnoEnabled && triggerControl` | `triggersArmed()` (`triggers.ts`) | Shipped v0.72.4 |
+| `compelActivity` granted **now** | per-action re-check, and again on the paced step | Shipped v0.72.4 / v0.72.5 |
+| Deep enough **now** | `depthAllows("compelActivity", strength, strength)` | **Shipped v0.72.6** — see below |
+| Not a Freeze we did not apply | `HasEffect("Freeze") && !hasOwnEffect("Freeze")` | Shipped v0.72.4, re-checked per step v0.72.5 |
+| Bound / chaste / out of range / zone she disabled | `ActivityAllowedForGroup`, via `runCommandedActivity` | Shipped v0.72.4, **on each paced tick** v0.72.5 |
+
+**The depth row was missing until v0.72.6, and its absence surfaced in play.** As first shipped, the
+`act:` branch `continue`d before reaching the `depthAllows(…, strength, strength)` check the suggestion
+actions get, so a faded trigger fired its compels at full force. DW hit the consequence: a trigger
+planted at depth 0 *"fired nothing but the vague-pull flavour — except the first utterance, which
+spanked once."* `triggerStrength` returned `NaN` on a depth-0 trigger's first fire (`0 * Infinity`),
+`NaN < GHOST_THRESHOLD` is false so the ghost guard was skipped that once, the depth-gated suggestions
+all failed their check — **and the compel, being ungated, was the one thing that landed.** v0.72.6
+fixed all three: an early `if (t.plantedDepth <= 0) return 0`, planting refused below the ghost
+threshold, and the compel depth gate. A faded trigger now loses its compels with everything else.
 
 **That last row is the one that must not be skipped.** `ActivityRun` validates nothing — it resolves
 the group, applies arousal, publishes the message (verified against R131 `Activity.js`). BC's
@@ -1925,11 +2470,15 @@ queued step re-validates on its turn.** One implementation serves both.
   With the defaults, Deep dominates and Yielding is satisfied on the way; state the rule, not the
   arithmetic, because both tiers are player-adjustable and a subject who raises `compelActivity` to
   Blank must not find planting still open at Deep.
-- **When it fires:** the trigger's current `triggerStrength()` is the depth, per the existing rule.
-  A Deep-planted trigger faded to 45 still reaches Yielding, so the compel still lands; faded to 20
-  it does not, and the trigger's other actions may still work. That disagreement between
-  `plantedDepth` and the action's gate is not a conflict to resolve — **it is the decay mechanic
-  doing its job**, and it means a neglected compel trigger loses its teeth before it loses its word.
+  **⚠ Shipped code does not gate plant-time depth** — see the divergence flagged under *Recording*
+  above. This bullet describes the specced rule, not current behaviour, and is awaiting DW's ruling.
+- **When it fires: shipped v0.72.6, and this is now what the code does.** The trigger's current
+  `triggerStrength()` is the depth. A Deep-planted trigger faded to 45 still reaches Yielding, so the
+  compel still lands; faded to 20 it does not, and the trigger's other actions may still work. That
+  disagreement between `plantedDepth` and the action's gate is not a conflict to resolve — **it is the
+  decay mechanic doing its job**, and it means a neglected compel trigger loses its teeth before it
+  loses its word. v0.72.6 also refuses to plant below the ghost threshold at all, so a trigger can no
+  longer be born dead.
 - **`compelActivity` is `earnedOnly: false`**, so unlike the illusion it can be reached on chemical
   depth. That stays true at plant time only in the sense that `triggerControl` is earned-only and
   gates the planting; `plantedChemical` then prices the shortcut through the fast decay rate
@@ -1937,25 +2486,27 @@ queued step re-validates on its turn.** One implementation serves both.
   *session-only* action to become persistent by proxy, and the earned-only split is what keeps that
   honest.
 
-### Multiple compels in one trigger — pacing stops being optional
+### Multiple compels in one trigger — pacing stopped being optional, and **shipped v0.72.5**
 
-`MAX_ACTIONS = 8` (`triggers.ts:104`), so one word can carry up to eight compels. `fireTrigger`'s
-loop is synchronous: today that means **eight `ActivityRun` calls and eight `Type:"Activity"`
-publishes in a single tick**, which is the pile-up the pacing note exists to prevent, arriving all at
-once from a single spoken word.
+`MAX_ACTIONS = 8` (`triggers.ts:104`), so one word can carry up to eight compels. As first written
+`fireTrigger`'s loop was synchronous, which meant **eight `ActivityRun` calls and eight
+`Type:"Activity"` publishes in a single tick** — the pile-up the pacing note exists to prevent,
+arriving all at once from a single spoken word.
 
-**So pacing is promoted from a nicety to a dependency of this feature.** The multi-activity sequence
-the pacing note said did not exist yet is exactly what a multi-compel trigger produces. Build the
-queue first, have `fireTrigger` *enqueue* rather than run, and the re-validation requirement, the
-`compel:` prefix on the timer key and the teardown sweep all land in one place. Building this feature
-on the synchronous loop means shipping the pile-up and then unpicking it.
+**Shipped v0.72.5:** `fireTrigger` gates each action as before but defers the *application* into an
+ordered step list, drained one per jittered tick (1.2s–2.0s, first lands immediately so it stays
+responsive), keyed `trigger-drain:<installer>:<phrase>` in `timers.ts` — so `endSession()` and
+`totalStop()`, which both call `clearAllTimers()`, cancel a half-drained sequence on wake, hard floor
+or safeword. Each compel step re-validates on its own tick, which is where the `ActivityAllowedForGroup`
+requirement above actually lives. *Pacing successive **live** commands remains unbuilt — see the pacing
+section's open half.*
 
-**A related trap in the same loop:** `fired++` drives `markActive(timerKey)` and
-`scheduleAutoRelease` (`:1190`). A compel has nothing to hold and nothing to release, so a
-compel-only trigger would mark itself active, schedule a release that undoes nothing, report
-`** HOLDING YOU NOW **` in `describeTriggerList` (`:1273`), and refuse `/hypno forgettrigger` on the
-grounds that it is gripping her. **Compels must be counted separately from `fired`** — log them, do
-not let them reach the holding machinery.
+**A related trap in the same loop, also closed in v0.72.5:** `fired++` drove `markActive(timerKey)`
+and `scheduleAutoRelease`. A compel has nothing to hold and nothing to release, so a compel-only
+trigger would have marked itself active, scheduled a release that undoes nothing, reported
+`** HOLDING YOU NOW **` in `describeTriggerList`, and refused `/hypno forgettrigger` on the grounds
+that it was gripping her. Compels are now counted apart from the holding count, so only restriction
+actions arm the auto-release.
 
 ### What each side sees, following the existing asymmetry
 
@@ -1964,7 +2515,7 @@ showing the subject her own trigger contents defeats the point (`triggers.ts:18`
 
 | Moment | Hypnotist | Subject |
 |---|---|---|
-| Planting | `[trigger] Recorded compel:Caress:breasts into "sleepy time" (2 so far)` — needs a human label, see below | *"That settles into place, waiting."* No phrase, no action |
+| Planting | `[trigger] Recorded act:Caress:breasts into "sleepy time" (2 so far)` — still needs a human label, see below | *"That settles into place, waiting."* No phrase, no action |
 | Committed | `[trigger] SAVED … 3 action(s): …` | *"It settles somewhere you won't think to look for it."* |
 | Firing | **Nothing** — a trigger fires with no hypnotist necessarily present, and that is deliberate | She cannot be kept in the dark: her body just did it and the room watched. She gets the line the spoken path already uses — *"Your body does it without waiting for you to decide"* |
 | Refused at fire time | Nothing (no channel) | Nothing spoken; log only, as the other actions do |
@@ -1973,12 +2524,17 @@ showing the subject her own trigger contents defeats the point (`triggers.ts:18`
 publishes a room line, and `ActivityRun` has *already* published the activity message — the room sees
 *Missy caresses her breasts* either way. A second narration would double-narrate the same event.
 
-**`describeTriggerList` needs a label.** It prints `t.actions.join(", ")` raw, so her own list would
-read `compel:MasturbateHand:@genital`. Her seeing *what* a trigger does is correct and already the
-case for `touch:breasts`; seeing it as an internal id is not. One `describeActionLabel(id)` helper,
-used by both the list and the recorded-confirmation line.
+**`describeTriggerList` still needs a label — not done.** It prints `t.actions.join(", ")` raw, so her
+own list reads `act:genital`. Her seeing *what* a trigger does is correct and already the case for
+`touch:breasts`; seeing it as an internal id is not. One `describeActionLabel(id)` helper, used by both
+the list and the recorded-confirmation line. **Open.**
 
-### ⚠ Scope — the sharpest edge in the feature, and it needs a decision
+### Scope — **decided 2026-09-13: a compel follows the trigger's scope, no installer clamp**
+
+> **DW's ruling, 2026-09-13.** A compel action in a trigger is **not** clamped to the installer; it
+> follows the trigger's scope like any other action. No code change was needed — v0.72.4 already
+> behaves this way. The argument that was put against it is kept below rather than deleted, struck
+> through, so anyone revisiting this sees what was weighed and does not re-open it by accident.
 
 A compel action inherits the trigger's scope, and scope is the seven-rung ladder in
 `TRIGGER_SCOPES` (`triggers.ts:519`) topping out at **"Hypnotist and everyone, no exceptions"**.
@@ -1991,38 +2547,276 @@ public — and the room sees an ordinary activity message, indistinguishable fro
 zones and activities she disabled; she chose the rung, the default is *Hypnotist only*, and a
 stranger on that ceiling can already freeze her or block her hands. Nothing here bypasses a gate.
 
-**But the consent shape is new, and this is the thing to decide before building.** Every existing
-trigger action is a *restriction* — something taken from her. A compel is the first that makes her
-**perform a sexual act, on her own body, publicly, attributed to her**. "Yes, anyone may fire my
-triggers" was answered about being stopped; it is being read as an answer about being made to
-perform. That is the same objection recorded against word-level control — *"the consent shape is
-genuinely different… cannot be reviewed in advance the way 'yes, you may freeze me' can"* — and it
-arrives here by inheritance rather than by anyone choosing it.
+**The consent shape is nevertheless new, and that is what was weighed.** Every other trigger action is
+a *restriction* — something taken from her. A compel is the first that makes her **perform a sexual
+act, on her own body, publicly, attributed to her**. "Yes, anyone may fire my triggers" was answered
+about being stopped, and it is being read as an answer about being made to perform — the same objection
+recorded against word-level control (*"the consent shape is genuinely different… cannot be reviewed in
+advance the way 'yes, you may freeze me' can"*), arriving here by inheritance rather than by anyone
+choosing it. **DW considered this and ruled the other way: the rung she picked is her answer, and the
+ladder means what it says.**
 
-**Recommendation: clamp a compel action to the installer, regardless of the trigger's scope, until
+~~**Recommendation: clamp a compel action to the installer, regardless of the trigger's scope, until
 DW rules otherwise.** `triggersFiredBy` keeps returning the trigger on whatever rung she set — the
-other actions still fire for the wider audience — and the `compel:` branch in `fireTrigger` skips
-unless the speaker is `trigger.installedBy`. Reasons: it is the same *"installer-only is the safe
-start"* reasoning the scope ladder itself was built on (`triggers.ts:95`); it is one condition, and
-reversible in one line the day he decides otherwise; and it fails in the direction that costs a
-feature rather than the direction that costs consent. The alternatives, if he wants them on the
-table: a separate rung-cap for compel actions, or letting the ladder stand and making the scope
-setting's own wording say plainly what the top rung now includes.
+other actions still fire for the wider audience — and the `act:` branch in `fireTrigger` skips unless
+the speaker is `trigger.installedBy`. Reasons: it is the same *"installer-only is the safe start"*
+reasoning the scope ladder itself was built on (`triggers.ts:95`); it is one condition, and reversible
+in one line the day he decides otherwise; and it fails in the direction that costs a feature rather
+than the direction that costs consent.~~ — **rejected 2026-09-13.** The two alternatives that were on
+the table alongside it, and remain available if play changes his mind: a separate rung-cap for compel
+actions, or letting the ladder stand and **making the scope setting's own wording say plainly what the
+top rung now includes**. That second one is cheap and is worth doing regardless of the clamp question —
+it is a labelling fix, not a gate.
 
 ### ⚠ Question 2 just got more urgent
 
 The `Caress`-on-`feel` false positive (`ACTIVITY_VERBS`, `voice.ts:1664`) is still open and still
 deferred — but recording changes what it costs. **Today** a misread deepening line ("Missy, your arms
 feel heavy") fires one stray caress; annoying, visible, over. **Once commands are recordable**, the
-same line spoken during planting **silently writes `compel:Caress:arms` into a trigger she will carry
+same line spoken during planting **silently writes `act:Caress:arms` into a trigger she will carry
 for weeks** — and she cannot audit it, because the confirmation goes to the hypnotist and her own
 list shows the action without telling her it was never meant. A parser false positive stops being a
-stray event and becomes a persistent one.
+stray event and becomes a persistent one. **Recording shipped in v0.72.4 and question 2 is still
+open, so this is live behaviour now, not a forecast.**
 
 **This should be fixed before recording ships, not after.** Two other items stay deferred by DW's
 call and are recorded here so they are not lost: **question 2** (drop `feel` from the `Caress` verb
 list) and **question 3** (`handleTriggerFiring` returning `false` when it suppresses a double-fire,
 so a trigger phrase inside a command line stops swallowing the command).
+
+---
+
+## Commanded Activities — Phase 2: acting on others (detail), spec'd 2026-09-16, not built
+
+> **Related:** Phase 1 (self, one-shot) is **built v0.72.0–v0.72.6** — see the two sections above for
+> the grammar, the consent layers, the `act:` encoding and the pacing queue. This is the *others*
+> item from v0.72.0's "kept in mind for later" list, now specified by DW.
+
+**DW's spec, 2026-09-16, in brief.** Three settings — `allowTouchSelf` (the existing baseline),
+`allowTouchHypnotist` (default TRUE during a session), `allowTouchBystanders` (default false). Zones
+tiered **Social/Neutral · Sensitive · Intimate** and mapped to the subject's current depth, so
+shallow reaches only social zones. Grammar extends to `<verb> my <part>` (the active hypnotist),
+`<verb> <Name>'s <part>`, and `<verb> (someone|somebody|anyone)'s <part>` (a random bystander, with a
+retry loop past refusals). A named target that is not present aborts and emits subject-side flavour.
+Everything routed through native dispatchers.
+
+### Already built — do not re-derive these
+
+His task list includes four things that exist:
+
+- **A target resolver.** `resolveTarget()` (`commands.ts:95`) already resolves a token to a room
+  occupant: Name or Nickname, case-insensitive, **exact first then unique prefix**, and
+  `if (matches.length !== 1) return null` — so it refuses on ambiguity *and* on no match, and leaves
+  the caller to say why. `others()` (`:86`) is the room pool minus the player. This is the resolver;
+  it needs lifting into a shared module, not writing.
+- **The validating entry point.** `ActivityAllowedForGroup` is the gate and `ActivityRun` is the raw
+  runner that validates nothing — established at length under *as trigger actions* above. "Route
+  through native dispatchers" is already how Phase 1 works, and it is the whole reason a third party
+  is safe at all.
+- **The missing-target failure convention.** Rule 5 plus the shipped `[command] Refused — …` /
+  `[command] "x" won't land there right now` wording. His *"reaches out blindly… but finds only empty
+  air"* is the subject-side half; the hypnotist-side half already has a house form.
+- **The pacing queue** (v0.72.5), which a multi-target command will want immediately.
+
+### ⚠ Fuzzy matching: reject. This one should lose.
+
+**The spec asks for "exact **or fuzzy** display-name match". It should not get fuzzy.** A near-miss
+here does not produce a confusing error — it performs a real, published, intimate act on a person who
+was never named, and nothing undoes that it happened. The room sees Missy grope Elena because the
+hypnotist typed *"Elen"* and Elena was the closest string.
+
+The existing `resolveTarget` is the right shape and is already deterministic: exact, else a **unique**
+prefix, else refuse. **Recommendation: reuse it, and tighten to exact-only for touch specifically.**
+The unique-prefix allowance is defensible when a player types a slash command and can see the refusal
+and retype; it is a worse trade when the output is an intimate act on somebody else, and the cost of
+exact-only is that a hypnotist occasionally types a full name.
+
+*(Provenance, so nobody hunts for it: DW recalls this as a settled decision. It is not recorded in
+this document — `resolveTarget`'s own comment is the only place the rule is written down. It is a
+shipped implementation, not a design entry. Recording it here now is what makes it one.)*
+
+### The random-bystander retry loop — the sharpest thing in the spec
+
+**(a) Mechanically it is inert, and this is worth stating plainly.** `ActivityAllowedForGroup` is
+**pure local computation over already-synced data**: `InventoryIsBlockedByDistance`, `AssetAllActivities`,
+`ActivityPossibleOnGroup`, `ActivityCheckPrerequisites`, `ActivityCheckPermissions`. It sends nothing,
+asks nobody, and touches no socket. Verified against R131 `Activity.js`. So iterating a candidate pool
+is not probing the room — it is reading objects already in memory. **The loop is far less alarming
+than it sounds.**
+
+And the data it reads is genuinely theirs: `Char.ArousalSettings` and `Char.AllowedInteractions` are
+part of the synced account data every client receives (`Character.js:1253–1254`,
+`ServerAccountDataSyncedValidate`). So `ActivityCheckPermissions` and `ActivityPossibleOnGroup`
+evaluate the **bystander's own real preferences**, not a default. The consent claim rests on that and
+the claim holds.
+
+**(b) Consent — and DW's distinction is the right one to have drawn.** If BC's permission system is
+honoured, a bystander who allowed that kind of touch has opted in, exactly as settled for Phase 1.
+But **"keep trying until someone doesn't refuse" is a different act from "touch a random person"**:
+
+- Touching a random person distributes across the room and lands on whoever it lands on.
+- Retrying past refusals **systematically selects the most permissive person present**, every time.
+  Over a session it will find the same one or two people repeatedly.
+- Because the whole search is local and silent, **nobody who was considered and skipped ever learns
+  it happened**, and the person finally selected cannot tell they were the fourth choice.
+
+That is not a consent violation — every individual touch was permitted by its recipient. It is a
+**targeting bias with a social cost**, and it is the kind of thing that reads badly in play even when
+every gate was honoured.
+
+**SETTLED 2026-09-16 — filter first, then pick. No retry loop.** Determine who can actually be
+touched *on the requested zone*, then choose at random from that pool. This is strictly better than
+retrying: the bias disappears because nobody is ever "tried and skipped", the randomness is genuinely
+uniform over eligible people, and it is less code than the loop.
+
+**Filter on the specific zone, not on general touchability.** Confirmed: `ActivityAllowedForGroup`
+**already answers per-zone** — it takes a group name and `ActivityPossibleOnGroup` checks
+`PreferenceGetArousalZone(C, Group.Name).Factor > 0` for that group specifically. So *"someone's
+breasts"* must resolve the spoken part to its groups **first**, then filter candidates on those
+groups. Otherwise we pick somebody who is generally touchable and then discover the intimate zone is
+closed, which is the retry loop wearing a different hat.
+
+Note `BODY_PARTS` maps one word to a *list* of groups (breasts → `ItemBreast`, `ItemNipples`). A
+candidate qualifies if **any** group in the list works, and the group that qualified them must be
+remembered, so the dispatch does not re-resolve to a different zone than the one they were chosen for.
+
+#### Check order, and what is cheap across a whole room
+
+BC's own order inside `ActivityAllowedForGroup`, which is the order to mirror:
+
+| # | Check | Scope | Cost |
+|---|---|---|---|
+| 1 | `InventoryIsBlockedByDistance(C)` | whole character | **cheap** — rejects the candidate outright |
+| 2 | `ActivityGetGroupOrMirror` / `AssetAllActivities` | per asset family | **constant** — resolve once, reuse for every candidate |
+| 3 | `ActivityPossibleOnGroup`: enclosure · `ActivityAllowed()` · `CharacterHasArousalEnabled` · zone factor > 0 | per character + zone | **cheap** — field reads. `ActivityAllowed()` is room-global, so hoist it |
+| 4 | Per-activity: `ActivityHasValidTarget` · `ActivityCheckPrerequisites` · `ActivityCheckPermissions` | per activity × character | **expensive** — inventory scans, `InventoryGroupIsBlocked`, `InventoryPrerequisiteMessage`, and it runs for *every* activity in the family, then sorts |
+
+So: **narrow cheaply on 1–3, then call `ActivityAllowedForGroup` only on the survivors** and keep
+those whose result contains the requested activity. Step 4 is the only costly part and this avoids
+paying it for people who were never candidates.
+
+**⚠ The pre-filter must only ever be a narrowing, never a decider.** Anything it rejects must be
+something BC would also reject — it is an optimisation, not a reimplementation, and
+`ActivityAllowedForGroup` stays authoritative. Wrong that way round, a pre-filter bug costs a
+candidate; the other way round it admits someone BC would have refused. Do not reimplement step 4.
+
+Cost in practice is fine: this is a one-shot command, not a per-frame path. A twenty-person room is
+twenty narrow field checks and a handful of full passes. **It must never go anywhere near a draw
+loop.**
+
+### `allowTouchHypnotist` — two parties, two settings, both required
+
+**Clarified by DW 2026-09-16, and an earlier objection in this document was wrong.** This setting is
+the **hypnotist's own consent to being touched**, not the subject's permission to touch. Those are
+different people, and both sides must hold:
+
+| Who | Setting | Default | Asks |
+|---|---|---|---|
+| **Hypnotist** | `allowTouchHypnotist` | **true**, during an active session | may my subject be made to touch **me**? |
+| **Subject** | `compelActivity` (+ `allowTouch*`) | **false**, like everything else | may I be made to act at all? |
+
+~~*Earlier objection: "every permission defaults false, so this would be the only pre-granted one."*~~
+That was aimed at the wrong party. It is a sound objection to a **subject-side** permission arriving
+pre-granted, and the subject's side still defaults false and still has to be turned on. It is not an
+objection to a hypnotist declaring, by running a session at all, that their own body is in scope.
+Defaulting it true is reasonable: someone who opened a hypnosis session has already opted into the
+scene, and it remains one tick to withdraw.
+
+### Telling the hypnotist when *their own* settings refused — safe, and the boundary is load-bearing
+
+**DW's addition, and it is right.** If the hypnotist commands a touch on themselves and **their own**
+BC settings block it — a zone factor they zeroed, an activity they disabled, an item permission — say
+so, and suggest the fix: whitelist the subject, or adjust the setting.
+
+**Why that is safe here and nowhere else.** Three conditions hold simultaneously, and all three are
+required:
+
+1. **It is their own configuration.** Nothing is disclosed that they did not set themselves.
+2. **They asked for the act.** They spoke the line; the refusal is the answer to their own question.
+3. **They are a party to the session.** There is an established consent relationship, which is the
+   same ground Rule 5 already stands on for refusals to the subject's hypnotist.
+
+> **⚠ Do not "make this consistent" by loosening the bystander case.** The no-reason rule for third
+> parties (below) is unchanged and is not an inconsistency to be tidied away. A bystander fails
+> **none** of the three conditions above: it is not their configuration being reported, they did not
+> ask for anything, and there is no session with them. Telling a hypnotist *why* a stranger refused
+> turns the command into a reader for that stranger's settings. The two rules differ because the
+> situations differ, and the difference is the whole safeguard.
+
+### Zone tiers by depth — good, and it should extend rather than replace
+
+The Social/Sensitive/Intimate ladder fits `DEPTH_GATES` cleanly and is a **better model than what
+shipped**. Today `compelActivity` is one flat gate at **Yielding** covering every zone
+(`depth.ts:153`), so *"touch your hand"* and *"finger yourself"* need exactly the same depth — which
+is obviously wrong and only survived because Phase 1 is self-only.
+
+**They compose rather than conflict, as two axes:**
+
+| Axis | Question | Where |
+|---|---|---|
+| `compelActivity` | may I be commanded to act **at all** | existing `DEPTH_GATES` row |
+| zone tier | how deep before **this zone** is reachable | new, per-tier |
+| `allowTouch*` | may I be commanded to act **on this person** | new, per-relationship |
+
+So: keep `compelActivity` as the entry gate, add the zone ladder underneath it, and let the deepest
+of the applicable checks win. **This should be retro-fitted to Phase 1 too** — the self case has the
+same flaw and fixing it in one place covers both.
+
+*(One correction: there is no "verb-implied 80% body-part threshold" in the code. `BODY_PARTS`
+(`selftouch.ts:43`) maps ~40 spoken words to BC zones with no tiering at all, and the verb list is a
+flat curated set. The 80 is probably the **Blank** tier's minimum from `DEPTH_TIERS`. Nothing tiers
+zones today — which is why this part of the spec is an addition rather than a change.)*
+
+### Missing from the spec
+
+- **⚠ Never reveal *which* of a third party's settings refused.** The spec's failure messages are
+  per-cause, and for a bystander that turns the command into a **probe for reading strangers'
+  configurations** — say *"touch Elena's breasts"*, read the refusal, learn what Elena has disabled.
+  All third-party refusals must collapse to one indistinguishable message: *that did not land*, with
+  no reason. The distinction from Phase 1 matters — telling the **subject's** hypnotist why their own
+  subject refused is Rule 5 working as intended, because there is an established session and a
+  consent relationship. There is neither with a bystander.
+- **A cooldown or rate limit per target.** Nothing stops the same bystander being targeted every few
+  seconds. Not a permission failure, but a harassment vector that BC's own permissions do not model,
+  and the quietest one to miss. *(DW recalls this being flagged previously; it is not recorded
+  anywhere in this document. Recording it here now.)*
+- **What the subject sees and consents to.** Phase 1's fiction is *"your body does it without waiting
+  for you to decide."* Phase 2 makes her touch a third party — she may consent to being made to act
+  and still not consent to being made to act **on strangers**. `allowTouchBystanders` is that consent
+  and should be worded as such, not as a targeting option.
+- **Trigger interaction — DECIDED 2026-09-16: named third-party targets ARE allowed in triggers.**
+  DW's call. A trigger may carry `act:Caress:breasts` aimed at a named person, and the id grows a
+  target field. Two failure cases, and they resolve differently:
+
+  - **Target absent when it fires** → **fail with flavour.** She reached for someone who was not
+    there — *"reaches out for someone who is not here, and finds only empty air."* No activity is
+    dispatched. This is DW's wording and it is the right shape: visible, harmless, in fiction.
+  - **A *different* person now matches that name** → **refuse silently, do not touch them.**
+    Recommendation, and it follows the same logic as rejecting fuzzy matching: re-resolve by name at
+    fire time through `resolveTarget`, and if the resolved member number is not the one recorded when
+    the trigger was planted, treat it as absent. **Names are not unique and are not stable** — people
+    change nicknames, and a stranger can arrive who matches. A trigger planted weeks ago must not
+    perform an intimate act on someone who happened to inherit the string. Store **both** the member
+    number and the name at plant time: the number is identity, the name is for display and for the
+    absent-target message.
+
+  **Documentation note, per DW:** the in-game help and the wiki should both recommend *against*
+  naming a specific person in a trigger unless it is deliberately situational — his example being
+  that if you are routinely in a room with the same person, aiming a trigger at them makes sense. A
+  name in a trigger is a bet that the room will look the same later, and usually it will not.
+- **Depth and permission re-checks at dispatch**, per the Phase 1 rule: `ActivityAllowedForGroup` was
+  checked when the line was spoken and the world may have changed by the time a paced step runs.
+
+### Provenance — premises I could not confirm
+
+Filed honestly rather than silently accepted. DW's framing referenced several prior decisions; of
+these, **the validating entry point** and **the target resolver** are real and are pointed at above.
+The following are **not recorded anywhere in this repository** and no decision by these names exists:
+a name-resolver borrowed from **SlaveParking** (that project is cited in these docs for
+`HANDLER_UNDRESS_ORDER`, `NON_CLOTHING_GROUPS` and two constants — nothing about names); a settled
+third-party consent principle referred to as **"Bob"**; and a **per-refused-target cooldown**. They may
+have been settled in conversation and never written down. They are written down now, as
+recommendations rather than as recalled decisions.
 
 ---
 
@@ -2170,6 +2964,207 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - Debug mode: visible trust readout per hypnotist for testing
 
 ### Todo (staging TBD)
+
+- **▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**
+
+  **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
+  wizard and starter set only appear *if you open settings* — so a fresh install is completely
+  silent and indistinguishable from a broken one.
+
+  **The fix:** one notice, printed once per install, into the chat log.
+
+  #### The string
+
+  ```
+  [Hypnosis Add-on v0.73.2 — nothing is switched on yet. Click the spiral to set up.]
+  [Your reactions are visible to the room by default; Trance Defaults turns that off.]
+  ```
+
+  Two lines, deliberately. Line one is why nothing is happening and what to do; line two is the
+  thing a tester should learn **before** their first attempt announces itself rather than after.
+  Anything longer will not be read.
+
+  **The version comes from `__VERSION__`**, the esbuild `define` fed from `package.json`
+  (`build.mjs`) — the same constant the on-screen banner and the `bcModSdk` registration already
+  use (`main.ts:22`, `:49`, `:59`). Never hand-write it; it cannot go stale that way.
+
+  Route it through `tellPlayer()` (`notify.ts`), which brackets it and uses `ChatRoomSendLocal` —
+  so it is local-only, it never reaches the room, and it inherits the origin exemption.
+
+  #### Where it hooks
+
+  **Use `startRecovery()`'s existing startup poll (`recovery.ts:421`).** It already solves the hard
+  part: it waits until `Player.MemberNumber` is known *and* `ChatRoomCharacter` exists before doing
+  anything, because **settings must not be read before login**. Reading early caches
+  localStorage-or-defaults and the next save writes that stale copy over good server-side data —
+  the v0.17.0 data-loss trap, documented at `storage.ts:542`. Fire the notice from the same
+  identity-known branch that calls `attemptRecovery()`. **Do not add a second poll.**
+
+  #### The state, and what a returning user sees
+
+  `starterState` already exists (`storage.ts:373`) — absent = "new", `"done"` once the wizard
+  finishes — but it answers *"have they configured?"*, not *"have we told them?"*. Used alone, a
+  player who never opens settings would be nagged on **every** load, which is the thing this must
+  not do.
+
+  So: **one new sparse field, `welcomeShown?: true`.** Absent means not yet shown. Set it the first
+  time the notice fires and never show it again. Sparse, like every other reversible default here.
+
+  **`normalise()` needs one back-fill line, and it matters:** treat an existing user as already
+  welcomed, or everyone upgrading gets a first-run notice on their next load.
+
+  ```ts
+  // Anyone with evidence of having configured the add-on has already met it.
+  if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
+  ```
+
+  A stricter version could also check "any feature granted or any trust recorded", but
+  `starterState` is the honest signal — it is set precisely when someone has been through setup.
+
+  #### The second trigger condition
+
+  **Yes, fire it for `hypnoEnabled` on with no other permission granted** — that is the same silence
+  for a different reason, and nobody chooses it deliberately: enabling hypnosis and granting nothing
+  is not a configuration anyone wants. It uses the **same one-shot `welcomeShown` flag**, so it
+  still cannot nag.
+
+  **But not for "Hypnotist only".** Someone who picked that preset has `hypnoEnabled` off *on
+  purpose* and is fully configured (`starterState === "done"`), so the back-fill above already
+  excludes them. Do not add a third condition for them — their case is covered by the hypnotist
+  being told which gate refused, which already works.
+
+  #### What it must NOT do
+
+  - **Not auto-enable anything.** Not one toggle, not the starter set, not `hypnoEnabled`.
+  - **Not pre-tick.** The starter-set offer's existing behaviour is the model: *offered, not
+    applied*, undoable in one click.
+  - **Not nag.** Once per install, full stop — no per-load, no per-version, no re-show on a bump.
+    Alpha will bump the version often and a version-keyed notice would fire constantly.
+  - **Not reach the room.** `tellPlayer`, never `tellRoom`.
+
+  The gap between *"we set this up for you"* and *"shall we?"* is the whole point for a consent
+  tool. This notice exists to close a discovery gap, not a configuration one.
+
+  #### What already exists — extend, do not duplicate
+
+  - **`main.ts:22` already draws an on-screen banner**, `Hypnosis Add-on v${__VERSION__} loaded` —
+    a DOM element, not a chat line. It proves the script is running but says nothing about setup.
+    **Leave it alone**; the new notice is the chat-log half, not a replacement.
+  - **The wizard** (`wizard.ts`) already owns first-run *configuration* and the `starterState`
+    lifecycle. The notice must not duplicate any of it — it only points at it.
+  - **The starter-set offer** on the Permissions tab is the in-settings version of the same nudge.
+    Same relationship: the notice gets them to settings, that offer takes over.
+  - **There is no existing load-time chat notice and no version-changed notice.** This is new
+    surface, and it should stay the only one.
+
+- **▶ THEN — A PENDING TRIGGER RECORDING MUST NOT SURVIVE THE SESSION THAT STARTED IT. Found by
+  review 2026-09-16; not yet seen in play, but it is the cheapest bug here to trip over.**
+
+  #### The failure, as cause and effect
+
+  A hypnotist says *"Missy, your trigger word is sleepy time"* and starts narrating suggestions into
+  it. Before he commits, **the session ends** — she safewords, she wakes, it times out, or she
+  unticks *Hypnosis Enabled*. `cancelRecording()` is called from exactly one place, the explicit
+  *"forget the trigger"* (`voice.ts:1095`), so **the recording survives, still pointing at him.**
+
+  Later, in a new session with **a different hypnotist**, he says *"Missy, you cannot move."*
+  `handleSpokenLine` matches it, the gates pass, and `recordAction()` returns a message — so the
+  suggestion is **captured into the stale trigger instead of performed**. He watches nothing happen,
+  five lines running. She gets *"That settles into place, waiting"* where the effect should be. The
+  confirmations go to the **first** hypnotist, who may not be in the room.
+
+  **Both players conclude the add-on is broken, and neither can work out why.** The trigger flow is
+  one of the first things a tester pokes at, and the safeword is the thing they will be told to try
+  first — so the two halves of the repro are the two most likely things to happen on day one.
+
+  #### The teardown surface is wider than it looks — which decides the fix
+
+  Enumerated:
+
+  | Path | Reaches |
+  |---|---|
+  | `totalStop()` | safeword (`session.ts:965`), `hardFloorStop()` (`:987`, master switch off via `menu.ts:1081`), `stopForReset()` (`:1007`, via `storage.ts:866`) |
+  | `endSession()` | self-wake (`:959`), hypnotist wake (`:1081`, `:1326`), session timeout (three `setTimeout` sites), and the reconnect "already ran out" path (`:1206`) |
+  | `releaseEverything()` | **recovery.ts:214 — and it goes through neither of the above.** It strips effects directly on the orphan/disconnect path |
+
+  **Three separate surfaces, one of which bypasses both shared teardowns.** An eager fix has to
+  remember all three *and* every one added later. That is the argument against doing it eagerly.
+
+  #### Recommended fix: lazy invalidation, which cannot be forgotten
+
+  **Do not call `cancelRecording()` from the teardown paths. Make the recording check its own
+  liveness instead.** `triggers.ts` already imports `session.ts`, so `isSessionActiveWith()` is
+  available with **no import cycle, no new module and no registration**:
+
+  - `isRecording()`, `recordAction()`, `commitRecording()` and `describeRecording()` each drop the
+    recording and behave as "not recording" when
+    `!isSessionActiveWith(recording.hypnotistId)`.
+
+  **Why this over the registration patterns.** `timers.ts` and `carry.ts` both exist to break exactly
+  this cycle, and either could be copied — but both require the teardown paths to *remember* to fire
+  the hook, which is the failure mode that produced this bug in the first place. Lazy invalidation is
+  correct by construction: a teardown path added next year needs no change, and `releaseEverything()`
+  needs none today. **It is also the idiom this codebase already uses** for trust decay and trigger
+  strength — *"lazily on read… nothing to schedule, nothing to miss, correct across reloads on its
+  own."* Same reasoning, same shape.
+
+  **Do not widen `timers.ts`'s remit to carry a teardown registry.** Its `clearAllTimers()` is
+  already called from both shared teardowns and it would be tempting to hang this off it — but
+  cancelling a recording is not clearing a timer, and that coupling would be a third pattern
+  invented to avoid a problem lazy checking does not have.
+
+  #### What survives, and the reconnect case answers itself
+
+  **A brief disconnect with successful recovery should keep the recording, and with lazy invalidation
+  it does — for free.** A socket drop without a page reload leaves the module-level `recording`
+  intact; recovery resumes the session with the same hypnotist; the liveness check then passes and
+  narration continues where it left off. A disconnect *with* a reload destroys all JS state anyway,
+  so there is nothing to preserve and nothing to decide.
+
+  So: **it survives precisely the case that should survive, and dies in every case that should die,
+  without anyone enumerating the paths.** No extra work, no stored state, no persistence.
+
+  #### Who is told
+
+  Check the existing explicit path first and stay consistent with it. `cancelRecording()` itself is a
+  bare `recording = null`; the messaging lives at the call site (`voice.ts:1093–1098`), where **the
+  subject** gets *"Whatever was being set aside comes apart again."* and **the hypnotist gets
+  nothing.**
+
+  That asymmetry is right and it inverts here, for the same reason: on the explicit path *he caused
+  it and knows*. On a teardown path he may not know — he might still be narrating, or he might have
+  been the one disconnected. So:
+
+  - **Tell the hypnotist, at the moment the stale recording is dropped** (i.e. on his next line, from
+    inside the lazy check): `[trigger] That recording ended with the trance — nothing was saved.`
+    Rule 5: he narrated suggestions into something that no longer exists, and silence would leave him
+    debugging his own phrasing.
+  - **Tell the subject nothing.** Two reasons, and the second is the stronger: the teardown already
+    speaks for itself (*"Safeword. Trance cleared, all effects released…"*), and a dedicated line
+    would **disclose that a recording was in progress** — which is exactly what *Awareness → Trigger
+    setup* exists to hide from her. A counterpart to *"Something is being set aside in you"* would
+    leak the thing that line was careful not to name.
+
+  #### The test — this is the class the suite exists for
+
+  In `test/triggers.mjs`, one assertion per teardown surface: start a recording, end the session by
+  **safeword**, by **wake**, by **timeout**, and by **unticking Hypnosis Enabled**; after each,
+  assert `isRecording()` is false **and** that a subsequent suggestion is *performed, not recorded*.
+  The second half is the one that matters — `isRecording()` returning false while `recordAction()`
+  still captures would pass a weaker test and ship the bug.
+
+  Add one positive case so the suite is not just asserting destruction: recording survives a
+  disconnect that resumes to the same hypnotist.
+
+  #### Relationship to the first-run notice above
+
+  **Independent — no shared files.** The notice touches `main.ts`/`recovery.ts` (the startup hook),
+  `storage.ts` (the `welcomeShown` field and its `normalise()` back-fill) and `notify.ts`. This
+  touches `triggers.ts` and `test/triggers.mjs`, and on the recommended approach **does not touch
+  `session.ts` at all**. Bundling them is batching, not shared work — one version bump instead of
+  two, and one round of `npm test`. If the code bot would rather ship them separately, nothing is
+  lost by doing so.
+
 - ~~Add a way to read off coordinates for future layout, next to the H button, comparable against the game's own Back button~~ — done and since removed; the exit icon now sits at BC's own verified `(1815, 75, 90, 90)`.
 - ~~Induction flow (command → prompt → acceptance)~~ — done in Stage 4. The **trust gain** half is still outstanding.
 - ~~Hard floor / panic command~~ — done: `/hypno safeword`.
@@ -2190,41 +3185,297 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **Clothing consent interface** — see below
 - **Bondage consent interface** — see below
 - Free-form command parser using BC's existing activity system as a base library
-- **Pacing for commanded activities — spec'd 2026-09-13, see *Commanded Activities — pacing*.** DW
-  wants a delay between compelled touches so they are watchable in the room. The pause itself is
-  small (a keyed `timers.ts` step; both teardown paths already sweep it), but going asynchronous
-  means **every queued step must re-ask the gates on its turn** — `ActivityRun` validates nothing,
-  so a stale step publishes an activity BC would have refused. **Fix the `Caress`-on-"feel" false
-  positive and the recording guard first**, or the delay will separate that bug from its cause.
-  **Now a dependency of the item below, not a separate nicety.**
-- **Commanded activities as trigger actions — approved by DW 2026-09-13, spec'd, see *Commanded
-  Activities — as trigger actions*.** A word that later makes her act, encoded `compel:<activity>:<part>`
-  beside the existing `touch:<word>`. **This is also the fix for the recording collision** — a touch
-  command spoken mid-planting currently executes instead of being captured, and the guard that
-  records it is the same change. Permissions, depth *and* `ActivityAllowedForGroup` all re-check at
-  fire time, because the word may land weeks later with her restrained. **Two things to settle before
-  building:** whether a compel inherits the trigger's scope (a stranger on a permissive ceiling could
-  otherwise make her perform in public — recommendation is to clamp compels to the installer), and
-  question 2 below, which stops being cosmetic once a misparse writes itself into a trigger.
-- **Still open, deferred by DW 2026-09-13.** (2) Drop `feel` from the `Caress` verb list
-  (`voice.ts:1664`) — "your arms feel heavy" currently parses as a command. (3) Make
-  `handleTriggerFiring` (`:1355`) return `false` when it suppresses a double-fire, so a trigger phrase
-  inside a command line stops silently swallowing the command.
+- ~~**Commanded activities as trigger actions**~~ — **built v0.72.4**, paced v0.72.5, depth-gated at
+  fire time v0.72.6. Encoded `act:<Activity>:<word>` (plus `act:genital` / `act:vague`) beside the
+  existing `touch:<word>`; it was also the fix for the recording collision. Full spec and the shipped
+  divergences: *Commanded Activities — as trigger actions*.
+- **Pacing for commanded activities — half built.** ~~A fired trigger's actions arrive all at once~~
+  — **fixed v0.72.5**, drained one per jittered tick with per-step re-validation. **Still open: pacing
+  successive *live* commands**, and **DW's suspicion from play 2026-09-14 that the pause is only
+  spacing the flavour text and not the activities** — unverified, nobody has read the drain path
+  against it. See *Commanded Activities — pacing*.
+- **⚠ Plant-time depth for parameterised actions — awaiting DW's ruling.** `handleActivityCommand`
+  records into a trigger after the permission check but **before** the depth gate, and
+  `handleBodyPartLine` does the same; the suggestion path checks depth first. Narrow in practice
+  (planting already demands Deep), but the two rules disagree and one should go. Detail under
+  *Commanded Activities — as trigger actions* → *Recording*.
+- **Still open, deferred by DW 2026-09-13.** (2) Drop `feel` from the `Caress` verb list — "your arms
+  feel heavy" parses as a command, and **now that recording ships it writes itself into a trigger**
+  rather than firing one stray caress. (3) Make `handleTriggerFiring` return `false` when it
+  suppresses a double-fire, so a trigger phrase inside a command line stops silently swallowing the
+  command.
+- **A human label for trigger actions.** `describeTriggerList` prints raw ids, so a subject's own list
+  reads `act:genital`. One `describeActionLabel(id)` helper, shared with the recorded-confirmation
+  line. Small, and it is the difference between a readable list and an internal one.
+
+- **⚠ TRIGGER SCHEMA — the window closes at alpha. 2026-09-16.** Missy is the only person with
+  planted triggers, so changing the `Trigger` record is free today and a migration forever after.
+  Full consolidated schema in *Trigger Storage — one consolidated schema change*, now revised by the
+  **phrase-uniqueness decision** (*Trigger Phrase Uniqueness and Override*, decided 2026-09-16).
+  **Authorise the small pass now:** enforce uniqueness (which *requires* changing `saveTrigger`'s
+  de-dupe from `(phrase, installedBy)` to phrase alone), add `key` as the natural key so phrase-less
+  touch triggers do not force a second pass later, plus optional `scope?` and `expiresAt?` whose
+  defaults are exactly today's behaviour. Touch-trigger fields and the third-party `actionData` wait
+  on decisions. **The migration is not the expensive part** —
+  `normalise()` makes optional fields free; the cost of deferring is re-touching `timerKey`,
+  `forgetTrigger`, `saveTrigger` and `describeTriggerList` each time.
+
+- **Commanded activities Phase 2 — acting on others. DW's spec, 2026-09-16, POST-ALPHA.** Touching
+  the hypnotist, a named player, or a random bystander, with zones tiered by depth. Full assessment
+  in *Commanded Activities — Phase 2: acting on others*. **Four things to settle before building:**
+  drop the fuzzy name match (the resolver in `commands.ts:95` already refuses on ambiguity, and a
+  near-miss here performs a real intimate act on someone never named); **pick one bystander rather
+  than retrying past refusals**, which otherwise systematically finds the most permissive person in
+  the room; default `allowTouchHypnotist` to **false** like every other permission; and collapse all
+  third-party refusals to one reasonless message, or the command becomes a probe for reading
+  strangers' settings. The zone-tier ladder is good and should be **retro-fitted to Phase 1**, where
+  `compelActivity` currently gates every zone at one flat tier.
+
+- **⚠ THE WIKI IS A SECOND SURFACE AND IT WILL DRIFT — keep it in step. Added 2026-09-16.** Player
+  documentation now lives in **`wiki/`** (one markdown file per GitHub wiki page: `Home`,
+  `Getting-Started`, `Consent-and-Safety`, `Your-First-Session`, `What-to-Say`, `Depth-and-Trust`,
+  `Triggers-and-Lasting-Effects`, `Commanded-Activities`, `Settings-Reference`, `Commands`,
+  `Troubleshooting`). The old developer README moved to **`docs/DEVELOPMENT.md`**; `README.md` is now
+  short and user-facing.
+
+  **DW's decision: the wiki and the in-game help are deliberately separate and both must stay
+  independently usable** — some players will read ahead, some will look things up mid-scene. The
+  wiki is hand-written and self-contained rather than a dump of generated output, so a reader who has
+  not installed anything can still follow it.
+
+  **The cost of that decision is drift, and it is now a standing obligation.** The in-game *What to
+  Say* and *Commands* tabs are **generated** from `SUGGESTIONS` and the command table, so they cannot
+  fall behind the code; the wiki pages covering the same ground **can and will**. So:
+
+  - **Any change to `voice.ts`'s pattern library, the command table, `DEPTH_GATES`, the permission
+    list or the settings tabs is also a wiki change.** Treat it as part of the same piece of work,
+    the way `package.json` is.
+  - The wiki pages say in their own text that the in-game help is generated and is the more current
+    of the two where they disagree. That is the honest fallback, not a substitute for updating them.
+  - `Troubleshooting` carries a *Known rough edges* section naming open bugs by behaviour (the
+    `Caress`-on-"feel" false positive, the swallowed command). **Those entries come out when the bugs
+    are fixed**, or the wiki starts warning about things that no longer happen.
+  - The pages are written against **v0.73.2** and say so. Bump that line when the content is
+    re-checked, not when the version changes.
+
+- **⚠ SENSORY SUPPRESSION — two specs from DW, 2026-09-16. POST-ALPHA: ship alpha first, then these
+  next.** Vision and hearing arrived as separate specs and are filed as one item, because **they are
+  one feature.** DW's rule that blindness must *not* mask names is justified by voice identification;
+  his rule that deafness at level 2 *must* mask names is the case where voice identification fails.
+  Written independently, a week apart, the two specs agree — and the agreement is the design: **what
+  she loses determines how she identifies people, and each sense covers the other's gap.** Build them
+  on one state model and one set of gates, not as two features that happen to be adjacent.
+  Restated below in our terms at DW's invitation; **his level ladders and his intent are unchanged**
+  and are marked as his.
+
+  ### Vision — `visionLevel` 0–3 *(ladder and intent: DW)*
+
+  **His model, kept:** 0 normal · 1 impaired/partial darkness · 2 heavy/tunnel · 3 complete blindness,
+  capped by the player's own base-game settings. Lifecycle on the existing session timer, trigger
+  durations and wake/release. Spoken triggers to raise, lower and clear. **His two rules, kept:** do
+  not mask names (voice still identifies), and clamp to the client's own blindness cap rather than
+  forcing an unapproved black screen.
+
+  **Verified against R131 `Scripts/Character.js`:**
+
+  - His ladder *is* BC's ladder — `BlindLight` 1, `BlindNormal` 2, `BlindHeavy` 3
+    (`CharacterBlindLevels`), rendering at brightness 0.3 / 0.15 / 0.0 through
+    `CharacterGetDarkFactor()` (`:2266`). He described BC's design without having read it.
+  - The cap is real and nameable: `GetBlindLevel()` clamps to 2 when
+    `Player.GameplaySettings.SensDepChatLog === "SensDepLight"`, else to 3 (`:297`).
+  - **⚠ The Emoticon carrier does not work for blindness.** `GetBlindLevel` ignores the cached
+    `C.Effect` and re-derives from items in `ItemHead`, `ItemHood`, `ItemNeck`, `ItemDevices` **only**
+    (`:289`). A `BlindHeavy` on our Emoticon validates, syncs, and still reads as zero.
+  - **So hook `CharacterGetDarkFactor` instead** — a plain global and the single funnel for screen
+    darkness, hookable like `DrawCharacter` and `ActivityRun` already are. That route bypasses the
+    clamp inside `GetBlindLevel`, which makes DW's "query the native setting" rule **mandatory rather
+    than redundant**: read `SensDepChatLog` and apply `min(2, …)` ourselves.
+
+  **Premise to correct: there is no 30% darkness overlay to deprecate.** What exists is
+  `TRANCE_FADE_OPACITY = 0.3` (`effects.ts:115`), painted `rgba(255,255,255,0.3)` — **white** — in a
+  `DrawProcess` hook (`main.ts:218`), thinning to `0.08` in walking trance. *Default Hypnosis State
+  Effects* specs it as *"not blind, not black… dreamlike without cutting off visual context"*: it is
+  the trance **indicator**. Deleting it removes the only sign she is under, and white over dark washes
+  out rather than compounding. Keep it; layer vision on top.
+
+  ### Hearing — `hearingLevel` 0–4 *(ladder and intent: DW)*
+
+  **His model, kept:** 0 normal · 1 garbled, sender visible · 2 garbled, sender masked · 3 suppressed
+  with sporadic atmospheric fallback · 4 complete silence. A `maxHearingLevel` cap; a trigger asking
+  for more **clamps silently, without an error**. Settings, kill-switches and emergency release stay
+  live at every tier. Public chat and whispers treated alike unless exempted; the subject's own
+  outgoing and reflected messages never blocked.
+
+  **Verified against R131 `Scripts/Speech.js` and `Character.js`:**
+
+  - **The garble routine is `SpeechTransformGagGarble(text, intensity, ignoreOOC)`** — character-
+    agnostic, takes a raw intensity, directly callable. `SpeechTransformProcess(C, text, effects)` is
+    the orchestrator; `"deafen"` is its receiver-side effect (`SpeechTransformReceiverEffects`).
+    `SpeechGarble` / `SpeechGetTotalGagLevel` / `SpeechGarbleByGagLevel` are the deprecated aliases —
+    **do not write against those.**
+  - `SpeechTransformDeafenIntensity(C)` maps `Player.GetDeafLevel()` to garble intensity: 1→2, 2→4,
+    3→6, 4→8, 5→12, 6→16, 7→20.
+  - **BC already does his level 2, and names it the way he guessed.** `SpeechAnonymize(msg, characters)`
+    replaces names with `InterfaceTextGet("Someone")`, gated per character by
+    `ChatRoomIsCharacterImpactedBySensoryDeprivation(C)`, documented as *"used as part of
+    sensory-deprivation processing."*
+  - **⚠ The asymmetry that matters — deafness is the mirror image of blindness, in both directions.**
+    `GetDeafLevel()` iterates **all** of `this.Appearance` with no group restriction
+    (`Character.js:624`), so **the Emoticon carrier DOES work here** — the opposite of vision. But it
+    applies **no SensDep clamp at all**, so BC will not protect her: `maxHearingLevel` is entirely
+    ours to build. Vision gets a free cap and an unusable carrier; hearing gets a usable carrier and
+    no cap. Neither spec anticipated this and both assumed symmetry.
+  - **Level 4 is not reachable through BC's engine.** Deafness garbles, it never silences — at maximum
+    it returns `mmmmm`. A single `DeafTotal` on the Emoticon is level 4 → intensity 8 (*VeryHeavy*),
+    not silence. So **levels 1–2 are BC's engine; levels 3–4 are ours** and are the only part that
+    needs a message handler at all.
+
+  **⚠ OPEN — do whispers still work under hearing impairment?** The original spec treated whispers as
+  room chat unless exempted; **DW is no longer sure, and this is recorded as open rather than
+  settled.** The two arguments, both good:
+
+  - **For exempting whispers:** a whisper is the channel a person reaches for to check on someone out
+    of character — *"are you still alright with this?"* — and that check happening in the same room,
+    quietly, without breaking the scene, is a real safety affordance. Deafening it means the only way
+    to ask is to break the scene entirely. Note this is *not* covered by the origin exemption, which
+    protects add-on-generated messages, not another player's.
+  - **Against exempting whispers:** an exempt channel is an obvious cheat channel. If whispers always
+    land, "deafened" becomes a costume — the hypnotist (or anyone) simply whispers instead, and the
+    feature stops meaning anything the moment both players notice.
+
+  Worth weighing alongside two things already settled: OOC text in parentheses is **already** stripped
+  before the add-on reads any line (`stripOOC`), so the genuinely out-of-character check may be
+  protected without exempting the whisper *channel* at all — which, if it holds, dissolves most of the
+  first argument and points at exempting OOC content rather than whispers. And the name rule above
+  interacts: if her name cuts through, a whispered *"Missy, are you okay?"* already reaches her.
+
+  ### Shared — what both need, and what neither spec has
+
+  - **`suppression.ts` should own the hook, and extending it is additive.** It already registers a
+    `ChatRoomRegisterMessageHandler` at Priority 320, *"after arousal, before display"*. Its
+    `classify()` returns null for anything that is not `Activity` or `Action` (`suppression.ts:96`),
+    so **it does not touch dialogue today** — `Chat`, `Whisper` and `Emote` pass through untouched.
+    Hearing would be the first consumer of those types, colliding with nothing that exists.
+  - **⚠ Ordering against *words she cannot hear*, which is specced and sits on the same hook.** They
+    compose, but only one way round: **content filtering first, channel degradation second.** Garble
+    first and the word filter can no longer recognise its own target, so it silently stops working at
+    `hearingLevel ≥ 1`. Filter first and garble after, and the redaction is hidden inside the garble
+    rather than leaving a visible hole that says *"a word you may not hear was here."* At
+    `hearingLevel ≥ 3` the message is not rendered at all, so the word filter is moot. One handler,
+    one ordered pipeline, hearing last. **Somebody has to own this decision before either is built.**
+  - **The origin exemption already covers this, and the wording generalises.** *Word-Level Control →
+    Exit-path audit*: **"Any message the add-on itself generated is never subject to the incoming word
+    filter."** It holds for hearing for a structural reason as well as a stated one — `tellPlayer()`
+    routes through `ChatRoomSendLocal` (`notify.ts:36`), which renders directly and never enters the
+    incoming handler chain, so `hearingLevel` 4 cannot reach it however it is implemented. **The part
+    that is not free: BC's own safeword actions** (`ActionActivateSafewordRevert`,
+    `ActionActivateSafewordReleaseAll`) are real `Type:"Action"` messages that *do* traverse the
+    pipeline, and a level-4 "drop all incoming" would eat them. Exempt by origin, exactly as the word
+    filter does.
+  - **DW's "parse commands before suppression" rule is already satisfied — as long as nobody mutates
+    the payload.** `handleSpokenLine` reads `data.Content` via `stripOOC` (`main.ts:104`), independent
+    of what is rendered, and the trigger-setup path already parses-then-suppresses (`:111–115`). So
+    **garble the rendered output, never `data.Content` in place** — mutating it would silently stop her
+    triggers firing and the hypnotist's commands landing, and it would look like a parser bug.
+  - **DECIDED 2026-09-16 — her name cuts through. A line that starts with the subject's name is
+    heard, and she reacts to it.** DW's rule, and it is the better answer to *"does a deafened subject
+    still obey?"* than the one the hook order was about to give by default. "She is controlled by
+    words she cannot hear" is coherent but slightly hollow; **"her name cuts through the fog"** is
+    real hypnotic fiction, is how attention actually works, and is a cleaner rule to implement and to
+    explain to a player.
+
+    **Concretely, of the three readings, take the third.** *Bypass garbling entirely* is too clean —
+    at `hearingLevel` 4 a perfectly crisp line in a silent world reads as a bug, not as focus.
+    *Garbled but still obeyed* is the default we are replacing, and keeps the hollow version. So:
+    **she perceives the name-prefixed line while everything around it stays degraded.** The line
+    renders intelligibly — at high levels with a marker that it arrived through the fog rather than
+    around it (an addon-side line, not a raw pass-through, so it also inherits the origin exemption) —
+    and every other message in the room continues to garble and drop at the current level. One
+    sentence lands; the room stays underwater.
+
+    **Residue, and it is real: a command without her name at level 3+.** The rule answers most of the
+    question, not all of it. A hypnotist who says "sleep" with no name, to a subject at `hearingLevel`
+    3 or 4, is the uncovered case — the line is suppressed for display but `handleSpokenLine` still
+    sees `data.Content`. Two consistent options, and this one is **open**: either nothing lands (the
+    name is the whole channel, which is tidy and matches the fiction), or it lands unheard (back to
+    the hollow version for exactly the lines the new rule does not cover). *Recommendation, not a
+    decision: nothing lands.* It makes the rule total — **at level 3+, hearing is name-gated, full
+    stop** — rather than leaving a quiet back door that behaves differently from everything a player
+    would have inferred.
+
+  - **⚠ Question for DW, arising from the rule above — is the hypnotist simply always audible?**
+    Not answered here, because it is his to answer. Every spoken suggestion and every command
+    **already** requires her name in the line (`mentionsAnyName`, enforced in `handleSpokenLine` and
+    in `handleActivityCommand`). So "name-prefixed lines cut through" means, in practice, that
+    **essentially everything the hypnotist says to her cuts through, and only the rest of the room
+    fades.** That may well be exactly right — the hypnotist's voice is the one thing that reaches her,
+    which is the whole fantasy — but it should be *chosen*, not arrive as a side effect of two rules
+    agreeing. Worth noting the two are not identical: the name gate wants the name *anywhere* in the
+    line, while this rule as stated wants it at the **start**. If they are meant to be the same
+    channel they should use the same test; if "starts with" is deliberate, then a hypnotist who writes
+    "come here, Missy" is inaudible while "Missy, come here" is not, and that distinction needs to be
+    intentional and documented, because players will hit it within a session.
+  - **CONFIRMED 2026-09-16 — both get their own settings and their own depth/trust gating.** Raised as
+    a gap, accepted by DW; **this is no longer an open decision, it is work.** Each of vision and
+    hearing needs, like every other gated feature:
+
+    - a `FeatureToggles` key of its own — two keys, not one shared "sensory" permission, because
+      consenting to be blinded is not consenting to be deafened;
+    - a row in `DEPTH_GATES` with its own tier, player-adjustable like the rest;
+    - a Permissions row and a wizard group, so the setup wizard can offer them;
+    - the existing per-level caps as a second, independent axis — DW's `maxHearingLevel` and the
+      vision clamp are *ceilings within* a permission, not substitutes for one.
+
+    Session-scoped and `earnedOnly: false` puts both beside `selfTouchControl`. **The earned split
+    becomes necessary the moment either can be carried or planted into a trigger**, since being
+    blinded for a scene and being blinded until you next log in are different consents — so if
+    carry-forward or trigger actions are in scope for these, they follow the `triggerControl` /
+    `carryForward` precedent rather than the session-only one. The depth ladder on the help screen
+    picks both up for free once the `DEPTH_GATES` rows exist, since it is generated.
+  - **Exit paths are the hard constraint on both.** DW's "keep essential UI accessible" and his
+    "kill-switches stay live at every tier" are the same rule from two directions.
+    `/hypno safeword` must stay readable at `visionLevel` 3 and its confirmation must arrive at
+    `hearingLevel` 4. Note the current veil paints *after* `next()`, over menus and chat alike — a
+    vision layer must not inherit that.
+  - **Unverified, flagged rather than assumed:** the exact `SensDepChatLog` values that make
+    `ChatRoomIsCharacterImpactedBySensoryDeprivation` return true. BC anonymising names under sensory
+    deprivation is confirmed; the thresholds are not. This matters because **it is her setting, not
+    ours** — if she has chosen a level where BC masks names, DW's no-masking rule for vision must not
+    fight it. Read `ChatRoom.js` before writing code.
+  - **TO OBSERVE IN ALPHA, not to research now — DW, 2026-09-16. Do players actually use BC's own
+    sensory settings, or BCX's more granular ones?** Deliberately unresearched at his instruction;
+    recorded so it is not lost. **Why it matters:** every cap in this item clamps against *BC's*
+    settings — `SensDepChatLog` for vision, and whatever we build for hearing. If the community mostly
+    sets its sensory limits in **BCX** instead, then a player who believes she has capped her own
+    blindness or deafness may have capped it somewhere we never read, and **we would be
+    under-respecting a limit she thinks she has set** — which is the worst failure mode this feature
+    has, because it fails silently and in the unsafe direction. No code follows from this yet.
+    **Watch during alpha, decide after.** If it turns out to matter, the options are to read BCX's
+    settings too (no BCX *code*, per rule 7 — reading a value another add-on published is a different
+    thing from copying its implementation, and that distinction should be confirmed before anyone
+    relies on it), or to surface our own cap prominently enough that nobody assumes BCX governs it.
+  - **Cheaper than both specs read.** No shaders, no CSS, no rendering-loop audit, no bundle archaeology
+    for a garble function that is named above. Vision: one hooked global, one clamp. Hearing: one
+    effect on the existing carrier for 1–2, one handler branch for 3–4, one cap. Plus the
+    permission/depth plumbing that already exists as a pattern. Both level ladders survive intact.
 - **The add-on is close to invisible to everyone except the two people in the scene — DW, 2026-09-14.**
   Three separate asks that are one observation from three angles, grouped so whoever picks up one sees
   the others. BC is a multiplayer social game and the audience is part of the point; a room watching a
   hypnosis happen currently has almost nothing to see.
 
-  - **An icon for the add-on.** DW's thought: **spirals.** Nothing else specified yet.
+  - ~~**An icon for the add-on.** DW's thought: **spirals.**~~ — **built v0.72.8**, the two-arm
+    hypnotic spiral, replacing the "H" on the button and the remote.
   - **Spirals on screen during an induction** — a visual effect while an attempt runs, presumably on
     the *subject's* own screen. There is already an *Induction Visual — Spiral Overlay (planned)*
-    section above; this is DW asking for it, not a new idea.
-  - **More flavour text for onlookers**, and the question underneath it: **DW does not think anything
-    currently shows the room that the subject *was* hypnotised**, during or after the induction. Recorded
-    as his impression — *"I don't think there is anything"* — and **to be confirmed, not treated as an
-    established gap.** If it is true it is probably the most consequential of the three: the trigger and
-    command paths do publish activity messages, so the room already sees the **effects** and may never
-    see the **cause**.
+    section above; this is DW asking for it, not a new idea. **Still open** — the icon is not this.
+  - ~~**More flavour text for onlookers**, and the question underneath it: does anything show the room
+    that the subject *was* hypnotised?~~ — **his impression was right, and it is fixed in v0.72.9.**
+    He said *"I don't think there is anything"*; the whole induction was in fact silent to the room.
+    The room now gets a line when an induction **begins** (`announceInductionBegin`, choice-agnostic so
+    it never leaks agree/ignore/fight) and when the subject **goes under** (`announceTranceEnter`, at
+    the success branch rather than `applyTranceState`, so a reconnect does not re-announce it). Both
+    behind *Others see your reactions*. The sensual/submission flavour was warmed in the same pass; the
+    "absence" lines were deliberately left alone.
 
 - **Remote panel: the eight missing toggles + live state sync.** The panel has Session, Movement, Clothing and Kneel/Stand; speech, self-touch, and the three awareness categories exist only as speech. Eight binary toggles would fit in two columns of four under the session button without paging.
 
@@ -2253,7 +3504,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - **`arousalControl` and `illusionControl` do not release on revoke.** The rule everywhere else is that unchecking a permission frees the effect immediately, and `menu.ts`'s `onToggle` has no case for either — so unchecking *Arousal & Orgasm* leaves `DenialMode` applied and unchecking *Clothing Illusion* leaves the illusion running. v0.39.0 added the `arousalControl` case for numbness only. Small, and a consent rule rather than a nicety.
 - **Widen release wording as gaps turn up, not just restriction wording.** v0.38.2 found four natural illusion releases matching nothing while the restriction side was fine. Restrictions get exercised constantly in play and releases only once each, so the release half of every pair is where the gaps hide.
 - ~~**Per-feature trust thresholds are still only three.**~~ **Superseded by the depth redesign.** `Suggestion.trustThreshold` exists and works, and the three gates that use it all sit at 65 — but the doc's full percentage table is not what gets wired up now. Under the redesign each feature carries a **depth tier** plus the one `depthEarned`/`depthFull` boolean, so this stopped being data entry and went back to being part of the depth work.
-- ~~**Decide whether `/hypno triggers full` ships.**~~ **Done in v0.40.0.** Room-admin idea dropped — admin is a chat-room property and a subject can make their own room. `full` is now gated on a `TESTING_MODE` build flag and disappears at release; visibility ships as a player setting instead. **Release step: flip `TESTING_MODE` in `log.ts`.**
+- ~~**Decide whether `/hypno triggers full` ships.**~~ **Done in v0.40.0.** Room-admin idea dropped — admin is a chat-room property and a subject can make their own room. `full` is now gated on a testing check and does not exist outside it; visibility ships as a player setting instead. ~~**Release step: flip `TESTING_MODE` in `log.ts`.**~~ — **no longer a release step, as of v0.73.0:** testing mode is now `isTestingMode()`, read live from the room name, so the shipped build is safe by default and there is no flag to remember.
 - **Public/private review as new flavor is added.** Every new flavor key is private unless it is given a public variant, so the safe default is silence — but a genuinely observable effect that nobody remembers to give a public line will simply be invisible to the room. Worth a pass whenever a batch of new effects lands.
 - ~~Decide what, if anything, the **Hidden Activities** toggle should gate~~ — removed in v0.14.0 and replaced by "Lock settings while a session is on you" (named "…while in trance" until v0.65.1, when it was widened to cover the induction as well).
 - ~~**H icon detection**~~ — done in v0.35.0, as a 3-second probe. The icon deliberately still appears for everyone: hiding it would turn the Information Sheet into a directory of who has the add-on installed.
@@ -2306,6 +3557,12 @@ fix was verified but never committed on its own, and this change rewrote the sam
 block, so the two ship together rather than being split after the fact.
 
 ### Fixed 2026-09-16 (v0.73.1) — the rest of the Testing commands actually obey the room now
+
+> **Bookkeeping note, recorded 2026-09-16.** There is **no v0.73.1 commit and no v0.73.1 build**:
+> `package.json` went `0.73.0` → `0.73.2`, and this work was committed together with v0.73.2 in
+> `38ed6bc`, which is what stamped the version. The entry is kept separate because the two changes are
+> separate and each is worth finding on its own — but anyone bisecting should look in the v0.73.2
+> commit, and nobody should go hunting for a 0.73.1 artifact that was never produced.
 
 DW spotted `/hypno settrust` still working for Missy outside the testing room. Cause: it, `relate`,
 and most of the **Testing** group never had a runtime gate at all — only `depth`, `trance`,
@@ -2912,8 +4169,67 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 | ~~1~~ | ~~**Session starts with clothing awareness already suppressed**~~ — **closed.** Confirmed fixed in testing (v0.57.0): fresh load, start session, `/hypno effects` before any suggestion — all three awareness lines off. Root cause was orphaned state surviving between sessions; cleared by v0.44.0–v0.44.1 fixes. | 2026-09-01 | Fixed v0.44.0–v0.44.1. Confirmed clean in testing 2026-09-07. |
 | ~~2~~ | ~~**Our own freeze blocked undressing and blamed a nonexistent lock**~~ — undressing was refused with a lock message when nothing was locked. **Root cause (corrected):** there was no freeze check to run early. BC's own `IsRestrained()` returns true for `HasEffect("Freeze")`, `CanChangeClothesOn()` is built on it, and our guard reported every failure of that call as `"locked"`. The freeze usually responsible is not a suggestion at all — it is the **trance baseline**, which freezes the subject the moment they go under. Fixed v0.55.0 by giving freeze its own refusal (`"frozen"`) and its own flavor line, checked before the lock branch. | 2026-09-07 | Found by the undress scenario. The false reason was the bug; the refusal itself was correct. |
 | ~~3~~ | ~~**The hard floor stripped every effect and left the session running**~~ — unticking *Hypnosis Enabled* cleared eight effects one at a time and never touched `session.phase`. The subject was left in a trance with nothing applied: the hypnotist still had a live session, spoken suggestions still parsed and re-applied, and `/hypno effects` reported a session the player had just switched off. Fixed v0.58.0 — `hardFloorStop()`, shared with the safeword so the two can no longer disagree about what stopping means. | 2026-09-08 | **Not** found by scenario 8, which passed — it only asked whether the effects came off. Found when scenario 1 would not start afterwards, refusing an induction with "Already under." Four assertions in `test/revoke.mjs`, verified failing (12/16) against the previous build; the scenario was rewritten to ask `/hypno session` and re-confirmed in play the same day. |
-| 5 | **Missy's name is printed twice on an emote** — any line starting with `*` renders her name doubled. Reported by DW from in-game play 2026-09-14. **His hypothesis, and it is a hypothesis:** both the add-on and BC are prefixing the name, so the two prefixes stack. He puts himself at "almost 100%" on that, but **nothing has been traced, read or reproduced against the code yet** — the doubled name is the observation, the double-prefix is the guess. Not investigated at his instruction. | 2026-09-14 | No repro steps recorded beyond "use an emote". Unverified: do not treat the cause as established until someone reads the two send paths. |
+| 6 | **The spiral icon on another player's profile has moved, looks larger, and partly covers LSCG's remote button** — a **visual regression introduced by v0.72.8**, which replaced the "H" label with the drawn spiral. Reported by DW from in-game play 2026-09-16; screenshot to follow. **Established from code so far:** the button's own box is **unchanged** — `ICON_LEFT = 90`, `ICON_TOP = 130`, `ICON_SIZE = 60` were not touched by v0.72.8, which altered only `DrawButton`'s *Label* and *Image* arguments. So nothing moved in the layout; what changed is what is painted inside the same rectangle. BC's `DrawButton` (R131 `Drawing.js:1117`) draws a Label **centred** but an Image **anchored at the button's top-left** (`baseImageRect.x/y` = `Left + 2, Top + 2`), scaled to fit. A small centred glyph therefore became a 56×56 shape starting in the top-left corner — which reads as *both* bigger and moved up-and-left, from one cause, exactly as suspected. **The overlap is the part not yet explained** and is the thing the screenshot should settle: see the investigation note below the table. | 2026-09-16 | Unverified: whether LSCG still draws at the `(90, 60, 60, 60)` recorded in `remote.ts:29`. If it has grown or moved, the 10px gap that comment assumes is gone — and the two 60×60 boxes would have been overlapping since long before v0.72.8, with the "H" simply leaving the overlap white and invisible. |
+| ~~5~~ | ~~**Missy's name is printed twice on an emote**~~ — **fixed v0.72.7.** Reported by DW from in-game play 2026-09-14, with the hypothesis that the add-on and BC were both supplying the name. **His hypothesis held.** Root cause: BC prepends the sender's name to a plain `*`-emote at display time (`ChatRoom.js`, the *Emote messages formatting* processor, R131), and our lines already carry the name via `fillTokens` — so the two stacked into "Missy Missy goes very still." `tellRoom` now sends a `**`-style emote, which BC prints verbatim and adds no name to. Two comments claiming *"an emote has no name of its own"* were corrected in the same pass. | 2026-09-14 | `test/notify.mjs` models R131's send-strip and display-prepend, **reproduces the doubling first** (rule 6) and then asserts `tellRoom` names once. Caveat worth keeping: the suite models BC rather than proving it, so it can only ever confirm the model — one emote in play is what settles it. |
 | ~~4~~ | ~~**`/hypno reset confirm` does not stop an in-flight trance**~~ — **fixed v0.63.1**, as decided 2026-09-10; the note directly below this table carries the decision and the pressure-test that produced it. `resetSettings()` now runs the same `totalStop()` teardown the safeword and the hard floor use, before it wipes, and reports the release ahead of the wipe. Fourteen assertions in `test/revoke.mjs`, ten of them verified failing (20/30) against the previous build. **Confirmed in play 2026-09-12** by DW, on the v0.64.0 combined build: forced trance, the warning named the trance, `reset confirm` released immediately and reported the release first, `/hypno session` read Idle, and a tab reload brought nothing back. That last step is the one the unit suite could never reach. Original report: `resetSettings()` replaces the settings object and saves — that is all. It does not call `hardFloorStop()`, does not touch the module-level session state or its timers, does not remove the Emoticon effects, and does not clear the recovery key (which lives in its own `localStorage` entry, so wiping `ExtensionSettings` cannot reach it). After a reset mid-trance the subject is still frozen and still under, with `hypnoEnabled` now reading false. Same class as Bug #3 and the same fix: delegate to `hardFloorStop()`, and clear the recovery key. Found by code inspection 2026-09-09 while checking whether "reset the add-on" is a sufficient exit for extreme mode. **Not yet observed in play — no repro has been run.** | 2026-09-09 | Matters more than it looks: reset is one of two exits DW has proposed as sufficient in extreme mode. The other — logging in with the *userscript* disabled — is worse, since a script that is not running cannot clear the server-side effects that come back on reload. See `declared-skill-proposal.md` §8. |
+
+### Known Bug #6 — what the code says before the screenshot arrives
+
+**What v0.72.8 changed, precisely.** One `DrawButton` call in `remote.ts`, arguments 5 and 7 only:
+
+```
+before:  DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, "H", "White", "",           "…Remote")
+after:   DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, "",  "White", SPIRAL_ICON, "…Remote")
+```
+
+`ICON_LEFT = 90`, `ICON_TOP = 130`, `ICON_SIZE = 60` are untouched. **The button rectangle is
+identical before and after** — same position, same size, same white fill, same black border.
+
+**Text and image anchor differently, and that is the whole of "moved and bigger".** From R131
+`Drawing.js:1117`:
+
+- `DrawTextFit(Label, Left + Width/2, Top + Height/2 + 1, …)` — the "H" was drawn **centred**, at
+  whatever the default font size gives, shrinking only if too wide. Call it a ~25×30 blob around
+  (120, 161).
+- The image path computes `buttonRect` = (92, 132, 56, 56) and `baseImageRect` = (92, 132,
+  `img.width`, `img.height`), fits the second into the first with
+  `RectFitIntoRect(…, ShowFullOriginalRatio)` — **and then draws at `baseImageRect.x/y`, i.e. the
+  button's top-left**, using only the *size* from the fitted rect.
+
+So the spiral renders 56×56 with its **top-left at (92, 132)**, where the glyph's top-left sat around
+(107, 146). Same centre, roughly — but the visible edges move up and left by ~14px and the painted
+area roughly quadruples. **One cause, both symptoms.**
+
+**It does scale, so the SVG's intrinsic size is not the problem.** `icon.ts:55` declares
+`width="120" height="120"` on a `viewBox="0 0 100 100"`, and those explicit dimensions are load-
+bearing — without them `img.width` would be 0 and the fit maths would produce nothing usable. But
+`RectFitIntoRect` scales 120 down to 56, so the icon stays inside its own box. **Nothing overflows.**
+
+**Which leaves the overlap unexplained by v0.72.8 alone — and points at the more likely story.**
+`remote.ts:29` records LSCG drawing at `DrawButton(90, 60, 60, 60, …)`, so LSCG occupies y 60–120 and
+ours y 130–190: a deliberate 10px gap, chosen by observation, with an `ADJUST-ME` note. If LSCG has
+since moved or grown, **the two boxes have been overlapping all along** — and the "H" left that
+overlap white-on-white and invisible, while the spiral paints ink into it. On that reading v0.72.8
+did not cause the collision; it *revealed* one. The screenshot will distinguish the two: if the
+spiral's ink intrudes into LSCG's button, look at where LSCG's bottom edge actually is now.
+
+**The position is not coincidence — it is deliberate and relative.** The comment above the constants
+says ours *"sits directly below"* LSCG's. That matters for the fix: this is not two add-ons
+accidentally picking nearby coordinates, it is ours aimed at a neighbour whose position was read off
+the screen once and hard-coded. **A fix that nudges our coordinates is aiming at a moving target.**
+
+**⚠ Is there a convention for this? Not established — flagged rather than guessed.** No BC extension
+point for Information Sheet buttons appears anywhere in this repository's record; `remote.ts:19`
+notes the mechanism was learned by reading how LSCG hooks `InformationSheetRun`, which is itself
+evidence that **both add-ons are hooking the same screen function because there is no official API**.
+FUSAM's public page documents only how a *player* runs FUSAM; whether it brokers button placement
+between add-ons **could not be established** (see the note under *Publishing* in
+`docs/DEVELOPMENT.md`). If such a convention does exist, adopting it is the correct fix and nudging
+pixels is not. **Worth one question to the FUSAM maintainer before any coordinate is changed.**
+
+**What the screenshot needs to answer:** where LSCG's button actually sits now; whether the spiral's
+*ink* or its *button rectangle* is doing the covering; and whether any third add-on is also in that
+column.
 
 ### Known Bug #4 — the fix, and why it is not the obvious one
 
