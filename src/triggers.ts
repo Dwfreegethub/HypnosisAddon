@@ -14,6 +14,7 @@ import {
 import { isSessionActiveWith } from "./session";
 import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
+import { onTeardown } from "./teardown";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
  *
@@ -410,6 +411,19 @@ export function isRecording(): boolean {
 export function cancelRecording(): void {
 	recording = null;
 }
+
+// A recording only ever exists mid-trance — beginRecording requires a live session — so any way
+// the trance ends must abort it too. A safeword taken while a hypnotist is part-way through
+// planting used to leave the recording standing: isRecording() stayed true, and the body-part
+// and activity-command paths (which record before the session gate) could still feed it, so
+// "everything is cleared" quietly wasn't. Registered at load via the teardown leaf rather than
+// having session.ts import this module, which would make the two circular (see teardown.ts).
+onTeardown(() => {
+	if (recording) {
+		log(`trance torn down mid-recording — abandoning "${recording.phrase}"`);
+		recording = null;
+	}
+});
 
 export function describeRecording(): string {
 	if (!recording) return "not recording a trigger";

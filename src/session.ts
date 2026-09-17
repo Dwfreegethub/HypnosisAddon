@@ -14,6 +14,7 @@ import {
 	describeRelationship,
 } from "./trust";
 import { clearAllTimers, timerDeadline } from "./timers";
+import { runTeardown } from "./teardown";
 import {
 	tierOf,
 	tierLabel,
@@ -398,6 +399,9 @@ function endSession(reason: string, quiet = false): void {
 	// it is carried, the snapshot has to survive the clear rather than be rebuilt after it.
 	if (!isCarried("illusion-block")) clearIllusion();
 	clearAllTimers();
+	// Anything registered against a trance ending — currently an in-progress trigger recording,
+	// which only exists mid-trance and must not outlive the session that allowed it.
+	runTeardown();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
 	pushUpdate();
@@ -1037,6 +1041,9 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	// end. A total stop is not an ordinary session end.
 	releaseCarried("total stop");
 	clearAllTimers();
+	// Same as endSession: abort any in-progress trigger recording. A safeword must leave nothing
+	// half-built, and the recording path records some lines before the session gate.
+	runTeardown();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

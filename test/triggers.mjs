@@ -38,7 +38,7 @@ const drainPaced = () => {
 	}
 };
 
-const { depth, voice, storage, triggers, timers, build } = await import("./harness-bundle.mjs");
+const { depth, voice, storage, triggers, timers, session, build } = await import("./harness-bundle.mjs");
 // Depth is the gate now, not trust. Planting a trigger, carrying a suggestion and the
 // clothing illusion all need a Deep trance by default, measured against the EARNED depth —
 // so these suites have to say how deep the subject is, the way a real induction would. Set
@@ -744,6 +744,21 @@ check("  and the flat form leaks nothing", /limitword|\d/.test(lastRefusal), fal
 storage.forgetAllTriggers();
 storage.setDepthOverride("triggerControl", "deep");
 depth.setCurrentDepths(80, 80);
+
+// --- a trance teardown aborts an in-progress recording (v0.74.4) --------------------------
+// A recording only ever exists mid-trance (beginRecording requires a live session). If the
+// subject safewords while a hypnotist is part-way through planting, "everything is cleared" has
+// to include the half-built trigger — otherwise isRecording() stays true and the body-part and
+// activity-command paths (which record before the session gate) can still feed it.
+storage.forgetAllTriggers();
+depth.setCurrentDepths(80, 80);
+triggers.beginRecording(HYP, "GameBot", "halfbuilt");
+triggers.recordAction("movement-block");
+check("a recording is in progress", triggers.isRecording(), true);
+session.safeword();
+check("safeword aborts the in-progress recording", triggers.isRecording(), false);
+check("  and nothing is left to commit", (triggers.commitRecording(), storage.listTriggers().length), 0);
+storage.forgetAllTriggers();
 
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

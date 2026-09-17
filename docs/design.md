@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.74.3.*
+*Design notes and decision log — work in progress. Code at v0.74.4.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -3533,6 +3533,30 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Fixed 2026-09-16 (v0.74.4) — a safeword taken mid-plant left the trigger recording standing
+
+DW recalled "an issue with `/hypno safeword` during a trigger." Traced two paths; one was already
+safe, the other was a real gap.
+
+- **A FIRED trigger, safeworded mid-drain: already clean.** A multi-action trigger applies its
+  effects over paced ticks (`drainTriggerSteps`, v0.72.5), and `totalStop`'s `clearAllTimers()`
+  cancels the pending drain and the auto-release together, then clears every applied effect. A probe
+  (fire a two-action holding trigger, safeword between ticks, advance timers) confirmed no step
+  re-applies afterwards and no `activeKey` is left standing.
+- **An IN-PROGRESS recording, safeworded mid-plant: the actual bug.** `session.ts`'s teardown
+  (`endSession`/`totalStop`) cleared effects, timers, suppression, carry and the session, but never
+  the trigger **recording** state in `triggers.ts` — only voice's "forget the trigger" did. So a
+  subject who safeworded while a hypnotist was part-way through planting was left with `isRecording()`
+  still true; the body-part and activity-command paths record *before* the session gate, so the
+  half-built trigger could still take lines. "Everything is cleared" quietly wasn't (rule 2).
+
+Fix follows the `timers.ts` precedent, because the direct import is a cycle — `triggers.ts` imports
+`session.ts`, so `session.ts` cannot import it back. New leaf `teardown.ts` (imports nothing) holds a
+tiny registry: `triggers.ts` registers a cleanup at load that abandons any recording, and
+`endSession`/`totalStop` call `runTeardown()` after `clearAllTimers()`. Guarded so a throwing cleanup
+can never stop the safeword finishing. `test/triggers.mjs` +3 checks (162 → 165): a recording in
+progress, safeword, `isRecording()` false and nothing left to commit.
 
 ### Added 2026-09-16 (v0.74.3) — the first-run notice
 
