@@ -1,58 +1,50 @@
-// The add-on's icon: a stylized two-arm hypnotic spiral ("concept C" from the 2026-09-15
-// design pass, DW's pick). Used in two places — the remote icon on another player's
-// Information Sheet (remote.ts) and the Preferences > Extensions entry (menu.ts).
+// The add-on's icon: a single-line hypnotic spiral ("option 5" from the 2026-09-16 icon
+// refresh, DW's pick). It replaces the earlier FILLED two-arm spiral (v0.72.8), whose thick
+// arms merged into a solid navy disc once DrawButton scaled it down to the 56×56 profile
+// button — the visual regression logged as Known Bug #6. A stroked spiral keeps even gaps
+// between its turns at any size, so it reads as a spiral rather than a blob, and its light
+// weight matches the line-drawing remote icon it sits beneath.
+//
+// Used in two places from one source, so both move together: the remote icon on another
+// player's Information Sheet (remote.ts) and the Preferences > Extensions entry (menu.ts).
 //
 // Shipped as an SVG `data:` URI so it needs no hosting and stays crisp at any button size.
 // Verified against R131 that both render paths accept it: the Extensions list draws it as an
-// HTML <img> (Screens/Character/Preference/Extensions.js, ElementButton.Create { image }),
-// and the profile button draws it on the game canvas via DrawButton → drawImage, which needs
-// the explicit width/height this SVG carries.
+// HTML `<img>` (Screens/Character/Preference/Extensions.js, ElementButton.Create { image }),
+// and the profile button draws it on the game canvas via DrawButton → drawImage. The explicit
+// width/height are load-bearing there — DrawButton reads `img.width` to fit the image, and a
+// viewBox-only SVG reports width 0, which would fit to nothing.
 //
 // Pure math + encodeURIComponent: no DOM, no BC globals, so this is a leaf module safe to
-// evaluate at load. The geometry matches the design preview exactly.
+// evaluate at load.
 
 const INK = "#2c2352";
+const TURNS = 3.0;
+const R_MAX = 44; // out of the 100-unit viewBox, centred at 50,50
+const STROKE = 4.5;
 
-/** One tapered arm of an Archimedean spiral — thick at the rim, tapering to a point at the
- * centre — as a filled SVG path `d`. Built by walking the centreline and offsetting each
- * point along the local normal by a half-width that shrinks toward the centre. `phase`
- * rotates the whole arm, so a second arm at π gives the two-arm swirl. */
-function taperedArm(turns: number, rMax: number, wOuter: number, phase: number): string {
-	const n = 130;
-	const tMax = turns * 2 * Math.PI;
-	const at = (i: number): [number, number, number] => {
-		const t = (tMax * i) / n;
-		const r = rMax * (t / tMax);
-		const a = t + phase;
-		return [50 + r * Math.cos(a), 50 + r * Math.sin(a), t / tMax];
-	};
-	const left: string[] = [];
-	const right: string[] = [];
+/** A single Archimedean spiral from the centre out to `R_MAX`, as an SVG path `d`. The radius
+ * grows linearly with the angle, so the gap between successive turns stays even — which is what
+ * reads as a clean hypnotic spiral rather than a filled shape. */
+function spiralPath(): string {
+	const n = 240;
+	const tMax = TURNS * 2 * Math.PI;
+	const pts: string[] = [];
 	for (let i = 0; i <= n; i++) {
-		const [x, y, frac] = at(i);
-		const p = at(Math.max(0, i - 1));
-		const q = at(Math.min(n, i + 1));
-		let tx = q[0] - p[0];
-		let ty = q[1] - p[1];
-		const len = Math.hypot(tx, ty) || 1;
-		tx /= len;
-		ty /= len;
-		const nx = -ty;
-		const ny = tx;
-		const w = (wOuter * Math.pow(frac, 0.85)) / 2; // → 0 at the centre, wOuter at the rim
-		left.push(`${(x + nx * w).toFixed(2)} ${(y + ny * w).toFixed(2)}`);
-		right.push(`${(x - nx * w).toFixed(2)} ${(y - ny * w).toFixed(2)}`);
+		const t = (tMax * i) / n;
+		const r = R_MAX * (t / tMax);
+		pts.push(`${(50 + r * Math.cos(t)).toFixed(2)} ${(50 + r * Math.sin(t)).toFixed(2)}`);
 	}
-	return `M${left.join(" L")} L${right.reverse().join(" L")} Z`;
+	return `M${pts.join(" L")}`;
 }
 
 function build(): string | undefined {
 	try {
-		const arms =
-			`<path d="${taperedArm(3.1, 44, 15, 0)}" fill="${INK}"/>` +
-			`<path d="${taperedArm(3.1, 44, 15, Math.PI)}" fill="${INK}"/>`;
 		const svg =
-			`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 100 100">${arms}</svg>`;
+			`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 100 100">` +
+			`<path d="${spiralPath()}" fill="none" stroke="${INK}" stroke-width="${STROKE}" stroke-linecap="round" stroke-linejoin="round"/>` +
+			`<circle cx="50" cy="50" r="${(STROKE * 0.7).toFixed(2)}" fill="${INK}"/>` +
+			`</svg>`;
 		return "data:image/svg+xml," + encodeURIComponent(svg);
 	} catch {
 		return undefined;
