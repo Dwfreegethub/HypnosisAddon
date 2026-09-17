@@ -47,6 +47,37 @@ near("trusted scales by how well she knows him", session.honourSkill("trusted", 
 check("  a stranger on trusted gets nothing", session.honourSkill("trusted", 80, 0), 0);
 check("an unknown rung honours nothing", session.honourSkill("nonsense", 80, 100), 0);
 
+// --- rung "floored", the v0.75.0 default: max(trusted, capped) -------------------------------
+// The two halves of DW's ask, stated as checks that can each fail on their own.
+//
+// HALF ONE — a stranger is no longer worth zero. This is the whole point: rung 2 multiplies
+// the claim by a trust that a new pair does not have, so the ladder used to be invisible on a
+// first meeting.
+check("floored: a stranger gets the capped value, not nothing", session.honourSkill("floored", 80, 0), 30);
+check("  which is strictly more than the old default gave", session.honourSkill("floored", 80, 0) > session.honourSkill("trusted", 80, 0), true);
+
+// HALF TWO — it must never LOWER anything. Two ways that could have gone wrong, both pinned:
+// a plain switch to rung 3 would cut a trusted expert from 80 to 30, and a claim of zero must
+// stay exactly zero so an unskilled hypnotist is no worse off than before the ladder existed.
+check("floored: an established pair keeps the FULL claim", session.honourSkill("floored", 80, 100), 80);
+check("  where a plain capped rung would have cut it to the ceiling", session.honourSkill("capped", 80, 100), 30);
+near("  and mid-trust takes the larger of the two", session.honourSkill("floored", 80, 70), 56);
+check("no skill is still no skill — never a penalty", session.honourSkill("floored", 0, 0), 0);
+check("  and a tiny claim is worth exactly itself, not less", session.honourSkill("floored", 3, 0), 3);
+
+// The sweep the two checks above are only samples of: across every claim and every trust,
+// "floored" is never below EITHER rung it is built from. Without the Math.max this fails.
+let flooredViolations = [];
+for (const claim of [0, 1, 3, 12, 29, 30, 31, 50, 80, 99, 100]) {
+	for (const trust of [0, 1, 12.5, 29, 30, 31, 50, 75, 99, 100]) {
+		const f = session.honourSkill("floored", claim, trust);
+		if (f < session.honourSkill("trusted", claim, trust) - 1e-9) flooredViolations.push(`below trusted at claim=${claim} trust=${trust}`);
+		if (f < session.honourSkill("capped", claim, trust) - 1e-9) flooredViolations.push(`below capped at claim=${claim} trust=${trust}`);
+		if (f > claim + 1e-9) flooredViolations.push(`above the claim at claim=${claim} trust=${trust}`);
+	}
+}
+check("floored is never below either rung it is built from, and never above the claim", flooredViolations, []);
+
 // --- the descriptor bands (placeholder prose; the band boundaries are what is pinned) --------
 check("below 20, no read at all", session.skillDescriptor(19), null);
 check("20-49 gives a read", /\S/.test(session.skillDescriptor(20) ?? ""), true);
@@ -54,14 +85,20 @@ check("  distinct from the 50-79 band", session.skillDescriptor(20) !== session.
 check("  distinct from the 80+ band", session.skillDescriptor(50) !== session.skillDescriptor(80), true);
 check("80 is the top band", /sit down/.test(session.skillDescriptor(80) ?? ""), true);
 
-// --- the setting cycles the three OFFERED rungs only -----------------------------------------
-check("default is rung 2", storage.getSkillHonour(), "trusted");
+// --- the setting cycles the OFFERED rungs only ------------------------------------------------
+check("default is 'floored' as of v0.75.0", storage.getSkillHonour(), "floored");
+check("  and 'trusted' is still offered, so an explicit choice survives", storage.SKILL_HONOUR_OFFERED.some((r) => r.key === "trusted"), true);
 check("cycle: trusted -> capped", storage.nextSkillHonour("trusted"), "capped");
-check("  capped -> ignore (wraps, three only)", storage.nextSkillHonour("capped"), "ignore");
+check("  capped -> floored", storage.nextSkillHonour("capped"), "floored");
+check("  floored -> ignore (wraps, four only)", storage.nextSkillHonour("floored"), "ignore");
 check("  ignore -> trusted", storage.nextSkillHonour("ignore"), "trusted");
-check("  rung 4 is never reached by the cycle", storage.nextSkillHonour("full"), "ignore");
-storage.setSkillHonour("full"); // a hand-set rung 4 still sticks if chosen deliberately
-check("rung 4 can still be set directly", storage.getSkillHonour(), "full");
+check("the CNC rung is never reached by the cycle", storage.nextSkillHonour("full"), "ignore");
+check("  and is not in the offered list", storage.SKILL_HONOUR_OFFERED.some((r) => r.key === "full"), false);
+storage.setSkillHonour("full"); // a hand-set CNC rung still sticks if chosen deliberately
+check("the CNC rung can still be set directly", storage.getSkillHonour(), "full");
+// Every offered rung has a label, or the settings button falls back to a hard-coded string
+// and silently misreports which rung the player is on.
+check("every rung carries a label", storage.SKILL_HONOUR_RUNGS.every((r) => typeof r.label === "string" && r.label.length > 0), true);
 
 // --- the roll honours the claim, per the subject's rung --------------------------------------
 // Rung capped, stranger: 80 claimed -> honoured 30. §2b's worked row is fight ~10.5, and the
@@ -88,6 +125,33 @@ session.safeword();
 storage.setSkillHonour("capped");
 attempt(80);
 check("the chances line reports the honoured read", session.describeChances(HYP).some((l) => /honoured skill .*30\/100/.test(l)), true);
+
+// --- the default rung, end to end: what a first meeting actually costs now --------------------
+// The claim arrives over the wire and the roll is read back, rather than calling honourSkill()
+// directly — this is the path that has to move, and it is the number DW asked to see.
+//
+// Zero trust, zero experience, no relationship, arousal off. Agree was 25 flat before v0.75.0.
+// An expert claiming 80 is honoured at the ceiling 30, worth 30 * SKILL_ADDITIVE_WEIGHT = 10.5.
+session.safeword();
+storage.setSkillHonour("floored");
+attempt(80);
+near("default rung: a skilled stranger now moves Agree to 35.5", session.inductionChance(HYP, "agree"), 35.5);
+
+// The same attempt from someone with NO practice must land exactly where it did before the
+// ladder existed. This is the check that would catch a skill term that subtracts.
+session.safeword();
+attempt(0);
+check("an unskilled stranger is unchanged at 25", session.inductionChance(HYP, "agree"), 25);
+check("  and the chances line says nothing about skill", session.describeChances(HYP).some((l) => /honoured skill/.test(l)), false);
+
+// Rule 4 holds through all of it: skill reaches depthFull and never depthEarned, so a stranger
+// winning on declared skill still cannot plant anything that outlives the session.
+session.safeword();
+attempt(80);
+check("the earned chance ignores skill entirely", session.inductionChance(HYP, "agree", true), 25);
+near("  while the full chance carries it", session.inductionChance(HYP, "agree"), 35.5);
+session.safeword();
+storage.setSkillHonour("floored");
 
 // --- transmit: the derived value rides on the attempt this client sends ----------------------
 session.safeword();

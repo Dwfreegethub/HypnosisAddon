@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.74.7
+// @version      0.75.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. @updateURL is where Tampermonkey checks the
@@ -1741,7 +1741,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.74.7"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Hypnosis Add-on v${"0.75.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -2552,11 +2552,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function honourSkill(rung, claimed, trust) {
     const v = Math.max(0, Math.min(100, claimed));
+    const byTrust = v * Math.max(0, Math.min(100, trust)) / 100;
     switch (rung) {
       case "trusted":
-        return v * Math.max(0, Math.min(100, trust)) / 100;
+        return byTrust;
       case "capped":
         return Math.min(v, STRANGER_CEILING);
+      case "floored":
+        return Math.max(byTrust, Math.min(v, STRANGER_CEILING));
       case "full":
         return v;
       default:
@@ -3052,10 +3055,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "ignore", label: "Ignore it" },
     { key: "trusted", label: "Only from people I trust" },
     { key: "capped", label: "Honour, capped" },
+    { key: "floored", label: "Full from people I trust, capped otherwise" },
     { key: "full", label: "Skill can beat my resistance" }
   ];
-  var SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 3);
-  var DEFAULT_SKILL_HONOUR = "trusted";
+  var SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 4);
+  var DEFAULT_SKILL_HONOUR = "floored";
   var DEFAULT_MAX_ATTEMPTS = 2;
   function nextAttemptLimit(current) {
     const i = ATTEMPT_LIMITS.indexOf(current);
@@ -5684,9 +5688,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       head("Their skill, and whether you believe it"),
       body("Practised hypnotists are better at it. Their client tells yours how"),
       body("practised; YOUR Depth-tab setting decides how much to believe \u2014"),
-      body("ignore it, honour it only from people you trust, or honour it up to"),
-      body("a cap for anyone. You feel it as a read on their manner at the"),
-      body("prompt, never a number, and it can never reach the earned-only three.")
+      body("ignore it, believe it only from people you trust, cap it for everyone,"),
+      body("or the default: full weight once you know someone, capped before that."),
+      body("You feel it as a read on their manner at the prompt, never a number,"),
+      body("and it can never reach the earned-only three.")
     ];
   }
   function lastingLines() {
@@ -8178,7 +8183,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.74.7"} loaded`;
+    el.textContent = `Hypnosis Add-on v${"0.75.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8201,13 +8206,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.74.7"})`);
+  log(`script loaded (v${"0.75.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "HypnosisAddon",
       fullName: "BC Hypnosis Add-on",
-      version: "0.74.7",
+      version: "0.75.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.74.7.*
+*Design notes and decision log — work in progress. Code at v0.75.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -3533,6 +3533,66 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Changed 2026-09-17 (v0.75.0) — a hypnotist's skill now counts for strangers by default
+
+**The ladder was invisible on a first meeting, and a first meeting is where it matters most.**
+`DEFAULT_SKILL_HONOUR` was rung 2, `"trusted"`, which honours a claimed skill *in proportion to
+existing trust* — so a new pair has none and a practised hypnotist read as a complete novice.
+Everything the declared-skill work built was, by default, dead until the pair already knew each
+other. DW, 2026-09-17: make skill count, and **make sure little or no skill never lowers the
+chance**.
+
+**The obvious fix is wrong, which is the whole reason this entry exists.** Simply defaulting to
+rung 3, `"capped"`, helps the stranger but *cuts* an established pair: `min(v, 30)` is below
+`v × trust/100` for any trust above the ceiling, so a trusted expert would have gone from +35 on
+the roll to +10.5. That is exactly the regression DW asked to avoid, and it is invisible unless you
+compare the two rungs above trust 30.
+
+**So the new default is `max(trusted, capped)`** — a fifth rung, key `"floored"`, labelled *"Full
+from people I trust, capped otherwise"*. Full weight once she knows someone; the stranger ceiling
+as a **floor** under it before she does. Taking the larger of the two can only ever raise the
+honoured value relative to either rung it is built from, so the second requirement holds *by
+construction* rather than by a clamp somewhere downstream.
+
+**This is deliberately the same shape as `effectiveAccess()`, for the same settled reason.** That
+function makes the chemical contribution a floor rather than a multiplier because *a multiplier on
+zero trust is still zero, and the stranger is the case the mechanic exists to serve*. Skill had the
+identical bug and the identical fix was already sitting in the codebase.
+
+**Rung 2 is kept and still offered.** Someone who chose *"Only from people I trust"* meant strangers
+get nothing, and quietly loosening a consent setting a player picked on purpose is not ours to do.
+The setting is stored sparsely — written only when changed — so only the default moves and every
+explicit choice survives untouched. `SKILL_HONOUR_OFFERED` now covers four rungs; the CNC rung
+`"full"` is still not offered and still waits on dual fatigue.
+
+**What it buys** — zero trust, zero experience, no relationship, no arousal; an expert claiming 80,
+honoured at the ceiling 30, worth `30 × SKILL_ADDITIVE_WEIGHT = 10.5` on the roll:
+
+| | before | after |
+|---|---|---|
+| Agree, per attempt | 25% | **35.5%** |
+| Agree, per session (2 attempts) | 43.8% | **58.4%** |
+| Agree + three roleplay lines (+15), per session | 64% | **75.5%** |
+| An **unskilled** hypnotist, any choice | unchanged | unchanged |
+
+The per-attempt figures are read off the live formula by `test/skill.mjs`; the per-session and
+roleplay rows are `1 − (1 − p)^attempts` over those, the same arithmetic `describeChances()` prints.
+
+**Rule 4 is untouched.** `currentSkillTerms(earnedOnly)` still returns `NO_SKILL` for the earned
+roll, so skill reaches `depthFull` and never `depthEarned`. A stranger who wins on declared skill
+goes deeper in the moment and still cannot plant a trigger, raise the illusion or carry anything
+past the session. That was worth re-checking rather than assuming, and `test/skill.mjs` now pins it.
+
+`test/skill.mjs` 38 → 55 checks, including a sweep asserting `"floored"` is never below either rung
+it is built from and never above the claim. Both halves were verified *failing* against deliberately
+wrong implementations (rule 6): a plain `capped` default fails three checks, a missing rung fails
+eight. `test/odds.mjs` sweeps the Fight invariant across the new rung too.
+
+**Three stale comments corrected in passing.** `session.ts` still said *"THE LADDER IS NOT BUILT"*,
+that skill was *"deliberately absent"* from the roll, and that the Fight invariant was *"inert
+today"*. All three had been false since v0.66.0 built the ladder — the same doc-drift CLAUDE.md
+exists to prevent, sitting inside the code rather than beside it.
 
 ### Changed 2026-09-17 (v0.74.7) — trigger phrase floor lowered 6 → 5
 
