@@ -1,54 +1,67 @@
 # Settings Reference
 
-Open with the **spiral icon** in the top bar. Tabs run down the left edge.
+Open with the **spiral icon** in the top bar, or through **Preferences → Extensions → Hypnosis
+Add-on**. Tabs run down the left edge.
 
 Everything here is a **permission** — "do I allow this to be done to me" — not a self-trigger.
 Ticking one never applies anything to you.
 
-**Settings lock while a session is on you.** That includes the induction, not just the trance. If
-you need out, that is what the safeword is for.
+**Settings lock while a session is on you**, including during the induction. If you need out, that
+is what the safeword is for.
 
 ## Permissions
 
-The master switch and the per-feature grants.
+| Setting | What it allows |
+|---|---|
+| **Hypnosis Enabled** | The master switch and the hard floor. Turning it off releases the trance and every effect immediately, exactly as the safeword does. Turning it back on re-applies nothing |
+| **Movement Restriction** | *"you cannot move"* |
+| **Clothing Restriction** | Keeps you out of the wardrobe |
+| **Posture Control** | Kneel and stand |
+| **Speech Restriction** | *"you cannot speak"* — room chat only; slash commands always work |
+| **Self-Touch Control** | Being **stopped** from touching yourself |
+| **Made to Act (touch yourself on command)** | Being **made** to. See [Commanded Activities](Commanded-Activities) |
+| **Arousal & Orgasm** | Arousal level, denial, forced orgasm, and numbness |
+| **Clothing Illusion** | Your own screen shows clothes you are not wearing |
+| **Undressing** | *"take something off"* / *"strip"* |
+| **Lock settings while a session is on you** | Whether this tab locks mid-trance |
 
-- **Hypnosis Enabled** — the master switch and the hard floor. Turning it off immediately releases
-  the trance and every effect, exactly as the safeword does. Turning it back on re-applies nothing.
-- **Movement Restriction** · **Speech Restriction** · **Posture Control** · **Clothing Restriction**
-- **Self-Touch Control** — being *stopped* from touching yourself
-- **Made to Act** — being *made* to, on command. See [Commanded Activities](Commanded-Activities)
-- **Arousal & Orgasm** — includes numbness
-- **Clothing Illusion** · **Undressing** · **Triggers** · **Carry-Forward**
-- **Attempt limit** — two or three tries before a cooldown. Default two
-- **Lock settings while a session is on you**
+Also here: the **attempt limit** (two or three tries before a cooldown; two by default), and on a
+fresh install a one-click **starter set** offer that turns on five safe session-scoped basics and
+undoes in one click.
 
-On a fresh install there is also a **starter set** offer here — one click turns on five safe
-session-scoped basics, and one click undoes it. It appears once and then goes away.
+> **Triggers and carry-forward are *not* on this tab** — they live on the Triggers tab below.
 
 ## Trance Defaults
 
 What happens automatically when you go under, before anyone says anything.
 
-- Whether the trance itself stops you moving or speaking
-- The **screen veil** — a soft white wash while you are under, thinned to a hint during a walking
-  trance. It is a mood cue, not blindness
-- **Others See Your Reactions** — turns the room-visible emotes off entirely
+| Setting | Default | Meaning |
+|---|---|---|
+| **Cannot Move** | on | The trance itself stops you moving |
+| **Cannot Speak** | on | …and speaking |
+| **Silence OOC too (text in parentheses)** | **off** | By default, *"(brb)"* still gets through while you are silenced. Tick this and it doesn't |
+| **Screen Fade** | on | A soft white veil over your own view while under. Thins to a hint during a walking trance |
+| **Clothes Look Unchanged** | off | Applies the clothing illusion automatically on entering trance |
+| **Others See Your Reactions** | **on** | The room-visible emotes. Turn this off and the room sees nothing |
+| **Release everything if you disconnect** | off | Drop all effects rather than serving out the remainder on reconnect |
 
 ## Awareness
 
 What you can be made not to notice.
 
-- **Clothing changes** · **Bondage changes** · **Touches** — three separate grants
-- **Trigger setup** — hides the whole planting exchange from you, so you never learn your own
-  trigger word
+- **Clothing Changes** · **Bondage Changes** · **Touches / Activities** — three separate grants
+- **Trigger setup (hide what is planted)** — hides the whole planting exchange, so you never learn
+  your own trigger word
 
 ## Triggers
 
+- **Allow triggers to be planted in you** — the permission itself
+- **Suggestions that outlive the trance** — carry-forward
+- **You can fire your own triggers** — off by default
+- **Show trigger words when you list them** — off by default
 - **Duration** — how long a fired trigger holds you, or until released
 - **Decay rate** — Never · Very slowly · Slowly · Typical · Fast · Very fast. **Never** by default
 - **Scope** — the seven-rung ladder of who can fire your triggers. Default *Hypnotist only*
-- **Fire your own triggers** — off by default
-- **Show trigger words** — whether `/hypno triggers` prints the phrases. Off by default
 
 ## Depth
 
@@ -60,7 +73,7 @@ What you can be made not to notice.
 
 ## Stats (behind the Advanced button)
 
-Read-only, plus two dials.
+Read-only, plus one dial.
 
 - Per-person trust and your own experience
 - **Trust decay rate** — off unless you choose
@@ -76,7 +89,7 @@ consent settings, so it never appears mid-session.
 
 ## Your data
 
-- `/hypno export` and `/hypno import` — move settings between characters or back them up
+- `/hypno export` and `/hypno import <blob>` — move settings between characters or back them up
 - `/hypno reset confirm` — wipes everything. It releases any trance **first**, then wipes, and says
   so in that order
 

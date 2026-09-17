@@ -2,13 +2,14 @@
 
 ## Installing
 
-> **⚠ Not yet published.** There is no hosted build to install from yet. Until one exists, the only
-> way to run the add-on is to build it from source — see `docs/DEVELOPMENT.md` in the repository.
-> The steps below describe the intended install.
-
-1. Install a userscript manager: **Tampermonkey** or **Violentmonkey**.
-2. Open the install link *(to be published)* and accept the install prompt.
+1. Install a userscript manager: **[Tampermonkey](https://www.tampermonkey.net/)** or
+   **[Violentmonkey](https://violentmonkey.github.io/)**.
+2. Open **[the install link](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js)**
+   and accept the prompt your userscript manager shows.
 3. Reload Bondage Club and log in.
+
+**Updates are automatic.** The script carries an update URL, so your userscript manager will pull new
+versions on its own schedule — you do not need to reinstall.
 
 [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/), which manages several BC add-ons together,
 is intended as an install route but is not arranged yet.
@@ -20,9 +21,20 @@ already applied to you before they left.
 
 ## First run
 
+The first time you load in, two lines appear in your chat log:
+
+```
+[Hypnosis Add-on v0.74.6 — nothing is switched on yet. Click the spiral to set up.]
+[Your reactions are visible to the room by default; Trance Defaults turns that off.]
+```
+
+They appear **once per install** and never again. If you see them, the add-on is working — it just
+has nothing switched on yet.
+
 You will see a **spiral icon** in the top bar. It appears for everyone running the add-on, and it
 appears on other players' profiles too — it has no way of knowing who else has the add-on installed
-until it asks.
+until it asks. You can also reach the settings through **Preferences → Extensions → Hypnosis
+Add-on**.
 
 Click it and a **setup wizard** runs. You can either take one of four presets:
 
@@ -68,5 +80,6 @@ deliberately mislead you, and they are gated harder for that reason.
 
 ## Next
 
+→ **[A Sample Session](Sample-Session)** — a worked example, start to finish, with the actual lines.
+→ **[What to Say](What-to-Say)** — every phrase the parser knows. Keep this one open while you play.
 → **[Consent and Safety](Consent-and-Safety)** — worth reading before you turn much on.
-→ **[Your First Session](Your-First-Session)** — what actually happens.

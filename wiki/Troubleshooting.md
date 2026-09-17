@@ -2,14 +2,22 @@
 
 ## The add-on does nothing at all
 
-**Check the spiral icon is in the top bar.** If there is no icon and nothing in the browser console,
-the userscript is not running. A userscript with a non-matching `@match` fails completely
-silently — BC is served from more than one host, so check your userscript manager shows it as active
-on the page you are actually on.
+**Did you see these two lines when you first loaded in?**
 
-**If the icon is there, this is almost certainly correct behaviour.** Every permission starts off,
+```
+[Hypnosis Add-on v0.74.6 — nothing is switched on yet. Click the spiral to set up.]
+[Your reactions are visible to the room by default; Trance Defaults turns that off.]
+```
+
+If so, the add-on is running fine — **it just has nothing switched on**. Every permission starts off,
 including the master switch. Open settings and run the wizard. See
-[Getting Started](Getting-Started).
+[Getting Started](Getting-Started). *(That notice appears once per install, so a returning player
+won't see it.)*
+
+**If there's no spiral icon in the top bar and nothing in the browser console**, the userscript is
+not running at all. A userscript with a non-matching `@match` fails completely silently — BC is
+served from more than one host, so check your userscript manager lists it as active on the page you
+are actually on.
 
 ## I said something and nothing happened
 
@@ -64,6 +72,12 @@ Slash commands still work. BC parses commands before the speech block can see th
 `/hypno safeword` is always reachable — this is deliberate, and it is why speech blocking is safe to
 consent to.
 
+**Out-of-character asides also still work.** Anything in parentheses — *"(brb)"*, *"(are you still
+okay?)"* — goes through while you are silenced, so you are never stranded mid-scene. The exception
+is if you ticked **Silence OOC too** on the Trance Defaults tab, which is off by default. A message
+that has any in-character text left after the parentheses are stripped is still blocked, so ordinary
+speech can't be smuggled past behind brackets.
+
 ## I clicked the spiral on someone and it said they do not have the add-on
 
 The icon shows on **everyone**, because there is no way to know who is running it without asking.
@@ -90,15 +104,18 @@ emoted so everyone reads it. Perception effects are never emoted.
 
 **Trance Defaults → Others See Your Reactions** turns the emotes off entirely.
 
-## Known rough edges at v0.73.2
+## Known rough edges at v0.74.6
 
 - **Some ordinary deepening language can be read as a touch command.** Because *"feel"* is one of
-  the commanded-activity verbs, a line like *"Missy, your arms feel heavy"* can be parsed as
-  *caress your arms*. If a hypnotist gets an unexpected activity during an induction, this is
-  probably why. Known and open.
+  the Caress verbs, a line like *"Missy, your arms feel heavy"* parses as *caress your arms* and
+  performs a real, public touch. **It only affects subjects who have granted *Made to Act*.**
+  Workaround: hypnotists should prefer *touch*, *caress* or *stroke* as the verb, and avoid "feel"
+  in deepening language while that permission is on. Known and open.
 - **A trigger phrase inside a command line can swallow the command.** If one of your trigger phrases
   happens to appear in a line that also contains a suggestion, the suggestion may not be evaluated.
   Known and open.
+- **A trigger's action list shows as internal ids** in `/hypno triggers` — you may see something like
+  `act:genital` rather than a readable description. Cosmetic; known and open.
 - **Trigger decay has not had a full live run** — it is off by default, so you will only meet it if
   you turn it on.
 

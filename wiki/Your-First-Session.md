@@ -1,5 +1,9 @@
 # Your First Session
 
+> **Looking for a worked example instead?** [A Sample Session](Sample-Session) walks the whole arc
+> with two named characters and the actual lines typed. **This page is the diagnostic companion to
+> it** — what each side controls, and why an attempt often doesn't land the first time.
+
 ## From the hypnotist's side
 
 **1. Open their profile and click the spiral icon.**

@@ -16,17 +16,18 @@ Nothing is enabled until you enable it. `/hypno safeword` always works.
 | | |
 |---|---|
 | **[Getting Started](Getting-Started)** | Install, first run, and what to switch on |
-| **[Consent and Safety](Consent-and-Safety)** | What the add-on actually does to you, and every way out |
-| **[Your First Session](Your-First-Session)** | How an induction goes, from both sides |
+| **[What to Say](What-to-Say)** | **What you actually type.** Every phrase the parser knows — keep this open while you play |
+| **[A Sample Session](Sample-Session)** | A worked example, start to finish: the real lines, and what each side sees |
+| **[Consent and Safety](Consent-and-Safety)** | What the add-on does to you, and every way out |
 
 ## The features
 
 | | |
 |---|---|
-| **[What to Say](What-to-Say)** | The spoken suggestions — the main way anything happens |
-| **[Depth and Trust](Depth-and-Trust)** | Why a stranger can't reach far, and how that changes |
+| **[Commanded Activities](Commanded-Activities)** | Being made to act, not just stopped — the verb grammar |
 | **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, and suggestions that survive waking |
-| **[Commanded Activities](Commanded-Activities)** | Being made to act, not just stopped |
+| **[Depth and Trust](Depth-and-Trust)** | Why a stranger can't reach far, and how that changes |
+| **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction goes, and why it often doesn't the first time |
 
 ## Reference
 
@@ -44,4 +45,4 @@ things up mid-scene. The in-game help assumes you are already running the add-on
 not. Where they disagree, **the in-game help is generated from the code and is more likely to be
 current.**
 
-Written against **v0.73.2**. The add-on is pre-alpha; things described here can change.
+Written against **v0.74.6**. The add-on is pre-alpha; things described here can change.
