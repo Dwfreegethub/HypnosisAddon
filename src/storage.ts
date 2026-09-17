@@ -231,6 +231,18 @@ export interface FeatureToggles {
 	 * triggers can tick this, which is the same "feels locked, isn't literally" layer the
 	 * doc describes everywhere else. */
 	showTriggerWords: boolean;
+	/** Whether being silenced ALSO gags out-of-character asides — text in parentheses,
+	 * BC's own OOC convention: "(brb, dog needs out)".
+	 *
+	 * OFF by default (DW, 2026-09-16): stepping out of a scene to say something practical is
+	 * not part of the fiction, and silencing it strands people mid-scene with no way to say
+	 * "back in five" short of the safeword. So while the subject cannot speak, a message that
+	 * is ENTIRELY OOC still goes through; a line with any in-character content left after the
+	 * asides are stripped is blocked as before, so this cannot be used to smuggle real speech
+	 * past the block. Someone who wants total silence — no lifeline — ticks this. Governs both
+	 * the speechRestriction permission and the tranceCannotSpeak default, since both silence
+	 * the same way. */
+	blockOOC: boolean;
 	/** Whether YOU may fire triggers planted in you, by saying the phrase yourself.
 	 *
 	 * Its own setting rather than a rung on the scope ladder, because the ladder answers
@@ -410,6 +422,8 @@ function defaultFeatures(): FeatureToggles {
 		releaseOnDisconnect: false,
 		carryForward: false,
 		showTriggerWords: false,
+		// Off by default — OOC asides pass even while silenced. See the interface note.
+		blockOOC: false,
 		selfTrigger: false,
 		triggerControl: false,
 		suppressClothing: false,

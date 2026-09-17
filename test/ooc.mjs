@@ -41,6 +41,18 @@ check("OOC suggestion would have matched raw", matchSuggestion("(Missy, you cann
 check("  but is null once stripped", stripOOC("(Missy, you cannot move)"), null);
 check("real one still matches", matchSuggestion(stripOOC("Missy, you cannot move (brb)")), "movement-block");
 
+// --- the speech-block lifeline (v0.74.6) --------------------------------------------------
+// While silenced, main.ts lets a message through when `!blockOOC && stripOOC(msg) === null`.
+// That predicate IS what these assert: an entirely-OOC line reads as null (so it passes as the
+// subject's practical lifeline), while any in-character content left keeps it non-null (blocked,
+// so real speech cannot be smuggled past behind parentheses). blockOOC=true bypasses this and
+// silences everything; that branch is a single flag with nothing to compute.
+const passesWhileSilenced = (msg) => stripOOC(msg) === null;
+check("silenced: pure OOC is a lifeline", passesWhileSilenced("(brb, dog needs out)"), true);
+check("silenced: OOC with a colon too", passesWhileSilenced("(ooc: back in 5)"), true);
+check("silenced: real speech stays blocked", passesWhileSilenced("let me go"), false);
+check("silenced: IC + aside stays blocked", passesWhileSilenced("let me go (sorry, lag)"), false);
+
 // Nothing to trip over.
 check("empty string", stripOOC(""), null);
 check("only spaces", stripOOC("   "), null);

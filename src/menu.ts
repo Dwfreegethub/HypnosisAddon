@@ -129,6 +129,7 @@ const TABS: Tab[] = [
 		rows: [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
+			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
 			{ key: "tranceScreenFade", label: "Screen Fade" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },

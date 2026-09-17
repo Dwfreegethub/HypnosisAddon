@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.74.5
+// @version      0.74.6
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. @updateURL is where Tampermonkey checks the
@@ -1741,7 +1741,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.74.5"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Hypnosis Add-on v${"0.74.6"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -3076,6 +3076,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       releaseOnDisconnect: false,
       carryForward: false,
       showTriggerWords: false,
+      // Off by default — OOC asides pass even while silenced. See the interface note.
+      blockOOC: false,
       selfTrigger: false,
       triggerControl: false,
       suppressClothing: false,
@@ -6174,6 +6176,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       rows: [
         { key: "tranceCannotMove", label: "Cannot Move" },
         { key: "tranceCannotSpeak", label: "Cannot Speak" },
+        { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
         { key: "tranceScreenFade", label: "Screen Fade" },
         { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
         { key: "roomSeesReactions", label: "Others See Your Reactions" },
@@ -8175,7 +8178,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.74.5"} loaded`;
+    el.textContent = `Hypnosis Add-on v${"0.74.6"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8198,13 +8201,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.74.5"})`);
+  log(`script loaded (v${"0.74.6"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "HypnosisAddon",
       fullName: "BC Hypnosis Add-on",
-      version: "0.74.5",
+      version: "0.74.6",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -8269,6 +8272,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         if (!isSpeechBlocked()) return next(args);
+        if (!getFeatures().blockOOC && stripOOC(args[0]) === null) return next(args);
         log("speech blocked:", args[0]);
         announce("speech-blocked-attempt");
         return false;

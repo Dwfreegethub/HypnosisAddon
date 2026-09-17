@@ -185,6 +185,11 @@ safely("speech-block hook", () => {
 		10,
 		((args: [string], next: (args: [string]) => any) => {
 			if (!isSpeechBlocked()) return next(args);
+			// OOC asides pass by default even while silenced — see storage's blockOOC note.
+			// A message that is ENTIRELY out of character (stripOOC returns null) goes
+			// through as the subject's practical lifeline; anything with in-character content
+			// left is still blocked, so real speech cannot be smuggled past behind parentheses.
+			if (!getFeatures().blockOOC && stripOOC(args[0]) === null) return next(args);
 			log("speech blocked:", args[0]);
 			announce("speech-blocked-attempt");
 			return false;
