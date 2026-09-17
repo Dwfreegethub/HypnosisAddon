@@ -4,10 +4,19 @@
 // @version      0.75.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
-// The install file committed at the repo root. @updateURL is where Tampermonkey checks the
-// @version; @downloadURL is what it pulls when the root file's version is newer than installed.
+// The install file committed at the repo root. updateURL is where Tampermonkey reads the
+// version line above; downloadURL is what it pulls when the root file is newer than installed.
 // Both point at the same raw-on-main URL the README installs from, so every release that updates
 // the committed root build reaches installed testers automatically — no reinstall.
+//
+// TWO THINGS NO COMMENT LINE IN THIS BLOCK MAY DO, both of which this block once did.
+// Every line of the block is fed to the userscript manager's metadata parser, so prose here is
+// not inert. A line may not BEGIN WITH an "@" key — a prose line opening with the version key
+// is a second declaration below the real one, and a manager that takes the last wins would read
+// it as the script's version and stop seeing new releases. A line may also not contain the
+// block's own closing marker, even mid-sentence, since a parser scanning for it truncates the
+// block there and the download and update keys below would simply vanish. Name keys bare in
+// prose, and describe the markers rather than typing them. Both fixed v0.75.0.
 // @downloadURL  https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // @updateURL    https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // Every host BC is served from needs its own @match or the script simply never runs
