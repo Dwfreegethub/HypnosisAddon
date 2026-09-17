@@ -23,15 +23,11 @@ that access is slow.
 
 ## Install
 
-> **⚠ Not yet published.** There is currently no installable build hosted anywhere — `dist/` is not
-> committed to this repository, and the userscript carries no update URL. The steps below describe
-> the intended install once a build is published. Until then, the only way to run it is to
-> [build it yourself](docs/DEVELOPMENT.md). Maintainer: see *Publishing and the install story* in
-> that file for exactly what is missing.
+
 
 1. Install a userscript manager — [Tampermonkey](https://www.tampermonkey.net/) or
    [Violentmonkey](https://violentmonkey.github.io/).
-2. Open the install link *(to be published)*. Your userscript manager will show an install prompt;
+2. Open the install link [HypnosisAddon](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will show an install prompt;
    accept it.
 3. Reload Bondage Club and log in.
 4. A spiral icon appears in the top bar. Click it to open settings — a short setup wizard runs the
