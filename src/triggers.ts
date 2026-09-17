@@ -97,14 +97,17 @@ export function installTriggers(): void {
 /** Kept only for the tests and the help text that still name a number. The GATE is the depth
  * tier for `triggerControl`; this is the trust that historically bought it. */
 export const TRIGGER_TRUST_THRESHOLD = 65;
-/** Shortest phrase we'll accept, raised 3 → 6 with the uniqueness decision. A phrase now
- * blocks anything it is contained by, so a short one poisons too much ordinary speech: at 3,
- * a trigger "cat" would refuse "catch your breath", "delicate" and "scatter" — all correct
- * (they would all fire it), which is exactly why the floor rises rather than the rule bends.
- * Six is also the shortest existing fixture ("sleepy"), so suites and bot scenarios are
- * unaffected. Enforced only on the PLANT path, never in normalise: a stored phrase shorter
- * than 6 is grandfathered — it still fires, decays and releases, it just can't be re-planted. */
-const MIN_PHRASE_LENGTH = 6;
+/** Shortest phrase we'll accept. Went 3 → 6 with the uniqueness decision, then 6 → 5
+ * (DW, 2026-09-17: six felt too restrictive in play — trying five to see how it wears). A
+ * phrase blocks anything it is contained by, so a short one poisons too much ordinary speech:
+ * at 3, a trigger "cat" would refuse "catch your breath", "delicate" and "scatter" — all
+ * correct (they would all fire it), which is exactly why the floor is a floor rather than the
+ * rule bending. Five still clears the shortest existing fixture ("sleepy", 6), so suites and
+ * bot scenarios are unaffected. If five turns out to catch too much, the fix is smarter overlap
+ * detection (word-boundary rather than raw containment), not a higher floor. Enforced only on
+ * the PLANT path, never in normalise: a stored phrase shorter than the floor is grandfathered
+ * — it still fires, decays and releases, it just can't be re-planted. */
+const MIN_PHRASE_LENGTH = 5;
 /** Cap on actions per trigger — LSCG caps at 3; the doc says we aim higher, but not
  * unbounded, since each one runs on every match. */
 const MAX_ACTIONS = 8;

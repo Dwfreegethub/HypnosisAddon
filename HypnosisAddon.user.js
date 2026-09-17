@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.74.6
+// @version      0.74.7
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. @updateURL is where Tampermonkey checks the
@@ -1741,7 +1741,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.74.6"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Hypnosis Add-on v${"0.74.7"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -3608,7 +3608,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       result.lines.forEach(tellPlayer);
     });
   }
-  var MIN_PHRASE_LENGTH = 6;
+  var MIN_PHRASE_LENGTH = 5;
   var MAX_ACTIONS = 8;
   var TRIGGER_DECAY_PER_DAY = {
     never: 0,
@@ -8178,7 +8178,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.74.6"} loaded`;
+    el.textContent = `Hypnosis Add-on v${"0.74.7"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8201,13 +8201,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.74.6"})`);
+  log(`script loaded (v${"0.74.7"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "HypnosisAddon",
       fullName: "BC Hypnosis Add-on",
-      version: "0.74.6",
+      version: "0.74.7",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

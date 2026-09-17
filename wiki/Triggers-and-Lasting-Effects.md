@@ -25,7 +25,7 @@ Up to **8 actions** per trigger. *"Missy, forget the trigger"* cancels without s
 read their own trigger word can simply decide not to react to it. With **Awareness → Trigger setup**
 on, the subject sees none of the exchange at all.
 
-A phrase must be **at least 6 characters**. Anything shorter would catch too much ordinary speech.
+A phrase must be **at least 5 characters**. Anything shorter would catch too much ordinary speech.
 
 ## Each word is unique to you
 

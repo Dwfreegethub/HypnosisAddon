@@ -188,7 +188,7 @@ Then she commits:
 Planted at 62 (Deep). Saying it will now fire them, in or out of trance.
 ```
 
-> **A phrase must be at least 6 characters**, and it must be **unique to Missy** — nobody else can
+> **A phrase must be at least 5 characters**, and it must be **unique to Missy** — nobody else can
 > be holding "sleepy time" on her, and no phrase may overlap one that already exists. See
 > [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
 

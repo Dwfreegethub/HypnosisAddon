@@ -607,12 +607,17 @@ const plantBy = (phrase, by, byName, depthAt) => {
 };
 const holds = (phrase) => (t) => t.phrase === phrase; // stand-in for isTriggerInEffect
 
-// MIN length is now 6, on the plant path only.
+// MIN length is now 5, on the plant path only.
 depth.setCurrentDepths(80, 80);
 sentToHypnotist = [];
 triggers.beginRecording(HYP, "GameBot", "cat");
-check("phrase under 6 chars is refused", triggers.isRecording(), false);
-check("  and told the minimum", /at least 6/.test(lastToHypnotist()), true);
+check("phrase under 5 chars is refused", triggers.isRecording(), false);
+check("  and told the minimum", /at least 5/.test(lastToHypnotist()), true);
+
+// The new floor: five characters is accepted where six used to be the wall.
+triggers.beginRecording(HYP, "GameBot", "spell"); // exactly 5
+check("phrase at 5 chars is now accepted", triggers.isRecording(), true);
+triggers.cancelRecording();
 
 // Grandfathering: a stored short phrase (planted before the floor rose — here forced past the
 // plant check) still fires. normalise never purges it; only re-planting is blocked.
