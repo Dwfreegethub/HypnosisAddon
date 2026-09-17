@@ -468,6 +468,80 @@ export function announceInductionBegin(): void {
 	);
 }
 
+/** The subject's own line when an attempt misses and the hypnotist still has tries left.
+ *
+ * Deliberately says nothing about WHY. The subject already knows what they chose, so there
+ * is nothing to tell them — and a pool that narrated the choice back would be wrong the
+ * moment the roll, rather than the choice, is what decided it. Agreeing and missing reads
+ * exactly like resisting and holding, which is also what keeps the room and hypnotist lines
+ * below honest: all three describe the same visible non-event. */
+export function inductionMissLine(): string {
+	return pick([
+		"The attempt doesn't quite land.",
+		"Something in you almost gives, and then doesn't.",
+		"The pull thins out before it reaches anything.",
+		"For a moment it nearly catches. The moment passes.",
+		"You feel the shape of it, and stay exactly where you are.",
+	]);
+}
+
+/** The subject's line when the last attempt is spent and the cooldown starts. A separate
+ * pool because this one is not "not yet" — it is "not again for a while", and the subject
+ * is entitled to know the difference about their own state. */
+export function inductionSpentLine(): string {
+	return pick([
+		"The attempt fades. You feel clear-headed, and harder to reach for a while.",
+		"Whatever was reaching for you lets go. Your head is your own, and stays that way a while.",
+		"It ebbs away and does not come back. You feel steadier, and less easy to move.",
+	]);
+}
+
+/** The room-visible half of an attempt missing — the gap in the sequence, since onlookers
+ * currently see an induction begin and see it land, and saw nothing at all in between.
+ *
+ * Choice-agnostic, for the same reason `announceInductionBegin` is: the subject's private
+ * agree / ignore / fight must never leak. Every line here has to read the same whether they
+ * cooperated and the roll missed or they fought it off outright, so nothing describes
+ * effort, refusal or resolve — only that the moment passed. One pool for both the ordinary
+ * miss and the spent last attempt, so the room cannot count the hypnotist's tries either.
+ *
+ * Tokens: only {name}, {their}, {them}, {themselves} are filled. Anything else ships as a
+ * literal — see the v0.72.9 trigger-ghost bug and the guard test/notify.mjs now carries. */
+export function announceInductionMiss(): void {
+	tellRoom(
+		fillTokens(
+			pick([
+				"{name}'s eyes flutter, drift, and then find the room again.",
+				"Something almost settles over {name}, and then lifts.",
+				"{name} sways a little, blinks, and the distance goes out of {their} gaze.",
+				"For a breath {name} is somewhere else. Then {name} isn't.",
+			]),
+		),
+	);
+}
+
+/** The line the HYPNOTIST's own client prints when an attempt of theirs misses.
+ *
+ * Why this exists: the miss was visible to them only on the subject's Information Sheet
+ * panel. With that panel closed — which is most of the time — an attempt simply produced
+ * nothing anywhere, and a userscript that produces nothing is indistinguishable from a
+ * userscript that is broken. Rule 5, one screen removed.
+ *
+ * NO TOKENS. `fillTokens` fills from `Player`, and on this client Player is the hypnotist,
+ * so a {name} here would print the hypnotist's own name for the subject's. The caller passes
+ * the subject's name in and it is interpolated directly.
+ *
+ * Says that it ran and that it did not land. Not why, not how close — the band stays on the
+ * panel where it already lives, and nothing here reveals the subject's choice. */
+export function hypnotistMissFlavor(subject: string): string {
+	return pick([
+		`${subject} almost goes, and doesn't.`,
+		`Something in ${subject} nearly gives way, then settles.`,
+		`It reaches ${subject} and slides off.`,
+		`${subject} wavers for a moment, and stays put.`,
+	]);
+}
+
 /** The room-visible half of the subject going under — the hypnotist's signal that it landed,
  * since the private "you slip under" line never reaches them. Room-only, fired once on a real
  * successful induction and NOT on reconnect: recovery reuses the trance-apply path, which is

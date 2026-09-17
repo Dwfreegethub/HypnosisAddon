@@ -8,8 +8,7 @@ import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import {
 	getSessionView,
 	countdownRemaining,
-	requestAttempt,
-	requestContinue,
+	requestInduction,
 	requestWake,
 	querySession,
 	isSessionActiveWith,
@@ -333,8 +332,9 @@ function clickSessionButton(target: any): boolean {
 	const { enabled } = sessionButton(view);
 	if (!enabled) return true;
 	if (view?.phase === "Hypnotized") requestWake(target.MemberNumber);
-	else if (view?.phase === "AttemptFailed") requestContinue(target.MemberNumber);
-	else requestAttempt(target.MemberNumber);
+	// attempt vs continue is requestInduction's call, not ours — the chat command routes
+	// through the same helper so the two entry points cannot drift apart.
+	else requestInduction(target.MemberNumber);
 	return true;
 }
 

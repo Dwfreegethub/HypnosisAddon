@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.75.0
+// @version      0.76.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1317,6 +1317,42 @@ One of mods you are using is using an old version of SDK. It will work for now b
       )
     );
   }
+  function inductionMissLine() {
+    return pick([
+      "The attempt doesn't quite land.",
+      "Something in you almost gives, and then doesn't.",
+      "The pull thins out before it reaches anything.",
+      "For a moment it nearly catches. The moment passes.",
+      "You feel the shape of it, and stay exactly where you are."
+    ]);
+  }
+  function inductionSpentLine() {
+    return pick([
+      "The attempt fades. You feel clear-headed, and harder to reach for a while.",
+      "Whatever was reaching for you lets go. Your head is your own, and stays that way a while.",
+      "It ebbs away and does not come back. You feel steadier, and less easy to move."
+    ]);
+  }
+  function announceInductionMiss() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name}'s eyes flutter, drift, and then find the room again.",
+          "Something almost settles over {name}, and then lifts.",
+          "{name} sways a little, blinks, and the distance goes out of {their} gaze.",
+          "For a breath {name} is somewhere else. Then {name} isn't."
+        ])
+      )
+    );
+  }
+  function hypnotistMissFlavor(subject) {
+    return pick([
+      `${subject} almost goes, and doesn't.`,
+      `Something in ${subject} nearly gives way, then settles.`,
+      `It reaches ${subject} and slides off.`,
+      `${subject} wavers for a moment, and stays put.`
+    ]);
+  }
   function announceTranceEnter() {
     tellRoom(
       fillTokens(
@@ -1750,7 +1786,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.75.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Hypnosis Add-on v${"0.76.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -2660,12 +2696,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       session.cooldownUntil = Date.now() + COOLDOWN_MS;
       session.progress = chance;
       scheduleCooldownEnd();
-      notify("The attempt fades. You feel clear-headed, and harder to reach for a while.");
+      notify(inductionSpentLine());
+      announceInductionMiss();
       log(`induction FAILED (final): ${detail}`);
     } else {
       session.phase = "AttemptFailed";
       session.progress = chance;
-      notify("The attempt doesn't quite land.");
+      notify(inductionMissLine());
+      announceInductionMiss();
       log(`induction failed: ${detail} attempt=${session.attempts}`);
     }
     pushUpdate();
@@ -2900,6 +2938,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function countdownRemaining(view, field) {
     return Math.max(0, view[field] - (Date.now() - view.receivedAt));
   }
+  function reportMissToHypnotist(sender, message, prev) {
+    if (message.refusedReason) return;
+    const phase = message.phase;
+    if (phase !== "AttemptFailed" && phase !== "CooldownRequired") return;
+    if (prev?.phase === phase) return;
+    const attempts = Number(message.attempts ?? 0);
+    if (phase === "CooldownRequired" && attempts <= 0) return;
+    const name = findCharacterName(sender);
+    const max = Number(message.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+    const flavour = hypnotistMissFlavor(name);
+    if (phase === "CooldownRequired") {
+      tellPlayer(`${flavour} That was attempt ${attempts} of ${max} \u2014 they are out of reach for a while now.`);
+    } else {
+      tellPlayer(`${flavour} Attempt ${attempts} of ${max}. You can try again.`);
+    }
+  }
   function requestAttempt(memberNumber) {
     sendHiddenMessage(
       { type: "session-attempt", hypnotistName: Player?.Name ?? "Someone", skill: skillValue() },
@@ -2910,6 +2964,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function requestContinue(memberNumber) {
     sendHiddenMessage({ type: "session-continue" }, memberNumber);
     log(`sent session-continue to ${memberNumber}`);
+  }
+  function requestInduction(memberNumber) {
+    if (views.get(memberNumber)?.phase === "AttemptFailed") requestContinue(memberNumber);
+    else requestAttempt(memberNumber);
   }
   function requestWake(memberNumber) {
     sendHiddenMessage({ type: "session-wake" }, memberNumber);
@@ -3019,6 +3077,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const gained = newAttempts - (prev?.attempts ?? 0);
       if (gained > 0) addSkill(SKILL_ATTEMPT_CREDIT * gained);
       if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
+      reportMissToHypnotist(sender, message, prev);
       views.set(sender, {
         phase: message.phase ?? "Idle",
         attempts: Number(message.attempts ?? 0),
@@ -6980,6 +7039,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (matches.length !== 1) return null;
     return { id: matches[0].MemberNumber, name: matches[0].Name };
   }
+  var lastInduced = null;
+  function startInduction(target) {
+    lastInduced = target;
+    const view = getSessionView(target.id);
+    requestInduction(target.id);
+    reply(
+      view?.phase === "AttemptFailed" ? `Trying ${target.name} again.` : `Attempting an induction on ${target.name}.`
+    );
+    reply("They decide how to respond, on their own client. Watch for what happens next.");
+  }
   function targetOrAsk(token, usage) {
     const resolved = resolveTarget(token);
     if (resolved) return resolved;
@@ -7451,6 +7520,34 @@ One of mods you are using is using an old version of SDK. It will work for now b
         reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
         reply("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
         reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
+      }
+    },
+    {
+      Tag: "induce",
+      group: "Session",
+      args: "[name|number]",
+      Description: "Attempt an induction on someone, the same as the remote's button",
+      Action: (args) => {
+        const target = targetOrAsk(firstWord(args), "usage: /hypno induce [name or member number]");
+        if (!target) return;
+        startInduction(target);
+      }
+    },
+    {
+      Tag: "retry",
+      group: "Session",
+      Description: "Try again on the last person you attempted",
+      Action: () => {
+        if (!lastInduced) {
+          reply("You haven't attempted anyone yet this session \u2014 use /hypno induce [name].");
+          return;
+        }
+        const still = others().some((c) => c?.MemberNumber === lastInduced.id);
+        if (!still) {
+          reply(`${lastInduced.name} isn't in the room any more.`);
+          return;
+        }
+        startInduction(lastInduced);
       }
     },
     {
@@ -8041,8 +8138,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const { enabled } = sessionButton(view);
     if (!enabled) return true;
     if (view?.phase === "Hypnotized") requestWake(target.MemberNumber);
-    else if (view?.phase === "AttemptFailed") requestContinue(target.MemberNumber);
-    else requestAttempt(target.MemberNumber);
+    else requestInduction(target.MemberNumber);
     return true;
   }
   function clickFeatureButton(index, feature, target) {
@@ -8192,7 +8288,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.75.0"} loaded`;
+    el.textContent = `Hypnosis Add-on v${"0.76.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8215,13 +8311,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.75.0"})`);
+  log(`script loaded (v${"0.76.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "HypnosisAddon",
       fullName: "BC Hypnosis Add-on",
-      version: "0.75.0",
+      version: "0.76.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
