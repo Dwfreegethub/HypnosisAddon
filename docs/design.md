@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.74.4.*
+*Design notes and decision log — work in progress. Code at v0.74.5.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -3533,6 +3533,24 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-16 (v0.74.5) — the install file auto-updates, and a release step to keep it current
+
+DW had uploaded a built `HypnosisAddon.user.js` at the repo root and pointed the README's Install
+section at it (raw-on-`main`), but it carried no `@updateURL`, so an installed tester would never see
+a new version, and it was already a version behind the source. DW's call: wire auto-update (option B
+of the earlier choice) and keep the committed build current with every release.
+
+- `meta.txt` now carries `@downloadURL` and `@updateURL`, both the raw-on-`main` root URL the README
+  installs from — so Tampermonkey checks that file's `@version` and pulls it when it climbs. `build.mjs`
+  already stamps `@version` from `package.json`, so the banner can't drift.
+- The committed root file is a build artifact and goes stale on every bump, so `npm run release`
+  (`release.mjs`) makes it one step: build, then copy `dist/HypnosisAddon.user.js` over the root file.
+  `npm run build` deliberately does not touch the root file, so the dev loop never churns it — the
+  root build changes only on a deliberate release. `docs/DEVELOPMENT.md` Publishing section rewritten
+  to match (it had said no build was committed).
+- This is the "commit the build" shape (A). The loader shape (B in DEVELOPMENT.md) and FUSAM listing
+  remain the better end state for wider release; auto-update via raw-on-main is enough for alpha.
 
 ### Fixed 2026-09-16 (v0.74.4) — a safeword taken mid-plant left the trigger recording standing
 

@@ -116,28 +116,37 @@ to be stale and should not be hand-edited for version bumps.
 
 ## Publishing and the install story
 
-The player-facing install instructions in [`../README.md`](../README.md) are written against a
-**target** state that does not exist yet. What is missing, concretely:
+The player-facing install instructions in [`../README.md`](../README.md) are **live** as of v0.74.x.
+A built userscript is committed at the repo **root** as `HypnosisAddon.user.js`, and testers install
+it raw-on-`main`:
+`https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js`.
 
-- **`dist/` is in `.gitignore`** and no built artifact is committed or released, so there is no URL
-  a user can install from today.
-- **`meta.txt` has no `@downloadURL` or `@updateURL`**, so even if the built file were reachable,
-  Tampermonkey could never auto-update it. It also has no `@icon`, `@homepageURL` or `@supportURL`.
+This is **approach (A) below — "commit the build"**, chosen for alpha. `meta.txt` carries
+`@downloadURL`/`@updateURL` pointing at that same raw URL, so Tampermonkey **auto-updates** installed
+testers whenever the committed file's `@version` climbs. `dist/` stays gitignored; the ROOT file is
+the only committed build. (Still absent, nice-to-haves not blockers: `@icon`, `@homepageURL`,
+`@supportURL`.)
 
-Two shapes, in increasing order of effort:
+**Keeping it current is a release step, not automatic.** The committed root file is a build artifact,
+so it goes stale the moment the version bumps unless regenerated — and a stale root file means testers
+keep the old script (and, since `@updateURL` reads *its* version, are told they are up to date). So on
+every release:
 
-**(A) Commit the build, point the banner at it.** Un-ignore `dist/`, add to `meta.txt`:
-
+```bash
+npm run release   # build, then copy dist/HypnosisAddon.user.js over the committed root file
 ```
-// @downloadURL  https://github.com/Dwfreegethub/HypnosisAddon/raw/main/dist/HypnosisAddon.user.js
-// @updateURL    https://github.com/Dwfreegethub/HypnosisAddon/raw/main/dist/HypnosisAddon.user.js
-```
 
-A raw-on-branch URL beats a release asset here because it is *stable*: it always serves the current
-file, so `@updateURL` never has to be rewritten. A release-asset URL is per-tag and would need
-either a rewrite each release or the `/releases/latest/download/` form plus a release step. The cost
-is that every build shows up as a diff, and the build must be regenerated before each push or users
-get a stale script.
+then commit the changed `HypnosisAddon.user.js` with the version bump. `npm run build` deliberately
+does NOT touch the root file, so the dev loop never churns it.
+
+The two shapes this was chosen between:
+
+**(A) Commit the build, point the banner at it (CHOSEN).** A raw-on-branch URL beats a release asset
+because it is *stable*: it always serves the current file, so `@updateURL` never has to be rewritten.
+A release-asset URL is per-tag and would need either a rewrite each release or the
+`/releases/latest/download/` form plus a release step. The cost — paid by `npm run release` above — is
+that every build shows up as a diff and must be regenerated before each push, or users get a stale
+script.
 
 **(B) The loader shape, which is what LSCG does.** LSCG's README publishes a small committed
 *loader* userscript (`.../raw/main/lscgLoader.user.js`) that fetches the real bundle from GitHub

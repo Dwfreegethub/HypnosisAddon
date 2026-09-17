@@ -4,6 +4,12 @@
 // @version      0.2.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
+// The install file committed at the repo root. @updateURL is where Tampermonkey checks the
+// @version; @downloadURL is what it pulls when the root file's version is newer than installed.
+// Both point at the same raw-on-main URL the README installs from, so every release that updates
+// the committed root build reaches installed testers automatically — no reinstall.
+// @downloadURL  https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
+// @updateURL    https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // Every host BC is served from needs its own @match or the script simply never runs
 // there — no error, it just isn't loaded. `*.host` also covers the bare domain.
 // bondageprojects.com was checked and does not serve the game, so it isn't listed.
