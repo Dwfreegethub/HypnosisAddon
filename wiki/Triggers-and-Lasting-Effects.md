@@ -25,6 +25,40 @@ Up to **8 actions** per trigger. *"Missy, forget the trigger"* cancels without s
 read their own trigger word can simply decide not to react to it. With **Awareness → Trigger setup**
 on, the subject sees none of the exchange at all.
 
+A phrase must be **at least 6 characters**. Anything shorter would catch too much ordinary speech.
+
+## Each word is unique to you
+
+A trigger word is **unique per subject** — two people cannot both hold *"sleepy time"* on you at
+once. When a hypnotist names a word that is already set in you, one of three things happens:
+
+- **Their own word, again** → it simply **updates**. Correcting or re-recording a trigger you built
+  is maintenance, and does not cost you the depth you first reached to plant it.
+- **Someone else's word** → they can take it over **only if they have you deeper than it was
+  planted at**. Taking a word away from whoever set it should cost more than they paid; otherwise
+  they are refused.
+- **A word that overlaps an existing one** — one phrase contained inside the other, like *"sleep"*
+  and *"sleepy time"* → **always refused.** Either would fire the other, so they cannot coexist.
+  Pick a distinct, more distinctive phrase.
+
+A word **cannot be overridden while it is actively holding you** — replacing it live would strand
+whatever it is doing to you. Wait for it to let go, or use the safeword.
+
+**Overriding replaces, it does not inherit.** The new trigger starts fresh, so any strength the old
+one built up through reinforcement is gone — the word survives, the thing behind it does not. If it
+was someone else's, you feel *something come loose and something new settle into its place*; you are
+never told the word or who held it before. `/hypno triggers` attributes each one, so you can always
+read at your leisure who a trigger now belongs to.
+
+**Refusals stay vague on purpose.** When a phrase is refused for clashing with one already in you,
+the hypnotist is not told which word it clashed with, who planted it, or how deep — your hidden
+triggers are not something a refusal should hand out. The one exception is when the clash is with
+**their own** word, where naming it gives nothing away.
+
+**Renaming mid-setup keeps your work.** Say a new *"your trigger word is …"* while still recording
+and it renames the one you are building, keeping the suggestions already recorded — you do not start
+over.
+
 ## Firing one
 
 Just say the phrase. **It works with no session** — that is the entire point of a trigger.
