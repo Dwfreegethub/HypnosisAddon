@@ -30,8 +30,7 @@ that access is slow.
 2. Open the install link [HypnosisAddon](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will show an install prompt;
    accept it.
 3. Reload Bondage Club and log in.
-4. A spiral icon appears in the top bar. Click it to open settings — a short setup wizard runs the
-   first time.
+4. In your preferences, and extensions you will have a Hypnosis Add-on, when you enter it you can follow the wizard or choose your own settings. 
 
 **Alternatively, via FUSAM.** [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) manages
 several BC add-ons from one place. Listing there is intended but not yet arranged.
