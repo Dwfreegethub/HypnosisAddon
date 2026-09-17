@@ -180,8 +180,10 @@ check("  with nothing left unfilled", /\{\w+\}/.test(room[0] ?? ""), false);
 
 // --- the two spectator-only moments: induction begins, and the subject goes under ---------
 // These are room-only signals (the subject gets their own lines elsewhere): the induction
-// start was previously invisible to onlookers, and going under gave the hypnotist no cue.
-for (const [label, fn] of [["induction begins", flavor.announceInductionBegin], ["goes under", flavor.announceTranceEnter]]) {
+// start was previously invisible to onlookers, going under gave the hypnotist no cue, and a
+// miss was invisible to everyone but the subject. What each pool may SAY — a miss must not
+// betray the subject's agree/ignore/fight — is miss.mjs's business; this is the audience.
+for (const [label, fn] of [["induction begins", flavor.announceInductionBegin], ["goes under", flavor.announceTranceEnter], ["an attempt misses", flavor.announceInductionMiss]]) {
 	local = []; room = [];
 	fn();
 	check(`${label}: the room sees one line`, room.length, 1);

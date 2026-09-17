@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.75.0.*
+*Design notes and decision log — work in progress. Code at v0.76.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -3533,6 +3533,72 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Changed 2026-09-17 (v0.76.0) — a missed induction is no longer silent, and `/hypno induce`
+
+**A failed attempt produced one line, on one of the three screens that wanted one.** The subject
+got *"The attempt doesn't quite land."* The room, which watches an induction begin and watches it
+land, saw nothing whatever in between. The hypnotist saw it only on the subject's Information Sheet
+panel — the *"Continue Trying (1/2)"* button and its four-band status line in `remote.ts` — and with
+that panel closed, which is most of the time, **an attempt produced no output at all on their
+screen**. A userscript that produces nothing is indistinguishable from a userscript that is broken,
+which is rule 5 one screen removed from where it is usually applied. DW, 2026-09-17: make it clear
+the add-on worked and the induction didn't, *without saying why*.
+
+**Three pools, in `flavor.ts`.** `inductionMissLine()` for the subject; `inductionSpentLine()` for
+the subject when the last attempt is spent, because *"not yet"* and *"not again for a while"* are
+different facts about their own state; `announceInductionMiss()` for the room; and
+`hypnotistMissFlavor(subject)` for the hypnotist's own chat log.
+
+**All of them are choice-agnostic, and that is the hard part.** Agree, ignore and fight are private
+to the subject's client, and a miss is exactly where that leaks, because the natural flavour for a
+failed induction *is* resistance flavour — "you fought it off" tells the hypnotist what they chose,
+and so does "you let it in and it slipped away" in the other direction. Every line describes the
+visible non-event and nothing else. The **ordinary miss and the spent last attempt share one room
+pool** on purpose, so onlookers cannot tell them apart and count the hypnotist's tries either.
+
+**The hypnotist's line carries the attempt count and not the band.** *"Attempt 1 of 2. You can try
+again."* is the half that answers "did the add-on do anything"; how close it came is *why*, and the
+band stays on the panel where it already lives. It fires on the **transition** into a miss —
+`pushUpdate` re-sends the same phase for a re-query, a permission change or a refusal aimed at us,
+and keying on phase alone would reprint the line every time one arrived. A refusal is never a miss:
+`refuse()` carries our real phase, so a refusal arriving while already in `AttemptFailed` would
+otherwise read as a fresh failed roll. Walking up to someone already in someone else's cooldown is
+not an attempt of ours either, which is what `attempts <= 0` excludes.
+
+**`hypnotistMissFlavor` takes the name and fills no tokens, deliberately.** `fillTokens` fills from
+`Player`, and on the hypnotist's client `Player` is the hypnotist — a `{name}` there would print
+their own name where the subject's belongs. The suite pins that the pool contains no `{...}` at all.
+
+**`/hypno induce [name|number]` and `/hypno retry`**, both group *Session*. `induce` resolves a name
+the same way every other targeted command does (exact, then unique prefix, then the only other
+person in the room). `retry` needs no name and re-checks presence, so retrying at someone who has
+left says so rather than sending into the void. Both confirm in the log, because a request is
+one-way and without a line there, typing the command and typing it wrong look identical.
+
+**New `requestInduction()` in `session.ts` closes a trap the commands would otherwise have walked
+into.** A fresh attempt is `session-attempt`; one following a miss is `session-continue`, and
+sending the wrong one desyncs the two clients. The panel button picked between them inline; the
+command would have been a second place to get it wrong. Both now route through one helper that
+reads our local view — which may be stale, so an attempt is the safe default: the subject's client
+re-checks its own phase and refuses anything that does not fit, so being wrong costs a refusal and
+never a bypass.
+
+**Subject authority is untouched.** Everything added here is output. The commands send the same two
+messages the button already sent, and the subject's client decides exactly as before.
+
+New suite `test/miss.mjs`, 46 checks, covering all three audiences, the consent gate on the room
+half, the transition and refusal guards, and both commands on the wire. Every group was verified
+*failing* against a deliberately wrong implementation (rule 6): dropping the room announce fails
+four, dropping the hypnotist report fails six, always sending `session-attempt` fails three,
+dropping the transition guard or the refusal guard fails one each, a resistance word in the room
+pool fails one, and a `{name}` token in the hypnotist pool fails two. `test/notify.mjs` 84 → 88: the
+room-only audience loop now covers the miss line alongside induction-begin and going-under.
+
+**Still open, and worth knowing.** The room half rides the *"Others see your reactions"* setting
+like every other public line, so a subject who has it off is still invisible to onlookers on a miss
+— correct, but it means the room-side fix does nothing for that player. And none of this has had a
+live two-client run yet.
 
 ### Changed 2026-09-17 (v0.75.0) — a hypnotist's skill now counts for strangers by default
 

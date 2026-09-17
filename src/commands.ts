@@ -42,6 +42,8 @@ import {
 	forceTrance,
 	currentHypnotistId,
 	isHypnotized,
+	requestInduction,
+	getSessionView,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import { openHelpScreen } from "./menu";
@@ -106,6 +108,32 @@ function resolveTarget(token: string): Target | null {
 	const matches = exact.length ? exact : pool.filter((c) => names(c).some((n: string) => n.startsWith(lower)));
 	if (matches.length !== 1) return null;
 	return { id: matches[0].MemberNumber, name: matches[0].Name };
+}
+
+/** Who `/hypno retry` means. Set by every induction started from a command, so a retry does
+ * not need the name typed again — which is the whole point of having it. Module-level and
+ * not persisted: it is a convenience for the next thirty seconds, not state. */
+let lastInduced: Target | null = null;
+
+/** Send an induction and say that one went out.
+ *
+ * `requestInduction` picks attempt-or-continue from our known view of them, so the command
+ * and the remote's button cannot disagree about which message this is.
+ *
+ * The confirmation is not decoration. A request is one-way — the subject's client decides
+ * privately and may refuse without telling us why — so without a line here, typing the
+ * command and typing it wrong look identical. Rule 5. What comes back, if anything, arrives
+ * later through the usual session-update path. */
+function startInduction(target: Target): void {
+	lastInduced = target;
+	const view = getSessionView(target.id);
+	requestInduction(target.id);
+	reply(
+		view?.phase === "AttemptFailed"
+			? `Trying ${target.name} again.`
+			: `Attempting an induction on ${target.name}.`,
+	);
+	reply("They decide how to respond, on their own client. Watch for what happens next.");
 }
 
 /** Work out who a command means, asking when it can't tell.
@@ -721,6 +749,36 @@ const COMMANDS: HypnoCommand[] = [
 			reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
 			reply("It travels with each induction you attempt. How much of it lands is the other person's setting — you are never told.");
 			reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
+		},
+	},
+	{
+		Tag: "induce",
+		group: "Session",
+		args: "[name|number]",
+		Description: "Attempt an induction on someone, the same as the remote's button",
+		Action: (args: string) => {
+			const target = targetOrAsk(firstWord(args), "usage: /hypno induce [name or member number]");
+			if (!target) return;
+			startInduction(target);
+		},
+	},
+	{
+		Tag: "retry",
+		group: "Session",
+		Description: "Try again on the last person you attempted",
+		Action: () => {
+			if (!lastInduced) {
+				reply("You haven't attempted anyone yet this session — use /hypno induce [name].");
+				return;
+			}
+			// Resolved fresh rather than trusting the stored name: they may have left, and
+			// "retrying" at someone who is gone should say so rather than sending into the void.
+			const still = others().some((c: any) => c?.MemberNumber === lastInduced!.id);
+			if (!still) {
+				reply(`${lastInduced.name} isn't in the room any more.`);
+				return;
+			}
+			startInduction(lastInduced);
 		},
 	},
 	{

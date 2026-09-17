@@ -1,6 +1,13 @@
 import { log, isTestingMode } from "./log";
 import { tellPlayer } from "./notify";
-import { announceInductionBegin, announceTranceEnter } from "./flavor";
+import {
+	announceInductionBegin,
+	announceTranceEnter,
+	announceInductionMiss,
+	inductionMissLine,
+	inductionSpentLine,
+	hypnotistMissFlavor,
+} from "./flavor";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
@@ -740,12 +747,17 @@ function runInductionRoll(): void {
 		session.cooldownUntil = Date.now() + COOLDOWN_MS;
 		session.progress = chance;
 		scheduleCooldownEnd();
-		notify("The attempt fades. You feel clear-headed, and harder to reach for a while.");
+		notify(inductionSpentLine());
+		// The room saw it begin and would have seen it land; without this it saw nothing at
+		// all in between. Same pool as an ordinary miss on purpose, so onlookers cannot tell
+		// a spent last attempt from a first one and count the hypnotist's tries.
+		announceInductionMiss();
 		log(`induction FAILED (final): ${detail}`);
 	} else {
 		session.phase = "AttemptFailed";
 		session.progress = chance;
-		notify("The attempt doesn't quite land.");
+		notify(inductionMissLine());
+		announceInductionMiss();
 		log(`induction failed: ${detail} attempt=${session.attempts}`);
 	}
 	pushUpdate();
@@ -1180,6 +1192,48 @@ export function countdownRemaining(view: SessionView, field: "cooldownRemaining"
 	return Math.max(0, view[field] - (Date.now() - view.receivedAt));
 }
 
+/** Tell the hypnotist, in their own chat log, that an attempt of theirs just missed.
+ *
+ * The problem this solves: a miss was reported ONLY through the subject's Information Sheet
+ * panel — the "Continue Trying (1/2)" button and its band. With that panel closed, which is
+ * most of the time, an attempt produced no output anywhere on the hypnotist's screen, and a
+ * userscript that produces nothing is indistinguishable from one that is broken. DW,
+ * 2026-09-17: make it clear the add-on worked and the induction didn't. Rule 5, one screen
+ * removed from where that rule is usually applied.
+ *
+ * Fires on the TRANSITION only. `pushUpdate` re-sends the same phase for several reasons —
+ * a re-query, a permission change, a refusal aimed at us — so keying on the phase alone
+ * would repeat the line every time one arrived. `prev` is the view this handler is about to
+ * replace, which makes "did it just become a miss" answerable without any new state.
+ *
+ * A refusal is never a miss. `refuse()` carries our real phase when we are the hypnotist, so
+ * a refusal arriving while already in AttemptFailed would otherwise read as a fresh failed
+ * roll; `refusedReason` is what separates "your attempt missed" from "they said no".
+ *
+ * What it does NOT say: the band, the number, or the subject's choice. The band stays on the
+ * panel where it already lives. The attempt count is structural rather than flavour, and it
+ * is the half that actually answers "did the add-on do anything" — so it is spelled out
+ * plainly here rather than left to the prose. */
+function reportMissToHypnotist(sender: number, message: Record<string, any>, prev?: SessionView): void {
+	if (message.refusedReason) return;
+	const phase = message.phase as SessionPhase;
+	if (phase !== "AttemptFailed" && phase !== "CooldownRequired") return;
+	if (prev?.phase === phase) return;
+	// A cooldown we are seeing for the first time because we just walked up to someone who
+	// was already in one is not an attempt of ours. Only a spent attempt carries a count.
+	const attempts = Number(message.attempts ?? 0);
+	if (phase === "CooldownRequired" && attempts <= 0) return;
+
+	const name = findCharacterName(sender);
+	const max = Number(message.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+	const flavour = hypnotistMissFlavor(name);
+	if (phase === "CooldownRequired") {
+		tellPlayer(`${flavour} That was attempt ${attempts} of ${max} — they are out of reach for a while now.`);
+	} else {
+		tellPlayer(`${flavour} Attempt ${attempts} of ${max}. You can try again.`);
+	}
+}
+
 export function requestAttempt(memberNumber: number): void {
 	// Name travels with the request so the subject's prompt can say who it is without
 	// depending on them having that character loaded and resolvable at that moment.
@@ -1196,6 +1250,21 @@ export function requestAttempt(memberNumber: number): void {
 export function requestContinue(memberNumber: number): void {
 	sendHiddenMessage({ type: "session-continue" }, memberNumber);
 	log(`sent session-continue to ${memberNumber}`);
+}
+
+/** Start or resume an induction against someone, picking the right message for where they
+ * already are. A fresh attempt is `session-attempt`; one that follows a miss is
+ * `session-continue`, and sending the wrong one desyncs the two sides.
+ *
+ * Exists so the panel button and the chat command cannot disagree about that. Both route
+ * here; neither picks the message itself.
+ *
+ * Reads our LOCAL view of them, which may be stale or absent — an attempt is the safe
+ * default, since the subject's client re-checks its own phase and refuses anything that does
+ * not fit. Being wrong here costs a refusal, never a bypass. */
+export function requestInduction(memberNumber: number): void {
+	if (views.get(memberNumber)?.phase === "AttemptFailed") requestContinue(memberNumber);
+	else requestAttempt(memberNumber);
 }
 
 export function requestWake(memberNumber: number): void {
@@ -1364,6 +1433,7 @@ export function installSession(): void {
 		const gained = newAttempts - (prev?.attempts ?? 0);
 		if (gained > 0) addSkill(SKILL_ATTEMPT_CREDIT * gained);
 		if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
+		reportMissToHypnotist(sender, message, prev);
 		views.set(sender, {
 			phase: (message.phase as SessionPhase) ?? "Idle",
 			attempts: Number(message.attempts ?? 0),
