@@ -220,9 +220,10 @@ function depthTrustLines(): HelpLine[] {
 		head("Their skill, and whether you believe it"),
 		body("Practised hypnotists are better at it. Their client tells yours how"),
 		body("practised; YOUR Depth-tab setting decides how much to believe —"),
-		body("ignore it, honour it only from people you trust, or honour it up to"),
-		body("a cap for anyone. You feel it as a read on their manner at the"),
-		body("prompt, never a number, and it can never reach the earned-only three."),
+		body("ignore it, believe it only from people you trust, cap it for everyone,"),
+		body("or the default: full weight once you know someone, capped before that."),
+		body("You feel it as a read on their manner at the prompt, never a number,"),
+		body("and it can never reach the earned-only three."),
 	];
 }
 

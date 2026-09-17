@@ -61,9 +61,19 @@ const FIGHT_FLOOR_WEIGHT = 0.25;
 const RESISTANCE_FLOOR = 5;
 const skillTerms = (v) => ({ additive: v * ADDITIVE_WEIGHT, fightFloor: RESISTANCE_FLOOR + v * FIGHT_FLOOR_WEIGHT });
 // The honour rungs, as multipliers/caps on the transmitted value — rung 1 discards it,
-// rung 2 scales it by trust, rung 3 clamps to STRANGER_CEILING, rung 4 passes it whole.
+// rung 2 scales it by trust, rung 3 clamps to STRANGER_CEILING, rung 3b ("floored", the
+// v0.75.0 default) takes the larger of 2 and 3, and rung 4 passes it whole.
+//
+// 3b is swept even though every value it can return is one rung 2 or rung 3 also returns:
+// the invariant is a relationship between two CHOICES at a given honoured value, so that
+// argument is sound today and stops being sound the moment 3b's definition changes. Cheaper
+// to sweep it than to re-derive why it did not need sweeping.
 const honoured = (rung, value, trust) =>
-	rung === 1 ? 0 : rung === 2 ? (value * trust) / 100 : rung === 3 ? Math.min(value, 30) : value;
+	rung === 1 ? 0
+		: rung === 2 ? (value * trust) / 100
+		: rung === 3 ? Math.min(value, 30)
+		: rung === 3.5 ? Math.max((value * trust) / 100, Math.min(value, 30))
+		: value;
 
 /** Put the subject in a given state. Deliberately does NOT safeword: the sweeps never open
  * an induction window, and a teardown per state would bury the result under ~1700 lines of
@@ -113,7 +123,7 @@ for (const trust of TRUSTS)
 		for (const relation of RELATIONS) {
 			setState({ trust, experience, arousal: 0, relation });
 			for (const value of SKILLS)
-				for (const rung of [1, 2, 3, 4]) {
+				for (const rung of [1, 2, 3, 3.5, 4]) {
 					const skill = skillTerms(honoured(rung, value, trust));
 					const fight = session.inductionChance(HYP, "fight", false, skill);
 					const ignore = session.inductionChance(HYP, "ignore", false, skill);

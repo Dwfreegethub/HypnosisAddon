@@ -472,12 +472,16 @@ function resolveDepths(hypnotistId: number, choice: SessionChoice, roll: number)
 	return { full: fullDepth, earned: Math.min(fullDepth, at(earned)) };
 }
 
-/** Hypnotist skill's contribution to the roll. THE LADDER IS NOT BUILT — it is the
- * declared-skill proposal's §A1-A2 and stays out of this change. This type exists only so
- * the invariant below can be swept across the skill range by a test, which is the one thing
- * A1 asks for that cannot be done without a seam: the inversion it describes is caused by
- * `fightFloor`, and no value of any term the live formula carries today can produce it.
- * Every production caller passes `NO_SKILL`.
+/** Hypnotist skill's contribution to the roll.
+ *
+ * THE LADDER IS LIVE as of v0.66.0 — this comment said it was not built for several versions
+ * after it was, which is exactly the drift CLAUDE.md warns about; corrected v0.75.0. The
+ * claim rides in on the attempt message (`session-attempt` carries `skill`), is passed through
+ * `honourSkill()` with the subject's own rung, and lands on `session.honouredSkill`.
+ *
+ * The explicit `skill` argument on `inductionChance()` is still a TEST SEAM, and is still the
+ * only way to sweep the invariant below across the whole skill range in one pass: production
+ * callers never pass it and take `currentSkillTerms()` instead.
  *
  * The two fields are the two shapes the proposal gives skill — an additive term every
  * choice gets alike, and a floor under Fight alone. Their WEIGHTS are parked (§A2); a test
@@ -518,12 +522,23 @@ function currentSkillTerms(earnedOnly: boolean): SkillTerms {
  *   ignore  — none, ever
  *   trusted — in proportion to how well she already knows him (relationship trust)
  *   capped  — anyone, but no further than the stranger ceiling
- *   full    — whole (the CNC rung; not offered by the settings cycle yet) */
+ *   floored — the larger of those two: full weight once she knows him, the stranger ceiling
+ *             as a floor under it before she does. THE DEFAULT since v0.75.0; the reasoning,
+ *             and why it can never lower a chance, is on DEFAULT_SKILL_HONOUR in storage.ts
+ *   full    — whole (the CNC rung; not offered by the settings cycle yet)
+ *
+ * Every rung returns a value in 0..claimed, and never a negative one, so an unskilled or
+ * barely-skilled hypnotist can only ever be worth zero here — never a penalty. The roll adds
+ * this term (`skill.additive`), so zero in means the formula is byte-identical to a build with
+ * no ladder at all. That is DW's second requirement, held by construction rather than by a
+ * clamp further down. */
 export function honourSkill(rung: string, claimed: number, trust: number): number {
 	const v = Math.max(0, Math.min(100, claimed));
+	const byTrust = (v * Math.max(0, Math.min(100, trust))) / 100;
 	switch (rung) {
-		case "trusted": return (v * Math.max(0, Math.min(100, trust))) / 100;
+		case "trusted": return byTrust;
 		case "capped": return Math.min(v, STRANGER_CEILING);
+		case "floored": return Math.max(byTrust, Math.min(v, STRANGER_CEILING));
 		case "full": return v;
 		default: return 0; // "ignore", and any unknown rung, honour nothing
 	}
@@ -556,9 +571,11 @@ function chanceBeforeInvariant(
 	const trust = earnedOnly ? accessFor(hypnotistId, "session") : effectiveAccess(hypnotistId);
 	const exp = experienceValue();
 	const experienceEffect = choice === "agree" ? exp * EXPERIENCE_WEIGHT : choice === "fight" ? -exp * EXPERIENCE_WEIGHT : 0;
-	// Hypnotist skill belongs in this sum too, but it lives on the HYPNOTIST's client and
-	// the roll runs here — see the design doc's step-2 note. Deliberately absent until
-	// that's resolved, rather than trusting a self-reported number.
+	// Hypnotist skill lives on the HYPNOTIST's client while the roll runs HERE, which is why
+	// it arrives as `skill.additive` rather than being read directly: the claim is declared,
+	// never verified, and `honourSkill()` above has already decided on this client how much of
+	// it to believe. A self-reported number is trusted exactly as far as the subject's own rung
+	// says, which is what keeps this inside the subject-authoritative rule.
 	// The RP bonus is deliberately part of BOTH. The doc lists it beside the chemical
 	// modifiers, but it is not one: it reads the hypnotist's effort, not the subject's
 	// bloodstream, and nothing about roleplaying well should be barred from writing something
@@ -597,9 +614,9 @@ function chanceBeforeInvariant(
  * flattens the two at zero trust today, so the flattening is pre-existing and this only
  * stops it inverting.
  *
- * None of that arithmetic is live — no term in this formula carries skill yet — so the
- * invariant is inert today and is here to be true when the ladder lands. `test/odds.mjs`
- * sweeps it with the proposed terms supplied, and would fail without this `Math.min`. */
+ * That arithmetic IS live now (the ladder landed in v0.66.0, and v0.75.0 made skill count for
+ * strangers by default), so this `Math.min` is load-bearing rather than anticipatory.
+ * `test/odds.mjs` sweeps every rung across the whole skill range and would fail without it. */
 export function inductionChance(
 	hypnotistId: number,
 	choice: SessionChoice,

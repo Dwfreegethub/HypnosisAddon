@@ -89,21 +89,44 @@ export const ATTEMPT_LIMITS = [2, 3];
 /** How much of a hypnotist's CLAIMED skill the subject's client lets reach the roll. A ladder,
  * not a switch — the subject decides in advance how much to believe a number that arrives from
  * someone else's machine, which is the whole of what makes "declared and visible" skill obey
- * the subject-authoritative rule (declared-skill-proposal.md §1). Rung 4 ("full") is defined
- * here so the honour function and the test sweep are complete, but it is NOT offered by the
- * settings cycle yet: it is the CNC rung, and the proposal gates OFFERING it on dual fatigue
- * existing (§4). SKILL_HONOUR_OFFERED is what the button walks. */
+ * the subject-authoritative rule (declared-skill-proposal.md §1). The LAST rung ("full") is
+ * defined here so the honour function and the test sweep are complete, but it is NOT offered by
+ * the settings cycle: it is the CNC rung, and the proposal gates OFFERING it on dual fatigue
+ * existing (§4). SKILL_HONOUR_OFFERED is what the button walks, and is every rung but that one.
+ *
+ * Ordered by how much they let through, so the button's cycle reads as a ladder. "floored" is
+ * `max(trusted, capped)` and therefore sits above both — see DEFAULT_SKILL_HONOUR below. */
 export const SKILL_HONOUR_RUNGS: { key: string; label: string }[] = [
 	{ key: "ignore", label: "Ignore it" },
 	{ key: "trusted", label: "Only from people I trust" },
 	{ key: "capped", label: "Honour, capped" },
+	{ key: "floored", label: "Full from people I trust, capped otherwise" },
 	{ key: "full", label: "Skill can beat my resistance" },
 ];
-export const SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 3);
-/** Rung 2. Discoverable in an established pair, worth exactly zero to a stranger, and cheaply
- * reversible because it is stored SPARSELY — written only when the player changes it, default
- * in code, the same pattern as depthGates. See §2. */
-export const DEFAULT_SKILL_HONOUR = "trusted";
+export const SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 4);
+/** Rung 3b, and the default since v0.75.0 — `max(trusted, capped)`.
+ *
+ * Rung 2 was the default before, and it is worth EXACTLY ZERO to a stranger by construction:
+ * it scales the claim by existing trust, and a new pair has none. So the whole skill ladder
+ * was invisible on a first meeting, which is the one meeting where a practised hypnotist most
+ * needs to read as practised. DW, 2026-09-17: make skill count, and make sure little or no
+ * skill never LOWERS the chance.
+ *
+ * `max()` is what buys the second half. Rung 2 alone under-serves a stranger; rung 3 alone
+ * under-serves an established pair (`min(v, 30)` is BELOW `v * trust/100` for any trust above
+ * the ceiling, so defaulting everyone to rung 3 would have cut a trusted expert from +35 to
+ * +10.5). Taking the larger of the two can only ever raise the honoured value relative to
+ * either rung, and at a claim of zero both are zero, so the floor is free.
+ *
+ * This is deliberately the same shape as `effectiveAccess()`: a FLOOR, not a multiplier, for
+ * the same settled reason — a multiplier on zero trust is still zero, and the stranger is the
+ * case the mechanic exists to serve.
+ *
+ * Rung 2 is KEPT and still offered. Someone who chose "only from people I trust" meant
+ * strangers get nothing, and quietly loosening a consent setting they picked on purpose is not
+ * ours to do; only the default moves, and the setting is stored SPARSELY — written only when
+ * the player changes it — so an existing explicit choice is untouched. See §2. */
+export const DEFAULT_SKILL_HONOUR = "floored";
 
 /** The starter set offered on first launch (proposal §9). Deliberately the mildest, most
  * obviously-reversible five: enough to show what the add-on does, nothing that persists past
