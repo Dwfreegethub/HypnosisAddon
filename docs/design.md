@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.74.2.*
+*Design notes and decision log — work in progress. Code at v0.74.3.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -2965,7 +2965,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
 ### Todo (staging TBD)
 
-- **▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**
+- ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See the Appendix (v0.74.3). The spec is left intact below as the record of the decision.
 
   **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
   wizard and starter set only appear *if you open settings* — so a fresh install is completely
@@ -3533,6 +3533,33 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-16 (v0.74.3) — the first-run notice
+
+Built the approved *first-run notice* (spec in the Todo body). The gap it closes: every permission,
+including `hypnoEnabled`, defaults off and the wizard/starter only appear if you open settings, so a
+fresh install is silent and looks broken. New leaf module `welcome.ts` prints a **two-line, once-per-
+install, local-only** notice into the chat log:
+
+> `[Hypnosis Add-on v<__VERSION__> — nothing is switched on yet. Click the spiral to set up.]`
+> `[Your reactions are visible to the room by default; Trance Defaults turns that off.]`
+
+- **Fires when the add-on is SILENT** — no hypnotist-actionable permission granted — which covers both
+  a fresh install and "hypnoEnabled on but nothing else", the same silence for a different reason. A
+  user who *has* granted a permission is marked shown **without** a notice, so they are never nagged.
+  `hasAnyPermissionGranted()` (storage.ts) reads a curated `PERMISSION_KEYS` set: the Permissions/
+  Lasting-tab grants, excluding the master switch, the settings-lock, and all preference/awareness
+  toggles.
+- **Once per install:** a new sparse `welcomeShown` flag, set the first time it evaluates. `normalise()`
+  back-fills it `true` for anyone whose `starterState` shows they finished setup — so an upgrade never
+  greets an existing user (and "Hypnotist only", enabled-off-on-purpose, is covered by that back-fill).
+- **Hooks the existing `startRecovery()` poll** (`recovery.ts`), on the branch that already waits for
+  identity *and* a room before acting — the one place settings are safe to read (the v0.17.0 early-read
+  trap) and a chat log exists to print into. No second poll; not fired from the no-room fallback.
+- **Never** auto-enables, pre-ticks, reaches the room, or re-fires per-version (alpha bumps often).
+- `build-test.mjs` now defines `__VERSION__` for the suites (welcome.ts uses it). `test/welcome.mjs`,
+  14 checks: the back-fill quiet-upgrade, the fresh-install greeting and its two lines, local-only,
+  once-only, enabled-but-empty still fires, a configured user gets nothing but is marked shown.
 
 ### Fixed 2026-09-16 (v0.74.2) — the icon now sits INSIDE its button (the other half of Known Bug #6)
 

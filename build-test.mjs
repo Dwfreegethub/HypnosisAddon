@@ -17,6 +17,11 @@
 import esbuild from "esbuild";
 import { readFile } from "node:fs/promises";
 
+// The shipped bundle replaces __VERSION__ from package.json (build.mjs). The suites don't care
+// what the string is, only that modules using it (welcome.ts's first-run notice) bundle and run
+// — so give it a stable placeholder rather than leaving it an undefined global.
+const DEFINE = { __VERSION__: JSON.stringify("test") };
+
 const FORCE_TESTING_DECL = /^const FORCE_TESTING: boolean = (?:true|false);$/m;
 
 /** Rewrites src/log.ts on the way into the bundle so isTestingMode() always returns true. */
@@ -51,6 +56,7 @@ await esbuild.build({
 	format: "esm",
 	outfile: "test/voice-bundle.mjs",
 	logLevel: "error",
+	define: DEFINE,
 	plugins: [pinTestingMode],
 });
 
@@ -62,6 +68,7 @@ await esbuild.build({
 	format: "esm",
 	outfile: "test/arousal-bundle.mjs",
 	logLevel: "error",
+	define: DEFINE,
 	plugins: [pinTestingMode],
 });
 
@@ -72,5 +79,6 @@ await esbuild.build({
 	format: "esm",
 	outfile: "test/harness-bundle.mjs",
 	logLevel: "error",
+	define: DEFINE,
 	plugins: [pinTestingMode],
 });

@@ -371,6 +371,12 @@ interface HypnoAddonSettings {
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
 	 * dismissed. Sparse, so a fresh install is "new" with nothing stored. */
 	starterState?: string;
+	/** First-run notice shown once per install (the discovery notice, distinct from the starter
+	 * offer above — that asks "have they configured?", this asks "have we told them the add-on is
+	 * here and silent by default?"). Absent = not yet shown; set true the first time it fires, so
+	 * it can never nag. `normalise()` back-fills it true for anyone already configured, so an
+	 * upgrade does not greet every existing user. Sparse, like the other reversible defaults. */
+	welcomeShown?: boolean;
 	/** The player's OWN practice as a hypnotist, as an interaction COUNT through the shared
 	 * curve — never a stored value — exactly like `experience`. Transmitted (derived) on every
 	 * induction this player attempts; what the far side then does with it is their setting. */
@@ -505,6 +511,11 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (typeof t.firings !== "number") t.firings = 0;
 		}
 	}
+	// Anyone with evidence of having been through setup has already met the add-on, so mark the
+	// first-run notice as shown for them — otherwise every existing user gets greeted on the next
+	// load after this ships. Only a real signal counts: `starterState` is set precisely when
+	// someone has taken or waved off the starter offer or finished the wizard.
+	if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
 	if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
 	if (!s.chemicalReach || typeof s.chemicalReach !== "object") s.chemicalReach = {};
 	if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
@@ -965,6 +976,44 @@ export function setStarterState(state: "new" | "applied" | "done"): void {
 	if (state === "new") delete loadSettings().starterState;
 	else loadSettings().starterState = state;
 	saveSettings();
+}
+
+/** Has the one-per-install first-run notice already been shown (or back-filled true for an
+ * already-configured user)? */
+export function wasWelcomeShown(): boolean {
+	return loadSettings().welcomeShown === true;
+}
+export function markWelcomeShown(): void {
+	loadSettings().welcomeShown = true;
+	saveSettings();
+}
+
+/** The permissions that let a hypnotist actually DO something to the subject — everything on
+ * the Permissions tab except the master switch and the settings-lock, plus the two persistent
+ * grants that live on the Lasting tab. Excludes subject-preference/awareness toggles (trance
+ * defaults, suppression, showTriggerWords, selfTrigger…): granting none of these is what makes
+ * a fresh install silent. KEEP IN STEP with the Permissions/Lasting tabs when a permission is
+ * added — a new one omitted here would only mean the first-run notice greets a configured user. */
+const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
+	"movementRestriction",
+	"clothingRestriction",
+	"postureControl",
+	"speechRestriction",
+	"selfTouchControl",
+	"compelActivity",
+	"arousalControl",
+	"illusionControl",
+	"undressControl",
+	"triggerControl",
+	"carryForward",
+];
+
+/** True if the subject has granted any hypnotist-actionable permission — i.e. the add-on can
+ * actually do something. `hypnoEnabled` is deliberately NOT counted: "enabled but nothing
+ * granted" is the same silence as a fresh install, and the first-run notice fires for both. */
+export function hasAnyPermissionGranted(): boolean {
+	const f = loadSettings().features;
+	return PERMISSION_KEYS.some((k) => f[k] === true);
 }
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;

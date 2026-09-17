@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures } from "./storage";
+import { maybeShowFirstRunNotice } from "./welcome";
 import {
 	isSpeechBlocked,
 	getScreenFade,
@@ -427,6 +428,10 @@ export function startRecovery(): void {
 		if (known && inRoom) {
 			clearInterval(poll);
 			log(`recovery: ${attemptRecovery()}`);
+			// Identity and a chat log are exactly what the first-run notice also needs, so it
+			// rides this same branch rather than adding a second poll (design.md). Only here, not
+			// the no-room fallback below: with no room there is no chat log to print into.
+			maybeShowFirstRunNotice();
 			return;
 		}
 		// Identity without a room still means orphaned effects can be dealt with, and being
