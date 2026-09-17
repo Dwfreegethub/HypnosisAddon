@@ -1,5 +1,5 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.73.2.*
+*Design notes and decision log — work in progress. Code at v0.74.0.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -3533,6 +3533,38 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Added 2026-09-16 (v0.74.0) — trigger phrases are unique per subject, with override
+
+Built the settled *Trigger Phrase Uniqueness and Override* spec (body of this doc), uniqueness-only
+scope — `phrase` stays the identity key, no `key`/`scope?`/`expiresAt?` fields added (DW's call).
+
+- **`saveTrigger` now de-dupes on the phrase alone**, not `(phrase, installedBy)` — the required
+  fix, or a cross-installer override would leave two records on one word. Both stale comments fixed.
+- **`MIN_PHRASE_LENGTH` 3 → 6**, on the plant path only. `normalise` still never reads `phrase`, so a
+  stored short phrase is grandfathered — it fires, decays and releases, it just can't be re-planted.
+- **`phraseAvailability()` in `triggers.ts`** implements the precedence: exact + same installer →
+  override (even shallower); exact + different installer → override iff `currentDepthEarned() >` the
+  stored `plantedDepth`; containment either way → always refused; a conflicting trigger that is
+  holding her → refused. It is called at both `beginRecording` and `commitRecording` (the between
+  window is real); a commit-time collision **holds the recording open** so the actions aren't lost.
+- **Disclosure**: the default refusal names nothing (no phrase, no planter, no depth, no count); the
+  one chatty branch is when the conflict is the hypnotist's **own** word. A per-session rate limit
+  (`COLLISION_REFUSAL_CAP`/`COLLISION_WINDOW_MS`, tunable) sends collision refusals flat past the cap,
+  so the yes/no oracle can't be bisected. Dials are placeholders — "pick them in play" per the spec.
+- **Rename-in-place**: a `TRIGGER_START` while already recording now renames, keeping the recorded
+  actions, instead of silently discarding them (a latent bug the commit-collision flow reuses).
+- **Override = fresh record** (already how `commitRecording` builds it); the subject gets a distinct
+  **displacement** line only when a *different* installer's trigger is replaced, never her own re-plant.
+- `isTriggerInEffect` is passed into `beginRecording`/`commitRecording`/`renameRecording` as a
+  callback rather than imported, keeping the voice→triggers dependency one-way (same pattern as
+  `pruneFadedTriggers`). `test/triggers.mjs` +34 checks (128 → 162): each precedence branch, the
+  holding refusals, rename-preserves-actions, MIN-6 + grandfather, the disclosure strings carry no
+  phrase/number, the commit-time race, and the rate-limit fall-through to flat.
+
+**Not done, deferred by scope choice:** `key`, `scope?`, `expiresAt?` and the touch-trigger uniqueness
+extension. Touch triggers will need `gesture:<Activity>:<Group>` unique per subject with the same
+override rules (exact equality suffices there — no free text, no substring problem).
 
 ### Changed 2026-09-16 (v0.73.2) — `/hypno` is a menu now, and `/hypno help` opens the on-screen guide
 

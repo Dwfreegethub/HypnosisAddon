@@ -37,6 +37,7 @@ import {
 	cancelRecording,
 	commitRecording,
 	beginRecording,
+	renameRecording,
 	recordAction,
 	triggersFiredBy,
 	triggersReleasableBy,
@@ -1099,12 +1100,20 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	}
 	if (parsed.kind === "commit") {
 		if (!isRecording()) return false;
-		const message = commitRecording();
+		const message = commitRecording(isTriggerInEffect);
 		if (message) tellPlayer(message);
 		return true;
 	}
+	// A start phrase while already recording RENAMES in place, keeping the actions; otherwise it
+	// begins a new recording. Both re-check phrase uniqueness, and both are handed isTriggerInEffect
+	// so a colliding trigger that is currently holding her can be refused — that check lives here.
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
-	tellPlayer(beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase));
+	if (isRecording()) {
+		renameRecording(sender, parsed.phrase, isTriggerInEffect);
+		return true;
+	}
+	const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
+	if (line) tellPlayer(line);
 	return true;
 }
 

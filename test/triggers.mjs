@@ -587,5 +587,163 @@ storage.setDepthOverride("triggerControl", "deep"); // restore the default gate
 depth.setCurrentDepths(80, 80);
 storage.forgetAllTriggers();
 
+// --- Phrase uniqueness and override (v0.74.0) --------------------------------------------
+// A phrase is unique per subject. design.md "Trigger Phrase Uniqueness and Override" is the
+// spec; these pin the settled rules and, as much as the wording, the DISCLOSURE shape — a
+// refusal must not hand a probing hypnotist someone else's hidden trigger phrase or its depth.
+storage.setFeature("hypnoEnabled", true);
+storage.setFeature("triggerControl", true);
+// Lower the depth gate so planting is allowed at shallow depths — isolates the uniqueness
+// rules from the separate depth gate, the same trick the born-ghost block uses.
+storage.setDepthOverride("triggerControl", "drifting");
+storage.forgetAllTriggers();
+
+const plantBy = (phrase, by, byName, depthAt) => {
+	storage.saveTrigger({
+		phrase, actions: ["movement-block"], installedBy: by, installedByName: byName,
+		installedAt: Date.now(), plantedDepth: depthAt, plantedChemical: false,
+		reinforcedAt: Date.now(), firings: 0,
+	});
+};
+const holds = (phrase) => (t) => t.phrase === phrase; // stand-in for isTriggerInEffect
+
+// MIN length is now 6, on the plant path only.
+depth.setCurrentDepths(80, 80);
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "cat");
+check("phrase under 6 chars is refused", triggers.isRecording(), false);
+check("  and told the minimum", /at least 6/.test(lastToHypnotist()), true);
+
+// Grandfathering: a stored short phrase (planted before the floor rose — here forced past the
+// plant check) still fires. normalise never purges it; only re-planting is blocked.
+plantBy("cat", HYP, "GameBot", 80);
+check("a grandfathered short phrase still fires", triggers.triggersFiredBy(HYP, "cat").length, 1);
+storage.forgetAllTriggers();
+
+// Exact + same installer → override, even at a SHALLOWER depth than the original.
+plantBy("ownword", HYP, "GameBot", 80);
+depth.setCurrentDepths(20, 20); // shallower than the 80 it was planted at
+triggers.beginRecording(HYP, "GameBot", "ownword", holds("nothing"));
+check("own exact re-plant is allowed even shallower", triggers.isRecording(), true);
+triggers.recordAction("speech-block");
+triggers.commitRecording(holds("nothing"));
+check("  it replaced rather than duplicated", storage.listTriggers().length, 1);
+check("  with the new actions", storage.listTriggers()[0].actions, ["speech-block"]);
+check("  and the new, shallower planted depth", storage.listTriggers()[0].plantedDepth, 20);
+storage.forgetAllTriggers();
+
+// Exact + different installer → gated on earned depth vs the stored plantedDepth.
+plantBy("theirword", OTHER, "Someone", 40);
+depth.setCurrentDepths(30, 30); // earned 30 <= their 40
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "theirword", holds("nothing"));
+check("cannot take a deeper-planted word", triggers.isRecording(), false);
+check("  told 'not deep enough'", /not deep enough/.test(lastToHypnotist()), true);
+check("  WITHOUT leaking their planting depth (no number)", /\d/.test(lastToHypnotist()), false);
+
+depth.setCurrentDepths(60, 60); // earned 60 > their 40
+triggers.beginRecording(HYP, "GameBot", "theirword", holds("nothing"));
+check("can take it when deep enough", triggers.isRecording(), true);
+triggers.recordAction("movement-block");
+const displaced = triggers.commitRecording(holds("nothing"));
+check("  override replaces the record", storage.listTriggers().length, 1);
+check("  now attributed to the taker", storage.listTriggers()[0].installedBy, HYP);
+check("  and she gets a displacement line", /comes loose/.test(displaced), true);
+storage.forgetAllTriggers();
+
+// A subject's OWN re-plant is maintenance, not displacement — the ordinary line.
+plantBy("mineword", HYP, "GameBot", 60);
+depth.setCurrentDepths(60, 60);
+triggers.beginRecording(HYP, "GameBot", "mineword", holds("nothing"));
+triggers.recordAction("movement-block");
+const ownLine = triggers.commitRecording(holds("nothing"));
+check("own re-plant gets the ordinary line, not displacement", /comes loose/.test(ownLine), false);
+storage.forgetAllTriggers();
+
+// Containment either way is a collision and NEVER overrides.
+depth.setCurrentDepths(80, 80);
+plantBy("sleepy time", OTHER, "Someone", 80);
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "sleepy time now", holds("nothing")); // contains theirs
+check("a phrase that CONTAINS an existing one is refused", triggers.isRecording(), false);
+check("  vague refusal names no phrase", /sleepy/.test(lastToHypnotist()), false);
+check("  and no number", /\d/.test(lastToHypnotist()), false);
+// The other direction: their phrase contains ours.
+plantBy("goodnight moon", OTHER, "Someone", 80);
+triggers.beginRecording(HYP, "GameBot", "goodnight", holds("nothing")); // contained BY theirs
+check("a phrase CONTAINED BY an existing one is refused", triggers.isRecording(), false);
+storage.forgetAllTriggers();
+
+// Own-overlap is the one chatty branch — his word, so naming it leaks nothing and helps.
+plantBy("keyphrase", HYP, "GameBot", 80);
+triggers.beginRecording(HYP, "GameBot", "keyphrase extra", holds("nothing"));
+check("overlap with your OWN word names it", /keyphrase/.test(lastToHypnotist()), true);
+storage.forgetAllTriggers();
+
+// Holding: refuse an override while the conflicting trigger is in effect.
+plantBy("holdword", HYP, "GameBot", 80);
+triggers.beginRecording(HYP, "GameBot", "holdword", holds("holdword"));
+check("own word refused while it is holding her", triggers.isRecording(), false);
+check("  and says it is holding her", /holding/.test(lastToHypnotist()), true);
+plantBy("graspword", OTHER, "Someone", 40);
+depth.setCurrentDepths(60, 60); // entitled, but it is holding
+triggers.beginRecording(HYP, "GameBot", "graspword", holds("graspword"));
+check("an entitled take is still refused while it holds her", triggers.isRecording(), false);
+storage.forgetAllTriggers();
+
+// Rename-in-place: a start phrase mid-recording renames, keeping the recorded actions.
+depth.setCurrentDepths(80, 80);
+triggers.beginRecording(HYP, "GameBot", "firstname", holds("nothing"));
+triggers.recordAction("movement-block");
+triggers.recordAction("speech-block");
+triggers.renameRecording(HYP, "secondname", holds("nothing"));
+check("still recording after a rename", triggers.isRecording(), true);
+triggers.commitRecording(holds("nothing"));
+const renamed = storage.listTriggers();
+check("renamed to the second phrase", renamed[0].phrase, "secondname");
+check("  keeping the actions recorded before the rename", renamed[0].actions, ["movement-block", "speech-block"]);
+storage.forgetAllTriggers();
+
+// A rename to an invalid phrase is refused and keeps the recording (and its actions) intact.
+triggers.beginRecording(HYP, "GameBot", "keepname", holds("nothing"));
+triggers.recordAction("movement-block");
+triggers.renameRecording(HYP, "no", holds("nothing")); // too short
+check("rename to a too-short phrase is refused", /too short/.test(lastToHypnotist()), true);
+triggers.commitRecording(holds("nothing"));
+check("  the original recording survived it", storage.listTriggers()[0].phrase, "keepname");
+check("  with its actions", storage.listTriggers()[0].actions, ["movement-block"]);
+storage.forgetAllTriggers();
+
+// Commit-time re-check: a phrase taken during the recording window holds the recording open.
+triggers.beginRecording(HYP, "GameBot", "raceword", holds("nothing"));
+triggers.recordAction("movement-block");
+plantBy("raceword", OTHER, "Someone", 90); // planted mid-recording, deeper than we can take
+depth.setCurrentDepths(30, 30);
+sentToHypnotist = [];
+const heldOpen = triggers.commitRecording(holds("nothing"));
+check("a commit-time collision holds the recording open", triggers.isRecording(), true);
+check("  nothing lost — no subject line", heldOpen, "");
+check("  and the actions are kept for a rename", /suggestion\(s\) you recorded are kept/.test(lastToHypnotist()), true);
+triggers.cancelRecording();
+storage.forgetAllTriggers();
+
+// Rate limit: once past the cap of characterised collision refusals, further ones go flat, so
+// the yes/no oracle can't be bisected. The characterised forms (vague containment, not-deep)
+// are asserted above while the counter was still under the cap; four have fired by now, so a
+// short run of fresh collisions is over the cap and comes back flat.
+depth.setCurrentDepths(80, 80);
+plantBy("limitword", OTHER, "Someone", 90);
+let lastRefusal = "";
+for (let i = 0; i < 3; i++) {
+	sentToHypnotist = [];
+	triggers.beginRecording(HYP, "GameBot", "limitword tail", holds("nothing")); // foreign containment
+	lastRefusal = lastToHypnotist();
+}
+check("collision refusals go flat once the cap is passed", /too many trigger attempts/.test(lastRefusal), true);
+check("  and the flat form leaks nothing", /limitword|\d/.test(lastRefusal), false);
+storage.forgetAllTriggers();
+storage.setDepthOverride("triggerControl", "deep");
+depth.setCurrentDepths(80, 80);
+
 console.log(`triggers: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

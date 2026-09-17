@@ -96,8 +96,14 @@ export function installTriggers(): void {
 /** Kept only for the tests and the help text that still name a number. The GATE is the depth
  * tier for `triggerControl`; this is the trust that historically bought it. */
 export const TRIGGER_TRUST_THRESHOLD = 65;
-/** Shortest phrase we'll accept. One-letter triggers would fire constantly. */
-const MIN_PHRASE_LENGTH = 3;
+/** Shortest phrase we'll accept, raised 3 → 6 with the uniqueness decision. A phrase now
+ * blocks anything it is contained by, so a short one poisons too much ordinary speech: at 3,
+ * a trigger "cat" would refuse "catch your breath", "delicate" and "scatter" — all correct
+ * (they would all fire it), which is exactly why the floor rises rather than the rule bends.
+ * Six is also the shortest existing fixture ("sleepy"), so suites and bot scenarios are
+ * unaffected. Enforced only on the PLANT path, never in normalise: a stored phrase shorter
+ * than 6 is grandfathered — it still fires, decays and releases, it just can't be re-planted. */
+const MIN_PHRASE_LENGTH = 6;
 /** Cap on actions per trigger — LSCG caps at 3; the doc says we aim higher, but not
  * unbounded, since each one runs on every match. */
 const MAX_ACTIONS = 8;
@@ -410,8 +416,119 @@ export function describeRecording(): string {
 	return `recording "${recording.phrase}" — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
 }
 
-/** Begin recording. Returns a message to show the subject, or null if not allowed. */
-export function beginRecording(hypnotistId: number, hypnotistName: string, phrase: string): string {
+// --- Phrase uniqueness (design.md: "Trigger Phrase Uniqueness and Override") -----------
+//
+// A phrase is unique per subject: two people cannot both hold "sleepy time" on her. A phrase
+// COLLIDES if it is exactly equal to, contains, or is contained by an existing one — the last
+// two because firing matches on `normalisedText.includes(phrase)`, so an overlap would fire
+// both. What a collision does:
+//   exact + same installer         -> override (maintenance; allowed even shallower)
+//   exact + different installer     -> override iff earned depth > the stored plantedDepth
+//   containment (anyone)            -> always refused; there is nothing he named to take
+//   conflicting trigger holding her -> refused (replacing it would strand its effects)
+//
+// The refusal wording is a disclosure surface (trigger phrases are hidden even from her), so
+// the default refusal names NOTHING, and the one chatty branch is when the conflict is his own
+// word — no leak, and the useful case. A per-session rate limit blunts the one-bit oracle.
+
+/** After this many characterised collision refusals inside the window, further ones go flat
+ * and stop distinguishing themselves — so a prober can't bisect a hidden phrase out of yes/no
+ * answers. Conservative dials, kept here to be tuned in play (design.md leaves the numbers open). */
+const COLLISION_REFUSAL_CAP = 4;
+const COLLISION_WINDOW_MS = 10 * 60_000;
+let collisionRefusalCount = 0;
+let collisionWindowStart = 0;
+
+const COLLISION_FLAT = "[trigger] Refused — too many trigger attempts just now. Try again in a little while.";
+const COLLISION_VAGUE =
+	"[trigger] Refused — that phrase is too close to something already set aside in her. Choose a different, more distinctive word.";
+
+/** Count one *characterised* collision refusal (the kind that leaks a single bit) and report
+ * whether the cap is now exceeded. Refusals that leak nothing — length, or naming his own
+ * phrase — never come through here. */
+function collisionRateLimited(): boolean {
+	const now = Date.now();
+	if (now - collisionWindowStart > COLLISION_WINDOW_MS) {
+		collisionWindowStart = now;
+		collisionRefusalCount = 0;
+	}
+	collisionRefusalCount++;
+	return collisionRefusalCount > COLLISION_REFUSAL_CAP;
+}
+
+/** Decide whether `phrase` may be planted by `sender`. Returns a hypnotist-facing refusal
+ * (already framed), or null when the plant may proceed — including when it will OVERRIDE an
+ * existing record (saveTrigger de-dupes by phrase, so the old one is dropped at save time).
+ * `isHolding` is passed in rather than imported: the "is it in effect" check lives in voice.ts
+ * and importing it here would reverse the module dependency. */
+function phraseAvailability(sender: number, phrase: string, isHolding: (t: Trigger) => boolean): string | null {
+	const existing = listTriggers();
+	const exact = existing.find((t) => t.phrase === phrase);
+	if (exact) {
+		if (exact.installedBy === sender) {
+			// His own word — re-planting is maintenance, allowed even at a shallower depth. The
+			// one bar is that it must not be holding her right now: replacing it live would
+			// strand the effects it is applying, with nothing left to release them.
+			if (isHolding(exact)) {
+				return `[trigger] "${phrase}" is one of yours and is holding her right now — it can't be replaced until it lets go (she can wake or safeword to clear it).`;
+			}
+			return null; // override own
+		}
+		// Someone else's word. Taking it costs more than they paid — earned depth must exceed
+		// the depth it was planted at. NEVER state that depth: it is another hypnotist's.
+		if (currentDepthEarned() <= exact.plantedDepth) {
+			return collisionRateLimited() ? COLLISION_FLAT : "[trigger] Refused — you are not deep enough with her to take that word.";
+		}
+		if (isHolding(exact)) {
+			return "[trigger] Refused — that word is holding her right now and can't be replaced until it lets go.";
+		}
+		return null; // override other (entitled)
+	}
+	// No exact match. Containment either way is still a collision, and never overrides — he
+	// named something else, so there is nothing he has a claim to.
+	const overlap = existing.filter((t) => phrase.includes(t.phrase) || t.phrase.includes(phrase));
+	if (!overlap.length) return null;
+	// If one of the overlaps is HIS OWN, say so plainly — his word, no leak, and the genuinely
+	// useful case. Otherwise the default names nothing.
+	const own = overlap.find((t) => t.installedBy === sender);
+	if (own) {
+		return `[trigger] Your own "${own.phrase}" already overlaps this — pick a word that doesn't run into it.`;
+	}
+	return collisionRateLimited() ? COLLISION_FLAT : COLLISION_VAGUE;
+}
+
+/** A new "your trigger word is X" arriving mid-recording RENAMES the trigger being built,
+ * keeping the actions already recorded. It used to restart from scratch and silently discard
+ * them — saying the start phrase twice should never cost the work. The commit-time collision
+ * flow leans on this too: a phrase taken out from under you between start and save can be
+ * renamed without re-recording. */
+export function renameRecording(sender: number, phrase: string, isHolding: (t: Trigger) => boolean = () => false): void {
+	if (!recording) return;
+	if (phrase.length < MIN_PHRASE_LENGTH) {
+		tellHypnotist(
+			recording.hypnotistId,
+			`[trigger] "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters. Kept "${recording.phrase}".`,
+		);
+		return;
+	}
+	const refusal = phraseAvailability(sender, phrase, isHolding);
+	if (refusal) {
+		tellHypnotist(recording.hypnotistId, `${refusal} Kept "${recording.phrase}".`);
+		return;
+	}
+	const old = recording.phrase;
+	recording.phrase = phrase;
+	log(`trigger recording renamed "${old}" -> "${phrase}"`);
+	tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}" — ${recording.actions.length} suggestion(s) kept.`);
+}
+
+/** Begin recording. Returns a message to show the subject, or "" if not allowed. */
+export function beginRecording(
+	hypnotistId: number,
+	hypnotistName: string,
+	phrase: string,
+	isHolding: (t: Trigger) => boolean = () => false,
+): string {
 	const refuse = (why: string): string => { tellHypnotist(hypnotistId, why); return ""; };
 	// Refusals say plainly what's wrong rather than staying in fiction. A blocked trigger
 	// is almost always a SETUP problem — an unchecked box, not enough trust — and
@@ -436,7 +553,7 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 		);
 	}
 	if (phrase.length < MIN_PHRASE_LENGTH) {
-		return refuse(`[trigger] Refused — "${phrase}" is too short to use as a trigger.`);
+		return refuse(`[trigger] Refused — "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
 	}
 	// "Chemically seeded" means exactly: it would NOT have been permitted on earned depth
 	// alone. Asked that way rather than by reading the chemical-scope setting, so it stays
@@ -457,6 +574,13 @@ export function beginRecording(hypnotistId: number, hypnotistName: string, phras
 			`[trigger] Refused — at this depth a trigger is too faint to ever fire (it would be a ghost). ` +
 				"Take them deeper first.",
 		);
+	}
+	// Uniqueness last, once we know the plant is otherwise allowed. Refusal wording is
+	// disclosure-safe (see phraseAvailability); null means proceed, override included.
+	const unavailable = phraseAvailability(hypnotistId, phrase, isHolding);
+	if (unavailable) {
+		log(`trigger plant refused: phrase "${phrase}" is unavailable`);
+		return refuse(unavailable);
 	}
 	recording = {
 		hypnotistId,
@@ -494,13 +618,28 @@ export function recordAction(id: string): string | null {
 }
 
 /** Commit. Returns a message for the subject. */
-export function commitRecording(): string {
+export function commitRecording(isHolding: (t: Trigger) => boolean = () => false): string {
 	if (!recording) return "";
 	if (!recording.actions.length) {
 		tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for "${recording.phrase}", so nothing was saved.`);
 		recording = null;
 		return "Whatever it was, it comes to nothing.";
 	}
+	// Re-check uniqueness at commit: the window between starting and saving is real — another
+	// hypnotist could have planted a colliding phrase while this one narrated. On a collision
+	// now, HOLD the recording open so the recorded actions are not lost; he renames and commits.
+	const unavailable = phraseAvailability(recording.hypnotistId, recording.phrase, isHolding);
+	if (unavailable) {
+		tellHypnotist(
+			recording.hypnotistId,
+			`${unavailable} Say a different trigger word to rename this one — the ${recording.actions.length} suggestion(s) you recorded are kept.`,
+		);
+		return ""; // recording stays open
+	}
+	// A genuine displacement of SOMEONE ELSE'S trigger is a notable event for her — she loses
+	// whatever she reinforced into the old one. Her own re-plant is maintenance and gets the
+	// ordinary line; either way she is never told the word.
+	const displaced = listTriggers().some((t) => t.phrase === recording!.phrase && t.installedBy !== recording!.hypnotistId);
 	const trigger: Trigger = {
 		phrase: recording.phrase,
 		actions: recording.actions.slice(),
@@ -522,7 +661,9 @@ export function commitRecording(): string {
 			`Saying it will now fire them, in or out of trance.`,
 	);
 	recording = null;
-	return "It settles somewhere you won't think to look for it.";
+	return displaced
+		? "Something already set aside in you comes loose — and something new settles into the space it leaves."
+		: "It settles somewhere you won't think to look for it.";
 }
 
 /** Triggers this speaker could fire with this line. Matched on the normalised text so

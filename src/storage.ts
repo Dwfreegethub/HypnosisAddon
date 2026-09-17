@@ -645,8 +645,8 @@ export function setTriggerDecayRate(rate: DecayRate): void {
 }
 
 /** Write a trigger back after its strength history changed. Kept beside saveTrigger rather
- * than reusing it: saveTrigger REPLACES by phrase+installer, which is right for re-planting
- * and wrong for updating in place. */
+ * than reusing it: saveTrigger REPLACES by phrase, which is right for re-planting and
+ * overriding but wrong for updating a record's strength history in place. */
 export function updateTriggers(): void {
 	saveSettings();
 }
@@ -903,13 +903,15 @@ export function listTriggers(): Trigger[] {
 	return loadSettings().triggers;
 }
 
-/** Store a trigger, replacing any existing one with the same phrase from the same person
- * — re-planting the same word should update it rather than stack duplicates. */
+/** Store a trigger, replacing any existing one with the SAME PHRASE. A phrase is unique per
+ * subject (the uniqueness decision in design.md), so at most one record can hold a given word.
+ * De-dupe is on the phrase alone — NOT phrase+installer, which is what used to let two people
+ * coexist on one word: an override by a different hypnotist must replace the record, not sit
+ * beside it. Whether an override is *allowed* is decided upstream in triggers.ts; by the time a
+ * trigger reaches here, it has been. */
 export function saveTrigger(trigger: Trigger): void {
 	const settings = loadSettings();
-	settings.triggers = settings.triggers.filter(
-		(t) => !(t.phrase === trigger.phrase && t.installedBy === trigger.installedBy),
-	);
+	settings.triggers = settings.triggers.filter((t) => t.phrase !== trigger.phrase);
 	settings.triggers.push(trigger);
 	saveSettings();
 }
