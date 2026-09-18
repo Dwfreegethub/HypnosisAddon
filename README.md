@@ -1,99 +1,76 @@
 # Erotic Chat Hypnosis Suite (ECHS)
 
-A hypnosis add-on for [Bondage Club](https://www.bondageprojects.com/club_game/), where how far
-someone can take you depends on how well you actually know them.
+A conversational, text-driven hypnosis framework for [Bondage Club](https://www.bondageprojects.com/club_game/), where how deep someone can take you depends on trust, skill, and mutual desire.
 
-*Formerly "BC Hypnosis Add-on", renamed in v0.78.0. The repository, the install link and your
-saved settings are all unchanged — only the name you see in game. Not to be confused with HSC
-(Hypnotics Slave Club), which is a different project.*
+*Formerly "BC Hypnosis Add-on". The repository, installation link, and your saved settings are completely unchanged — only the name you see in-game. Not affiliated with or to be confused with HSC (Hypnotic Slave Club).*
 
-One player acts as hypnotist: they ask, you accept or resist, and if the induction lands you go
-under to a depth the roll decided. From there they work in ordinary speech — *"Missy, you cannot
-move"*, *"Missy, touch your breasts"* — and your own client decides, every time, whether that is
-something you have agreed to. Suggestions can be made to outlive the trance, or planted as trigger
-words that fire days later.
+---
 
-**Everything is off until you turn it on, and `/hypno safeword` always works.**
+## How It Works
 
-## Who it is for
+One player acts as the hypnotist: they initiate an induction, and your client determines whether the suggestion takes hold and how deep into trance you drift. 
 
-Two people who want a hypnosis scene with some actual structure to it — a relationship that builds,
-depth that has to be earned, and effects that persist past the moment. It needs the add-on on both
-sides for the full experience, though a few things (trigger words, for one) work on you even if the
-other person has nothing installed.
+From there, suggestions unfold naturally through everyday speech and whispers — *"Missy, you cannot move"*, *"Missy, touch my cheek"*, *"Missy, everything is fading to black"*. Instead of relying on rigid, click-heavy menus, **ECHS** evaluates incoming dialogue against your client settings in real-time, executing only the actions and sensory shifts you have explicitly consented to. Suggestions can outlive the trance, or be planted as subconscious trigger words that fire whenever uttered.
 
-If you want to freeze someone instantly on demand, this is the wrong add-on. The whole design is
-that access is slow.
+**Everything is off until you turn it on, and `/hypno safeword` (or `/echs safeword`) always works.**
 
-## Install
+---
 
+## Who It Is For
 
+Players who want immersive, structured hypnosis roleplay:
+* A progression system where depth and control are earned through familiarity and trust.
+* Natural, dialogue-driven commands over cluttered UI buttons.
+* Long-term dynamics featuring carried suggestions and dormant triggers.
 
-1. Install a userscript manager — [Tampermonkey](https://www.tampermonkey.net/) or
-   [Violentmonkey](https://violentmonkey.github.io/).
-2. Open the install link [HypnosisAddon](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will show an install prompt;
-   accept it.
+While having ECHS installed on both sides delivers the full experience, several mechanics (such as planted trigger words and speech monitoring) function seamlessly on you even if your partner does not run the script.
+
+---
+
+## Core Capabilities
+
+* **Conversational Control:** Induce, deepen, and command entirely through typed room dialogue, whispers, or saved trigger phrases.
+* **Sensory Modulation:** Progressive blindness and hearing impairment (garbling, muffled room murmurs, or complete quiet) that strictly respect your native game limits and visual comfort settings.
+* **Autonomous & Interpersonal Touch:** Support for directed self-touch, touching the hypnotist, or interacting with room bystanders, gated by current trance depth and room permission lists.
+* **Arousal & Orgasm Pacing:** Command-based arousal manipulation, teasing, and edging controls.
+* **Deceptive Awareness:** Optional modules for wardrobe illusions and suppressed touch/bondage awareness for deep trance immersion.
+
+---
+
+## Installation
+
+1. Install a userscript manager: [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
+2. Open the install script: [Install ECHS](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will prompt you to confirm the installation.
 3. Reload Bondage Club and log in.
-4. In your preferences, under Extensions, you will have an **ECHS Hypnosis** entry. Open it and
-   either follow the wizard or choose your own settings.
+4. Open your in-game **Preferences**, navigate to **Extensions**, and select **ECHS Hypnosis** to configure your boundaries and triggers.
 
-**Alternatively, via FUSAM.** [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) manages
-several BC add-ons from one place. Listing there is intended but not yet arranged.
+*Note: Listing on [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) is planned for a future release.*
 
-Nothing works until you have been through setup, because every permission starts switched off. That
-is deliberate, and it is the next section.
+---
 
-## Consent, honestly
+## Consent & Safety Architecture
 
-This add-on does real things to your client, and you should know what you are agreeing to before you
-switch any of it on.
+ECHS alters client rendering and interaction dispatch. Safety controls are hardwired into the foundation:
 
-**Nothing is enabled by default.** On a fresh install every permission is off, including the master
-*Hypnosis Enabled* switch. A brand-new install genuinely does nothing at all until you choose
-otherwise — if it seems dead, that is why.
+* **Zero-Permission Default:** Every feature, module, and permission starts completely disabled on a fresh install. If the add-on seems inactive, it is waiting for your explicit setup.
+* **Client-Side Sovereignty:** Another player's client can only ever *request* an action. Your local client evaluates every single incoming command against your current settings. No external script can force an override.
+* **Granular, Revocable Permissions:** You control individual permissions for immobility, muting, sensory impairment, touch targets, arousal control, and triggers. Revoking a permission releases that effect instantly.
+* **Emergency Releases Always Available:**
+  * **`/hypno safeword`** or **`/echs safeword`** — Instantly breaks trance and wipes every active effect, bypasses all mutes, and cannot be intercepted or disabled.
+  * **Unticking *Hypnosis Enabled*** — Immediate full release via the settings screen.
+  * **`/hypno wake`** — Allows subjects to surface independently if their trance is sufficiently shallow.
+  * **Automatic Timeouts:** All active trances, freeze states, and sensory blocks expire naturally over time.
 
-**Your client decides everything.** Another player's add-on can only ever *ask*. Whether a request
-lands is settled on your machine, against your settings, every time. A modified hypnotist client has
-nothing to read and nothing to override.
-
-**Permissions are per-feature and revocable.** You choose separately whether someone may stop you
-moving, silence you, keep you out of your wardrobe, touch your arousal, make you act, hide things
-from you, or plant triggers. Turning a permission off releases anything it was holding, immediately.
-
-**Some things are designed to outlive the session.** Trigger words can fire long after the trance
-ends, and carried suggestions survive waking. These sit behind their own permissions and a deeper
-trance requirement than anything session-scoped, and they fade over time unless reinforced.
-
-**Some things are designed to be deceptive.** The clothing illusion makes your own screen show
-clothes you are not wearing. Awareness suppression can hide clothing changes, bondage or touches
-from you. These are behind separate permissions for a reason — turn them on only if being misled is
-something you actually want.
-
-**The exits, which nothing can take away from you:**
-
-- **`/hypno safeword`** — clears the trance and every effect, from any state. No feature, trigger
-  or setting can reach it. It is a slash command, so it still works when you have been silenced.
-- **Unticking *Hypnosis Enabled*** — the same total release, from the settings screen.
-- **`/hypno wake`** — wake yourself, if the trance is shallow enough.
-- Trances time out on their own, and so do most effects.
+---
 
 ## Documentation
 
-**[The wiki](https://github.com/Dwfreegethub/HypnosisAddon/wiki)** is the full guide: what to say,
-how depth and trust work, triggers, the settings screens, and troubleshooting. Start with
-[Getting Started](https://github.com/Dwfreegethub/HypnosisAddon/wiki/Getting-Started).
+* **Full Guide:** Visit the [ECHS Wiki](https://github.com/Dwfreegethub/HypnosisAddon/wiki) for comprehensive guides on commands, depth formulas, trust ratings, and trigger setups.
+* **In-Game Help:** Click the **`?`** icon in the ECHS settings panel to read the full manual, or run `/hypno help` (or `/echs help`) in the chat bar.
+* **Quick Reference:** Type `/hypno` or `/echs` in chat to print a list of active commands.
 
-In-game, the **`?`** button on the settings panel opens the same material as five tabs, and
-`/hypno help` opens it from chat. `/hypno` on its own lists what you can type. `/echs` is the same
-command under the add-on's own name — either works, anywhere.
+---
 
-## Contributing
+## Contributing & Development
 
-Build instructions, the test suite, the repo's rules, and a long list of Bondage Club API traps
-worth knowing are in **[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)**. The design and every settled
-decision behind it are in [`docs/design.md`](docs/design.md).
-
-## Status
-
-Pre-alpha, v0.73.2. Built and tested against BC R131. Expect rough edges and read
-[`docs/design.md`](docs/design.md) before assuming anything is finished.
+Development rules, testing workflows, and API guidelines are documented in **[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)**. Mechanical balance and design decisions are outlined in [`docs/design.md`](docs/design.md).
