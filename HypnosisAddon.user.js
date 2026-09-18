@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC Hypnosis Add-on
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.76.0
+// @version      0.77.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -766,7 +766,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/effects.ts
   var EMOTICON_ASSET_NAME = "Emoticon";
-  var MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
+  var MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
   function findEmoticonItem(character) {
     return character?.Appearance?.find((a) => a?.Asset?.Name === EMOTICON_ASSET_NAME);
   }
@@ -972,6 +972,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "{name} stops moving, as though the idea had gone."
     ],
     "movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+    // Follow is observable in the same way going still is: nobody sees the compulsion land,
+    // but they see {name} close the distance and keep it closed. Naming {name} is required —
+    // room lines carry no sender.
+    "follow-block": [
+      "{name} stays close, unwilling to let any distance open.",
+      "{name} keeps near, as though on an invisible leash."
+    ],
+    "follow-release": ["{name} steps back, {their} own distance to keep again."],
     kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
     stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
     // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
@@ -1028,6 +1036,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Control seeps back into your limbs.",
       "Your body is yours again. You hadn't noticed it stopped being.",
       "Something lets go of you, and you can move."
+    ],
+    "follow-block": [
+      "Being near them is where you belong. The thought of letting distance open is faintly unbearable.",
+      "Wherever they go, you go. It does not feel like a decision.",
+      "An invisible tether draws you to their side, and staying there is the only comfortable place to be."
+    ],
+    "follow-release": [
+      "The tether loosens. You can be your own distance from them again.",
+      "The pull to stay near fades, and where you stand is your own choice once more."
     ],
     // Apply-time: a possibility closing, with nothing reached for yet.
     "clothing-block": [
@@ -1732,6 +1749,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
     { key: "compelActivity", label: "Made to act on yourself", tier: "yielding", earnedOnly: false },
     // Deeper, still session-only.
+    { key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
     { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
     { key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
     // The earned-only three: two outlive the session, one lies to the subject.
@@ -1786,7 +1804,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.76.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Hypnosis Add-on v${"0.77.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -1982,13 +2000,56 @@ One of mods you are using is using an old version of SDK. It will work for now b
     removeEffect("DenialMode");
   }
 
+  // src/follow.ts
+  var LEASH_EFFECT = "Leash";
+  var followActive = false;
+  var followTarget = null;
+  function applyFollow(leader) {
+    followActive = true;
+    followTarget = leader;
+    applyEffect(LEASH_EFFECT);
+    log(`follow compulsion on, leader ${leader ?? "unknown"}`);
+  }
+  function releaseFollow() {
+    const had = followActive || hasOwnEffect(LEASH_EFFECT);
+    removeEffect(LEASH_EFFECT);
+    try {
+      if (typeof ChatRoomLeashPlayer !== "undefined" && ChatRoomLeashPlayer != null && followTarget != null && ChatRoomLeashPlayer === followTarget) {
+        ChatRoomLeashPlayer = null;
+        if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
+      }
+    } catch (err) {
+      log("follow: could not clear leash state", err);
+    }
+    followActive = false;
+    followTarget = null;
+    if (had) log("follow compulsion off");
+  }
+  var clearFollow = releaseFollow;
+  function installFollow(modApi2) {
+    modApi2.hookFunction("ChatRoomDoHoldLeash", 10, (args, next) => {
+      const sender = args?.[0];
+      if (followActive && followTarget != null && sender?.MemberNumber !== followTarget) {
+        log(`follow: refused leash grab by ${sender?.MemberNumber} \u2014 only ${followTarget} may lead`);
+        try {
+          ServerSend("ChatRoomChat", { Content: "RemoveLeash", Type: "Hidden", Target: sender?.MemberNumber });
+          if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
+        } catch (err) {
+          log("follow: could not refuse leash grab", err);
+        }
+        return void 0;
+      }
+      return next(args);
+    });
+  }
+
   // src/recovery.ts
   var RECOVERY_WINDOW_MS = 5 * 6e4;
   var WAIT_POLL_MS = 3e3;
   var STARTUP_POLL_MS = 250;
   var NO_ROOM_FALLBACK_MS = 2e4;
   var GIVE_UP_MS = 12e4;
-  var OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
+  var OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
   function stateKey() {
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `HypnosisAddon_Session_${member}` : null;
@@ -2039,6 +2100,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function releaseEverything(reason) {
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
+    removeEffect("Leash");
     clearOrgasmDenial();
     setSpeechBlocked(false);
     setScreenFade(0);
@@ -2053,7 +2115,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`recovery: released everything \u2014 ${reason}`);
   }
   function hasOrphanedEffects() {
-    return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode");
+    return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode") || hasOwnEffect("Leash");
   }
   function describeCurrentState() {
     const st = snapshotLocalState();
@@ -2062,6 +2124,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       on("frozen", hasOwnEffect("Freeze")),
       on("wardrobe blocked", hasOwnEffect("BlockWardrobe")),
       on("orgasm denied", hasOwnEffect("DenialMode")),
+      on("leashed to follow", hasOwnEffect("Leash")),
       on("posed by suggestion", !!st.pose, String(st.pose)),
       on("self-touch blocked", st.selfTouch.all || st.selfTouch.groups.length > 0, describeSelfTouchBlocks())
     ];
@@ -2143,6 +2206,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     setNumb(!!saved.numb);
     restoreSelfTouch(saved.selfTouch ?? { all: false, groups: [] });
     for (const e of saved.effects ?? []) if (!hasOwnEffect(e)) applyEffect(e);
+    if (hasOwnEffect("Leash")) applyFollow(null);
     if (saved.pose) setSuggestedPose(saved.pose);
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
@@ -2548,6 +2612,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const hypnotist = session.hypnotistId;
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
+    clearFollow();
     clearSuggestedPose();
     clearTranceStates();
     clearAllSuppression();
@@ -2874,6 +2939,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const hypnotist = session.hypnotistId;
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
+    clearFollow();
     clearSuggestedPose();
     clearTranceStates();
     clearAllSuppression();
@@ -3139,6 +3205,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       movementRestriction: false,
       clothingRestriction: false,
       postureControl: false,
+      followControl: false,
       speechRestriction: false,
       selfTouchControl: false,
       compelActivity: false,
@@ -3548,6 +3615,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "movementRestriction",
     "clothingRestriction",
     "postureControl",
+    "followControl",
     "speechRestriction",
     "selfTouchControl",
     "compelActivity",
@@ -4316,6 +4384,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
         applyEffect("Freeze");
       },
       undo: () => removeEffect("Freeze")
+    },
+    // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
+    // block's verbs before the block gets a look. Deliberately no "come with me" — that would
+    // collide with the orgasm "come" family, which is listed earlier and would swallow it.
+    {
+      id: "follow-release",
+      examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+      release: true,
+      releaseOf: "follow-block",
+      permission: "followControl",
+      patterns: [
+        /\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
+        /\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
+        /\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
+        /\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+        /\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
+        /\bstay (?:wherever|where) you (?:like|want|please)\b/
+      ],
+      run: () => {
+        releaseFollow();
+      }
+    },
+    {
+      id: "follow-block",
+      examples: ["follow me", "stay close to me", "you cannot leave my side"],
+      permission: "followControl",
+      patterns: [
+        /\bfollow me\b/,
+        /\byou (?:will|must) follow(?: me)?\b/,
+        /\byou follow (?:me|wherever i go)\b/,
+        /\bstay (?:close|near)\b/,
+        /\bstay (?:at|by) my (?:side|heel)\b/,
+        /\byou (?:cannot|can't|will not|won't) (?:leave|walk away from) (?:my side|me)\b/,
+        /\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
+        /\bheel\b/
+      ],
+      run: () => {
+        applyFollow(currentHypnotistId());
+      },
+      undo: () => releaseFollow()
     },
     {
       id: "clothing-release",
@@ -6232,6 +6340,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "movementRestriction", label: "Movement Restriction" },
         { key: "clothingRestriction", label: "Clothing Restriction" },
         { key: "postureControl", label: "Posture Control" },
+        { key: "followControl", label: "Follow / Leash" },
         { key: "speechRestriction", label: "Speech Restriction" },
         { key: "selfTouchControl", label: "Self-Touch Control" },
         { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
@@ -8288,7 +8397,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.76.0"} loaded`;
+    el.textContent = `Hypnosis Add-on v${"0.77.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8311,13 +8420,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.76.0"})`);
+  log(`script loaded (v${"0.77.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "HypnosisAddon",
       fullName: "BC Hypnosis Add-on",
-      version: "0.76.0",
+      version: "0.77.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -8423,6 +8532,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
   safely("self-touch hook", () => installSelfTouch(modApi));
+  safely("follow-leash hook", () => installFollow(modApi));
   safely("/hypno command registration", installCommands);
   safely("preference menu registration", installMenu);
   safely("remote (Information Sheet) registration", () => installRemote(modApi));
