@@ -1,7 +1,7 @@
 {
   "name": "hypnosisaddon",
-  "version": "0.77.0",
-  "description": "BC Hypnosis Add-on — trust-based hypnosis mechanics for Bondage Club, shipped as a Tampermonkey userscript.",
+  "version": "0.78.0",
+  "description": "Erotic Chat Hypnosis Suite (ECHS) — trust-based hypnosis mechanics for Bondage Club, shipped as a Tampermonkey userscript.",
   "scripts": {
     "build": "node build.mjs",
     "release": "node release.mjs",

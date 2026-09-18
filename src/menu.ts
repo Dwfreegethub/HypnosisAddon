@@ -848,7 +848,19 @@ function settingsLocked(): boolean {
  * below and to find it again when a chat command jumps straight to the help. */
 const EXTENSION_ID = "HypnosisAddon";
 
-/** Open Preferences > Extensions > Hypnosis Add-on with the on-screen guide already showing —
+/** The label on our entry in the Preferences > Extensions list.
+ *
+ * Deliberately the abbreviation and not the full name: BC draws this into a fixed-width list
+ * button, the text it replaced was 15 characters, and "Erotic Chat Hypnosis Suite" is 26 — the
+ * screen titles carry the full name where there is room for it.
+ *
+ * Exported because commands.ts spells out the manual path to this same entry for anyone whose
+ * `/hypno help` jump cannot run. That string is BUILT from this one rather than repeating it:
+ * renaming one and not the other would send the player looking for a label that is not there,
+ * and nothing at runtime would notice. */
+export const EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
+
+/** Open Preferences > Extensions > ECHS Hypnosis with the on-screen guide already showing —
  * the target of `/hypno help`, so the full illustrated guide is one line away from chat.
  *
  * This does exactly what clicking our entry in the Extensions list does (verified against
@@ -883,7 +895,7 @@ export async function openHelpScreen(): Promise<boolean> {
 export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
 		Identifier: EXTENSION_ID,
-		ButtonText: "Hypnosis Add-on",
+		ButtonText: EXTENSION_BUTTON_TEXT,
 		// Our spiral icon beside the label in Preferences > Extensions (icon.ts). Undefined
 		// if it could not be built, which BC accepts — the entry then shows text only.
 		Image: SPIRAL_ICON,
@@ -900,7 +912,7 @@ export function installMenu(): void {
 				// DOM controls belong to the settings screen and would float over the help
 				// text, which is canvas — they have to go before help draws over them.
 				removeScopeControl();
-				drawHelp("BC Hypnosis Add-on — help");
+				drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
 				return;
 			}
 			// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
@@ -911,7 +923,7 @@ export function installMenu(): void {
 				drawWizard();
 				return;
 			}
-			DrawText("BC Hypnosis Add-on — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
+			DrawText("Erotic Chat Hypnosis Suite (ECHS) — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 			if (!settingsLocked()) {

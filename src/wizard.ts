@@ -273,7 +273,7 @@ function selected(q: WizardQuestion, value: string): boolean {
 }
 
 export function drawWizard(): void {
-	DrawText("BC Hypnosis Add-on — setup", MainCanvasWidth / 2, WZ_TOP - 40, "Black");
+	DrawText("Erotic Chat Hypnosis Suite (ECHS) — setup", MainCanvasWidth / 2, WZ_TOP - 40, "Black");
 	DrawRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "White");
 	DrawEmptyRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "Black", 3);
 

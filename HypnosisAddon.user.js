@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         BC Hypnosis Add-on
+// @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.77.0
+// @version      0.78.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1804,7 +1804,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Hypnosis Add-on v${"0.77.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.78.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -6201,7 +6201,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return q.multi ? a instanceof Set && a.has(value) : a === value;
   }
   function drawWizard() {
-    DrawText("BC Hypnosis Add-on \u2014 setup", MainCanvasWidth / 2, WZ_TOP - 40, "Black");
+    DrawText("Erotic Chat Hypnosis Suite (ECHS) \u2014 setup", MainCanvasWidth / 2, WZ_TOP - 40, "Black");
     DrawRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "White");
     DrawEmptyRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "Black", 3);
     if (stage === "welcome") return drawWelcome();
@@ -6894,6 +6894,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return getFeatures().lockedWhileHypnotized && isSessionLive();
   }
   var EXTENSION_ID = "HypnosisAddon";
+  var EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
   async function openHelpScreen() {
     try {
       if (typeof PreferenceOpenSubscreen !== "function" || typeof PreferenceExtensionsSettings === "undefined") {
@@ -6916,7 +6917,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function installMenu() {
     PreferenceRegisterExtensionSetting({
       Identifier: EXTENSION_ID,
-      ButtonText: "Hypnosis Add-on",
+      ButtonText: EXTENSION_BUTTON_TEXT,
       // Our spiral icon beside the label in Preferences > Extensions (icon.ts). Undefined
       // if it could not be built, which BC accepts — the entry then shows text only.
       Image: SPIRAL_ICON,
@@ -6931,7 +6932,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       run: () => {
         if (isHelpOpen()) {
           removeScopeControl();
-          drawHelp("BC Hypnosis Add-on \u2014 help");
+          drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
           return;
         }
         if (shouldShowWizard() && !settingsLocked()) {
@@ -6940,7 +6941,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText("BC Hypnosis Add-on \u2014 settings", MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText("Erotic Chat Hypnosis Suite (ECHS) \u2014 settings", MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -7178,14 +7179,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(message);
     tellPlayer(message);
   }
-  var GUIDE_LOCATION = "Preferences > Extensions > Hypnosis Add-on \u2014 the ? button (or the Help button in the remote panel).";
+  var COMMAND_TAGS = ["hypno", "echs"];
+  var GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
   function menuLines() {
     return [
-      "BC Hypnosis Add-on \u2014 most of this works by SPEAKING to someone in a session, not by typing.",
+      "Erotic Chat Hypnosis Suite (ECHS) \u2014 most of this works by SPEAKING to someone in a session, not by typing.",
       "  /hypno help \u2014 open the full on-screen guide: what to say, trust, depth, triggers",
       "  /hypno commands \u2014 list every typed command",
       "  /hypno match <phrase> \u2014 check what a phrase would do, and why nothing happened",
-      "  /hypno safeword \u2014 hard stop; clears everything, always works"
+      "  /hypno safeword \u2014 hard stop; clears everything, always works",
+      "  (/echs is the same command as /hypno \u2014 either works, anywhere.)"
     ];
   }
   function commandListLines() {
@@ -7226,9 +7229,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       }
     ];
-    CommandCombine({
-      Tag: "hypno",
-      Description: "BC Hypnosis Add-on \u2014 session control, diagnostics and test commands",
+    const hypnoCommand = (Tag) => ({
+      Tag,
+      Description: "Erotic Chat Hypnosis Suite \u2014 session control, diagnostics and test commands",
       Action: () => {
         for (const line of menuLines()) reply(line);
       },
@@ -7241,7 +7244,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // rather than depending on each Action to remember to check. The help screen already
       // hides the group outside the room; this is what actually stops them running.
       Subcommands: [
-        ...metaCommands,
+        ...metaCommands.map((c) => ({ ...c })),
         ...COMMANDS.map(({ group, args, Description, ...cmd }) => ({
           ...cmd,
           Description: args ? `${args} \u2014 ${Description}` : Description,
@@ -7255,6 +7258,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }))
       ]
     });
+    for (const tag of COMMAND_TAGS) CommandCombine(hypnoCommand(tag));
     installBotCommand();
   }
   function sendToBot(args) {
@@ -8206,7 +8210,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawSubscreen(target) {
     if (isHelpOpen()) {
-      drawHelp("BC Hypnosis Add-on \u2014 help");
+      drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
       return;
     }
     if (presenceOf(target.MemberNumber) === "absent") {
@@ -8235,7 +8239,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawAbsent(target) {
     const name = target?.Name ?? "They";
     DrawText(`Hypnosis Remote \u2014 ${name}`, MainCanvasWidth / 2, 170, "Black");
-    DrawText(`${name} doesn't appear to be running the Hypnosis add-on.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
+    DrawText(`${name} doesn't appear to be running ECHS.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
     DrawText("Nothing on this panel would reach them.", MainCanvasWidth / 2, ABSENT_LINE_Y + 55, "Gray");
     DrawButton(RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, "Check again", "White", "", "Ask them again");
     DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
@@ -8351,7 +8355,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         next([]);
         const C = getViewedOtherCharacter();
         if (C) {
-          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "Hypnosis Add-on Remote");
+          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
           if (SPIRAL_ICON) {
             DrawImageResize(
               SPIRAL_ICON,
@@ -8397,7 +8401,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `Hypnosis Add-on v${"0.77.0"} loaded`;
+    el.textContent = `ECHS v${"0.78.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8420,13 +8424,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.77.0"})`);
+  log(`script loaded (v${"0.78.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
-      name: "HypnosisAddon",
-      fullName: "BC Hypnosis Add-on",
-      version: "0.77.0",
+      name: "ECHS",
+      fullName: "Erotic Chat Hypnosis Suite",
+      version: "0.78.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

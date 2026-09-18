@@ -20,7 +20,7 @@ import { setRoomVoice } from "./notify";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
-	el.textContent = `Hypnosis Add-on v${__VERSION__} loaded`;
+	el.textContent = `ECHS v${__VERSION__} loaded`;
 	Object.assign(el.style, {
 		position: "fixed",
 		bottom: "4px",
@@ -55,8 +55,8 @@ showIndicator();
 
 const modApi = bcModSdk.registerMod(
 	{
-		name: "HypnosisAddon",
-		fullName: "BC Hypnosis Add-on",
+		name: "ECHS",
+		fullName: "Erotic Chat Hypnosis Suite",
 		version: __VERSION__,
 		repository: "https://github.com/Dwfreegethub/HypnosisAddon",
 	},

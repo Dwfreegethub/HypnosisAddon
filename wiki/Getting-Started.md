@@ -7,6 +7,8 @@
 2. Open **[the install link](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js)**
    and accept the prompt your userscript manager shows.
 3. Reload Bondage Club and log in.
+4. Open **Preferences > Extensions > ECHS Hypnosis** and run the wizard, or set your own
+   permissions by hand.
 
 **Updates are automatic.** The script carries an update URL, so your userscript manager will pull new
 versions on its own schedule — you do not need to reinstall.
@@ -24,7 +26,7 @@ already applied to you before they left.
 The first time you load in, two lines appear in your chat log:
 
 ```
-[Hypnosis Add-on v0.74.6 — nothing is switched on yet. Click the spiral to set up.]
+[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 ```
 
@@ -33,8 +35,8 @@ has nothing switched on yet.
 
 You will see a **spiral icon** in the top bar. It appears for everyone running the add-on, and it
 appears on other players' profiles too — it has no way of knowing who else has the add-on installed
-until it asks. You can also reach the settings through **Preferences → Extensions → Hypnosis
-Add-on**.
+until it asks. You can also reach the settings through **Preferences → Extensions → ECHS
+Hypnosis**.
 
 Click it and a **setup wizard** runs. You can either take one of four presets:
 

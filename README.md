@@ -1,7 +1,11 @@
-# BC Hypnosis Add-on
+# Erotic Chat Hypnosis Suite (ECHS)
 
 A hypnosis add-on for [Bondage Club](https://www.bondageprojects.com/club_game/), where how far
 someone can take you depends on how well you actually know them.
+
+*Formerly "BC Hypnosis Add-on", renamed in v0.78.0. The repository, the install link and your
+saved settings are all unchanged — only the name you see in game. Not to be confused with HSC
+(Hypnotics Slave Club), which is a different project.*
 
 One player acts as hypnotist: they ask, you accept or resist, and if the induction lands you go
 under to a depth the roll decided. From there they work in ordinary speech — *"Missy, you cannot
@@ -30,7 +34,8 @@ that access is slow.
 2. Open the install link [HypnosisAddon](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will show an install prompt;
    accept it.
 3. Reload Bondage Club and log in.
-4. In your preferences, and extensions you will have a Hypnosis Add-on, when you enter it you can follow the wizard or choose your own settings. 
+4. In your preferences, under Extensions, you will have an **ECHS Hypnosis** entry. Open it and
+   either follow the wizard or choose your own settings.
 
 **Alternatively, via FUSAM.** [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) manages
 several BC add-ons from one place. Listing there is intended but not yet arranged.
@@ -79,7 +84,8 @@ how depth and trust work, triggers, the settings screens, and troubleshooting. S
 [Getting Started](https://github.com/Dwfreegethub/HypnosisAddon/wiki/Getting-Started).
 
 In-game, the **`?`** button on the settings panel opens the same material as five tabs, and
-`/hypno help` opens it from chat. `/hypno` on its own lists what you can type.
+`/hypno help` opens it from chat. `/hypno` on its own lists what you can type. `/echs` is the same
+command under the add-on's own name — either works, anywhere.
 
 ## Contributing
 

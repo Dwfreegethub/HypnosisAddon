@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         BC Hypnosis Add-on
+// @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
 // @version      0.2.0
 // @description  Trust-based hypnosis mechanics for Bondage Club

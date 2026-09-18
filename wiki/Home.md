@@ -1,7 +1,11 @@
-# BC Hypnosis Add-on
+# Erotic Chat Hypnosis Suite (ECHS)
 
 A hypnosis add-on for Bondage Club, built around one idea: **how far someone can take you depends on
 how well you actually know them.**
+
+*Renamed from "BC Hypnosis Add-on" in v0.78.0. Nothing but the name changed — the install link, your
+settings and `/hypno` all still work. ECHS is not HSC (Hypnotics Slave Club); they are different
+projects.*
 
 One player acts as hypnotist. They ask; you privately choose to agree, ignore or resist; and if the
 induction lands you go under to a depth the roll decided. From there they work in ordinary

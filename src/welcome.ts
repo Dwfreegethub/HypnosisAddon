@@ -25,7 +25,7 @@ export function maybeShowFirstRunNotice(): void {
 	// purpose, fully set up — is already excluded upstream: normalise() back-fills welcomeShown
 	// for anyone whose starterState shows they finished setup.)
 	if (!hasAnyPermissionGranted()) {
-		tellPlayer(`Hypnosis Add-on v${__VERSION__} — nothing is switched on yet. Click the spiral to set up.`);
+		tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — nothing is switched on yet. Click the spiral to set up.`);
 		tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
 	}
 	markWelcomeShown();

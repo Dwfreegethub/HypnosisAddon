@@ -5,7 +5,7 @@
 **Did you see these two lines when you first loaded in?**
 
 ```
-[Hypnosis Add-on v0.74.6 — nothing is switched on yet. Click the spiral to set up.]
+[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 ```
 
