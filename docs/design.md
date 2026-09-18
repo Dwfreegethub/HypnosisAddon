@@ -3258,6 +3258,143 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   - The pages are written against **v0.73.2** and say so. Bump that line when the content is
     re-checked, not when the version changes.
 
+- **⚠ EARLY-SESSION PROGRESSION — DW's spec, 2026-09-17. Three levers for low-trust starts.**
+  Restated in our terms; his intent and his three levers are unchanged and marked as his. **Read the
+  premise check first — it changes which lever is worth building.**
+
+  **His problem statement.** New players, or new partners with zero trust and zero experience, expect
+  results; baseline resistance gates success behind accumulated history; early attempts fail or
+  stall; people get confused and give up. He does not want to gut progression — he wants levers that
+  let *willing* participants streamline entry, plus an in-fiction alternative.
+
+  **His three levers.** **A** — an explicit-consent multiplier, so accepting the prompt substantially
+  offsets low trust. **B** — subject-side pacing controls: an `inductionDifficulty` /
+  `susceptibilityBias` (Easy / Standard / Strict) and a `bypassTrustRequirements` toggle. **C** — a
+  chemical / aphrodisiac / substance system as an in-fiction fast track, with `activeSubstance`,
+  `resistanceDebuff`, `durationRemaining`.
+
+  ### ⚠ Premise check — computed, not recalled. The stated problem does not exist for willing subjects.
+
+  Two brand-new profiles: trust 0, experience 0, no arousal, no relationship, no skill (skill is
+  inert today — every production caller passes `NO_SKILL`). From `chanceBeforeInvariant`
+  (`session.ts:550`): `raw = access + CHOICE_MODIFIER + exp×0.25 + rpBonus + skill`, clamped to
+  **[5, 95]**. `CHOICE_MODIFIER` is `{agree: +25, ignore: 0, fight: −25}`; RP is **+5 per line,
+  capped at +15**; default attempts **2**.
+
+  | Choice | Per attempt | Across a session (2 attempts) |
+  |---|---|---|
+  | **Agree, no roleplay** | **25%** | **44%** |
+  | **Agree, 3+ RP lines** | **40%** | **64%** |
+  | Ignore, no roleplay | 5% *(floor)* | 10% |
+  | Ignore, 3+ RP lines | 15% | 28% |
+  | Fight, any | 5% *(floor)* | 10% |
+
+  With the subject's attempt limit set to 3, Agree + roleplay is **78% across a session**. With
+  arousal at or above 30 (the stranger ceiling), Agree + roleplay is **70% per attempt, 91% across a
+  session** — at zero trust, with a total stranger.
+
+  **So a willing subject and a hypnotist who bothers to roleplay already land inside one session,
+  most of the time.** The punishing numbers are Ignore and Fight at zero trust, both pinned to the
+  5% floor — and those are subjects who chose not to cooperate. **That is the system working.**
+
+  ### The real friction is depth, not induction — and it is one line of code away
+
+  `resolveDepths` (`session.ts:466`) sets `depth = chance − roll`. At a 40% chance, a successful roll
+  is uniform in [0, 40), so **depth is uniform in (0, 40] with a mean near 20** — and **Yielding
+  starts at 20**. So roughly **half of all first successes land at Drifting**, where the only things
+  that work are the three awareness suppressions. Everything a new player would actually try —
+  *cannot move*, *cannot speak*, posture — needs **Yielding**.
+
+  **The experience is therefore: the induction works, and then nothing does.** That reads as failure
+  and is much more likely to be what DW is seeing than the attempt rate. It is also a different fix:
+  a floor under first-success depth, or lowering the Yielding-tier gates, not a consent multiplier.
+
+  ### Lever A — already shipped, and already dominant
+
+  `CHOICE_MODIFIER.agree = +25` **is** the explicit-consent multiplier. At zero trust it is 25 of the
+  40 points a willing, roleplayed attempt carries — the single largest term in the formula. **A is
+  not absent; it is the thing already doing the work.**
+
+  So A is a **tuning question, not a feature**: is +25 enough? Worth answering with the table above
+  in hand rather than by adding a second consent term that would double-count the same signal.
+
+  ### Lever B — genuinely new, consent-positive, and it has a sharp edge
+
+  A subject choosing to be easier to hypnotise is categorically different from a hypnotist-side
+  lever, and it is the right direction. Two notes:
+
+  **It is the same shape as the skill-honour ladder** (Depth tab: *ignore · only from people I trust ·
+  up to a cap from anyone*) — subject-side control over how much reaches her. `susceptibilityBias`
+  should **compose with it and sit beside it on the Depth tab**, presented as one axis, not bolted on
+  elsewhere as a second difficulty concept.
+
+  > **⚠ Making induction easy must not make DEPTH easy, and today it would.** `resolveDepths` calls
+  > `inductionChance` — the *same* number. Any bias added to `raw` therefore raises the resulting
+  > depth by exactly as much, which would quietly lift a zero-trust subject toward **Deep**, where
+  > `triggerControl`, `carryForward` and `illusionControl` live. Those are the earned-only three and
+  > the whole point of them is that they cannot be bought.
+  >
+  > **So `susceptibilityBias` must apply to the success test only, not to `resolveDepths`.** That
+  > means splitting one number into two, which is a real change, not a setting. Build it that way or
+  > not at all.
+
+  **`bypassTrustRequirements` is worse and should not ship as written.** Trust feeds both the roll
+  *and* `depthAllows` via `accessFor`. A blanket bypass opens the earned-only features to a stranger
+  directly — it is not a pacing control, it is a hole in the consent model. **If the intent is
+  "skip the grind with someone I already trust", that is what the relationship floors already do**
+  (friend 15 · lover 30 · owner 65, each with its own reach) and what `/hypno settrust` does for
+  testing. Recommend: drop this, or reframe it as a manual per-person trust grant capped at the
+  session-only reach.
+
+  ### Lever C — the channel exists; only the source is missing
+
+  Already shipped: `chemicalFloor()` (`session.ts:435`) reads BC arousal and returns
+  `min(progress, STRANGER_CEILING = 30)`; `effectiveAccess` takes `max(trust, relationship,
+  chemicalFloor)`; the `chemicalScope` setting already has **four** options (*Both / Arousal / Drugs /
+  Neither*) with *"Drugs only"* and *"Neither"* deliberately behaving alike **until drugs land, so no
+  saved preference needs migrating on the day they do**; and the earned/full split plus
+  `plantedChemical`'s fixed fast decay already price the shortcut.
+
+  **So `resistanceDebuff` as a new parallel resistance term would duplicate a channel that exists and
+  is already safety-checked.** The right shape is: **a substance sets the chemical floor; everything
+  downstream is unchanged.** `activeSubstance` + `durationRemaining` are genuinely new and fine —
+  they are the *source*. The debuff is not.
+
+  This also inherits the guarantee already recorded at `session.ts:431`: the chemical floor is for
+  **session-only** effects and must never reach persistent state, however high the ceiling goes.
+
+  ### Collisions with settled work
+
+  - **§A2 of `declared-skill-proposal.md` — PARKED until fatigue exists — governs this exact axis.**
+    It parks two weights (proposed `0.35` additive, `0.25` on the Fight floor) precisely because
+    retuning induction difficulty without fatigue is unsafe. **Lever B is the same dial.** Doing both
+    independently means two unrelated changes fighting over one number. Either unpark A2 and treat
+    B as part of it, or hold B until fatigue lands.
+  - **The Fight-never-worse-than-Ignore invariant is live** (`inductionChance`, the `Math.min`
+    against the Ignore branch). A bias added inside `chanceBeforeInvariant` is safe because the
+    invariant wraps it; a bias applied *after* would break it. `test/odds.mjs` sweeps this — keep it
+    passing.
+  - **The skill seam (`skill.additive`, `skill.fightFloor`) is the slot a bias would occupy.** Adding
+    a second additive term before the ladder lands makes the ladder's tuning harder, not easier.
+
+  ### ⚠ The honest risk: three solutions to one problem
+
+  A difficulty slider, a trust bypass and a chemical fast-track are three independent ways to reach
+  the same outcome. **Ship all three and the trust curve is decorative** — there is no configuration
+  in which anyone would grind it, and the relationship mechanic that the whole design rests on stops
+  mattering.
+
+  **He does not need all three, and the premise check says he may need none of them urgently.**
+  Recommended order:
+
+  1. **Fix the depth problem first** — a floor under first-success depth, or re-examining which
+     features sit at Yielding. This is the actual reported experience and it is the smallest change.
+  2. **Then re-read the numbers above and decide whether +25 is enough.** Tuning, not building.
+  3. **Then Lever C**, because it is in-fiction, it is capped at 30 by construction, it cannot reach
+     persistent features, and the channel already exists — it is the *safest* of the three.
+  4. **Lever B last, and only the bias half, and only with A2**, with the depth split done properly.
+     Drop `bypassTrustRequirements`.
+
 - **⚠ SENSORY SUPPRESSION — two specs from DW, 2026-09-16. POST-ALPHA: ship alpha first, then these
   next.** Vision and hearing arrived as separate specs and are filed as one item, because **they are
   one feature.** DW's rule that blindness must *not* mask names is justified by voice identification;
@@ -3533,6 +3670,69 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Help screen pass (DW wants this)**~~ — **done v0.69.0–v0.69.1.** Layout is one word-wrapped column (v0.69.0). Content read-through v0.69.1: five tabs reordered simple→complex (Start Here · What to Say · **Depth & Trust** · Lasting · Commands), the old trust-threshold gate framing replaced by a **depth ladder generated from `DEPTH_GATES`/`DEPTH_TIERS`** (so it cannot drift), trigger decay/reinforcement and the earned-only toggle written up in Lasting, skill in Depth & Trust, and the Commands tab bucketed by group in a fixed order (the groups were non-contiguous, so headers used to repeat) with the Testing group hidden when `TESTING_MODE` is off. A deeper future nicety only: the handler-driven phrases (wake, walking, body parts) are still hand-listed rather than generated — low priority, they change rarely.
 - ~~**Make `earnedOnly` a per-feature player setting**~~ — **built v0.68.0** for illusion and triggers. `effectiveEarnedOnly()` in `depth.ts` reads a sparse, true-only `chemicalReach` map (stored like `depthGates`, default earned-only in code); `gate.earnedOnly` is now only the seed. A per-row toggle on the Depth tab flips it. **Carry-forward is deliberately NOT toggleable** — it has no decay clock to price the shortcut, so it is drawn locked and the gate ignores any stored value for it. The safeguard is exactly the decay: a chemically-planted trigger is `plantedChemical` and fades at the fixed fast rate; the illusion is session-scoped so it clears on wake regardless. The `depth.ts` comment that stated the opposite rule was rewritten in the same commit, as required. Only the subject's own client writes the map — no hypnotist path touches it. `test/chemical-reach.mjs`.
 - **Extreme subject level** — opt-in lock: trigger removal requires Blank or architect, settings gated, decay disabled, visibility defaults to Restricted, time gate prevents downgrading for configured period. Wizard-configured. **Extended 2026-09-09** with two further intentions from DW — no access to the advanced stats view, and the safeword *possibly* restricted — which turn this from a settings preset into a design area with a real safety question in it. Open questions and the exits that must survive regardless are worked through in [`declared-skill-proposal.md`](declared-skill-proposal.md) §8. Nothing here is specced yet.
+
+### Changed 2026-09-17 (v0.77.0) — Follow / leash, the first of the Feature-List rows that had no code
+
+**The row existed in the design and nowhere else.** *Follow / leash* sat in three body tables — the
+Feature Depth Requirements table (Entranced), the trust-threshold table (55%), and the Tier-1 Feature
+List ("compulsion to follow — including across room transitions") — and the note under the depth
+table named it among the features that "do not exist yet." This builds it.
+
+**The mechanism, verified against the live client (`ChatRoom.js` / `Inventory.js`, R-master) per
+rule 8 — not from memory.** The cross-room follow is BC's OWN leash, so it works with a hypnotist
+who has no add-on (the Tier-1 promise):
+
+- Whoever *holds* a leash pings and `AccountBeep`s their leashed targets on every room change
+  (`ChatRoomPingLeashedPlayers`), and that beep carries the destination and pulls the target along.
+  This is vanilla BC and needs nothing of ours on the holder's side.
+- You are leashable (`ChatRoomCanBeLeashedBy`) only if you wear an appearance item carrying the
+  `"Leash"` effect and the room does not block `"Leashing"`. `InventoryItemHasEffect(item, "Leash",
+  true)` reads `Property.Effect`, so the **same Emoticon-carrier trick that powers Freeze** injects
+  `"Leash"` and makes the subject leashable *on command*, with no collar required.
+- While `ChatRoomLeashPlayer` is set, `ChatRoomCanLeave()` is false — that is what stops the subject
+  walking away between rooms.
+
+**Subject-authoritative (Rule 1).** The add-on never reaches into the hypnotist's client to grab a
+leash; it only makes the subject's own body leashable and lets BC lead. And it *scopes* that: while
+the compulsion is on, a hook on `ChatRoomDoHoldLeash` lets **only the active hypnotist** actually
+take the leash (an off-target grab is refused with the same `RemoveLeash` reply BC uses for an
+unleashable target), so "leashable" does not become "anyone in the room may pick you up."
+
+**What was built.** New `followControl` permission (own toggle, off by default, on the Permissions
+tab and the first-run permission set) — its own gate rather than a corner of Movement Restriction,
+because rooting someone and dragging someone are opposite restrictions. `DEPTH_GATES` entry at
+**Entranced**, session-only (`earnedOnly: false`). A new leaf-ish module `follow.ts`
+(`applyFollow`/`releaseFollow`/`clearFollow`/`installFollow`) importing only `effects` + `log`, so
+`session.ts` imports *it* for teardown without a cycle. Spoken suggestions `follow-block` /
+`follow-release` in `voice.ts` (release listed first, as always; deliberately no "come with me",
+which the orgasm "come" family would swallow), with public + private flavor in `flavor.ts` — follow
+is observable, so it carries room lines like movement and posture do. Teardown wired into
+`endSession()`, `totalStop()` (safeword / reset), and `recovery.releaseEverything()`; `"Leash"` added
+to `recovery.OUR_EFFECTS`, the orphan check and the `/hypno effects` readout. `installFollow` hooked
+in `main.ts`.
+
+**Reconnect.** A page reload keeps the injected `"Leash"` on the server-side Emoticon but loses the
+in-memory scope state, so `restoreLocalState` re-arms the compulsion **unscoped** (the leader is not
+saved) — the honest cost of a reload; a *room change* keeps module state and never hits this. An
+orphaned `"Leash"` from a crash is released like the other effects.
+
+**Tests.** `test/voicetest.mjs` gains 20 follow cases (block, release, and cross-checks that follow
+does not swallow the movement family); `test/notify.mjs` asserts the follow room-lines are visible,
+name the subject, and leave no tokens unfilled; the `depth.mjs` gate loop now covers `followControl`.
+Full suite **1140/1140**, typecheck clean, build 341.8 kb.
+
+**Still open (flagged, not done here):**
+- **Body tables owe an update** — the design body is not mine to edit. The Feature Depth Requirements
+  note (`~line 605`) should drop "Follow / leash" from its "do not exist yet" list and the row gets
+  its `DEPTH_GATES` reality; the Tier-1 Feature List row can lose its unbuilt status. Left for the
+  design owner.
+- **No button / remote-panel control yet** — follow is spoken-only for now; button parity (the remote
+  panel, a `/hypno` command) is a later pass.
+- **Two live-only dependencies to confirm in play:** the subject must have BC's own leashing allowed
+  (`OnlineSharedSettings.AllowPlayerLeashing !== false`) for the hypnotist to see "Hold Leash", and a
+  room that blocks the `"Leashing"` category will stop the mechanical leash even though the compulsion
+  is felt. Both are inherent to using BC-native leash and want a two-account run to confirm behaviour
+  and that injecting `"Leash"` on the Emoticon renders acceptably (leash-line anchor).
 
 ### Changed 2026-09-17 (v0.76.0) — a missed induction is no longer silent, and `/hypno induce`
 
