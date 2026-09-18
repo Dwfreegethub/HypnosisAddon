@@ -204,7 +204,7 @@ Since v0.7.0 these buttons are **session-gated**: outside an established trance 
 
 > **Stages 1–3** (proof of life, command-line effects, menu integration) were planning rather than
 > implementation and now live with the rest of the staging plan in
-> [`docs/design.md`](docs/design.md#development-stages). The notes below start where there was code
+> [`design.md`](design.md#development-stages). The notes below start where there was code
 > worth describing.
 
 ## Stage 4 — Session flow (`session.ts`, v0.7.0)
