@@ -219,6 +219,13 @@ export interface FeatureToggles {
 	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
 	 * being posed and being unable to move are quite different things to consent to. */
 	postureControl: boolean;
+	/** Follow / leash: a compulsion to trail the hypnotist, including across room changes.
+	 * Its own permission rather than a corner of movementRestriction — being unable to move
+	 * and being unable to leave someone's side are opposite kinds of restriction (one roots
+	 * you, the other drags you), and are different things to consent to. Session-only: it
+	 * makes the subject leashable via BC's own leash while entranced and cuts the leash on
+	 * waking. See follow.ts. */
+	followControl: boolean;
 	/** Blocking the subject from touching themselves, or named body parts. */
 	selfTouchControl: boolean;
 	/** May a hypnotist make the subject PERFORM activities (touch themselves, on command).
@@ -436,6 +443,7 @@ function defaultFeatures(): FeatureToggles {
 		movementRestriction: false,
 		clothingRestriction: false,
 		postureControl: false,
+		followControl: false,
 		speechRestriction: false,
 		selfTouchControl: false,
 		compelActivity: false,
@@ -1035,6 +1043,7 @@ const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
 	"movementRestriction",
 	"clothingRestriction",
 	"postureControl",
+	"followControl",
 	"speechRestriction",
 	"selfTouchControl",
 	"compelActivity",

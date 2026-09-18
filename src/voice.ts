@@ -4,7 +4,15 @@ import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
-import { isSessionActiveWith, hasLiveSessionWith, wakeByHypnotist, enterWalkingTrance, leaveWalkingTrance } from "./session";
+import {
+	isSessionActiveWith,
+	hasLiveSessionWith,
+	wakeByHypnotist,
+	enterWalkingTrance,
+	leaveWalkingTrance,
+	currentHypnotistId,
+} from "./session";
+import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
@@ -521,6 +529,42 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		run: () => { applyEffect("Freeze"); },
 		undo: () => removeEffect("Freeze"),
+	},
+	// Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
+	// block's verbs before the block gets a look. Deliberately no "come with me" — that would
+	// collide with the orgasm "come" family, which is listed earlier and would swallow it.
+	{
+		id: "follow-release",
+		examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+		release: true,
+		releaseOf: "follow-block",
+		permission: "followControl",
+		patterns: [
+			/\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
+			/\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
+			/\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
+			/\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+			/\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
+			/\bstay (?:wherever|where) you (?:like|want|please)\b/,
+		],
+		run: () => { releaseFollow(); },
+	},
+	{
+		id: "follow-block",
+		examples: ["follow me", "stay close to me", "you cannot leave my side"],
+		permission: "followControl",
+		patterns: [
+			/\bfollow me\b/,
+			/\byou (?:will|must) follow(?: me)?\b/,
+			/\byou follow (?:me|wherever i go)\b/,
+			/\bstay (?:close|near)\b/,
+			/\bstay (?:at|by) my (?:side|heel)\b/,
+			/\byou (?:cannot|can't|will not|won't) (?:leave|walk away from) (?:my side|me)\b/,
+			/\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
+			/\bheel\b/,
+		],
+		run: () => { applyFollow(currentHypnotistId()); },
+		undo: () => releaseFollow(),
 	},
 	{
 		id: "clothing-release",

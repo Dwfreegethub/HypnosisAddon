@@ -8,7 +8,12 @@ const EMOTICON_ASSET_NAME = "Emoticon";
 // Every effect we inject onto the Emoticon item must be listed here. BC's own validation
 // (ValidationSanitizeEffects in Validation.js) filters an item's Property.Effect down to
 // what the *asset* permits, dropping anything not in Asset.Effect or Asset.AllowEffect.
-const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
+// "Leash" is the odd one out: unlike the others it does not restrict the subject by itself.
+// It only makes them LEASHABLE — ChatRoomCanBeLeashedBy scans the appearance for an item
+// carrying this effect (InventoryItemHasEffect(item, "Leash", true) reads Property.Effect,
+// verified in Inventory.js), so injecting it onto the Emoticon lets a hypnotist take the
+// leash without the subject wearing a collar. The compulsion is in follow.ts.
+const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
 
 function findEmoticonItem(character: any): any {
 	return character?.Appearance?.find((a: any) => a?.Asset?.Name === EMOTICON_ASSET_NAME);

@@ -10,6 +10,7 @@ import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine } from "./session";
 import { installSuppression } from "./suppression";
+import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
 import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC } from "./voice";
@@ -250,6 +251,10 @@ safely("message suppression", installSuppression);
 // Blocks self-directed activities outright (no arousal, no message) rather than hiding
 // them — see selftouch.ts for why ActivityRun and not the handler chain.
 safely("self-touch hook", () => installSelfTouch(modApi));
+
+// Scopes the follow/leash compulsion to the active hypnotist: while it is on, only they may
+// take the subject's (add-on-injected) leash. See follow.ts.
+safely("follow-leash hook", () => installFollow(modApi));
 
 safely("/hypno command registration", installCommands);
 safely("preference menu registration", installMenu);

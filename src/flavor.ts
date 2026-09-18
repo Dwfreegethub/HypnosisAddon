@@ -13,6 +13,8 @@ import { tellPlayer, tellRoom, fillTokens } from "./notify";
 export type FlavorKey =
 	| "movement-block"
 	| "movement-release"
+	| "follow-block"
+	| "follow-release"
 	| "clothing-block"
 	/** Tried to open the wardrobe while blocked. */
 	| "clothing-blocked-attempt"
@@ -93,6 +95,14 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} stops moving, as though the idea had gone.",
 	],
 	"movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+	// Follow is observable in the same way going still is: nobody sees the compulsion land,
+	// but they see {name} close the distance and keep it closed. Naming {name} is required —
+	// room lines carry no sender.
+	"follow-block": [
+		"{name} stays close, unwilling to let any distance open.",
+		"{name} keeps near, as though on an invisible leash.",
+	],
+	"follow-release": ["{name} steps back, {their} own distance to keep again."],
 	kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
 	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
@@ -150,6 +160,15 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Control seeps back into your limbs.",
 		"Your body is yours again. You hadn't noticed it stopped being.",
 		"Something lets go of you, and you can move.",
+	],
+	"follow-block": [
+		"Being near them is where you belong. The thought of letting distance open is faintly unbearable.",
+		"Wherever they go, you go. It does not feel like a decision.",
+		"An invisible tether draws you to their side, and staying there is the only comfortable place to be.",
+	],
+	"follow-release": [
+		"The tether loosens. You can be your own distance from them again.",
+		"The pull to stay near fades, and where you stand is your own choice once more.",
 	],
 	// Apply-time: a possibility closing, with nothing reached for yet.
 	"clothing-block": [

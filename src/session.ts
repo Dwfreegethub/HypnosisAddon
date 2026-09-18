@@ -69,6 +69,7 @@ import {
 	clearTranceStates,
 	TRANCE_FADE_OPACITY,
 } from "./effects";
+import { clearFollow } from "./follow";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -387,6 +388,7 @@ function endSession(reason: string, quiet = false): void {
 	// never leave an effect stranded with no way to reach it.
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
+	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
 	clearAllSuppression();
@@ -1058,6 +1060,7 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	const hypnotist = session.hypnotistId;
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
+	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
 	clearAllSuppression();

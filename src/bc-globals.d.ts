@@ -186,3 +186,11 @@ declare function InventoryGet(character: any, assetGroup: string): any;
 // AssetMap keyed `Group/Name`). Needed to rebuild an appearance item from stored identity,
 // since the live Asset reference itself cannot be serialised. See illusion.ts.
 declare function AssetGet(family: string, group: string, name: string): any;
+
+// Leashing (ChatRoom.js). ChatRoomLeashPlayer is the MemberNumber of whoever currently
+// holds OUR leash, or null — a mutable page global BC sets from the HoldLeash handshake and
+// clears when the holder leaves or disconnects. While it is non-null, ChatRoomCanLeave() is
+// false, which is what pulls us along when the holder changes rooms. CharacterRefreshLeash
+// rebuilds the leash line after the state changes. See follow.ts, verified against R-master.
+declare let ChatRoomLeashPlayer: number | null;
+declare function CharacterRefreshLeash(character: any): void;

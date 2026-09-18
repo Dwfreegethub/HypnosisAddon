@@ -89,6 +89,9 @@ for (const key of [
 	// Going still and kneeling are visible in themselves; the rest are all ATTEMPTS, the
 	// moment somebody actually walks into a restriction.
 	"movement-block", "movement-release", "kneel", "stand",
+	// Follow is observable in itself: nobody sees the compulsion, but they see the subject
+	// close the distance and keep it closed.
+	"follow-block", "follow-release",
 	"clothing-blocked-attempt", "selftouch-frozen", "selftouch-blocked",
 	"speech-blocked-attempt", "orgasm-refused",
 ]) {
@@ -98,7 +101,7 @@ for (const key of [
 // --- name and pronouns ---
 // We emit room lines verbatim (tellRoom's "**"-emote), so BC supplies no name — every
 // public line must name the character itself or it reads as coming from nowhere.
-for (const key of ["movement-block", "kneel", "selftouch-blocked", "speech-blocked-attempt"]) {
+for (const key of ["movement-block", "kneel", "selftouch-blocked", "speech-blocked-attempt", "follow-block", "follow-release"]) {
 	check(`${key} names the character`, /Missy/.test(flavor.publicFlavor(key)), true);
 	check(`  ${key} leaves no tokens unfilled`, /\{\w+\}/.test(flavor.publicFlavor(key)), false);
 }

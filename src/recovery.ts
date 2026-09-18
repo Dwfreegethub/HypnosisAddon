@@ -31,6 +31,7 @@ import {
 	FrozenItem,
 } from "./illusion";
 import { clearOrgasmDenial } from "./arousal";
+import { applyFollow } from "./follow";
 
 // Surviving a disconnect.
 //
@@ -78,7 +79,7 @@ const NO_ROOM_FALLBACK_MS = 20_000;
 const GIVE_UP_MS = 120_000;
 /** The BC effects this add-on applies. Everything else on the Emoticon item is somebody
  * else's, and hasOwnEffect is what tells the difference. */
-const OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode"];
+const OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
 
 /** Storage key, per account.
  *
@@ -215,6 +216,7 @@ export function snapshotLocalState(): Omit<
 export function releaseEverything(reason: string): void {
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
+	removeEffect("Leash");
 	clearOrgasmDenial();
 	setSpeechBlocked(false);
 	setScreenFade(0);
@@ -234,7 +236,12 @@ export function releaseEverything(reason: string): void {
  * Runs even when there is no saved state, and that is the point: an orphaned Freeze from a
  * crash we never got to write down is exactly the case that leaves somebody stuck. */
 export function hasOrphanedEffects(): boolean {
-	return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode");
+	return (
+		hasOwnEffect("Freeze") ||
+		hasOwnEffect("BlockWardrobe") ||
+		hasOwnEffect("DenialMode") ||
+		hasOwnEffect("Leash")
+	);
 }
 
 /** Everything currently in force, in the order a subject would think of it: what my body is
@@ -255,6 +262,7 @@ export function describeCurrentState(): string[] {
 		on("frozen", hasOwnEffect("Freeze")),
 		on("wardrobe blocked", hasOwnEffect("BlockWardrobe")),
 		on("orgasm denied", hasOwnEffect("DenialMode")),
+		on("leashed to follow", hasOwnEffect("Leash")),
 		on("posed by suggestion", !!st.pose, String(st.pose)),
 		on("self-touch blocked", st.selfTouch.all || st.selfTouch.groups.length > 0, describeSelfTouchBlocks()),
 	];
@@ -393,6 +401,12 @@ function restoreLocalState(saved: SavedSession): void {
 	// Emoticon item and usually do come back, but a sync landing before the AllowEffect patch
 	// strips them — and applyEffect is idempotent, so asserting costs nothing when they did.
 	for (const e of saved.effects ?? []) if (!hasOwnEffect(e)) applyEffect(e);
+	// The follow compulsion is a leash effect plus in-memory scope state, and only the effect
+	// rides the appearance across a reload. Re-arm the compulsion so it feels continuous and so
+	// the session's teardown still knows to cut it — with no leader, since who was leading is
+	// not part of the saved state. Unscoped means the hook stops gating who may lead, which is
+	// the honest cost of a reload; a room change keeps module state and never hits this.
+	if (hasOwnEffect("Leash")) applyFollow(null);
 	if (saved.pose) setSuggestedPose(saved.pose);
 	// The illusion comes back as the ORIGINAL frozen clothes, rebuilt from their stored
 	// identities. Re-freezing instead would snapshot whatever is worn at this moment — the
