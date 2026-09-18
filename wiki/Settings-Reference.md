@@ -1,7 +1,7 @@
 # Settings Reference
 
-Open with the **spiral icon** in the top bar, or through **Preferences → Extensions → Hypnosis
-Add-on**. Tabs run down the left edge.
+Open with the **spiral icon** in the top bar, or through **Preferences → Extensions → ECHS
+Hypnosis**. Tabs run down the left edge.
 
 Everything here is a **permission** — "do I allow this to be done to me" — not a self-trigger.
 Ticking one never applies anything to you.

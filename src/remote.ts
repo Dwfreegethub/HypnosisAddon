@@ -287,7 +287,7 @@ function statusLine(view: SessionView | undefined): string {
 
 function drawSubscreen(target: any): void {
 	if (isHelpOpen()) {
-		drawHelp("BC Hypnosis Add-on — help");
+		drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
 		return;
 	}
 	if (presenceOf(target.MemberNumber) === "absent") {
@@ -319,7 +319,7 @@ function drawSubscreen(target: any): void {
 function drawAbsent(target: any): void {
 	const name = target?.Name ?? "They";
 	DrawText(`Hypnosis Remote — ${name}`, MainCanvasWidth / 2, 170, "Black");
-	DrawText(`${name} doesn't appear to be running the Hypnosis add-on.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
+	DrawText(`${name} doesn't appear to be running ECHS.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
 	DrawText("Nothing on this panel would reach them.", MainCanvasWidth / 2, ABSENT_LINE_Y + 55, "Gray");
 	DrawButton(RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, "Check again", "White", "", "Ask them again");
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
@@ -467,7 +467,7 @@ export function installRemote(modApi: any): void {
 				// full-size, spilling well out of the 60px button (the second half of Known Bug #6).
 				// DrawImageResize scales it to the padded rect. Falls back to a plain "H" label if the
 				// icon could not be built, so the button is never blank.
-				DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "Hypnosis Add-on Remote");
+				DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
 				if (SPIRAL_ICON) {
 					DrawImageResize(
 						SPIRAL_ICON,

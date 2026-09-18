@@ -18,11 +18,11 @@ code emits.
 Missy installs, reloads, and sees this in her chat log:
 
 ```
-[Hypnosis Add-on v0.74.6 — nothing is switched on yet. Click the spiral to set up.]
+[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 ```
 
-She opens **Preferences → Extensions → Hypnosis Add-on** and runs the wizard. She picks the
+She opens **Preferences → Extensions → ECHS Hypnosis** and runs the wizard. She picks the
 **Balanced** preset, which switches on *Hypnosis Enabled* plus the session-scoped basics, and then
 ticks **Allow triggers to be planted in you** on the Triggers tab by hand, because she wants to try
 that part.

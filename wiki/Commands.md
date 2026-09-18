@@ -5,6 +5,10 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 `/hypno` on its own prints a short menu. `/hypno help` opens the in-game guide. `/hypno commands`
 lists everything.
 
+**`/echs` is the same command as `/hypno`** — the add-on's own name, registered alongside the
+original so either works. Every command on this page can be typed with either prefix; the pages here
+say `/hypno` throughout because that is the shorter one to type.
+
 ## Session — usable from any state
 
 | Command | What it does | When you'd use it |

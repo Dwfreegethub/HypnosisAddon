@@ -46,7 +46,7 @@ import {
 	getSessionView,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
-import { openHelpScreen } from "./menu";
+import { openHelpScreen, EXTENSION_BUTTON_TEXT } from "./menu";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -191,20 +191,27 @@ interface HypnoCommand {
 // not by hooking CommandParse — that runs BEFORE registry lookup and would still hit
 // BC's "no such command" path for anything we didn't recognize ourselves, fighting the
 // game's own validation instead of using the extension point it already provides.
+/** Every tag the main command answers to. `hypno` is first because it is the one the guide,
+ * the wiki and every help line name; `echs` is the add-on's own name, registered so someone
+ * who reaches for it is not met with BC's "no such command". */
+const COMMAND_TAGS = ["hypno", "echs"] as const;
+
 // Where the full guide lives if the on-screen jump can't run — the manual path is the
-// fallback for `/hypno help`, and the tail of the bare `/hypno` menu.
-const GUIDE_LOCATION = "Preferences > Extensions > Hypnosis Add-on — the ? button (or the Help button in the remote panel).";
+// fallback for `/hypno help`, and the tail of the bare `/hypno` menu. Built from menu.ts's
+// own label rather than repeating it, so the two cannot name different entries.
+const GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} — the ? button (or the Help button in the remote panel).`;
 
 /** The bare `/hypno` menu: a short, friendly signpost rather than a wall of commands.
  * Points at the two ways to go deeper — the on-screen guide and the full typed list —
  * so the dense command dump moved to `/hypno commands` for anyone who wants it. */
 function menuLines(): string[] {
 	return [
-		"BC Hypnosis Add-on — most of this works by SPEAKING to someone in a session, not by typing.",
+		"Erotic Chat Hypnosis Suite (ECHS) — most of this works by SPEAKING to someone in a session, not by typing.",
 		"  /hypno help — open the full on-screen guide: what to say, trust, depth, triggers",
 		"  /hypno commands — list every typed command",
 		"  /hypno match <phrase> — check what a phrase would do, and why nothing happened",
 		"  /hypno safeword — hard stop; clears everything, always works",
+		"  (/echs is the same command as /hypno — either works, anywhere.)",
 	];
 }
 
@@ -259,10 +266,18 @@ export function installCommands(): void {
 		},
 	];
 
-	CommandCombine({
-		Tag: "hypno",
+	// ONE definition, registered under two tags. `/hypno` is what every wiki page, help line
+	// and everyone's habit already says, so it keeps working untouched; `/echs` matches the
+	// add-on's name for anyone who reaches for that instead.
+	//
+	// A factory rather than one object registered twice: BC keeps whatever it is handed in
+	// its own Commands array, so two entries sharing one object would let anything BC ever
+	// sets on one of them show up on the other. metaCommands is shallow-copied per call for
+	// the same reason — spreading the array reuses the objects inside it.
+	const hypnoCommand = (Tag: string) => ({
+		Tag,
 		Description:
-			"BC Hypnosis Add-on — session control, diagnostics and test commands",
+			"Erotic Chat Hypnosis Suite — session control, diagnostics and test commands",
 		Action: () => {
 			for (const line of menuLines()) reply(line);
 		},
@@ -275,7 +290,7 @@ export function installCommands(): void {
 		// rather than depending on each Action to remember to check. The help screen already
 		// hides the group outside the room; this is what actually stops them running.
 		Subcommands: [
-			...metaCommands,
+			...metaCommands.map((c) => ({ ...c })),
 			...COMMANDS.map(({ group, args, Description, ...cmd }) => ({
 				...cmd,
 				Description: args ? `${args} — ${Description}` : Description,
@@ -292,6 +307,8 @@ export function installCommands(): void {
 			})),
 		],
 	});
+
+	for (const tag of COMMAND_TAGS) CommandCombine(hypnoCommand(tag));
 
 	installBotCommand();
 }

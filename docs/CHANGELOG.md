@@ -16,6 +16,72 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-18 (v0.78.0) — Renamed to Erotic Chat Hypnosis Suite (ECHS)
+
+**Why:** players were confusing this add-on with an unrelated hypnosis project abbreviated HSC
+(Hypnotics Slave Club). DW's call, 2026-09-18, along with the name itself: full name where there is
+room for it, `ECHS` where there is not.
+
+**What changed is only what a person reads.** Every name string shown on screen, plus the
+`==UserScript==` block's name key, which is what the userscript manager lists:
+
+| Where | Now reads |
+|---|---|
+| Userscript manager's list | Erotic Chat Hypnosis Suite (ECHS) |
+| Loaded badge, bottom-right | `ECHS v0.78.0 loaded` |
+| Preferences > Extensions entry | ECHS Hypnosis |
+| Settings, help, setup and remote-help titles | Erotic Chat Hypnosis Suite (ECHS) — … |
+| First-run chat notice | Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — … |
+| Remote panel, subject not running it | *"… doesn't appear to be running ECHS."* |
+| Spiral-icon tooltip on a profile | ECHS Hypnosis Remote |
+| `/hypno` header and `/hypno commands` | Erotic Chat Hypnosis Suite (ECHS) |
+
+Two of those take the abbreviation for a reason worth recording, because the obvious "use the full
+name everywhere" would have broken both. The **Preferences > Extensions** label goes into a
+fixed-width list button and the text it replaced was 15 characters against the full name's 26, so it
+is `ECHS Hypnosis`; it now lives in one exported constant (`EXTENSION_BUTTON_TEXT` in `menu.ts`) that
+`commands.ts` *builds* its "the guide is under…" pointer from, since those two strings naming
+different labels would send a player looking for an entry that is not there and nothing at runtime
+would notice. The **"not running ECHS"** line is canvas `DrawText`, which does not wrap, with the
+subject's name already prepended.
+
+**`/echs` now works, and `/hypno` is untouched.** Both tags are registered from one definition
+through a factory, not one object handed to `CommandCombine` twice — BC keeps what it is given in its
+own `Commands` array, so two entries sharing an object would let anything BC writes onto one appear
+on the other. `metaCommands` is shallow-copied per registration for the same reason. The bare menu
+now ends with a line saying the two are the same command. `/hypno` stays first everywhere: every wiki
+page, help line and habit already says it, and 427 occurrences of it across the repo are not worth
+rewriting to rename a command that still works.
+
+**A new 12-check suite (`test/alias.mjs`)** captures what BC's registry is actually handed and
+asserts on that, because a registration that silently did not happen looks identical from inside
+`installCommands()`. It checks both tags arrive, that the alias carries the same subcommands and runs
+a real one (a registered-but-hollow alias is the third failure mode), and — by writing a field onto
+BC's copy of one entry and reading the other — that nothing mutable is shared. Verified to fail on
+both regressions before being kept: dropping the alias fails 7 checks, reverting the factory to a
+shared object fails 3 while everything else still passes.
+
+**Deliberately NOT changed**, all of it invisible to players and all of it load-bearing:
+
+- `ExtensionSettings["HypnosisAddon"]` — server-synced; renaming the key orphans every tester's
+  settings, trust, stats and planted triggers. The `localStorage` backup and disconnect-recovery
+  keys derive from it.
+- `HIDDEN_TAG = "HypnoMsg"` — the room wire protocol. Two clients on different values go silently
+  invisible to each other, and it has to stay distinct from BCX's and LSCG's tags.
+- The repository name and the raw install URL, which is the `@updateURL`. GitHub redirects renamed
+  repositories, but whether `raw.githubusercontent.com` follows that redirect — and whether the
+  userscript managers follow it on an update check — was not established, and the failure mode is a
+  tester silently never updating again. DW's call to leave it.
+- The `[HypnosisAddon]` console tag and the `Hypno Testing` room name.
+
+**Unverified:** whether changing the userscript name key on an already-installed script keeps the
+update chain. It should — the namespace key is unchanged, and `@grant none` means there is no stored
+data to lose — but it was not testable from a dev session and the failure would be silent, the same
+shape as the v0.75.0 second-version-line bug. Worth one tester confirming their manager shows the new
+name and v0.78.0.
+
+---
+
 ### Changed 2026-09-17 (v0.77.0) — Follow / leash, the first of the Feature-List rows that had no code
 
 **The row existed in the design and nowhere else.** *Follow / leash* sat in three body tables — the
