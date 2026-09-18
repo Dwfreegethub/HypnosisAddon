@@ -18,6 +18,7 @@ own design copy for. So it now points, and does not duplicate.
 | What works today, by stage | `docs/design.md` → *Current Implementation Status* |
 | What to build next, and why | `docs/design.md` → *Development Stages > Todo* and *Pre-Release Checklist* |
 | What still owes a live run | `docs/design.md` → *Needs Testing* |
+| What shipped when, and why | `docs/CHANGELOG.md` — newest first. Add an entry there, not in `design.md` |
 | Known faults and decided fixes | `docs/design.md` → *Known Bugs* |
 | **Anything touching the induction roll, the AFK/prompt-timeout path, settings defaults, or extreme mode** | `docs/declared-skill-proposal.md` **first** — its decisions are settled and not all folded into `design.md` yet. §10 is the list of what is still open; §11 is what has *not* been verified |
 | Engineering record, BC API traps | `README.md` |
