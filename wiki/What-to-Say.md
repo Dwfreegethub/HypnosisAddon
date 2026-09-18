@@ -1,86 +1,93 @@
 # What to Say
 
-**This is the page to have open while you play.** Almost nothing here is a command — you **speak**,
-in ordinary chat, and the subject's client decides whether anything lands.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
 
-For a worked example of these phrases in context, see **[A Sample Session](Sample-Session)**.
+**This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold.
 
-## The three rules
-
-**1. Say their name.** Every suggestion needs the subject's name (or nickname) somewhere in the
-line. Without it nothing happens — this is what keeps ordinary conversation inert.
-
-**2. Contractions and punctuation don't matter.** *"You can't move"*, *"you cannot move"* and
-*"Missy — you CAN'T move!"* are the same line.
-
-**3. Talking about yourself is ignored.** A line starting "I" or "we" with no "you" never fires, so
-*"I kneel beside you"* makes nobody kneel.
-
-**Not sure whether a phrase works?** `/hypno match <phrase>` tells you, and reports the name gate
-separately from the wording.
+For a worked example of these phrases used in a live scene, see [A Sample Session](Sample-Session).
 
 ---
 
-## Induction and deepening — say anything you like
+## The Three Rules
 
-**Nothing you say during the induction window has to match a pattern.** The 60 seconds after an
-attempt is for roleplay, and *every line you speak in it improves the roll*, whatever it says. Set
-a scene, describe a pendulum, count down — it all counts equally.
+**1. Say their name.** Every suggestion requires the subject's name (or recognized nickname) somewhere in the sentence. Without it, the client ignores the line completely — this keeps ordinary conversation completely inert.
 
-This is the part people miss: the pattern library below is for **effects**, not for atmosphere. You
-do not need permission or the right phrasing to be hypnotic at somebody.
+**2. Contractions and punctuation do not matter.** *"You can't move"*, *"you cannot move"*, and *"Missy — you CAN'T move!"* are evaluated identically by the parser.
 
-> ⚠ **One live exception.** Because `feel` is currently one of the touch-command verbs, a deepening
-> line like *"Missy, your arms feel heavy"* can be read as *caress your arms* and perform a real,
-> public touch. It only bites if *Made to Act* is granted. See
-> [Troubleshooting](Troubleshooting#known-rough-edges).
+**3. Talking about yourself is ignored.** Any line starting with "I" or "we" without a "you" never fires an effect. For example, *"I kneel beside you"* will never force anyone to kneel.
+
+**Not sure whether a phrase matches?** Running `/echs match <phrase>` (or `/hypno match <phrase>`) will test the sentence and report whether the wording and the name gate pass.
 
 ---
 
-## Ending a trance — never gated
+## Induction and Deepening — Say Anything You Like
 
-These need no permission and no depth. They always work.
+**Nothing you say during the induction window has to match a rigid pattern.** The 60-second window following an induction attempt is dedicated to roleplay, and *every line you speak improves the roll outcome*, regardless of the exact words used. Set the scene, describe a swinging pendulum, count backwards — it all counts toward depth.
+
+The pattern library below is strictly for triggering **effects**, not for building atmosphere. You do not need specific phrasing just to speak hypnotically.
+
+> ⚠️ **Known Parser Quirk:** Because `feel` is currently recognized as a touch-command verb, a deepening line like *"Missy, your arms feel heavy"* can inadvertently be parsed as a command to caress arms if *Made to Act* is granted. See [Troubleshooting](Troubleshooting) for workarounds.
+
+---
+
+## Ending a Trance — Never Gated
+
+These phrases require no permissions and no minimum depth. They always succeed.
 
 | Say | Effect |
 |---|---|
-| *"wake up"* · *"you are awake"* · *"come back to me"* | Ends the trance |
-| *"walk with me"* | **Walking trance** — still under and suggestible, but on their feet with the veil thinned |
-| *"be still"* | Back to stillness |
+| *"wake up"* · *"you are awake"* · *"come back to me"* | Ends the trance completely |
+| *"walk with me"* | **Walking trance** — remains under and suggestible, but upright with sensory veils relaxed |
+| *"be still"* | Returns the subject to stillness |
 
 ---
 
-## The suggestions
+## The Suggestions
 
-Each needs its **permission** and most need a minimum **depth**. *Releases are in italics* — they
-skip the permission check, because revoking should never be harder than applying.
+Each suggestion requires its specific **permission** enabled on the subject's client, and most require a minimum **depth**. *Releases are shown in italics* — releases skip permission checks, because clearing an effect should never be harder than applying one.
 
-### Movement and posture
+### Movement and Posture
 
 | Say | Needs |
 |---|---|
 | *"you cannot move"* · *"stay still"* · *"you are frozen"* | Movement Restriction · **Yielding** |
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding** |
 | *"stand"* · *"get up"* · *"on your feet"* | Posture Control · **Yielding** |
-| *"you can move again"* · *"your body is your own"* | — release |
+| *“you can move again”* · *“your body is your own”* | — *release* |
 | *"follow me"* · *"stay close"* · *"heel"* | Follow / Leash · **Entranced** |
-| *"you can leave"* · *"you don't have to follow me"* · *"you are free to go"* | — release |
+| *“you can leave”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
 
-**Follow / Leash** uses Bondage Club's own leash. The phrase makes you *leashable on command* — the
-hypnotist then takes the leash with the ordinary **Hold Leash** button and BC pulls you along when
-they change rooms, and you cannot walk away while held. It needs your BC leashing to be allowed, and
-only your hypnotist can pick the leash up while you are under it.
+**Follow / Leash** hooks into Bondage Club's native leash system. The phrase makes the subject leashable on command; the hypnotist then takes the leash using the standard **Hold Leash** button. The game handles room transitions automatically, and the subject cannot walk away while held. This requires the subject's native BC leashing settings to allow it, and only the active hypnotist can hold the leash while under trance.
+
+---
 
 ### Speech
 
 | Say | Needs |
 |---|---|
 | *"you cannot speak"* · *"stay silent"* · *"not a word"* | Speech Restriction · **Yielding** |
-| *"you can speak again"* · *"your voice is back"* | — release |
+| *“you can speak again”* · *“your voice is back”* | — *release* |
 
-This blocks ordinary room chat. It cannot reach slash commands, so the safeword stays available.
-**Out-of-character asides in parentheses still go through by default** — a silenced subject can
-always say *"(brb)"*. They are only silenced too if that subject ticked **Silence OOC too** on the
-Trance Defaults tab.
+This blocks regular public room chat. It cannot touch slash commands, so emergency releases remain available. **Out-of-character (OOC) text enclosed in parentheses passes through by default** — a silenced player can always type *"(brb)"*. OOC speech is only suppressed if the subject explicitly toggled **Silence OOC too** under their Trance Defaults tab.
+
+---
+
+### Sensory Modulation *(Feature Pending / Experimental)*
+
+> *Note: Auditory and visual modulation systems are actively in progress. These commands may be partially functional or pending integration in the current alpha build.*
+
+| Say | Needs |
+|---|---|
+| *"you cannot hear clearly"* · *"voices are muffled"* | Hearing Impairment · **Drifting** |
+| *"you hear nothing"* · *"the room is silent"* | Complete Deafness · **Entranced** |
+| *“you can hear again”* · *“your hearing returns”* | — *release* |
+| *"everything is going dark"* · *"you cannot see"* | Blindness / Darkness · **Entranced** |
+| *“your vision clears”* · *“you can see again”* | — *release* |
+
+Visual and auditory effects respect native game sensory caps and client accessibility toggles.
+
+---
 
 ### Clothing
 
@@ -89,74 +96,76 @@ Trance Defaults tab.
 | *"you cannot change your clothes"* · *"leave your clothes alone"* | Clothing Restriction · **Yielding** |
 | *"take something off"* · *"undress"* | Undressing · **Entranced** |
 | *"take everything off"* · *"strip"* | Undressing · **Entranced** |
-| *"you can change your clothes"* · *"your clothes are yours again"* | — release |
+| *“you can change your clothes”* · *“your clothes are yours again”* | — *release* |
 
-### Arousal and orgasm — all need **Arousal & Orgasm · Entranced**
+---
+
+### Arousal and Orgasm — All Require Arousal & Orgasm · Entranced
 
 | Say | Effect |
 |---|---|
-| *"you are not aroused"* · *"your arousal fades"* | Arousal to zero |
-| *"you are lightly aroused"* · *"you feel a little warm"* | Light |
-| *"you are very aroused"* · *"you are desperate"* · *"you need it badly"* | High |
-| *"you are right on the edge"* · *"you are so close"* | Near the top |
-| *"you cannot come"* / *"you cannot cum"* | Denial on |
-| *"you may come now"* / *"you may cum now"* | Denial off |
-| *"come for me"* / *"cum for me"* | Forces it |
+| *"you are not aroused"* · *"your arousal fades"* | Drops arousal to zero |
+| *"you are lightly aroused"* · *"you feel a little warm"* | Sets arousal to light |
+| *"you are very aroused"* · *"you are desperate"* · *"you need it badly"* | Sets arousal to high |
+| *"you are right on the edge"* · *"you are so close"* | Edges near the maximum |
+| *"you cannot come"* / *"you cannot cum"* | Enables orgasm denial |
+| *"you may come now"* / *"you may cum now"* | Disables orgasm denial |
+| *"come for me"* / *"cum for me"* | Triggers forced climax |
 | *"you cannot feel my touch"* · *"you feel nothing when I touch you"* | Numbness |
-| *"you can feel my touch again"* | — release |
+| *“you can feel my touch again”* | — *release* |
 
-A **real** chastity item or edging craft still refuses a forced orgasm. The add-on asks the game
-rather than reimplementing the rules.
+Native chastity items or locked edging crafts will still prevent forced climaxes. ECHS queries game state rather than overriding native mechanics.
 
-**Numbness is not the same as not noticing.** Numb means the arousal genuinely does not land;
-suppression means it lands and she is not told.
+**Numbness vs. Suppression:** Numbness prevents arousal from registering at all. Suppression allows arousal to increase normally, but conceals the feedback from the subject's view.
 
-### Not noticing things
+---
+
+### Suppressed Awareness
 
 | Say | Needs |
 |---|---|
 | *"you will not notice being undressed"* | Clothing Changes · **Drifting** |
 | *"you will not notice the ropes"* · *"you do not notice being tied"* | Bondage Changes · **Drifting** |
 | *"you will ignore my touches"* | Touches / Activities · **Drifting** |
-| *"you notice nothing"* · *"you are unaware"* | All three at once |
-| *"you notice everything again"* | — releases all of them, **and the clothing illusion** |
-
-### The clothing illusion — **Clothing Illusion · Deep, earned only**
-
-| Say | Effect |
-|---|---|
-| *"you cannot tell what you are wearing"* · *"your clothes look the same to you"* | Their own screen freezes on the clothes they were wearing |
-| *"you notice your clothes"* · *"look at yourself"* | — release |
-
-The room sees the truth throughout. Only their own view is frozen.
-
-### Blocking self-touch — **Self-Touch Control · Yielding**
-
-| Say | Effect |
-|---|---|
-| *"you cannot touch your breasts"* | Blocks that zone — around 40 body words are understood |
-| *"you cannot touch yourself"* | Blocks all of them |
-
-This **stops** them touching themselves. Making them touch themselves is the opposite feature, and
-it is on its own page.
+| *"you notice nothing"* · *"you are unaware"* | Enables all three simultaneously |
+| *“you notice everything again”* | — *releases all three, plus clothing illusions* |
 
 ---
 
-## Making them act
+### The Clothing Illusion — Clothing Illusion · Deep, Earned Only
 
-*"Missy, touch your breasts"* and she performs the real activity. That is a separate permission
-(**Made to Act**) with its own grammar — the full verb list and everything that can refuse it are in
-**[Commanded Activities](Commanded-Activities)**.
+| Say | Effect |
+|---|---|
+| *"you cannot tell what you are wearing"* · *"your clothes look the same to you"* | Freezes the subject's local rendering on their starting outfit |
+| *“you notice your clothes”* · *“look at yourself”* | — *release* |
 
-## Making it last
-
-Trigger words, and suggestions that survive waking — **[Triggers and Lasting
-Effects](Triggers-and-Lasting-Effects)**.
+The rest of the room sees actual wardrobe changes in real-time. Only the subject's local screen remains locked on the illusion.
 
 ---
 
-## If a phrase isn't here
+### Blocking Self-Touch — Self-Touch Control · Yielding
 
-The in-game **What to Say** tab (the **`?`** button, or `/hypno help`) is **generated from the
-pattern library itself**, so it can never fall behind the code. This page is hand-written and covers
-the common wordings. If something here doesn't work, check there.
+| Say | Effect |
+|---|---|
+| *"you cannot touch your breasts"* | Blocks interaction with that specific zone (recognizes ~40 body terms) |
+| *"you cannot touch yourself"* | Blocks self-touch across all zones |
+
+This **prevents** the subject from touching themselves. Commanding autonomous touch is a separate system covered on its own page.
+
+---
+
+## Making Them Act
+
+Commands such as *"Missy, touch your breasts"* make the subject's character physically execute the activity in-game. This relies on a dedicated permission (**Made to Act**) with its own structured syntax. Full verb mappings, targeting rules, and restrictions are detailed in [Commanded Activities](Commanded-Activities).
+
+---
+
+## Making It Last
+
+To configure subconscious triggers that activate days later or suggestions that persist through waking, see [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
+
+---
+
+## If a Phrase Is Not Listed Here
+
+The in-game **What to Say** reference (available via the **`?`** icon in settings or `/echs help`) is **generated directly from the internal pattern library**, ensuring it matches the installed code build. This wiki page covers standard, practical phrasing; if a variation doesn't trigger, verify it against the in-game list.
