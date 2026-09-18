@@ -1,5 +1,6 @@
 # BC Hypnosis Add-on — Design Document
-*Design notes and decision log — work in progress. Code at v0.76.0.*
+*Design notes and decision log — work in progress. For the version the code is at, read
+`package.json`; it is the single source of truth and this line would only go stale.*
 
 **Companion documents.** [`../README.md`](../README.md) is the engineering record: how to build and
 test, the stage-by-stage implementation notes, and the BC API traps worth knowing. This file is the
@@ -28,21 +29,23 @@ Appendix at the end.
 > *trust percentage* and onto *trance depth*. Both models are in this document: the trust one
 > because it is what the code does today, the depth one because it is what the code is becoming.
 > Sections describing the superseded model are marked. See
-> [Trance Depth as the Feature Gate](#-design-change-trance-depth-as-the-feature-gate-not-yet-implemented).
+> [Trance Depth as the Feature Gate](#-design-change-trance-depth-as-the-feature-gate--phase-1-built-v0500).
 
 | | |
 |---|---|
-| **New here** | **Orientation for a New Contributor** — the rules, the module map, how to test |
-| **What works now** | Current Implementation Status |
-| **How trust is earned** | Philosophy · Core Mechanic · What Builds Trust · What Lowers Trust · Gain Curve · Hypnotist's Side |
-| **How an induction resolves** | Induction Success Formula · Session Flow |
-| **How features are gated** | Trust Percentage & Feature Thresholds *(superseded)* · **Trance Depth as the Feature Gate** |
-| **Safety and consent** | Control & Reset · Hard Limits · Meta-Consent Layer · Gamification · Clothing & Bondage Consent |
-| **The features themselves** | Feature List · Triggers · Carry-Forward · Perception / Illusion · Word-Level Control |
-| **Building it** | Technical Architecture · Prior Art · Development Stages · Player Settings |
-| **What to test next** | Needs Testing — as of v0.64.0 |
-| **Undecided** | Open Questions |
-| **History** | Appendix: Version History |
+| **New here** | **[Orientation for a New Contributor](#orientation-for-a-new-contributor)** — the rules, the module map, how to test |
+| **What works now** | [Current Implementation Status](#current-implementation-status) |
+| **How trust is earned** | [Philosophy](#philosophy) · [Core Mechanic](#core-mechanic-trust-as-a-depth-gate) · [What Builds Trust](#what-builds-trust) · [What Lowers Trust](#what-lowers-trust) · [Gain Curve](#trust--experience-gain-curve-non-linear) · [Hypnotist's Side](#the-hypnotists-side-skill--experience) |
+| **How an induction resolves** | [Induction Success Formula](#induction-success-formula-built--v0150) · [Session Flow](#session-flow--natural-language-built--v070v091) |
+| **How features are gated** | [Trust Percentage & Feature Thresholds](#trust-percentage--feature-thresholds) *(superseded)* · **[Trance Depth as the Feature Gate](#-design-change-trance-depth-as-the-feature-gate--phase-1-built-v0500)** |
+| **Safety and consent** | [Control & Reset](#control--reset) · [Hard Limits](#hard-limits) · [Meta-Consent Layer](#meta-consent-layer-ooc-vs-ic) · [Gamification](#gamification-fighting-off-suggestions) · [Clothing & Bondage Consent](#clothing--bondage-consent-interfaces) |
+| **The features themselves** | [Feature List](#feature-list) · [Triggers](#triggers) · [Carry-Forward](#carry-forward-detail--built-v0280v0290) · [Perception / Illusion](#perception--illusion-features-detail) · [Word-Level Control](#word-level-control-detail--approved-to-spec-2026-09-10) |
+| **Building it** | [Technical Architecture](#technical-architecture-notes) · [Prior Art](#prior-art-lscgs-hypnomodule) · [Development Stages](#development-stages) · [Player Settings](#player-settings) |
+| **What is broken** | [Known Bugs](#known-bugs) |
+| **What to test next** | [Needs Testing](#needs-testing) |
+| **Before testers** | [Pre-Release Checklist](#pre-release-checklist--early-tester-build) |
+| **Undecided** | [Open Questions](#open-questions) |
+| **History** | [Appendix: Version History](#appendix-version-history) |
 
 ---
 
@@ -5440,7 +5443,10 @@ Only overrides are stored, so retuning a default still moves everyone who has no
 
 ---
 
-## Needs Testing — as of v0.64.0
+## Needs Testing
+
+*Last reconciled against the code 2026-09-18, at v0.77.0. Two items are open: 8 (decay in play)
+and 10 (the Data tab's Reset button). Everything else on this list is struck through.*
 
 Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
 scenario was rewritten to be capable of failing. Item 9, the Known Bug #4 fix, was confirmed by DW on
@@ -5626,7 +5632,12 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ### Hard blockers (ship nothing without these)
 
-- [ ] **Flip `TESTING_MODE` to `false` in `src/log.ts`** — currently `true`. It gates `/hypno triggers full`, `/hypno trance`, `/hypno depth`, `/hypno agetrigger` and `/bot`, and removes the "TESTING MODE is ON" log line on load. One-line change, still open as of v0.64.1. **Do it last:** flipping it disables the test harness, so every other item on this list has to be finished and verified first.
+- [x] ~~**Flip `TESTING_MODE` to `false` in `src/log.ts`**~~ — **closed v0.73.0: there is no flag
+  left to flip.** `grep -rn TESTING_MODE src/` returns nothing. `isTestingMode()` in `src/log.ts`
+  now reads the room name at runtime and returns true only in **Hypno Testing**, so the shipped
+  build is safe by default and there is no release step to forget. This item sat on the list as
+  the number-one hard blocker for thirteen releases after it stopped being true; that is what the
+  reconciliation pass on 2026-09-18 was for.
 
   - ~~**`test/revoke.mjs` does not survive the flip**~~ — **fixed v0.64.1; the flip no longer
     breaks the suites.** Its checks stand their trance up with `forceTrance`, which correctly
@@ -5638,7 +5649,12 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
     in the bundler.** `build-test.mjs` now forces `TESTING_MODE` true for the test bundles only, so
     the suites test the logic and this flag stays purely a release concern. Re-verify when you do
     flip it: the suites should stay green, and `dist/` should still carry `TESTING_MODE = false`.
-- [ ] **Install and usage documentation** — testers need: how to install the userscript, what to enable first, what commands exist, what the other person needs. A short README or wiki page. The help screen (`?` button) covers in-game commands but not setup.
+- [x] ~~**Install and usage documentation**~~ — **done.** `wiki/` is twelve pages covering install,
+  first session, commands, settings, consent and troubleshooting; `wiki/Getting-Started.md` carries
+  the userscript-manager steps, the install link and the "does the other person need it" answer.
+  The first-run notice in `src/welcome.ts` (v0.74.3) and the setup wizard (v0.71.0) cover the same
+  ground in-game. **Keep the wiki in step** — it is a second surface and it will drift; see the
+  Todo item of that name.
 
 ### Strongly recommended (testers can survive without, but experience is rough)
 
@@ -5662,9 +5678,15 @@ Items required before handing the add-on to external testers. Ordered: hard bloc
 
 ---
 
-## Priority Work Session — 2026-09-01
+## Priority Work Session — 2026-09-01 (closed)
 
-The following items are the current implementation priority, in order. Pick up from the top and work down.
+> **Every item here is done.** This is kept for the reasoning, not as a list of work: item 5 is the
+> only place the disconnect-recovery design is written down in full — why the bug was the opposite
+> of the one described, why the state lives in its own `localStorage` key rather than near
+> `ExtensionSettings`, and why the illusion rebuilds the original garments instead of re-freezing.
+> **The live list is [Development Stages > Todo](#development-stages).** Do not pick work up from here.
+
+The items below were the implementation priority as of 2026-09-01, in order.
 
 1. ~~**`INDUCTION_WINDOW_MS` → 60,000**~~ — **done v0.43.0.** It was in `session.ts`, not `log.ts`. Also matters more than it did: the RP bonus is earned in this window, and three substantive lines in ten seconds is typing speed rather than roleplay.
 
