@@ -1,52 +1,57 @@
 # Erotic Chat Hypnosis Suite (ECHS)
 
-A hypnosis add-on for Bondage Club, built around one idea: **how far someone can take you depends on
-how well you actually know them.**
+A conversational hypnosis add-on for [Bondage Club](https://www.bondageprojects.com/club_game/), built around a simple principle: **how far someone can take you depends on how well you actually know them.**
 
-*Renamed from "BC Hypnosis Add-on" in v0.78.0. Nothing but the name changed — the install link, your
-settings and `/hypno` all still work. ECHS is not HSC (Hypnotics Slave Club); they are different
-projects.*
+*Formerly "BC Hypnosis Add-on". The repository, install link, and your saved settings are completely unchanged — only the display name in-game. ECHS is an independent project and is not affiliated with HSC (Hypnotic Slave Club).*
 
-One player acts as hypnotist. They ask; you privately choose to agree, ignore or resist; and if the
-induction lands you go under to a depth the roll decided. From there they work in ordinary
-speech — *"Missy, you cannot move"* — and your own client decides, every single time, whether that
-is something you have agreed to. Suggestions can be made to survive waking, or planted as trigger
-words that fire days later.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Some features (like parts of interpersonal touch) are still being wired up, balance is being tweaked, and mechanics or settings might shift between releases. If you run into odd behavior or broken edges, drop an issue on GitHub.
 
-Nothing is enabled until you enable it. `/hypno safeword` always works.
+---
 
-## Start here
+One player acts as hypnotist. They try an induction; you privately choose to agree, ignore, or resist; and if the trance lands, you slip under to a depth decided by your shared dynamic and the roll. 
 
-| | |
-|---|---|
-| **[Getting Started](Getting-Started)** | Install, first run, and what to switch on |
-| **[What to Say](What-to-Say)** | **What you actually type.** Every phrase the parser knows — keep this open while you play |
-| **[A Sample Session](Sample-Session)** | A worked example, start to finish: the real lines, and what each side sees |
-| **[Consent and Safety](Consent-and-Safety)** | What the add-on does to you, and every way out |
+From there, suggestions work through ordinary chat and whispers — *"Missy, you cannot move"*, *"Missy, touch your breasts"* — and your own client checks every single line against your saved permissions in real-time. Suggestions can be set to outlive the trance, or planted as trigger words that fire whenever spoken.
 
-## The features
+**Nothing is turned on until you enable it. `/echs safeword` (and legacy `/hypno safeword`) always works.**
+
+---
+
+## Start Here
 
 | | |
 |---|---|
-| **[Commanded Activities](Commanded-Activities)** | Being made to act, not just stopped — the verb grammar |
-| **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, and suggestions that survive waking |
-| **[Depth and Trust](Depth-and-Trust)** | Why a stranger can't reach far, and how that changes |
-| **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction goes, and why it often doesn't the first time |
+| **[Getting Started](Getting-Started)** | Install, first run, and what settings to switch on. |
+| **[What to Say](What-to-Say)** | **What you actually type.** The phrases and syntax the parser recognizes — keep this open while playing. |
+| **[A Sample Session](Sample-Session)** | A worked walkthrough: real dialogue lines, roll checks, and what each player sees. |
+| **[Consent and Safety](Consent-and-Safety)** | How client-side checks protect you, and every way out. |
+
+---
+
+## The Features
+
+| | |
+|---|---|
+| **[Commanded Activities](Commanded-Activities)** | Being made to act rather than just freeze — autonomous movement and touch. |
+| **[Sensory Modulation](Sensory-Modulation)** | Dimming awareness through progressive blindness, muffled hearing, and silence. |
+| **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, and suggestions that survive waking. |
+| **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
+| **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |
+
+---
 
 ## Reference
 
 | | |
 |---|---|
-| **[Settings Reference](Settings-Reference)** | Every tab and what each control does |
-| **[Commands](Commands)** | The slash commands |
-| **[Troubleshooting](Troubleshooting)** | "Nothing happened" and other common problems |
+| **[Settings Reference](Settings-Reference)** | Every preference tab and what each toggle actually does. |
+| **[Commands](Commands)** | Slash command reference (`/echs` and `/hypno`). |
+| **[Troubleshooting](Troubleshooting)** | "Nothing happened" and how to sort out common snags. |
 
-## A note on this wiki
+---
 
-This wiki and the add-on's in-game help (the **`?`** button, or `/hypno help`) cover the same ground
-and are written separately on purpose — some people would rather read ahead, some would rather look
-things up mid-scene. The in-game help assumes you are already running the add-on; these pages do
-not. Where they disagree, **the in-game help is generated from the code and is more likely to be
-current.**
+## A Note on This Wiki
 
-Written against **v0.74.6**. The add-on is pre-alpha; things described here can change.
+This wiki and the in-game help (the **`?`** button in your settings, or `/echs help`) cover the exact same ground. The wiki is great for browsing out-of-game, while the in-game help is built to check quickly mid-scene. 
+
+Because ECHS is moving fast in alpha, whenever the two disagree, **the in-game help is bundled right into the running code and is more likely to be current.**
