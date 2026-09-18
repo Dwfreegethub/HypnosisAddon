@@ -62,6 +62,13 @@ skip the permission check, because revoking should never be harder than applying
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding** |
 | *"stand"* · *"get up"* · *"on your feet"* | Posture Control · **Yielding** |
 | *"you can move again"* · *"your body is your own"* | — release |
+| *"follow me"* · *"stay close"* · *"heel"* | Follow / Leash · **Entranced** |
+| *"you can leave"* · *"you don't have to follow me"* · *"you are free to go"* | — release |
+
+**Follow / Leash** uses Bondage Club's own leash. The phrase makes you *leashable on command* — the
+hypnotist then takes the leash with the ordinary **Hold Leash** button and BC pulls you along when
+they change rooms, and you cannot walk away while held. It needs your BC leashing to be allowed, and
+only your hypnotist can pick the leash up while you are under it.
 
 ### Speech
 

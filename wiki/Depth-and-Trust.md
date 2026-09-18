@@ -28,7 +28,7 @@ or down for yourself. Deeper is a consent setting, not a difficulty.
 **Yielding** — Cannot move · Cannot speak · Posture · Cannot reach the wardrobe · Cannot touch
 yourself · Made to act on yourself
 
-**Entranced** — Undressing · Arousal & orgasm
+**Entranced** — Follow / leash · Undressing · Arousal & orgasm
 
 **Deep** — Clothing illusion\* · Planting triggers\* · Suggestions that outlive the trance\*
 

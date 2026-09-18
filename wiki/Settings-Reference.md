@@ -17,6 +17,7 @@ is what the safeword is for.
 | **Movement Restriction** | *"you cannot move"* |
 | **Clothing Restriction** | Keeps you out of the wardrobe |
 | **Posture Control** | Kneel and stand |
+| **Follow / Leash** | *"follow me"* / *"stay close"* — a compulsion to stay at the hypnotist's side, including across room changes. Uses Bondage Club's own leash: while it is on, the hypnotist leads you with the ordinary **Hold Leash** button and you cannot walk away. Needs your BC leashing to be allowed |
 | **Speech Restriction** | *"you cannot speak"* — room chat only; slash commands always work |
 | **Self-Touch Control** | Being **stopped** from touching yourself |
 | **Made to Act (touch yourself on command)** | Being **made** to. See [Commanded Activities](Commanded-Activities) |
