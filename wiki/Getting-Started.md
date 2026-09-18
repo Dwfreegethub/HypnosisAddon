@@ -1,87 +1,86 @@
 # Getting Started
 
+> **Alpha Notice**  
+> ECHS is in active alpha development. Some features and UI elements are still settling into place. If anything looks off or doesn't react as expected, check that your permissions are enabled first, and report unexpected behavior on the GitHub issue tracker.
+
+---
+
 ## Installing
 
-1. Install a userscript manager: **[Tampermonkey](https://www.tampermonkey.net/)** or
-   **[Violentmonkey](https://violentmonkey.github.io/)**.
-2. Open **[the install link](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js)**
-   and accept the prompt your userscript manager shows.
-3. Reload Bondage Club and log in.
-4. Open **Preferences > Extensions > ECHS Hypnosis** and run the wizard, or set your own
-   permissions by hand.
+1. Install a userscript manager: **[Tampermonkey](https://www.tampermonkey.net/)** or **[Violentmonkey](https://violentmonkey.github.io/)**.
+2. Open **[the install link](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js)** and accept the prompt shown by your userscript manager.
+3. Reload Bondage Club and log into your account.
+4. Open **Preferences → Extensions → ECHS Hypnosis** to run the setup wizard or tweak your settings by hand.
 
-**Updates are automatic.** The script carries an update URL, so your userscript manager will pull new
-versions on its own schedule — you do not need to reinstall.
+**Updates are automatic.** The script includes an update URL, so your userscript manager checks for and pulls new versions on its own schedule — you do not need to reinstall to stay updated.
 
-[FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/), which manages several BC add-ons together,
-is intended as an install route but is not arranged yet.
+*(Note: Listing on FUSAM is planned for a future release, but is not yet arranged.)*
 
-**Does the other person need it?** For a real session, yes — both of you. Two things work on you
-without the other player having anything installed: **trigger words**, because the matching happens
-entirely on your own client and all the speaker has to do is say the word; and any effect somebody
-already applied to you before they left.
+**Does the other player need it installed?** For a full, interactive session, yes — both of you need the script running. However, two things will work on you even if your partner has nothing installed:
+* **Trigger words:** Matching happens entirely inside your own local client. As long as someone says the word in chat, your script picks it up.
+* **Lingering effects:** Any effect or carried suggestion someone applied to you before they left the room will continue running until it expires or is released.
 
-## First run
+---
 
-The first time you load in, two lines appear in your chat log:
+## First Run
 
-```
-[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
-[Your reactions are visible to the room by default; Trance Defaults turns that off.]
-```
+The first time you load into a room after installing, two status lines will appear in your chat log:
 
-They appear **once per install** and never again. If you see them, the add-on is working — it just
-has nothing switched on yet.
+`[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Check your settings to set up.]`  
+`[Your reactions are visible to the room by default; Trance Defaults turns that off.]`
 
-You will see a **spiral icon** in the top bar. It appears for everyone running the add-on, and it
-appears on other players' profiles too — it has no way of knowing who else has the add-on installed
-until it asks. You can also reach the settings through **Preferences → Extensions → ECHS
-Hypnosis**.
+These appear **once per install** to let you know the script is alive and running safely in the background. You will also see a small black status box in the lower-right corner of your screen showing the add-on name (**ECHS**) and current build version.
 
-Click it and a **setup wizard** runs. You can either take one of four presets:
+### Configuring Your Settings
+To configure your permissions or run the setup wizard, open your native menu:
+* Navigate to **Preferences → Extensions → ECHS Hypnosis**.
 
-- **Hypnotist only** — you want to do this to other people, not have it done to you
-- **Light / safe** — the shallow, reversible things
-- **Balanced** — a reasonable middle
-- **Extreme** — everything on, easiest to reach
+Here, you can choose one of four starting presets:
+* **Hypnotist only** — you want to guide or induce others without being hypnotized yourself.
+* **Light / safe** — gentle, shallow, and easily reversible effects only.
+* **Balanced** — a solid middle ground for structured play.
+* **Extreme** — everything turned on, with lower resistance thresholds.
 
-…or answer five short questions instead, which walk you through which groups of features other
-people may use on you and how easily they can reach them.
+Alternatively, you can step through five short questions to select exactly which feature categories others are allowed to touch and how much trust they need to reach them. You can re-run the wizard or adjust individual sliders manually anytime outside of an active trance.
 
-You can re-run it any time from the **Setup** button in the top bar, and change anything by hand
-afterwards. The wizard never appears in the middle of a session, because it changes consent settings
-and those are locked while someone has a trance on you.
+### Initiating Hypnosis via Profiles
+Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 
 
-## If nothing seems to be happening
+Clicking that spiral sends a session induction request directly to that player. (You can also initiate sessions via chat commands).
 
-**That is almost certainly correct behaviour.** Every permission on a fresh install is off,
-including the master switch. Until you go through setup, the add-on genuinely does nothing at all.
+---
 
-This is the single most common confusion, and it is deliberate — the alternative is an add-on that
-starts doing things to you before you have said what you want.
+## If Nothing Seems to Be Happening
 
-## What to switch on first
+**That is completely normal.** On a fresh install, every single permission begins switched off, including the master switch. Until you complete the wizard or enable modules by hand, the add-on does nothing at all.
 
-If you want a sense of it without committing to much, the shallow session-scoped things are the
-place to start — they end when the trance ends and nothing survives waking:
+This is the most common point of confusion for new players, but it is intentional — an add-on shouldn't start altering your game client until you have explicitly decided what you want enabled.
 
-- **Movement Restriction** — *"you cannot move"*
-- **Speech Restriction** — *"you cannot speak"*
-- **Posture Control** — kneel and stand
-- **Clothing Restriction** — keeps you out of the wardrobe
+---
 
-Leave the **Clothing Illusion**, **Triggers** and **Carry-Forward** off until you have read
-[Consent and Safety](Consent-and-Safety). Those are the three that either outlive the session or
-deliberately mislead you, and they are gated harder for that reason.
+## What to Switch on First
 
-## Finding help later
+If you want to get a feel for how sessions work without diving into deep changes, starting with shallow, session-scoped permissions is best. These clear out automatically the moment a trance breaks, leaving nothing behind:
 
-- The **`?`** button on the settings panel opens the in-game guide.
-- **`/hypno help`** opens the same thing from the chat box.
-- **`/hypno`** on its own prints a short menu of what you can type.
+* **Movement Restriction** — *"you cannot move"* (freezes)
+* **Speech Restriction** — *"you cannot speak"* (mutes)
+* **Posture Control** — standing and kneeling commands
+* **Clothing Restriction** — prevents wardrobe access during trance
 
-## Next
+It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**, and **Carry-Forward** off until you have skimmed **[Consent and Safety](Consent-and-Safety)**. Those features either outlive the session, alter your visual perception, or mislead your client, and they carry stricter safeguards for that reason.
 
-→ **[A Sample Session](Sample-Session)** — a worked example, start to finish, with the actual lines.
-→ **[What to Say](What-to-Say)** — every phrase the parser knows. Keep this one open while you play.
-→ **[Consent and Safety](Consent-and-Safety)** — worth reading before you turn much on.
+---
+
+## Finding Help Later
+
+* Click the **`?`** button on the ECHS settings panel to open the built-in guide.
+* Type **`/echs help`** (or `/hypno help`) in chat to open the manual directly from your text box.
+* Type **`/echs`** (or `/hypno`) on its own to print a quick cheat sheet of commands in chat.
+
+---
+
+## Next Steps
+
+* → **[A Sample Session](Sample-Session)** — A walkthrough of a real session from start to finish.
+* → **[What to Say](What-to-Say)** — The full vocabulary and sentence structures recognized by the parser. Keep this open during a scene!
+* → **[Consent and Safety](Consent-and-Safety)** — Essential reading on client boundaries and emergency exits before turning on deeper modules.
