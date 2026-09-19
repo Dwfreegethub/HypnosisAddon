@@ -16,6 +16,41 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-19 (v0.78.1) — the add-on never loaded on the Asia server
+
+**Why:** DW reported that players coming in from the Asia server got nothing at all — no spiral
+icon, no loaded banner, no console line. That is the exact signature the trap index already
+records for this one cause: BC is served from several hosts, the `==UserScript==` block's `@match`
+list named only two of them, and a userscript whose `@match` does not match **fails completely
+silently**. There is no error to find because the script is never injected. For those players the
+add-on was not broken, it was absent.
+
+**What changed:** two lines in `meta.txt`, `*://*.bondage-asia.com/*` and
+`*://bondage-asia.com/*`, alongside the elementfx and Europe entries.
+
+That is the entire fix. It was worth checking that it *was* the entire fix, so every other place
+the code could have made a host assumption was searched: there is no runtime hostname or origin
+check anywhere in `src/` — the v0.73.0 testing gate keys on the chat **room** name, not the host —
+and no absolute BC URL is built anywhere. The host appears in exactly one place that decides
+anything, which is the metadata block.
+
+**One consequence worth knowing, and it is already handled.** `localStorage` is per-origin, so the
+Asia mirror is a third separate origin: a player whose settings were saved on elementfx has no
+local backup copy when they arrive from Asia. Their settings still come back, because the account
+blob in `Player.ExtensionSettings` is the authoritative store and `localStorage` is only its
+offline mirror — and `loadSettings()` in `src/storage.ts` already re-reads once the real `Player`
+lands after login, specifically so an early read of an empty `localStorage` cannot be cached and
+then written back over good account data. That path was written for "a different browser or
+cleared site data"; a different BC host is the same case, and the comment there now says so.
+
+**Not verified from here:** that `bondage-asia.com` is the hostname those players are actually on.
+The domain resolves and serves, and its root is the same placeholder page `bondage-europe.com`
+serves, which is good evidence it is the same kind of mirror — but this session cannot reach the
+deployed BC client to confirm the game is served from it, and DW's report named the host without a
+suffix. If players still see nothing after this, the hostname is the first thing to re-check.
+
+---
+
 ### Changed 2026-09-18 (v0.78.0) — Renamed to Erotic Chat Hypnosis Suite (ECHS)
 
 **Why:** players were confusing this add-on with an unrelated hypnosis project abbreviated HSC

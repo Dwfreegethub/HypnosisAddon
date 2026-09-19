@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.78.0
+// @version      0.78.1
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -20,12 +20,17 @@
 // @downloadURL  https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // @updateURL    https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // Every host BC is served from needs its own @match or the script simply never runs
-// there — no error, it just isn't loaded. `*.host` also covers the bare domain.
+// there — no error, it just isn't loaded. `*.host` also covers the bare domain; the bare
+// form is listed anyway, belt-and-braces, since a silent miss is the worst failure here.
 // bondageprojects.com was checked and does not serve the game, so it isn't listed.
+// Each regional mirror is a separate origin, so a player switching hosts loads settings from
+// their BC account rather than localStorage — see loadSettings() in src/storage.ts.
 // @match        *://*.bondageprojects.elementfx.com/*
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
+// @match        *://*.bondage-asia.com/*
+// @match        *://bondage-asia.com/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -1804,7 +1809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.78.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.78.1"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -8401,7 +8406,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.78.0"} loaded`;
+    el.textContent = `ECHS v${"0.78.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8424,13 +8429,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.78.0"})`);
+  log(`script loaded (v${"0.78.1"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.78.0",
+      version: "0.78.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
