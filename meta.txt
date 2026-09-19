@@ -20,12 +20,17 @@
 // @downloadURL  https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // @updateURL    https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 // Every host BC is served from needs its own @match or the script simply never runs
-// there — no error, it just isn't loaded. `*.host` also covers the bare domain.
+// there — no error, it just isn't loaded. `*.host` also covers the bare domain; the bare
+// form is listed anyway, belt-and-braces, since a silent miss is the worst failure here.
 // bondageprojects.com was checked and does not serve the game, so it isn't listed.
+// Each regional mirror is a separate origin, so a player switching hosts loads settings from
+// their BC account rather than localStorage — see loadSettings() in src/storage.ts.
 // @match        *://*.bondageprojects.elementfx.com/*
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
+// @match        *://*.bondage-asia.com/*
+// @match        *://bondage-asia.com/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==

@@ -61,8 +61,10 @@ Install the built script in Tampermonkey from a `file://` URL pointing at
 refresh the BC tab after each rebuild to pick up changes. With `npm run watch` running, that is
 save → refresh → test.
 
-`@match` targets both `*://*.bondageprojects.elementfx.com/*` and `*://*.bondage-europe.com/*` —
-BC is served from more than one host and a non-matching `@match` fails completely silently.
+`@match` targets `*://*.bondageprojects.elementfx.com/*`, `*://*.bondage-europe.com/*` and
+`*://*.bondage-asia.com/*` (each with a bare-domain twin) — BC is served from more than one
+host and a non-matching `@match` fails completely silently. Adding a newly-appeared mirror is
+the whole fix; there is no runtime host check anywhere in `src/` to update alongside it.
 
 **Testing affordances are gated by the room, not a build flag.** `isTestingMode()` in `src/log.ts`
 returns true only in a chat room named **"Hypno testing"** (case-insensitive), and is off everywhere
@@ -444,7 +446,7 @@ Full detail on each is inline above where relevant; this is just an index so not
 - **BC's message pipeline has documented insertion points — use them instead of hooking `ChatRoomMessage`.** `ChatRoomRegisterMessageHandler({Priority, Callback})` runs handlers in priority order; returning `true` stops processing so the message never renders. Landmarks: **210** arousal processing, **300**/**310** BC's own hiders, **500** push-to-chat. Hooking `ChatRoomMessage` intervenes before all of it, which kills side effects you may want to keep.
 - **`ActivityRun` (Activity.js) is the single entry point for an activity** — it applies arousal, runs the actor's self-effect, then sends the chat message. Skip it and none of the three happen. It runs on the *actor's* client, so hooking it can only govern what the player does themselves.
 - **Never erase an anti-aliased stroke.** Canvas strokes bleed sub-pixel past their nominal bounds, so covering one with a rect on integer coordinates leaves a visible hairline. Draw borders as filled `DrawRect` segments and simply don't draw the part you don't want.
-- **A userscript with a non-matching `@match` fails completely silently.** BC is served from more than one host (`bondageprojects.elementfx.com`, `bondage-europe.com`); if the addon appears totally dead — no indicator, no console line — check the `@match` list first.
+- **A userscript with a non-matching `@match` fails completely silently.** BC is served from more than one host (`bondageprojects.elementfx.com`, `bondage-europe.com`, `bondage-asia.com`); if the addon appears totally dead — no indicator, no console line — check the `@match` list first.
 - **Overlapping hit regions need an explicit active-view check.** Tabs share coordinates across their content; without gating clicks to the visible tab, one click toggles a row in *every* tab, mostly invisibly.
 - **`Player.Appearance` is what syncs — never write a lie into it.** `ServerAppearanceBundle` reads that array for every appearance sync, so a client-side illusion written there reaches the whole room, which is the inverse of the feature. Draw from a separate local-only `CharacterType.SIMPLE` character instead, and hook `DrawCharacter` (the single funnel every screen uses) to substitute it.
 - **Asset groups classify themselves.** `AssetGroup.Clothing === true` plus `Category === "Item"` is exactly "everything worn"; the remainder is the body, face, hair and expressions. Reading those flags beats a hand-written group list, which goes stale the moment BC adds content.
