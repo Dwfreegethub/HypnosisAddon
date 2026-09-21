@@ -16,6 +16,50 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-21 (v0.79.1) — a line break between two subjects' orders
+
+**Why:** v0.79.0 added addressee scoping and DW tested it in play the same night. It still failed,
+on both lines they tried, and the transcript is worth keeping:
+
+```
+Nova: Missy, kneel
+Natalia, cum for me
+(Missy screams silently and rocks her hips, getting a wonderful orgasm.)
+
+Nova: Natalia, stand
+Missy cum for me
+(Natalia closes her eyes and lets herself go, getting a lovely orgasm.)
+```
+
+Each of those is **one chat message with a newline in it** — one subject per line, which is the
+obvious way to type a combo command and not a shape v0.79.0's suite ever tried. `CLAUSE_SPLIT` knew
+about commas, full stops and "and", but not about `\n`. So "kneel" and "Natalia" stayed welded into
+a single clause, the second name never landed in a vocative position, `namedOther` came back false,
+and the line fell through **unscoped** — straight back to the whole-line match, where `orgasm-force`
+at table index 7 beats `kneel` at 31 and `stand` at 30. Both transcripts reproduce exactly against
+v0.79.0 and are now pinned in `test/addressee.mjs` verbatim.
+
+Note what the outcomes prove: only *one* subject reacted each time. Under v0.78.1 both would have.
+So the v0.79.0 scoping was working on the client that was named second — the fix was real, just
+half-blind.
+
+**What changed, two things:**
+
+- **`\n` and `\r` are clause boundaries.** This alone fixes both of DW's lines.
+- **A name inside a clause can start a new address**, not only a name at its head. DW's second
+  line written out flat — "Natalia, stand Missy cum for me" — has no punctuation at all between the
+  two orders, so the split has to come off the name itself.
+
+That second one is the risky half, because it is also what could cut a one-subject line in two. The
+guard is `OBJECT_MARKERS`: a name preceded by a preposition or a comparative is being talked *about*,
+not addressed. "Missy, look at Ella and you cannot move" and "Missy, you are prettier than Ella, you
+cannot move" both stay one order for Missy; "Missy, kneel Ella, stand" is two. Nothing here
+understands either sentence — the whole decision is the word in front of the name.
+
+**Verified:** `tsc --noEmit` clean, all suites green, `test/addressee.mjs` up from 30 checks to 47.
+The four guard cases were confirmed to fail with `OBJECT_MARKERS` emptied before being kept, per the
+rule that a step which cannot fail is not testing anything. Still not run live.
+
 ### Fixed 2026-09-21 (v0.79.0) — two subjects in one line no longer collide
 
 **Why:** DW reported that giving commands to two subjects in one line — "Missy, cum. Ella, kneel."
