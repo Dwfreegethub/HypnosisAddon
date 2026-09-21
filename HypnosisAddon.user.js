@@ -29,6 +29,7 @@
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
+// @match        *://bondageeurope.com/*
 // @match        *://*.bondage-asia.com/*
 // @match        *://bondage-asia.com/*
 // @grant        none
