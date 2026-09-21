@@ -16,6 +16,57 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-21 (v0.79.0) — two subjects in one line no longer collide
+
+**Why:** DW reported that giving commands to two subjects in one line — "Missy, cum. Ella, kneel."
+— made one command overwrite the other, or made both subjects do the same thing. It did, and the
+cause was structural rather than a bad pattern. The name gate asked only *"is my name anywhere in
+this line"*, and `matchSuggestion()` then read the **whole line**. So both clients passed the gate,
+both handed the entire line to the matcher, and the matcher returned whichever entry sits earlier
+in `SUGGESTIONS` — for that example, `orgasm-force` at index 7 beats `kneel` at index 31, so both
+subjects came for the hypnotist and the kneel was never seen by anyone. Reproduced directly against
+`voice.ts`: for `"Missy, you cannot move. Ella, you cannot speak."` both clients returned
+`movement-block`.
+
+**What changed:** `scopeToAddressee()` in `voice.ts` cuts the line down to the clauses addressed to
+*this* subject before any matcher reads it, and `handleSpokenLine()` hands every downstream handler
+that scoped text instead of the raw line. The subject's own name is put back on the front of it, so
+all eight existing name gates keep working untouched.
+
+The vocative names come from `ChatRoomCharacter` — BC's own room roster, read on the **subject's**
+client. Nothing about who the hypnotist meant is taken from the hypnotist's client, so rule 1 holds.
+
+Deliberately conservative in three ways, because a misdirected "cum" is not a small error:
+
+- **Scoping only engages when the line names someone else in the room in vocative position.** A
+  one-subject line is handed back byte-for-byte, so every existing phrasing behaves exactly as it
+  did. The suite checks this on string identity, not on the matched id.
+- **A name in the middle of a clause is not an address.** "Missy, look at Ella and you cannot move"
+  is one command for Missy. Only a name at the head of a clause, or a clause that is nothing but
+  names, counts — which is how people actually type a vocative.
+- **Ambiguity is refused out loud, never guessed.** A clause that cannot be pinned to anybody while
+  several people are named, or a line that names us and leaves us nothing, produces no effect and
+  one line to the hypnotist saying to give each subject their own line (rule 5). That is what keeps
+  a room-mate whose name is an ordinary word — May, Rose, Grace — from silently eating a command:
+  the worst case is a refusal that can be read and retyped, not a command landing on the wrong
+  person.
+
+**Left alone on purpose:** trigger *firing* still reads the whole line. A trigger phrase is a
+keyword — it has never had a name gate, it fires from anyone the scope setting allows, and it works
+in ordinary conversation — so scoping it would quietly add a name requirement that was never part
+of the contract. Whether a shared phrase should still fire for a subject the line did not address
+is a real question, and a separate one.
+
+**Also still true:** a line can still only run **one** suggestion, for one subject or two. "Missy,
+kneel and do not speak" runs the kneel and drops the rest, exactly as before — `handleSpokenLine()`
+returns after the first handler that matches. Scoping makes per-subject multi-command possible but
+does not take it; that is a change to the pipeline's shape, not to the addressing.
+
+**Verified:** `tsc --noEmit` clean, all suites green, new `test/addressee.mjs` at 30 checks. Every
+case in it asserts what Missy gets **and** what Ella gets from the same line, because "they both got
+the same thing" is precisely the bug and a one-sided check cannot see it. Not run live — no
+two-client, two-subject session yet.
+
 ### Fixed 2026-09-19 (v0.78.1) — the add-on never loaded on the Asia server
 
 **Why:** DW reported that players coming in from the Asia server got nothing at all — no spiral

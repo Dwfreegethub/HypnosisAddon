@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.78.1
+// @version      0.79.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1809,7 +1809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.78.1"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.79.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -4781,6 +4781,87 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function playerOwnNames() {
     return [Player?.Name, Player?.Nickname].filter(Boolean);
   }
+  var VOCATIVE_FILLER = /* @__PURE__ */ new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
+  var CLAUSE_SPLIT = /[,;.!?:]+|\band\b|\bthen\b/i;
+  var bareWord = (w) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
+  function splitSegments(content, known) {
+    const isName = (w) => known.has(bareWord(w));
+    const isFiller = (w) => VOCATIVE_FILLER.has(bareWord(w));
+    return String(content ?? "").split(CLAUSE_SPLIT).map((s) => s.trim()).filter((s) => s.length > 0).map((seg) => {
+      const words = seg.split(/\s+/);
+      if (words.every((w) => isName(w) || isFiller(w)) && words.some(isName))
+        return { lead: words.filter(isName).map(bareWord), body: "" };
+      let i = 0;
+      while (i < words.length && isFiller(words[i])) i++;
+      const lead = [];
+      while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
+      if (lead.length) return { lead, body: words.slice(i).join(" ") };
+      return { lead: [], body: seg };
+    });
+  }
+  function scopeToAddressee(content, mine, others2) {
+    const clean = (list) => list.map((n) => bareWord(String(n ?? ""))).filter((n) => n.length > 0);
+    const mineSet = new Set(clean(mine));
+    const otherSet = new Set(clean(others2));
+    for (const n of mineSet) otherSet.delete(n);
+    if (mineSet.size === 0 || otherSet.size === 0) return { text: content, scoped: false, ambiguous: false };
+    const known = /* @__PURE__ */ new Set([...mineSet, ...otherSet]);
+    const segments = splitSegments(content, known);
+    const namedOther = segments.some((s) => s.lead.some((n) => otherSet.has(n)));
+    if (!namedOther) return { text: content, scoped: false, ambiguous: false };
+    let current = [];
+    let prevWasVocative = false;
+    let namedMe = false;
+    const owned = [];
+    let pending = [];
+    let justClaimed = [];
+    for (const seg of segments) {
+      if (seg.lead.some((n) => mineSet.has(n))) namedMe = true;
+      if (!seg.body) {
+        if (pending.length) {
+          for (const p of pending) p.owner = [...seg.lead];
+          justClaimed = pending;
+          pending = [];
+          current = [];
+        } else if (prevWasVocative && justClaimed.length) {
+          for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
+        } else {
+          current = prevWasVocative ? [...current, ...seg.lead] : seg.lead;
+          justClaimed = [];
+        }
+        prevWasVocative = true;
+        continue;
+      }
+      prevWasVocative = false;
+      justClaimed = [];
+      if (seg.lead.length) current = seg.lead;
+      const entry = { owner: [...current], body: seg.body };
+      owned.push(entry);
+      if (!current.length) pending.push(entry);
+    }
+    const floating = owned.some((o) => o.owner.length === 0);
+    const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
+    if (floating) return { text: null, scoped: true, ambiguous: true };
+    if (forMe.length) {
+      const spoken = mine.map(String).find((n) => mineSet.has(bareWord(n))) ?? "";
+      const body2 = forMe.map((o) => o.body).join(". ");
+      return { text: `${spoken}, ${body2}`.trim(), scoped: true, ambiguous: false };
+    }
+    if (namedMe) return { text: null, scoped: true, ambiguous: true };
+    return { text: null, scoped: true, ambiguous: false };
+  }
+  function otherRoomNames(speaker) {
+    const mine = new Set(playerOwnNames().map((n) => bareWord(n)));
+    const roster = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
+    const names = [];
+    for (const c of roster) {
+      if (!c || c.MemberNumber === Player?.MemberNumber || c.MemberNumber === speaker) continue;
+      for (const n of [c.Name, c.Nickname]) {
+        if (typeof n === "string" && n.trim() && !mine.has(bareWord(n))) names.push(n);
+      }
+    }
+    return names;
+  }
   function matchSuggestion(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
@@ -4866,9 +4947,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isTriggerSetupLine(sender, content) {
     if (!getFeatures().suppressTriggerSetup) return false;
     if (!isSessionActiveWith(sender)) return false;
-    if (parseTriggerControl(content)) return true;
+    const line = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender)).text;
+    if (line === null) return false;
+    if (parseTriggerControl(line)) return true;
     if (!isRecording()) return false;
-    return !!matchSuggestion(content) || !!matchBodyPartCommand(content) || !!matchActivityCommand(content);
+    return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
   function parseTriggerControl(content) {
     const text = normalize(content);
@@ -5458,16 +5541,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function handleSpokenLine(sender, content) {
-    if (handleTriggerControl(sender, content)) return;
-    if (handleCarryControl(sender, content)) return;
-    if (handleTriggerRelease(sender, content)) return;
-    if (handleReinforcement(sender, content)) return;
+    const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
+    const line = scope.text;
+    if (line !== null) {
+      if (handleTriggerControl(sender, line)) return;
+      if (handleCarryControl(sender, line)) return;
+      if (handleTriggerRelease(sender, line)) return;
+      if (handleReinforcement(sender, line)) return;
+    }
     if (handleTriggerFiring(sender, content)) return;
-    if (handleWakeLine(sender, content)) return;
-    if (handleWalkingTrance(sender, content)) return;
-    if (handleBodyPartLine(sender, content)) return;
-    if (handleActivityCommand(sender, content)) return;
-    const id = matchSuggestion(content);
+    if (line === null) {
+      if (scope.ambiguous) {
+        if (isSessionActiveWith(sender))
+          tellHypnotist(
+            sender,
+            "[command] That line named more than one person and it was not clear which part was meant for me. Give each subject their own line."
+          );
+        log(`ambiguous multi-subject line from ${sender} \u2014 refusing rather than guessing which part is ours`);
+      }
+      return;
+    }
+    if (handleWakeLine(sender, line)) return;
+    if (handleWalkingTrance(sender, line)) return;
+    if (handleBodyPartLine(sender, line)) return;
+    if (handleActivityCommand(sender, line)) return;
+    const id = matchSuggestion(line);
     if (!id) return;
     const suggestion = SUGGESTIONS.find((s) => s.id === id);
     if (!suggestion) return;
@@ -5476,7 +5574,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`heard "${id}" from ${sender} but no active session with them \u2014 ignoring`);
       return;
     }
-    if (!mentionsAnyName(content, playerOwnNames())) {
+    if (!mentionsAnyName(line, playerOwnNames())) {
       log(`heard "${id}" from ${sender} but they didn't say your name \u2014 ignoring`);
       return;
     }
@@ -5492,7 +5590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer(recorded);
       return;
     }
-    log(`matched suggestion "${id}" in: ${content}`);
+    log(`matched suggestion "${id}" in: ${line}`);
     const outcome = suggestion.run() || id;
     if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
     if (Array.isArray(suggestion.permission) && !suggestion.release) {
@@ -8406,7 +8504,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.78.1"} loaded`;
+    el.textContent = `ECHS v${"0.79.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8429,13 +8527,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.78.1"})`);
+  log(`script loaded (v${"0.79.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.78.1",
+      version: "0.79.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

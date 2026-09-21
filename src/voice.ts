@@ -945,6 +945,189 @@ export function playerOwnNames(): string[] {
 	return [Player?.Name, Player?.Nickname].filter(Boolean) as string[];
 }
 
+// --- Addressee scoping ---------------------------------------------------------------
+// The name gate above answers "is my name anywhere in this line". That was enough while a
+// hypnotist only ever worked on one person, and wrong the moment they worked on two: for
+// "Missy, cum. Ella, kneel." BOTH clients saw their own name, BOTH fed the WHOLE line to the
+// matcher, and the matcher returned whichever entry sits earlier in SUGGESTIONS — so both
+// subjects did the same thing and one of the two commands was simply lost. (DW, 2026-09-21.)
+//
+// The fix is to work out WHICH PART of the line is addressed to us before any matcher reads
+// it. Everything here runs on the SUBJECT's own client off the room roster, which the BC
+// server gives us directly — the hypnotist's client is not consulted and cannot assert who
+// they meant, so rule 1 is untouched.
+//
+// Deliberately conservative: scoping only engages when the line names SOMEONE ELSE IN THE
+// ROOM in vocative position. A line naming nobody but us is passed through byte-for-byte, so
+// every single-subject phrasing behaves exactly as it did before this existed.
+
+/** Words that can sit in front of a vocative without being part of the command. Kept short
+ * on purpose — a long list is a long list of ways to swallow a real word. */
+const VOCATIVE_FILLER = new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
+
+/** Clause boundaries. "and"/"then" are in here because "Missy kneel and Ella stand" is a
+ * perfectly ordinary way to type two commands, and a comma is not guaranteed. Splitting on
+ * them is safe because segments belonging to the same person are rejoined afterwards. */
+const CLAUSE_SPLIT = /[,;.!?:]+|\band\b|\bthen\b/i;
+
+const bareWord = (w: string) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
+
+interface Segment {
+	/** Names used vocatively at the head of this segment, or the whole of it. */
+	lead: string[];
+	/** What is left once the vocative is taken off. Empty for a name-only segment. */
+	body: string;
+}
+
+function splitSegments(content: string, known: Set<string>): Segment[] {
+	const isName = (w: string) => known.has(bareWord(w));
+	const isFiller = (w: string) => VOCATIVE_FILLER.has(bareWord(w));
+	return String(content ?? "")
+		.split(CLAUSE_SPLIT)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0)
+		.map((seg) => {
+			const words = seg.split(/\s+/);
+			// A segment that is nothing but names and filler is a pure vocative — "Missy," or
+			// "Missy and Ella" once the "and" has already split it in two.
+			if (words.every((w) => isName(w) || isFiller(w)) && words.some(isName))
+				return { lead: words.filter(isName).map(bareWord), body: "" };
+			let i = 0;
+			while (i < words.length && isFiller(words[i])) i++;
+			const lead: string[] = [];
+			while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
+			if (lead.length) return { lead, body: words.slice(i).join(" ") };
+			// A name at the END of a clause is deliberately NOT treated as a vocative here.
+			// "you cannot move Missy" is a real phrasing, but so is "look at Ella", and the
+			// two are indistinguishable at this level — reading the second as an address cuts
+			// a perfectly ordinary one-subject line in half. A trailing vocative that is
+			// actually set off the way people type one ("you cannot move, Missy") has already
+			// been split into its own segment by the comma, and the walk below picks it up
+			// there, where it is unambiguous.
+			return { lead: [], body: seg };
+		});
+}
+
+export interface AddresseeScope {
+	/** The part of the line meant for us, or null when none of it is. */
+	text: string | null;
+	/** True when the line named someone else and was actually cut down. */
+	scoped: boolean;
+	/** The line named several people and at least one clause could not be pinned to any of
+	 * them. Refuse and say so rather than guess — a misdirected "cum" is not a small error. */
+	ambiguous: boolean;
+}
+
+/** Cut `content` down to the clauses addressed to `mine`, given who else is in the room.
+ *
+ * Pure and name-injected, exactly like mentionsAnyName, so the whole decision table can be
+ * exercised without a room, a session or the BC globals.
+ *
+ * The rules, in order:
+ *   1. Nobody else named vocatively → the line is returned untouched. This is the common
+ *      case and it is bit-for-bit what happened before addressee scoping existed.
+ *   2. Someone else named, us not named at all → null. The line is not ours.
+ *   3. We own one or more clauses → those clauses, rejoined.
+ *   4. We were named but own nothing, or a clause floats with no addressee while several
+ *      people are named → ambiguous. The caller refuses and tells the hypnotist.
+ *
+ * Rule 4 is the one that matters. It is what stops a room-mate whose name is an ordinary
+ * word ("May", "Rose", "Grace") from silently eating a command meant for us: the worst case
+ * becomes a refusal the hypnotist can read and retype, never a command landing on the wrong
+ * person and never a command vanishing without a word. */
+export function scopeToAddressee(content: string, mine: string[], others: string[]): AddresseeScope {
+	const clean = (list: string[]) =>
+		list.map((n) => bareWord(String(n ?? ""))).filter((n) => n.length > 0);
+	const mineSet = new Set(clean(mine));
+	const otherSet = new Set(clean(others));
+	// Our own name always wins if somebody else in the room happens to share it — being
+	// over-inclusive about ourselves can only cause a line to be READ, never misdirected.
+	for (const n of mineSet) otherSet.delete(n);
+	// No usable name for ourselves means the name gate is already going to refuse; there is
+	// nothing to scope against, so hand the line back and let that gate do its job.
+	if (mineSet.size === 0 || otherSet.size === 0) return { text: content, scoped: false, ambiguous: false };
+
+	const known = new Set([...mineSet, ...otherSet]);
+	const segments = splitSegments(content, known);
+	const namedOther = segments.some((s) => s.lead.some((n) => otherSet.has(n)));
+	if (!namedOther) return { text: content, scoped: false, ambiguous: false };
+
+	let current: string[] = [];
+	let prevWasVocative = false;
+	let namedMe = false;
+	const owned: { owner: string[]; body: string }[] = [];
+	// Clauses seen before anyone was named, waiting for a vocative to close them — the
+	// "you cannot move, Missy" shape, where the address comes after the command.
+	let pending: { owner: string[]; body: string }[] = [];
+	// The run a post-positioned vocative just claimed, so "you cannot move, Missy and Ella"
+	// reaches both rather than only the first name.
+	let justClaimed: { owner: string[]; body: string }[] = [];
+	for (const seg of segments) {
+		if (seg.lead.some((n) => mineSet.has(n))) namedMe = true;
+		if (!seg.body) {
+			if (pending.length) {
+				// Post-positioned: it closes the clauses behind it rather than opening new
+				// ones, so `current` is cleared and the next clause waits for its own name.
+				for (const p of pending) p.owner = [...seg.lead];
+				justClaimed = pending;
+				pending = [];
+				current = [];
+			} else if (prevWasVocative && justClaimed.length) {
+				for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
+			} else {
+				// Consecutive pure vocatives accumulate, so "Missy and Ella, you cannot move"
+				// addresses both rather than only the last one named.
+				current = prevWasVocative ? [...current, ...seg.lead] : seg.lead;
+				justClaimed = [];
+			}
+			prevWasVocative = true;
+			continue;
+		}
+		prevWasVocative = false;
+		justClaimed = [];
+		if (seg.lead.length) current = seg.lead;
+		const entry = { owner: [...current], body: seg.body };
+		owned.push(entry);
+		if (!current.length) pending.push(entry);
+	}
+
+	const floating = owned.some((o) => o.owner.length === 0);
+	const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
+	if (floating) return { text: null, scoped: true, ambiguous: true };
+	if (forMe.length) {
+		// Put our name back on the front. Every handler downstream still runs the ordinary
+		// name gate on the text it is given, and stripping the vocative out would make all
+		// eight of them refuse a command that was addressed to us perfectly clearly. The
+		// original spelling is reused rather than the folded one, so a name carrying digits
+		// or punctuation still matches the gate's own normalisation.
+		const spoken = mine.map(String).find((n) => mineSet.has(bareWord(n))) ?? "";
+		const body = forMe.map((o) => o.body).join(". ");
+		return { text: `${spoken}, ${body}`.trim(), scoped: true, ambiguous: false };
+	}
+	// Named us and gave us nothing: either the hypnotist mistyped, or a room-mate's name
+	// swallowed our clause. Either way we refuse out loud instead of guessing.
+	if (namedMe) return { text: null, scoped: true, ambiguous: true };
+	return { text: null, scoped: true, ambiguous: false };
+}
+
+/** The names of everyone else in the room, for scopeToAddressee. Read off BC's own roster on
+ * OUR client — never off anything the speaker sent.
+ *
+ * `speaker` is excluded: people do not address themselves, and counting the hypnotist's own
+ * name as a vocative would only invent clause boundaries that were never meant. */
+export function otherRoomNames(speaker: number): string[] {
+	const mine = new Set(playerOwnNames().map((n) => bareWord(n)));
+	const roster = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
+	const names: string[] = [];
+	for (const c of roster as any[]) {
+		if (!c || c.MemberNumber === Player?.MemberNumber || c.MemberNumber === speaker) continue;
+		for (const n of [c.Name, c.Nickname]) {
+			if (typeof n === "string" && n.trim() && !mine.has(bareWord(n))) names.push(n);
+		}
+	}
+	return names;
+}
+
 /** The pure half of this module: text in, suggestion id out. Split from handleSpokenLine
  * so the pattern library can be exercised directly against a phrase list without needing a
  * live session, a chat room, or the BC globals. Deliberately does NOT apply the name gate —
@@ -1103,9 +1286,14 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	if (!getFeatures().suppressTriggerSetup) return false;
 	if (!isSessionActiveWith(sender)) return false;
 	// Covers the opening line too, which arrives before recording is technically running.
-	if (parseTriggerControl(content)) return true;
+	// Scoped the same way handleSpokenLine is, and for the same reason: this decides whether
+	// to HIDE the line from the subject, so reading another subject's clause here would hide a
+	// line that was never part of our setup at all.
+	const line = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender)).text;
+	if (line === null) return false;
+	if (parseTriggerControl(line)) return true;
 	if (!isRecording()) return false;
-	return !!matchSuggestion(content) || !!matchBodyPartCommand(content) || !!matchActivityCommand(content);
+	return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
 }
 
 export type TriggerControl = { kind: "start"; phrase: string } | { kind: "commit" } | { kind: "cancel" } | null;
@@ -1966,34 +2154,68 @@ function runVagueTouch(sender: number): boolean {
 }
 
 export function handleSpokenLine(sender: number, content: string): void {
-	// Trigger control first, so "remember trigger" can't be read as anything else.
-	if (handleTriggerControl(sender, content)) return;
-	// Then carry control, before anything that could read "this will stay with you" as a
-	// movement suggestion ("stay").
-	if (handleCarryControl(sender, content)) return;
-	// Then release-by-name, before firing — otherwise "you are released from frozen"
-	// contains "frozen" and would set the trigger off instead of clearing it.
-	if (handleTriggerRelease(sender, content)) return;
-	// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
-	// planted word and set the thing off in the middle of maintaining it.
-	if (handleReinforcement(sender, content)) return;
+	// ADDRESSEE SCOPING, BEFORE ANY MATCHER READS THE LINE. "Missy, cum. Ella, kneel." used to
+	// reach both clients whole: each saw its own name, each matched the whole line, and both
+	// ran whichever suggestion sits earlier in SUGGESTIONS — so one command was lost and the
+	// other landed on someone it was never meant for. `line` is the part addressed to us, with
+	// our own name put back on the front so every name gate below still works unchanged.
+	//
+	// It only ever differs from `content` when the line named SOMEONE ELSE IN THE ROOM in
+	// vocative position, so a one-subject scene sees byte-identical behaviour.
+	const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
+	const line = scope.text;
+
+	if (line !== null) {
+		// Trigger control first, so "remember trigger" can't be read as anything else.
+		if (handleTriggerControl(sender, line)) return;
+		// Then carry control, before anything that could read "this will stay with you" as a
+		// movement suggestion ("stay").
+		if (handleCarryControl(sender, line)) return;
+		// Then release-by-name, before firing — otherwise "you are released from frozen"
+		// contains "frozen" and would set the trigger off instead of clearing it.
+		if (handleTriggerRelease(sender, line)) return;
+		// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
+		// planted word and set the thing off in the middle of maintaining it.
+		if (handleReinforcement(sender, line)) return;
+	}
 	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
 	// trigger is that it works outside a trance.
+	//
+	// Firing reads the WHOLE line, not the scoped one, on purpose. A trigger phrase is a
+	// keyword: it has never had a name gate, it fires from anyone the scope setting allows,
+	// and it works in ordinary conversation. Cutting the line down first would add a name
+	// requirement that was never part of the contract. Whether a shared phrase SHOULD still
+	// fire for a subject the line didn't address is a separate question, left alone here.
 	if (handleTriggerFiring(sender, content)) return;
-	if (handleWakeLine(sender, content)) return;
+
+	if (line === null) {
+		if (scope.ambiguous) {
+			// Rule 5: a refusal says so. Only to someone actually running a session on us,
+			// though — otherwise every bystander who names two people gets nagged.
+			if (isSessionActiveWith(sender))
+				tellHypnotist(
+					sender,
+					"[command] That line named more than one person and it was not clear which part was meant for me. Give each subject their own line.",
+				);
+			log(`ambiguous multi-subject line from ${sender} — refusing rather than guessing which part is ours`);
+		}
+		return;
+	}
+
+	if (handleWakeLine(sender, line)) return;
 	// After wake (so "come back to me" wakes rather than walks) and before the matcher (so the
 	// leave phrases can pre-empt the movement suggestion while walking).
-	if (handleWalkingTrance(sender, content)) return;
-	if (handleBodyPartLine(sender, content)) return;
+	if (handleWalkingTrance(sender, line)) return;
+	if (handleBodyPartLine(sender, line)) return;
 	// Positive activity COMMANDS ("touch your breasts") after the block/release handler above,
 	// so "you cannot touch your breasts" stays a block, and before the table matcher, which does
 	// not know these verbs.
-	if (handleActivityCommand(sender, content)) return;
+	if (handleActivityCommand(sender, line)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched
 	// line with no session looked identical from the outside, which is exactly the case
 	// that needed telling apart.
-	const id = matchSuggestion(content);
+	const id = matchSuggestion(line);
 	if (!id) return;
 	const suggestion = SUGGESTIONS.find((s) => s.id === id);
 	if (!suggestion) return;
@@ -2016,7 +2238,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 		return;
 	}
 
-	if (!mentionsAnyName(content, playerOwnNames())) {
+	if (!mentionsAnyName(line, playerOwnNames())) {
 		log(`heard "${id}" from ${sender} but they didn't say your name — ignoring`);
 		return;
 	}
@@ -2048,7 +2270,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 		tellPlayer(recorded);
 		return;
 	}
-	log(`matched suggestion "${id}" in: ${content}`);
+	log(`matched suggestion "${id}" in: ${line}`);
 	// MATCHED, PERMITTED, DEEP ENOUGH — AND STILL DIDN'T HAPPEN is its own outcome, and until
 	// now the only outcome with nowhere to be reported. A refusal reaches the hypnotist and a
 	// success is visible; this third case narrated itself to the room and said nothing else.
