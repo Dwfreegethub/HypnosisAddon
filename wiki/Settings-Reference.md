@@ -1,98 +1,121 @@
 # Settings Reference
 
-Open with the **spiral icon** in the top bar, or through **Preferences → Extensions → ECHS
-Hypnosis**. Tabs run down the left edge.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Settings layouts, storage keys, and UI options are actively being polished. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-Everything here is a **permission** — "do I allow this to be done to me" — not a self-trigger.
-Ticking one never applies anything to you.
+---
 
-**Settings lock while a session is on you**, including during the induction. If you need out, that
-is what the safeword is for.
+Open settings via the **spiral icon on your player profile card**, or navigate to **Preferences → Extensions → ECHS Hypnosis**. Setting categories run down the left edge.
 
-## Permissions
+Everything in these menus represents a **permission** (*"Do I allow this to be done to me?"*) or a **depth threshold** (*"How deep must I be?"*). Ticking a toggle simply defines your boundaries — it never forces an effect on you on its own.
 
-| Setting | What it allows |
+*Note on Mid-Trance Editing:* By default, settings can be configured to lock during an active session (including during the induction window) to preserve immersion. If you ever need out, use your emergency safeword: `/echs safeword` (or `/hypno safeword`).
+
+---
+
+## 1. Permissions Tab
+
+| Setting | What It Allows |
 |---|---|
-| **Hypnosis Enabled** | The master switch and the hard floor. Turning it off releases the trance and every effect immediately, exactly as the safeword does. Turning it back on re-applies nothing |
-| **Movement Restriction** | *"you cannot move"* |
-| **Clothing Restriction** | Keeps you out of the wardrobe |
-| **Posture Control** | Kneel and stand |
-| **Follow / Leash** | *"follow me"* / *"stay close"* — a compulsion to stay at the hypnotist's side, including across room changes. Uses Bondage Club's own leash: while it is on, the hypnotist leads you with the ordinary **Hold Leash** button and you cannot walk away. Needs your BC leashing to be allowed |
-| **Speech Restriction** | *"you cannot speak"* — room chat only; slash commands always work |
-| **Self-Touch Control** | Being **stopped** from touching yourself |
-| **Made to Act (touch yourself on command)** | Being **made** to. See [Commanded Activities](Commanded-Activities) |
-| **Arousal & Orgasm** | Arousal level, denial, forced orgasm, and numbness |
-| **Clothing Illusion** | Your own screen shows clothes you are not wearing |
-| **Undressing** | *"take something off"* / *"strip"* |
-| **Lock settings while a session is on you** | Whether this tab locks mid-trance |
+| **Hypnosis Enabled** | The master toggle and absolute floor. Disabling this shuts down the add-on, immediately breaks active trances, and purges all effects (identical to the safeword). Re-enabling it later restores your toggles without reapplying old effects. |
+| **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*). |
+| **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
+| **Posture Control** | Allows kneeling and standing suggestions. |
+| **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the hypnotist's side across room transitions using Bondage Club's native leash system. Requires your native BC leashing permissions to be enabled. |
+| **Speech Restriction** | Allows verbal muting (*"you cannot speak"*). Affects standard room chat only; slash commands always bypass speech locks. |
+| **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
+| **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
+| **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
+| **Clothing Illusion** | Allows false reflections (your screen renders clothes you have been stripped of). |
+| **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
+| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active trance. |
 
-Also here: the **attempt limit** (two or three tries before a cooldown; two by default), and on a
-fresh install a one-click **starter set** offer that turns on five safe session-scoped basics and
-undoes in one click.
+*Additional Permissions Controls:*
+* **Induction Attempt Limit:** Choose between 2 or 3 attempts before triggering a 10-minute cooldown (default: 2).
+* **Starter Set:** A one-click preset on fresh installs that enables five safe, session-only basics, reversible with a single click.
 
-> **Triggers and carry-forward are *not* on this tab** — they live on the Triggers tab below.
+*(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab).*
 
-## Trance Defaults
+---
 
-What happens automatically when you go under, before anyone says anything.
+## 2. Trance Defaults Tab
 
-| Setting | Default | Meaning |
+Defines baseline states that engage automatically when an induction succeeds, before verbal suggestions are spoken.
+
+| Setting | Default | Effect |
 |---|---|---|
-| **Cannot Move** | on | The trance itself stops you moving |
-| **Cannot Speak** | on | …and speaking |
-| **Silence OOC too (text in parentheses)** | **off** | By default, *"(brb)"* still gets through while you are silenced. Tick this and it doesn't |
-| **Screen Fade** | on | A soft white veil over your own view while under. Thins to a hint during a walking trance |
-| **Clothes Look Unchanged** | off | Applies the clothing illusion automatically on entering trance |
-| **Others See Your Reactions** | **on** | The room-visible emotes. Turn this off and the room sees nothing |
-| **Release everything if you disconnect** | off | Drop all effects rather than serving out the remainder on reconnect |
+| **Cannot Move** | On | The trance itself immobilizes you upon going under. |
+| **Cannot Speak** | On | The trance silences standard room speech automatically. |
+| **Silence OOC Too** | Off | By default, single-parentheses OOC text `(like this)` passes through muted speech. Enabling this suppresses OOC chat while silenced. |
+| **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances. |
+| **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
+| **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
+| **Release on Disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
 
-## Awareness
+---
 
-What you can be made not to notice.
+## 3. Awareness Tab
 
-- **Clothing Changes** · **Bondage Changes** · **Touches / Activities** — three separate grants
-- **Trigger setup (hide what is planted)** — hides the whole planting exchange, so you never learn
-  your own trigger word
+Controls perceptual filtering — what your character can be hypnotically made not to notice:
 
-## Triggers
+* **Clothing Changes:** Suppresses chat notices when items of clothing are removed or replaced.
+* **Bondage Changes:** Suppresses chat notices when restraints are applied, locked, or removed.
+* **Touches / Activities:** Suppresses chat feedback from physical interactions.
+* **Trigger Setup (Hide Planted Phrases):** Hides the setup dialogue while a trigger is being installed, preventing you from consciously reading your own trigger phrase.
 
-- **Allow triggers to be planted in you** — the permission itself
-- **Suggestions that outlive the trance** — carry-forward
-- **You can fire your own triggers** — off by default
-- **Show trigger words when you list them** — off by default
-- **Duration** — how long a fired trigger holds you, or until released
-- **Decay rate** — Never · Very slowly · Slowly · Typical · Fast · Very fast. **Never** by default
-- **Scope** — the seven-rung ladder of who can fire your triggers. Default *Hypnotist only*
+---
 
-## Depth
+## 4. Triggers Tab
 
-- **Per-feature tier selector** — move any feature up or down the five-tier ladder for yourself
-- **Chemical reach** — whether the illusion and triggers may be reached by arousal rather than
-  earned trust. Carry-forward is drawn locked and cannot be opened
-- **Honouring hypnotist skill** — ignore it · only from people you trust · up to a cap from anyone
-- **Reset to defaults**
+Manages long-term suggestions and conditioned words:
 
-## Stats (behind the Advanced button)
+* **Allow Triggers to Be Planted:** Master permission for storing trigger words in your client.
+* **Suggestions That Outlive Trance (Carry-Forward):** Allows post-hypnotic suggestions to remain active after waking.
+* **Self-Triggering:** Permits you to trigger your own planted words (off by default).
+* **Reveal Trigger Words:** Displays clear-text phrases when listing triggers via `/echs triggers` (off by default for blind trigger play).
+* **Trigger Duration:** Sets how long a triggered state persists before releasing (or until manually dispelled).
+* **Trigger Decay Rate:** Configures how quickly dormant planted triggers naturally fade over time (*Never · Very Slowly · Slowly · Typical · Fast · Very Fast*; default: *Never*).
+* **Trigger Scope:** A permission ladder governing who can fire your triggers (*Hypnotist Only* up to *Anyone*).
 
-Read-only, plus one dial.
+---
 
-- Per-person trust and your own experience
-- **Trust decay rate** — off unless you choose
-- Relationship floors currently applying
+## 5. Depth Tab
 
-## The setup wizard
+* **Per-Feature Tier Assignments:** Move any individual feature up or down the depth tiers (*Drifting, Yielding, Entranced, Deep, Blank*). Tier gates are personal comfort settings, not rigid game limits.
+* **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
+* **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
+* **Reset Depth Gates:** Restores all tier thresholds to standard defaults.
 
-On a fresh install or after a reset, opening settings shows the **setup screen** instead of the
-tabs. The **Setup** button in the top bar re-runs it whenever you like.
+---
 
-Four presets — *Hypnotist only · Light / safe · Balanced · Extreme* — or five questions. It changes
-consent settings, so it never appears mid-session.
+## 6. Stats & Advanced Tab
 
-## Your data
+Accessible via the **Advanced** toggle below the tabs:
 
-- `/hypno export` and `/hypno import <blob>` — move settings between characters or back them up
-- `/hypno reset confirm` — wipes everything. It releases any trance **first**, then wipes, and says
-  so in that order
+* **Trust & Experience Records:** Read-only breakdown of per-person interaction counts and your personal subject experience pool.
+* **Trust Decay Rate:** Configures how fast earned familiarity fades over prolonged periods without contact (*Off* by default).
+* **Relationship Baselines:** Displays active baseline access granted by native BC Friends, Lovers, or Owners.
 
-Settings live in BC's own per-account extension storage, with a local backup keyed to your member
-number.
+---
+
+## 7. Setup Wizard
+
+On fresh installs or after running a reset, opening the settings menu launches the guided **Setup Wizard**. You can re-run it at any time from within the settings interface.
+
+The wizard provides four starting templates:
+* **Hypnotist Only**
+* **Light / Safe**
+* **Balanced**
+* **Extreme**
+
+Alternatively, you can complete a short 5-question questionnaire to configure permissions automatically. The wizard cannot be launched during an active trance.
+
+---
+
+## 8. Data & Backup
+
+* `/echs export` (or `/hypno export`): Generates an encoded text backup of all current settings, thresholds, and trust records.
+* `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string.
+* `/echs reset confirm` (or `/hypno reset confirm`): Restores the add-on to factory defaults. If an active trance is running, it breaks the trance first before wiping storage.
+
+Settings are saved in Bondage Club's account extension storage with a local fallback keyed to your member number.
