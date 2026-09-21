@@ -967,8 +967,32 @@ const VOCATIVE_FILLER = new Set(["ok", "okay", "now", "so", "hey", "hi", "well",
 
 /** Clause boundaries. "and"/"then" are in here because "Missy kneel and Ella stand" is a
  * perfectly ordinary way to type two commands, and a comma is not guaranteed. Splitting on
- * them is safe because segments belonging to the same person are rejoined afterwards. */
-const CLAUSE_SPLIT = /[,;.!?:]+|\band\b|\bthen\b/i;
+ * them is safe because segments belonging to the same person are rejoined afterwards.
+ *
+ * A LINE BREAK is a boundary too. BC carries newlines through inside one chat message, and
+ * one subject per line is the obvious way to type a combo command:
+ *
+ *     Missy, kneel
+ *     Natalia, cum for me
+ *
+ * Leaving `\n` out of this list was the whole reason v0.79.0 did not fix DW's case — the two
+ * commands stayed welded into a single clause, the second name never landed in a vocative
+ * position, and the line fell through unscoped. */
+const CLAUSE_SPLIT = /[,;.!?:\n\r]+|\band\b|\bthen\b/i;
+
+/** Words that make the name after them an OBJECT rather than an addressee. "Missy, look at
+ * Ella" is one instruction to Missy; "Missy, kneel Natalia, cum for me" is two instructions to
+ * two people. The difference is entirely the word in front of the name, so that is what is
+ * checked — nothing here needs to understand either sentence.
+ *
+ * Kept to prepositions and comparatives, which is what actually precedes a name being talked
+ * ABOUT. A verb in front of a name ("kneel Natalia") reads as the end of one order and the
+ * start of the next. */
+const OBJECT_MARKERS = new Set([
+	"at", "to", "with", "about", "like", "for", "from", "of", "on", "near", "beside", "behind",
+	"toward", "towards", "into", "onto", "against", "between", "around", "over", "under", "by",
+	"as", "than", "or", "nor", "past", "beyond", "beneath", "above", "below", "off", "through",
+]);
 
 const bareWord = (w: string) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
 
@@ -982,30 +1006,36 @@ interface Segment {
 function splitSegments(content: string, known: Set<string>): Segment[] {
 	const isName = (w: string) => known.has(bareWord(w));
 	const isFiller = (w: string) => VOCATIVE_FILLER.has(bareWord(w));
-	return String(content ?? "")
-		.split(CLAUSE_SPLIT)
-		.map((s) => s.trim())
-		.filter((s) => s.length > 0)
-		.map((seg) => {
-			const words = seg.split(/\s+/);
-			// A segment that is nothing but names and filler is a pure vocative — "Missy," or
-			// "Missy and Ella" once the "and" has already split it in two.
-			if (words.every((w) => isName(w) || isFiller(w)) && words.some(isName))
-				return { lead: words.filter(isName).map(bareWord), body: "" };
+	const out: Segment[] = [];
+	for (const chunk of String(content ?? "").split(CLAUSE_SPLIT)) {
+		const seg = chunk.trim();
+		if (!seg) continue;
+		let words = seg.split(/\s+/);
+		// ONE CHUNK CAN HOLD MORE THAN ONE ADDRESS. Punctuation between two orders is not
+		// guaranteed — "Natalia, stand Missy cum for me" has none at all between them — so a
+		// name inside a chunk has to be able to start a new segment, not just a name at its
+		// head. This loop peels off one addressed clause at a time.
+		while (words.length) {
 			let i = 0;
 			while (i < words.length && isFiller(words[i])) i++;
 			const lead: string[] = [];
 			while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
-			if (lead.length) return { lead, body: words.slice(i).join(" ") };
-			// A name at the END of a clause is deliberately NOT treated as a vocative here.
-			// "you cannot move Missy" is a real phrasing, but so is "look at Ella", and the
-			// two are indistinguishable at this level — reading the second as an address cuts
-			// a perfectly ordinary one-subject line in half. A trailing vocative that is
-			// actually set off the way people type one ("you cannot move, Missy") has already
-			// been split into its own segment by the comma, and the walk below picks it up
-			// there, where it is unambiguous.
-			return { lead: [], body: seg };
-		});
+			// Where does the NEXT address start? A name only counts when the word in front of
+			// it is not an object marker, which is what keeps "look at Ella" one clause.
+			let cut = -1;
+			for (let j = i + 1; j < words.length; j++) {
+				if (isName(words[j]) && !OBJECT_MARKERS.has(bareWord(words[j - 1]))) {
+					cut = j;
+					break;
+				}
+			}
+			const end = cut === -1 ? words.length : cut;
+			out.push({ lead, body: words.slice(i, end).join(" ") });
+			if (cut === -1) break;
+			words = words.slice(cut);
+		}
+	}
+	return out;
 }
 
 export interface AddresseeScope {

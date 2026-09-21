@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.79.0
+// @version      0.79.1
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1809,7 +1809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.79.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.79.1"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -4782,22 +4782,70 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return [Player?.Name, Player?.Nickname].filter(Boolean);
   }
   var VOCATIVE_FILLER = /* @__PURE__ */ new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
-  var CLAUSE_SPLIT = /[,;.!?:]+|\band\b|\bthen\b/i;
+  var CLAUSE_SPLIT = /[,;.!?:\n\r]+|\band\b|\bthen\b/i;
+  var OBJECT_MARKERS = /* @__PURE__ */ new Set([
+    "at",
+    "to",
+    "with",
+    "about",
+    "like",
+    "for",
+    "from",
+    "of",
+    "on",
+    "near",
+    "beside",
+    "behind",
+    "toward",
+    "towards",
+    "into",
+    "onto",
+    "against",
+    "between",
+    "around",
+    "over",
+    "under",
+    "by",
+    "as",
+    "than",
+    "or",
+    "nor",
+    "past",
+    "beyond",
+    "beneath",
+    "above",
+    "below",
+    "off",
+    "through"
+  ]);
   var bareWord = (w) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
   function splitSegments(content, known) {
     const isName = (w) => known.has(bareWord(w));
     const isFiller = (w) => VOCATIVE_FILLER.has(bareWord(w));
-    return String(content ?? "").split(CLAUSE_SPLIT).map((s) => s.trim()).filter((s) => s.length > 0).map((seg) => {
-      const words = seg.split(/\s+/);
-      if (words.every((w) => isName(w) || isFiller(w)) && words.some(isName))
-        return { lead: words.filter(isName).map(bareWord), body: "" };
-      let i = 0;
-      while (i < words.length && isFiller(words[i])) i++;
-      const lead = [];
-      while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
-      if (lead.length) return { lead, body: words.slice(i).join(" ") };
-      return { lead: [], body: seg };
-    });
+    const out = [];
+    for (const chunk of String(content ?? "").split(CLAUSE_SPLIT)) {
+      const seg = chunk.trim();
+      if (!seg) continue;
+      let words = seg.split(/\s+/);
+      while (words.length) {
+        let i = 0;
+        while (i < words.length && isFiller(words[i])) i++;
+        const lead = [];
+        while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
+        let cut = -1;
+        for (let j = i + 1; j < words.length; j++) {
+          if (isName(words[j]) && !OBJECT_MARKERS.has(bareWord(words[j - 1]))) {
+            cut = j;
+            break;
+          }
+        }
+        const end = cut === -1 ? words.length : cut;
+        out.push({ lead, body: words.slice(i, end).join(" ") });
+        if (cut === -1) break;
+        words = words.slice(cut);
+      }
+    }
+    return out;
   }
   function scopeToAddressee(content, mine, others2) {
     const clean = (list) => list.map((n) => bareWord(String(n ?? ""))).filter((n) => n.length > 0);
@@ -8504,7 +8552,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.79.0"} loaded`;
+    el.textContent = `ECHS v${"0.79.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8527,13 +8575,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.79.0"})`);
+  log(`script loaded (v${"0.79.1"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.79.0",
+      version: "0.79.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

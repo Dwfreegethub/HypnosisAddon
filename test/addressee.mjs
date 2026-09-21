@@ -71,6 +71,50 @@ both("their line only", "Ella, you cannot move", null, "movement-block");
 // Two clauses for one of us in the same line still reach that one of us.
 check("two clauses, one subject", asMissy("Missy, kneel. Ella, stand.").text.includes("kneel"), true);
 
+// --- DW's live transcripts, 2026-09-21 ------------------------------------------------
+// v0.79.0 shipped and still got these wrong in play, so they are pinned here verbatim rather
+// than paraphrased. Both were ONE chat message with a line break in it, which is the obvious
+// way to type a combo command and was not a clause boundary — so the two orders stayed welded
+// together, the second name never reached a vocative position, and the line fell through
+// unscoped. Nova spoke; Missy and Natalia were both under.
+//
+// What actually happened: on the first line Missy came instead of kneeling and Natalia did
+// nothing; on the second Natalia came instead of standing and Missy did nothing. Both are
+// `orgasm-force` winning the whole-line match at table index 7.
+const dwMissy = (line) => idFor(voice.scopeToAddressee(line, ["Missy"], ["Natalia", "Nova"]));
+const dwNatalia = (line) => idFor(voice.scopeToAddressee(line, ["Natalia"], ["Missy", "Nova"]));
+const transcript = (label, line, wantMissy, wantNatalia) => {
+	check(`${label} — Missy`, dwMissy(line), wantMissy);
+	check(`${label} — Natalia`, dwNatalia(line), wantNatalia);
+};
+
+// Exactly as typed, newline and all.
+transcript("DW 1: line break", "Missy, kneel\nNatalia, cum for me", "kneel", "orgasm-force");
+transcript("DW 2: line break", "Natalia, stand\nMissy cum for me", "orgasm-force", "stand");
+
+// The same two written out on one line. The second is the harder shape — there is no
+// punctuation at all between "stand" and "Missy", so the split has to come off the name.
+transcript("DW 1: one line, comma", "Missy, kneel Natalia, cum for me", "kneel", "orgasm-force");
+transcript("DW 2: one line, no punctuation", "Natalia, stand Missy cum for me", "orgasm-force", "stand");
+
+// A carriage return pair, since that is what some clients send.
+transcript("DW 1: CRLF", "Missy, kneel\r\nNatalia, cum for me", "kneel", "orgasm-force");
+
+// --- a name being TALKED ABOUT is not an address --------------------------------------
+// The mid-clause split above is what makes "stand Missy cum for me" work, and it is also the
+// thing most likely to cut a one-subject line in half. The guard is the word in front of the
+// name: a preposition or a comparative means the name is the object of the sentence.
+for (const line of [
+	"Missy, look at Ella and you cannot move",
+	"Missy, you are prettier than Ella, you cannot move",
+	"Missy, stay with Ella, you cannot move",
+	"Missy, you cannot move away from Ella",
+]) check(`object, not addressee: ${line}`, idFor(asMissy(line)), "movement-block");
+
+// And the reverse: a verb in front of the name does start a new order.
+check("verb before the name splits", idFor(asMissy("Missy, kneel Ella, stand")), "kneel");
+check("  and the second half is Ella's", idFor(asElla("Missy, kneel Ella, stand")), "stand");
+
 // --- the single-subject line is untouched ---------------------------------------------
 // This is the guarantee that makes the change safe to ship: when nobody else is named in
 // vocative position the line is handed back byte-for-byte, so every existing phrasing
@@ -82,6 +126,8 @@ for (const line of [
 	"you cannot move, Missy",
 	"Missy, you cannot move and you cannot speak",
 	"Missy, your dress is rose coloured and you cannot move",
+	// A line break with nobody else named still changes nothing about the text.
+	"Missy, you cannot move\nyou cannot speak",
 ]) {
 	const s = asMissy(line);
 	check(`untouched: ${line}`, [s.text, s.scoped, s.ambiguous], [line, false, false]);
