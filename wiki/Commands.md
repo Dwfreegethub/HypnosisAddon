@@ -1,59 +1,70 @@
 # Commands
 
-Most features are **spoken**, not typed — see [What to Say](What-to-Say). These are the exceptions.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Command syntax, debug outputs, and diagnostic helpers are evolving. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-`/hypno` on its own prints a short menu. `/hypno help` opens the in-game guide. `/hypno commands`
-lists everything.
+---
 
-**`/echs` is the same command as `/hypno`** — the add-on's own name, registered alongside the
-original so either works. Every command on this page can be typed with either prefix; the pages here
-say `/hypno` throughout because that is the shorter one to type.
+Most features are **spoken**, not typed — see [What to Say](What-to-Say). These slash commands are the utility exceptions for managing sessions, inspecting client states, and handling emergency exits.
 
-## Session — usable from any state
+* `/echs` (or `/hypno`) on its own prints a short in-game command menu.
+* `/echs help` (or `/hypno help`) opens the built-in guide.
+* `/echs commands` (or `/hypno commands`) lists every registered command.
 
-| Command | What it does | When you'd use it |
+**`/echs` is the primary prefix, and `/hypno` remains fully supported.** Both prefixes point to the exact same handlers throughout the add-on. You can use whichever prefix you prefer; `/echs` is shown below as the standard.
+
+---
+
+## Session — Usable From Any State
+
+| Command | What It Does | When You Would Use It |
 |---|---|---|
-| `/hypno agree` | Accept an attempt — cooperative, improves their roll | Answering a prompt without clicking, e.g. from the wardrobe |
-| `/hypno ignore` | Neither help nor resist | As above. Silence counts as this |
-| `/hypno fight` | Resist — lowers their roll | As above |
-| `/hypno wake` | Wake yourself, if the trance is shallow enough | A deep trance refuses and says so |
-| **`/hypno safeword`** | **Hard stop. Clears the trance and every effect. Always works** | Any time, from any state |
-| `/hypno effects` | Everything currently affecting you, and what would survive a reconnect | *"Why can't I do that?"* |
-| `/hypno session` | Your session state and which permissions are granted | *"Why didn't that land?"* |
+| `/echs agree` | Accept an attempt — cooperative, improves their induction roll. | Answering an induction prompt without clicking, e.g. while in the wardrobe. |
+| `/echs ignore` | Neither help nor resist. | Passive response. Letting the prompt time out in silence counts as this. |
+| `/echs fight` | Resist — significantly lowers their roll. | Actively struggling against the induction without clicking. |
+| `/echs wake` | Wake yourself, if the trance is shallow enough. | Attempting to shake off a light trance. A deep trance will refuse and inform you. |
+| **`/echs safeword`** | **Hard stop. Clears the active trance and every lingering effect. Always works.** | Any time, under any condition, from any state. |
+| `/echs effects` | Lists everything currently affecting you, and what would survive a reconnect. | Checking *"Why can't I do that?"* or diagnosing persistent states. |
+| `/echs session` | Displays your active session state and which permissions are granted. | Checking *"Why didn't that suggestion land?"* |
 
-**`effects` and `session` answer different questions.** `session` says what phase you are in and what
-you have permitted; `effects` says what is actually *on* you. After a reconnect, `effects` is the one
-you want.
+**`effects` and `session` answer different questions:**
+* `session` tells you what phase you are in and what permissions you have granted to the hypnotist.
+* `effects` tells you what restrictions and states are actually active *on* your character right now. After reconnecting or reloading, `effects` is the command to check.
 
-`/hypno safeword` is the floor. No feature, trigger, lock or setting can reach it, and because BC
-parses commands before the speech block sees them, **it still works while you are silenced**.
+**`/echs safeword` (or `/hypno safeword`) is the baseline safety floor.** No feature, trigger, depth level, or lock can disable or override it. Because Bondage Club parses client slash commands before speech-restriction hooks ever see them, **the safeword works 100% of the time, even while your character is completely silenced.**
 
-## Diagnostics — look without changing anything
+---
 
-| Command | What it does | When you'd use it |
+## Diagnostics — Inspect Without Changing Anything
+
+| Command | What It Does | When You Would Use It |
 |---|---|---|
-| `/hypno match <phrase>` | Reports what that phrase would trigger, and why not | Fastest way to tell "my wording was wrong" from "something else refused it" — it reports the name gate separately |
-| `/hypno chance [name]` | The induction chance for each of the three choices against someone | Tuning, or deciding whether an attempt is worth it |
-| `/hypno gates` | Every depth gate, what it needs, and whether you are deep enough now | *"How deep do I need to be for this?"* |
-| `/hypno triggers` | The triggers planted in you, and which are holding you | Shows strength and the tier each still reaches. Whether phrases appear is your setting |
-| `/hypno carry [drop]` | What is set to outlive the trance — or drops it | Checking before you wake |
-| `/hypno skill` | Your own hypnotist skill, and how it is read | — |
-| `/hypno storage` | Where settings loaded from, and what each source holds | When you suspect settings aren't persisting |
-| `/hypno kneel` · `/hypno stand` | Pose yourself directly, bypassing matching, permissions and session | Checking BC's pose API works at all |
+| `/echs match <phrase>` | Reports what that phrase would trigger, or why it failed. | Quickly diagnosing whether phrasing was invalid or a permission/depth gate blocked it. Reports the name gate separately. |
+| `/echs chance [name]` | Displays the calculated induction probability for each response against a target. | Deciding whether an attempt is mathematically viable or tuning trust. |
+| `/echs gates` | Lists every depth gate, its threshold, and whether you are deep enough right now. | Checking *"How deep do I need to be for this to work?"* |
+| `/echs triggers` | Displays all triggers planted in you, and flags any currently holding you. | Shows trigger strength and accessible tiers. (Displaying the actual phrase depends on your privacy settings). |
+| `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. | Reviewing or clearing lingering suggestions before waking. |
+| `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. | Reviewing your induction experience and progression. |
+| `/echs storage` | Reports where settings loaded from and what each data source holds. | Troubleshooting settings persistence or storage migration issues. |
+| `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. | Verifying that BC's native posture API is responding correctly. |
 
-## Data
+---
 
-| Command | What it does |
+## Data Management
+
+| Command | What It Does |
 |---|---|
-| `/hypno export` | Prints your settings as a blob you can copy and keep |
-| `/hypno import <blob>` | Replaces all settings with a previously exported blob |
-| `/hypno reset` | Wipes all settings and stats back to defaults — asks first, and releases any trance before wiping |
-| `/hypno triggerdecay [rate]` | Read or set how fast planted triggers fade *(separate from trust decay)* |
-| `/hypno forgettrigger <number\|all>` | Remove a planted trigger by its number from `/hypno triggers`. **Refuses while that trigger is holding you** |
-| `/hypno forgettrust <name\|number>` | Delete a stored trust entry outright |
+| `/echs export` | Exports your saved settings as an encoded text blob to copy and backup. |
+| `/echs import <blob>` | Restores your settings from a previously exported text blob. |
+| `/echs reset` | Wipes all settings and progression back to defaults (requests confirmation, and clears any active trance first). |
+| `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
+| `/echs forgettrigger <number\|all>` | Deletes a planted trigger by its index from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
+| `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. |
 
-## Testing commands
+---
 
-There is a **Testing** group — force-state commands, trigger aging, the test-bot channel — that is
-live **only** in a chat room named *Hypno testing*, and off everywhere else and when not in a room.
-Outside that room it is not listed in the help and refuses if typed.
+## Testing Commands
+
+There is a dedicated **Testing** suite — containing state forcing, simulated trigger aging, and automated test hooks — that is active **only** while inside a chat room named *Hypno testing*. 
+
+Outside of that specific room, testing commands do not appear in `/echs help`, cannot be listed, and will refuse execution if typed.
