@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.79.1
+// @version      0.80.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1809,7 +1809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.79.1"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.80.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
@@ -2490,6 +2490,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var SKILL_SUCCESS_CREDIT = 1;
   var SELF_WAKE_MAX_DEPTH = 40;
   var CHOICE_MODIFIER = { agree: 25, ignore: 0, fight: -25 };
+  var TRANCE_ABSENCE_GRACE_MS = RECOVERY_WINDOW_MS;
+  var INDUCTION_ABSENCE_GRACE_MS = 3e4;
+  var PRESENCE_POLL_MS = 3e3;
   var RELATION_DEPTH_FLOOR = {
     friend: 0,
     lover: 40,
@@ -2523,9 +2526,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var windowTimer = null;
   var sessionTimer = null;
   var cooldownTimer = null;
+  var hypnotistGoneSince = 0;
+  var presenceTimer = null;
   function clearTimers() {
     for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
     promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
+    stopPresenceWatch();
+  }
+  function stopPresenceWatch() {
+    if (presenceTimer) clearInterval(presenceTimer);
+    presenceTimer = null;
+    hypnotistGoneSince = 0;
+  }
+  function rosterReadable() {
+    return typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.length > 0;
+  }
+  function memberInRoom(memberId) {
+    if (memberId == null) return null;
+    if (!rosterReadable()) return null;
+    return ChatRoomCharacter.some((c) => c?.MemberNumber === memberId);
+  }
+  function hypnotistPresentForInduction() {
+    return memberInRoom(session.hypnotistId) !== false;
   }
   function notify(message) {
     log(message);
@@ -2741,6 +2763,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function runInductionRoll() {
     windowTimer = null;
     if (session.phase !== "InductionInProgress" || session.hypnotistId == null) return;
+    if (!hypnotistPresentForInduction()) {
+      lapseInduction("left before it could land");
+      return;
+    }
     const choice = session.choice ?? "ignore";
     const chance = inductionChance(session.hypnotistId, choice);
     const roll = Math.random() * 100;
@@ -2757,6 +2783,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
       sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
       applyTranceState();
+      startPresenceWatch();
       noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
       notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
       announceTranceEnter();
@@ -2809,6 +2836,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
     sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
     applyTranceState();
+    startPresenceWatch();
     pushUpdate();
     persistState();
     log(`TESTING: forced trance with ${hypnotistId}, depth ${session.depth}/${session.depthEarned}`);
@@ -2851,13 +2879,94 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log("walking trance left \u2014 full trance restored");
     return true;
   }
+  function hypnotistLabel() {
+    const id = session.hypnotistId;
+    if (id == null) return "They";
+    const resolved = findCharacterName(id);
+    return resolved.startsWith("#") ? session.promptName || "They" : resolved;
+  }
+  function lapseInduction(reason) {
+    const wasRunning = session.phase === "InductionInProgress";
+    const name = hypnotistLabel();
+    if (promptTimer) {
+      clearTimeout(promptTimer);
+      promptTimer = null;
+    }
+    if (windowTimer) {
+      clearTimeout(windowTimer);
+      windowTimer = null;
+    }
+    stopPresenceWatch();
+    session.choice = null;
+    session.rpLines = 0;
+    session.lastRpLine = "";
+    session.promptExpiresAt = 0;
+    if (session.attempts > 0) {
+      session.phase = "AttemptFailed";
+      notify(`${name} ${reason}. The attempt ends \u2014 you are no further under, and it still counts as ${session.attempts} of ${maxAttempts()}.`);
+      pushUpdate();
+    } else {
+      session.phase = "Idle";
+      notify(`${name} ${reason}. Nothing came of it, and nothing was used up.`);
+      pushUpdate();
+      session.hypnotistId = null;
+      session.promptName = "";
+    }
+    if (wasRunning) announceInductionMiss();
+    log(`induction lapsed: ${reason} (attempts=${session.attempts})`);
+  }
+  function checkHypnotistPresence() {
+    if (session.hypnotistId == null) {
+      stopPresenceWatch();
+      return;
+    }
+    const phase = session.phase;
+    if (phase !== "AttemptMade" && phase !== "InductionInProgress" && phase !== "Hypnotized") {
+      stopPresenceWatch();
+      return;
+    }
+    const here = memberInRoom(session.hypnotistId);
+    if (here === null) return;
+    if (here) {
+      if (hypnotistGoneSince) {
+        hypnotistGoneSince = 0;
+        notify(`${hypnotistLabel()} is back.`);
+      }
+      return;
+    }
+    if (!hypnotistGoneSince) {
+      hypnotistGoneSince = Date.now();
+      const minutes = Math.round((phase === "Hypnotized" ? TRANCE_ABSENCE_GRACE_MS : INDUCTION_ABSENCE_GRACE_MS) / 6e4);
+      notify(
+        phase === "Hypnotized" ? `${hypnotistLabel()} is not in the room. If they are not back within ${minutes || 1} minute${minutes === 1 ? "" : "s"}, this ends on its own.` : `${hypnotistLabel()} is not in the room.`
+      );
+      return;
+    }
+    const grace = phase === "Hypnotized" ? TRANCE_ABSENCE_GRACE_MS : INDUCTION_ABSENCE_GRACE_MS;
+    if (Date.now() - hypnotistGoneSince < grace) return;
+    if (phase === "Hypnotized") {
+      endSession("they left and did not come back");
+    } else {
+      lapseInduction("left, and did not come back");
+    }
+  }
+  function startPresenceWatch() {
+    hypnotistGoneSince = 0;
+    if (presenceTimer) return;
+    presenceTimer = setInterval(checkHypnotistPresence, PRESENCE_POLL_MS);
+  }
   function beginInductionWindow() {
+    if (!hypnotistPresentForInduction()) {
+      lapseInduction("is no longer in the room");
+      return;
+    }
     session.phase = "InductionInProgress";
     announceInductionBegin();
     session.rpLines = 0;
     session.lastRpLine = "";
     if (windowTimer) clearTimeout(windowTimer);
     windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
+    startPresenceWatch();
     pushUpdate();
   }
   function showPrompt(hypnotistName) {
@@ -2871,6 +2980,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       notify("You didn't respond \u2014 the induction proceeds without your intent either way.");
       beginInductionWindow();
     }, PROMPT_TIMEOUT_MS);
+    startPresenceWatch();
     const descriptor = skillDescriptor(session.honouredSkill);
     notify(
       `${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
@@ -3064,6 +3174,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       endSession("the session had already run out while you were away");
       return;
     }
+    startPresenceWatch();
     pushUpdate();
     log(`recovery: session restored, depth ${session.depth}, ${Math.round(remaining / 6e4)} min left`);
   }
@@ -3076,9 +3187,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           restoreCarried(saved.carried, saved.carriedUntil, saved.carrierId, saved.carrierName);
         }
       },
-      inRoom: (memberId) => (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).some(
-        (c) => c?.MemberNumber === memberId
-      )
+      // One reading of the roster for both sides of the same question. recovery.ts wants a
+      // plain boolean and treats "cannot tell" as "not here" — which is right for a resume
+      // decision, where the default is to keep waiting rather than to restore a trance.
+      inRoom: (memberId) => memberInRoom(memberId) === true
     });
     startRecovery();
     registerHiddenHandler("session-query", (sender) => {
@@ -3088,6 +3200,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     registerHiddenHandler("session-attempt", (sender, message) => {
       if (!getFeatures().hypnoEnabled) {
         refuse(sender, "They aren't open to hypnosis.");
+        return;
+      }
+      if (memberInRoom(sender) === false) {
+        refuse(sender, "You aren't in the room with them.");
+        log(`refused session-attempt from ${sender} \u2014 not on our roster`);
         return;
       }
       if (session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
@@ -3127,6 +3244,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     registerHiddenHandler("session-continue", (sender) => {
       if (session.hypnotistId !== sender) return;
+      if (memberInRoom(sender) === false) {
+        refuse(sender, "You aren't in the room with them.");
+        return;
+      }
       if (session.phase !== "AttemptFailed") {
         refuse(
           sender,
@@ -8552,7 +8673,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.79.1"} loaded`;
+    el.textContent = `ECHS v${"0.80.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8575,13 +8696,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.79.1"})`);
+  log(`script loaded (v${"0.80.0"})`);
   showIndicator();
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.79.1",
+      version: "0.80.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

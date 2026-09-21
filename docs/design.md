@@ -3981,8 +3981,9 @@ hypnotist) remains a separate, larger idea and is not planned.
 
 ## Needs Testing
 
-*Last reconciled against the code 2026-09-18, at v0.77.0. Two items are open: 8 (decay in play)
-and 10 (the Data tab's Reset button). Everything else on this list is struck through.*
+*Last reconciled against the code 2026-09-21, at v0.80.0. Three items are open: 8 (decay in play),
+10 (the Data tab's Reset button) and 11 (a hypnotist leaving the room). Everything else on this list
+is struck through.*
 
 Items 0–7 are confirmed — 0–6 against the test bot on 2026-09-07, and 7 on 2026-09-08 once the
 scenario was rewritten to be capable of failing. Item 9, the Known Bug #4 fix, was confirmed by DW on
@@ -4157,7 +4158,38 @@ evaporate.
 
 ---
 
-**Eight of nine topics confirmed; one open, above.** Next bugs or regressions go in Known Bugs.
+### 11. A hypnotist who leaves the room (v0.80.0) — **open, never run live**
+
+Two clients, both with the add-on. DW's own report, 2026-09-21, and the unit suite
+(`test/departure.mjs`, 51 checks) can only prove the rule — it cannot prove that BC's own roster
+updates on the subject's client the moment someone walks out, which is the single assumption the
+whole fix rests on.
+
+1. **The bug itself.** Hypnotist attempts. Subject answers *agree*. Hypnotist **leaves the room**
+   before the sixty-second window is up. *Expect:* when the window ends, the subject is told
+   *"GameBot left before it could land. Nothing came of it, and nothing was used up."*, `/hypno
+   session` reads `Idle`, and `/hypno effects` shows nothing applied. *Failure looks like:* the
+   subject going under with nobody there — which is exactly what happened before v0.80.0.
+2. **Nothing was spent.** Still in that state, hypnotist comes back and attempts again. *Expect:*
+   a full two tries, because the abandoned one was never counted. *Failure looks like:* the
+   cooldown arriving one attempt early.
+3. **The other direction — the count must NOT reset.** Attempt, let it miss, hypnotist leaves
+   mid-retry, comes back, retries. *Expect:* the second miss is the last and the cooldown starts.
+   *Failure looks like:* three or more tries, which is leaving the room used as a cooldown bypass.
+4. **A live trance.** Subject under. Hypnotist leaves. *Expect:* the subject is told they are not
+   in the room and that it ends if they are not back in five minutes; at five minutes the trance
+   ends and every effect comes off. *Failure looks like:* still frozen at six minutes, or ending
+   instantly with no warning.
+5. **Back inside the window.** Same, but the hypnotist returns after two minutes. *Expect:* *"GameBot
+   is back."* and the trance continues.
+6. **The subject leaves instead.** Subject under, subject walks out to the lobby and back in.
+   *Expect:* nothing ends on account of the empty roster — recovery handles this case and this
+   watcher must stay out of its way. *Failure looks like:* the trance ending the moment the subject
+   leaves the room, which would be a worse bug than the one being fixed.
+
+---
+
+**Nine of eleven topics confirmed; two open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

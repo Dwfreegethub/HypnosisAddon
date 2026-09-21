@@ -16,6 +16,76 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-21 (v0.80.0) — a hypnotist has to still be in the room
+
+**Why:** DW reported it as a security bug, and it was one. A hypnotist could request an induction,
+walk out of the room, and the subject would still drop into a trance — frozen, silenced, veiled,
+with nobody there — and stay that way for the full thirty-minute session timeout. Nothing along
+that path ever asked whether the person who started it was still present. The attempt opened a
+sixty-second window, the window fired the roll on a bare `setTimeout`, and the timer did not care.
+
+The gap is *between* the request and the resolution, which is why checking presence when the
+attempt arrives closes nothing: those sixty seconds are an unattended timer, and the whole bug
+lives inside them.
+
+**What changed.** Two hard gates and one watcher, all reading `ChatRoomCharacter` on the
+**subject's** own client. Presence is never claimed by the hypnotist's client and never believed
+from it — a presence flag in a hidden message is exactly what a modified client would forge
+(rule 1).
+
+- **At the roll.** `runInductionRoll()` refuses to resolve if the hypnotist is not on the roster.
+  Checked *before* the attempt is counted and before `noteInductionAttempt()`, so an abandoned
+  induction is not practice for anyone and does not spend one of the subject's tries.
+- **At the window.** `beginInductionWindow()` will not start a minute that ends in a roll for
+  somebody who has already gone.
+- **While it runs.** A watcher covers the three phases with something live and unattended: a
+  consent prompt on screen, a window counting down, and a trance actually applied.
+
+**The grace is five minutes for a trance, and it is `RECOVERY_WINDOW_MS` on purpose.**
+`recovery.ts` already settled the mirror-image question — when the *subject* drops out and comes
+back, a hypnotist still in the room inside five minutes means the scene continues. The hypnotist
+stepping out is that same question with the players swapped, and answering it with a different
+number would make "did the scene survive" depend on which of the two vanished. An induction gets
+thirty seconds instead: nothing is applied yet, nothing is spent by ending it, and a consent prompt
+naming an empty chair is worse than making them ask again.
+
+**The trap a careless fix walks into,** and the reason the lapse is not just `endSession()`:
+`endSession()` resets to a fresh session, which zeroes `attempts`. A hypnotist who missed once
+could then step out, step back in, and have two fresh tries — the fix would have been a cooldown
+bypass. So a lapsed induction puts the subject back exactly where the last completed roll left
+them, count and cooldown intact, and `AttemptFailed`/`CooldownRequired` are deliberately left
+alone by the watcher for the same reason. Presence is enforced on those two where it belongs
+instead: `session-continue` from outside the room is refused.
+
+**`session-wake` is deliberately NOT gated.** It releases. Gating it would mean the one message
+that ends a trance is the one that stops working the moment the hypnotist is gone — the exact trap
+the safeword exists to rule out. Nothing in `session.ts` that lets go is gated on anything.
+
+**An empty roster is not a departure.** `ChatRoomCharacter` is empty when the *subject* is the one
+out of a room, and at load before the first sync. `memberInRoom()` returns three states rather than
+two — true, false, and `null` for "cannot tell" — and the watcher holds its clock on `null` rather
+than starting one. Collapsing that into `false` would end a trance every time the subject stepped
+out, which is a worse bug than the one being fixed.
+
+**What the room sees:** the existing *miss* pool, not a pool of its own. Onlookers must not be able
+to tell a lapse from an ordinary miss — a line naming the departure would announce, out loud and in
+front of everyone, which of the two ended it. An unanswered prompt was never announced to the room
+in the first place, so closing one says nothing there either.
+
+**New suite `test/departure.mjs`, 51 checks**, built around the four ways this goes wrong rather
+than around the happy path: request-time-only checking, the cooldown bypass, gating the release,
+and reading an empty roster as a departure. Verified to fail on the pre-fix code — the subject went
+under, frozen, with an attempt spent — and to pass after. The controls matter as much as the
+failures here (rule 6): the same rigged roll is shown landing with the hypnotist present, so the
+headline check cannot pass on a suite where nothing ever succeeds.
+
+**Two calls settled by DW, 2026-09-21**, both confirming what was built rather than changing it:
+an induction abandoned because the hypnotist left **does not count as an attempt** — no try spent,
+no cooldown — and the trance grace **stays at five minutes**. Do not re-decide either without
+flagging it.
+
+**Not run live.** No two-client session has exercised this.
+
 ### Fixed 2026-09-21 (v0.79.1) — a line break between two subjects' orders
 
 **Why:** v0.79.0 added addressee scoping and DW tested it in play the same night. It still failed,
