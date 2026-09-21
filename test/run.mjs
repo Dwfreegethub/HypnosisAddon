@@ -12,7 +12,7 @@
 // RUN THIS AFTER ANY CHANGE TO voice.ts PATTERNS. Adding a suggestion whose wording
 // overlaps an existing one is the easiest mistake to make here and the hardest to notice.
 import { execFileSync } from "node:child_process";
-const suites = ["voicetest", "speech", "sup", "part", "wake", "triggers", "scope", "arousal", "carry", "notify", "presence", "relation", "rp", "undress", "ooc", "revoke", "recovery", "illusion", "depth", "odds", "attempts", "awareness", "skill", "walking", "chemical-reach", "help-layout", "starter", "welcome", "wizard", "activity", "undress-command", "miss", "alias"];
+const suites = ["voicetest", "speech", "sup", "part", "wake", "triggers", "scope", "arousal", "carry", "notify", "presence", "relation", "rp", "undress", "ooc", "revoke", "recovery", "illusion", "depth", "odds", "attempts", "awareness", "skill", "walking", "chemical-reach", "help-layout", "starter", "welcome", "wizard", "activity", "undress-command", "miss", "alias", "addressee"];
 
 // A failure is caught two ways, because the suites are not uniform. Most guard their exit —
 // they print diagnostics AND `process.exit(1)`, which makes execFileSync throw. A handful of
