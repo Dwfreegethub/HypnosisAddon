@@ -1,33 +1,36 @@
 # Commanded Activities
 
-Everything else in the add-on **stops** the subject doing something. This makes them **act**.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Commanded activities currently apply to **self-touch only**. Interpersonal actions (directing a subject to touch another player) are coming soon. Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
 
-*"Missy, touch your breasts"* and she performs the real Bondage Club activity on herself — it renders
-in the room exactly as though she had clicked it, with the same arousal and the same message.
+---
 
-**Permission:** *Made to Act (touch yourself on command)*, on the Permissions tab.
-**Depth:** **Yielding**.
+Everything else in the add-on **stops** the subject from doing something. This makes them **act**.
 
-## The grammar
+*"Missy, touch your breasts"* and she performs the real Bondage Club activity on herself — it renders in the room exactly as though she had clicked it, with the same native arousal changes and the same chat narration.
 
-One pattern for everything:
+* **Permission:** *Made to Act (touch yourself on command)* on the Permissions tab.
+* **Default Depth:** **Yielding** (adjustable in your Depth settings).
 
-```
-<verb> your <part>
-```
+---
 
-The **verb** picks the activity; ***your \<part\>*** picks the zone. Around 40 body words are
-understood — the same set the self-touch block uses.
+## The Grammar
 
-Learn *"touch your breasts"* and you get *"pinch your nipples"*, *"lick your thighs"* and
-*"spank your bottom"* for free.
+One pattern powers the entire activity parser:
 
-## Every verb
+`<verb> your <part>`
 
-Words on the same row do the same thing. **First match wins**, so a specific verb beats the
-catch-all.
+The **verb** picks the activity; **`your <part>`** selects the body zone. Around 40 body terms are understood — the exact same dictionary used by the self-touch block.
 
-| Say any of | Does | Example |
+Once you know *"touch your breasts"*, you automatically get *"pinch your nipples"*, *"lick your thighs"*, and *"spank your bottom"* without learning separate rules.
+
+---
+
+## Recognized Verbs
+
+Words grouped on the same row trigger the same underlying game activity. **First match wins**, so a specific verb takes priority over a broader catch-all.
+
+| Say Any Of | Action | Example |
 |---|---|---|
 | grope · squeeze · fondle | Grope | *"Missy, squeeze your breasts"* |
 | pinch | Pinch | *"Missy, pinch your nipples"* |
@@ -47,71 +50,67 @@ catch-all.
 | finger · masturbate · pleasure · play with | Masturbate | *"Missy, finger your pussy"* |
 | **touch · caress · stroke · rub · feel** | Caress — the catch-all, reaches almost every zone | *"Missy, touch your breasts"* |
 
-> ⚠ **`feel` is a known problem and is listed here for accuracy, not as a recommendation.** Because
-> it is a Caress verb, an ordinary deepening line — *"Missy, your arms feel heavy"* — parses as
-> *caress your arms* and performs a real, public touch. **Prefer `touch`, `caress` or `stroke`**
-> until this is fixed. It only affects subjects who have granted *Made to Act*. See
-> [Troubleshooting](Troubleshooting#known-rough-edges).
+> ⚠️ **`feel` is a known alpha parser quirk and is listed here for transparency, not as a recommendation.**  
+> Because `feel` maps to the Caress activity, an ordinary deepening sentence — *"Missy, your arms feel heavy"* — can inadvertently be parsed as *caress your arms*, causing her character to execute a real, public touch. **Stick to `touch`, `caress`, or `stroke`** until verb disambiguation is updated. This quirk only affects subjects who have enabled *Made to Act*. See [Troubleshooting](Troubleshooting) for details.
 
-## Without naming a part
+---
+
+## Without Naming a Specific Part
 
 | Say | Effect |
 |---|---|
-| *"Missy, touch yourself"* | Her hands **wander** to a random spot that is actually reachable, and the hypnotist gets a quiet nudge to be specific |
-| *"Missy, finger yourself"* · *"masturbate"* · *"pleasure yourself"* | Goes to the genitals |
+| *"Missy, touch yourself"* | Her hands **wander** to a random, physically reachable zone, and the hypnotist receives a quiet prompt to be specific. |
+| *"Missy, finger yourself"* · *"masturbate"* · *"pleasure yourself"* | Directly targets the genitals. |
 
-The wandering version never does nothing, and it teaches the grammar by doing something vaguer than
-you probably wanted.
+The wandering version always executes something valid, subtly guiding the hypnotist toward more precise commands without stalling the scene.
 
-**Held-toy activities are not supported.** Those want a *"with the \<toy\>"* extension that does not
-exist yet.
+*(Note: Held-toy activities are not currently supported. Extending syntax like "with the <toy>" is under consideration for a future update.)*
 
-## What can refuse it
+---
 
-**Real physical limits always win.** The add-on asks Bondage Club what is currently possible before
-doing anything, so a chastity belt, bound hands, being out of reach, or a zone the subject disabled
-in her own BC arousal preferences all simply refuse. The add-on does not need to know those rules —
-the game enforces them.
+## What Can Refuse an Action
 
-**Her own hypnotic restrictions do not.** A direct command is involuntary — the hypnotist is driving
-her hand, not asking her to choose — so it overrides restrictions *this add-on* applied:
+**Real physical limits always take precedence.** ECHS queries Bondage Club's engine before attempting an action. A locked chastity belt, bound wrists, being physically out of reach, or zones disabled in the subject's native BC arousal preferences will refuse the command cleanly. The script respects native game rules rather than forcing an illegal state.
 
-- the self-touch block (*"you cannot touch yourself"*)
-- our hypnotic freeze (*"you cannot move"*)
-- our orgasm denial (*"you cannot cum"*, then *"cum for me"*)
+**Hypnotic restrictions applied by this add-on do not block commands.** A direct command is treated as involuntary — the hypnotist is guiding her hands, not asking her conscious permission. Therefore, incoming commands bypass restrictions applied by ECHS itself:
 
-A **real** restraint that freezes her, or a **real** chastity item, still stops it. The distinction
-is whose restriction it is: ours to lift, or not ours at all.
+* The hypnotic self-touch block (*"you cannot touch yourself"*)
+* The hypnotic freeze (*"you cannot move"*)
+* Hypnotic orgasm denial (*"you cannot cum"*, followed by *"cum for me"*)
 
-This is what makes the combination work — *"you cannot touch yourself"* **and** *"touch your
-breasts"* coexist, because the block was about her own volition and the command bypasses volition
-entirely.
+A **real** physical restraint that immobilizes her or a **real** chastity lock will still stop the action. The rule is simple: if the barrier belongs to ECHS, the hypnotist can command through it; if the barrier belongs to native BC items, it stands.
 
-## In a trigger
+This allows classic hypnotic tropes to work seamlessly: *"you cannot touch yourself"* and *"touch your breasts"* can coexist. The block binds her conscious will, while the direct suggestion bypasses volition entirely.
 
-A commanded activity records into a trigger like any other action:
+---
 
-```
-"Missy, your trigger word is good girl"
-"Missy, touch your breasts"        ← recorded, not performed
-"Missy, remember trigger"
-```
+## Storing in a Trigger
 
-When it fires, permission and depth are re-checked **at that moment**, and the game is asked again
-whether the activity is currently possible — so a trigger planted weeks ago cannot make her
-masturbate through a belt she has put on since.
+A commanded activity can be recorded into a dormant trigger phrase just like any other action:
 
-A trigger carrying several actions fires them **one at a time**, with a short pause between each.
+1. *"Missy, your trigger word is good girl"*
+2. *"Missy, touch your breasts"* *(recorded to buffer, not executed immediately)*
+3. *"Missy, remember trigger"*
 
-## What she and the room see
+When the trigger word is eventually spoken, permissions, trance depth, and native physical item checks are re-evaluated **at that exact moment**. A trigger planted days earlier cannot force a character to touch herself through a chastity belt or wrist ropes applied in the meantime.
 
-The room sees an ordinary BC activity message — indistinguishable from her having chosen it. She
-gets a private line telling her that her body acted without waiting for her.
+Triggers carrying multiple queued actions will execute them **one at a time**, with a brief delay between each action.
 
-There is no second narration from the add-on, because the game has already published the event.
+---
 
-## Current limits
+## What the Players See
 
-Phase 1 is **self-only** and **one-shot**. Not yet built: *sustained* ("keep going"), *conditional*
-("whenever your arousal drops below X"), acting on **another player**, and a gentle/rough consent
-split.
+* **The Room:** Sees a standard Bondage Club activity event in chat — indistinguishable from the subject having clicked the activity button manually.
+* **The Subject:** Receives a private client notification stating that her body moved and responded without waiting for her conscious input.
+
+There is no redundant room narration from ECHS, ensuring chat stays clean and immersive.
+
+---
+
+## Current Scope & Limits
+
+In the current build, commanded activities are **self-only** and **one-shot**. 
+
+* **Touching other players:** Coming soon! The groundwork is laid, but interpersonal actions are disabled while targeting rules are being refined.
+* **Toy activities:** Interacting with held toys is under consideration.
+* **Loops and conditions:** Sustained actions (*"keep stroking"*) and conditional triggers (*"touch yourself whenever you hear X"*) are planned for later phases.
