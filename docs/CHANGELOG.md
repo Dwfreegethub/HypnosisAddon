@@ -79,6 +79,11 @@ under, frozen, with an attempt spent — and to pass after. The controls matter 
 failures here (rule 6): the same rigged roll is shown landing with the hypnotist present, so the
 headline check cannot pass on a suite where nothing ever succeeds.
 
+**Two calls settled by DW, 2026-09-21**, both confirming what was built rather than changing it:
+an induction abandoned because the hypnotist left **does not count as an attempt** — no try spent,
+no cooldown — and the trance grace **stays at five minutes**. Do not re-decide either without
+flagging it.
+
 **Not run live.** No two-client session has exercised this.
 
 ### Fixed 2026-09-21 (v0.79.1) — a line break between two subjects' orders
