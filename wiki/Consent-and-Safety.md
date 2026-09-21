@@ -1,111 +1,128 @@
 # Consent and Safety
 
-This add-on does real things to your client. This page is what you are agreeing to.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Balancing player agency with immersion is an ongoing process. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-## Your client decides everything
+---
 
-Another player's add-on can only ever **ask**. When a hypnotist says *"Missy, you cannot move"*,
-what happens is that your own client reads the line, checks it against your own settings, and
-decides. Nothing about the decision happens on their machine.
+This add-on does real things to your game client and character behavior. This page breaks down how permissions work, how the client protects you under the hood, and every available way out of a scene.
 
-This is structural, not a promise. A modified hypnotist client has nothing to read and nothing to
-override — it does not know your permissions, your depth, or whether a suggestion matched. It is
-told only a vague band of how the session is going, never numbers, and never which of Agree / Ignore
-/ Fight you chose.
+---
 
-## Nothing is on until you turn it on
+## A Quick Word on Safety vs. CNC Play
 
-A fresh install has every permission off, including the master **Hypnosis Enabled** switch. If the
-add-on appears to do nothing, that is why.
+Let’s be real for a moment: this mod puts a heavy emphasis on client-side safety, granular permissions, and verification gates. For a lot of players, that peace of mind is essential. 
 
-Permissions are **per feature**. You decide separately whether someone may stop you moving, silence
-you, keep you out of your wardrobe, move your arousal, undress you, make you act, hide things from
-you, show you a false reflection, or plant triggers.
+At the same time, if your thing is heavy consensual non-consent (CNC), surrender, or feeling truly helpless, guardrails and permission popups can sometimes pull you right out of the headspace. That tension is recognized. Work is underway on opt-in mechanics and presets to better cater to darker or deeper CNC roleplay without compromising the core fail-safes. In the meantime, the safety floor is built to guarantee that *you*—the person behind the keyboard—always hold the master key.
 
-**Turning a permission off releases whatever it was holding, immediately.** Revoking consent is
-never harder than granting it — a release request is always honoured regardless of permission state,
-and unticking a permission disarms that part of every trigger already planted, not just the
-currently running one.
+---
 
-## Two gates, not one
+## 1. Your Client Decides Everything
 
-A permission asks *may they ever do this to me*. **Depth** asks *how far under do I have to be
-before it can happen*. Both must be satisfied every time.
+Another player’s add-on can only ever **ask**.
 
-So a permission you granted last week does not mean someone can do it to you now — they still have
-to get you deep enough, and how deep they can get you depends on your relationship. See
-[Depth and Trust](Depth-and-Trust).
+When a hypnotist says *"Missy, you cannot move"*, their computer isn't reaching into yours to freeze your avatar. Instead:
+1. Your game client reads the line from chat.
+2. Your local script checks the words against your own settings and trance depth.
+3. Your client decides whether to execute the action or ignore it.
 
-## The things that deserve extra thought
+This is a structural design rule, not just an honor system. A modified hypnotist client has nothing to override—it cannot read your permissions, it cannot see your exact numbers, and it never gets told whether you picked Agree, Ignore, or Fight during induction. It gets only a broad, vague read on how the scene is unfolding.
 
-Three features are gated harder than the rest, because two of them outlive the session and one lies
-to you about your own body:
+---
 
-- **Clothing Illusion** — your own screen keeps showing clothes you are no longer wearing, while
-  the room sees the truth.
-- **Planting Triggers** — a word that fires on you later, in or out of trance, potentially days
-  later.
-- **Carry-Forward** — a suggestion that is simply still true after you wake.
+## 2. Nothing Is On Until You Turn It On
 
-These need a **Deep** trance on *earned* depth, which means arousal cannot buy them. See
-[Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
+On a fresh install, every permission starts switched **off**, including the master **Hypnosis Enabled** toggle. If you install the script and it seems completely dead, that is entirely intentional. We don't touch your character until you explicitly say what's fair game.
 
-**Awareness suppression** deserves the same pause. It can hide clothing changes, bondage or touches
-from you — you are still being changed, you are just not told. It is a separate permission from
-everything else for exactly that reason.
+Permissions are configured **per feature**:
+* Movement restriction (freezing)
+* Speech restriction (muting)
+* Posture control (kneeling and standing)
+* Wardrobe restrictions (blocking clothing changes)
+* Arousal control and forced climaxes
+* Undressing
+* Commanded activities (acting on command)
+* Sensory modulation and awareness suppression
+* False reflections (clothing illusions)
+* Storing and firing trigger words
 
-## Arousal can open a door, but only a little way
+### Adjusting Permissions & Mid-Trance Locks
+Outside of trance, unticking a permission immediately drops whatever effect was active and disarms that part of any planted trigger you have saved.
 
-Being worked up raises how far someone can reach, up to a hard ceiling of 30 — which is
-**Yielding**, the second-shallowest tier. It is enough for a stranger to reach the shallow,
-session-only things and nothing else, ever.
+*Note on Trance Locks:* If you enable the option to lock your settings during a trance, your permissions menu is locked down while you are under to keep you in character. However, your emergency exits remain completely untouched—no setting lock can ever touch your safeword.
 
-Arousal can never reach the three features above. That is the point of the earned/arousal split: a
-decision you make while worked up cannot leave anything behind after you have calmed down.
+---
 
-## Every way out
+## 3. Two Gates: Permission AND Depth
 
-None of these can be taken away by any feature, trigger, setting or lock:
+Every hypnotic suggestion has to pass two separate hurdles:
 
-**`/hypno safeword`** — clears the trance and every effect, from any state. This is the floor.
-Because it is a slash command, it still works when you have been silenced: BC parses commands before
-the speech block can see them.
+1. **Permission:** *Did you explicitly allow this category of effect in your settings?*
+2. **Depth:** *Are you actually deep enough for it to work?*
 
-**Unticking Hypnosis Enabled** — the same total release, from the settings screen.
+Both must pass at the exact moment a line is spoken. Ticking a permission simply gives your partner permission to try—they still have to successfully guide you to the required depth tier. How far they can take you depends on mutual trust and familiarity. 
 
-**`/hypno wake`** — wake yourself, but only while the trance is still shallow. A deep trance will
-refuse, and it will say so.
+*(Note: Mentioned depth tiers like Drifting, Yielding, Entranced, and Deep reflect the mod's default configuration. All depth gates and tier thresholds are fully customizable in your settings).* See [Depth and Trust](Depth-and-Trust).
 
-**Time** — trances time out after 30 minutes. A fired trigger wears off on its own timer. An
-induction window closes on its own.
+---
 
-**The hypnotist's Wake Up button**, or a spoken wake word — *"wake up"*, *"you are awake"*,
-*"come back to me"*. These are gated by no permission at all.
+## 4. The High-Impact Stuff
 
-**Being released by name** — *"Missy, you are released from sleepy time"* undoes exactly what that
-one trigger applied, and works outside a trance.
+A few features are guarded much more strictly by default because they outlive the scene, alter your perception, or simulate real involuntary action:
 
-### One deliberate refusal
+* **Clothing Illusion:** Your screen keeps rendering your original outfit, while the rest of the room sees what you are actually wearing.
+* **Planted Triggers:** Trigger words that stay primed in your client to fire later—inside or outside of trance, even days down the line.
+* **Carry-Forward Suggestions:** Effects set to stay active after you wake up.
+* **Awareness Suppression:** Hides clothing changes, ropes, or touch interactions from your chat log. The actions happen in the room, but your client doesn't notify you.
 
-`/hypno forgettrigger` **refuses while that trigger currently has hold of you.** Deleting the thing
-that is gripping you would be too quiet an escape — the safeword is the way out of that, and saying
-so is the point.
+These features default to requiring a **Deep** trance earned through genuine **Earned Depth** (built over time through trust and skill). Quick arousal boosts can never unlock them.
 
-## What the room sees
+---
 
-Anything in `[square brackets]` reached only you. Nobody else saw it, and nothing in the room
-reacted to it.
+## 5. What Arousal Can (and Can't) Do
 
-Anything the room could genuinely have observed is **emoted** instead, so everyone present reads
-it — reaching for yourself and stopping, going still, opening your mouth and producing nothing.
+Getting worked up or highly aroused can lower your resistance and open doors, but only up to a hard ceiling (defaulting to the **Yielding** tier).
 
-Perception effects are never emoted. Nobody can watch you fail to notice something.
+* By default, arousal alone is only enough for a partner to reach basic, session-only commands (like freezing or kneeling).
+* Arousal **never** unlocks Deep-tier features, triggers, clothing illusions, or carry-forward effects.
+* A decision made in the heat of the moment cannot leave lasting effects behind once you have cooled down.
 
-**Trance Defaults → Others See Your Reactions** turns the emotes off entirely, if you would rather
-the room saw nothing.
+---
 
-## Out of character
+## 6. Every Way Out
 
-Anything in parentheses is discarded before the add-on reads the line at all. `(brb)` or
-`(are you still okay with this?)` will never fire a suggestion, build trust, or set off a trigger.
-That is BC's own convention and the add-on honours it.
+These exits cannot be disabled, locked, or overridden by any hypnotic command, trigger, or setting:
+
+### Emergency Safewords & Disabling
+* **`/echs safeword` (or `/hypno safeword`):** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
+* **Unticking "Hypnosis Enabled":** Completely shuts down the add-on from your native extension menu.
+
+### Waking Up & Natural Releases
+* **`/echs wake` (or `/hypno wake`):** Lets you pull yourself out of a light trance. A deep trance will refuse and let you know you're too far under.
+* **Hypnotist Wake Commands:** The hypnotist's **Wake Up** button or spoken wake phrases (*"wake up"*, *"you are awake"*, *"come back to me"*) require no permission checks and work instantly.
+* **Targeted Trigger Release:** A line like *"Missy, you are released from sleepy time"* clears that specific trigger's hold, even outside of trance.
+
+### Automatic Timeouts
+* **Session Timers:** Trances automatically time out and release after a set period.
+* **Trigger Timers:** Fired triggers decay and release on their own countdown.
+* **Induction Window:** An unanswered induction prompt closes on its own after the countdown expires.
+
+### One Deliberate Refusal
+* `/echs forgettrigger` (or `/hypno forgettrigger`) **will refuse to delete a trigger while that trigger is actively holding you.** Deleting a trigger while you are under its direct influence is blocked to preserve scene tension—use `/echs safeword` instead for an immediate, clean break.
+
+---
+
+## 7. What You and the Room See
+
+* **Private Lines `[In Brackets]`:** Anything wrapped in square brackets is visible only to you. Nobody else in the room sees it.
+* **Public Emotes:** Actions that would be physically noticeable in the room are sent as standard emotes for everyone to read (like reaching out and freezing, going motionless, or moving your mouth without speaking).
+* **Perception Effects:** Purely mental effects (like failing to notice an item or seeing a clothing illusion) are never emoted. Nobody can watch you fail to notice something.
+* **Turning Emotes Off:** If you prefer your reactions to stay completely private, turn off **Trance Defaults → Others See Your Reactions**.
+
+---
+
+## 8. Out of Character (OOC) Protection
+
+Anything enclosed in single parentheses `(like this)` is ignored by the parser before any suggestion or trigger check happens. 
+
+Typing `(brb)` or `(checking scene consent)` will never fire an effect, advance trust, or trigger a hypnotic response. ECHS strictly respects Bondage Club's native OOC formatting.
