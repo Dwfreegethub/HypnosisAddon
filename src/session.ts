@@ -38,6 +38,7 @@ import {
 	registerRecoveryHandlers,
 	snapshotTriggers,
 	stopWaiting,
+	RECOVERY_WINDOW_MS,
 	SavedSession,
 } from "./recovery";
 import { clearAllSuppression } from "./suppression";
@@ -144,6 +145,37 @@ const SKILL_SUCCESS_CREDIT = 1;
 const SELF_WAKE_MAX_DEPTH = 40;
 const CHOICE_MODIFIER: Record<SessionChoice, number> = { agree: 25, ignore: 0, fight: -25 };
 
+// --- Presence: the hypnotist has to actually be here ---------------------------------
+//
+// Nothing used to ask. An attempt opened a sixty-second window, the window fired a roll on
+// a timer, and the timer did not care whether the person who started it was still in the
+// room — so a hypnotist could request an induction, walk out, and have the subject drop
+// into a trance alone, with the freeze, the silence and the veil all applied and nobody
+// there to lift them. The trance then held for the full thirty-minute timeout. DW,
+// 2026-09-21, named it: "before a subject actually goes under, make sure the tist is still
+// in the room."
+//
+// Read off ChatRoomCharacter on the SUBJECT's own client (rule 1). The hypnotist's client
+// is never asked and never believed about this; a presence claim in a hidden message would
+// be exactly the thing a modified client would forge.
+//
+/** How long the hypnotist may be out of the room before a trance they are running ends.
+ *
+ * Deliberately RECOVERY_WINDOW_MS — the same five minutes recovery.ts already uses for the
+ * mirror-image case. When the SUBJECT drops out and comes back, DW's settled rule is that a
+ * hypnotist still in the room inside five minutes means the scene continues. The hypnotist
+ * stepping out is the same question with the players swapped, and answering it with a
+ * different number would make "did the scene survive" depend on which of the two vanished. */
+const TRANCE_ABSENCE_GRACE_MS = RECOVERY_WINDOW_MS;
+/** The same question during an induction, where the stakes are lower and the tolerance is
+ * shorter: nothing is applied yet, nothing is spent by ending, and leaving a consent prompt
+ * on screen for someone who has gone is worse than making them re-ask. Long enough to ride
+ * out a room-sync blip, short enough that the box does not outlive them by a minute. */
+const INDUCTION_ABSENCE_GRACE_MS = 30_000;
+/** How often the watcher looks. Matches recovery.ts's own WAIT_POLL_MS — this is the same
+ * question asked from the other side, so it is asked at the same rate. */
+const PRESENCE_POLL_MS = 3_000;
+
 /** Depth a relationship guarantees on a successful, unfought induction.
  *
  * SETTLED 2026-08-31, and the reason the floors had to move here from the access number:
@@ -248,9 +280,57 @@ let windowTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionTimer: ReturnType<typeof setTimeout> | null = null;
 let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** When the hypnotist was first noticed to be gone, or 0 while they are here. Wall-clock
+ * rather than a countdown so a missed poll (a backgrounded tab throttles timers to once a
+ * minute) cannot quietly extend the grace. */
+let hypnotistGoneSince = 0;
+let presenceTimer: ReturnType<typeof setInterval> | null = null;
+
 function clearTimers(): void {
 	for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
 	promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
+	stopPresenceWatch();
+}
+
+function stopPresenceWatch(): void {
+	if (presenceTimer) clearInterval(presenceTimer);
+	presenceTimer = null;
+	hypnotistGoneSince = 0;
+}
+
+/** Are we somewhere we could see the roster at all?
+ *
+ * The distinction matters more than it looks. "Not in a room" and "in a room they have left"
+ * produce the same empty answer from a naive lookup, and treating the first as a departure
+ * would end a trance every time the SUBJECT walked out, or during the gap at load before
+ * ChatRoomCharacter exists. recovery.ts draws the same line for the same reason. */
+function rosterReadable(): boolean {
+	return typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.length > 0;
+}
+
+/** Is this member number in the room with us right now?
+ *
+ * Three states, not two: true, false, and `null` for "cannot tell". Callers must decide what
+ * to do about null themselves, because the safe answer differs — a gate on an incoming
+ * request lets it through (the message physically arrived, so they were here to send it),
+ * while the watcher holds its clock rather than starting one. Collapsing null into false
+ * would end every trance the moment the subject stepped out of the room. */
+export function memberInRoom(memberId: number | null): boolean | null {
+	if (memberId == null) return null;
+	if (!rosterReadable()) return null;
+	return (ChatRoomCharacter as any[]).some((c: any) => c?.MemberNumber === memberId);
+}
+
+/** The hard gate: may an induction resolve right now?
+ *
+ * Used at the two moments that actually matter — the window opening, and the roll landing.
+ * Unlike the watcher below there is no grace here and no benefit of the doubt beyond an
+ * unreadable roster: at the instant the subject would go under, the hypnotist is either in
+ * the room or the induction does not happen. That is the whole of what DW asked for, and it
+ * is checked at resolution rather than only at request because the gap between the two is
+ * sixty seconds of unattended timer. */
+function hypnotistPresentForInduction(): boolean {
+	return memberInRoom(session.hypnotistId) !== false;
 }
 
 function notify(message: string): void {
@@ -715,6 +795,18 @@ function runInductionRoll(): void {
 	windowTimer = null;
 	if (session.phase !== "InductionInProgress" || session.hypnotistId == null) return;
 
+	// THE GATE THIS WHOLE CHANGE EXISTS FOR. Checked here, at resolution, and not only when
+	// the attempt was requested: the sixty seconds in between are an unattended timer, and
+	// a hypnotist who walked out during them used to get a trance out of it anyway.
+	//
+	// Before the attempt is counted and before noteInductionAttempt(), deliberately — an
+	// induction that was abandoned is not practice for anyone and must not spend one of the
+	// subject's tries.
+	if (!hypnotistPresentForInduction()) {
+		lapseInduction("left before it could land");
+		return;
+	}
+
 	const choice = session.choice ?? "ignore";
 	const chance = inductionChance(session.hypnotistId, choice);
 	const roll = Math.random() * 100;
@@ -736,6 +828,10 @@ function runInductionRoll(): void {
 		sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
 		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
 		applyTranceState();
+		// Keep asking. Presence was true a microsecond ago, at the gate above — but the
+		// trance now runs for up to thirty minutes, and the question "is anyone still here"
+		// has to be asked for all of it, not once at the start.
+		startPresenceWatch();
 		// The accelerator, and the practice. Both halves only on success.
 		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
 		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
@@ -831,6 +927,10 @@ export function forceTrance(hypnotistId: number, full: number, earned: number): 
 	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
 	sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
 	applyTranceState();
+	// A forced trance is still a trance: if the bot that forced it leaves the testing room,
+	// it ends the same way a real one would rather than becoming the one path that strands
+	// effects on someone.
+	startPresenceWatch();
 	pushUpdate();
 	persistState();
 	log(`TESTING: forced trance with ${hypnotistId}, depth ${session.depth}/${session.depthEarned}`);
@@ -903,7 +1003,134 @@ export function leaveWalkingTrance(): boolean {
 	return true;
 }
 
+/** Who to name when they are not here to be looked up. */
+function hypnotistLabel(): string {
+	const id = session.hypnotistId;
+	if (id == null) return "They";
+	const resolved = findCharacterName(id);
+	// findCharacterName falls back to "#12345" for anyone not on the roster — which is
+	// exactly this case, since they have gone. The name travelled with the attempt for this
+	// reason: so the subject can be told who, without depending on that character still
+	// being loaded on their client.
+	return resolved.startsWith("#") ? session.promptName || "They" : resolved;
+}
+
+/** End an induction that nobody is running any more, WITHOUT spending anything.
+ *
+ * Deliberately not endSession(). endSession resets to a fresh session, which zeroes
+ * `attempts` — and a retry lapsing that way would hand the hypnotist a brand-new pair of
+ * tries every time they stepped out of the room, turning this fix into a cooldown bypass.
+ * So a lapse puts the subject back exactly where the last completed roll left them: the
+ * count stands, the cooldown stands, and the hypnotist has to come back and ask again.
+ *
+ * Nothing is applied before the roll lands, so there is nothing to release here — this is
+ * the one exit path in this file that does not need the total clear. */
+function lapseInduction(reason: string): void {
+	const wasRunning = session.phase === "InductionInProgress";
+	const name = hypnotistLabel();
+	if (promptTimer) {
+		clearTimeout(promptTimer);
+		promptTimer = null;
+	}
+	if (windowTimer) {
+		clearTimeout(windowTimer);
+		windowTimer = null;
+	}
+	stopPresenceWatch();
+	session.choice = null;
+	session.rpLines = 0;
+	session.lastRpLine = "";
+	session.promptExpiresAt = 0;
+	if (session.attempts > 0) {
+		// A retry that lapsed. Back to the miss it grew out of, count intact.
+		session.phase = "AttemptFailed";
+		notify(`${name} ${reason}. The attempt ends — you are no further under, and it still counts as ${session.attempts} of ${maxAttempts()}.`);
+		pushUpdate();
+	} else {
+		session.phase = "Idle";
+		notify(`${name} ${reason}. Nothing came of it, and nothing was used up.`);
+		pushUpdate();
+		session.hypnotistId = null;
+		session.promptName = "";
+	}
+	// The room only hears about this if it heard the induction begin. An unanswered prompt
+	// was never announced, so closing it with a line would be narrating a non-event.
+	//
+	// The MISS pool, not a pool of its own, and that is the point: onlookers must not be
+	// able to tell a lapse from an ordinary miss. A distinct "he walked out on her" line
+	// would say out loud which of the two ended it, in front of the room, every time.
+	if (wasRunning) announceInductionMiss();
+	log(`induction lapsed: ${reason} (attempts=${session.attempts})`);
+}
+
+/** The watcher. Exported so a suite can drive it a tick at a time rather than sleeping
+ * through a five-minute grace — and so the rule it enforces is testable at all (rule 6).
+ *
+ * The phases it acts on are the ones with something LIVE and unattended: a consent prompt on
+ * screen, a window counting down to a roll, or a trance actually applied. AttemptFailed and
+ * CooldownRequired are deliberately left alone — those are dormant states holding the
+ * subject's own protection (the spent count, the cooldown clock), and clearing them because
+ * the hypnotist stepped out would hand back the tries they had used. Presence is enforced on
+ * those two where it belongs instead: at the moment the hypnotist tries to act again. */
+export function checkHypnotistPresence(): void {
+	if (session.hypnotistId == null) {
+		stopPresenceWatch();
+		return;
+	}
+	const phase = session.phase;
+	if (phase !== "AttemptMade" && phase !== "InductionInProgress" && phase !== "Hypnotized") {
+		stopPresenceWatch();
+		return;
+	}
+	const here = memberInRoom(session.hypnotistId);
+	// Cannot tell — no roster to read, which usually means WE are the one who has left, or
+	// the client has not synced a room yet. Hold the clock where it is rather than counting
+	// a blind moment as an absence.
+	if (here === null) return;
+	if (here) {
+		if (hypnotistGoneSince) {
+			hypnotistGoneSince = 0;
+			notify(`${hypnotistLabel()} is back.`);
+		}
+		return;
+	}
+	if (!hypnotistGoneSince) {
+		hypnotistGoneSince = Date.now();
+		const minutes = Math.round((phase === "Hypnotized" ? TRANCE_ABSENCE_GRACE_MS : INDUCTION_ABSENCE_GRACE_MS) / 60_000);
+		notify(
+			phase === "Hypnotized"
+				? `${hypnotistLabel()} is not in the room. If they are not back within ${minutes || 1} minute${minutes === 1 ? "" : "s"}, this ends on its own.`
+				: `${hypnotistLabel()} is not in the room.`,
+		);
+		return;
+	}
+	const grace = phase === "Hypnotized" ? TRANCE_ABSENCE_GRACE_MS : INDUCTION_ABSENCE_GRACE_MS;
+	if (Date.now() - hypnotistGoneSince < grace) return;
+	if (phase === "Hypnotized") {
+		// The full teardown, same as any other ending: every effect comes off and anything
+		// made durable is put back by carryThroughWake(). A carried suggestion or a planted
+		// trigger was never part of the session, and it is not the hypnotist's presence that
+		// keeps it alive — see the durable half of recovery.ts.
+		endSession("they left and did not come back");
+	} else {
+		lapseInduction("left, and did not come back");
+	}
+}
+
+function startPresenceWatch(): void {
+	hypnotistGoneSince = 0;
+	if (presenceTimer) return;
+	presenceTimer = setInterval(checkHypnotistPresence, PRESENCE_POLL_MS);
+}
+
 function beginInductionWindow(): void {
+	// The first of the two hard gates. The subject has answered the prompt (or let it lapse
+	// to Ignore) and is about to start a minute that ends in a roll — if the person who asked
+	// has already gone, that minute must not start.
+	if (!hypnotistPresentForInduction()) {
+		lapseInduction("is no longer in the room");
+		return;
+	}
 	session.phase = "InductionInProgress";
 	// What onlookers see now that the hypnotist is actually working — until now the whole
 	// induction was silent to the room. Choice-agnostic, so it never leaks agree/ignore/fight.
@@ -914,6 +1141,7 @@ function beginInductionWindow(): void {
 	session.lastRpLine = "";
 	if (windowTimer) clearTimeout(windowTimer);
 	windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
+	startPresenceWatch();
 	pushUpdate();
 }
 
@@ -932,6 +1160,9 @@ function showPrompt(hypnotistName: string): void {
 	}, PROMPT_TIMEOUT_MS);
 	// The instinct clause, if she has any read on them — about her, never about him, and never a
 	// number. Its own sentence so it reads as a feeling rather than as a stat tacked on.
+	// A consent prompt has to be about someone who is here. If they leave while the box is up
+	// it comes down rather than sitting there for the full minute naming an empty chair.
+	startPresenceWatch();
 	const descriptor = skillDescriptor(session.honouredSkill);
 	notify(
 		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)` +
@@ -1302,6 +1533,10 @@ function restoreSavedSession(saved: SavedSession): void {
 		endSession("the session had already run out while you were away");
 		return;
 	}
+	// recovery.ts has already established the hypnotist is in the room — that is its own
+	// resume condition. From here on it is this watcher's question, so the two do not both
+	// have to be running.
+	startPresenceWatch();
 	pushUpdate();
 	log(`recovery: session restored, depth ${session.depth}, ${Math.round(remaining / 60_000)} min left`);
 }
@@ -1315,10 +1550,10 @@ export function installSession(): void {
 				restoreCarried(saved.carried, saved.carriedUntil, saved.carrierId, saved.carrierName);
 			}
 		},
-		inRoom: (memberId: number) =>
-			(typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).some(
-				(c: any) => c?.MemberNumber === memberId,
-			),
+		// One reading of the roster for both sides of the same question. recovery.ts wants a
+		// plain boolean and treats "cannot tell" as "not here" — which is right for a resume
+		// decision, where the default is to keep waiting rather than to restore a trance.
+		inRoom: (memberId: number) => memberInRoom(memberId) === true,
 	});
 	startRecovery();
 	// Incoming, as the SUBJECT.
@@ -1331,6 +1566,17 @@ export function installSession(): void {
 	registerHiddenHandler("session-attempt", (sender, message) => {
 		if (!getFeatures().hypnoEnabled) {
 			refuse(sender, "They aren't open to hypnosis.");
+			return;
+		}
+		// You have to be in the room to reach for someone. The hidden channel rides
+		// ChatRoomChat, so in ordinary play the sender is present by construction and this
+		// never fires — it is here because "never fires in ordinary play" is exactly the
+		// assumption a modified client exists to break, and because the roster is the one
+		// source this client can check for itself. `false` only, never `null`: an unreadable
+		// roster means we cannot tell, and the message did physically arrive.
+		if (memberInRoom(sender) === false) {
+			refuse(sender, "You aren't in the room with them.");
+			log(`refused session-attempt from ${sender} — not on our roster`);
 			return;
 		}
 		if (session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
@@ -1395,6 +1641,13 @@ export function installSession(): void {
 
 	registerHiddenHandler("session-continue", (sender) => {
 		if (session.hypnotistId !== sender) return;
+		// Same gate as the attempt. This is the one that matters for AttemptFailed, which the
+		// presence watcher deliberately leaves alone: the spent count survives the hypnotist
+		// walking out, and the price of that is that the retry has to be refused here instead.
+		if (memberInRoom(sender) === false) {
+			refuse(sender, "You aren't in the room with them.");
+			return;
+		}
 		// A retry only means something after an attempt has actually missed. Sent mid-window it
 		// used to return in silence, which read on the hypnotist's screen as the retry having
 		// been ignored — DW hit exactly this, asked for a retry twenty seconds into a running
@@ -1416,6 +1669,10 @@ export function installSession(): void {
 		beginInductionWindow();
 	});
 
+	// DELIBERATELY NOT PRESENCE-GATED, unlike attempt and continue above. This one RELEASES.
+	// Gating a release on the hypnotist being present would mean the one message that ends a
+	// trance is the one that stops working the moment they are gone — the exact trap the
+	// safeword exists to make impossible. Nothing that lets go is ever gated in this file.
 	registerHiddenHandler("session-wake", (sender) => {
 		if (session.hypnotistId !== sender) return;
 		if (session.phase === "Idle") return;
