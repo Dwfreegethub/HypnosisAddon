@@ -31,6 +31,15 @@ const CLASSIFY = [
    { Type: "Action", Content: "Whatever" }, { FocusGroup: { Category: "Appearance", IsRestraint: false } }, "clothing"],
   ["emptied an item slot, by group",
    { Type: "Action", Content: "Whatever" }, { FocusGroup: { Category: "Item" } }, "bondage"],
+  // v0.82.0: an Item-slot asset is bondage whether or not BC calls it a restraint. IsRestraint
+  // means "restrains you", so a gag, a collar or a padlock can lack it, and these three were
+  // all sorted as clothing — leaking under "you do not notice being tied".
+  ["a gag, by asset (Item slot, no restraint flag)",
+   { Type: "Action", Content: "ActionUse" }, { Assets: { NextAsset: { IsRestraint: false, Group: { Name: "ItemMouth", Category: "Item" } } } }, "bondage"],
+  ["a padlock, by asset",
+   { Type: "Action", Content: "ActionAddLock" }, { Assets: { LockName: { IsRestraint: false, Group: { Name: "ItemMisc", Category: "Item" } } } }, "bondage"],
+  ["a dress, by asset with its group, stays clothing",
+   { Type: "Action", Content: "ActionUse" }, { Assets: { NextAsset: { IsRestraint: false, Group: { Name: "Cloth", Category: "Appearance", Clothing: true } } } }, "clothing"],
   ["an activity", { Type: "Activity", Content: "ChatOther-ItemBreast-Caress" }, {}, "activity"],
   // Must stay unclassified: an unknown asset-less Action is not ours to eat, and the
   // safeword messages in particular must always reach the subject.
@@ -93,9 +102,10 @@ const CASES = [
   ["Missy, you notice my touches again.","touch-release"],
   ["Missy, you register my touch.","touch-release"],
   ["Missy, you stop ignoring my touches.","touch-release"],
-  // Shadowed on purpose, and pinned so nobody "fixes" it: awareness-release's broad
-  // /you (can|may) notice/ takes this first, and it clears activity suppression anyway.
-  ["Missy, you can notice my touch.","awareness-release"],
+  // Re-pinned in v0.82.0. This used to go to awareness-release, whose bare /you (can|may)
+  // notice/ took it first — the same bare pattern that also took ordinary patter (below). With
+  // that narrowed, it reaches the touch release it was always worded as.
+  ["Missy, you can notice my touch.","touch-release"],
   // Sensation. The first two used to answer to touch-block, which is the bug.
   ["Missy, you cannot feel my touch.","numb-block"],
   ["Missy, my touches do not reach you.","numb-block"],
@@ -133,6 +143,26 @@ const CASES = [
   ["Missy, you cannot get undressed.","clothing-block"],
   ["Missy, you cannot take off your clothes.","clothing-block"],
   ["Missy, leave your clothes alone.","clothing-block"],
+  // --- v0.82.0: patter is not a release -------------------------------------------------
+  // "You may notice…" is how half of all hypnotic patter starts. It used to reach
+  // awareness-release and silently lift every awareness category, the illusion and numbness.
+  ["Missy, you may notice a warmth spreading.",null],
+  ["Missy, you can notice how heavy your arms feel.",null],
+  ["Missy, you may notice your breathing slowing.",null],
+  // ...while the ways of actually saying it still land.
+  ["Missy, you can notice again.","awareness-release"],
+  ["Missy, you may notice everything.","awareness-release"],
+  ["Missy, you can notice what happens to you.","awareness-release"],
+  // --- v0.82.0: a line about noticing being stripped is not an order to strip -----------
+  // The undress pair sits before every awareness entry and reads the whole line, so each of
+  // these stripped her (or took a garment off) and never set awareness at all.
+  ["Missy, you will not notice when I strip you.","clothing-awareness-block"],
+  ["Missy, you won't notice when I undress you.","clothing-awareness-block"],
+  ["Missy, you do not notice anyone stripping you.","clothing-awareness-block"],
+  ["Missy, you will not notice being stripped.","clothing-awareness-block"],
+  ["Missy, you notice being stripped again.","clothing-awareness-release"],
+  ["Missy, you notice nothing when I strip you.","awareness-block"],
+  ["Missy, changes to your clothes go unnoticed while you undress.","clothing-awareness-block"],
   // must not fire
   ["I didn't notice, Missy.",null],
   ["We should ignore that, Missy.",null],

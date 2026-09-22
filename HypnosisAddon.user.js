@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.81.1
+// @version      0.82.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -912,14 +912,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var ACTION_TAGS = {
     ChangeClothes: "clothing"
   };
+  function isItemSlot(group, isRestraint) {
+    return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
+  }
   function classify(data, metadata) {
     if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
     if (data?.Type !== "Action") return null;
     const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
-    if (assets.some((a) => a?.IsRestraint)) return "bondage";
+    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
     if (assets.length > 0) return "clothing";
     const group = metadata?.FocusGroup;
-    if (group) return group.IsRestraint || group.Category === "Item" ? "bondage" : "clothing";
+    if (group) return isItemSlot(group) ? "bondage" : "clothing";
     const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
     return tag ?? null;
   }
@@ -1696,7 +1699,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.81.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1715,6 +1718,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/illusion.ts
   var SHADOW_ID = "HypnosisAddonIllusion";
+  var NAME_FIELDS = ["Name", "Nickname", "LabelColor"];
   var COSMETIC_GROUPS = /* @__PURE__ */ new Set(["EyeShadow", "Decals"]);
   function isWornGroup(group) {
     if (!group) return false;
@@ -1838,11 +1842,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
           if (!target) return next(args);
           rebuildIfStale();
           const realIsPlayer = target.IsPlayer;
+          const lent = NAME_FIELDS.map((k) => target[k]);
           target.IsPlayer = () => true;
+          for (const k of NAME_FIELDS) target[k] = Player?.[k];
           try {
             return next([target, ...args.slice(1)]);
           } finally {
             target.IsPlayer = realIsPlayer;
+            NAME_FIELDS.forEach((k, i) => target[k] = lent[i]);
           }
         } catch (err) {
           log("illusion draw failed:", err);
@@ -4260,6 +4267,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function applyArousal(level) {
     if (!setArousalLevel(level)) return "arousal-unavailable";
   }
+  var UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
   function applyUndress(count) {
     const liftedOwnFreeze = hasOwnEffect("Freeze");
     if (liftedOwnFreeze) {
@@ -4635,6 +4643,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // the subject, so "comic strip" only fires if somebody says "Missy, comic strip".
         /\bstrip\b/
       ],
+      unless: UNDRESS_IS_THE_OBJECT,
       run: () => applyUndress(Infinity)
     },
     {
@@ -4651,6 +4660,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\btake your clothes off\b/,
         /\bremove (a|one) (piece|garment|item)\b/
       ],
+      unless: UNDRESS_IS_THE_OBJECT,
       run: () => applyUndress(1)
     },
     // PER-CATEGORY awareness, and they sit BEFORE the broad pair below because the broad
@@ -4677,7 +4687,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       releaseOf: "clothing-awareness-block",
       permission: "suppressClothing",
       patterns: [
-        /\byou notice (being|when you are) (dressed|undressed|redressed|changed) again\b/,
+        /\byou notice (being|when you are) (dressed|undressed|redressed|changed|stripped) again\b/,
         /\byou notice changes to your (clothes|clothing|outfit)( again)?\b/,
         /\b(clothing|clothes|outfit) changes (register|reach you)( again)?\b/
       ],
@@ -4688,9 +4698,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       examples: ["you will not notice being undressed", "changes to your clothes go unnoticed"],
       permission: "suppressClothing",
       patterns: [
-        /\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed)\b/,
+        /\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed|stripped)\b/,
         /\byou (do not|will not|cannot) notice changes to your (clothes|clothing|outfit)\b/,
-        /\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing) you\b/,
+        /\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing|stripping) you\b/,
+        // "...when I strip you" — the phrasing the undress entries used to take, and strip her.
+        /\byou (do not|will not|cannot) notice (when|while|as|if) (i|we|they|he|she|someone|anyone|people) (strip|strips|undress|undresses|change|changes|dress|dresses) you\b/,
         /\b(clothing|clothes|outfit) changes go unnoticed\b/,
         /\bchanges to your (clothes|clothing|outfit) go unnoticed\b/
       ],
@@ -4735,7 +4747,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // "awake" deliberately NOT here — "you are awake again" should end the trance,
         // not merely restore awareness of clothing changes. It belongs to wake.
         /\byou are aware (again|to it)\b/,
-        /\byou (can|may) notice\b/
+        // "You can notice" / "you may notice" needs an object that means awareness coming
+        // BACK. It used to be bare, and ordinary patter starts that way far more often than a
+        // release does: "you may notice a warmth spreading" matched here and silently lifted
+        // clothing, bondage and touch hiding, the illusion and numbness, mid-scene, with
+        // nothing said to the hypnotist. That was the "inconsistent suppression" and the
+        // "awareness cancels the illusion" of DW's 2026-09-22 list, one cause for both.
+        /\byou (can|may) notice (again|everything|things|it all)\b/,
+        /\byou (can|may) notice (what|anything that) (happens|is happening|is done) to you\b/
       ],
       run: () => {
         setSuppressed("clothing", false);
@@ -4784,11 +4803,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       release: true,
       releaseOf: "touch-block",
       permission: "suppressActivities",
-      // No "you can notice my touch" here, though it is the obvious phrasing: awareness-
-      // release's deliberately broad /you (can|may) notice/ sits earlier in the table and
-      // takes it first. That is the right outcome — the broad release also clears activity
-      // suppression — so this is a pattern that would never have fired, not a gap.
+      // "You can notice my touch" used to be left out, because awareness-release's bare
+      // /you (can|may) notice/ took it first. That pattern was narrowed in v0.82.0 (it was
+      // also taking ordinary patter), so the obvious phrasing lives here now.
       patterns: [
+        /\byou (can|may) (notice|register) (my|his|her|their) (touch|touches)\b/,
         /\byou notice (my|his|her|their) (touch|touches) again\b/,
         /\byou (notice|register) (my|his|her|their) (touch|touches)\b/,
         /\byou (will |)stop ignoring (my|his|her|their) (touch|touches)\b/
@@ -5062,6 +5081,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
     for (const suggestion of SUGGESTIONS) {
+      if (suggestion.unless?.some((p) => p.test(text))) continue;
       if (suggestion.patterns.some((p) => p.test(text))) return suggestion.id;
     }
     return null;
@@ -6644,7 +6664,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "selfTouchControl", label: "Self-Touch Control" },
         { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
-        { key: "illusionControl", label: "Clothing Illusion" },
+        { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
         { key: "undressControl", label: "Undressing" },
         { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
       ],
@@ -6666,7 +6686,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     },
     {
       name: "Awareness",
-      blurb: "What you can be made unaware of. Hides the message only \u2014 arousal still applies.",
+      blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
       rows: [
         { key: "suppressClothing", label: "Clothing Changes" },
         { key: "suppressBondage", label: "Bondage Changes" },
@@ -7240,7 +7260,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.81.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8700,7 +8720,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.81.1"} loaded`;
+    el.textContent = `ECHS v${"0.82.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8723,14 +8743,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.81.1"})`);
+  log(`script loaded (v${"0.82.0"})`);
   showIndicator();
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.81.1",
+      version: "0.82.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

@@ -16,6 +16,54 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-22 (v0.82.0) — awareness leaks: four causes behind six reports
+
+DW's tracker listed six awareness and illusion symptoms. They came down to four causes and a
+wording problem. Every new check was run against the old code first and seen to fail.
+
+**1. "You may notice…" switched awareness off.** `awareness-release` carried a bare
+`/you (can|may) notice/`. Hypnotic patter starts that way constantly, so "Missy, you may notice a
+warmth spreading" matched it and silently lifted clothing, bondage and touch hiding, **the
+illusion** and numbness, mid-scene, with nothing said to the hypnotist. That one pattern was both
+"inconsistent suppression" and "awareness cancels the illusion". It now needs an object that means
+awareness coming back (`again`, `everything`, `things`, `it all`, `what happens to you`). "You can
+notice my touch", which the bare pattern used to take, now goes to `touch-release`, which it was
+always worded as. That re-pins a case `test/sup.mjs` had pinned as deliberately shadowed; the
+reason for the old pin was the bare pattern, not a design choice.
+
+**2. The strip command read awareness lines.** `undress-all` and `undress` sit before every
+awareness entry, and their bare `/strip/` and `/undress/` read the whole line. So "you won't notice
+when I strip you" stripped her and never set awareness, and "…when I undress you" took a garment
+off. That was "strip wipes awareness". A new optional `unless` on a table entry vetoes it on a
+matching line and lets the line carry on down the table; the undress pair vetoes on "notice" and
+"unnoticed". `clothing-awareness-block` learned "when I strip you", "being stripped" and
+"anyone stripping you", so those land as the clothing line and not the broad one.
+
+Still true: a line runs one suggestion. "Strip, and you won't notice a thing" now sets awareness
+where it used to strip. Either way one half is dropped.
+
+**3. Gags, collars, toys and locks counted as clothing.** `suppression.ts` sorted an asset by
+`Asset.IsRestraint` alone. That flag means "restrains you", so an Item-slot asset can lack it, and
+those messages leaked under "you do not notice being tied" and were hidden under the clothing line
+instead. The asset-less branch already asked the group's `Category === "Item"`, so the same gag was
+bondage or clothing depending on which message BC sent. Both branches now ask the category first,
+the same split `illusion.ts`'s `isWornGroup` draws. **Consequence worth knowing:** lock messages on
+the subject are now hidden under bondage awareness too. **Not verified against BC's source**, which
+is unreachable from these sessions: which Item assets lack `IsRestraint` is from memory. The
+inconsistency between the two branches is in our code and is not in doubt.
+
+**4. The illusion hid the nametag.** The hook hands `DrawCharacter` a SIMPLE shadow character,
+created with no name. The name is evidently drawn inside `DrawCharacter` from the character it is
+given, contrary to the header comment in `illusion.ts`, which said the name was a separate call.
+The shadow now borrows `Name`, `Nickname` and `LabelColor` for the one draw, and hands them back, so
+no second named character is left in BC's `Character` array. **Inferred from the symptom**, not
+from BC's source.
+
+**5. Wording.** The Awareness tab blurb, the Clothing Illusion row and the wiki now say the two
+apart: awareness hides the **chat messages**, the illusion changes **what you see of your own
+body**, and a subject who should neither read about nor see a change needs both.
+
+---
 ### Fixed 2026-09-22 (v0.81.1) — a real restraint no longer locks self-touch after the session ends
 
 **Why:** the top item on DW's tracker, because it left a real person stuck after the session was

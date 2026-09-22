@@ -151,6 +151,11 @@ interface Suggestion {
 	// for "clothing illusion" moves the button, the spoken phrase and the trigger action all
 	// at once, instead of three places drifting apart.
 	patterns: RegExp[];
+	/** Wordings that VETO this entry even when a pattern matches, so the line carries on down
+	 * the table to whatever it really is. For verbs that also turn up as the object of another
+	 * suggestion — "you will not notice when I strip you" contains "strip", and is not an
+	 * order to strip. */
+	unless?: RegExp[];
 	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
 	 * arousal suggestions, which can match and be permitted and still not land (the
 	 * player's meter is off, or a chastity item refused the orgasm). Returning nothing
@@ -164,6 +169,17 @@ interface Suggestion {
 function applyArousal(level: ArousalLevel): FlavorKey | void {
 	if (!setArousalLevel(level)) return "arousal-unavailable";
 }
+
+/** A line about NOTICING being undressed is an awareness suggestion, not an order to undress.
+ *
+ * The undress pair sits before every awareness entry in the table (it has to come after
+ * clothing-block, and awareness comes later still), and its bare /strip/ and /undress/ read
+ * the whole line. So "Missy, you won't notice when I strip you" stripped her and never set
+ * awareness at all, and "…when I undress you" took a garment off. That was "strip wipes
+ * awareness" on DW's 2026-09-22 list. Vetoing on "notice" lets the line carry on down to
+ * clothing-awareness-block, or to the broad awareness-block for "you notice nothing when I
+ * strip you". */
+const UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
 
 /** Undressing can match, be permitted, and still not happen — bound hands, a lock that is not
  * ours, or nothing left to take off. Each gets its own line rather than silence. */
@@ -619,6 +635,7 @@ const SUGGESTIONS: Suggestion[] = [
 			// the subject, so "comic strip" only fires if somebody says "Missy, comic strip".
 			/\bstrip\b/,
 		],
+		unless: UNDRESS_IS_THE_OBJECT,
 		run: () => applyUndress(Infinity),
 	},
 	{
@@ -635,6 +652,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\btake your clothes off\b/,
 			/\bremove (a|one) (piece|garment|item)\b/,
 		],
+		unless: UNDRESS_IS_THE_OBJECT,
 		run: () => applyUndress(1),
 	},
 	// PER-CATEGORY awareness, and they sit BEFORE the broad pair below because the broad
@@ -661,7 +679,7 @@ const SUGGESTIONS: Suggestion[] = [
 		releaseOf: "clothing-awareness-block",
 		permission: "suppressClothing",
 		patterns: [
-			/\byou notice (being|when you are) (dressed|undressed|redressed|changed) again\b/,
+			/\byou notice (being|when you are) (dressed|undressed|redressed|changed|stripped) again\b/,
 			/\byou notice changes to your (clothes|clothing|outfit)( again)?\b/,
 			/\b(clothing|clothes|outfit) changes (register|reach you)( again)?\b/,
 		],
@@ -672,9 +690,11 @@ const SUGGESTIONS: Suggestion[] = [
 		examples: ["you will not notice being undressed", "changes to your clothes go unnoticed"],
 		permission: "suppressClothing",
 		patterns: [
-			/\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed)\b/,
+			/\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed|stripped)\b/,
 			/\byou (do not|will not|cannot) notice changes to your (clothes|clothing|outfit)\b/,
-			/\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing) you\b/,
+			/\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing|stripping) you\b/,
+			// "...when I strip you" — the phrasing the undress entries used to take, and strip her.
+			/\byou (do not|will not|cannot) notice (when|while|as|if) (i|we|they|he|she|someone|anyone|people) (strip|strips|undress|undresses|change|changes|dress|dresses) you\b/,
 			/\b(clothing|clothes|outfit) changes go unnoticed\b/,
 			/\bchanges to your (clothes|clothing|outfit) go unnoticed\b/,
 		],
@@ -719,7 +739,14 @@ const SUGGESTIONS: Suggestion[] = [
 			// "awake" deliberately NOT here — "you are awake again" should end the trance,
 			// not merely restore awareness of clothing changes. It belongs to wake.
 			/\byou are aware (again|to it)\b/,
-			/\byou (can|may) notice\b/,
+			// "You can notice" / "you may notice" needs an object that means awareness coming
+			// BACK. It used to be bare, and ordinary patter starts that way far more often than a
+			// release does: "you may notice a warmth spreading" matched here and silently lifted
+			// clothing, bondage and touch hiding, the illusion and numbness, mid-scene, with
+			// nothing said to the hypnotist. That was the "inconsistent suppression" and the
+			// "awareness cancels the illusion" of DW's 2026-09-22 list, one cause for both.
+			/\byou (can|may) notice (again|everything|things|it all)\b/,
+			/\byou (can|may) notice (what|anything that) (happens|is happening|is done) to you\b/,
 		],
 		run: () => {
 			setSuppressed("clothing", false);
@@ -780,11 +807,11 @@ const SUGGESTIONS: Suggestion[] = [
 		release: true,
 		releaseOf: "touch-block",
 		permission: "suppressActivities",
-		// No "you can notice my touch" here, though it is the obvious phrasing: awareness-
-		// release's deliberately broad /you (can|may) notice/ sits earlier in the table and
-		// takes it first. That is the right outcome — the broad release also clears activity
-		// suppression — so this is a pattern that would never have fired, not a gap.
+		// "You can notice my touch" used to be left out, because awareness-release's bare
+		// /you (can|may) notice/ took it first. That pattern was narrowed in v0.82.0 (it was
+		// also taking ordinary patter), so the obvious phrasing lives here now.
 		patterns: [
+			/\byou (can|may) (notice|register) (my|his|her|their) (touch|touches)\b/,
 			/\byou notice (my|his|her|their) (touch|touches) again\b/,
 			/\byou (notice|register) (my|his|her|their) (touch|touches)\b/,
 			/\byou (will |)stop ignoring (my|his|her|their) (touch|touches)\b/,
@@ -1166,6 +1193,7 @@ export function matchSuggestion(content: string): FlavorKey | null {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return null;
 	for (const suggestion of SUGGESTIONS) {
+		if (suggestion.unless?.some((p) => p.test(text))) continue;
 		if (suggestion.patterns.some((p) => p.test(text))) return suggestion.id;
 	}
 	return null;
