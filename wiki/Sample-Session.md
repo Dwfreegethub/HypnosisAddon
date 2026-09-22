@@ -1,256 +1,212 @@
 # A Sample Session
 
-A worked example, end to end: two people, the actual lines typed, and what each of them sees.
-
-**Elena** is the hypnotist. **Missy** is the subject. Everything below is what the add-on really
-does at v0.74.6 — the phrases are ones the parser matches, and the responses are the strings the
-code emits.
-
-> **About the responses.** Most of Missy's private lines and the room emotes are picked at random
-> from two or three variants, so you will see a *different* line of the same kind. Where that
-> happens it is marked **(one of several)**. Anything in `[square brackets]` is local to Missy and
-> nobody else sees it.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Real-time feedback, visual cues, and chat outputs are continually being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
 
 ---
 
-## Before anything: Missy sets her permissions
+A worked example, end to end: two people, the actual lines typed in room chat, and what each player sees on their screen.
 
-Missy installs, reloads, and sees this in her chat log:
+**Elena** is the hypnotist. **Missy** is the subject. The dialogue below reflects the parser matching, depth gates, and message strings used in the mod.
 
-```
-[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
+*Note on In-Game Responses:* Most of Missy's private notifications and room emotes are randomly drawn from two or three variants. Where this happens, it is marked **(one of several)**. Any line shown in `[square brackets]` is private to Missy—nobody else in the room sees it.
+
+---
+
+## 1. Before Anything: Missy Sets Her Permissions
+
+Missy installs the script, reloads Bondage Club, and sees this startup notice in her local chat log:
+
+[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Open settings to configure.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
-```
 
-She opens **Preferences → Extensions → ECHS Hypnosis** and runs the wizard. She picks the
-**Balanced** preset, which switches on *Hypnosis Enabled* plus the session-scoped basics, and then
-ticks **Allow triggers to be planted in you** on the Triggers tab by hand, because she wants to try
-that part.
+She clicks the **spiral icon on her player profile card** (or navigates to **Preferences → Extensions → ECHS Hypnosis**) to run the wizard. She picks the **Balanced** preset, which enables *Hypnosis Enabled* along with basic session restrictions. She then navigates to the **Triggers** tab and manually ticks **Allow triggers to be planted in you**, as she wants to test trigger mechanics.
 
-Elena needs nothing switched on to *be* a hypnotist — her own permissions govern only what can be
-done to **her**.
+Elena does not need any permissions switched on to act as a hypnotist—her own settings govern only what can be done to *her* avatar.
 
 ---
 
-## Attempt one — which fails, and that is normal
+## 2. Attempt One — A Normal First Failure
 
-They have talked a few times, so Missy's trust in Elena is low but not zero.
+Because they have only spoken casually a few times, Missy's stored trust in Elena is low.
 
-Elena opens Missy's profile, clicks the **spiral icon**, and clicks **Attempt Hypnosis**.
+Elena opens Missy's player profile card, clicks the **spiral icon**, and selects **Attempt Hypnosis**.
 
-**Missy sees a box appear:**
+**Missy's screen displays a prompt:**
 
-```
 Elena is trying to hypnotize you.
         [ Agree ]   [ Ignore ]   [ Fight ]
-```
 
-She has 60 seconds. She clicks **Ignore** — curious, but not helping. *(She could equally have
-typed `/hypno ignore`, which is what you would do if you were in the wardrobe when the prompt
-landed.)*
+Missy has 60 seconds to respond. She selects **Ignore**—she is curious to see what happens, but not actively assisting. *(She could also type `/echs ignore` or `/hypno ignore` into chat, which is especially handy if her wardrobe screen is open).*
 
-**Elena never learns which she chose.** She gets a 60-second induction window, and what she says in
-it matters — every line adds to the roll, up to a cap. So she uses it:
+**Elena never learns which button Missy clicked.** Elena's client opens a 60-second induction window. What she types during this window matters—each spoken line contributes to the induction roll up to a cap. Elena uses the time to roleplay:
 
-> **Elena:** Missy, look at the way the light moves when I turn my hand.
-> **Elena:** There is no hurry at all. Nothing you have to do.
-> **Elena:** Just the sound of me talking, and how heavy that makes everything.
+> **Elena:** Missy, look at the way the light moves when I turn my hand.  
+> **Elena:** There is no hurry at all. Nothing you have to do.  
+> **Elena:** Just the sound of me talking, and how heavy that makes everything feel.  
 
-The window closes. The roll happens. It misses.
+The 60-second timer expires, and Missy's client calculates the roll. Because trust is still low and Missy did not actively help, the attempt misses.
 
 **Missy sees:**
 
-```
 [The attempt doesn't quite land.]
-```
 
-**Elena sees a vague band** — one of *barely responsive*, *slightly relaxed*, *more relaxed* or
-*almost under*. Never a number. This time: **slightly relaxed**.
+**Elena receives a broad status read:**  
+One of *barely responsive*, *slightly relaxed*, *more relaxed*, or *almost under*—never raw numbers. This time Elena sees: **slightly relaxed**.
 
-She has **two attempts by default** before a ten-minute cooldown. *(That is Missy's setting — she
-can allow three.)* Elena has one left.
+Elena has **two attempts by default** before triggering a 10-minute cooldown (Missy can raise this limit to 3 in her settings). Elena has one attempt remaining.
 
-> **This is the normal first experience, and it is worth expecting.** A stranger cannot simply
-> hypnotise you. If you want to see the real numbers behind it, Elena can type
-> `/hypno chance Missy` and get the odds for all three choices.
+*This is the intended baseline experience.* A stranger cannot simply drop a character into trance immediately. To check the real calculated odds at any time, Elena can type `/echs chance Missy` (or `/hypno chance Missy`).
 
 ---
 
-## Attempt two — it lands
+## 3. Attempt Two — The Induction Lands
 
-They talk for a while longer, which builds trust on its own. Elena attempts again.
+They chat for a while longer, naturally increasing their interaction count and trust. Elena initiates a second attempt.
 
-This time Missy clicks **Agree**, which is worth a large bonus to the roll.
+This time, Missy clicks **Agree**, adding a significant bonus to the calculation.
 
 **Missy sees:**
 
-```
 [You slip under. (entranced)]
-```
 
-The tier in brackets is one of *drifting · yielding · entranced · deep · blank*, decided by how
-comfortably the roll landed. A narrow success leaves her shallow; a comfortable one goes deep.
+The depth tier reported in brackets reflects how comfortably the roll succeeded (*drifting, yielding, entranced, deep,* or *blank*). A narrow pass produces a shallow trance; a decisive roll plunges the subject deeper.
 
-The **trance defaults** apply at the same moment — by default that is *cannot move*, *cannot speak*
-and the **screen fade**, a soft white veil over her own view. All three are hers to change on the
-Trance Defaults tab.
+Missy's configured **trance defaults** engage immediately. By default, these apply *cannot move*, *cannot speak*, and the **screen fade** (a soft white veil over her game view). All three defaults are adjustable on her Trance Defaults tab.
 
-**The room sees** *(v0.72.9 added these; one of several)*:
+**The room sees** *(one of several)*:
 
 > *Missy's eyes lose their focus, and she goes quiet.*
 
 ---
 
-## A suggestion lands
+## 4. Delivering a Spoken Suggestion
 
-Elena talks normally. No commands.
+Elena speaks normally in room chat. No slash commands are required.
 
 > **Elena:** Missy, you cannot move.
 
-**Missy sees** — one of several:
+**Missy sees** *(one of several)*:
 
-```
 [Your body simply stops listening to you.]
 [You tell your legs to move. Nothing happens.]
 [Somewhere far off you decide to move, and the message never arrives.]
-```
 
-**The room sees** — one of several:
+**The room sees** *(one of several)*:
 
-> *Missy goes very still, mid-motion.*
-> *Missy stops moving, as though the idea had gone.*
+> *Missy goes very still, mid-motion.*  
+> *Missy stops moving, as though the idea had gone.*  
 
-**Why it worked**, in the order the add-on checks: Missy granted *Movement Restriction*; there is a
-live trance with **Elena specifically**; Elena said Missy's **name**; and *Cannot move* needs
-**Yielding**, which Entranced clears.
+**Why the command landed successfully:**
+1. Missy granted *Movement Restriction* in permissions.
+2. An active trance session exists specifically with Elena.
+3. Elena addressed Missy by name.
+4. *Cannot move* requires the default **Yielding** depth tier, which Missy's current **Entranced** state easily clears.
 
-Drop any one of those and nothing happens — and **Elena is told which one stopped it**, so she can
-fix it rather than guess.
+If any of these conditions had failed, the command would be ignored—and **Elena receives private feedback identifying which check blocked the suggestion**, preventing guesswork.
 
 ---
 
-## Planting a trigger
+## 5. Planting a Trigger
 
-Elena wants something that outlives the trance. Planting needs **Deep** depth on **earned** trust —
-so this only works because their relationship has built up; arousal cannot buy it.
+Elena wants to plant a post-hypnotic suggestion that outlives the trance. Planting a trigger requires **Deep** trance on **earned trust** (built over time); temporary arousal spikes cannot unlock it by default.
+
+Elena initiates trigger recording:
 
 > **Elena:** Missy, your trigger word is sleepy time.
 
 **Missy sees:**
 
-```
 [Something is being set aside in you. You let it happen.]
-```
 
-She is **never shown the phrase**. Someone who can read their own trigger word can simply decide not
-to react to it.
+Missy is **never shown the clear-text phrase**. Hiding the phrase keeps the player from consciously anticipating or playing around the trigger.
 
 **Elena sees:**
 
-```
-[trigger] RECORDING "sleepy time". Say each suggestion, then "remember trigger" to save
-(or "forget the trigger" to cancel).
-```
+[trigger] RECORDING "sleepy time". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).
 
-Now Elena names the actions. **They are recorded, not performed** — otherwise she would freeze Missy
-mid-setup and have to undo it.
+Elena now speaks the intended actions. **These actions are recorded to the buffer, not executed immediately**—preventing Missy from freezing or losing speech mid-setup:
 
-> **Elena:** Missy, you cannot move.
-> **Elena:** Missy, you cannot speak.
+> **Elena:** Missy, you cannot move.  
+> **Elena:** Missy, you cannot speak.  
 
-**Missy sees, each time:**
+**Missy sees, after each line:**
 
-```
 [That settles into place, waiting.]
-```
 
 **Elena sees:**
 
-```
 [trigger] Recorded movement-block into "sleepy time" (1 so far).
 [trigger] Recorded speech-block into "sleepy time" (2 so far).
-```
 
-Then she commits:
+Elena commits and stores the trigger:
 
 > **Elena:** Missy, remember trigger.
 
 **Missy sees:**
 
-```
 [It settles somewhere you won't think to look for it.]
-```
 
 **Elena sees:**
 
-```
 [trigger] SAVED "sleepy time" — 2 action(s): movement-block, speech-block.
-Planted at 62 (Deep). Saying it will now fire them, in or out of trance.
-```
+Planted at Deep depth. Saying it will now fire them, in or out of trance.
 
-> **A phrase must be at least 5 characters**, and it must be **unique to Missy** — nobody else can
-> be holding "sleepy time" on her, and no phrase may overlap one that already exists. See
-> [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
+Trigger phrases must be at least 5 characters long and cannot overlap with existing triggers stored on Missy. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
 
 ---
 
-## Waking
+## 6. Waking the Subject
+
+Elena concludes the active session:
 
 > **Elena:** Missy, wake up.
 
 **Missy sees:**
 
-```
 [You come out of trance. (they woke you)]
-```
 
-Everything the session applied comes off together — she has her movement and her voice back. Trance
-defaults **can never be carried past waking**, so that is guaranteed.
+Every restriction applied by the active session releases simultaneously—Missy regains movement, speech, and standard screen visibility. Trance defaults *never* persist past waking.
 
-The trigger is still there. It does not fire on waking; it is simply loaded.
+The planted trigger remains dormant in Missy's client. It does not fire upon waking; it simply rests in memory.
 
-*(Elena could equally have used the **Wake Up** button on the remote panel. Missy could have used
-`/hypno wake` herself, if the trance were shallow enough — a deep one refuses and says so.)*
+*(Elena could also click the **Wake Up** button on her remote panel. A planned future feature will allow subjects to attempt waking themselves from shallow trances via `/echs wake`; for now, waking is handled by the hypnotist, session timeouts, or the safeword).*
 
 ---
 
-## Later — the trigger fires
+## 7. Later: Firing the Trigger
 
-An hour later, a different room, no session at all. Elena says, in ordinary conversation:
+An hour later, in a completely different room, without any active hypnosis session running:
+
+Elena chats casually in the room:
 
 > **Elena:** That was a long day. I could do with a sleepy time nap.
 
-**The trigger fires.** No name needed, no trance needed — that is the entire point of one.
+**The trigger fires instantly.** No name prefix or active trance is needed—that is the nature of a conditioned trigger.
 
-Missy cannot move and cannot speak. She sees the same private lines as before, and the room sees the
-same emotes. **It fires for Elena because she planted it**; whether anyone *else* saying those words
-would set it off is Missy's **scope** setting, and the default is **Hypnotist only**.
+Missy's character freezes and loses speech. She sees the familiar private feedback lines, and the room observes the standard emotes. 
 
-The actions arrive **one at a time**, with a short pause between them, rather than all at once.
+The trigger fires for Elena because she was the one who installed it. Whether another player speaking those words could trigger it is determined by Missy's **Trigger Scope** setting (defaulting to *Hypnotist only*). Queued trigger actions execute **one at a time** with a short delay between them.
 
-It holds for the duration on Missy's Triggers tab, then lets go. Or:
+The trigger remains active for the duration configured on Missy's Triggers tab, or until Elena releases it by name:
 
 > **Elena:** Missy, you are released from sleepy time.
 
-…which releases that one trigger by name, and works outside a trance.
+---
+
+## Emergency Exit at Any Point
+
+/echs safeword
+
+*(or `/hypno safeword`)*
+
+Clears active trances, purges active triggers, and removes every lingering restriction immediately, from any state. Because Bondage Club parses client slash commands before speech-restriction hooks can evaluate them, the safeword works 100% of the time—even while silenced.
 
 ---
 
-## And at any point
+## Further Reading
 
-```
-/hypno safeword
-```
-
-Clears the trance and every effect, from any state, always. It is a slash command, so it still works
-while Missy is silenced — BC parses commands before the speech block can see them.
-
----
-
-## What to read next
-
-- **[What to Say](What-to-Say)** — every phrase the parser knows
-- **[Your First Session](Your-First-Session)** — the diagnostic version: what to check when
-  something *doesn't* work
-- **[Depth and Trust](Depth-and-Trust)** — why attempt one failed and attempt two didn't
-- **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** — uniqueness, override, decay
+* **[What to Say](What-to-Say)** — Comprehensive dictionary of recognized spoken commands.
+* **[Your First Session](Your-First-Session)** — Diagnostic setup and troubleshooting when lines fail to land.
+* **[Depth and Trust](Depth-and-Trust)** — Detailed mechanics on induction rolls, relationship baselines, and depth gates.
+* **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** — Deep dive into trigger scopes, duration timers, and decay curves.
