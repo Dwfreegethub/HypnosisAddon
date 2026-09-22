@@ -1,126 +1,116 @@
 # Troubleshooting
 
-## The add-on does nothing at all
+> **Alpha Notice**  
+> ECHS is in active alpha development. UI locations, diagnostic feedback, and known parser quirks are actively being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-**Did you see these two lines when you first loaded in?**
+---
 
-```
-[Erotic Chat Hypnosis Suite (ECHS) v0.78.0 — nothing is switched on yet. Click the spiral to set up.]
+## 1. The Add-On Does Nothing at All
+
+**Did you see these lines when you first loaded in?**
+
+[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Open settings to configure.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
-```
 
-If so, the add-on is running fine — **it just has nothing switched on**. Every permission starts off,
-including the master switch. Open settings and run the wizard. See
-[Getting Started](Getting-Started). *(That notice appears once per install, so a returning player
-won't see it.)*
+If so, the script is running properly — **it simply starts completely turned off**. Every permission begins disabled by default, including the master switch. Click the spiral icon on your player profile card (or go to **Preferences → Extensions → ECHS Hypnosis**) and run the Setup Wizard. See [Getting Started](Getting-Started). *(This notice appears only on a fresh install, so returning players will not see it on every login).*
 
-**If there's no spiral icon in the top bar and nothing in the browser console**, the userscript is
-not running at all. A userscript with a non-matching `@match` fails completely silently — BC is
-served from more than one host, so check your userscript manager lists it as active on the page you
-are actually on.
+**If there is no spiral icon on your player profile card and nothing in the browser console:**  
+The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting.
 
-## I said something and nothing happened
+---
 
-Work down the gates in order — they are checked in this sequence:
+## 2. I Said Something and Nothing Happened
 
-1. **Is the permission on?** `/hypno session` lists what is granted.
-2. **Is there a live trance with that specific person?** Not just any trance — theirs.
-3. **Is their name in the line?** Every suggestion needs it. `/hypno match <phrase>` reports the
-   name gate separately from the wording.
-4. **Are they deep enough?** `/hypno gates` shows what each feature needs. A line can match
-   perfectly and still be waiting for a deeper trance.
+Suggestions must pass a strict sequence of checks. If a spoken command produces no reaction, check these four gates in order:
 
-**The hypnotist is told which gate stopped it.** If they got nothing at all, the wording did not
-match — start at `/hypno match`.
+1. **Is the permission enabled?** Type `/echs session` (or `/hypno session`) to verify which categories are granted.
+2. **Is there an active trance with that specific hypnotist?** Suggestions are bound to the specific partner who conducted the induction, not just any general trance state.
+3. **Did the speaker include the subject's name?** Every targeted suggestion requires addressing the subject by name. Type `/echs match <phrase>` to test if the name gate passed.
+4. **Is the subject deep enough in trance?** Type `/echs gates` to review depth thresholds. A phrase can match the dictionary perfectly but still fail if the trance is not deep enough.
 
-## The wording did not match
+**The hypnotist receives private chat feedback indicating which gate blocked the command.** If the hypnotist received no feedback at all, the phrasing failed to match the parser dictionary entirely.
 
-Contractions and punctuation are ignored, so that is not it. Common causes:
+---
 
-- **No name in the line.** The most common by far.
-- **You started with "I" or "we" and never said "you".** Those lines are ignored deliberately, so
-  that *"I kneel beside you"* does not make anyone kneel.
-- **You wrapped it in parentheses.** Anything in brackets is treated as out-of-character and
-  discarded before the add-on reads it.
-- **You used a phrasing that is not in the table.** Check the in-game **What to Say** tab — it is
-  generated from the code and is authoritative. [What to Say](What-to-Say) here is hand-written and
-  covers the common forms.
+## 3. The Wording Did Not Match
 
-## A suggestion refused with something about depth
+Punctuation, capitalization, and standard contractions (*can't* vs. *cannot*) are normalized automatically. If a line failed to match, check for these common causes:
 
-That is the depth gate, not a bug. They need to take you deeper, and how deep they *can* take you
-depends on your relationship — see [Depth and Trust](Depth-and-Trust).
+* **Missing Name:** The line must include the subject's character name.
+* **First-Person Confusions ("I" or "We"):** Lines starting with *"I"* or *"we"* without a subsequent *"you"* are discarded intentionally so descriptive emotes like *"I kneel beside you"* do not force the subject to kneel.
+* **Parentheses:** Any text enclosed in single parentheses `(like this)` is treated as OOC dialogue and discarded before the parser evaluates the message.
+* **Unrecognized Phrasing:** The parser matches specific structures. Check the in-game **What to Say** tab (generated directly from the engine) or [What to Say](What-to-Say) on the wiki for valid sentence patterns.
 
-If you would rather that feature were reachable sooner, the **Depth** tab moves it. It is a consent
-setting, not a difficulty setting.
+---
 
-## Something is stuck on me
+## 4. A Suggestion Refused Due to Depth
 
-In order of escalation:
+This is an intentional gate, not a bug. The suggestion requires a deeper trance tier than the subject currently occupies. How deep a hypnotist can take someone depends on familiarity, trust, and relationship status. See [Depth and Trust](Depth-and-Trust).
 
-1. Wait — most effects wear off on a timer, and trances end after 30 minutes.
-2. Have whoever applied it release it. A trigger releases by name:
-   *"Missy, you are released from sleepy time"*.
-3. **`/hypno safeword`** — clears everything from any state, always.
+*If you want a specific effect to be accessible in lighter trances, adjust its tier under the **Depth** tab. Depth gates are personal comfort settings, not game difficulty locks.*
 
-**`/hypno forgettrigger` refusing is deliberate**, not a bug: you cannot delete a trigger while it
-has hold of you. The safeword is the way out of that.
+---
 
-## I have been silenced and cannot type
+## 5. Something Is Stuck on Me
 
-Slash commands still work. BC parses commands before the speech block can see them, so
-`/hypno safeword` is always reachable — this is deliberate, and it is why speech blocking is safe to
-consent to.
+If an effect or restriction persists unexpectedly, escalate in this order:
 
-**Out-of-character asides also still work.** Anything in parentheses — *"(brb)"*, *"(are you still
-okay?)"* — goes through while you are silenced, so you are never stranded mid-scene. The exception
-is if you ticked **Silence OOC too** on the Trance Defaults tab, which is off by default. A message
-that has any in-character text left after the parentheses are stripped is still blocked, so ordinary
-speech can't be smuggled past behind brackets.
+1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes.
+2. **Release by Name:** The hypnotist who applied the effect can speak a targeted release phrase (e.g., *"Missy, you are released from sleepy time"*).
+3. **Use the Emergency Safeword:** Type `/echs safeword` (or `/hypno safeword`). This instantly breaks trances, clears all active triggers, and purges all lingering effects from any state.
 
-## I clicked the spiral on someone and it said they do not have the add-on
+*Note on `/echs forgettrigger`:* The command intentionally refuses to delete a trigger while that specific trigger is actively holding you. Use your safeword for an immediate clean break.
 
-The icon shows on **everyone**, because there is no way to know who is running it without asking.
-The panel gives them about three seconds to answer, then says so, with a *Check again* button. A
-late reply still restores the panel.
+---
 
-The icon deliberately does not hide itself for people who lack it — that would turn the Information
-Sheet into a directory of who in the room is running this.
+## 6. I Have Been Silenced and Cannot Type
 
-## My trigger stopped working
+* **Slash Commands Always Function:** Bondage Club processes client slash commands before speech-restriction hooks ever see them. **`/echs safeword` (or `/hypno safeword`) remains accessible 100% of the time, even while completely muted.**
+* **Out-of-Character (OOC) Chat:** Text wrapped in parentheses `(like this)` bypasses speech blocks by default, ensuring you are never cut off from OOC communication mid-scene. *(The only exception is if you manually enabled "Silence OOC Too" on your Trance Defaults tab).* Messages containing mixed in-character and OOC text are blocked entirely to prevent speech smuggling.
 
-- **It may have faded.** `/hypno triggers` shows each one's current strength. A trigger's strength
-  *is* the depth it fires at, so a worn one fires its shallow actions and stops landing the deeper
-  ones; far enough gone, it gives only a vague pull.
-- **A permission may have been revoked.** Each action re-checks its own permission at firing time,
-  so turning off Movement Restriction disarms the movement half of every trigger already planted.
-- **Check the scope.** If it was planted by someone else and your scope is *Hypnotist only*, only
-  they can fire it. Firing your **own** triggers is a separate setting and is off by default.
+---
 
-## The room saw something I did not expect
+## 7. The Profile Spiral Reports They Do Not Have the Add-On
 
-Anything in `[square brackets]` went only to you. Anything the room could genuinely have observed is
-emoted so everyone reads it. Perception effects are never emoted.
+The spiral icon appears on every player's profile card because client-side scripts cannot detect third-party add-ons without sending a query. When clicked, your client waits approximately three seconds for a handshake response. If no response arrives, the panel displays that the player does not have the extension installed, along with a *Check again* button.
 
-**Trance Defaults → Others See Your Reactions** turns the emotes off entirely.
+The icon is intentionally visible for all players rather than hidden for non-users, preventing the profile card from turning into a public directory of who is running the script.
 
-## Known rough edges at v0.74.6
+---
 
-- **Some ordinary deepening language can be read as a touch command.** Because *"feel"* is one of
-  the Caress verbs, a line like *"Missy, your arms feel heavy"* parses as *caress your arms* and
-  performs a real, public touch. **It only affects subjects who have granted *Made to Act*.**
-  Workaround: hypnotists should prefer *touch*, *caress* or *stroke* as the verb, and avoid "feel"
-  in deepening language while that permission is on. Known and open.
-- **A trigger phrase inside a command line can swallow the command.** If one of your trigger phrases
-  happens to appear in a line that also contains a suggestion, the suggestion may not be evaluated.
-  Known and open.
-- **A trigger's action list shows as internal ids** in `/hypno triggers` — you may see something like
-  `act:genital` rather than a readable description. Cosmetic; known and open.
-- **Trigger decay has not had a full live run** — it is off by default, so you will only meet it if
-  you turn it on.
+## 8. My Trigger Stopped Working
 
-## Getting more detail
+* **Natural Decay:** Type `/echs triggers` (or `/hypno triggers`) to review trigger strength. A trigger's remaining strength represents the depth tier it fires at. A decayed trigger will fire its shallow actions (like freezing) but fail to execute deeper actions.
+* **Revoked Permission:** Permissions are re-checked at the exact moment a trigger fires. If *Movement Restriction* was unticked after a trigger was planted, the movement portion of that trigger will fail to execute.
+* **Scope Restrictions:** If the trigger was planted by someone else and your scope is set to *Hypnotist only*, other players cannot fire it. Firing your own triggers is also disabled by default (*"You can fire your own triggers"* on the Triggers tab).
 
-`/hypno effects` for what is on you, `/hypno session` for what is granted and what phase you are in,
-`/hypno storage` if you suspect settings are not loading. Between them they usually narrow a problem
-to one of matching, permissions, session, or depth in a single try.
+---
+
+## 9. The Room Saw Something Unexpected
+
+* **Private Logs `[Square Brackets]`:** Any feedback wrapped in square brackets is local to your machine.
+* **Observable Emotes:** Actions that would be visibly noticeable in the room (such as pausing, going still, or failing to speak) are automatically broadcast as room emotes. Purely mental or perceptual suggestions are never emoted.
+* **Hiding Emotes:** To keep all character reactions completely private, disable **Trance Defaults → Others See Your Reactions**.
+
+---
+
+## 10. Known Alpha Quirks
+
+* **The "Feel" Caress Trap:** Because *"feel"* is mapped as a caress verb, an ordinary deepening sentence like *"Missy, your arms feel heavy"* can inadvertently parse as *caress your arms*, triggering a real self-touch activity. This only affects subjects who have enabled *Made to Act*. Hypnotists should prefer *touch*, *caress*, or *stroke*, and avoid using *"feel"* while *Made to Act* is active.
+* **Trigger Phrase Collisions in Commands:** If a planted trigger phrase appears inside a spoken command line, the trigger handler may take precedence and swallow the command.
+* **Internal Action IDs:** In some diagnostic outputs like `/echs triggers`, queued actions may display raw internal IDs (e.g., `act:genital`) rather than localized descriptions.
+* **Trigger Decay Balancing:** Live trigger decay curves are actively being calibrated across real play sessions and remain disabled by default.
+
+---
+
+## 11. Diagnostic Helper Commands
+
+When troubleshooting why a scene or command is not behaving as expected, use these diagnostic tools:
+
+| Command | Primary Use |
+|---|---|
+| `/echs effects` | Lists everything currently affecting your character and what survives a reconnect. |
+| `/echs session` | Displays your active session phase and granted permissions. |
+| `/echs match <phrase>` | Tests why a specific line passed or failed matching. |
+| `/echs gates` | Compares your current depth against the requirements for each feature. |
+| `/echs storage` | Inspects data persistence and extension storage states. |
