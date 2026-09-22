@@ -19,6 +19,7 @@ own design copy for. So it now points, and does not duplicate.
 | What to build next, and why | `docs/design.md` → *Development Stages > Todo* and *Pre-Release Checklist* |
 | What still owes a live run | `docs/design.md` → *Needs Testing* |
 | What shipped when, and why | `docs/CHANGELOG.md` — newest first. Add an entry there, not in `design.md` |
+| What players are told changed | `CHANGELOG.md` at the repo root, linked from the README — plain language, newest first. See rule 13 |
 | Known faults and decided fixes | `docs/design.md` → *Known Bugs* |
 | **Anything touching the induction roll, the AFK/prompt-timeout path, settings defaults, or extreme mode** | `docs/declared-skill-proposal.md` **first** — its decisions are settled and not all folded into `design.md` yet. §10 is the list of what is still open; §11 is what has *not* been verified |
 | Engineering record, BC API traps | `README.md` |
@@ -37,10 +38,11 @@ The reasoning for each is in the Orientation section; this is the checklist.
 6. **If a step cannot fail, it is not testing anything.** Every harness step states its expected result and what failure looks like.
 7. **No BCX or LSCG code, ever.** Technique reference only, with the source named in a comment.
 8. **Verify against the live BC client source before writing against any BC API.** Not from memory, not from the wiki. It has changed the answer four times.
-9. **Bump `package.json` on every change that touches code.**
+9. **Bump `package.json` on every change that touches code, and keep the step small.** A fix or a small visible change is a patch bump (0.82.0 → 0.82.1). A minor bump (0.83.0) is only for a new feature, or a change in behaviour a player would have to learn. Several fixes in one PR are one bump. The number is what a tester reads back off their startup chat line, so each release gets its own. Never renumber a released version.
 10. **`testbot/secrets.json` is never committed or printed.** It is gitignored; DW fills it in.
 11. **Testing affordances are gated by the room, not a build flag.** `isTestingMode()` in `src/log.ts` returns true only in the **Hypno Testing** room (case-insensitive), off everywhere else and when not in a room — so the shipped build is safe by default with no release flip to remember. The unit suites force it on via the `FORCE_TESTING` seed that `build-test.mjs` rewrites (`build.mjs` does not); keep that arrangement intact.
 12. **Do not restart either live bot in this workspace (BD or SSS) without explicit confirmation from DW.**
+13. **Every release gets a line in the root `CHANGELOG.md`, in the same PR as the bump.** It is for players: say what they will notice, in plain words, with no file names, function names or test counts. A new `## v<version> · <date>` heading at the top, newest first. The reasoning still goes in `docs/CHANGELOG.md`; the two are separate on purpose. A docs-only change with no bump reaches no player and needs no entry.
 
 ## Build and test
 

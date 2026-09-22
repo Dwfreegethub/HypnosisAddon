@@ -5,6 +5,10 @@ message. [`../README.md`](../README.md) carries the same versions from the engin
 BC API traps, what broke); this is the design half. [`design.md`](design.md) is what the add-on is
 meant to be and why; this file is what it has actually been.
 
+**Players read [`../CHANGELOG.md`](../CHANGELOG.md), not this file.** That one is the plain-language
+list linked from the README. A release gets an entry in both: the player-facing line there, the
+reasoning here.
+
 **Newest first.** These entries lived in three separate places in `design.md` until 2026-09-18 — one
 run under *Development Stages*, one in an *Appendix* at the end, and one stranded under *Test
 Harness* where nothing pointed at it — in two different chronological directions. They are collected
