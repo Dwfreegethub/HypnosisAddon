@@ -23,12 +23,16 @@
 // there — no error, it just isn't loaded. `*.host` also covers the bare domain; the bare
 // form is listed anyway, belt-and-braces, since a silent miss is the worst failure here.
 // bondageprojects.com was checked and does not serve the game, so it isn't listed.
+// Europe is listed both with and without the hyphen, bondage-europe and bondageeurope, on DW's
+// word (v0.81.1): players reach it under both spellings, and a miss here is silent.
 // Each regional mirror is a separate origin, so a player switching hosts loads settings from
 // their BC account rather than localStorage — see loadSettings() in src/storage.ts.
 // @match        *://*.bondageprojects.elementfx.com/*
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
+// @match        *://*.bondageeurope.com/*
+// @match        *://bondageeurope.com/*
 // @match        *://*.bondage-asia.com/*
 // @match        *://bondage-asia.com/*
 // @grant        none
@@ -1388,134 +1392,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
         ])
       )
     );
-  }
-
-  // src/selftouch.ts
-  var BODY_PARTS = {
-    breasts: ["ItemBreast", "ItemNipples"],
-    breast: ["ItemBreast", "ItemNipples"],
-    chest: ["ItemBreast", "ItemNipples"],
-    nipples: ["ItemNipples"],
-    nipple: ["ItemNipples"],
-    // The broad words cover the clitoris too; the specific ones don't reach back.
-    pussy: ["ItemVulva", "ItemVulvaPiercings"],
-    vulva: ["ItemVulva", "ItemVulvaPiercings"],
-    cunt: ["ItemVulva", "ItemVulvaPiercings"],
-    clit: ["ItemVulvaPiercings"],
-    clitoris: ["ItemVulvaPiercings"],
-    // Same two slots as above — see the note on ItemPenis not existing.
-    cock: ["ItemVulva", "ItemVulvaPiercings"],
-    penis: ["ItemVulva", "ItemVulvaPiercings"],
-    dick: ["ItemVulva", "ItemVulvaPiercings"],
-    tip: ["ItemVulvaPiercings"],
-    crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
-    butt: ["ItemButt"],
-    ass: ["ItemButt"],
-    bottom: ["ItemButt"],
-    mouth: ["ItemMouth"],
-    lips: ["ItemMouth"],
-    face: ["ItemHead"],
-    head: ["ItemHead"],
-    hair: ["ItemHead"],
-    ears: ["ItemEars"],
-    ear: ["ItemEars"],
-    nose: ["ItemNose"],
-    neck: ["ItemNeck"],
-    throat: ["ItemNeck"],
-    // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
-    legs: ["ItemLegs", "ItemFeet"],
-    leg: ["ItemLegs", "ItemFeet"],
-    thighs: ["ItemLegs"],
-    feet: ["ItemBoots"],
-    toes: ["ItemBoots"],
-    hands: ["ItemHands"],
-    arms: ["ItemArms"],
-    shoulders: ["ItemArms"],
-    belly: ["ItemPelvis", "ItemTorso"],
-    stomach: ["ItemPelvis", "ItemTorso"],
-    tummy: ["ItemPelvis", "ItemTorso"],
-    waist: ["ItemTorso"],
-    ribs: ["ItemTorso"],
-    hips: ["ItemPelvis"]
-  };
-  var blockedGroups = /* @__PURE__ */ new Map();
-  var blockAllSelfTouch = false;
-  var commandInProgress = false;
-  function beginCommandedActivity() {
-    commandInProgress = true;
-  }
-  function endCommandedActivity() {
-    commandInProgress = false;
-  }
-  function setBodyPartBlocked(word, groups, on) {
-    for (const g of groups) {
-      if (on) blockedGroups.set(g, word);
-      else blockedGroups.delete(g);
-    }
-  }
-  function setAllSelfTouchBlocked(on) {
-    blockAllSelfTouch = on;
-  }
-  function clearSelfTouchBlocks() {
-    blockedGroups.clear();
-    blockAllSelfTouch = false;
-  }
-  function selfTouchSnapshot() {
-    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
-  }
-  function restoreSelfTouch(snap) {
-    clearSelfTouchBlocks();
-    blockAllSelfTouch = !!snap?.all;
-    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
-  }
-  function describeSelfTouchBlocks() {
-    const parts = [...new Set(blockedGroups.values())];
-    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
-  }
-  function isSelfActivity(actor, acted) {
-    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
-  }
-  function groupNamesFor(targetGroup) {
-    const names = [targetGroup?.Name].filter(Boolean);
-    try {
-      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
-      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
-    } catch {
-    }
-    return names;
-  }
-  function installSelfTouch(modApi2) {
-    modApi2.hookFunction(
-      "ActivityRun",
-      10,
-      ((args, next) => {
-        try {
-          if (commandInProgress) return next(args);
-          const [actor, acted, targetGroup] = args;
-          if (isSelfActivity(actor, acted)) {
-            if (Player?.HasEffect?.("Freeze")) {
-              announce("selftouch-frozen");
-              return void 0;
-            }
-            if (blockAllSelfTouch) {
-              announce("selftouch-blocked");
-              return void 0;
-            }
-            for (const name of groupNamesFor(targetGroup)) {
-              const word = blockedGroups.get(name);
-              if (word) {
-                announceBodyPart(word);
-                return void 0;
-              }
-            }
-          }
-        } catch (err) {
-          log("self-touch check failed:", err);
-        }
-        return next(args);
-      })
-    );
-    log("self-touch hook installed on ActivityRun");
   }
 
   // src/storage.ts
@@ -3818,6 +3694,135 @@ One of mods you are using is using an old version of SDK. It will work for now b
     loadSettings().triggerDurationMinutes = value;
     saveSettings();
     return value;
+  }
+
+  // src/selftouch.ts
+  var BODY_PARTS = {
+    breasts: ["ItemBreast", "ItemNipples"],
+    breast: ["ItemBreast", "ItemNipples"],
+    chest: ["ItemBreast", "ItemNipples"],
+    nipples: ["ItemNipples"],
+    nipple: ["ItemNipples"],
+    // The broad words cover the clitoris too; the specific ones don't reach back.
+    pussy: ["ItemVulva", "ItemVulvaPiercings"],
+    vulva: ["ItemVulva", "ItemVulvaPiercings"],
+    cunt: ["ItemVulva", "ItemVulvaPiercings"],
+    clit: ["ItemVulvaPiercings"],
+    clitoris: ["ItemVulvaPiercings"],
+    // Same two slots as above — see the note on ItemPenis not existing.
+    cock: ["ItemVulva", "ItemVulvaPiercings"],
+    penis: ["ItemVulva", "ItemVulvaPiercings"],
+    dick: ["ItemVulva", "ItemVulvaPiercings"],
+    tip: ["ItemVulvaPiercings"],
+    crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
+    butt: ["ItemButt"],
+    ass: ["ItemButt"],
+    bottom: ["ItemButt"],
+    mouth: ["ItemMouth"],
+    lips: ["ItemMouth"],
+    face: ["ItemHead"],
+    head: ["ItemHead"],
+    hair: ["ItemHead"],
+    ears: ["ItemEars"],
+    ear: ["ItemEars"],
+    nose: ["ItemNose"],
+    neck: ["ItemNeck"],
+    throat: ["ItemNeck"],
+    // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
+    legs: ["ItemLegs", "ItemFeet"],
+    leg: ["ItemLegs", "ItemFeet"],
+    thighs: ["ItemLegs"],
+    feet: ["ItemBoots"],
+    toes: ["ItemBoots"],
+    hands: ["ItemHands"],
+    arms: ["ItemArms"],
+    shoulders: ["ItemArms"],
+    belly: ["ItemPelvis", "ItemTorso"],
+    stomach: ["ItemPelvis", "ItemTorso"],
+    tummy: ["ItemPelvis", "ItemTorso"],
+    waist: ["ItemTorso"],
+    ribs: ["ItemTorso"],
+    hips: ["ItemPelvis"]
+  };
+  var blockedGroups = /* @__PURE__ */ new Map();
+  var blockAllSelfTouch = false;
+  var commandInProgress = false;
+  function beginCommandedActivity() {
+    commandInProgress = true;
+  }
+  function endCommandedActivity() {
+    commandInProgress = false;
+  }
+  function setBodyPartBlocked(word, groups, on) {
+    for (const g of groups) {
+      if (on) blockedGroups.set(g, word);
+      else blockedGroups.delete(g);
+    }
+  }
+  function setAllSelfTouchBlocked(on) {
+    blockAllSelfTouch = on;
+  }
+  function clearSelfTouchBlocks() {
+    blockedGroups.clear();
+    blockAllSelfTouch = false;
+  }
+  function selfTouchSnapshot() {
+    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
+  }
+  function restoreSelfTouch(snap) {
+    clearSelfTouchBlocks();
+    blockAllSelfTouch = !!snap?.all;
+    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
+  }
+  function describeSelfTouchBlocks() {
+    const parts = [...new Set(blockedGroups.values())];
+    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
+  }
+  function isSelfActivity(actor, acted) {
+    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
+  }
+  function groupNamesFor(targetGroup) {
+    const names = [targetGroup?.Name].filter(Boolean);
+    try {
+      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
+      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
+    } catch {
+    }
+    return names;
+  }
+  function installSelfTouch(modApi2) {
+    modApi2.hookFunction(
+      "ActivityRun",
+      10,
+      ((args, next) => {
+        try {
+          if (commandInProgress) return next(args);
+          if (!getFeatures().hypnoEnabled) return next(args);
+          const [actor, acted, targetGroup] = args;
+          if (isSelfActivity(actor, acted)) {
+            if (hasOwnEffect("Freeze")) {
+              announce("selftouch-frozen");
+              return void 0;
+            }
+            if (blockAllSelfTouch) {
+              announce("selftouch-blocked");
+              return void 0;
+            }
+            for (const name of groupNamesFor(targetGroup)) {
+              const word = blockedGroups.get(name);
+              if (word) {
+                announceBodyPart(word);
+                return void 0;
+              }
+            }
+          }
+        } catch (err) {
+          log("self-touch check failed:", err);
+        }
+        return next(args);
+      })
+    );
+    log("self-touch hook installed on ActivityRun");
   }
 
   // src/undress.ts
