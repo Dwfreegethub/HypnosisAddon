@@ -1,149 +1,105 @@
 # Triggers and Lasting Effects
 
-Two ways for something to outlast a session. A **trigger** sleeps until someone says its word. A
-**carried** suggestion is simply still true when you wake.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Trigger buffers, decay balancing, and multi-action executions are actively being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-Both need a **Deep** trance on **earned** depth. See [Depth and Trust](Depth-and-Trust).
+---
 
-## Planting a trigger
+There are two primary ways for a suggestion to outlast an active session:
 
-Said while the subject is under:
+* **Planted Trigger:** Sleeps dormant in your client until someone speaks the trigger word.
+* **Carry-Forward Suggestion:** A suggestion that remains active on your character after you wake up.
 
-```
-"Missy, your trigger word is sleepy time"     ← starts recording
-"Missy, you cannot move"                      ← recorded, NOT performed
-"Missy, you cannot speak"                     ← recorded too
-"Missy, remember trigger"                     ← saves it
-```
+By default, both require reaching a **Deep** trance level on genuine **Earned Depth** (built over time through trust and interaction; not temporary arousal). Depth thresholds can be customized in your Depth tab. See [Depth and Trust](Depth-and-Trust).
 
-**Recording does not perform.** Building a "you cannot move" trigger would otherwise freeze the
-subject mid-setup, which the hypnotist would then have to undo before carrying on.
+---
 
-Up to **8 actions** per trigger. *"Missy, forget the trigger"* cancels without saving.
+## 1. Planting a Trigger
 
-**The subject never sees the phrase.** Setup feedback goes to the hypnotist, because someone who can
-read their own trigger word can simply decide not to react to it. With **Awareness → Trigger setup**
-on, the subject sees none of the exchange at all.
+Triggers are installed while the subject is deep in trance:
 
-A phrase must be **at least 5 characters**. Anything shorter would catch too much ordinary speech.
+1. *"Missy, your trigger word is sleepy time"* (opens buffer, begins recording)
+2. *"Missy, you cannot move"* (recorded to buffer, **not** executed immediately)
+3. *"Missy, you cannot speak"* (recorded to buffer)
+4. *"Missy, remember trigger"* (saves and arms the trigger)
 
-## Each word is unique to you
+### Buffer Safeguards
+* **Actions are recorded, not performed:** When building a trigger that contains a freeze, the action is buffered without executing. This avoids freezing the subject mid-setup or forcing the hypnotist to undo states during installation.
+* **Capacity:** Up to **8 actions** can be stored in a single trigger phrase.
+* **Canceling:** Saying *"Missy, forget the trigger"* drops the recording buffer without saving.
+* **Renaming on the fly:** Saying a new *"Missy, your trigger word is [new phrase]"* while still recording renames the buffer while preserving the actions already queued.
+* **Subject Privacy:** Feedback during setup is delivered to the hypnotist. The subject is never shown the clear-text trigger phrase by default, preventing conscious anticipation. If **Awareness → Trigger setup** is enabled, the subject's client suppresses the entire planting dialogue from chat.
+* **Phrase Length:** A trigger phrase must be **at least 5 characters** long to avoid triggering accidentally during regular room conversation.
 
-A trigger word is **unique per subject** — two people cannot both hold *"sleepy time"* on you at
-once. When a hypnotist names a word that is already set in you, one of three things happens:
+---
 
-- **Their own word, again** → it simply **updates**. Correcting or re-recording a trigger you built
-  is maintenance, and does not cost you the depth you first reached to plant it.
-- **Someone else's word** → they can take it over **only if they have you deeper than it was
-  planted at**. Taking a word away from whoever set it should cost more than they paid; otherwise
-  they are refused.
-- **A word that overlaps an existing one** — one phrase contained inside the other, like *"sleep"*
-  and *"sleepy time"* → **always refused.** Either would fire the other, so they cannot coexist.
-  Pick a distinct, more distinctive phrase.
+## 2. Uniqueness, Overrides, and Clashes
 
-A word **cannot be overridden while it is actively holding you** — replacing it live would strand
-whatever it is doing to you. Wait for it to let go, or use the safeword.
+Every trigger word is **unique per subject** — two different players cannot hold the identical trigger word on you at the same time. When a hypnotist attempts to plant a word that is already registered in your client, the parser handles it in one of three ways:
 
-**Overriding replaces, it does not inherit.** The new trigger starts fresh, so any strength the old
-one built up through reinforcement is gone — the word survives, the thing behind it does not. If it
-was someone else's, you feel *something come loose and something new settle into its place*; you are
-never told the word or who held it before. `/hypno triggers` attributes each one, so you can always
-read at your leisure who a trigger now belongs to.
+* **Their own word:** If the hypnotist re-records a phrase they previously installed, it simply **updates**. Refining or maintaining your own trigger does not require re-clearing the original depth check.
+* **Someone else's word:** Another hypnotist can only override an existing trigger if they have taken you **deeper into trance than the depth at which the original trigger was planted**. Taking over another player's trigger requires a deeper trance state; otherwise, the attempt refuses.
+* **Sub-phrase overlap:** If a new phrase is fully contained inside an existing trigger (for example, attempting to plant *"sleep"* when *"sleepy time"* is already stored), it is **always refused**. Because one word would inevitably fire the other, conflicting sub-phrases cannot coexist.
 
-**Refusals stay vague on purpose.** When a phrase is refused for clashing with one already in you,
-the hypnotist is not told which word it clashed with, who planted it, or how deep — your hidden
-triggers are not something a refusal should hand out. The one exception is when the clash is with
-**their own** word, where naming it gives nothing away.
+### Override Rules
+* **No overrides while holding:** A trigger cannot be replaced or overwritten while that specific trigger is actively holding the subject.
+* **Clean slate:** An override replaces the old trigger completely rather than inheriting its properties. The new trigger starts fresh at baseline strength. If an override occurs, the subject feels *something come loose and something new settle into place*, without revealing the words or players involved.
+* **Private refusal reasons:** When a trigger is refused due to a conflict, the hypnotist is not told which existing trigger caused the clash or who planted it. Your stored triggers remain confidential.
 
-**Renaming mid-setup keeps your work.** Say a new *"your trigger word is …"* while still recording
-and it renames the one you are building, keeping the suggestions already recorded — you do not start
-over.
+---
 
-## Firing one
+## 3. Firing a Trigger
 
-Just say the phrase. **It works with no session** — that is the entire point of a trigger.
+To fire a primed trigger, the speaker simply includes the phrase in room chat:
 
-It also works if the speaker does not have the add-on installed, because the matching happens on the
-subject's client. All they have to do is say the word.
+> *"I think it is sleepy time."*
 
-A fired trigger holds for a set time (the Triggers tab; or until released) and then lets go.
+* **No active session required:** A trigger functions whether an active trance session is running or not.
+* **Universal matching:** The speaker does not need ECHS installed. Matching is evaluated entirely on the **subject's** local client.
+* **Sequential execution:** If a trigger contains multiple queued actions, they arrive **one at a time** with a short, deliberate pause between each action.
+* **Duration:** A fired trigger holds for the duration configured on the subject's Triggers tab, or until manually released.
 
-## Who can fire it
+---
 
-Your setting, on the Triggers tab. Seven rungs, tightest first — the default is **Hypnotist only**:
+## 4. Trigger Scope: Who Can Fire Your Triggers?
 
-1. Hypnotist only
-2. Hypnotist and Owner
-3. Hypnotist, Owner and Lovers
-4. …and whitelist
-5. …and Dominants
-6. Everyone except blacklist
-7. Everyone, no exceptions
+Configured on your **Triggers** tab. ECHS uses a 7-rung scope ladder (defaulting to **Hypnotist only**):
 
-The person who planted it always counts, whatever the rung. Whether **you** can fire your own
-triggers is a separate explicit setting, not an accident of the ladder.
+1. **Hypnotist only** (the player who planted it)
+2. **Hypnotist and Owner**
+3. **Hypnotist, Owner, and Lovers**
+4. …plus **Whitelist**
+5. …plus **Dominants**
+6. **Everyone except Blacklist**
+7. **Everyone** (public trigger, no restrictions)
 
-## Releasing one
+The player who planted the trigger can always fire it regardless of the selected rung. Whether **you** can fire your own triggers is an independent setting (*"You can fire your own triggers"* on the Triggers tab).
 
-*"Missy, you are released from sleepy time"* — releases that specific trigger by name, and works
-outside a trance.
+---
 
-General release wording does **not** work outside a trance. That was tried and reverted: it left
-ordinary hypnosis phrasing operating on people who were not under at all.
+## 5. Releasing a Trigger
 
-## Triggers fade
+* **Specific Release by Name:** Saying *"Missy, you are released from sleepy time"* releases that specific trigger immediately, working inside or outside of trance.
+* **Trance-Only General Releases:** Broad release phrasing (*"you are awake"*, *"wake up"*) applies only to active trance sessions and does not release dormant or fired triggers outside of a session.
 
-A planted trigger loses strength over time and eventually goes entirely. The rate is on the Triggers
-tab and is **Never** by default, so if you change nothing you get plant-and-forget.
+---
 
-- A **deep** planting lasts considerably longer than a shallow one.
-- **Neglect compounds** — the longer it goes untouched, the faster it sheds.
-- **Firing it only slows the fade.** It does not reset the clock.
-- *"Missy, that trigger holds"* — said while under, by the person who planted it — **resets the
-  clock completely** on everything they planted in you.
+## 6. Trigger Decay & Strength Loss
 
-A faded trigger is not simply off: **its current strength is the depth it fires at.** A Deep trigger
-worn down to Yielding still fires its shallow actions and stops landing the deeper ones. Far enough
-gone and it produces only a vague pull and nothing else.
+Planted triggers naturally lose potency over time unless maintained. The decay rate is configured on your Triggers tab (defaults to **Never** for a "plant-and-forget" style).
 
-A trigger opened to arousal rather than earned depth fades fast whatever the rate says. That is the
-price of the shortcut and it is not configurable.
+* **Deeper planting lasts longer:** Triggers planted in deep trance states persist significantly longer than shallow ones.
+* **Compounding fade:** Neglected triggers shed strength faster the longer they sit unused.
+* **Firing vs. Reinforcing:** Firing a trigger slows its rate of fade but does not reset the clock.
+* **Reinforcing:** When the original hypnotist is in an active session with the subject, saying *"Missy, that trigger holds"* **completely resets the decay timer** across every trigger they have planted in you.
 
-`/hypno triggers` lists each one with its strength and the tier it still reaches. Whether the
-phrases themselves are shown is your setting.
+### Graceful Degradation
+A faded trigger does not switch off abruptly: **its current remaining strength determines the depth tier it can fire at.** 
+* A Deep-tier trigger that has decayed down to a Yielding level will still successfully fire its Yielding-tier actions (like freezing), but its deeper actions (like undressing) will fail to take hold.
+* If a trigger decays completely, hearing the phrase produces a slight internal pull without executing actions.
 
-## Carrying a suggestion past waking
+*(Note: Triggers permitted to unlock via arousal rather than earned depth decay rapidly regardless of your settings).*
 
-```
-"Missy, you cannot tell what you are wearing"
-"Missy, that will stay with you"        ← keeps that ONE
-"Missy, all of this stays with you"     ← keeps everything currently applied
-"Missy, forget what I said"             ← takes it back
-```
-
-The phrase takes the **most recent** suggestion and accumulates from there. It reads the way people
-actually talk — *"that thing I just said"* — rather than requiring you to declare in advance.
-
-**Trance defaults can never be carried.** You always wake with your movement and your voice back.
-Making one of those durable takes saying it out loud as a suggestion first, which is exactly the
-deliberateness it should require.
-
-A carried suggestion can be released by the person who carried it, using ordinary release wording,
-for as long as they still hold it.
-
-## Commanded activities in a trigger
-
-A commanded activity can be recorded into a trigger like any other action — see
-[Commanded Activities](Commanded-Activities). When the trigger fires, its actions arrive **one at a
-time** with a short pause between them rather than all at once.
-
-## If something is holding you
-
-- Wait for it to wear off.
-- Have whoever set it release you, by name.
-- **`/hypno safeword`**, which always works from any state.
-
-`/hypno forgettrigger` **refuses while that trigger has hold of you.** Deleting the thing gripping
-you would be too quiet an escape; the safeword is the honest way out.
-
-Chat commands survive being silenced, so the safeword stays reachable even when speech does not.
+Check current trigger health at any time:
+```text
+/echs triggers
