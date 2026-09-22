@@ -11,6 +11,7 @@ import {
 	enterWalkingTrance,
 	leaveWalkingTrance,
 	currentHypnotistId,
+	saveForReconnect,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
@@ -1564,6 +1565,10 @@ function fireTrigger(trigger: Trigger): void {
 	if (holding) {
 		markActive(timerKey(trigger));
 		scheduleAutoRelease(trigger);
+		// Written down NOW. A trigger normally fires with no trance running, so no session
+		// transition will ever save it, and a reload with nothing saved treats its Freeze as an
+		// orphan and takes it off.
+		saveForReconnect();
 	}
 	drainTriggerSteps(trigger, steps);
 }
@@ -1604,6 +1609,9 @@ function undoTrigger(trigger: Trigger): void {
 	}
 	cancelTimer(timerKey(trigger));
 	clearActive(timerKey(trigger));
+	// The other direction: a released trigger left in the saved copy would be put back on by
+	// the next reload, restoring something that had already let go.
+	saveForReconnect();
 	log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
 }
 
@@ -1827,6 +1835,10 @@ registerTriggerRecovery(
 				tellPlayer("Whatever was holding you loosens on its own.");
 			});
 		}
+		// Re-saved, which also re-arms the heartbeat: otherwise the copy on disk is the one read
+		// at startup and goes stale — a second reload after this trigger lets go would put it
+		// back on again.
+		saveForReconnect();
 		log(
 			`recovery: trigger "${trigger.phrase}" restored with ` +
 				`${remaining > 0 ? `${Math.round(remaining / 60_000)} min left` : "no clock"}`,

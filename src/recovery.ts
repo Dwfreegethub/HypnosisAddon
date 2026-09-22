@@ -214,10 +214,7 @@ export function snapshotLocalState(): Omit<
  * This is the "never leave anybody helpless" half, and it has to cover the BC effects as
  * well as the local ones precisely because those are the ones that survived on their own. */
 export function releaseEverything(reason: string): void {
-	removeEffect("Freeze");
-	removeEffect("BlockWardrobe");
-	removeEffect("Leash");
-	clearOrgasmDenial();
+	releaseOurEffects();
 	setSpeechBlocked(false);
 	setScreenFade(0);
 	setSuppressed("clothing", false);
@@ -229,6 +226,14 @@ export function releaseEverything(reason: string): void {
 	clearSuggestedPose();
 	clearSaved();
 	log(`recovery: released everything — ${reason}`);
+}
+
+/** Our effects that ride the Emoticon item, and so outlive the page that put them on. */
+function releaseOurEffects(): void {
+	removeEffect("Freeze");
+	removeEffect("BlockWardrobe");
+	removeEffect("Leash");
+	clearOrgasmDenial();
 }
 
 /** Do we appear to be wearing our OWN effects with nothing to explain them?
@@ -380,7 +385,12 @@ function restoreTriggers(saved: SavedSession): number {
 function restoreDurable(saved: SavedSession): boolean {
 	const triggers = restoreTriggers(saved);
 	let carried = 0;
-	if (saved.carried?.length) {
+	// Same rule restoreTriggers applies: a clock that ran out while they were away has ended.
+	// restoreCarried() reads a remainder at or below zero as "no clock", so without this an
+	// expired carry came back holding them with nothing that would ever let go.
+	if (saved.carriedUntil && saved.carriedUntil <= Date.now()) {
+		log("recovery: carried suggestions ran out while away, not restoring them");
+	} else if (saved.carried?.length) {
 		try {
 			handlers?.restoreCarried(saved);
 			carried = saved.carried.length;
@@ -492,9 +502,25 @@ export function attemptRecovery(): RecoveryOutcome {
 	// on their remaining time regardless of how long the subject was away or whether the
 	// hypnotist is anywhere nearby.
 	if (!saved.sessionLive) {
+		// Our BC effects survive a reload on their own, riding the Emoticon item, so a trigger
+		// whose clock ran out while they were away would leave its Freeze behind — and because
+		// something WAS saved, the orphan check above never sees it. Take them all off and let
+		// the restore put back only what still has time on it. The saved copy is kept: the
+		// restore re-saves what comes back, and nothing else here reads it.
+		const stranded = hasOrphanedEffects();
+		releaseOurEffects();
 		const durable = restoreDurable(saved);
-		if (durable) tellPlayer("Something that was already true of you is still true.");
-		return durable ? "durable only" : "nothing to do";
+		if (durable) {
+			tellPlayer("Something that was already true of you is still true.");
+			return "durable only";
+		}
+		clearSaved();
+		if (stranded) {
+			// Said, not silent: they logged back in held and are now free, and should know why.
+			tellPlayer("Whatever was holding you ran its course while you were away.");
+			return "expired";
+		}
+		return "nothing to do";
 	}
 
 	if (away > RECOVERY_WINDOW_MS) {

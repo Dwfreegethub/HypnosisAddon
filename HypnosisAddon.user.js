@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.82.0
+// @version      0.82.1
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1699,7 +1699,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -2008,10 +2008,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
   }
   function releaseEverything(reason) {
-    removeEffect("Freeze");
-    removeEffect("BlockWardrobe");
-    removeEffect("Leash");
-    clearOrgasmDenial();
+    releaseOurEffects();
     setSpeechBlocked(false);
     setScreenFade(0);
     setSuppressed("clothing", false);
@@ -2023,6 +2020,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearSuggestedPose();
     clearSaved();
     log(`recovery: released everything \u2014 ${reason}`);
+  }
+  function releaseOurEffects() {
+    removeEffect("Freeze");
+    removeEffect("BlockWardrobe");
+    removeEffect("Leash");
+    clearOrgasmDenial();
   }
   function hasOrphanedEffects() {
     return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode") || hasOwnEffect("Leash");
@@ -2099,7 +2102,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function restoreDurable(saved) {
     const triggers = restoreTriggers(saved);
     let carried = 0;
-    if (saved.carried?.length) {
+    if (saved.carriedUntil && saved.carriedUntil <= Date.now()) {
+      log("recovery: carried suggestions ran out while away, not restoring them");
+    } else if (saved.carried?.length) {
       try {
         handlers2?.restoreCarried(saved);
         carried = saved.carried.length;
@@ -2166,9 +2171,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const away = Date.now() - (saved.savedAt || 0);
     if (!saved.sessionLive) {
+      const stranded = hasOrphanedEffects();
+      releaseOurEffects();
       const durable = restoreDurable(saved);
-      if (durable) tellPlayer("Something that was already true of you is still true.");
-      return durable ? "durable only" : "nothing to do";
+      if (durable) {
+        tellPlayer("Something that was already true of you is still true.");
+        return "durable only";
+      }
+      clearSaved();
+      if (stranded) {
+        tellPlayer("Whatever was holding you ran its course while you were away.");
+        return "expired";
+      }
+      return "nothing to do";
     }
     if (away > RECOVERY_WINDOW_MS) {
       releaseEverything(`away ${Math.round(away / 6e4)} min, past the ${RECOVERY_WINDOW_MS / 6e4}-minute window`);
@@ -2501,6 +2516,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       carrierName: carrierNameFor(),
       triggers
     });
+  }
+  function saveForReconnect() {
+    persistState();
   }
   function pushUpdate(refusedReason) {
     if (session.hypnotistId == null) return;
@@ -5299,6 +5317,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (holding) {
       markActive(timerKey(trigger));
       scheduleAutoRelease(trigger);
+      saveForReconnect();
     }
     drainTriggerSteps(trigger, steps);
   }
@@ -5325,6 +5344,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     cancelTimer(timerKey(trigger));
     clearActive(timerKey(trigger));
+    saveForReconnect();
     log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
   }
   function isTriggerInEffect(trigger) {
@@ -5474,6 +5494,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           tellPlayer("Whatever was holding you loosens on its own.");
         });
       }
+      saveForReconnect();
       log(
         `recovery: trigger "${trigger.phrase}" restored with ${remaining > 0 ? `${Math.round(remaining / 6e4)} min left` : "no clock"}`
       );
@@ -7260,7 +7281,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8720,7 +8741,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.82.0"} loaded`;
+    el.textContent = `ECHS v${"0.82.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8743,14 +8764,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.82.0"})`);
+  log(`script loaded (v${"0.82.1"})`);
   showIndicator();
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.82.0",
+      version: "0.82.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
