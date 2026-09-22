@@ -420,6 +420,19 @@ function persistState(): void {
 	});
 }
 
+/** Save now, for the changes that are not session transitions: a trigger firing, letting go,
+ * or coming back after a reconnect.
+ *
+ * Without this, a trigger fired outside a trance was held only in memory. persistState()
+ * already knew to save it, but nothing asked it to: every caller sits on a session transition,
+ * and the heartbeat is only armed by one. A reload then found nothing saved, read the
+ * trigger's Freeze on the Emoticon item as an orphan from a crash, and took it off. That is
+ * the "trigger effects cleared on relog" report. voice.ts calls this; it cannot reach
+ * persistState() any other way without a cycle. */
+export function saveForReconnect(): void {
+	persistState();
+}
+
 function pushUpdate(refusedReason?: string): void {
 	if (session.hypnotistId == null) return;
 	const now = Date.now();

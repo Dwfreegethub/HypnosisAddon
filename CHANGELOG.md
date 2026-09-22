@@ -12,6 +12,20 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.82.1 · 22 September 2026
+
+- **Triggers now survive a disconnect or a refresh.** If a trigger was holding you and you dropped,
+  refreshed the page or logged back in, it used to let go the moment you returned. Now it comes
+  back and finishes the time it had left. Time you spend logged out still counts, so a trigger that
+  would have ended while you were gone has ended when you return.
+- **Coming back after something wore off no longer leaves you stuck.** If a trigger or something
+  carried out of a trance ran out while you were away, it no longer holds you when you log back in,
+  and you are told it ran its course.
+- As always, the safeword clears everything, and *Release everything if you disconnect* in the
+  settings still sends you back clear.
+
+---
+
 ## v0.82.0 · 22 September 2026
 
 Fixes to awareness hiding and the clothing illusion.

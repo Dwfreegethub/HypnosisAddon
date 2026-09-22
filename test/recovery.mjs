@@ -303,6 +303,33 @@ saveTrance(9 * 60_000, {
 check("the trance expires", recovery.attemptRecovery(), "expired");
 check("  but what was carried does not", carriedBack?.carried, ["awareness-block"]);
 
+// A carry whose clock ran out while they were away has ended, the same as a trigger's. It
+// used to come back anyway: restoreCarried() reads a remainder at or below zero as "no clock",
+// so it held them with nothing that would ever let go.
+clearAll();
+carriedBack = null;
+saveTrance(60 * 60_000, {
+	sessionLive: false,
+	carried: ["awareness-block"], carriedUntil: Date.now() - 1000, carrierId: HYP, carrierName: "GameBot",
+});
+check("an expired carry", recovery.attemptRecovery(), "nothing to do");
+check("  stays expired", carriedBack, null);
+
+// Something WAS saved, but every clock in it ran out while they were away. Our Freeze rode the
+// Emoticon item through the reload, and because a saved copy existed the orphan check never
+// looked at it — so they came back frozen with nothing left to release them.
+clearAll();
+seen.length = 0;
+saveTrance(20 * 60_000, {
+	sessionLive: false,
+	triggers: [{ key: "trigger:1:sleepy", actions: ["movement-block"], until: Date.now() - 60_000 }],
+});
+effects.applyEffect("Freeze");
+check("an expired trigger's leftover freeze", recovery.attemptRecovery(), "expired");
+check("  comes off", effects.hasOwnEffect("Freeze"), false);
+check("  and she is told why", said.some((m) => /ran its course while you were away/.test(m)), true);
+check("  and the stale copy goes", store[KEY], undefined);
+
 // Nothing at all is still nothing.
 clearAll();
 saveTrance(30_000, { sessionLive: false });

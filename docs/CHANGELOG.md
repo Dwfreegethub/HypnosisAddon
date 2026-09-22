@@ -20,6 +20,47 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-22 (v0.82.1) — a fired trigger survives a relog
+
+DW's tracker: *"Active trigger effects and durations are cleared entirely upon logging out or
+reconnecting, rather than persisting across their remaining timers."* Known Bug #8.
+
+**The design was already there and half of it worked.** `recovery.ts` has restored fired triggers
+on their remaining time since v0.44.0, and `test/recovery.mjs` proved it, but only from a saved
+copy written by hand. Nothing checked that the copy was ever written, and for a trigger it never
+was. `persistState()` runs on session transitions, and its heartbeat is armed only by one. A
+trigger normally fires with no trance running, so it lived in memory only. The reload found
+nothing saved, read the trigger's Freeze on the Emoticon item as a crash orphan, and released it.
+
+**Fix:** `saveForReconnect()` (exported from `session.ts`, since `voice.ts` cannot reach
+`persistState()` otherwise without a cycle) runs when a trigger fires, when it lets go, and when
+recovery restores one. The last one re-arms the heartbeat, so a second reload after the trigger
+lets go does not put it back from a stale copy.
+
+**What saving exposed.** Once a copy exists, the orphan check never runs, so a trigger whose clock
+ran out while the subject was away would have come back as a stranded Freeze with nothing to
+release it. The durable-only branch of `attemptRecovery()` now takes our BC effects off first and
+lets the restore put back only what still has time. If nothing comes back it says
+*"Whatever was holding you ran its course while you were away."* and returns `expired`, rather than
+releasing silently. **Carried suggestions had the same flaw:** `restoreCarried()` reads a spent
+remainder as "no clock" and held forever, so `restoreDurable()` now skips an expired carry the way
+`restoreTriggers()` already skipped an expired trigger.
+
+**Offline time counts** (clocks are wall time), unchanged from the existing design. **Decided by DW
+2026-09-22: keep ticking**, not pause. A pause would let a short trigger hold someone who comes back
+the next day.
+
+`test/relog.mjs` (38 checks) runs plant → wake → fire → reload with no hand-written state. The
+reload imports a second copy of the bundle under a query string, so every timer and marker is
+genuinely gone and only localStorage and the Emoticon item carry across, as in BC. 20 of its checks
+fail on v0.82.0; four new ones in `test/recovery.mjs` plus two for the carry fail there too.
+
+**Not run live.** Unverified: whether BC's in-page relog screen (a dropped socket, not a page
+reload) keeps module state. If it does, that path never lost anything and this fix is about
+refreshes and fresh logins.
+
+---
+
 ### Fixed 2026-09-22 (v0.82.0) — awareness leaks: four causes behind six reports
 
 DW's tracker listed six awareness and illusion symptoms. They came down to four causes and a
