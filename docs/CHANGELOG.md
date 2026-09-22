@@ -49,6 +49,13 @@ seen to fail its own checks. **Not run live.** **Not verified against BC source:
 stops a frozen player touching themselves. If it does, gear will still block, but BC will be the one
 doing it and the add-on will no longer narrate it.
 
+**Also in this build: Europe under both spellings.** DW asked (2026-09-22) that `bondage-europe.com`
+and `bondageeurope.com` both be allowed. The hyphenated host was already matched. The unhyphenated
+one was not, so on it the add-on was simply never injected, with no error anywhere. `meta.txt`
+gains `*://*.bondageeurope.com/*` and `*://bondageeurope.com/*`, for eight `@match` lines in all.
+**Not verified from here** that `bondageeurope.com` serves the game; an extra `@match` on a host that
+does not costs nothing.
+
 ### Added 2026-09-22 (v0.81.0) — the build says its own version, in chat and in the settings title
 
 **Why:** DW asked for it, and named it a small UI thing that may well change or go away later, so

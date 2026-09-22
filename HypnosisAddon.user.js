@@ -23,12 +23,16 @@
 // there — no error, it just isn't loaded. `*.host` also covers the bare domain; the bare
 // form is listed anyway, belt-and-braces, since a silent miss is the worst failure here.
 // bondageprojects.com was checked and does not serve the game, so it isn't listed.
+// Europe is listed both with and without the hyphen, bondage-europe and bondageeurope, on DW's
+// word (v0.81.1): players reach it under both spellings, and a miss here is silent.
 // Each regional mirror is a separate origin, so a player switching hosts loads settings from
 // their BC account rather than localStorage — see loadSettings() in src/storage.ts.
 // @match        *://*.bondageprojects.elementfx.com/*
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
+// @match        *://*.bondageeurope.com/*
+// @match        *://bondageeurope.com/*
 // @match        *://*.bondage-asia.com/*
 // @match        *://bondage-asia.com/*
 // @grant        none

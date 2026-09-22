@@ -603,9 +603,9 @@ function loadSettings(): HypnoAddonSettings {
 	// next save would write that stale copy straight over the good server-side data. It
 	// bites hardest exactly when localStorage is empty but the account has data: a
 	// different browser, cleared site data, or a DIFFERENT BC HOST, since localStorage is
-	// per-origin and each mirror BC is served from (bondage-europe.com, bondage-asia.com) is
-	// a separate origin from bondageprojects. Every one of them is in the @match list in
-	// meta.txt; arriving on a host for the first time is exactly this case.
+	// per-origin and each mirror BC is served from (bondage-europe.com, bondageeurope.com,
+	// bondage-asia.com) is a separate origin from bondageprojects. Every one of them is in the
+	// @match list in meta.txt; arriving on a host for the first time is exactly this case.
 	if (cached && !cachedFromAccount && haveAccount) {
 		log("account settings became available after an early read — reloading");
 		cached = null;
