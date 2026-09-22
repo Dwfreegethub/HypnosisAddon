@@ -17,6 +17,7 @@ import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, 
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice } from "./notify";
+import { startStartupBanner } from "./welcome";
 
 function showIndicator(): void {
 	const el = document.createElement("div");
@@ -45,13 +46,17 @@ function safely(label: string, fn: () => void): void {
 	}
 }
 
-// These two run first and unconditionally — if anything below throws, this is still what
+// These run first and unconditionally — if anything below throws, this is still what
 // confirms the script itself executed at all, instead of everything going silent.
 log(`script loaded (v${__VERSION__})`);
 // No load-time "TESTING MODE is ON" line any more: testing mode is now a runtime check on the
 // chat room (isTestingMode in log.ts), off by default and on only in the Hypno Testing room, so
 // there is nothing that could quietly ship switched on for it to warn about.
 showIndicator();
+// The same fact in the chat log, once a chat log exists. The watermark above is a DOM
+// element that stops being noticed and cannot be quoted back; the chat line can be, which is
+// how you find out which build somebody is actually running. Local to this player only.
+safely("startup banner", startStartupBanner);
 
 const modApi = bcModSdk.registerMod(
 	{

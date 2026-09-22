@@ -16,6 +16,73 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-22 (v0.81.0) — the build says its own version, in chat and in the settings title
+
+**Why:** DW asked for it, and named it a small UI thing that may well change or go away later, so
+it is deliberately one line and no settings. The useful side effect is bigger than the ask: which
+build a tester is actually running has been an open question here since v0.75.0, when a second
+`@version` line hidden in prose inside the `==UserScript==` block would have stopped the userscript
+managers updating — silently, with nothing on any screen admitting it. "What does the first line of
+your chat say?" now answers it in one message.
+
+The bottom-right watermark already showed the version and does not solve this. It is a DOM element
+a player stops seeing within a day, it is off-screen in a screenshot of the chat, and it cannot be
+quoted back into a bug report. A chat line can.
+
+**What it says**, local to that player's own chat log and to nobody else:
+
+```
+[Erotic Chat Hypnosis Suite (ECHS) · v0.81.0 · /hypno help]
+```
+
+The number comes from the `__VERSION__` build define, which `build.mjs` fills from `package.json`
+— the same single source the watermark and the `@version` header already use. Nothing here is
+hand-maintained, so it cannot drift from the build the way a typed literal would.
+
+**Where it is printed from, and why not the obvious place.** `startRecovery()`'s identity-and-room
+branch looks like the host — it is where the first-run notice rides, for the same reason (identity
+known, a chat log to print into). It is the wrong one. That poll stops for good at its no-room
+fallback twenty seconds after load, and logging in and then browsing the room list for half a
+minute is the *ordinary* way to arrive, so the banner would simply never print for most sessions.
+`startStartupBanner()` in `welcome.ts` runs its own one-shot poll instead, waits for
+`ServerPlayerIsInChatRoom()`, prints once and stops. It gives up after ten minutes: a player who
+has not entered a room by then is not starting up any more, and the line should not surface in the
+middle of somebody's evening.
+
+**Three things it deliberately does not do.** It never reaches the room — it goes through
+`tellPlayer`, so it is bracketed and local, and a line announcing what add-on somebody is running
+emoted into a public room is not recoverable once sent. It prints once per page load, not per room
+change, because leaving and re-entering rooms is ordinary play rather than a startup. And it reads
+no settings at all, so it says the same thing to every player whatever they have switched on — both
+because a varying line would leak someone's configuration into a place they did not choose to show
+it, and because it has to be a reliable answer to "which build are you on".
+
+The first-run notice below it dropped its own version number in the same change. The two print next
+to each other on a fresh install and both carrying "(ECHS) v0.81.0" read as a stutter; the notice
+keeps the name, since it has to stand alone if it prints first, and the banner owns the number.
+
+**The settings screen title carries it too**, in the same change and at DW's request — it was an
+item on their own held list. `Erotic Chat Hypnosis Suite (ECHS) v0.81.0 — settings`. It rides the
+existing title rather than taking a line of its own: the settings screen is where a player already
+goes when something is not behaving, and that `DrawText` is centred on a 2000-wide canvas with room
+to spare.
+
+So three surfaces now show a version — the corner watermark, the chat banner and the settings
+title — and all three read the same `__VERSION__` define. That is worth a guard rather than a
+convention, because a hand-typed number in any one of them would disagree with the other two the
+first time somebody bumped `package.json` without looking, and a version that lies is worse than no
+version at all when the whole point is to settle which build somebody is on. The suite reads the
+three source lines and fails on a literal.
+
+`test/banner.mjs`, 23 checks, verified to fail on each regression that matters before being kept:
+printing from the lobby (where BC swallows the line with no error, so the banner would never appear
+and nothing would say so — rule 5), printing twice, and a hand-typed version in any of the three
+surfaces.
+
+**Not run live.**
+
+---
+
 ### Fixed 2026-09-21 (v0.80.0) — a hypnotist has to still be in the room
 
 **Why:** DW reported it as a security bug, and it was one. A hypnotist could request an induction,

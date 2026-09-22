@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.80.0
+// @version      0.81.0
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -29,7 +29,6 @@
 // @match        *://bondageprojects.elementfx.com/*
 // @match        *://*.bondage-europe.com/*
 // @match        *://bondage-europe.com/*
-// @match        *://bondageeurope.com/*
 // @match        *://*.bondage-asia.com/*
 // @match        *://bondage-asia.com/*
 // @grant        none
@@ -1810,10 +1809,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function maybeShowFirstRunNotice() {
     if (wasWelcomeShown()) return;
     if (!hasAnyPermissionGranted()) {
-      tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) v${"0.80.0"} \u2014 nothing is switched on yet. Click the spiral to set up.`);
+      tellPlayer("Erotic Chat Hypnosis Suite (ECHS) \u2014 nothing is switched on yet. Click the spiral to set up.");
       tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
     }
     markWelcomeShown();
+  }
+  var BANNER_POLL_MS = 1e3;
+  var BANNER_GIVE_UP_MS = 10 * 6e4;
+  var bannerShown = false;
+  function showStartupBanner() {
+    if (bannerShown) return;
+    bannerShown = true;
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.81.0"} \xB7 /hypno help`);
+  }
+  function startStartupBanner() {
+    const startedAt = Date.now();
+    const tick = () => {
+      const ready = typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom();
+      if (ready) {
+        clearInterval(poll);
+        showStartupBanner();
+        return;
+      }
+      if (Date.now() - startedAt > BANNER_GIVE_UP_MS) clearInterval(poll);
+    };
+    const poll = setInterval(tick, BANNER_POLL_MS);
+    tick();
   }
 
   // src/illusion.ts
@@ -7214,7 +7235,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText("Erotic Chat Hypnosis Suite (ECHS) \u2014 settings", MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.81.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8674,7 +8695,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.80.0"} loaded`;
+    el.textContent = `ECHS v${"0.81.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8697,13 +8718,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.80.0"})`);
+  log(`script loaded (v${"0.81.0"})`);
   showIndicator();
+  safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.80.0",
+      version: "0.81.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
