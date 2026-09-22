@@ -1,83 +1,91 @@
 # Your First Session
 
-> **Looking for a worked example instead?** [A Sample Session](Sample-Session) walks the whole arc
-> with two named characters and the actual lines typed. **This page is the diagnostic companion to
-> it** — what each side controls, and why an attempt often doesn't land the first time.
+> **Alpha Notice**  
+> ECHS is in active alpha development. Real-time feedback, induction balancing, and diagnostic outputs are continually being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
 
-## From the hypnotist's side
+---
 
-**1. Open their profile and click the spiral icon.**
+> **Looking for a worked example instead?** [A Sample Session](Sample-Session) walks through an entire scene with two named characters and the exact lines typed in chat. **This page is the diagnostic companion** — covering what each player controls, how inductions function under the hood, and why an attempt often doesn't land on the first try.
 
-The icon shows on everyone, because there is no way to know who has the add-on without asking.
-Clicking it sends a quiet query; within about three seconds the panel either opens or tells you they
-are not running it, with a *Check again* button. It deliberately does not hide itself afterwards —
-that would turn the Information Sheet into a directory of who in the room is running this.
+---
 
-**2. Click Attempt Hypnosis.**
+## 1. From the Hypnotist's Side
 
-They get a private prompt: **Agree**, **Ignore** or **Fight**. You are never told which they chose,
-and you never will be. Silence for 60 seconds counts as Ignore.
+### Step 1: Open Their Profile and Click the Spiral Icon
+The spiral icon is visible on every player's profile card because client-side extensions cannot detect third-party add-ons without sending a ping. Clicking it sends a quiet background query. Within about three seconds, the panel will either open or inform you that the target is not running the add-on, complete with a *Check again* button. The icon remains visible regardless, ensuring the profile card never becomes a public list of who has the script installed.
 
-**3. Wait out the induction window, and use it.**
+### Step 2: Click "Attempt Hypnosis"
+The target receives a private induction dialog offering three choices: **Agree**, **Ignore**, or **Fight**. You are never told which option they picked. Silence for 60 seconds automatically defaults to Ignore.
 
-Sixty seconds. This time is *for* roleplay, and roleplaying it well genuinely improves the roll —
-every line you speak during the window adds to your chance, up to a cap. It is not decoration.
+### Step 3: Use the Induction Window
+You have a 60-second window while the prompt is active. This window is designed for roleplay, and roleplaying during it genuinely impacts the outcome: every line you speak adds to your induction roll up to a built-in cap.
 
-**4. The roll happens, and they either go under or they do not.**
+### Step 4: The Induction Roll
+When the window closes, the subject's client calculates the roll:
+* **Success:** You receive a broad, descriptive status indicating how deep they dropped (*drifting, yielding, entranced, deep,* or *blank*).
+* **Failure:** You receive a status indicator describing how close the attempt was (*barely responsive, slightly relaxed, more relaxed,* or *almost under*). Never raw numbers.
 
-If it lands, you get a vague band describing how deep. If it misses, you get a vague band describing
-how close it was. You get **two attempts** by default (their setting; they can allow three), then a
-ten-minute cooldown.
+Hypnotists get **two attempts by default** before a 10-minute cooldown engages (the subject can configure this to three attempts in their settings).
 
-**5. Then just talk.**
+### Step 5: Speak Naturally
+Once they are under, deliver suggestions using ordinary chat dialogue:
+> *"Missy, you cannot move."*
 
-No commands. Say *"Missy, you cannot move"* and, if everything lines up on their end, it happens.
-**Use their name, or nothing lands** — every suggestion requires it.
+If permissions and depth gates align on their end, the suggestion executes. **Always include their character name** — suggestions require addressing the target directly.
 
-## From the subject's side
+---
 
-**1. Someone attempts hypnosis and a prompt appears.**
+## 2. From the Subject's Side
 
-You have 60 seconds. **Agree** helps their roll considerably; **Fight** hurts it by the same amount;
-**Ignore** is neutral and is what silence counts as. Your choice is private, permanently.
+### Step 1: Respond to the Prompt
+When an induction begins, a dialog appears on your screen with a 60-second timer:
+* **Agree:** Significantly boosts the hypnotist's roll.
+* **Fight:** Substantially penalizes their roll.
+* **Ignore:** Neutral modifier (identical to letting the timer expire in silence).
 
-You can also answer by typing `/hypno agree`, `/hypno ignore` or `/hypno fight` — useful if you are
-in the wardrobe or another screen when the attempt lands, since the prompt box only draws in the
-chat room.
+Your choice is completely private and is never disclosed to the hypnotist. You can also respond via chat commands:
+* `/echs agree` (or `/hypno agree`)
+* `/echs ignore` (or `/hypno ignore`)
+* `/echs fight` (or `/hypno fight`)
 
-**2. If it lands, you are under.**
+This is especially helpful if your wardrobe or another UI screen is open when the prompt lands.
 
-How deep is decided at that moment and does not drift. A comfortable success goes deep; a narrow one
-leaves you in a trance you can pull yourself out of with `/hypno wake`.
+### Step 2: Going Under
+If the attempt succeeds, your client enters a trance state. The resulting depth tier depends on the roll margin: a narrow success leaves you in a light, shallow trance, while a decisive success sends you deeper.
 
-**3. Things start working — or not.**
+### Step 3: Receiving Suggestions
+When a spoken suggestion passes all checks, your client applies the effect and displays a private notification in brackets. If a suggestion is blocked, the *hypnotist* receives private diagnostic feedback explaining which gate stopped it, preventing scene confusion.
 
-When a suggestion lands, you will see the effect described to you. When one is refused, the
-*hypnotist* is told which gate stopped it, so they can fix it rather than guess.
+### Step 4: Exiting the Scene
+You are always in control of your boundaries. See [Consent and Safety](Consent-and-Safety) for full details. 
 
-**4. Getting out.**
+The universal exit:
 
-See [Consent and Safety](Consent-and-Safety#every-way-out). The short version: `/hypno safeword`,
-always, from anywhere.
+`/echs safeword` (or `/hypno safeword`)  
+Instantly clears active trances, purges triggers, and restores all character controls from any state. Slash commands always bypass speech restrictions.
 
-## Why nothing happened
+*(Note on Waking:* A planned feature will allow subjects to attempt breaking out of shallow trances using `/echs wake`. For now, active trances are concluded by the hypnotist speaking wake phrases like *"Missy, wake up"*, using their remote panel button, letting the session timer expire, or using the safeword).*
 
-Every suggestion is gated, and the checks run in this order:
+---
 
-1. **The permission for that feature is on.**
-2. **There is a live trance with that specific person.** Not anyone — them.
-3. **Their name is somewhere in the line.**
-4. **They are deep enough.** The deeper the effect, the deeper the trance it needs.
+## 3. Why Nothing Happened (The Four Gates)
 
-A line can match perfectly and still wait for a deeper trance. `/hypno match <phrase>` reports
-whether the words matched, separately from the other gates, which is usually enough to bisect it in
-one try.
+Every hypnotic suggestion is evaluated against four sequential gates on the subject's client:
 
-## Walking trance
+1. **Permission Gate:** The specific feature must be enabled in the subject's **Permissions** settings.
+2. **Session Gate:** There must be an active, valid trance session bound to that specific hypnotist.
+3. **Name Gate:** The subject's character name must appear in the chat line.
+4. **Depth Gate:** The subject's current trance depth must meet or exceed the threshold assigned to that feature on their **Depth** tab.
 
-*"Missy, walk with me"* puts the subject in a **walking trance** — still under, still suggestible,
-but on their feet with the dreamy veil thinned to a hint rather than lifted. *"Be still"* puts the
-stillness back.
+A phrase can match the dictionary perfectly and still fail if the subject is not deep enough. Use `/echs match <phrase>` (or `/hypno match <phrase>`) to verify wording and test the name gate independently.
 
-This exists because a trance that pins you in place is awkward to actually play with. It changes
-nothing about depth or permissions.
+---
+
+## 4. The Walking Trance
+
+A subject immobilized by default trance settings can be difficult to move around the club. To keep a scene mobile:
+
+* *"Missy, walk with me"* engages a **walking trance** — the subject remains under trance and fully suggestible, but regains movement while the visual screen veil thins to a faint hint.
+* *"Missy, be still"* restores standard hypnotic immobility.
+
+The walking trance provides roleplay flexibility without altering current depth tiers or permission settings.
