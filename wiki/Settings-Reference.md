@@ -26,7 +26,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
 | **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
 | **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
-| **Clothing Illusion** | Allows false reflections (your screen renders clothes you have been stripped of). |
+| **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
 | **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active trance. |
 
@@ -56,10 +56,10 @@ Defines baseline states that engage automatically when an induction succeeds, be
 
 ## 3. Awareness Tab
 
-Controls perceptual filtering — what your character can be hypnotically made not to notice:
+Controls perceptual filtering — what your character can be hypnotically made not to notice. These hide **chat messages** only. Your own screen still shows your real body; making it show your old clothes is the separate **Clothing Illusion** permission.
 
 * **Clothing Changes:** Suppresses chat notices when items of clothing are removed or replaced.
-* **Bondage Changes:** Suppresses chat notices when restraints are applied, locked, or removed.
+* **Bondage Changes:** Suppresses chat notices when anything in an item slot is applied, adjusted, locked, or removed: restraints, and also gags, collars, blindfolds, toys and locks.
 * **Touches / Activities:** Suppresses chat feedback from physical interactions.
 * **Trigger Setup (Hide Planted Phrases):** Hides the setup dialogue while a trigger is being installed, preventing you from consciously reading your own trigger phrase.
 

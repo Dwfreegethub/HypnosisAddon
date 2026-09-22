@@ -122,13 +122,17 @@ Native chastity items or locked edging crafts will still prevent forced climaxes
 
 ### Suppressed Awareness
 
+Awareness hides the **chat messages** about what is done to you. It does not change what you see of your own body: that is the clothing illusion, below. They are separate permissions with separate lines, and a subject who should neither read about a change nor see it needs both.
+
 | Say | Needs |
 |---|---|
-| *"you will not notice being undressed"* | Clothing Changes · **Drifting** |
+| *"you will not notice being undressed"* · *"you will not notice when I strip you"* | Clothing Changes · **Drifting** |
 | *"you will not notice the ropes"* · *"you do not notice being tied"* | Bondage Changes · **Drifting** |
 | *"you will ignore my touches"* | Touches / Activities · **Drifting** |
 | *"you notice nothing"* · *"you are unaware"* | Enables all three simultaneously |
-| *“you notice everything again”* | — *releases all three, plus clothing illusions* |
+| *“you notice everything again”* · *“you can notice again”* | — *releases all three, plus clothing illusions* |
+
+"You may notice…" on its own is ordinary patter and releases nothing. Say what comes back: *"you can notice everything"*.
 
 ---
 
@@ -139,7 +143,7 @@ Native chastity items or locked edging crafts will still prevent forced climaxes
 | *"you cannot tell what you are wearing"* · *"your clothes look the same to you"* | Freezes the subject's local rendering on their starting outfit |
 | *“you notice your clothes”* · *“look at yourself”* | — *release* |
 
-The rest of the room sees actual wardrobe changes in real-time. Only the subject's local screen remains locked on the illusion.
+The rest of the room sees actual wardrobe changes in real-time. Only the subject's local screen remains locked on the illusion. It changes **what the subject sees**, not what they read: the chat messages about a clothing change still appear unless Clothing Changes awareness (above) is on as well.
 
 ---
 

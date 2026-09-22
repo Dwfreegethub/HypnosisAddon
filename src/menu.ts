@@ -117,7 +117,7 @@ const TABS: Tab[] = [
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
 			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
-			{ key: "illusionControl", label: "Clothing Illusion" },
+			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
@@ -139,7 +139,7 @@ const TABS: Tab[] = [
 	},
 	{
 		name: "Awareness",
-		blurb: "What you can be made unaware of. Hides the message only — arousal still applies.",
+		blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
 		rows: [
 			{ key: "suppressClothing", label: "Clothing Changes" },
 			{ key: "suppressBondage", label: "Bondage Changes" },
