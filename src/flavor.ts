@@ -576,3 +576,54 @@ export function announceTranceEnter(): void {
 		),
 	);
 }
+
+// --- A trance running out on its own ------------------------------------------------------
+//
+// Until v0.82.2 the thirty-minute timeout ended a trance with one bare bracketed line on the
+// subject's screen, "You come out of trance. (session timed out)", and nothing anywhere else.
+// The hypnotist's only sign was their panel quietly flipping back to idle, and the room, which
+// had watched the subject sink, never saw them surface. DW's tracker: "neither the hypnotist
+// nor the subject receives notification or feedback." Same three screens as a missed
+// induction (v0.76.0), for the same reason: an ending nobody is told about reads as the
+// add-on having broken.
+//
+// CHOICE-AGNOSTIC, like every pool in this section. The timeout is the same thirty minutes
+// whichever way the subject chose, so the lines only have to avoid narrating one: nothing
+// about having held out, given in, or let go willingly. test/expiry.mjs checks the words.
+
+/** The subject's own line when the trance runs out. The structural half — that it was the
+ * time limit, not a person — is added by the caller in plain words. */
+export function tranceExpiryLine(): string {
+	return pick([
+		"The trance thins out on its own, and you surface slowly.",
+		"Whatever was holding you under loosens by itself, and the room comes back.",
+		"The calm drains away of its own accord, and your head is your own again.",
+	]);
+}
+
+/** The room-visible half: onlookers watched the subject go under (announceTranceEnter) and
+ * should see them come back. Gated by "Others see your reactions" through tellRoom, like every
+ * other public line. Tokens: only {name}, {their}, {them}, {themselves} are filled. */
+export function announceTranceExpiry(): void {
+	tellRoom(
+		fillTokens(
+			pick([
+				"{name} blinks slowly, and the distance goes out of {their} eyes as the trance wears off.",
+				"The looseness drains out of {name} by degrees, and {name} surfaces on {their} own.",
+				"{name} stirs and draws a longer breath, the trance having quietly run its course.",
+			]),
+		),
+	);
+}
+
+/** The line the HYPNOTIST's own client prints when a trance of theirs runs out.
+ *
+ * NO TOKENS, for the reason hypnotistMissFlavor gives: fillTokens fills from Player, and on
+ * this client Player is the hypnotist. The caller passes the subject's name in. */
+export function hypnotistExpiryFlavor(subject: string): string {
+	return pick([
+		`${subject} comes up out of the trance unprompted.`,
+		`The trance lets go of ${subject} by itself.`,
+		`${subject} drifts back up out of trance.`,
+	]);
+}

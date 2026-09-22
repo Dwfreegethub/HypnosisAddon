@@ -323,8 +323,9 @@ export type RecoveryOutcome =
 
 /** Handlers the session layer supplies, so this module can restore without importing it. */
 export interface RecoveryHandlers {
-	/** Put the session back — phase, hypnotist, depth, and the remaining timeout. */
-	restoreSession: (saved: SavedSession) => void;
+	/** Put the session back — phase, hypnotist, depth, and the remaining timeout. Returns false
+	 * when the timeout had already passed and the trance was ended instead; it has said so. */
+	restoreSession: (saved: SavedSession) => boolean | void;
 	/** Re-apply a carried suggestion by id, and re-arm its remaining time. */
 	restoreCarried: (saved: SavedSession) => void;
 	/** Is this member number in the room right now? */
@@ -542,8 +543,9 @@ function waitForHypnotist(saved: SavedSession): RecoveryOutcome {
 	const resume = () => {
 		restoreLocalState(saved);
 		restoreTriggers(saved);
+		let live = true;
 		try {
-			handlers?.restoreSession(saved);
+			live = handlers?.restoreSession(saved) !== false;
 			// Unconditional: the tracker of what has been said needs restoring even when nothing
 			// was carried, and that is the common case — most sessions carry nothing, which is
 			// exactly when the phrase is about to be used for the first time.
@@ -551,8 +553,10 @@ function waitForHypnotist(saved: SavedSession): RecoveryOutcome {
 		} catch (err) {
 			log("could not restore the session:", err);
 		}
-		tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
-		log("recovery: resumed");
+		// Only when it is true. A trance whose thirty minutes ran out while they were gone has
+		// just been ended, and said so; following that with "you are still under" contradicted it.
+		if (live) tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
+		log(live ? "recovery: resumed" : "recovery: the trance had run out while away");
 	};
 
 	if (saved.hypnotistId && handlers?.inRoom(saved.hypnotistId)) {
