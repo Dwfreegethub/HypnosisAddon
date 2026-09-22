@@ -66,5 +66,34 @@ check("  and are caught by Category, not Clothing", worn("ItemLegs", { Category:
 check("a missing group is not worn", illusion.isWornGroupForTest(null), false);
 check("an unknown group is not worn", worn("SomethingNewInR132", {}), false);
 
+// --- the nametag, v0.82.0 ------------------------------------------------------------
+// The illusion hides the subject's own nametag (DW's 2026-09-22 list): the hook hands
+// DrawCharacter a SIMPLE shadow character, created with no name, and the name is drawn from
+// whatever character DrawCharacter was given. So the shadow borrows the player's name fields
+// for the one draw, and gives them back after, so no named second "Missy" is left sitting in
+// BC's global Character array. Driven through the real hook with a stand-in DrawCharacter.
+{
+	let hook = null;
+	illusion.installIllusion({ hookFunction: (_name, _prio, fn) => (hook = fn) });
+	const shadow = { Appearance: [], IsPlayer: () => false };
+	globalThis.CharacterLoadSimple = () => shadow;
+	globalThis.CharacterRefresh = () => {};
+	Player.Nickname = "Miss Y";
+	Player.LabelColor = "#ff66cc";
+	Player.Appearance = [{ Asset: { Name: "Dress", Group: { Name: "Cloth", Clothing: true } } }];
+	check("illusion takes hold", illusion.freezeAppearance(), true);
+	let drawn = null;
+	hook([Player, 0, 0, 1], (args) => {
+		const C = args[0];
+		drawn = { isShadow: C === shadow, Name: C.Name, Nickname: C.Nickname, LabelColor: C.LabelColor };
+	});
+	check("the shadow is what gets drawn", drawn?.isShadow, true);
+	check("  carrying the player's name, so the nametag has something to draw", drawn?.Name, "Missy");
+	check("  and the nickname BC prefers when there is one", drawn?.Nickname, "Miss Y");
+	check("  in the player's own label colour", drawn?.LabelColor, "#ff66cc");
+	check("the name is given back after the draw", [shadow.Name, shadow.Nickname, shadow.LabelColor], [undefined, undefined, undefined]);
+	illusion.clearIllusion();
+}
+
 console.log(`illusion: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

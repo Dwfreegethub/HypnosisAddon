@@ -18,10 +18,14 @@ import { log } from "./log";
 //   In the chat room (ChatRoomCharacterView.js) the body, the status bubble and the
 //   name/arousal overlay are three separate calls:
 //       DrawCharacter(drawlist[i], ...); DrawStatus(...); ChatRoomCharacterViewDrawOverlay(...)
-//   so swapping inside DrawCharacter changes the body and leaves the name, the arousal
-//   meter and click targeting reading from the real character.
+//   so swapping inside DrawCharacter changes the body and leaves the arousal meter and
+//   click targeting reading from the real character. NOT the nametag, it turned out — see
+//   the name fields lent to the shadow in installIllusion.
 
 const SHADOW_ID = "HypnosisAddonIllusion";
+
+/** What BC draws the nametag from, lent to the shadow for each draw — see installIllusion. */
+const NAME_FIELDS = ["Name", "Nickname", "LabelColor"] as const;
 
 /** Which groups the freeze-frame remembers, versus which stay live.
  *
@@ -256,12 +260,24 @@ export function installIllusion(modApi: any): void {
 				// body would start being tinted and dimmed like everyone else's. Overridden for
 				// the duration of this one call only: a shadow that claimed to be the player
 				// everywhere would be read as the player by Timer.js and the activity code too.
+				//
+				// THE NAME TOO. The overlay comment at the top of this file has the body, the
+				// status bubble and the name as three separate calls, but the nametag vanished
+				// in play while the illusion ran (DW's 2026-09-22 list) — so DrawCharacter is
+				// drawing the name from the character it was handed, and a SIMPLE character is
+				// created with no name. Lent for this one call, like IsPlayer, rather than set
+				// on the shadow for good: a second character in the global Character array
+				// carrying the player's name is something other code could find by name.
+				// Inferred from the symptom, not from BC's source, which is not reachable here.
 				const realIsPlayer = target.IsPlayer;
+				const lent = NAME_FIELDS.map((k) => target[k]);
 				target.IsPlayer = () => true;
+				for (const k of NAME_FIELDS) target[k] = Player?.[k];
 				try {
 					return next([target, ...args.slice(1)]);
 				} finally {
 					target.IsPlayer = realIsPlayer;
+					NAME_FIELDS.forEach((k, i) => (target[k] = lent[i]));
 				}
 			} catch (err) {
 				// A bug here must never make the player invisible to themselves.
