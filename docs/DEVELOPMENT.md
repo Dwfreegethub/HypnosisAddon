@@ -99,10 +99,13 @@ checklist, and it is the same one `CLAUDE.md` carries.
 8. **Verify against the live BC client source before writing against any BC API.** Not from memory,
    not from the wiki. It has changed the answer four times.
 9. **Bump `package.json` on every change that touches code.** It is the single source of truth for
-   the version; the banner and the runtime `__VERSION__` both derive from it.
+   the version; the banner and the runtime `__VERSION__` both derive from it. Patch for a fix or a
+   small visible change, minor only for a new feature or behaviour a player has to learn.
 10. **`testbot/secrets.json` is never committed or printed.** It is gitignored.
 11. **Keep the room-gated testing arrangement intact** (see above).
 12. **Do not restart either live bot in this workspace (BD or SSS) without explicit confirmation.**
+13. **Every release gets a plain-language line in the root [`CHANGELOG.md`](../CHANGELOG.md)**, in
+    the same PR as the bump. The reasoning still goes in `docs/CHANGELOG.md`.
 
 ### Repository layout
 
@@ -138,8 +141,9 @@ every release:
 npm run release   # build, then copy dist/HypnosisAddon.user.js over the committed root file
 ```
 
-then commit the changed `HypnosisAddon.user.js` with the version bump. `npm run build` deliberately
-does NOT touch the root file, so the dev loop never churns it.
+then commit the changed `HypnosisAddon.user.js` with the version bump, and add the release's
+plain-language line to the root [`CHANGELOG.md`](../CHANGELOG.md), which is what players read.
+`npm run build` deliberately does NOT touch the root file, so the dev loop never churns it.
 
 The two shapes this was chosen between:
 

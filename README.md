@@ -68,6 +68,7 @@ ECHS alters client rendering and interaction dispatch. Safety controls are hardw
 
 ## Documentation
 
+* **What's New:** See the **[changelog](CHANGELOG.md)** for what changed in each update, in plain language.
 * **Full Guide:** Visit the [ECHS Wiki](https://github.com/Dwfreegethub/HypnosisAddon/wiki) for comprehensive guides on commands, depth formulas, trust ratings, and trigger setups.
 * **In-Game Help:** Click the **`?`** icon in the ECHS settings panel to read the full manual, or run `/echs help` (or `/hypno help`) in the chat bar.
 * **Quick Reference:** Type `/echs` (or `/hypno`) in chat to print a list of active commands.
