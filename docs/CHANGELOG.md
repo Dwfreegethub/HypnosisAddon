@@ -16,7 +16,7 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Added 2026-09-22 (v0.81.0) — the build says its own version in chat on startup
+### Added 2026-09-22 (v0.81.0) — the build says its own version, in chat and in the settings title
 
 **Why:** DW asked for it, and named it a small UI thing that may well change or go away later, so
 it is deliberately one line and no settings. The useful side effect is bigger than the ask: which
@@ -61,9 +61,23 @@ The first-run notice below it dropped its own version number in the same change.
 to each other on a fresh install and both carrying "(ECHS) v0.81.0" read as a stutter; the notice
 keeps the name, since it has to stand alone if it prints first, and the banner owns the number.
 
-`test/banner.mjs`, 17 checks, verified to fail on both regressions that matter before being kept:
+**The settings screen title carries it too**, in the same change and at DW's request — it was an
+item on their own held list. `Erotic Chat Hypnosis Suite (ECHS) v0.81.0 — settings`. It rides the
+existing title rather than taking a line of its own: the settings screen is where a player already
+goes when something is not behaving, and that `DrawText` is centred on a 2000-wide canvas with room
+to spare.
+
+So three surfaces now show a version — the corner watermark, the chat banner and the settings
+title — and all three read the same `__VERSION__` define. That is worth a guard rather than a
+convention, because a hand-typed number in any one of them would disagree with the other two the
+first time somebody bumped `package.json` without looking, and a version that lies is worse than no
+version at all when the whole point is to settle which build somebody is on. The suite reads the
+three source lines and fails on a literal.
+
+`test/banner.mjs`, 23 checks, verified to fail on each regression that matters before being kept:
 printing from the lobby (where BC swallows the line with no error, so the banner would never appear
-and nothing would say so — rule 5), and printing twice.
+and nothing would say so — rule 5), printing twice, and a hand-typed version in any of the three
+surfaces.
 
 **Not run live.**
 

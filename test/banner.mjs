@@ -97,6 +97,27 @@ welcome.maybeShowFirstRunNotice();
 check("the first-run notice still fires", local.length, 2);
 check("  and no longer carries a version number", /v\d|version/i.test(local[0]), false);
 
+// --- every surface that shows a version reads the same build define ------------------------
+// Three places now say which build this is: the corner watermark (main.ts), this banner
+// (welcome.ts) and the settings screen title (menu.ts). A hand-typed number in any one of them
+// would disagree with the other two the first time somebody bumped package.json without looking
+// — and a version that lies is worse than no version at all, since the whole point is to settle
+// "which build are you actually on". Source-level, because the settings title is drawn inside a
+// BC canvas callback there is no way to call from here. Failure looks like a literal.
+import { readFileSync } from "node:fs";
+const src = (f) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8");
+const versionLine = (f, needle) => src(f).split("\n").find((l) => l.includes(needle)) ?? "";
+
+for (const [file, needle, what] of [
+	["main.ts", "el.textContent =", "the corner watermark"],
+	["welcome.ts", "tellPlayer(`Erotic Chat", "the chat banner"],
+	["menu.ts", "\u2014 settings`", "the settings screen title"],
+]) {
+	const line = versionLine(file, needle);
+	check(`${what} reads the build define`, /\$\{__VERSION__\}/.test(line), true);
+	check(`  and carries no hand-typed number`, /\bv?\d+\.\d+\.\d+\b/.test(line), false);
+}
+
 globalThis.setInterval = realSetInterval;
 globalThis.clearInterval = realClearInterval;
 Date.now = realNow;

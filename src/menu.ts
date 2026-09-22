@@ -923,7 +923,11 @@ export function installMenu(): void {
 				drawWizard();
 				return;
 			}
-			DrawText("Erotic Chat Hypnosis Suite (ECHS) — settings", MainCanvasWidth / 2, TITLE_Y, "Black");
+			// The version rides the title rather than getting a line of its own: it is the one
+			// place a player already looks when something is not behaving, and DrawText here is
+			// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
+			// chat banner and the corner watermark, so all three cannot disagree.
+			DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
 			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 			if (!settingsLocked()) {
