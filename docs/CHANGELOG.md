@@ -16,6 +16,39 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-22 (v0.81.1) — a real restraint no longer locks self-touch after the session ends
+
+**Why:** the top item on DW's tracker, because it left a real person stuck after the session was
+over. After "don't touch yourself" and then bondage gear, self-touch stayed blocked through the
+safeword, through unticking movement, and through switching the add-on off. Only taking the item
+off cleared it. The safeword is the floor (rule 2); anything that survives it is a bug.
+
+**The cause was one line, and it was not where the report pointed.** The `ActivityRun` hook in
+`selftouch.ts` refuses self-touch while frozen, and it asked `Player.HasEffect("Freeze")`. That is
+true for *any* Freeze: ours, carried on the Emoticon item, or a real device that freezes. Every exit
+path already cleared our block and our Freeze correctly. The hook then went on tripping over the
+item's Freeze with no session, no permission and no add-on switched on behind it, and told the room
+"{name} twitches towards {themselves}, and nothing moves" as if it were hypnosis. The "don't touch
+yourself" order in the report was incidental: the gear alone was enough, even for a player who had
+never switched the add-on on.
+
+**What changed:**
+- The frozen check reads `hasOwnEffect("Freeze")`. A real restraint is BC's to judge, through
+  `ActivityAllowedForGroup` and whatever else BC applies. This is the same our-versus-real split
+  `voice.ts` already drew for commanded touch.
+- The hook stands aside completely while *Hypnosis Enabled* is off. `hardFloorStop()` already
+  clears everything the hook reads, so this changes nothing today; it is there so the next piece of
+  state someone adds cannot reach past the master switch.
+
+What still blocks, deliberately: our own Freeze, the blanket "you cannot touch yourself" block and
+the per-part blocks, while the add-on is on. The subject still sees a line when blocked (rule 5).
+
+**Tested:** `test/selftouch.mjs`, 25 checks, drives the hook directly with a real-item Freeze kept
+apart from ours. 10 failed against v0.81.0. Each half of the fix was then reverted on its own and
+seen to fail its own checks. **Not run live.** **Not verified against BC source:** whether BC itself
+stops a frozen player touching themselves. If it does, gear will still block, but BC will be the one
+doing it and the add-on will no longer narrate it.
+
 ### Added 2026-09-22 (v0.81.0) — the build says its own version, in chat and in the settings title
 
 **Why:** DW asked for it, and named it a small UI thing that may well change or go away later, so

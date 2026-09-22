@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.81.0
+// @version      0.81.1
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1387,134 +1387,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
   }
 
-  // src/selftouch.ts
-  var BODY_PARTS = {
-    breasts: ["ItemBreast", "ItemNipples"],
-    breast: ["ItemBreast", "ItemNipples"],
-    chest: ["ItemBreast", "ItemNipples"],
-    nipples: ["ItemNipples"],
-    nipple: ["ItemNipples"],
-    // The broad words cover the clitoris too; the specific ones don't reach back.
-    pussy: ["ItemVulva", "ItemVulvaPiercings"],
-    vulva: ["ItemVulva", "ItemVulvaPiercings"],
-    cunt: ["ItemVulva", "ItemVulvaPiercings"],
-    clit: ["ItemVulvaPiercings"],
-    clitoris: ["ItemVulvaPiercings"],
-    // Same two slots as above — see the note on ItemPenis not existing.
-    cock: ["ItemVulva", "ItemVulvaPiercings"],
-    penis: ["ItemVulva", "ItemVulvaPiercings"],
-    dick: ["ItemVulva", "ItemVulvaPiercings"],
-    tip: ["ItemVulvaPiercings"],
-    crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
-    butt: ["ItemButt"],
-    ass: ["ItemButt"],
-    bottom: ["ItemButt"],
-    mouth: ["ItemMouth"],
-    lips: ["ItemMouth"],
-    face: ["ItemHead"],
-    head: ["ItemHead"],
-    hair: ["ItemHead"],
-    ears: ["ItemEars"],
-    ear: ["ItemEars"],
-    nose: ["ItemNose"],
-    neck: ["ItemNeck"],
-    throat: ["ItemNeck"],
-    // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
-    legs: ["ItemLegs", "ItemFeet"],
-    leg: ["ItemLegs", "ItemFeet"],
-    thighs: ["ItemLegs"],
-    feet: ["ItemBoots"],
-    toes: ["ItemBoots"],
-    hands: ["ItemHands"],
-    arms: ["ItemArms"],
-    shoulders: ["ItemArms"],
-    belly: ["ItemPelvis", "ItemTorso"],
-    stomach: ["ItemPelvis", "ItemTorso"],
-    tummy: ["ItemPelvis", "ItemTorso"],
-    waist: ["ItemTorso"],
-    ribs: ["ItemTorso"],
-    hips: ["ItemPelvis"]
-  };
-  var blockedGroups = /* @__PURE__ */ new Map();
-  var blockAllSelfTouch = false;
-  var commandInProgress = false;
-  function beginCommandedActivity() {
-    commandInProgress = true;
-  }
-  function endCommandedActivity() {
-    commandInProgress = false;
-  }
-  function setBodyPartBlocked(word, groups, on) {
-    for (const g of groups) {
-      if (on) blockedGroups.set(g, word);
-      else blockedGroups.delete(g);
-    }
-  }
-  function setAllSelfTouchBlocked(on) {
-    blockAllSelfTouch = on;
-  }
-  function clearSelfTouchBlocks() {
-    blockedGroups.clear();
-    blockAllSelfTouch = false;
-  }
-  function selfTouchSnapshot() {
-    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
-  }
-  function restoreSelfTouch(snap) {
-    clearSelfTouchBlocks();
-    blockAllSelfTouch = !!snap?.all;
-    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
-  }
-  function describeSelfTouchBlocks() {
-    const parts = [...new Set(blockedGroups.values())];
-    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
-  }
-  function isSelfActivity(actor, acted) {
-    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
-  }
-  function groupNamesFor(targetGroup) {
-    const names = [targetGroup?.Name].filter(Boolean);
-    try {
-      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
-      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
-    } catch {
-    }
-    return names;
-  }
-  function installSelfTouch(modApi2) {
-    modApi2.hookFunction(
-      "ActivityRun",
-      10,
-      ((args, next) => {
-        try {
-          if (commandInProgress) return next(args);
-          const [actor, acted, targetGroup] = args;
-          if (isSelfActivity(actor, acted)) {
-            if (Player?.HasEffect?.("Freeze")) {
-              announce("selftouch-frozen");
-              return void 0;
-            }
-            if (blockAllSelfTouch) {
-              announce("selftouch-blocked");
-              return void 0;
-            }
-            for (const name of groupNamesFor(targetGroup)) {
-              const word = blockedGroups.get(name);
-              if (word) {
-                announceBodyPart(word);
-                return void 0;
-              }
-            }
-          }
-        } catch (err) {
-          log("self-touch check failed:", err);
-        }
-        return next(args);
-      })
-    );
-    log("self-touch hook installed on ActivityRun");
-  }
-
   // src/storage.ts
   var import_lz_string = __toESM(require_lz_string());
 
@@ -1820,7 +1692,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.81.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.81.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -3811,6 +3683,135 @@ One of mods you are using is using an old version of SDK. It will work for now b
     loadSettings().triggerDurationMinutes = value;
     saveSettings();
     return value;
+  }
+
+  // src/selftouch.ts
+  var BODY_PARTS = {
+    breasts: ["ItemBreast", "ItemNipples"],
+    breast: ["ItemBreast", "ItemNipples"],
+    chest: ["ItemBreast", "ItemNipples"],
+    nipples: ["ItemNipples"],
+    nipple: ["ItemNipples"],
+    // The broad words cover the clitoris too; the specific ones don't reach back.
+    pussy: ["ItemVulva", "ItemVulvaPiercings"],
+    vulva: ["ItemVulva", "ItemVulvaPiercings"],
+    cunt: ["ItemVulva", "ItemVulvaPiercings"],
+    clit: ["ItemVulvaPiercings"],
+    clitoris: ["ItemVulvaPiercings"],
+    // Same two slots as above — see the note on ItemPenis not existing.
+    cock: ["ItemVulva", "ItemVulvaPiercings"],
+    penis: ["ItemVulva", "ItemVulvaPiercings"],
+    dick: ["ItemVulva", "ItemVulvaPiercings"],
+    tip: ["ItemVulvaPiercings"],
+    crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
+    butt: ["ItemButt"],
+    ass: ["ItemButt"],
+    bottom: ["ItemButt"],
+    mouth: ["ItemMouth"],
+    lips: ["ItemMouth"],
+    face: ["ItemHead"],
+    head: ["ItemHead"],
+    hair: ["ItemHead"],
+    ears: ["ItemEars"],
+    ear: ["ItemEars"],
+    nose: ["ItemNose"],
+    neck: ["ItemNeck"],
+    throat: ["ItemNeck"],
+    // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
+    legs: ["ItemLegs", "ItemFeet"],
+    leg: ["ItemLegs", "ItemFeet"],
+    thighs: ["ItemLegs"],
+    feet: ["ItemBoots"],
+    toes: ["ItemBoots"],
+    hands: ["ItemHands"],
+    arms: ["ItemArms"],
+    shoulders: ["ItemArms"],
+    belly: ["ItemPelvis", "ItemTorso"],
+    stomach: ["ItemPelvis", "ItemTorso"],
+    tummy: ["ItemPelvis", "ItemTorso"],
+    waist: ["ItemTorso"],
+    ribs: ["ItemTorso"],
+    hips: ["ItemPelvis"]
+  };
+  var blockedGroups = /* @__PURE__ */ new Map();
+  var blockAllSelfTouch = false;
+  var commandInProgress = false;
+  function beginCommandedActivity() {
+    commandInProgress = true;
+  }
+  function endCommandedActivity() {
+    commandInProgress = false;
+  }
+  function setBodyPartBlocked(word, groups, on) {
+    for (const g of groups) {
+      if (on) blockedGroups.set(g, word);
+      else blockedGroups.delete(g);
+    }
+  }
+  function setAllSelfTouchBlocked(on) {
+    blockAllSelfTouch = on;
+  }
+  function clearSelfTouchBlocks() {
+    blockedGroups.clear();
+    blockAllSelfTouch = false;
+  }
+  function selfTouchSnapshot() {
+    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
+  }
+  function restoreSelfTouch(snap) {
+    clearSelfTouchBlocks();
+    blockAllSelfTouch = !!snap?.all;
+    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
+  }
+  function describeSelfTouchBlocks() {
+    const parts = [...new Set(blockedGroups.values())];
+    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
+  }
+  function isSelfActivity(actor, acted) {
+    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
+  }
+  function groupNamesFor(targetGroup) {
+    const names = [targetGroup?.Name].filter(Boolean);
+    try {
+      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
+      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
+    } catch {
+    }
+    return names;
+  }
+  function installSelfTouch(modApi2) {
+    modApi2.hookFunction(
+      "ActivityRun",
+      10,
+      ((args, next) => {
+        try {
+          if (commandInProgress) return next(args);
+          if (!getFeatures().hypnoEnabled) return next(args);
+          const [actor, acted, targetGroup] = args;
+          if (isSelfActivity(actor, acted)) {
+            if (hasOwnEffect("Freeze")) {
+              announce("selftouch-frozen");
+              return void 0;
+            }
+            if (blockAllSelfTouch) {
+              announce("selftouch-blocked");
+              return void 0;
+            }
+            for (const name of groupNamesFor(targetGroup)) {
+              const word = blockedGroups.get(name);
+              if (word) {
+                announceBodyPart(word);
+                return void 0;
+              }
+            }
+          }
+        } catch (err) {
+          log("self-touch check failed:", err);
+        }
+        return next(args);
+      })
+    );
+    log("self-touch hook installed on ActivityRun");
   }
 
   // src/undress.ts
@@ -7235,7 +7236,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.81.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.81.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8695,7 +8696,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.81.0"} loaded`;
+    el.textContent = `ECHS v${"0.81.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8718,14 +8719,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.81.0"})`);
+  log(`script loaded (v${"0.81.1"})`);
   showIndicator();
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.81.0",
+      version: "0.81.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
