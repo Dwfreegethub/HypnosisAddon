@@ -87,22 +87,31 @@ const ACTION_TAGS: Record<string, SuppressionCategory> = {
 	ChangeClothes: "clothing",
 };
 
-/** Which bucket does this message fall into, if any?
+/** Is this an item-slot thing (bondage, in this module's words) rather than a garment?
  *
- * Asset.IsRestraint (Asset.js) is what separates clothing from bondage — it's set per
- * asset, falling back to the group's own IsRestraint, so it handles both a rope and a
- * dress without us maintaining a list of group names. */
+ * By the GROUP's category first, and IsRestraint only as a fallback. IsRestraint alone was
+ * the rule until v0.82.0 and it is narrower than it sounds: it means "this restrains you",
+ * so a gag, a collar, a blindfold, a vibrator or a padlock can be an Item-slot asset without
+ * it. Those were sorted as CLOTHING — leaking under "you do not notice being tied" and hidden
+ * under the clothing line instead. The asset-less branch below already asked the category;
+ * the asset branch did not, so the same gag was bondage or clothing depending on which
+ * message BC happened to send. This is the same split illusion.ts's isWornGroup draws. */
+function isItemSlot(group: any, isRestraint?: boolean): boolean {
+	return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
+}
+
+/** Which bucket does this message fall into, if any? */
 function classify(data: any, metadata: any): SuppressionCategory | null {
 	if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
 	if (data?.Type !== "Action") return null;
 
 	const assets: any[] = metadata?.Assets ? Object.values(metadata.Assets) : [];
-	if (assets.some((a) => a?.IsRestraint)) return "bondage";
+	if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
 	if (assets.length > 0) return "clothing";
 
 	// Some Action messages carry only a group, no asset (e.g. stripping a slot empty).
 	const group = metadata?.FocusGroup;
-	if (group) return group.IsRestraint || group.Category === "Item" ? "bondage" : "clothing";
+	if (group) return isItemSlot(group) ? "bondage" : "clothing";
 
 	// Neither asset nor group: fall back to the message's own name.
 	const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : undefined;

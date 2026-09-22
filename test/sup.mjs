@@ -31,6 +31,15 @@ const CLASSIFY = [
    { Type: "Action", Content: "Whatever" }, { FocusGroup: { Category: "Appearance", IsRestraint: false } }, "clothing"],
   ["emptied an item slot, by group",
    { Type: "Action", Content: "Whatever" }, { FocusGroup: { Category: "Item" } }, "bondage"],
+  // v0.82.0: an Item-slot asset is bondage whether or not BC calls it a restraint. IsRestraint
+  // means "restrains you", so a gag, a collar or a padlock can lack it, and these three were
+  // all sorted as clothing — leaking under "you do not notice being tied".
+  ["a gag, by asset (Item slot, no restraint flag)",
+   { Type: "Action", Content: "ActionUse" }, { Assets: { NextAsset: { IsRestraint: false, Group: { Name: "ItemMouth", Category: "Item" } } } }, "bondage"],
+  ["a padlock, by asset",
+   { Type: "Action", Content: "ActionAddLock" }, { Assets: { LockName: { IsRestraint: false, Group: { Name: "ItemMisc", Category: "Item" } } } }, "bondage"],
+  ["a dress, by asset with its group, stays clothing",
+   { Type: "Action", Content: "ActionUse" }, { Assets: { NextAsset: { IsRestraint: false, Group: { Name: "Cloth", Category: "Appearance", Clothing: true } } } }, "clothing"],
   ["an activity", { Type: "Activity", Content: "ChatOther-ItemBreast-Caress" }, {}, "activity"],
   // Must stay unclassified: an unknown asset-less Action is not ours to eat, and the
   // safeword messages in particular must always reach the subject.
