@@ -101,5 +101,38 @@ A faded trigger does not switch off abruptly: **its current remaining strength d
 *(Note: Triggers permitted to unlock via arousal rather than earned depth decay rapidly regardless of your settings).*
 
 Check current trigger health at any time:
-```text
-/echs triggers
+
+`/echs triggers` (or `/hypno triggers`). This displays each trigger's current strength and accessible tier. Whether trigger words are displayed in clear text depends on your settings.
+
+---
+
+## 7. Carrying Suggestions Past Waking
+
+Carry-forward suggestions allow active trance commands to persist after waking:
+
+1. *"Missy, you cannot touch your breasts"*
+2. *"Missy, that will stay with you"* (marks the single most recent suggestion to persist)
+3. *"Missy, all of this stays with you"* (marks all active suggestions to persist)
+4. *"Missy, forget what I said"* (reverses the carry command)
+
+### Constraints
+* **Natural speech ordering:** The carry command applies to the most recently delivered suggestion, allowing natural roleplay phrasing.
+* **Trance defaults never carry:** Automatic session defaults (*Cannot Move*, *Cannot Speak*, *Screen Fade*) **can never be carried past waking**. You will always wake with movement and speech restored. Making a physical restriction persistent requires delivering it deliberately as a spoken command first.
+* **Releasing carried suggestions:** The hypnotist who applied a carried suggestion can release it at any time using standard release phrasing.
+
+---
+
+## 8. Commanded Activities in Triggers
+
+Physical self-actions can be stored in triggers (e.g., *"Missy, touch your breasts"* recorded under *"good girl"*). See [Commanded Activities](Commanded-Activities). When triggered, game activities execute one by one with a short delay between each action.
+
+---
+
+## 9. What to Do If You Are Held
+
+If a trigger or lasting suggestion is holding your character:
+* Wait for the trigger duration timer to expire.
+* Have the hypnotist release you by name (*"Missy, you are released from sleepy time"*).
+* **Use your safeword:** Type `/echs safeword` (or `/hypno safeword`) to immediately purge all active holds, trances, and lingering effects.
+
+`/echs forgettrigger` **refuses while that trigger is actively holding you.** Deleting a trigger while under its direct influence is blocked to preserve scene tension; the safeword remains the universal exit. Because Bondage Club parses client slash commands before speech-restriction hooks evaluate text, your safeword remains fully accessible even while muted.
