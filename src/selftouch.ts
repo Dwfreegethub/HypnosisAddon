@@ -1,5 +1,7 @@
 import { log } from "./log";
 import { announce, announceBodyPart } from "./flavor";
+import { hasOwnEffect } from "./effects";
+import { getFeatures } from "./storage";
 
 // Blocking the subject from touching THEMSELVES — either at all (while frozen) or on
 // named body parts ("you cannot touch your breasts").
@@ -170,12 +172,24 @@ export function installSelfTouch(modApi: any): void {
 				// A commanded activity was already vetted by the resolver; the voluntary-touch
 				// block must not stop it. Physical limits are handled elsewhere, not here.
 				if (commandInProgress) return next(args);
+				// The master switch is a floor for this hook itself, not only for the state it
+				// reads (rule 2). hardFloorStop() already clears that state, but whatever is left
+				// behind, an add-on that is switched off must never stop anyone's hand.
+				if (!getFeatures().hypnoEnabled) return next(args);
 				const [actor, acted, targetGroup] = args;
 				if (isSelfActivity(actor, acted)) {
-					// Frozen means frozen. Reaching for yourself is still moving, so the
-					// existing Freeze effect now covers it rather than needing its own
-					// setting — anyone who consented to being frozen consented to this.
-					if (Player?.HasEffect?.("Freeze")) {
+					// Frozen means frozen. Reaching for yourself is still moving, so OUR Freeze
+					// covers it rather than needing its own setting — anyone who consented to
+					// being frozen consented to this.
+					//
+					// OURS, not any Freeze. Player.HasEffect("Freeze") is also true for a real
+					// device that freezes, and reading it here was the "permanent self-touch
+					// lockout" (v0.81.1): a restraint kept tripping this block with no session,
+					// no permission and no add-on behind it, surviving the safeword and the master
+					// switch, and narrating the restraint to the room as hypnosis. What a real
+					// restraint allows is BC's decision (ActivityAllowedForGroup), not ours — the
+					// same our-versus-real split voice.ts draws for commanded touch.
+					if (hasOwnEffect("Freeze")) {
 						announce("selftouch-frozen");
 						return undefined;
 					}
