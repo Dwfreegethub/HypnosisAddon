@@ -98,7 +98,7 @@ check("the first-run notice still fires", local.length, 2);
 check("  and no longer carries a version number", /v\d|version/i.test(local[0]), false);
 
 // --- every surface that shows a version reads the same build define ------------------------
-// Three places now say which build this is: the corner watermark (main.ts), this banner
+// Three places now say which build this is: the loaded toast (welcome.ts), this banner
 // (welcome.ts) and the settings screen title (menu.ts). A hand-typed number in any one of them
 // would disagree with the other two the first time somebody bumped package.json without looking
 // — and a version that lies is worse than no version at all, since the whole point is to settle
@@ -109,7 +109,7 @@ const src = (f) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8")
 const versionLine = (f, needle) => src(f).split("\n").find((l) => l.includes(needle)) ?? "";
 
 for (const [file, needle, what] of [
-	["main.ts", "el.textContent =", "the corner watermark"],
+	["welcome.ts", "el.textContent =", "the loaded toast"],
 	["welcome.ts", "tellPlayer(`Erotic Chat", "the chat banner"],
 	["menu.ts", "\u2014 settings`", "the settings screen title"],
 ]) {

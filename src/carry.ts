@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures, getTriggerDuration } from "./storage";
 import { depthRefusal } from "./depth";
@@ -191,7 +191,7 @@ export function carryThroughWake(): string | null {
 		try {
 			reapplyOne?.(id);
 		} catch (err) {
-			log(`carry-forward could not re-apply "${id}":`, err);
+			warn(`carry-forward could not re-apply "${id}":`, err);
 		}
 	}
 	const minutes = getTriggerDuration();
@@ -230,7 +230,7 @@ export function restoreCarried(savedIds: string[], until: number, who: number | 
 		try {
 			reapplyOne?.(id);
 		} catch (err) {
-			log(`carry-forward could not restore "${id}":`, err);
+			warn(`carry-forward could not restore "${id}":`, err);
 		}
 	}
 	cancelTimer(TIMER_KEY);
@@ -267,7 +267,7 @@ export function releaseCarried(reason: string): boolean {
 		try {
 			undoOne?.(id);
 		} catch (err) {
-			log(`carry-forward could not undo "${id}":`, err);
+			warn(`carry-forward could not undo "${id}":`, err);
 		}
 	}
 	log(`carry-forward released ${ids.length} suggestion(s) — ${reason}`);

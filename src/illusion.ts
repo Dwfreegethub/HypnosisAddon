@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 
 // The clothing illusion: a freeze-frame of how the subject looked when it was applied,
 // drawn only on their own screen.
@@ -107,7 +107,7 @@ function ensureShadow(): any {
 		// its ArousalSettings has no Active, and nothing else iterates the array.
 		shadow = CharacterLoadSimple(SHADOW_ID);
 	} catch (err) {
-		log("could not create the illusion character:", err);
+		warn("could not create the illusion character:", err);
 		return null;
 	}
 	return shadow;
@@ -150,7 +150,7 @@ function rebuildIfStale(): void {
 /** Take the snapshot and start lying. Returns false if there is nothing to draw from. */
 export function freezeAppearance(): boolean {
 	if (!Array.isArray(Player?.Appearance)) {
-		log("cannot freeze appearance — no player appearance yet");
+		warn("cannot freeze appearance — no player appearance yet");
 		return false;
 	}
 	// Idempotent on purpose. The illusion is "how you looked when it took hold", so saying
@@ -181,7 +181,7 @@ export function clearIllusion(): void {
 	try {
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
 	} catch (err) {
-		log("could not refresh after releasing the illusion:", err);
+		warn("could not refresh after releasing the illusion:", err);
 	}
 	log("clothing illusion released");
 }
@@ -226,7 +226,7 @@ export function restoreIllusion(items: FrozenItem[] | null): boolean {
 	for (const item of items) {
 		const asset = AssetGet(family, item.group, item.name);
 		if (!asset) {
-			log(`cannot restore illusion — asset ${item.group}/${item.name} not found`);
+			warn(`cannot restore illusion — asset ${item.group}/${item.name} not found`);
 			return false;
 		}
 		rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
@@ -281,7 +281,7 @@ export function installIllusion(modApi: any): void {
 				}
 			} catch (err) {
 				// A bug here must never make the player invisible to themselves.
-				log("illusion draw failed:", err);
+				warn("illusion draw failed:", err);
 				return next(args);
 			}
 		}) as any,

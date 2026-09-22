@@ -1,5 +1,5 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
-import { log } from "./log";
+import { log, warn } from "./log";
 import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
 // A deliberate cycle: session.ts imports this module, and this module imports it back. DW's
 // call, made 2026-09-12 with the cost stated — see the Known Bug #4 note in design.md. It is
@@ -624,7 +624,7 @@ function loadSettings(): HypnoAddonSettings {
 		cached = json ? JSON.parse(json) : defaultSettings();
 	} catch (err) {
 		lastLoadError = String(err);
-		log("failed to parse stored settings, resetting", err);
+		warn("failed to parse stored settings, resetting", err);
 		cached = defaultSettings();
 	}
 	cached = normalise(cached);
@@ -925,7 +925,7 @@ export function resetSettings(): string {
 	} catch (err) {
 		// Reported rather than swallowed: a reset that quietly skipped the teardown is the bug.
 		stopFailed = true;
-		log("reset: could not end the session:", err);
+		warn("reset: could not end the session:", err);
 	}
 	cached = defaultSettings();
 	cachedFromAccount = true;

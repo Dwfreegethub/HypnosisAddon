@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.82.1
+// @version      0.82.3
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -695,7 +695,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/log.ts
   var TAG = "[HypnosisAddon]";
   function log(...args) {
-    console.log(TAG, ...args);
+    console.debug(TAG, ...args);
+  }
+  function warn(...args) {
+    console.warn(TAG, ...args);
+  }
+  function info(...args) {
+    console.info(TAG, ...args);
   }
   var TESTING_ROOM = "hypno testing";
   var FORCE_TESTING = false;
@@ -725,7 +731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       ChatRoomSendEmote(`**${message}`);
     } catch (err) {
-      log("could not emote to the room:", err);
+      warn("could not emote to the room:", err);
     }
   }
   var PRONOUNS = {
@@ -846,6 +852,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function getScreenFade() {
     return screenFade;
   }
+  var VEIL_WIDTH = 1003;
+  function drawTranceVeil() {
+    if (screenFade <= 0) return;
+    MainCanvas.save();
+    MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
+    MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+    MainCanvas.restore();
+  }
   function clearTranceStates() {
     speechBlocked = false;
     screenFade = 0;
@@ -855,7 +869,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     var _a;
     const item = findEmoticonItem(character);
     if (!item) {
-      log(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
+      warn(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
       return false;
     }
     ensureEffectsAllowed();
@@ -928,7 +942,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function installSuppression() {
     if (typeof ChatRoomRegisterMessageHandler !== "function") {
-      log("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
+      warn("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
       return;
     }
     ChatRoomRegisterMessageHandler({
@@ -943,7 +957,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           log(`suppressed ${category} message:`, data?.Content);
           return true;
         } catch (err) {
-          log("suppression handler failed:", err);
+          warn("suppression handler failed:", err);
           return false;
         }
       }
@@ -965,14 +979,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
           log(`numb to ${metadata.ActivityName} \u2014 skipping arousal`);
           return { skip: (h) => h?.Description === AROUSAL_HANDLER };
         } catch (err) {
-          log("numbness handler failed:", err);
+          warn("numbness handler failed:", err);
           return false;
         }
       }
     });
     const handlers3 = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
     if (handlers3 && !handlers3.some((h) => h?.Description === AROUSAL_HANDLER)) {
-      log(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
+      warn(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
     }
     log("numbness handler registered at priority 205");
   }
@@ -1699,7 +1713,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.3"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1714,6 +1728,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
     const poll = setInterval(tick, BANNER_POLL_MS);
     tick();
+  }
+  var LOADED_TOAST_HOLD_MS = 5e3;
+  var LOADED_TOAST_FADE_MS = 1500;
+  function showLoadedToast() {
+    if (typeof document === "undefined" || !document.body) return;
+    const el = document.createElement("div");
+    el.textContent = `ECHS v${"0.82.3"} loaded`;
+    Object.assign(el.style, {
+      position: "fixed",
+      bottom: "4px",
+      right: "4px",
+      zIndex: "9999",
+      padding: "2px 6px",
+      background: "rgba(0,0,0,0.6)",
+      color: "#fff",
+      fontSize: "10px",
+      fontFamily: "monospace",
+      borderRadius: "3px",
+      pointerEvents: "none",
+      opacity: "1",
+      transition: `opacity ${LOADED_TOAST_FADE_MS}ms ease`
+    });
+    document.body.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = "0";
+      setTimeout(() => el.remove(), LOADED_TOAST_FADE_MS + 100);
+    }, LOADED_TOAST_HOLD_MS);
   }
 
   // src/illusion.ts
@@ -1743,7 +1784,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       shadow = CharacterLoadSimple(SHADOW_ID);
     } catch (err) {
-      log("could not create the illusion character:", err);
+      warn("could not create the illusion character:", err);
       return null;
     }
     return shadow;
@@ -1775,7 +1816,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function freezeAppearance() {
     if (!Array.isArray(Player?.Appearance)) {
-      log("cannot freeze appearance \u2014 no player appearance yet");
+      warn("cannot freeze appearance \u2014 no player appearance yet");
       return false;
     }
     if (frozen) {
@@ -1794,7 +1835,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
     } catch (err) {
-      log("could not refresh after releasing the illusion:", err);
+      warn("could not refresh after releasing the illusion:", err);
     }
     log("clothing illusion released");
   }
@@ -1815,7 +1856,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (const item of items) {
       const asset = AssetGet(family, item.group, item.name);
       if (!asset) {
-        log(`cannot restore illusion \u2014 asset ${item.group}/${item.name} not found`);
+        warn(`cannot restore illusion \u2014 asset ${item.group}/${item.name} not found`);
         return false;
       }
       rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
@@ -1852,7 +1893,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             NAME_FIELDS.forEach((k, i) => target[k] = lent[i]);
           }
         } catch (err) {
-          log("illusion draw failed:", err);
+          warn("illusion draw failed:", err);
           return next(args);
         }
       })
@@ -1929,7 +1970,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
       }
     } catch (err) {
-      log("follow: could not clear leash state", err);
+      warn("follow: could not clear leash state", err);
     }
     followActive = false;
     followTarget = null;
@@ -1945,7 +1986,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ServerSend("ChatRoomChat", { Content: "RemoveLeash", Type: "Hidden", Target: sender?.MemberNumber });
           if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
         } catch (err) {
-          log("follow: could not refuse leash grab", err);
+          warn("follow: could not refuse leash grab", err);
         }
         return void 0;
       }
@@ -1971,7 +2012,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
     } catch (err) {
-      log("could not read saved session:", err);
+      warn("could not read saved session:", err);
       return null;
     }
   }
@@ -1989,7 +2030,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       localStorage.setItem(key, JSON.stringify({ ...state, savedAt: Date.now() }));
     } catch (err) {
-      log("could not save session state:", err);
+      warn("could not save session state:", err);
     }
   }
   function snapshotLocalState() {
@@ -2082,7 +2123,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       return triggerSnapshot?.() ?? [];
     } catch (err) {
-      log("could not snapshot triggers:", err);
+      warn("could not snapshot triggers:", err);
       return [];
     }
   }
@@ -2094,7 +2135,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         triggerRestore?.(t);
         restored += 1;
       } catch (err) {
-        log(`could not restore trigger ${t.key}:`, err);
+        warn(`could not restore trigger ${t.key}:`, err);
       }
     }
     return restored;
@@ -2109,7 +2150,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         handlers2?.restoreCarried(saved);
         carried = saved.carried.length;
       } catch (err) {
-        log("could not restore carried suggestions:", err);
+        warn("could not restore carried suggestions:", err);
       }
     }
     return triggers > 0 || carried > 0;
@@ -2204,7 +2245,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         handlers2?.restoreSession(saved);
         handlers2?.restoreCarried(saved);
       } catch (err) {
-        log("could not restore the session:", err);
+        warn("could not restore the session:", err);
       }
       tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
       log("recovery: resumed");
@@ -2323,7 +2364,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       try {
         reapplyOne?.(id);
       } catch (err) {
-        log(`carry-forward could not re-apply "${id}":`, err);
+        warn(`carry-forward could not re-apply "${id}":`, err);
       }
     }
     const minutes = getTriggerDuration();
@@ -2352,7 +2393,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       try {
         reapplyOne?.(id);
       } catch (err) {
-        log(`carry-forward could not restore "${id}":`, err);
+        warn(`carry-forward could not restore "${id}":`, err);
       }
     }
     cancelTimer(TIMER_KEY);
@@ -2386,7 +2427,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       try {
         undoOne?.(id);
       } catch (err) {
-        log(`carry-forward could not undo "${id}":`, err);
+        warn(`carry-forward could not undo "${id}":`, err);
       }
     }
     log(`carry-forward released ${ids.length} suggestion(s) \u2014 ${reason}`);
@@ -3378,7 +3419,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       cached = json ? JSON.parse(json) : defaultSettings();
     } catch (err) {
       lastLoadError = String(err);
-      log("failed to parse stored settings, resetting", err);
+      warn("failed to parse stored settings, resetting", err);
       cached = defaultSettings();
     }
     cached = normalise(cached);
@@ -3593,7 +3634,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ended = stopForReset();
     } catch (err) {
       stopFailed = true;
-      log("reset: could not end the session:", err);
+      warn("reset: could not end the session:", err);
     }
     cached = defaultSettings();
     cachedFromAccount = true;
@@ -3835,7 +3876,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             }
           }
         } catch (err) {
-          log("self-touch check failed:", err);
+          warn("self-touch check failed:", err);
         }
         return next(args);
       })
@@ -3886,7 +3927,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         InventoryRemove(Player, group, false);
         removed.push(group);
       } catch (err) {
-        log(`could not remove ${group}:`, err);
+        warn(`could not remove ${group}:`, err);
       }
     }
     if (!removed.length) return { removed: [], refusal: "unavailable" };
@@ -3894,7 +3935,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       CharacterRefresh(Player, true, false);
       if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
     } catch (err) {
-      log("could not sync appearance after undressing:", err);
+      warn("could not sync appearance after undressing:", err);
     }
     log(`undressed: ${removed.join(", ")}`);
     return { removed };
@@ -4277,9 +4318,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function stripOOC(content) {
     const text = String(content ?? "");
-    const stripped = text.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
-    const open2 = stripped.indexOf("(");
-    const final = (open2 === -1 ? stripped : stripped.slice(0, open2)).trim();
+    let kept = "";
+    let depth = 0;
+    for (const ch of text) {
+      if (ch === "(") {
+        depth++;
+        kept += " ";
+      } else if (ch === ")" && depth > 0) {
+        depth--;
+      } else if (depth === 0) {
+        kept += ch;
+      }
+    }
+    const final = kept.replace(/\s+/g, " ").trim();
     return final.length ? final : null;
   }
   function applyArousal(level) {
@@ -5483,7 +5534,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         try {
           applyActionById(id);
         } catch (err) {
-          log(`recovery: could not re-apply "${id}":`, err);
+          warn(`recovery: could not re-apply "${id}":`, err);
         }
       }
       markActive(saved.key);
@@ -5928,6 +5979,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillStyle = color;
     MainCanvas.fillText(out, x, y);
     MainCanvas.restore();
+  }
+  function drawLeftTextWrap(text, x, yCentre, maxWidth, maxHeight, color = "Black", maxSize = 32, minSize = 18) {
+    MainCanvas.save();
+    const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
+    const pitch = (n) => Math.round(n * 1.2);
+    let size = maxSize;
+    let lines = [];
+    for (; ; size -= 2) {
+      MainCanvas.font = font(size);
+      lines = wrapToWidth(text, maxWidth);
+      if (lines.length * pitch(size) <= maxHeight || size - 2 < minSize) break;
+    }
+    const room = Math.max(1, Math.floor(maxHeight / pitch(size)));
+    if (lines.length > room) {
+      lines = lines.slice(0, room);
+      let last = lines[room - 1];
+      while (last.length > 1 && MainCanvas.measureText(`${last}\u2026`).width > maxWidth) last = last.slice(0, -1);
+      lines[room - 1] = `${last}\u2026`;
+    }
+    MainCanvas.textAlign = "left";
+    MainCanvas.textBaseline = "middle";
+    MainCanvas.fillStyle = color;
+    const first = yCentre - (lines.length - 1) * pitch(size) / 2;
+    lines.forEach((line, i) => MainCanvas.fillText(line, x, first + i * pitch(size)));
+    MainCanvas.restore();
+    return { size, lines };
+  }
+  function wrapToWidth(text, maxWidth) {
+    const out = [];
+    let line = "";
+    for (const w of text.split(/\s+/).filter(Boolean)) {
+      const trial = line ? `${line} ${w}` : w;
+      if (!line || MainCanvas.measureText(trial).width <= maxWidth) line = trial;
+      else {
+        out.push(line);
+        line = w;
+      }
+    }
+    if (line) out.push(line);
+    return out.length ? out : [""];
   }
   function drawSmallText(text, x, y, size, color = "Black") {
     MainCanvas.save();
@@ -6577,7 +6668,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     PRESETS.forEach((p, i) => {
       const top = WZ_TOP + 150 + i * 90;
       DrawButton(CONTENT_X, top, 360, 64, p.name, "White", "", "");
-      drawLeftTextFit(p.blurb, CONTENT_X + 384, top + 34, CONTENT_MAX - 400, "#333");
+      drawLeftTextWrap(p.blurb, CONTENT_X + 384, top + 32, CONTENT_MAX - 400, 84, "#333");
     });
     const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
     DrawButton(CONTENT_X, bottom, 500, 60, "Answer a few questions instead", "#e8e8ff", "", "");
@@ -7281,7 +7372,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8739,39 +8830,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
 
   // src/main.ts
-  function showIndicator() {
-    const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.82.1"} loaded`;
-    Object.assign(el.style, {
-      position: "fixed",
-      bottom: "4px",
-      right: "4px",
-      zIndex: "9999",
-      padding: "2px 6px",
-      background: "rgba(0,0,0,0.6)",
-      color: "#fff",
-      fontSize: "10px",
-      fontFamily: "monospace",
-      borderRadius: "3px",
-      pointerEvents: "none"
-    });
-    document.body.appendChild(el);
-  }
   function safely(label, fn) {
     try {
       fn();
     } catch (err) {
-      log(`FAILED to set up ${label}:`, err);
+      warn(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.82.1"})`);
-  showIndicator();
+  info(`script loaded (v${"0.82.3"})`);
+  safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.82.1",
+      version: "0.82.3",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -8801,7 +8874,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               return void 0;
             }
           } catch (err) {
-            log("trigger-setup check failed:", err);
+            warn("trigger-setup check failed:", err);
           }
         }
         const result = next(args);
@@ -8809,19 +8882,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
           try {
             handleSpokenLine(data.Sender, inCharacter);
           } catch (err) {
-            log("suggestion parsing failed:", err);
+            warn("suggestion parsing failed:", err);
           }
           try {
             noteInductionLine(data.Sender, inCharacter);
           } catch (err) {
-            log("induction RP counting failed:", err);
+            warn("induction RP counting failed:", err);
           }
           try {
             const sender = ChatRoomCharacter?.find((c) => c?.MemberNumber === data.Sender);
             const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
             noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
           } catch (err) {
-            log("trust accrual failed:", err);
+            warn("trust accrual failed:", err);
           }
         }
         return result;
@@ -8858,17 +8931,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
   safely("screen-fade hook", () => {
     modApi.hookFunction(
-      "DrawProcess",
-      10,
+      "ChatRoomRun",
+      9,
       ((args, next) => {
         const result = next(args);
-        const fade = getScreenFade();
-        if (fade > 0) {
-          MainCanvas.save();
-          MainCanvas.fillStyle = `rgba(255, 255, 255, ${fade})`;
-          MainCanvas.fillRect(0, 0, MainCanvasWidth, MainCanvasHeight);
-          MainCanvas.restore();
-        }
+        drawTranceVeil();
         return result;
       })
     );

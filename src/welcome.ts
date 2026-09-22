@@ -86,3 +86,47 @@ export function startStartupBanner(): void {
 	const poll = setInterval(tick, BANNER_POLL_MS);
 	tick();
 }
+
+// --- The loaded toast --------------------------------------------------------------------
+
+/** How long the "loaded" toast sits at full strength before it starts to fade. */
+export const LOADED_TOAST_HOLD_MS = 5_000;
+/** How long the fade itself takes. */
+export const LOADED_TOAST_FADE_MS = 1_500;
+
+/** A small "ECHS v… loaded" note in the bottom-right corner that fades out and removes itself.
+ *
+ * It used to stay for the whole session: a permanent watermark over the corner of the game.
+ * That was the only place a tester could read their version when it went in; since v0.81.0 the
+ * startup chat line above and the settings title both say it, and the chat line can be quoted
+ * back, so the corner no longer has to hold it. What is left for this note is "the script ran",
+ * at the moment of loading, and then it gets out of the way.
+ *
+ * Removed on a plain timer as well as on transitionend: a background tab may never run the
+ * transition, and a toast that waits on an event that never comes is the permanent watermark
+ * again. Clicks pass through it throughout. */
+export function showLoadedToast(): void {
+	if (typeof document === "undefined" || !document.body) return;
+	const el = document.createElement("div");
+	el.textContent = `ECHS v${__VERSION__} loaded`;
+	Object.assign(el.style, {
+		position: "fixed",
+		bottom: "4px",
+		right: "4px",
+		zIndex: "9999",
+		padding: "2px 6px",
+		background: "rgba(0,0,0,0.6)",
+		color: "#fff",
+		fontSize: "10px",
+		fontFamily: "monospace",
+		borderRadius: "3px",
+		pointerEvents: "none",
+		opacity: "1",
+		transition: `opacity ${LOADED_TOAST_FADE_MS}ms ease`,
+	});
+	document.body.appendChild(el);
+	setTimeout(() => {
+		el.style.opacity = "0";
+		setTimeout(() => el.remove(), LOADED_TOAST_FADE_MS + 100);
+	}, LOADED_TOAST_HOLD_MS);
+}

@@ -82,5 +82,44 @@ reset();
 wizard.applySetup({ features: [], access: "earned", arousalShortcut: true, honour: "trusted", triggersFade: false });
 check("no features -> hypnosis stays off", on("hypnoEnabled"), false);
 
+// --- the preset blurbs are readable in full (v0.82.3) ----------------------------------------
+// They used to go through drawLeftTextFit, which shrinks to 22px and then clips with "…". Balanced
+// and Extreme measure 1404 and 1332px at 22px in Arial (measured in Chromium against Liberation
+// Sans, which is metric-compatible) against a 1000px column, so their endings were never on screen
+// for anyone; in a monospace font all four were cut. The canvas is modelled with a per-character
+// width — 0.46em is Arial-like, 0.6em is monospace — and every fillText is recorded.
+// Failure looks like: a line ending in "…", or a blurb whose words do not all reach the screen.
+{
+	let drawn = [];
+	let em = 0.46;
+	const sizeOf = (font) => Number(/(\d+)px/.exec(font)?.[1] ?? 10);
+	globalThis.MainCanvasWidth = 2000;
+	globalThis.MainCanvas = {
+		font: "10px arial", textAlign: "left", textBaseline: "alphabetic", fillStyle: "",
+		save() {}, restore() {},
+		measureText(t) { return { width: t.length * sizeOf(this.font) * em }; },
+		fillText(t, x, y) { drawn.push({ t, x, y, size: sizeOf(this.font) }); },
+	};
+	for (const fn of ["DrawText", "DrawRect", "DrawEmptyRect", "DrawButton"]) globalThis[fn] = () => {};
+
+	for (const [label, width] of [["Arial-like", 0.46], ["monospace", 0.6]]) {
+		em = width;
+		drawn = [];
+		wizard.startWizard();
+		wizard.drawWizard();
+		const text = drawn.map((d) => d.t).join(" ");
+		check(`${label}: no blurb line is clipped`, drawn.filter((d) => d.t.endsWith("…")).map((d) => d.t), []);
+		for (const p of wizard.PRESETS) {
+			const words = p.blurb.split(/\s+/);
+			check(`${label}: every word of "${p.name}" is drawn`, words.filter((w) => !text.includes(w)), []);
+		}
+		// Each blurb's lines stay inside its own 90px row, so neighbours never overlap.
+		const blurbLines = drawn.filter((d) => d.x > 400);
+		const rows = wizard.PRESETS.map((_, i) => blurbLines.filter((d) => Math.floor((d.y - blurbLines[0].y + 45) / 90) === i));
+		check(`${label}: no blurb spills into the next row`, rows.every((r) => r.length && Math.max(...r.map((d) => d.y)) - Math.min(...r.map((d) => d.y)) + r[0].size < 90), true);
+		check(`${label}: still readable, not shrunk below the floor`, Math.min(...blurbLines.map((d) => d.size)) >= 18, true);
+	}
+}
+
 console.log(`wizard: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

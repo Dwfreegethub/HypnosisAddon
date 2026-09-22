@@ -22,7 +22,7 @@ import {
 	setStarterState,
 } from "./storage";
 import { DEPTH_GATES } from "./depth";
-import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit } from "./panel";
+import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap } from "./panel";
 
 // --- the feature universe this screen manages ------------------------------------------------
 // Deliberately NOT the trance defaults (they ship on) nor lockedWhileHypnotized (never auto-on,
@@ -300,7 +300,9 @@ function drawWelcome(): void {
 	PRESETS.forEach((p, i) => {
 		const top = WZ_TOP + 150 + i * 90;
 		DrawButton(CONTENT_X, top, 360, 64, p.name, "White", "", "");
-		drawLeftTextFit(p.blurb, CONTENT_X + 384, top + 34, CONTENT_MAX - 400, "#333");
+		// Wrapped, not shrunk-then-clipped: see drawLeftTextWrap. 84 of the row's 90 so two
+		// neighbouring blurbs never touch.
+		drawLeftTextWrap(p.blurb, CONTENT_X + 384, top + 32, CONTENT_MAX - 400, 84, "#333");
 	});
 	const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
 	DrawButton(CONTENT_X, bottom, 500, 60, "Answer a few questions instead", "#e8e8ff", "", "");

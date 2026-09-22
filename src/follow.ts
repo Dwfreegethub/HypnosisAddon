@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { applyEffect, removeEffect, hasOwnEffect } from "./effects";
 
 // Follow / leash — the design doc's Feature List, Tier 1 ("works on anyone, BC native
@@ -74,7 +74,7 @@ export function releaseFollow(): void {
 			if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
 		}
 	} catch (err) {
-		log("follow: could not clear leash state", err);
+		warn("follow: could not clear leash state", err);
 	}
 	followActive = false;
 	followTarget = null;
@@ -105,7 +105,7 @@ export function installFollow(modApi: {
 				ServerSend("ChatRoomChat", { Content: "RemoveLeash", Type: "Hidden", Target: sender?.MemberNumber });
 				if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
 			} catch (err) {
-				log("follow: could not refuse leash grab", err);
+				warn("follow: could not refuse leash grab", err);
 			}
 			return undefined;
 		}

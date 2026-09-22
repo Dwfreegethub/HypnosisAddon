@@ -1,7 +1,31 @@
 const TAG = "[HypnosisAddon]";
 
+// Three levels, so the browser console only shows what somebody needs to see.
+//
+// Everything used to go through console.log, which put a line in every player's devtools for
+// every chat message, hook and state change in the room — noise that buried the few lines that
+// meant something had actually gone wrong. Routine diagnostics are now console.debug, which
+// Chrome files under "Verbose" (hidden unless asked for) and Firefox under "Debug". They are
+// all still there for a tester who turns that level on.
+
+/** Routine diagnostics — what the add-on saw and did. Hidden at the browser's default level. */
 export function log(...args: unknown[]): void {
-	console.log(TAG, ...args);
+	console.debug(TAG, ...args);
+}
+
+/** Something that should have worked and did not: a caught exception, a BC piece missing, a
+ * hook that failed to install. Always visible, because rule 5 — a silent failure looks exactly
+ * like a silent success. A refusal the add-on MEANT to make (a gate saying no) is not this;
+ * that is ordinary behaviour and goes through log(). */
+export function warn(...args: unknown[]): void {
+	console.warn(TAG, ...args);
+}
+
+/** The one line that says the script is running at all. Visible at the default level, because
+ * the troubleshooting page tells players to look for it in the console when nothing else
+ * appears. Used once, at startup. */
+export function info(...args: unknown[]): void {
+	console.info(TAG, ...args);
 }
 
 // The testing room. While the player is in a chat room with this name (case-insensitive,

@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 
 // Where our text goes, and who can read it.
 //
@@ -56,7 +56,7 @@ export function tellRoom(message: string): void {
 		// Known Bug #5; verified against R131's ChatRoomSendEmote + emote display processor.
 		ChatRoomSendEmote(`**${message}`);
 	} catch (err) {
-		log("could not emote to the room:", err);
+		warn("could not emote to the room:", err);
 	}
 }
 

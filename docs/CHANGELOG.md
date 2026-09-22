@@ -20,6 +20,60 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-22 (v0.82.3) — tracker group C, small visible fixes
+
+DW's tracker group C, six items in one PR. Five shipped; the induction asterisk did not, see the
+end. v0.82.2 is the silent trance expiry, in flight alongside this.
+
+**1. `((ooc))` read as speech.** `stripOOC()` removed asides with a flat `\([^)]*\)`, which stops
+at the first `)`. A doubled `((brb))` matched `((brb)` and left the second `)` behind, so the
+result was `")"` rather than `null`. The speech gate in `main.ts` lets a silenced player through
+only when `stripOOC()` returns `null`, so the lifeline was refused. Nested asides `(brb (dog))` had
+the same leftover. **Fix:** a depth-counting scan. An unclosed `(` still swallows the rest of the
+line, as before; a `)` with nothing to close stays as text, so `:)` is still speech and still
+blocked while silenced. `test/ooc.mjs` → 39; 10 of the 16 new checks fail on v0.82.1.
+
+**2. The veil covered the game's own UI.** It painted after `DrawProcess`, BC's whole frame, over
+`0, 0, MainCanvasWidth, MainCanvasHeight`: every menu, settings screen, wardrobe and dialog. The
+design only ever asked for a veil over the scene. **Fix:** `drawTranceVeil()` in `effects.ts`,
+called from a `ChatRoomRun` hook after `next()`, over x 0–1003, the rect `prompt.ts` already
+verified against `ChatRoom.js` as the character half. Priority 9, below the prompt's 10, because the
+mod SDK calls higher priorities first: the veil draws inside the prompt's hook, so the Agree /
+Ignore / Fight box paints on top of it. Only the chat room is veiled now; the wardrobe and other
+screens are not. **Not verified:** whether BC runs `ChatRoomRun` while a character dialog is open.
+If not, the veil lifts while a dialog is up. New suite `test/veil.mjs` (14 checks), 7 of which fail
+on v0.82.1.
+
+**4. Preset blurbs cut off.** Reproduced, and it is not really font-dependent: measured in Chromium
+with Liberation Sans (metric-compatible with Arial), Balanced is 1404px and Extreme 1332px at
+`drawLeftTextFit`'s 22px floor, against a 1000px column. So those two were clipped with "…" for
+everyone, and a wider font preference (monospace, DejaVu/Verdana-like) clipped all four.
+**Fix:** `drawLeftTextWrap()` in `panel.ts` word-wraps before shrinking, taking the largest size
+from 32 to 18 whose lines fit 84px of the 90px row. It clips only if even 18px cannot hold it.
+`test/wizard.mjs` → 43; 8 of the new checks fail on v0.82.1.
+
+**5. Console noise.** `log()` wrote everything to `console.log`, including one line per chat
+message. It now writes `console.debug` (hidden at Chrome's default level). A new `warn()` carries
+the 33 calls that report a genuine fault: a caught exception, a missing BC piece, a failed hook
+install. Those stay visible, per rule 5. A gate *refusing* on purpose stays in `log()`. The
+"script loaded" line is `info()`, visible by default, because the wiki's troubleshooting page tells
+players to look for it. New suite `test/console.mjs` (7 checks), which also fails if any module
+calls `console` directly.
+
+**6. The loaded watermark.** It was a permanent DOM element. It is now `showLoadedToast()` in
+`welcome.ts`: it holds 5 s, fades over 1.5 s, and removes itself on a plain timer, so a background
+tab that never runs the transition still loses it. It reads `__VERSION__` like the other version
+surfaces, and `test/banner.mjs` now checks it in `welcome.ts`. The startup chat line (v0.81.0) is
+what answers "which build"; the toast only says the script ran. Taken as a **patch**: a player has
+nothing to learn from it. New suite `test/toast.mjs` (15 checks).
+
+**3. The induction asterisk: not fixed.** Every room line, the induction one included, goes through
+`tellRoom()` as a `**`-emote (the v0.72.7 fix for the doubled name). No code path puts a `*` in
+front of the induction line and not the others. So a stray asterisk would have to come from how BC
+displays a `**`-emote, and `test/notify.mjs` models that display step without proving it. The BC
+source is unreachable from these sessions. A guess here risks bringing back Known Bug #5. What
+would settle it is the raw chat line as DW's screen shows it.
+
 ### Fixed 2026-09-22 (v0.82.1) — a fired trigger survives a relog
 
 DW's tracker: *"Active trigger effects and durations are cleared entirely upon logging out or
