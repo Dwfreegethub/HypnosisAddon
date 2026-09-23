@@ -28,6 +28,20 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.82.2 · 22 September 2026
+
+- **A trance that runs out on its own now says so, to everyone who should know.** A trance ends by
+  itself after thirty minutes. Before, the subject got one short line in brackets and nobody else
+  was told anything, so the hypnotist had no way to tell the trance had ended. Now the subject is
+  told the trance has worn off and that it was the thirty-minute limit, the room sees them come back
+  up (only if *Others see your reactions* is on), and the hypnotist gets a line in their own chat
+  saying the trance reached its limit. None of it says anything about how the subject chose to
+  respond to the induction.
+- **Coming back after your trance ran out while you were away no longer tells you that you are
+  still under.** You are told it ran out, and that is all.
+
+---
+
 ## v0.82.1 · 22 September 2026
 
 - **Triggers now survive a disconnect or a refresh.** If a trigger was holding you and you dropped,

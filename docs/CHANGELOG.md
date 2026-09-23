@@ -74,6 +74,54 @@ displays a `**`-emote, and `test/notify.mjs` models that display step without pr
 source is unreachable from these sessions. A guess here risks bringing back Known Bug #5. What
 would settle it is the raw chat line as DW's screen shows it.
 
+---
+
+### Fixed 2026-09-22 (v0.82.2) — a trance that times out says so, on all three screens
+
+DW's tracker: *"Silent Trance Expirations — When a 30-minute trance naturally times out, neither the
+hypnotist nor the subject receives notification or feedback."* Known Bug #9.
+
+**Half right as written.** The subject was told: `endSession("session timed out")` printed
+*"[You come out of trance. (session timed out)]"*, which has been in the code since at least
+v0.73.2. It reads as a status code, not as the trance ending, which is probably why it did not
+register. The rest was true: **the hypnotist got nothing in chat**, only the subject's panel quietly
+flipping to idle, and **the room never saw the subject come back** after watching them go under.
+
+**Fix, on v0.76.0's three-screen pattern for a missed induction:**
+
+- **Subject:** a line from a new `tranceExpiryLine()` pool, then the reason in plain words: *"(The
+  trance ran its full 30 minutes.)"*.
+- **Room:** `announceTranceExpiry()`, gated by *Others see your reactions* through `tellRoom` like
+  every public line.
+- **Hypnotist:** the subject's final `session-update` now carries `ended: "timeout"`, and the
+  hypnotist's client prints `hypnotistExpiryFlavor()` plus *"The trance reached its 30-minute limit
+  and has ended."* Keyed on that marker rather than on a Hypnotized → Idle transition, because every
+  ending makes that transition and most are not ours to narrate (a self-wake is the subject's own;
+  the safeword already speaks for itself). **Additive on the wire**: an older hypnotist client
+  ignores the field, and an older subject client never sends it, so a mixed pair behaves as before.
+
+**Choice-agnostic.** The timeout is thirty minutes whichever way the subject chose, so the only
+risk is prose that narrates a choice. `test/expiry.mjs` holds all three pools to the same word list
+`test/miss.mjs` uses, and checks the update that reaches the hypnotist is **byte-identical** across
+agree, ignore and fight, driven through the real roll each time.
+
+**A second bug on the same path.** A trance whose timeout passed while the subject was logged out,
+but who came back inside recovery's five-minute window with the hypnotist present, went through
+`waitForHypnotist()`'s resume: `restoreSavedSession()` ended it as expired, and `resume()` then
+printed *"You are still under, and it is as though you never left."* straight after. The restore
+handler now returns `false` when it ended the trance, and the resume line is skipped. That path
+says *"(The trance ran out while you were away.)"*, tells the hypnotist, and sends the room nothing,
+since nothing happened in front of it.
+
+**Decided by default, open for DW:** the hypnotist is told. The timeout reveals that the trance
+ended, which the panel already showed, and nothing about the choice or the depth.
+
+`test/expiry.mjs`, 48 checks. It crashes outright on v0.82.1 (the pools do not exist), and with
+only the `recovery.ts` half reverted its "not that they are still under" check fails. **Not run
+live.**
+
+---
+
 ### Fixed 2026-09-22 (v0.82.1) — a fired trigger survives a relog
 
 DW's tracker: *"Active trigger effects and durations are cleared entirely upon logging out or
