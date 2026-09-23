@@ -43,7 +43,7 @@ const check = (label, got, want) => {
 	if (!ok) console.log(`  FAIL ${label}\n    want ${JSON.stringify(want)}\n    got  ${JSON.stringify(got)}`);
 };
 
-// A returning player, already welcomed. Since v0.84.3 the first-run notice rides this same poll
+// A returning player, already welcomed. Since v0.84.2 the first-run notice rides this same poll
 // and prints right after the banner on a fresh install; that pairing is test/first-run-login.mjs's
 // to check. Here only the banner should print, so the line counts below stay about the banner.
 storage.markWelcomeShown();

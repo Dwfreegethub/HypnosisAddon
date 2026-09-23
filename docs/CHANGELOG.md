@@ -20,7 +20,7 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Fixed 2026-09-23 (v0.84.3) — the first-run notice never fired on an ordinary login
+### Fixed 2026-09-23 (v0.84.2) — the first-run notice never fired on an ordinary login
 
 Found reading the code for v0.81.0's startup banner, not reported by a tester. `maybeShowFirstRunNotice()`
 rode `startRecovery()`'s identity-and-room branch. That poll gives up on a room after

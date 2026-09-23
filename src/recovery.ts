@@ -455,7 +455,7 @@ export function startRecovery(): void {
 			// The first-run notice used to ride this branch, and so almost never fired: this poll
 			// stops for good at the no-room fallback below, 20 s after load, and logging in then
 			// browsing the room list takes longer than that. It now rides the startup banner's
-			// poll in welcome.ts, which waits for a room for up to ten minutes (v0.84.3).
+			// poll in welcome.ts, which waits for a room for up to ten minutes (v0.84.2).
 			return;
 		}
 		// Identity without a room still means orphaned effects can be dealt with, and being
