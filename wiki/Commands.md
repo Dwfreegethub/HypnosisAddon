@@ -46,7 +46,7 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 | `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. | Reviewing or clearing lingering suggestions before waking. |
 | `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. | Reviewing your induction experience and progression. |
 | `/echs storage` | Reports where settings loaded from and what each data source holds. | Troubleshooting settings persistence or storage migration issues. |
-| `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. | Verifying that BC's native posture API is responding correctly. |
+| `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. `stand` resets the legs only, the same as the spoken command. | Verifying that BC's native posture API is responding correctly. |
 
 ---
 
