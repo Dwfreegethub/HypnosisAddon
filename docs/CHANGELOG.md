@@ -20,6 +20,61 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-23 (v0.84.0) — commanded activities aimed at someone else
+
+DW's ask, 2026-09-23: *"Missy Kiss Rei"* (lips assumed), *"Missy Kiss Rei's Nipples"*, *"Missy
+Kiss me"* where me is the hypnotist, for every verb the self grammar already knows, leaning on BC's
+own systems *"to make sure any limitations will stop me"*. This builds the named-target half of
+design.md's *Phase 2: acting on others* (spec'd 2026-09-16). The random bystander, zone tiers by depth
+and targets inside triggers are still unbuilt.
+
+**DW's six calls, 2026-09-23, all as recommended:**
+1. **Names are exact:** a room member's Name or Nickname, whole. No prefix and no fuzzy match. This
+   is the 2026-09-16 recommendation made a decision. Two people sharing the name is refused, with
+   the reason given.
+2. **No part named:** a per-verb default only where there is one obvious spot. Kiss goes to the
+   lips, spank to the bottom, pet to the head. Every other verb asks for a part. A part word that
+   is not in `BODY_PARTS` ("Rei's cheek") is refused rather than read as no part, which would have
+   sent the default somewhere else.
+3. **Consent, subject side:** aiming at the hypnotist rides on *Made to act*. Anyone else also needs
+   the new `compelTouchOthers` ("Made to Touch Others"), off by default. Only the Extreme wizard
+   preset grants it; every other wizard answer turns it off.
+4. **Refusals:** for the hypnotist's own body, say which of *their own* settings refused where one is
+   positively identified (item permission, arousal Inactive, the zone set to no). Otherwise say where
+   to look. A third party's refusal is only *"didn't land"*, with no reason, so the command cannot
+   read a stranger's configuration (the 2026-09-16 spec's rule).
+5. **Depth:** the same `compelActivity` gate as the self grammar. Its label is now "Made to act (on
+   yourself or others)".
+6. **Triggers:** later. A targeted command said while a trigger records is refused out loud, not
+   recorded and not performed.
+
+**How BC decides, and what we add.** `runCommandedActivity()` now takes a target.
+`ActivityAllowedForGroup(target, group)` is asked about *their* zone, so BC reads their synced
+arousal settings together with the subject's own reach, hands and mouth. `ActivityRun(Player,
+target, …)` then renders it exactly like a click. On top of that we honour BC's **item
+permission** (`ServerChatRoomGetAllowItem(Player, target)`, falling back to the synced `AllowItem`).
+Only an explicit `false` refuses. **Unverified against BC source**, which is unreachable from the
+workspace: that the function exists with that shape, and whether BC itself gates *activities* on item
+permission. Honouring it can only refuse more, which is the side DW asked for. The target needs no
+add-on.
+
+**The addressee-scoping bug this exposed.** `splitSegments()` read a name after any verb as the start
+of a new address (v0.79.1's "Natalia, stand Missy cum for me" rule), so "Missy, kiss Rei" reached
+Missy's matchers as "Missy, kiss". `OBJECT_VERBS` now keeps a name after an activity verb as the
+object. A test asserts the set covers every single-word verb in `ACTIVITY_VERBS`. On Rei's own
+client, the same line is now correctly not hers. Before, it was an ambiguity refusal if she was in a
+session.
+
+**"feel" does not aim.** "Feel my voice" and "feel my hands on you" are ordinary patter, and a
+targeted match pre-empts every suggestion after it, so `feel` stays a self-only verb. For the same
+reason, "my <word>" is claimed only when the word is a known part ("rub my back" falls through
+untouched).
+
+`test/touch-others.mjs`, 60 checks. Each safeguard was removed in turn and the suite went red:
+scoping fix (16 failures), acting on self (9), the new tick's gate (2), item permission (3), a reason
+leaking for a third party (2), the feel exclusion (1), ambiguity refusal (1). **Not run live.**
+*Needs Testing* item 15.
+
 ### Fixed 2026-09-23 (v0.83.2) — denial now stops the orgasm itself
 
 v0.83.1 failed its first live run the same night. The subject on v0.83.1 was told "you cannot

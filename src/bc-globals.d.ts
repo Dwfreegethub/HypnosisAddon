@@ -105,6 +105,13 @@ declare function ActivityAllowedForGroup(character: any, groupName: string): any
 declare function ActivityRun(actor: any, acted: any, targetGroup: any, itemActivity: any, sendMessage?: boolean): void;
 // Assets — resolve a group name to its group object (for ActivityRun's targetGroup arg).
 declare function AssetGroupGet(family: string, groupName: string): any;
+// Server.js — may `source` use items on `target` (item permission, white/blacklists, owner and
+// lover). UNVERIFIED against source; only ever read behind a typeof check. See voice.ts
+// itemPermissionBlocks().
+declare function ServerChatRoomGetAllowItem(source: any, target: any): boolean;
+// Preference.js — a character's arousal zone entry ({ Name, Factor }); Factor 0 is "no".
+// Named in design.md's R131 read of ActivityPossibleOnGroup. Read behind a typeof check.
+declare function PreferenceGetArousalZone(character: any, groupName: string): any;
 
 // DOM controls layered over the canvas (Scripts/Element.js). They are real elements in
 // document.body, positioned in CANVAS coordinates — X,Y is the element's CENTRE, and the

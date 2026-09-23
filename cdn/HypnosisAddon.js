@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.83.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.84.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1642,7 +1642,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "postureControl", label: "Posture (kneel / stand)", tier: "yielding", earnedOnly: false },
     { key: "clothingRestriction", label: "Cannot reach the wardrobe", tier: "yielding", earnedOnly: false },
     { key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
-    { key: "compelActivity", label: "Made to act on yourself", tier: "yielding", earnedOnly: false },
+    { key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
     // Deeper, still session-only.
     { key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
     { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
@@ -1710,7 +1710,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.83.2"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.84.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1731,7 +1731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.83.2"} loaded`;
+    el.textContent = `ECHS v${"0.84.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -3317,6 +3317,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       speechRestriction: false,
       selfTouchControl: false,
       compelActivity: false,
+      compelTouchOthers: false,
       arousalControl: false,
       illusionControl: false,
       undressControl: false,
@@ -3727,6 +3728,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "speechRestriction",
     "selfTouchControl",
     "compelActivity",
+    "compelTouchOthers",
     "arousalControl",
     "illusionControl",
     "undressControl",
@@ -5080,6 +5082,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "off",
     "through"
   ]);
+  var OBJECT_VERBS = /* @__PURE__ */ new Set([
+    "grope",
+    "squeeze",
+    "fondle",
+    "pinch",
+    "spank",
+    "smack",
+    "slap",
+    "scratch",
+    "tickle",
+    "pull",
+    "tug",
+    "choke",
+    "massage",
+    "knead",
+    "nibble",
+    "lick",
+    "kiss",
+    "suck",
+    "bite",
+    "pet",
+    "finger",
+    "masturbate",
+    "pleasure",
+    "caress",
+    "stroke",
+    "touch",
+    "feel",
+    "rub"
+  ]);
   var bareWord = (w) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
   function splitSegments(content, known) {
     const isName = (w) => known.has(bareWord(w));
@@ -5096,7 +5128,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         while (i < words.length && isName(words[i])) lead.push(bareWord(words[i++]));
         let cut = -1;
         for (let j = i + 1; j < words.length; j++) {
-          if (isName(words[j]) && !OBJECT_MARKERS.has(bareWord(words[j - 1]))) {
+          const before = bareWord(words[j - 1]);
+          if (isName(words[j]) && !OBJECT_MARKERS.has(before) && !OBJECT_VERBS.has(before)) {
             cut = j;
             break;
           }
@@ -5769,12 +5802,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     return reachable.length ? reachable[Math.floor(Math.random() * reachable.length)] : null;
   }
-  function runCommandedActivity(activityName, groupNames) {
-    const family = Player?.AssetFamily ?? "Female3DCG";
+  function runCommandedActivity(activityName, groupNames, target = Player) {
+    const family = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
     for (const groupName of groupNames) {
       let allowed = [];
       try {
-        allowed = ActivityAllowedForGroup(Player, groupName) || [];
+        allowed = ActivityAllowedForGroup(target, groupName) || [];
       } catch {
         allowed = [];
       }
@@ -5784,7 +5817,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!groupObj) continue;
       try {
         beginCommandedActivity();
-        ActivityRun(Player, Player, groupObj, itemActivity);
+        ActivityRun(Player, target, groupObj, itemActivity);
       } finally {
         endCommandedActivity();
       }
@@ -5854,6 +5887,133 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
   }
+  var DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
+  function matchTargetedActivityCommand(content, roster) {
+    const text = normalize(content);
+    if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
+    const names = [...new Set(roster.map((n) => normalize(String(n ?? ""))).filter((n) => n && n !== "me" && n !== "my"))].sort((a, b) => b.length - a.length);
+    const part = `(${Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length).join("|")})`;
+    const hit = (rest, lead) => {
+      const m = new RegExp(`^${lead}(?: s)? ${part}\\b`).exec(rest) ?? new RegExp(`^${lead} on (?:the|her|his|their|my) ${part}\\b`).exec(rest);
+      if (m) return { word: m[1] };
+      const other = new RegExp(`^${lead}(?: s| on (?:the|her|his|their|my)) ([a-z]+)`).exec(rest);
+      if (other) return { word: null, unknownPart: other[1] };
+      return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
+    };
+    for (const v of ACTIVITY_VERBS) {
+      for (const m of text.matchAll(new RegExp(`${v.re.source} (.+)$`, "g"))) {
+        const rest = m[m.length - 1];
+        if (/^feel\b/.test(m[0])) continue;
+        const mine = new RegExp(`^my ${part}\\b`).exec(rest);
+        if (mine) return { activity: v.activity, target: "me", word: mine[1] };
+        const me = hit(rest, "me");
+        if (me) return { activity: v.activity, target: "me", ...me };
+        for (const n of names) {
+          const got = hit(rest, n);
+          if (got) return { activity: v.activity, target: n, ...got };
+        }
+      }
+    }
+    return null;
+  }
+  function roomOthers() {
+    const roster = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
+    return roster.filter((c) => c?.MemberNumber && c.MemberNumber !== Player?.MemberNumber);
+  }
+  var namesOf = (c) => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
+  function itemPermissionBlocks(target) {
+    try {
+      if (typeof ServerChatRoomGetAllowItem === "function") return ServerChatRoomGetAllowItem(Player, target) === false;
+    } catch {
+    }
+    return target?.AllowItem === false;
+  }
+  function ownRefusalReason(hyp, word, groups) {
+    if (itemPermissionBlocks(hyp))
+      return "your BC item permissions don't let them use items on you. Whitelist them, or lower your item permission";
+    if (hyp?.ArousalSettings?.Active === "Inactive")
+      return "your BC arousal preference is set to Inactive, which turns activities on you off";
+    if (typeof PreferenceGetArousalZone === "function") {
+      try {
+        const closed = groups.every((g) => (PreferenceGetArousalZone(hyp, g)?.Factor ?? 1) <= 0);
+        if (closed) return `your BC arousal zones have your ${word} set to no`;
+      } catch {
+      }
+    }
+    return "something blocks it in BC \u2014 your arousal settings for that activity or zone, or they cannot reach (gagged, hands bound, too far away)";
+  }
+  function handleTargetedActivityCommand(sender, content) {
+    const roster = roomOthers();
+    const cmd = matchTargetedActivityCommand(content, roster.flatMap(namesOf));
+    if (!cmd) return false;
+    if (!isSessionActiveWith(sender)) {
+      log(`heard a targeted activity command from ${sender} but no active session with them`);
+      return true;
+    }
+    if (!mentionsAnyName(content, playerOwnNames())) {
+      log(`heard a targeted activity command from ${sender} but they didn't say your name \u2014 ignoring`);
+      return true;
+    }
+    const f = getFeatures();
+    if (!f.hypnoEnabled || !f.compelActivity) {
+      tellHypnotist(sender, '[command] Refused \u2014 they have not enabled "Made to act".');
+      return true;
+    }
+    let target;
+    if (cmd.target === "me") {
+      target = roster.find((c) => c.MemberNumber === sender);
+    } else {
+      const hits = roster.filter((c) => namesOf(c).some((n) => normalize(n) === cmd.target));
+      if (hits.length > 1) {
+        tellHypnotist(sender, `[command] Refused \u2014 more than one person here answers to "${cmd.target}". I won't guess which.`);
+        return true;
+      }
+      target = hits[0];
+    }
+    if (!target) {
+      tellHypnotist(sender, "[command] Refused \u2014 I can't find who that's aimed at in the room.");
+      return true;
+    }
+    const onHypnotist = target.MemberNumber === sender;
+    const verb = cmd.activity === "MasturbateHand" ? "finger" : cmd.activity.toLowerCase();
+    if (!onHypnotist && !f.compelTouchOthers) {
+      tellHypnotist(sender, '[command] Refused \u2014 they have not enabled "Made to touch others".');
+      return true;
+    }
+    if (isRecording()) {
+      tellHypnotist(sender, "[command] Not recorded \u2014 a trigger can't aim at a person yet, only at themselves.");
+      return true;
+    }
+    const refusal = depthRefusal("compelActivity");
+    if (refusal) {
+      tellHypnotist(sender, `[command] Refused \u2014 ${refusal}.`);
+      return true;
+    }
+    if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+      tellHypnotist(sender, "[command] Refused \u2014 a restraint has them frozen; they cannot move to.");
+      return true;
+    }
+    if (cmd.unknownPart) {
+      tellHypnotist(sender, `[command] I don't know "${cmd.unknownPart}" as a body part, so nothing happened.`);
+      return true;
+    }
+    const word = cmd.word ?? DEFAULT_PART[cmd.activity] ?? null;
+    if (!word) {
+      const who = onHypnotist ? "my" : `${cmd.target}'s`;
+      tellHypnotist(sender, `[command] Name a part \u2014 "${verb}" has no obvious spot. For example: "${verb} ${who} arms".`);
+      return true;
+    }
+    const groups = BODY_PARTS[word] ?? [];
+    const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
+    if (!landed) {
+      if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you \u2014 ${ownRefusalReason(target, word, groups)}.`);
+      else tellHypnotist(sender, `[command] "${verb}" didn't land.`);
+      return true;
+    }
+    log(`commanded ${cmd.activity} on ${target.MemberNumber}'s ${landed}`);
+    tellPlayer("Your body moves to them without waiting for you to decide.");
+    return true;
+  }
   function handleSpokenLine(sender, content) {
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
     const line = scope.text;
@@ -5878,6 +6038,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (handleWakeLine(sender, line)) return;
     if (handleWalkingTrance(sender, line)) return;
     if (handleBodyPartLine(sender, line)) return;
+    if (handleTargetedActivityCommand(sender, line)) return;
     if (handleActivityCommand(sender, line)) return;
     const id = matchSuggestion(line);
     if (!id) return;
@@ -6246,6 +6407,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim("   (Made to Act) \u2014 one grammar: <verb> your <part>. touch \xB7 caress \xB7 rub \xB7"));
     lines.push(dim("   pinch \xB7 spank \xB7 slap \xB7 scratch \xB7 tickle \xB7 pull \xB7 lick \xB7 kiss \xB7 bite \xB7"));
     lines.push(dim('   massage \xB7 pet. Bare "touch yourself" wanders; name a part to steer it.'));
+    lines.push(body(`"kiss Rei" \xB7 "kiss Rei's nipples" \xB7 "kiss me" \xB7 "pinch my nipples"`));
+    lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) \u2014 the same verbs"));
+    lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
     return lines;
   }
   function depthLadder() {
@@ -6479,7 +6643,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   };
   var ALL_FEATURES = [
     "hypnoEnabled",
-    ...Object.values(GROUP_FEATURES).flat()
+    ...Object.values(GROUP_FEATURES).flat(),
+    "compelTouchOthers"
   ];
   function applySetup(cfg) {
     const on = new Set(cfg.features);
@@ -6541,7 +6706,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       name: "Extreme",
       blurb: "Everything on \u2014 triggers, carry-forward and the illusion included \u2014 at the easiest access, arousal allowed to reach them. Complete trust.",
       config: {
-        features: [...Object.values(GROUP_FEATURES).flat()],
+        features: [...Object.values(GROUP_FEATURES).flat(), "compelTouchOthers"],
         access: "easy",
         arousalShortcut: true,
         // The highest rung the settings cycle offers today. Rung 4 ("Skill can beat my
@@ -6801,6 +6966,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "speechRestriction", label: "Speech Restriction" },
         { key: "selfTouchControl", label: "Self-Touch Control" },
         { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
+        { key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
         { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
         { key: "undressControl", label: "Undressing" },
@@ -7398,7 +7564,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.83.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.84.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8903,14 +9069,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.83.2"})`);
+  info(`script loaded (v${"0.84.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.83.2",
+      version: "0.84.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

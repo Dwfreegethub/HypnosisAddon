@@ -12,6 +12,25 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.84.0 · 23 September 2026
+
+- **A hypnotist can now aim a commanded touch at someone else.** "Missy, kiss Rei" kisses Rei on
+  the lips. "Missy, kiss Rei's nipples" or "Missy, lick Rei on the neck" picks the spot. "Missy, kiss
+  me" means whoever said it. Every verb that already worked on yourself works this way too.
+- **It uses the person's full name or nickname, exactly.** A partial or misspelled name does nothing,
+  and if two people share the name, nothing happens and the hypnotist is told why.
+- **Kiss, spank and pet have a spot they go to if you don't name one** (lips, bottom, head). Other
+  verbs ask you to name a part.
+- **Touching anyone other than your hypnotist needs a new setting, "Made to Touch Others".** It is
+  off until you turn it on. Being made to touch the hypnotist only needs "Made to Act", as before.
+- **The other person's own game settings always decide.** If the game would not let you do it to them
+  by clicking, it does not happen. If it doesn't land on the hypnotist, they are told which of their
+  own settings stopped it. If it doesn't land on anyone else, the hypnotist is only told it didn't
+  land, never why.
+- These cannot be put into a trigger yet.
+
+---
+
 ## v0.83.2 · 23 September 2026
 
 - **"You cannot cum" really holds now.** In the first test of the last update, a toy was held back
