@@ -77,32 +77,105 @@ export function installEffectAllowList(): void {
 // session ends without the two modules importing each other in a cycle (voice.ts already
 // depends on session.ts for the session gate).
 
-/** Whether the player's current pose was put there by a suggestion rather than chosen. */
-let poseSetBySuggestion = false;
+// Two groups, legs and arms, so that "hands behind your back" does not stand a kneeling
+// subject up and "kneel" does not drop her arms. BC keeps both in the one ActivePose array.
+//
+// THE NAMES ARE THE 2026-09-23 BRIEF'S AND ARE UNCONFIRMED. BC's pose list could not be read
+// from where this was written (rule 8), and several of these may not exist under these names.
+// A name BC does not know simply does not take, and setSuggestedPose() reads the pose back
+// and reports that, so a wrong name shows up as "did not land", never as a false announce.
+// Correct a name here and nowhere else.
+//
+// ALSO UNCONFIRMED: that setting one named pose leaves the other group alone. Setting a pose
+// by name here relies on BC replacing only that pose's own category, as its own pose menu
+// does; the read-back logs a warning if the other group was lost, which is what to look for
+// in a live run.
 
-/** Set (or with null, clear) the player's pose, following BC's own kneel/stand sequence
- * from ChatRoom.js: PoseSetActive only changes the pose locally — the room is told
- * separately via ChatRoomCharacterPoseUpdate. */
-export function setSuggestedPose(pose: string | null): void {
-	CharacterSetActivePose(Player, pose);
+export type PoseGroup = "stance" | "arms";
+
+/** The base pose names are in here so clearing a group also clears BC's explicit
+ * neutral for it, if it keeps one. Harmless when it does not. */
+export const POSE_GROUPS: Record<PoseGroup, readonly string[]> = {
+	stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "Sit", "AllFours", "Hogtied", "BaseLower"],
+	arms: ["HandsBehindBack", "BackBoxTie", "BackElbowTouch", "OverHead", "CrossedArms", "Yoke", "Surrender", "BaseUpper"],
+};
+
+export function poseGroupOf(pose: string): PoseGroup | null {
+	if (POSE_GROUPS.stance.includes(pose)) return "stance";
+	if (POSE_GROUPS.arms.includes(pose)) return "arms";
+	return null;
+}
+
+/** The pose a suggestion put each group in, or null where the pose is the player's own. */
+const ours: Record<PoseGroup, string | null> = { stance: null, arms: null };
+
+/** ActivePose as a list, whatever shape it arrives in. */
+function currentPoses(): string[] {
+	const p = Player?.ActivePose;
+	if (Array.isArray(p)) return p.filter((x: unknown): x is string => typeof x === "string");
+	return typeof p === "string" && p ? [p] : [];
+}
+
+/** Set (or with null, clear) one group of the player's pose, following BC's own kneel/stand
+ * sequence from ChatRoom.js: CharacterSetActivePose only changes the pose locally — the room
+ * is told separately via ChatRoomCharacterPoseUpdate. Only the pose goes to the room, not the
+ * whole appearance.
+ *
+ * Returns whether it took. Rule 5: bondage can refuse a pose, and so can a name BC does not
+ * know, and before this the add-on announced the kneel either way. */
+export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGroupOf(pose ?? "") ?? "stance"): boolean {
+	const before = currentPoses();
+	const otherGroup: PoseGroup = group === "stance" ? "arms" : "stance";
+	const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
+	if (pose !== null) {
+		CharacterSetActivePose(Player, pose);
+	} else {
+		// There is no "clear one group" call to rely on, so reset and put the other group back.
+		CharacterSetActivePose(Player, null);
+		for (const p of keep) CharacterSetActivePose(Player, p);
+	}
 	if (ServerPlayerIsInChatRoom()) {
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 	}
-	poseSetBySuggestion = pose !== null;
+	const after = currentPoses();
+	// Cleared means nothing but the group's neutral is left in it.
+	const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+	const lost = keep.filter((p) => !after.includes(p));
+	if (lost.length) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
+	if (landed) ours[group] = pose;
+	else log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
+	return landed;
 }
 
-/** The pose a suggestion put them in, or null if the pose is their own. Saved across a
- * reconnect so that waking still knows it has something to undo — Player.ActivePose itself
- * survives on the server, but the knowledge that WE set it does not. */
-export function suggestedPose(): string | null {
-	return poseSetBySuggestion ? (Player?.ActivePose ?? null) : null;
+/** The poses suggestions put the player in and that are still in place, or null. Saved
+ * across a reconnect so that waking still knows it has something to undo — Player.ActivePose
+ * itself survives on the server, but the knowledge that WE set it does not. */
+export function suggestedPose(): string[] | null {
+	const now = currentPoses();
+	const list = (["stance", "arms"] as PoseGroup[]).map((g) => ours[g]).filter((p): p is string => !!p && now.includes(p));
+	return list.length ? list : null;
 }
 
-/** Undo a pose a suggestion put the player in. Deliberately leaves a pose they chose
- * themselves alone — ending a session shouldn't yank someone out of their own kneel. */
-export function clearSuggestedPose(): void {
-	if (!poseSetBySuggestion) return;
-	setSuggestedPose(null);
+/** Put saved poses back. Accepts the old single-string and whole-array shapes too, since a
+ * save written by an earlier version can still be waiting in the browser. */
+export function restoreSuggestedPose(saved: string | string[] | null | undefined): void {
+	const list = Array.isArray(saved) ? saved : saved ? [saved] : [];
+	for (const p of list) if (typeof p === "string" && p) setSuggestedPose(p);
+}
+
+/** Undo the poses a suggestion put the player in, one group or both. Deliberately leaves a
+ * pose they chose themselves alone — ending a session shouldn't yank someone out of their own
+ * kneel, and one they have since changed out of is theirs now. With `only`, clears the group
+ * only while that exact pose is the one a suggestion set. */
+export function clearSuggestedPose(group?: PoseGroup, only?: string): void {
+	const now = currentPoses();
+	for (const g of group ? [group] : (["stance", "arms"] as PoseGroup[])) {
+		const p = ours[g];
+		// `only`: a trigger undoing its own kneel must not also undo a sit said since.
+		if (only && p !== only) continue;
+		ours[g] = null;
+		if (p && now.includes(p)) setSuggestedPose(null, g);
+	}
 }
 
 // --- Trance states -------------------------------------------------------------------

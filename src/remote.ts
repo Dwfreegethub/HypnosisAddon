@@ -91,8 +91,9 @@ interface FeatureDef {
 	releaseLabel: string;
 	/** Read on the VIEWER's client, off synced character data. */
 	isActive: (target: any) => boolean;
-	/** Run on the SUBJECT's client when a request is honored. */
-	apply: () => void;
+	/** Run on the SUBJECT's client when a request is honored. Returns false when it ran and
+	 * did not take — a pose bondage refused. */
+	apply: () => void | boolean;
 	release: () => void;
 	/** Shared with the spoken-suggestion path, so a button and the equivalent spoken line
 	 * are indistinguishable from the subject's side. */
@@ -132,7 +133,7 @@ const FEATURES: FeatureDef[] = [
 		// the synced ActivePose, so it's readable for anyone we can see.
 		isActive: (t) => !!t.IsKneeling?.(),
 		apply: () => setSuggestedPose("Kneel"),
-		release: () => setSuggestedPose(null),
+		release: () => setSuggestedPose(null, "stance"),
 		applyFlavor: "kneel",
 		releaseFlavor: "stand",
 	},
@@ -443,7 +444,11 @@ export function installRemote(modApi: any): void {
 			return;
 		}
 		log(`remote request (${feature.key}) from ${sender} honored`);
-		feature.apply();
+		// Rule 5: a pose can be refused by bondage, and announcing it anyway would be a lie.
+		if (feature.apply() === false) {
+			announce("pose-blocked");
+			return;
+		}
 		announce(feature.applyFlavor);
 	});
 

@@ -147,7 +147,7 @@ export const DEPTH_GATES: DepthGate[] = [
 	// Behavioural, session-only.
 	{ key: "movementRestriction", label: "Cannot move", tier: "yielding", earnedOnly: false },
 	{ key: "speechRestriction", label: "Cannot speak", tier: "yielding", earnedOnly: false },
-	{ key: "postureControl", label: "Posture (kneel / stand)", tier: "yielding", earnedOnly: false },
+	{ key: "postureControl", label: "Posture Control", tier: "yielding", earnedOnly: false },
 	{ key: "clothingRestriction", label: "Cannot reach the wardrobe", tier: "yielding", earnedOnly: false },
 	{ key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
 	{ key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },

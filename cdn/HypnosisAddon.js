@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.84.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.85.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -775,20 +775,59 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     }, 500);
   }
-  var poseSetBySuggestion = false;
-  function setSuggestedPose(pose) {
-    CharacterSetActivePose(Player, pose);
+  var POSE_GROUPS = {
+    stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "Sit", "AllFours", "Hogtied", "BaseLower"],
+    arms: ["HandsBehindBack", "BackBoxTie", "BackElbowTouch", "OverHead", "CrossedArms", "Yoke", "Surrender", "BaseUpper"]
+  };
+  function poseGroupOf(pose) {
+    if (POSE_GROUPS.stance.includes(pose)) return "stance";
+    if (POSE_GROUPS.arms.includes(pose)) return "arms";
+    return null;
+  }
+  var ours = { stance: null, arms: null };
+  function currentPoses() {
+    const p = Player?.ActivePose;
+    if (Array.isArray(p)) return p.filter((x) => typeof x === "string");
+    return typeof p === "string" && p ? [p] : [];
+  }
+  function setSuggestedPose(pose, group = poseGroupOf(pose ?? "") ?? "stance") {
+    const before = currentPoses();
+    const otherGroup = group === "stance" ? "arms" : "stance";
+    const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
+    if (pose !== null) {
+      CharacterSetActivePose(Player, pose);
+    } else {
+      CharacterSetActivePose(Player, null);
+      for (const p of keep) CharacterSetActivePose(Player, p);
+    }
     if (ServerPlayerIsInChatRoom()) {
       ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
     }
-    poseSetBySuggestion = pose !== null;
+    const after = currentPoses();
+    const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+    const lost = keep.filter((p) => !after.includes(p));
+    if (lost.length) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
+    if (landed) ours[group] = pose;
+    else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
+    return landed;
   }
   function suggestedPose() {
-    return poseSetBySuggestion ? Player?.ActivePose ?? null : null;
+    const now = currentPoses();
+    const list = ["stance", "arms"].map((g) => ours[g]).filter((p) => !!p && now.includes(p));
+    return list.length ? list : null;
   }
-  function clearSuggestedPose() {
-    if (!poseSetBySuggestion) return;
-    setSuggestedPose(null);
+  function restoreSuggestedPose(saved) {
+    const list = Array.isArray(saved) ? saved : saved ? [saved] : [];
+    for (const p of list) if (typeof p === "string" && p) setSuggestedPose(p);
+  }
+  function clearSuggestedPose(group, only) {
+    const now = currentPoses();
+    for (const g of group ? [group] : ["stance", "arms"]) {
+      const p = ours[g];
+      if (only && p !== only) continue;
+      ours[g] = null;
+      if (p && now.includes(p)) setSuggestedPose(null, g);
+    }
   }
   var speechBlocked = false;
   var screenFade = 0;
@@ -974,6 +1013,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "follow-release": ["{name} steps back, {their} own distance to keep again."],
     kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
     stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
+    // Every pose is as visible as kneeling, so each gets a room line. The body moves first and
+    // the face stays soft, the same register as kneel.
+    "kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
+    "legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
+    "legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
+    sit: ["{name} folds down to sit on the floor, as if it had been {their} own idea."],
+    "all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
+    "lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
+    "hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
+    "arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
+    "elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
+    "arms-up": ["{name}'s arms rise over {their} head and stay there."],
+    "arms-crossed": ["{name}'s arms fold across {their} chest."],
+    "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
+    surrender: ["{name}'s hands come up beside {their} head, palms open."],
+    "arms-relax": ["{name}'s arms drift down to {their} sides."],
+    "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
     // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
     // INTO one is observable, which is why the attempt keys carry the public lines and the
     // apply keys mostly do not. Movement and posture are the exceptions: going still and
@@ -1066,6 +1122,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Something lifts you back onto your feet.",
       "You are standing again. The floor lets you go."
     ],
+    "kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
+    "legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
+    "legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
+    sit: ["You are sitting on the floor. It seems like the obvious place to be."],
+    "all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
+    "lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
+    "hands-behind": ["Your hands find each other behind your back and stay clasped there."],
+    "arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
+    "elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
+    "arms-up": ["Your arms rise over your head and stay there, light and obedient."],
+    "arms-crossed": ["Your arms fold across your chest, and there they stay."],
+    "arms-out": ["Your arms lift out to either side and hold, level and steady."],
+    surrender: ["Your hands come up beside your head, palms open, before you think about it."],
+    "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
+    "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
     "speech-block": [
       "You go to answer and find there is nothing to answer with.",
       "The words are there. The way out of your mouth is not.",
@@ -1639,7 +1710,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     // Behavioural, session-only.
     { key: "movementRestriction", label: "Cannot move", tier: "yielding", earnedOnly: false },
     { key: "speechRestriction", label: "Cannot speak", tier: "yielding", earnedOnly: false },
-    { key: "postureControl", label: "Posture (kneel / stand)", tier: "yielding", earnedOnly: false },
+    { key: "postureControl", label: "Posture Control", tier: "yielding", earnedOnly: false },
     { key: "clothingRestriction", label: "Cannot reach the wardrobe", tier: "yielding", earnedOnly: false },
     { key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
     { key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
@@ -2110,7 +2181,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     restoreSelfTouch(saved.selfTouch ?? { all: false, groups: [] });
     for (const e of saved.effects ?? []) if (!hasOwnEffect(e)) applyEffect(e);
     if (hasOwnEffect("Leash")) applyFollow(null);
-    if (saved.pose) setSuggestedPose(saved.pose);
+    if (saved.pose) restoreSuggestedPose(saved.pose);
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
         tellPlayer("Coming back, you catch sight of yourself as you actually are.");
@@ -4378,6 +4449,104 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const keys = Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission];
     return keys.some((k) => features[k]);
   }
+  function releasesOf(suggestion) {
+    const of = suggestion.releaseOf;
+    return of === void 0 ? [] : Array.isArray(of) ? of : [of];
+  }
+  function applyPose(pose) {
+    if (!setSuggestedPose(pose)) return "pose-blocked";
+  }
+  function poseSuggestion(id, pose, examples, patterns, unless) {
+    return {
+      id,
+      examples,
+      permission: "postureControl",
+      patterns,
+      unless,
+      run: () => applyPose(pose),
+      // Undo only while it is still this pose: a trigger's kneel must not also undo a sit said since.
+      undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose)
+    };
+  }
+  var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "sit", "all-fours", "lie-down"];
+  var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-crossed", "arms-out", "surrender"];
+  var POSE_SUGGESTIONS = [
+    poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
+      /\bkneel (?:with your knees )?(?:spread|apart)\b/,
+      /\bspread your knees\b/,
+      /\bknees (?:apart|spread|wide)\b/
+    ]),
+    poseSuggestion("legs-spread", "Spread", ["spread your legs", "stand with your legs apart"], [
+      /\b(?:spread|part) your legs\b/,
+      /\b(?:legs|feet) (?:apart|wide)\b/
+    ]),
+    poseSuggestion("legs-closed", "LegsClosed", ["legs closed", "feet together"], [
+      /\b(?:legs|feet) (?:closed|together)\b/,
+      /\bclose your legs\b/
+    ]),
+    poseSuggestion("all-fours", "AllFours", ["on all fours", "get on your hands and knees"], [
+      /\bon all fours\b/,
+      /\bon your hands and knees\b/
+    ]),
+    poseSuggestion("lie-down", "Hogtied", ["lie down", "down on your stomach"], [
+      /(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
+      /\bon your (?:stomach|belly|front)\b/
+    ]),
+    poseSuggestion(
+      "sit",
+      "Sit",
+      ["sit", "sit down", "sit on the floor"],
+      [/(?<!\bi )(?<!\bwe )\bsit\b/],
+      // Everyday induction patter uses "sit" without meaning the floor: "sit back and relax",
+      // "just sit with that feeling", "sit still". Those are vetoed rather than listed out,
+      // because bare "Missy, sit" is the command people will actually type.
+      [/\bsit (?:back|with|still|tight|up|comfortably|quietly)\b/, /\bcannot sit\b/]
+    ),
+    // Arms. Surrender first: "hands up where I can see them" should raise them to the ears,
+    // not over the head.
+    poseSuggestion("surrender", "Surrender", ["surrender", "hands where I can see them"], [
+      // Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
+      // DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
+      /(?<!\bi )(?<!\bwe )\bsurrender\b/,
+      /\bwhere i can see them\b/
+    ]),
+    poseSuggestion("hands-behind", "HandsBehindBack", ["hands behind your back", "clasp your hands behind your back"], [
+      /\bhands behind your back\b/
+    ]),
+    poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
+      /\barms behind your back\b/,
+      /\bbox your arms\b/
+    ]),
+    poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
+      /\belbows (?:behind your back|together)\b/
+    ]),
+    poseSuggestion("arms-up", "OverHead", ["put your hands up", "raise your arms", "hands above your head"], [
+      /\b(?:hands|arms) up\b/,
+      /\braise your (?:arms|hands)\b/,
+      /\b(?:hands|arms) (?:above|over) your head\b/
+    ]),
+    poseSuggestion("arms-crossed", "CrossedArms", ["cross your arms"], [/\bcross your arms\b/, /\barms crossed\b/]),
+    poseSuggestion("arms-out", "Yoke", ["hold your arms out", "yoke your arms"], [
+      /\b(?:hold|put|stretch) your arms out\b/,
+      /\byoke your arms\b/
+    ]),
+    {
+      id: "arms-relax",
+      examples: ["relax your arms", "arms at your sides"],
+      release: true,
+      releaseOf: ARM_IDS,
+      permission: "postureControl",
+      // "Relax your arms" is induction patter too; kept on DW's call, 2026-09-23. Like "stand",
+      // it clears any arm pose, including one the subject chose themselves.
+      patterns: [
+        /\brelax your arms\b/,
+        /\b(?:arms|hands) (?:at|by) your sides?\b/,
+        /\b(?:lower|drop) your (?:arms|hands)\b/,
+        /\b(?:arms|hands) down\b/
+      ],
+      run: () => setSuggestedPose(null, "arms") ? void 0 : "pose-blocked"
+    }
+  ];
   var SUGGESTIONS = [
     // Arousal goes FIRST. Its patterns are the most specific in the table (every one names
     // arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
@@ -4939,11 +5108,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       run: () => setSpeechBlocked(true),
       undo: () => setSpeechBlocked(false)
     },
+    ...POSE_SUGGESTIONS,
     {
       id: "stand",
       examples: ["stand", "get up", "on your feet"],
       release: true,
-      releaseOf: "kneel",
+      releaseOf: STANCE_IDS,
       permission: "postureControl",
       // Bare "stand" and "rise" are matched now that a suggestion also has to name the
       // subject — that gate does most of the false-positive work, so these no longer have
@@ -4957,7 +5127,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\b(get|rise) to your feet\b/,
         /\bon your feet\b/
       ],
-      run: () => setSuggestedPose(null)
+      // Clears the legs only now: "stand" no longer drops arms held behind the back.
+      run: () => setSuggestedPose(null, "stance") ? void 0 : "pose-blocked"
     },
     {
       id: "kneel",
@@ -4972,8 +5143,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bon your knees\b/,
         /\bdrop to your knees\b/
       ],
-      run: () => setSuggestedPose("Kneel"),
-      undo: () => setSuggestedPose(null)
+      run: () => applyPose("Kneel"),
+      undo: () => clearSuggestedPose("stance", "Kneel")
     }
   ];
   function isSelfReferential(text) {
@@ -5987,7 +6158,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!id) return;
     const suggestion = SUGGESTIONS.find((s) => s.id === id);
     if (!suggestion) return;
-    const carriedRelease = !!suggestion.release && !!suggestion.releaseOf && isCarrierOf(sender) && isCarried(suggestion.releaseOf);
+    const carriedRelease = !!suggestion.release && !!suggestion.releaseOf && isCarrierOf(sender) && releasesOf(suggestion).some(isCarried);
     if (!isSessionActiveWith(sender) && !carriedRelease) {
       log(`heard "${id}" from ${sender} but no active session with them \u2014 ignoring`);
       return;
@@ -6023,9 +6194,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     announce(outcome);
     if (suggestion.release) {
-      if (suggestion.releaseOf) {
-        noteReleased(suggestion.releaseOf);
-        dropCarried(suggestion.releaseOf);
+      for (const of of releasesOf(suggestion)) {
+        noteReleased(of);
+        dropCarried(of);
       }
     } else {
       noteApplied(id);
@@ -7519,7 +7690,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.84.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8694,7 +8865,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // the synced ActivePose, so it's readable for anyone we can see.
       isActive: (t) => !!t.IsKneeling?.(),
       apply: () => setSuggestedPose("Kneel"),
-      release: () => setSuggestedPose(null),
+      release: () => setSuggestedPose(null, "stance"),
       applyFlavor: "kneel",
       releaseFlavor: "stand"
     }
@@ -8923,7 +9094,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return;
       }
       log(`remote request (${feature.key}) from ${sender} honored`);
-      feature.apply();
+      if (feature.apply() === false) {
+        announce("pose-blocked");
+        return;
+      }
       announce(feature.applyFlavor);
     });
     modApi2.hookFunction(
@@ -9058,7 +9232,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.84.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9081,7 +9255,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.84.3"} loaded`;
+    el.textContent = `ECHS v${"0.85.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9112,14 +9286,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.84.3"})`);
+  info(`script loaded (v${"0.85.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.84.3",
+      version: "0.85.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

@@ -4356,9 +4356,39 @@ the Data tab). Send the raw chat transcript back.
 3. **Nobody else sees it.** Have a second character in the room for step 1. *Expect:* they see
    nothing from it.
 
+### 17. The pose library (v0.85.0) — **open, never run live. Step 1 first: it settles the names**
+
+Every pose rides **Posture Control**. Two characters, a trance at Yielding or deeper. Send the raw
+chat transcript back, and the console output from step 1.
+
+1. **The names.** In the BC console (F12), on the subject's character:
+   `(() => { const L = typeof PoseFemale3DCG !== "undefined" ? PoseFemale3DCG : Object.values(PoseRecord); return L.map(p => `${p.Name} | ${p.Category} | menu:${!!p.AllowMenu}`).join("\n"); })()`
+   *Expect:* a list containing every name in `POSE_GROUPS` (`src/effects.ts`). *Failure looks
+   like:* a name missing, or spelled differently. The names are the 2026-09-23 brief's and were
+   never checked against BC; correct them in `POSE_GROUPS`, nowhere else.
+2. **Legs and arms together.** *"Missy, kneel."* then *"Missy, hands behind your back."* *Expect:*
+   kneeling with hands clasped behind. *Failure looks like:* standing with hands behind, which
+   means BC's setter replaces the whole pose rather than one category; the console also logs
+   `pose: setting ... also lost`.
+3. **Stand keeps the arms.** *"Missy, stand."* *Expect:* upright, hands still behind. Then
+   *"Missy, relax your arms."* *Expect:* arms at the sides.
+4. **Every other pose.** One line each from the What to Say list. *Expect:* the pose, and the room
+   line that matches it. *Failure looks like:* the room line with no visible change (a wrong name
+   that BC accepted silently) or *"...tries to obey, but {their} body will not go there"* (a name BC
+   rejected, or a pose it will not allow unaided; AllFours and Hogtied are the likely ones).
+5. **Bondage refuses.** Put the subject in leg restraints that stop kneeling, then *"Missy,
+   kneel."* *Expect:* no kneel, the room hears her try, and the hypnotist's chat says it matched
+   but did not land. *Failure looks like:* the kneel line with no kneel, which is what every
+   version before v0.85.0 did.
+6. **Her own pose survives waking.** Have the hypnotist say *"Missy, kneel."*, then the subject
+   raises her arms from BC's own pose menu. Wake her. *Expect:* standing, arms still raised.
+7. **Patter.** *"Missy, sit back and relax."* *Expect:* nothing happens. *"Missy, surrender to
+   my voice."* *Expect:* her hands come up. That clash is deliberate (DW, 2026-09-23) and noted in
+   the wiki.
+
 ---
 
-**Nine of seventeen topics confirmed; eight open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of eighteen topics confirmed; nine open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

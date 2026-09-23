@@ -1,5 +1,14 @@
 import { log, warn, isTestingMode } from "./log";
-import { applyEffect, removeEffect, hasOwnEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
+import {
+	applyEffect,
+	removeEffect,
+	hasOwnEffect,
+	setSuggestedPose,
+	clearSuggestedPose,
+	poseGroupOf,
+	setSpeechBlocked,
+	isWalkingTrance,
+} from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
@@ -149,7 +158,7 @@ interface Suggestion {
 	/** Which restriction this release undoes. Lets a carried suggestion be let go by name
 	 * when the ordinary release wording is spoken, and is what makes a release reachable at
 	 * all outside a trance — see the carried-release exception in handleSpokenLine. */
-	releaseOf?: FlavorKey;
+	releaseOf?: FlavorKey | FlavorKey[];
 	/** Reverses this suggestion. Used when a trigger is released by name — the release
 	 * has to undo exactly what that trigger applied, not everything of that kind. */
 	undo?: () => void;
@@ -366,6 +375,120 @@ export const ILLUSION_TRUST_THRESHOLD = 65;
  * her own body. Session-scoped, so the arousal floor DOES reach it — the doc lists it among
  * the rows the chemical floor may lift. */
 export const UNDRESS_TRUST_THRESHOLD = 60;
+
+/** What a release lets go of, as a list — "stand" undoes every leg pose, not only kneeling. */
+function releasesOf(suggestion: Suggestion): FlavorKey[] {
+	const of = suggestion.releaseOf;
+	return of === undefined ? [] : Array.isArray(of) ? of : [of];
+}
+
+// --- Poses -----------------------------------------------------------------------------
+// The brief of 2026-09-23 (DW): the whole BC stance and arm catalogue, not just kneel/stand.
+// All ride the one Posture Control tick at the same depth (DW's call), and all act on the
+// subject only. Legs and arms are separate groups, so setting one never undoes the other —
+// see POSE_GROUPS in effects.ts, where the BC names live and are marked unconfirmed.
+
+/** Posed but did not take is its own outcome (rule 5): bondage, or a name BC does not know. */
+function applyPose(pose: string): FlavorKey | void {
+	if (!setSuggestedPose(pose)) return "pose-blocked";
+}
+
+function poseSuggestion(id: FlavorKey, pose: string, examples: string[], patterns: RegExp[], unless?: RegExp[]): Suggestion {
+	return {
+		id,
+		examples,
+		permission: "postureControl",
+		patterns,
+		unless,
+		run: () => applyPose(pose),
+		// Undo only while it is still this pose: a trigger's kneel must not also undo a sit said since.
+		undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose),
+	};
+}
+
+const STANCE_IDS: FlavorKey[] = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "sit", "all-fours", "lie-down"];
+const ARM_IDS: FlavorKey[] = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-crossed", "arms-out", "surrender"];
+
+/** Ordered: each entry is checked before the broader one it overlaps. "Stand with your legs
+ * apart" is a stance, not "stand"; "kneel spread" is not a plain kneel; "hands up where I can
+ * see them" is surrender, not arms up. So this whole block sits above stand and kneel. */
+const POSE_SUGGESTIONS: Suggestion[] = [
+	poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
+		/\bkneel (?:with your knees )?(?:spread|apart)\b/,
+		/\bspread your knees\b/,
+		/\bknees (?:apart|spread|wide)\b/,
+	]),
+	poseSuggestion("legs-spread", "Spread", ["spread your legs", "stand with your legs apart"], [
+		/\b(?:spread|part) your legs\b/,
+		/\b(?:legs|feet) (?:apart|wide)\b/,
+	]),
+	poseSuggestion("legs-closed", "LegsClosed", ["legs closed", "feet together"], [
+		/\b(?:legs|feet) (?:closed|together)\b/,
+		/\bclose your legs\b/,
+	]),
+	poseSuggestion("all-fours", "AllFours", ["on all fours", "get on your hands and knees"], [
+		/\bon all fours\b/,
+		/\bon your hands and knees\b/,
+	]),
+	poseSuggestion("lie-down", "Hogtied", ["lie down", "down on your stomach"], [
+		/(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
+		/\bon your (?:stomach|belly|front)\b/,
+	]),
+	poseSuggestion(
+		"sit",
+		"Sit",
+		["sit", "sit down", "sit on the floor"],
+		[/(?<!\bi )(?<!\bwe )\bsit\b/],
+		// Everyday induction patter uses "sit" without meaning the floor: "sit back and relax",
+		// "just sit with that feeling", "sit still". Those are vetoed rather than listed out,
+		// because bare "Missy, sit" is the command people will actually type.
+		[/\bsit (?:back|with|still|tight|up|comfortably|quietly)\b/, /\bcannot sit\b/],
+	),
+	// Arms. Surrender first: "hands up where I can see them" should raise them to the ears,
+	// not over the head.
+	poseSuggestion("surrender", "Surrender", ["surrender", "hands where I can see them"], [
+		// Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
+		// DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
+		/(?<!\bi )(?<!\bwe )\bsurrender\b/,
+		/\bwhere i can see them\b/,
+	]),
+	poseSuggestion("hands-behind", "HandsBehindBack", ["hands behind your back", "clasp your hands behind your back"], [
+		/\bhands behind your back\b/,
+	]),
+	poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
+		/\barms behind your back\b/,
+		/\bbox your arms\b/,
+	]),
+	poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
+		/\belbows (?:behind your back|together)\b/,
+	]),
+	poseSuggestion("arms-up", "OverHead", ["put your hands up", "raise your arms", "hands above your head"], [
+		/\b(?:hands|arms) up\b/,
+		/\braise your (?:arms|hands)\b/,
+		/\b(?:hands|arms) (?:above|over) your head\b/,
+	]),
+	poseSuggestion("arms-crossed", "CrossedArms", ["cross your arms"], [/\bcross your arms\b/, /\barms crossed\b/]),
+	poseSuggestion("arms-out", "Yoke", ["hold your arms out", "yoke your arms"], [
+		/\b(?:hold|put|stretch) your arms out\b/,
+		/\byoke your arms\b/,
+	]),
+	{
+		id: "arms-relax",
+		examples: ["relax your arms", "arms at your sides"],
+		release: true,
+		releaseOf: ARM_IDS,
+		permission: "postureControl",
+		// "Relax your arms" is induction patter too; kept on DW's call, 2026-09-23. Like "stand",
+		// it clears any arm pose, including one the subject chose themselves.
+		patterns: [
+			/\brelax your arms\b/,
+			/\b(?:arms|hands) (?:at|by) your sides?\b/,
+			/\b(?:lower|drop) your (?:arms|hands)\b/,
+			/\b(?:arms|hands) down\b/,
+		],
+		run: () => (setSuggestedPose(null, "arms") ? undefined : "pose-blocked"),
+	},
+];
 
 const SUGGESTIONS: Suggestion[] = [
 	// Arousal goes FIRST. Its patterns are the most specific in the table (every one names
@@ -928,11 +1051,12 @@ const SUGGESTIONS: Suggestion[] = [
 		run: () => setSpeechBlocked(true),
 		undo: () => setSpeechBlocked(false),
 	},
+	...POSE_SUGGESTIONS,
 	{
 		id: "stand",
 		examples: ["stand", "get up", "on your feet"],
 		release: true,
-		releaseOf: "kneel",
+		releaseOf: STANCE_IDS,
 		permission: "postureControl",
 		// Bare "stand" and "rise" are matched now that a suggestion also has to name the
 		// subject — that gate does most of the false-positive work, so these no longer have
@@ -946,7 +1070,8 @@ const SUGGESTIONS: Suggestion[] = [
 			/\b(get|rise) to your feet\b/,
 			/\bon your feet\b/,
 		],
-		run: () => setSuggestedPose(null),
+		// Clears the legs only now: "stand" no longer drops arms held behind the back.
+		run: () => (setSuggestedPose(null, "stance") ? undefined : "pose-blocked"),
 	},
 	{
 		id: "kneel",
@@ -961,8 +1086,8 @@ const SUGGESTIONS: Suggestion[] = [
 			/\bon your knees\b/,
 			/\bdrop to your knees\b/,
 		],
-		run: () => setSuggestedPose("Kneel"),
-		undo: () => setSuggestedPose(null),
+		run: () => applyPose("Kneel"),
+		undo: () => clearSuggestedPose("stance", "Kneel"),
 	},
 ];
 
@@ -2542,7 +2667,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 		!!suggestion.release &&
 		!!suggestion.releaseOf &&
 		isCarrierOf(sender) &&
-		isCarried(suggestion.releaseOf);
+		releasesOf(suggestion).some(isCarried);
 	if (!isSessionActiveWith(sender) && !carriedRelease) {
 		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
 		return;
@@ -2614,9 +2739,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// Tracked AFTER it runs, so "that will stay with you" has something to point at. A
 	// release both un-tracks the restriction and lets go of it if it was being carried.
 	if (suggestion.release) {
-		if (suggestion.releaseOf) {
-			noteReleased(suggestion.releaseOf);
-			dropCarried(suggestion.releaseOf);
+		for (const of of releasesOf(suggestion)) {
+			noteReleased(of);
+			dropCarried(of);
 		}
 	} else {
 		noteApplied(id);

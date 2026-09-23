@@ -10,7 +10,7 @@ import {
 	removeEffect,
 	hasOwnEffect,
 	suggestedPose,
-	setSuggestedPose,
+	restoreSuggestedPose,
 	clearSuggestedPose,
 	isWalkingTrance,
 } from "./effects";
@@ -128,8 +128,9 @@ export interface SavedSession {
 	 * AllowEffect patch strips them, so re-asserting is the difference between usually and
 	 * always. */
 	effects: string[];
-	/** A pose a suggestion put them in, so waking still knows to undo it. */
-	pose: string | null;
+	/** Poses a suggestion put them in, so waking still knows to undo them. A single string in
+	 * saves written before v0.85.0. */
+	pose: string[] | string | null;
 	/** Suggestions given this session, in order — what "that will stay with you" points at.
 	 * Holds no effect itself, which is exactly why it was missed the first time. */
 	applied: string[];
@@ -417,7 +418,7 @@ function restoreLocalState(saved: SavedSession): void {
 	// not part of the saved state. Unscoped means the hook stops gating who may lead, which is
 	// the honest cost of a reload; a room change keeps module state and never hits this.
 	if (hasOwnEffect("Leash")) applyFollow(null);
-	if (saved.pose) setSuggestedPose(saved.pose);
+	if (saved.pose) restoreSuggestedPose(saved.pose);
 	// The illusion comes back as the ORIGINAL frozen clothes, rebuilt from their stored
 	// identities. Re-freezing instead would snapshot whatever is worn at this moment — the
 	// truth — which is the same trap carry.ts documents for waking, and would quietly turn
