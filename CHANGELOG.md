@@ -12,6 +12,16 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.83.1 · 23 September 2026
+
+- **"You cannot cum" works now.** Being told you could not cum was accepted, but the game did not
+  hear it, so a vibrator or a touch could still finish you. It now holds from the moment it is said
+  until you are given permission, the trance ends, or you use the safeword.
+- **More ways to say it.** "You must not cum", "you are not permitted to cum", "you're forbidden
+  from cumming" and "don't you dare cum" all work now.
+- **"You cannot cum until I allow you to" denies.** A line like that used to be read as permission,
+  because it contains the words "allow you to cum". It now reads as the denial it is.
+
 ## v0.82.3 · 22 September 2026
 
 - **Double brackets count as out of character now.** Typing `((brb))` while you were silenced got

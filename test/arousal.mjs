@@ -49,6 +49,21 @@ const CASES = [
 	["You are forbidden to come.", "orgasm-deny"],
 	["You will not be able to climax.", "orgasm-deny"],
 	["You have forgotten how to come.", "orgasm-deny"],
+	// v0.83.1: ordinary ways to say it that used to match nothing at all
+	["Missy, you must not cum.", "orgasm-deny"],
+	["Missy, you mustn't cum.", "orgasm-deny"],
+	["You are not to come.", "orgasm-deny"],
+	["You are not permitted to orgasm.", "orgasm-deny"],
+	["You're forbidden from cumming.", "orgasm-deny"],
+	["Don't you dare cum.", "orgasm-deny"],
+	["Don't dare come.", "orgasm-deny"],
+	// A denial that names its own end contains an allow phrase. It must still deny.
+	["Missy, you cannot cum until I allow you to cum.", "orgasm-deny"],
+	["You cannot come until I say you may come now.", "orgasm-deny"],
+	["You will not come unless I tell you that you are allowed to come.", "orgasm-deny"],
+	// ...and a plain permission is not caught by that veto.
+	["You may cum now, you do not have to wait until I count.", "orgasm-allow"],
+	["You are allowed to come now.", "orgasm-allow"],
 	["Missy, come for me.", "orgasm-force"],
 	["cum for me", "orgasm-force"],
 	["Come now.", "orgasm-force"],

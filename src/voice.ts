@@ -81,6 +81,7 @@ function normalize(text: string): string {
 		.replace(/\bcan not\b/g, "cannot")
 		.replace(/\bdon'?t\b/g, "do not")
 		.replace(/\bwon'?t\b/g, "will not")
+		.replace(/\bmustn'?t\b/g, "must not")
 		.replace(/\bdoesn'?t\b/g, "does not")
 		.replace(/\bisn'?t\b/g, "is not")
 		.replace(/\baren'?t\b/g, "are not")
@@ -185,6 +186,11 @@ interface Suggestion {
 function applyArousal(level: ArousalLevel): FlavorKey | void {
 	if (!setArousalLevel(level)) return "arousal-unavailable";
 }
+
+/** "You cannot cum until I allow you to cum": a negated orgasm, then a condition naming when it
+ * ends. Vetoes orgasm-allow, whose phrases turn up inside that condition. */
+const ORGASM_DENIED_UNTIL =
+	/\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
 
 /** A line about NOTICING being undressed is an awareness suggestion, not an order to undress.
  *
@@ -435,6 +441,11 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byour orgasm is (?:allowed|yours)\b/,
 			/\byou are no longer denied\b/,
 		],
+		// A denial that names its own end — "you cannot cum until I allow you to cum" — holds a
+		// permission phrase inside its condition. Listed first, allow read that half and LIFTED
+		// the denial the line was laying down. A negated orgasm before an until/unless clause is
+		// a denial, so the line carries on down to orgasm-deny.
+		unless: [ORGASM_DENIED_UNTIL],
 		run: () => setOrgasmDenied(false),
 	},
 	{
@@ -443,8 +454,10 @@ const SUGGESTIONS: Suggestion[] = [
 		displayExamples: ["you cannot come/cum", "you are forbidden to come"],
 		permission: "arousalControl",
 		patterns: [
-			/\byou (?:cannot|will not|may not) (?:come|cum|orgasm|climax|finish)\b/,
-			/\byou are (?:not allowed|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou (?:cannot|will not|may not|must not|are not to) (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou are (?:not allowed|not permitted|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+			/\byou are (?:forbidden|not allowed|not permitted) from (?:coming|cumming|orgasming|climaxing|finishing)\b/,
+			/\b(?:do not|you will not) (?:you )?dare (?:to )?(?:come|cum|orgasm|climax|finish)\b/,
 			/\byou will (?:not be able|be unable) to (?:come|cum|orgasm|climax|finish)\b/,
 			/\byou have forgotten how to (?:come|cum|orgasm|climax)\b/,
 			/\byour orgasm is denied\b/,

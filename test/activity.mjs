@@ -154,6 +154,31 @@ check("a real chastity item is NOT overridden — no orgasm", orgasmStarts.lengt
 check("  and the hypnotist is told it did not land", /did not land/.test(lastSuggestionReport()), true);
 realItemEffects = []; emoticon.Property.Effect = []; CharacterLoadEffect(Player);
 
+// --- spoken denial reaches BC on its own (v0.83.1) --------------------------------------------
+// "You cannot cum" wrote DenialMode onto our carrier and never rebuilt BC's cached Player.Effect,
+// which is what ActivityOrgasmPrepare reads when a vibrator or an activity reaches 100. So the
+// denial was reported as landed and BC let the orgasm through anyway. Nothing here calls
+// CharacterLoadEffect by hand: the suggestion alone has to put it where BC looks. On the old
+// code each "cache" check below reads the opposite value and the natural orgasm arms its timer.
+reset();
+Player.ArousalSettings.OrgasmTimer = 0;
+say("Missy, you cannot cum.");
+check("spoken denial is stored on our carrier", emoticon.Property.Effect.includes("DenialMode"), true);
+check("  and BC's cached effects see it, with no other refresh", Player.Effect.includes("DenialMode"), true);
+ActivityOrgasmPrepare(Player); // what BC itself calls when arousal reaches 100
+check("  so an orgasm BC starts on its own is refused", Player.ArousalSettings.OrgasmTimer, 0);
+say("Missy, you may cum now.");
+check("allowing clears it from BC's cache too", Player.Effect.includes("DenialMode"), false);
+ActivityOrgasmPrepare(Player);
+check("  and BC's own orgasm can land again", Player.ArousalSettings.OrgasmTimer > 0, true);
+Player.ArousalSettings.OrgasmTimer = 0;
+// A denial that names its own end holds an allow phrase in its condition; it used to LIFT denial.
+say("Missy, you cannot cum until I allow you to cum.");
+check("a denial naming its own end still denies", Player.Effect.includes("DenialMode"), true);
+session.safeword();
+check("the safeword clears denial from BC's cache", Player.Effect.includes("DenialMode"), false);
+session.forceTrance(HYP, 80, 80);
+
 // --- depth gate: too shallow refuses --------------------------------------------------------
 reset();
 session.safeword();
