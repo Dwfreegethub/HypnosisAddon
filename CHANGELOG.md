@@ -18,6 +18,8 @@ report it and say which version your chat line shows.
   but touching yourself still got you there. ECHS now stops it itself, whatever tries to finish you,
   and keeps you right at the edge. You and the room are told when it holds you back.
 - A direct order to cum still works while you are denied, the same as before.
+- **Update, same day:** in testing, being told you cannot cum still did not always stop an orgasm.
+  This is not fixed yet and is on the list to come back to.
 
 ---
 
