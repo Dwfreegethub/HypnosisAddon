@@ -20,6 +20,39 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-23 (v0.83.1) — spoken orgasm denial did not stop orgasms
+
+DW's tracker: *"Spoken orgasm denial suggestions fail to hook and prevent orgasm events."* DW
+expected it already worked, and the pieces were all there (v0.27.0): a pattern entry, BC's own
+`DenialMode` on the Emoticon carrier, release on every exit. Two faults between them.
+
+**1. BC never looked where we wrote.** BC asks "is this player denied" of the cached
+`Player.Effect` array, which `CharacterLoadEffect` rebuilds from appearance. `applyEffect()` wrote
+`Property.Effect` and called `ChatRoomCharacterUpdate`, which only sends the appearance to the room.
+So denial sat on the carrier, the hypnotist was told it landed, and an orgasm BC started on its own
+went straight through until some unrelated refresh (a dialog, a clothing change) rebuilt the cache.
+v0.74.0 found exactly this for the forced-orgasm pierce, and fixed it only in `applyForcedOrgasm()`.
+**Fix:** `applyEffect()` and `removeEffect()` rebuild the player's cache every time. The explicit
+calls in `voice.ts` are now redundant and harmless, and were left alone. Side effect, intended: our
+Freeze, BlockWardrobe and Leash also take hold the moment they are set, and the `HasEffect("Freeze")
+&& !hasOwnEffect("Freeze")` "real restraint" test can no longer read a stale Freeze of ours as
+someone else's.
+
+**2. The words.** Seven ordinary phrasings matched nothing (*must not*, *mustn't*, *are not to*, *not
+permitted to*, *forbidden from cumming*, *don't you dare*, *don't dare*). Worse, a denial that names
+its own end — *"you cannot cum until I allow you to cum"*, *"…until I say you may come now"* —
+matched `orgasm-allow`, which is listed first, and **lifted** denial. `orgasm-allow` now carries an
+`unless` veto (`ORGASM_DENIED_UNTIL`): a negated orgasm followed by *until/unless/till/before*.
+`normalize()` expands *mustn't*.
+
+**Unchanged by design:** "cum for me" still pierces our denial and puts it back (DW, 2026-09-12),
+and every trance ending lifts it (`endSession`, safeword).
+
+**Checked:** `test/activity.mjs` +7, `test/arousal.mjs` +12; 3 and 10 of them fail on v0.82.3. The
+activity checks call no `CharacterLoadEffect` by hand. **Unverified:** BC source is unreachable from
+the workspace, so that `ActivityOrgasmPrepare` reads the cache rests on the v0.74.0 note and
+`DEVELOPMENT.md`. `design.md` Known Bug #10, *Needs Testing* item 14.
+
 ### Changed 2026-09-23 (v0.83.0) — the install becomes a loader; the add-on comes from jsDelivr
 
 DW's tracker item "jsDelivr CDN loader", group D (distribution). DW picked the recommended option on

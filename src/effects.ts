@@ -194,10 +194,25 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 	if (!item.Property.Effect.includes(effectName)) {
 		item.Property.Effect.push(effectName);
 	}
-	if (character === Player && ServerPlayerIsInChatRoom()) {
-		ChatRoomCharacterUpdate(Player);
+	if (character === Player) {
+		refreshOwnEffects();
+		if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
 	}
 	return true;
+}
+
+/** Rebuild BC's cached effect list for the player from their appearance.
+ *
+ * BC does not read Property.Effect when it asks "is this player denied / frozen": it reads the
+ * cached Player.Effect array (HasEffect, and ActivityOrgasmPrepare's DenialMode check), and only
+ * CharacterLoadEffect rebuilds that. ChatRoomCharacterUpdate sends the appearance to the room
+ * and does not touch the cache. So an effect written onto the Emoticon carrier did nothing on
+ * the player's own client until something unrelated happened to refresh the character: "you
+ * cannot cum" was stored, shown to the hypnotist as landed, and BC let the orgasm through. The
+ * forced-orgasm path found this in v0.74.0 and rebuilt the cache itself; this makes every apply
+ * and remove do it, so no caller can forget. */
+function refreshOwnEffects(): void {
+	if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
 }
 
 /** Is this effect one WE put on, as opposed to a real item doing the same thing? Reads our
@@ -215,8 +230,9 @@ export function removeEffect(effectName: string, character: any = Player): boole
 	const idx = effects.indexOf(effectName);
 	if (idx === -1) return false;
 	effects.splice(idx, 1);
-	if (character === Player && ServerPlayerIsInChatRoom()) {
-		ChatRoomCharacterUpdate(Player);
+	if (character === Player) {
+		refreshOwnEffects();
+		if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
 	}
 	return true;
 }

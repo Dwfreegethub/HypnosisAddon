@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.83.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.83.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -839,10 +839,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!item.Property.Effect.includes(effectName)) {
       item.Property.Effect.push(effectName);
     }
-    if (character === Player && ServerPlayerIsInChatRoom()) {
-      ChatRoomCharacterUpdate(Player);
+    if (character === Player) {
+      refreshOwnEffects();
+      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
     }
     return true;
+  }
+  function refreshOwnEffects() {
+    if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
   }
   function hasOwnEffect(effectName) {
     return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
@@ -854,8 +858,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const idx = effects.indexOf(effectName);
     if (idx === -1) return false;
     effects.splice(idx, 1);
-    if (character === Player && ServerPlayerIsInChatRoom()) {
-      ChatRoomCharacterUpdate(Player);
+    if (character === Player) {
+      refreshOwnEffects();
+      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
     }
     return true;
   }
@@ -1699,7 +1704,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.83.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.83.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1720,7 +1725,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.83.0"} loaded`;
+    el.textContent = `ECHS v${"0.83.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -4321,7 +4326,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/voice.ts
   function normalize(text) {
-    return text.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\bcan'?t\b/g, "cannot").replace(/\bcan not\b/g, "cannot").replace(/\bdon'?t\b/g, "do not").replace(/\bwon'?t\b/g, "will not").replace(/\bdoesn'?t\b/g, "does not").replace(/\bisn'?t\b/g, "is not").replace(/\baren'?t\b/g, "are not").replace(/\byou'?re\b/g, "you are").replace(/\byou'?ve\b/g, "you have").replace(/\bur\b/g, "your").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+    return text.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\bcan'?t\b/g, "cannot").replace(/\bcan not\b/g, "cannot").replace(/\bdon'?t\b/g, "do not").replace(/\bwon'?t\b/g, "will not").replace(/\bmustn'?t\b/g, "must not").replace(/\bdoesn'?t\b/g, "does not").replace(/\bisn'?t\b/g, "is not").replace(/\baren'?t\b/g, "are not").replace(/\byou'?re\b/g, "you are").replace(/\byou'?ve\b/g, "you have").replace(/\bur\b/g, "your").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
   }
   function stripOOC(content) {
     const text = String(content ?? "");
@@ -4343,6 +4348,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function applyArousal(level) {
     if (!setArousalLevel(level)) return "arousal-unavailable";
   }
+  var ORGASM_DENIED_UNTIL = /\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
   var UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
   function applyUndress(count) {
     const liftedOwnFreeze = hasOwnEffect("Freeze");
@@ -4491,6 +4497,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\byour orgasm is (?:allowed|yours)\b/,
         /\byou are no longer denied\b/
       ],
+      // A denial that names its own end — "you cannot cum until I allow you to cum" — holds a
+      // permission phrase inside its condition. Listed first, allow read that half and LIFTED
+      // the denial the line was laying down. A negated orgasm before an until/unless clause is
+      // a denial, so the line carries on down to orgasm-deny.
+      unless: [ORGASM_DENIED_UNTIL],
       run: () => setOrgasmDenied(false)
     },
     {
@@ -4499,8 +4510,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       displayExamples: ["you cannot come/cum", "you are forbidden to come"],
       permission: "arousalControl",
       patterns: [
-        /\byou (?:cannot|will not|may not) (?:come|cum|orgasm|climax|finish)\b/,
-        /\byou are (?:not allowed|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+        /\byou (?:cannot|will not|may not|must not|are not to) (?:come|cum|orgasm|climax|finish)\b/,
+        /\byou are (?:not allowed|not permitted|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+        /\byou are (?:forbidden|not allowed|not permitted) from (?:coming|cumming|orgasming|climaxing|finishing)\b/,
+        /\b(?:do not|you will not) (?:you )?dare (?:to )?(?:come|cum|orgasm|climax|finish)\b/,
         /\byou will (?:not be able|be unable) to (?:come|cum|orgasm|climax|finish)\b/,
         /\byou have forgotten how to (?:come|cum|orgasm|climax)\b/,
         /\byour orgasm is denied\b/,
@@ -7379,7 +7392,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.83.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.83.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8844,14 +8857,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.83.0"})`);
+  info(`script loaded (v${"0.83.1"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.83.0",
+      version: "0.83.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
