@@ -7,3 +7,4 @@ src/secrets.ts
 test/voice-bundle.mjs
 test/harness-bundle.mjs
 test/arousal-bundle.mjs
+test/loader-bundle.mjs

@@ -12,6 +12,16 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.83.0 · 23 September 2026
+
+- **Updates reach you faster.** ECHS now loads its newest version each time you open the game,
+  instead of waiting for your userscript manager to check for updates. You don't need to do anything:
+  your manager moves you over on its own, and your settings stay as they are.
+- **If ECHS can't load, it tells you.** A red note appears in the bottom-right corner. Refreshing the
+  page usually fixes it.
+
+---
+
 ## v0.82.3 · 22 September 2026
 
 - **Double brackets count as out of character now.** Typing `((brb))` while you were silenced got

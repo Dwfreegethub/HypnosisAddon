@@ -14,6 +14,9 @@
 
 If so, the script is running properly — **it simply starts completely turned off**. Every permission begins disabled by default, including the master switch. Click the spiral icon on your player profile card (or go to **Preferences → Extensions → ECHS Hypnosis**) and run the Setup Wizard. See [Getting Started](Getting-Started). *(This notice appears only on a fresh install, so returning players will not see it on every login).*
 
+**If a red note in the bottom-right corner says ECHS could not load:**  
+Since v0.83.0 ECHS downloads its newest version each time the game opens, and this time it could not reach either place it downloads from. Refresh the page. If the note keeps coming back, report it and say which Bondage Club address you play on.
+
 **If there is no spiral icon on your player profile card and nothing in the browser console:**  
 The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting.
 

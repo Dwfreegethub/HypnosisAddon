@@ -8,6 +8,10 @@
 // version line above; downloadURL is what it pulls when the root file is newer than installed.
 // Both point at the same raw-on-main URL the README installs from, so every release that updates
 // the committed root build reaches installed testers automatically — no reinstall.
+// Since v0.83.0 that root file is the small loader, which fetches the add-on itself from jsDelivr
+// on every page load (src/loader.ts). This header is shared by the loader and the local dev build.
+// The two update URLs must never change: installs from before the loader find it only because it
+// sits at the address they already check.
 //
 // TWO THINGS NO COMMENT LINE IN THIS BLOCK MAY DO, both of which this block once did.
 // Every line of the block is fed to the userscript manager's metadata parser, so prose here is
