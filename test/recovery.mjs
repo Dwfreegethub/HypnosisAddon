@@ -32,7 +32,7 @@ globalThis.ChatRoomSendLocal = (m) => said.push(m);
 globalThis.ChatRoomCharacterUpdate = () => {};
 // Behaves like BC's: it actually writes the pose onto the character. A no-op stub here made
 // the pose test pass vacuously in the wrong direction.
-globalThis.CharacterSetActivePose = (C, pose) => { C.ActivePose = pose; };
+globalThis.CharacterSetActivePose = (C, pose) => { C.ActivePose = pose === null ? [] : [pose]; };
 globalThis.CharacterLoadSimple = () => ({ Appearance: [], IsPlayer: () => false });
 globalThis.CharacterRefresh = () => {};
 const KNOWN = new Set(["Cloth/Dress", "Bra/Lace"]);
@@ -193,7 +193,15 @@ check("  and the wardrobe block", effects.hasOwnEffect("BlockWardrobe"), true);
 clearAll();
 saveTrance(20_000, { pose: "Kneel" });
 recovery.attemptRecovery();
-check("the suggested pose is restored", effects.suggestedPose(), "Kneel");
+check("the suggested pose is restored", effects.suggestedPose(), ["Kneel"]);
+check("  and is on the character", Player.ActivePose, ["Kneel"]);
+effects.clearSuggestedPose();
+// Saves from v0.85.0 on hold a list.
+clearAll();
+saveTrance(20_000, { pose: ["Kneel"] });
+recovery.attemptRecovery();
+check("a list-shaped saved pose is restored", effects.suggestedPose(), ["Kneel"]);
+effects.clearSuggestedPose();
 
 // --- carried suggestions come back with the time they had LEFT -------------------------------
 clearAll();

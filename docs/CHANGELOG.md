@@ -20,6 +20,50 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-23 (v0.85.0) — the pose library
+
+DW's brief of 2026-09-23: the whole BC stance and arm catalogue, not only kneel and stand. Five leg
+poses (kneel spread, legs spread, legs closed, all fours, lie down) and five arm poses (hands behind
+the back, arms behind the back, elbows behind, arms up, arms out), plus *"relax your arms"* to clear
+the arms. The phrases are in the What to Say tab and the wiki.
+
+**The names are BC's real ones, from DW's reference** (`docs/bc-pose-reference.md`, verified against
+upstream `Typedef.d.ts`). The brief's own list was wrong in six places: `HandsBehindBack`, `OverHead`
+and `Yoke` are `BackCuffs`, `OverTheHead` and `Yoked`; `Sit`, `CrossedArms` and `Surrender` do not
+exist. So *"sit"* and *"cross your arms"* are not offered at all (sitting in BC is furniture), and
+*"surrender"* raises the arms over the head, the closest pose. `AllFours` and `Hogtied` are BodyFull,
+so they displace an arm pose; that is expected and not logged as a loss.
+
+**DW's calls, 2026-09-23:** one tick for all of it, renamed **Posture Control** on the Depth tab
+(it was "Posture (kneel / stand)"), at the same Yielding default; self only, not aimed at other
+people; keep *"relax your arms"* and *"surrender"* despite both being ordinary induction patter, with
+the clash noted in the wiki rather than guarded in code.
+
+**Two groups.** BC keeps legs and arms in the one `ActivePose` array. The brief's mutually exclusive
+buckets are kept: `POSE_GROUPS` in `effects.ts`, and `setSuggestedPose(pose, group)` changes one
+group and leaves the other. **This changes "stand":** it used to reset the whole pose, arms
+included, and now clears the legs only. Setting a pose goes through BC's own
+`CharacterSetActivePose` and the pose-only `ChatRoomCharacterPoseUpdate`, as kneel always did. The
+brief's sample called `ChatRoomCharacterUpdate`, which resends the whole appearance to set a pose;
+not used.
+
+**Rule 5, and a fix to kneel.** Before this, a kneel that bondage prevented was still announced as
+done. Every pose is now read back off `ActivePose` after it is set; one that did not take reports
+`pose-blocked` to the hypnotist and has the room see her try and fail. This stands in for the brief's
+`CanKneel()` pre-check, and needs no knowledge of which BC call refuses.
+
+**Teardown undoes only ours, per group.** A session ending clears a group only while the pose in it
+is still the one a suggestion set, so a pose she chose herself, or changed into since, stays. A
+trigger's undo takes back only its own pose (`clearSuggestedPose(group, pose)`), so undoing a kneel
+trigger does not also stand up a *"spread your legs"* said afterwards. The reconnect save is now a list of our
+poses; a single string from an older save still restores. `stand` and `arms-relax` release every
+pose in their group, so the carrier can let go of any carried leg pose with *"stand"*.
+
+**Not verified: BC's per-category behaviour.** The setter's body was not read, so that setting one
+category leaves the other alone is inferred from the categories, not seen. Nor which poses are
+`AllowMenuTransient` (item-only); `Hogtied` is the likeliest. Either shows up honestly as
+`pose-blocked` rather than a false announce. *Needs Testing* item 17. `test/poses.mjs`, 81 checks.
+
 ### Fixed 2026-09-23 (v0.84.3) — Import got round the settings lock
 
 "Lock settings while a session is on you" greyed and refused every checkbox and the attempt limit,

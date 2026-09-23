@@ -20,7 +20,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Hypnosis Enabled** | The master toggle and absolute floor. Disabling this shuts down the add-on, immediately breaks active trances, and purges all effects (identical to the safeword). Re-enabling it later restores your toggles without reapplying old effects. |
 | **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*). |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
-| **Posture Control** | Allows kneeling and standing suggestions. |
+| **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the hypnotist's side across room transitions using Bondage Club's native leash system. Requires your native BC leashing permissions to be enabled. |
 | **Speech Restriction** | Allows verbal muting (*"you cannot speak"*). Affects standard room chat only; slash commands always bypass speech locks. |
 | **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |

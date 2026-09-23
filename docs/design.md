@@ -4356,9 +4356,37 @@ the Data tab). Send the raw chat transcript back.
 3. **Nobody else sees it.** Have a second character in the room for step 1. *Expect:* they see
    nothing from it.
 
+### 17. The pose library (v0.85.0) — **open, never run live**
+
+Every pose rides **Posture Control**. Two characters, a trance at Yielding or deeper. Send the raw
+chat transcript back. The names are BC's own, from `docs/bc-pose-reference.md` (DW, verified
+against upstream `Typedef.d.ts`); what this run checks is how BC behaves when they are set.
+
+1. **Legs and arms together.** *"Missy, kneel."* then *"Missy, hands behind your back."* *Expect:*
+   kneeling with hands behind. *Failure looks like:* standing with hands behind, which means BC's
+   setter replaces the whole pose rather than one category; the console also logs
+   `pose: setting ... also lost`.
+2. **Stand keeps the arms.** *"Missy, stand."* *Expect:* upright, hands still behind. Then
+   *"Missy, relax your arms."* *Expect:* arms at the sides.
+3. **Every other pose.** One line each from the What to Say list. *Expect:* the pose, and the room
+   line that matches it. *Failure looks like:* *"...tries to obey, but {their} body will not go
+   there"* with no bondage on, which means BC will not allow that pose unaided (item-only,
+   `AllowMenuTransient`). Hogtied, behind *"lie down"*, is the likeliest.
+4. **Whole-body poses.** *"Missy, hands behind your back."* then *"Missy, on all fours."*
+   *Expect:* on all fours, arms no longer behind. That is BC's BodyFull category and is expected.
+5. **Bondage refuses.** Put the subject in leg restraints that stop kneeling, then *"Missy,
+   kneel."* *Expect:* no kneel, the room hears her try, and the hypnotist's chat says it matched
+   but did not land. *Failure looks like:* the kneel line with no kneel, which is what every
+   version before v0.85.0 did.
+6. **Her own pose survives waking.** Have the hypnotist say *"Missy, kneel."*, then the subject
+   raises her arms from BC's own pose menu. Wake her. *Expect:* standing, arms still raised.
+7. **Patter.** *"Missy, surrender to my voice."* *Expect:* her arms go up over her head. That
+   clash is deliberate (DW, 2026-09-23) and noted in the wiki. *"Missy, sit."* *Expect:* nothing,
+   since BC has no sitting pose.
+
 ---
 
-**Nine of seventeen topics confirmed; eight open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of eighteen topics confirmed; nine open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

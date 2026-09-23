@@ -21,6 +21,20 @@ export type FlavorKey =
 	| "clothing-release"
 	| "kneel"
 	| "stand"
+	// The rest of the pose catalogue (v0.85.0). Each is a suggestion id as well.
+	| "kneel-spread"
+	| "legs-spread"
+	| "legs-closed"
+	| "all-fours"
+	| "lie-down"
+	| "hands-behind"
+	| "arms-behind"
+	| "elbows-behind"
+	| "arms-up"
+	| "arms-out"
+	| "arms-relax"
+	/** A pose matched and was permitted, and BC did not take it — bondage, most likely. */
+	| "pose-blocked"
 	| "speech-block"
 	| "speech-release"
 	/** Shown each time a silenced player actually tries to say something. */
@@ -107,6 +121,20 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"follow-release": ["{name} steps back, {their} own distance to keep again."],
 	kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
 	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
+	// Every pose is as visible as kneeling, so each gets a room line. The body moves first and
+	// the face stays soft, the same register as kneel.
+	"kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
+	"legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
+	"legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
+	"all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
+	"lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
+	"hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
+	"arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
+	"elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
+	"arms-up": ["{name}'s arms rise over {their} head and stay there."],
+	"arms-out": ["{name}'s arms lift out to either side and hold there, level."],
+	"arms-relax": ["{name}'s arms drift down to {their} sides."],
+	"pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
 	// INTO one is observable, which is why the attempt keys carry the public lines and the
 	// apply keys mostly do not. Movement and posture are the exceptions: going still and
@@ -200,6 +228,18 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Something lifts you back onto your feet.",
 		"You are standing again. The floor lets you go.",
 	],
+	"kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
+	"legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
+	"legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
+	"all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
+	"lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
+	"hands-behind": ["Your hands find each other behind your back and stay clasped there."],
+	"arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
+	"elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
+	"arms-up": ["Your arms rise over your head and stay there, light and obedient."],
+	"arms-out": ["Your arms lift out to either side and hold, level and steady."],
+	"arms-relax": ["Your arms drift back down to your sides. They are yours again."],
+	"pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
 	"speech-block": [
 		"You go to answer and find there is nothing to answer with.",
 		"The words are there. The way out of your mouth is not.",

@@ -216,7 +216,7 @@ export interface FeatureToggles {
 	 * with nothing in the settings admitting to it. Suppression is getting its own explicit
 	 * toggles; this is now just the wardrobe block. */
 	clothingRestriction: boolean;
-	/** Posture suggestions (kneel / stand). Separate from movementRestriction because
+	/** Posture suggestions: every leg and arm pose (kneel, stand, sit, hands behind back...). Separate from movementRestriction because
 	 * being posed and being unable to move are quite different things to consent to. */
 	postureControl: boolean;
 	/** Follow / leash: a compulsion to trail the hypnotist, including across room changes.
