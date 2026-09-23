@@ -82,3 +82,14 @@ await esbuild.build({
 	define: DEFINE,
 	plugins: [pinTestingMode],
 });
+
+// The install loader on its own (test/loader.mjs). It must not pull in anything else from src/,
+// and bundling it alone is also what would show it if it ever started to.
+await esbuild.build({
+	entryPoints: ["src/loader.ts"],
+	bundle: true,
+	format: "esm",
+	outfile: "test/loader-bundle.mjs",
+	logLevel: "error",
+	define: DEFINE,
+});
