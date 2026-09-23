@@ -49,7 +49,7 @@ Permissions are configured **per feature**:
 ### Adjusting Permissions & Mid-Trance Locks
 Outside of trance, unticking a permission immediately drops whatever effect was active and disarms that part of any planted trigger you have saved.
 
-*Note on Trance Locks:* If you enable the option to lock your settings during a trance, your permissions menu is locked down while you are under to keep you in character. However, your emergency exits remain completely untouched—no setting lock can ever touch your safeword.
+*Note on Trance Locks:* If you enable the option to lock your settings during a trance, your permissions menu is locked down while you are under to keep you in character. Importing a settings backup is locked too, from the Import button and from `/echs import` alike, since it would replace every permission at once. However, your emergency exits remain completely untouched—no setting lock can ever touch your safeword.
 
 ---
 

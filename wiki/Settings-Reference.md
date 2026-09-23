@@ -116,7 +116,7 @@ Alternatively, you can complete a short 5-question questionnaire to configure pe
 ## 8. Data & Backup
 
 * `/echs export` (or `/hypno export`): Generates an encoded text backup of all current settings, thresholds, and trust records.
-* `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string.
+* `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.
 * `/echs reset confirm` (or `/hypno reset confirm`): Restores the add-on to factory defaults. If an active trance is running, it breaks the trance first before wiping storage.
 
 Settings are saved in Bondage Club's account extension storage with a local fallback keyed to your member number.

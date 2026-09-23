@@ -46,7 +46,7 @@ import {
 	getSessionView,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
-import { openHelpScreen, EXTENSION_BUTTON_TEXT } from "./menu";
+import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -612,6 +612,12 @@ const COMMANDS: HypnoCommand[] = [
 		args: "<blob>",
 		Description: "Replace all settings with a previously exported blob",
 		Action: (args: string) => {
+			// The same lock as the Data tab's Import button. Without it this is the way round the
+			// lock, and the button's own clipboard-failure line points straight at it.
+			if (settingsLocked()) {
+				reply(IMPORT_LOCKED_MESSAGE);
+				return;
+			}
 			const result = importSettings(args);
 			reply(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
 		},

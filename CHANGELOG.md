@@ -12,6 +12,15 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.84.2 · 23 September 2026
+
+- **Locking your settings now locks Import too.** If you ticked "Lock settings while a session is
+  on you", pasting a saved backup could still replace every permission in the middle of a session.
+  The Import button is now greyed out while the lock holds, and the typed import command refuses
+  and says why. Export and Reset still work, and the safeword is untouched.
+
+---
+
 ## v0.84.1 · 23 September 2026
 
 - **"You cannot cum" holds more reliably.** If you were already about to climax when the denial
