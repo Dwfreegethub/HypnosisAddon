@@ -20,6 +20,53 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-23 (v0.84.1) — two ways an orgasm still got past spoken denial
+
+A code review against BC's live `Timer.js` and `Activity.js` (read 2026-09-23), with LSCG, BCX and
+WCE's orgasm handling alongside, found two routes past v0.83.2's hooks. Neither needs any luck, and
+together they explain the "still not working" report without a mod bypassing us. BC's own denial
+has no random element: with DenialMode present, `ActivityOrgasmPrepare` pins Progress at 99 and
+returns every time. So the target is zero leaks, not fewer.
+
+**1. A swallowed orgasm stayed queued.** Timer.js calls `ActivityOrgasmStart` once `OrgasmTimer`
+runs out while `OrgasmStage <= 1`. v0.83.2 swallowed that Start but left the timer set. BC retried
+Start every second, the chat room kept drawing the orgasm overlay (it draws whenever
+`OrgasmTimer > 0`), and **the first tick after our denial lifted gave her a full orgasm**. That
+could be waking, "you may cum now" or the session ending. The way in is a denial landing inside
+BC's 5-second window after Prepare, which is exactly the moment a hypnotist would say it. **Fix:**
+a hold now cancels any pending orgasm (stage 0 window or stage 1 resist game) as
+`ActivityOrgasmStop` does, setting timer and stage to 0, but without its arousal drop, and keeps
+her at 99. It syncs the room only when it actually cancelled something. An orgasm already
+**happening** (stage 2) is left alone, since one only gets there while our denial was off (a
+commanded "cum for me").
+
+LSCG's `DeniedState` closes the same gap differently: it hooks Start at priority 100 and forces
+`ActivityOrgasmRuined`, so BC's own ruined branch clears the state. DW chose holding at the edge
+over a ruined orgasm and its drop to 65-85. Technique reference only (rule 7).
+
+**2. The carrier was the only record.** The hook read `hasOwnEffect("DenialMode")` and nothing
+else. Anything that rebuilt the Emoticon item removed the denial silently: an outfit load, or
+another mod restoring appearance. The hook then stood aside. **Fix:** `arousal.ts` keeps an
+in-memory flag, set by `setOrgasmDenied` and cleared by `clearOrgasmDenial`, which every release
+path already goes through. The hook trusts the flag, and puts the carrier back (with a warning) if
+it finds it gone, so BC's own 99 pin and the room agree again. The forced-orgasm pierce in
+`voice.ts` now lifts and restores through `setOrgasmDenied` too. A bare `removeEffect` there
+would have left the flag up and blocked the very orgasm being commanded. After a page reload the
+flag starts false, and `orgasmDeniedByUs()` still honours a carrier that a restored session left
+denied.
+
+**Not changed, flagged for DW:** denial still ends with the trance. `clearOrgasmDenial()` runs on
+every session exit unless the suggestion is carried forward. Before fix 1 a queued orgasm fired
+the moment she woke, which made this look like a leak. Whether denial should outlast waking is a
+design decision. **Also noted:** with WCE's alternate arousal on, its private meter
+(`BCEArousalProgress`) is written over Progress on every tick, so a held subject sits effectively
+at 100 and finishes the instant denial lifts. That is expected, not a leak.
+
+**Checked:** `test/denial.mjs` grows from 20 to 34 checks. With fix 1 disabled, 4 of the new
+checks fail. With fix 2 disabled (the hook reading the carrier alone), 3 fail. The `loader` suite
+fails 3 checks on a Windows checkout only: `core.autocrlf` gives `meta.txt` CRLF endings, which
+the header parser splits on `\n`. That predates this change.
+
 ### Added 2026-09-23 (v0.84.0) — commanded activities aimed at someone else
 
 DW's ask, 2026-09-23: *"Missy Kiss Rei"* (lips assumed), *"Missy Kiss Rei's Nipples"*, *"Missy

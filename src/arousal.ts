@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, removeEffect } from "./effects";
+import { applyEffect, hasOwnEffect, removeEffect } from "./effects";
 
 // Arousal and orgasm control.
 //
@@ -110,6 +110,7 @@ export function forceOrgasm(): OrgasmResult {
  * removeEffect only touches OUR injected Emoticon entry, so releasing this can never strip
  * denial off a real chastity item the player is actually wearing. */
 export function setOrgasmDenied(denied: boolean): void {
+	deniedByUs = denied;
 	if (denied) applyEffect("DenialMode");
 	else removeEffect("DenialMode");
 	log(`orgasm denial ${denied ? "applied" : "released"}`);
@@ -119,5 +120,24 @@ export function setOrgasmDenied(denied: boolean): void {
  * leave someone locked with no one around to unlock them. Arousal LEVEL is deliberately
  * left alone: it's a value the player carries, not an effect we applied. */
 export function clearOrgasmDenial(): void {
+	deniedByUs = false;
 	removeEffect("DenialMode");
+}
+
+/** Our denial, held in memory as well as on the carrier. The carrier alone was the only record
+ * until v0.84.1, so anything that rebuilt the Emoticon item (an outfit load, another mod
+ * restoring appearance) took the denial with it without a word, and denial.ts's hook stood
+ * aside. The flag is what the hook trusts; the carrier is still what BC and the room read, and
+ * denial.ts puts it back if it goes missing. */
+let deniedByUs = false;
+
+/** Is OUR denial on? The flag, or the carrier on its own: after a page reload the flag starts
+ * false while a restored session's carrier still says denied, and that must keep holding. */
+export function orgasmDeniedByUs(): boolean {
+	return deniedByUs || hasOwnEffect("DenialMode");
+}
+
+/** Is our denial recorded in memory but missing from the carrier? denial.ts re-applies it. */
+export function denialCarrierLost(): boolean {
+	return deniedByUs && !hasOwnEffect("DenialMode");
 }

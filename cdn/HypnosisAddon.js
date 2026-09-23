@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.84.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.84.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1710,7 +1710,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.84.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.84.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1731,7 +1731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.84.0"} loaded`;
+    el.textContent = `ECHS v${"0.84.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -1940,12 +1940,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return "orgasm";
   }
   function setOrgasmDenied(denied) {
+    deniedByUs = denied;
     if (denied) applyEffect("DenialMode");
     else removeEffect("DenialMode");
     log(`orgasm denial ${denied ? "applied" : "released"}`);
   }
   function clearOrgasmDenial() {
+    deniedByUs = false;
     removeEffect("DenialMode");
+  }
+  var deniedByUs = false;
+  function orgasmDeniedByUs() {
+    return deniedByUs || hasOwnEffect("DenialMode");
+  }
+  function denialCarrierLost() {
+    return deniedByUs && !hasOwnEffect("DenialMode");
   }
 
   // src/follow.ts
@@ -4378,20 +4387,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   }
   function applyForcedOrgasm() {
-    const liftedOwnDenial = hasOwnEffect("DenialMode");
-    if (liftedOwnDenial) {
-      removeEffect("DenialMode");
-      if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
-    }
+    const liftedOwnDenial = orgasmDeniedByUs();
+    if (liftedOwnDenial) setOrgasmDenied(false);
     try {
       const result = forceOrgasm();
       if (result === "unavailable") return "arousal-unavailable";
       if (result === "denied") return "orgasm-refused";
     } finally {
-      if (liftedOwnDenial) {
-        applyEffect("DenialMode");
-        if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
-      }
+      if (liftedOwnDenial) setOrgasmDenied(true);
     }
   }
   function permissionReason(suggestion, features) {
@@ -7564,7 +7567,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.84.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.84.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -9023,16 +9026,39 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/denial.ts
   var DENIAL_HOLD = 99;
+  var ORGASM_HAPPENING = 2;
   var ANNOUNCE_EVERY_MS = 6e4;
   var lastAnnounced = 0;
   function isPlayer(C) {
     return !!C && (C === Player || C.IsPlayer?.() === true);
   }
   function denialHolds(C) {
-    return isPlayer(C) && getFeatures().hypnoEnabled && hasOwnEffect("DenialMode");
+    return isPlayer(C) && getFeatures().hypnoEnabled && orgasmDeniedByUs();
+  }
+  function orgasmHappening(settings) {
+    return settings.OrgasmStage === ORGASM_HAPPENING && typeof settings.OrgasmTimer === "number" && settings.OrgasmTimer > CurrentTime;
+  }
+  function cancelPendingOrgasm(settings) {
+    if (!(typeof settings.OrgasmTimer === "number" && settings.OrgasmTimer > 0)) return false;
+    settings.OrgasmTimer = 0;
+    settings.OrgasmStage = 0;
+    if (typeof ActivityOrgasmGameTimer === "number") ActivityOrgasmGameTimer = 0;
+    return true;
   }
   function hold() {
-    if (Player?.ArousalSettings) Player.ArousalSettings.Progress = DENIAL_HOLD;
+    if (denialCarrierLost()) {
+      const restored = applyEffect("DenialMode");
+      warn(restored ? "orgasm denial was missing from the carrier; re-applied it" : "orgasm denial is missing from the carrier and could not be re-applied; still enforcing it here");
+    }
+    const settings = Player?.ArousalSettings;
+    if (settings) {
+      const cancelled = cancelPendingOrgasm(settings);
+      settings.Progress = DENIAL_HOLD;
+      if (cancelled) {
+        if (typeof ActivityChatRoomArousalSync === "function") ActivityChatRoomArousalSync(Player);
+        log("a queued orgasm was cancelled by denial");
+      }
+    }
     const now = Date.now();
     if (now - lastAnnounced >= ANNOUNCE_EVERY_MS) {
       lastAnnounced = now;
@@ -9048,7 +9074,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         ((args, next) => {
           try {
             if (denialHolds(args[0])) {
-              hold();
+              if (!orgasmHappening(Player.ArousalSettings ?? {})) hold();
               return void 0;
             }
           } catch (err) {
@@ -9069,14 +9095,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.84.0"})`);
+  info(`script loaded (v${"0.84.1"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.84.0",
+      version: "0.84.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

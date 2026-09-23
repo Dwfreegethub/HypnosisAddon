@@ -148,6 +148,11 @@ declare function ActivitySetArousal(character: any, progress: number): void;
 declare function ActivityExpression(character: any, progress: number): void;
 declare function ActivityOrgasmPrepare(character: any, bypass?: boolean): void;
 declare function ActivityOrgasmStart(character: any): void;
+// The orgasm window's length, which the chat-room overlay's progress bar divides by, and the
+// sync that tells the room a character's OrgasmTimer/Progress (both in Scripts/Activity.js,
+// read 2026-09-23). denial.ts uses them to cancel a pending orgasm cleanly.
+declare let ActivityOrgasmGameTimer: number;
+declare function ActivityChatRoomArousalSync(character: any): void;
 /** BC's frame clock (Scripts/Game.js), milliseconds. Every orgasm timer is measured
  * against this rather than Date.now(). */
 declare const CurrentTime: number;

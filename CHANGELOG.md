@@ -12,6 +12,16 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.84.1 · 23 September 2026
+
+- **"You cannot cum" holds more reliably.** If you were already about to climax when the denial
+  landed, the orgasm used to wait and then happen the moment the denial lifted, for example when
+  you woke. Now it is cancelled and you are kept right on the edge instead.
+- **Denial no longer quietly switches itself off.** Changing your outfit, or another add-on
+  resetting your appearance, could remove the denial without anyone being told. It now stays on
+  until it is actually lifted.
+- **Denial still ends when the trance ends**, unless the hypnotist makes it last past waking.
+
 ## v0.84.0 · 23 September 2026
 
 - **A hypnotist can now aim a commanded touch at someone else.** "Missy, kiss Rei" kisses Rei on

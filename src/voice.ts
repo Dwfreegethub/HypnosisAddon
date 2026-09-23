@@ -17,7 +17,7 @@ import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
-import { setArousalLevel, forceOrgasm, setOrgasmDenied, ArousalLevel } from "./arousal";
+import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion } from "./illusion";
 import { undress, UndressResult } from "./undress";
 import {
@@ -249,13 +249,12 @@ function applyForcedOrgasm(): FlavorKey | void {
 	// rebuild below, and still bails ActivityOrgasmPrepare — so "physical always wins" holds.
 	//
 	// The denial is a standing restriction on her OWN volition, so it goes straight back: this
-	// one act pierced it, it did not repeal it. CharacterLoadEffect rebuilds the cached C.Effect
-	// that ActivityOrgasmPrepare actually reads — without it BC keeps seeing the stale denial.
-	const liftedOwnDenial = hasOwnEffect("DenialMode");
-	if (liftedOwnDenial) {
-		removeEffect("DenialMode");
-		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
-	}
+	// one act pierced it, it did not repeal it. Both halves go through setOrgasmDenied so the
+	// in-memory flag denial.ts's hook trusts moves with the carrier (v0.84.1); a bare removeEffect
+	// here would leave the flag set and the hook would stop the very orgasm being commanded.
+	// setOrgasmDenied's apply/remove rebuild the cached C.Effect that ActivityOrgasmPrepare reads.
+	const liftedOwnDenial = orgasmDeniedByUs();
+	if (liftedOwnDenial) setOrgasmDenied(false);
 	try {
 		const result = forceOrgasm();
 		if (result === "unavailable") return "arousal-unavailable";
@@ -264,10 +263,7 @@ function applyForcedOrgasm(): FlavorKey | void {
 		if (result === "denied") return "orgasm-refused";
 		// "already" means one is running; the ordinary flavor still reads correctly.
 	} finally {
-		if (liftedOwnDenial) {
-			applyEffect("DenialMode");
-			if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
-		}
+		if (liftedOwnDenial) setOrgasmDenied(true);
 	}
 }
 
