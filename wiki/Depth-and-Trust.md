@@ -23,7 +23,7 @@ Depth is measured on a scale from 0 to 100, divided into five recognizable tiers
 | Tier | Default Range | What It Feels Like | Default Features Unlocked |
 |---|---|---|---|
 | **Drifting** | 0–19 | Barely under; light, floating headspace. | **Awareness Suppression:** Not noticing clothing changes, ropes, or casual touches. |
-| **Yielding** | 20–39 | Noticeably affected; suggestions start taking physical hold. | **Physical Restrictions:** Freezing, muting, posture (kneeling/standing), wardrobe lock, self-touch block, and commanding self-touch. |
+| **Yielding** | 20–39 | Noticeably affected; suggestions start taking physical hold. | **Physical Restrictions:** Freezing, muting, posture (kneeling, standing, and every leg and arm pose), wardrobe lock, self-touch block, and commanding self-touch. |
 | **Entranced** | 40–59 | Clearly under; conscious willpower steps aside. | **Surrender:** Leash/follow, involuntary undressing, arousal control, and forced climaxes. |
 | **Deep** | 60–79 | Heavy trance; minimal self-direction. | **High-Impact:** Clothing illusions\*, planting dormant triggers\*, carry-forward waking suggestions\*. |
 | **Blank** | 80–100 | Fully receptive; thought and resistance fade. | Deepest trance; maximum suggestibility. |

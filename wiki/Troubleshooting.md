@@ -33,6 +33,8 @@ Suggestions must pass a strict sequence of checks. If a spoken command produces 
 
 **The hypnotist receives private chat feedback indicating which gate blocked the command.** If the hypnotist received no feedback at all, the phrasing failed to match the parser dictionary entirely.
 
+**A pose can pass every gate and still not happen.** If bondage or furniture prevents it, the room sees the subject try and fail, and the hypnotist is told the suggestion *matched but did not land*. Nothing claims the pose worked. Remove the restraint, or pick a pose the restraint allows.
+
 ---
 
 ## 3. The Wording Did Not Match
@@ -100,6 +102,8 @@ The icon is intentionally visible for all players rather than hidden for non-use
 ## 10. Known Alpha Quirks
 
 * **The "Feel" Caress Trap:** Because *"feel"* is mapped as a caress verb, an ordinary deepening sentence like *"Missy, your arms feel heavy"* can inadvertently parse as *caress your arms*, triggering a real self-touch activity. This only affects subjects who have enabled *Made to Act*. Hypnotists should prefer *touch*, *caress*, or *stroke*, and avoid using *"feel"* while *Made to Act* is active.
+* **Pose Words in Ordinary Patter:** *"Surrender"* and *"relax your arms"* are pose commands as well as common hypnosis phrasing. With *Posture Control* ticked, *"Missy, surrender to my voice"* raises her arms over her head, and *"Missy, relax your arms"* drops any arm pose she is holding. Leave the name out of that sentence, or rephrase, if you only meant atmosphere.
+* **Whole-Body Poses:** *"On all fours"* and *"lie down"* use Bondage Club's whole-body poses, so they replace any arm pose rather than combining with it. *"Lie down"* may need a supporting item worn before the game allows it; if it does, it reports as not landing rather than failing silently.
 * **Trigger Phrase Collisions in Commands:** If a planted trigger phrase appears inside a spoken command line, the trigger handler may take precedence and swallow the command.
 * **Internal Action IDs:** In some diagnostic outputs like `/echs triggers`, queued actions may display raw internal IDs (e.g., `act:genital`) rather than localized descriptions.
 * **Trigger Decay Balancing:** Live trigger decay curves are actively being calibrated across real play sessions and remain disabled by default.
