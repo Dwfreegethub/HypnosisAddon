@@ -12,10 +12,14 @@ import { wasWelcomeShown, markWelcomeShown, hasAnyPermissionGranted } from "./st
 // version constantly, so a version-keyed notice would fire on every update).
 
 /** Show the first-run notice if it is due, and record that the user has now met the add-on so
- * it can never fire again. Called once per load from startRecovery()'s identity-and-room-known
- * branch — the one place that already waits until settings are safe to read (reading before
- * login caches defaults over good data: the v0.17.0 trap) and a chat log exists to print into.
- * Do not add a second poll. */
+ * it can never fire again. Called once per load from startStartupBanner()'s poll below, right
+ * after the banner, once identity is known and a chat log exists: settings are safe to read by
+ * then (reading before login caches defaults over good data: the v0.17.0 trap) and there is
+ * somewhere to print. Do not add another poll for it.
+ *
+ * Until v0.84.2 it rode startRecovery()'s poll instead, which stops for good 20 s after load
+ * when there is no room yet. Logging in and browsing the room list takes longer than that, so
+ * on an ordinary fresh login the notice never fired and the silence it exists to break stayed. */
 export function maybeShowFirstRunNotice(): void {
 	if (wasWelcomeShown()) return;
 	// Fire whenever the add-on is SILENT — no hypnotist-actionable permission granted. That is
@@ -62,7 +66,7 @@ export function showStartupBanner(): void {
 	tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) · v${__VERSION__} · /hypno help`);
 }
 
-/** Wait for a chat log, then show the banner once.
+/** Wait for a chat log, then show the banner once, and the first-run notice after it if due.
  *
  * Its own poll rather than riding startRecovery()'s, which looks like the obvious host and is
  * not: that poll stops for good at its no-room fallback (20 s after load), and logging in then
@@ -71,14 +75,22 @@ export function showStartupBanner(): void {
  * is somewhere to print, and stops the moment it has printed.
  *
  * ChatRoomSendLocal only reaches a chat log that exists; called from the lobby it is swallowed
- * with no error, which is the silent failure this gate is here to avoid. */
+ * with no error, which is the silent failure this gate is here to avoid.
+ *
+ * The first-run notice rides this poll for the same reason (see maybeShowFirstRunNotice). It
+ * reads settings where the banner reads none, so the gate also asks for a known member number,
+ * the same test startRecovery() uses. Being in a room should already imply it; checking costs
+ * nothing and keeps the notice off the v0.17.0 trap if it ever does not. If the page sits in the
+ * lobby past the give-up, nothing is marked shown and the notice simply waits for the next load. */
 export function startStartupBanner(): void {
 	const startedAt = Date.now();
 	const tick = () => {
-		const ready = typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom();
+		const known = typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0;
+		const ready = known && typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom();
 		if (ready) {
 			clearInterval(poll);
 			showStartupBanner();
+			maybeShowFirstRunNotice();
 			return;
 		}
 		if (Date.now() - startedAt > BANNER_GIVE_UP_MS) clearInterval(poll);
