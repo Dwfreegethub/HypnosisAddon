@@ -56,6 +56,8 @@ export type FlavorKey =
 	| "orgasm-allow"
 	/** A forced orgasm that ran into denial, edging, or a chastity item. */
 	| "orgasm-refused"
+	/** Our denial holding back an orgasm the game itself tried to start (a toy, a touch). */
+	| "orgasm-held"
 	/** The player's arousal meter is switched off entirely, so none of this can land. */
 	| "arousal-unavailable"
 	| "illusion-block"
@@ -148,6 +150,7 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} tries to say something, and does not.",
 	],
 	"orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."],
+	"orgasm-held": ["{name} shudders right at the brink, and does not go over."],
 };
 
 const LINES: Record<FlavorKey, string[]> = {
@@ -369,6 +372,11 @@ const LINES: Record<FlavorKey, string[]> = {
 		"The way over is open again, warm and waiting, whenever you're offered it.",
 		"Something unlocks low in you, eager, and you could finish now.",
 		"Whatever was standing in the way steps aside, and your body knows it at once.",
+	],
+	"orgasm-held": [
+		"You reach the very edge, and it will not let you over. You stay there, aching.",
+		"Everything tips toward release, and the way over stays shut.",
+		"You get right to the brink and hang there, as you were told you would.",
 	],
 	"orgasm-refused": [
 		"You strain for it, right to the edge, and something holds you back. Nothing gives.",

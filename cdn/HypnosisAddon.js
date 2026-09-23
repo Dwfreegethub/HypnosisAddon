@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.83.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.83.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1016,7 +1016,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "{name} opens {their} mouth, and nothing comes out.",
       "{name} tries to say something, and does not."
     ],
-    "orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."]
+    "orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."],
+    "orgasm-held": ["{name} shudders right at the brink, and does not go over."]
   };
   var LINES = {
     "movement-block": [
@@ -1237,6 +1238,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "The way over is open again, warm and waiting, whenever you're offered it.",
       "Something unlocks low in you, eager, and you could finish now.",
       "Whatever was standing in the way steps aside, and your body knows it at once."
+    ],
+    "orgasm-held": [
+      "You reach the very edge, and it will not let you over. You stay there, aching.",
+      "Everything tips toward release, and the way over stays shut.",
+      "You get right to the brink and hang there, as you were told you would."
     ],
     "orgasm-refused": [
       "You strain for it, right to the edge, and something holds you back. Nothing gives.",
@@ -1704,7 +1710,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.83.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.83.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -1725,7 +1731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.83.1"} loaded`;
+    el.textContent = `ECHS v${"0.83.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -7392,7 +7398,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.83.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.83.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8849,6 +8855,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
   }
 
+  // src/denial.ts
+  var DENIAL_HOLD = 99;
+  var ANNOUNCE_EVERY_MS = 6e4;
+  var lastAnnounced = 0;
+  function isPlayer(C) {
+    return !!C && (C === Player || C.IsPlayer?.() === true);
+  }
+  function denialHolds(C) {
+    return isPlayer(C) && getFeatures().hypnoEnabled && hasOwnEffect("DenialMode");
+  }
+  function hold() {
+    if (Player?.ArousalSettings) Player.ArousalSettings.Progress = DENIAL_HOLD;
+    const now = Date.now();
+    if (now - lastAnnounced >= ANNOUNCE_EVERY_MS) {
+      lastAnnounced = now;
+      announce("orgasm-held");
+    }
+    log(`orgasm held by denial, arousal kept at ${DENIAL_HOLD}`);
+  }
+  function installDenial(modApi2) {
+    for (const name of ["ActivityOrgasmPrepare", "ActivityOrgasmStart"]) {
+      modApi2.hookFunction(
+        name,
+        10,
+        ((args, next) => {
+          try {
+            if (denialHolds(args[0])) {
+              hold();
+              return void 0;
+            }
+          } catch (err) {
+            warn("orgasm denial check failed:", err);
+          }
+          return next(args);
+        })
+      );
+    }
+    log("orgasm denial hooks installed on ActivityOrgasmPrepare and ActivityOrgasmStart");
+  }
+
   // src/main.ts
   function safely(label, fn) {
     try {
@@ -8857,14 +8903,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.83.1"})`);
+  info(`script loaded (v${"0.83.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.83.1",
+      version: "0.83.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -8964,6 +9010,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
   safely("self-touch hook", () => installSelfTouch(modApi));
+  safely("orgasm denial hooks", () => installDenial(modApi));
   safely("follow-leash hook", () => installFollow(modApi));
   safely("/hypno command registration", installCommands);
   safely("preference menu registration", installMenu);

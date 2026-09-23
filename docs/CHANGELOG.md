@@ -20,6 +20,31 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-23 (v0.83.2) — denial now stops the orgasm itself
+
+v0.83.1 failed its first live run the same night. The subject on v0.83.1 was told "you cannot
+cum" and got the denial line. A toy at maximum then held her meter still, which is BC's own denial
+at work. Her own masturbation finished her anyway, with nobody saying "cum for me".
+
+**BC's source, finally read.** DW pulled the unhooked originals from the live client with
+`bcModSdk.getPatchingInfo().get(name).original`, which is the way past other mods' wrappers.
+`String(ActivityOrgasmPrepare)` alone printed only bcModSdk's entry stub. `ActivityTimerProgress`
+calls `ActivityOrgasmPrepare(C)` when Progress reaches exactly 100. Prepare checks `C.Effect` (the
+cache, so v0.83.1's fix was needed), sets Progress 99 and returns, **unless** `Bypass` is passed or
+`RuinOrgasms` is on. In the room, BCX hooked Prepare and WCE hooked TimerProgress. The subject's
+own mod list is not known, so which route got past BC's check is **not established**.
+
+**Fix:** `src/denial.ts` hooks `ActivityOrgasmPrepare` and `ActivityOrgasmStart` at priority 10.
+While OUR carrier holds DenialMode (`hasOwnEffect`, not the cache) and *Hypnosis Enabled* is on, the
+call is swallowed and Progress is set to 99, as BC's own branch does. Direct write, not
+`ActivitySetArousal`, so a toy at full power does not send a room sync every climb. A new
+`orgasm-held` flavor tells the subject and the room, at most once a minute (rule 5). A real chastity
+item's DenialMode alone passes through to BC. "Cum for me" lifts ours before it calls in, so the
+command still wins. A throw in the check falls through to BC.
+
+**Not handled:** a mod that writes OrgasmTimer or OrgasmStage itself without calling either
+function. **Checked:** `test/denial.mjs`, 20 checks, 8 of which fail with the hook disabled.
+
 ### Fixed 2026-09-23 (v0.83.1) — spoken orgasm denial did not stop orgasms
 
 DW's tracker: *"Spoken orgasm denial suggestions fail to hook and prevent orgasm events."* DW

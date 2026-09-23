@@ -13,6 +13,7 @@ import { installSuppression } from "./suppression";
 import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
+import { installDenial } from "./denial";
 import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
@@ -235,6 +236,10 @@ safely("message suppression", installSuppression);
 // Blocks self-directed activities outright (no arousal, no message) rather than hiding
 // them — see selftouch.ts for why ActivityRun and not the handler chain.
 safely("self-touch hook", () => installSelfTouch(modApi));
+
+// Holds an orgasm BC tries to start while OUR spoken denial is on, rather than trusting BC's
+// DenialMode to — v0.83.1's live run showed it does not stop one. See denial.ts.
+safely("orgasm denial hooks", () => installDenial(modApi));
 
 // Scopes the follow/leash compulsion to the active hypnotist: while it is on, only they may
 // take the subject's (add-on-injected) leash. See follow.ts.
