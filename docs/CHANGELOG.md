@@ -20,6 +20,33 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-23 (v0.84.3) — Import got round the settings lock
+
+"Lock settings while a session is on you" greyed and refused every checkbox and the attempt limit,
+but the Data tab's Export/Import/Reset branch in `menu.ts` handled its click and returned *before*
+the `settingsLocked()` check, none of the three greyed at draw time, and `/hypno import` never read
+the lock at all. Import replaces every toggle in one go without ending anything, so a subject
+mid-session could paste a blob and rewrite every permission the lock was holding still, the lock
+included. Found by inspection (first noted 2026-09-17), not reported from play.
+
+**Fix:** Import alone now respects the lock. The button greys out and, if clicked, says
+*"Import refused: your settings are locked until this session ends."* before the clipboard is read,
+so no browser clipboard prompt appears for nothing. The lock is read again when the clipboard
+answers, because that read is async and a session can start while the browser is still asking.
+`/hypno import` refuses with the same line (one exported constant, so the two cannot drift), since
+otherwise it is the way round the lock and the button's own clipboard-failure message points at it.
+
+**Decided, not re-decided:** Export and Reset stay open. Export only reads. Reset ends the session
+through the safeword's teardown before it wipes (Known Bug #4, v0.63.1), so it is a way out, not a
+way round, and refusing it was already rejected there.
+
+`test/import-lock.mjs`, 24 checks: the command and the button refused under the lock, the async
+race, Export and Reset still open, and controls (lock ticked with no session; session with the lock
+unticked) where Import must still work. **8 verified failing** against v0.84.1. **Not run live** —
+the greyed button has not been seen in a real BC client.
+
+---
+
 ### Fixed 2026-09-23 (v0.84.2) — the first-run notice never fired on an ordinary login
 
 Found reading the code for v0.81.0's startup banner, not reported by a tester. `maybeShowFirstRunNotice()`

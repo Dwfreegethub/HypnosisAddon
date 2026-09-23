@@ -502,7 +502,16 @@ function notifyLocal(message: string): void {
 	tellPlayer(message);
 }
 
-function clickDataButton(index: number): void {
+/** What a refused import says, from the Data tab button and `/hypno import` alike, so the two
+ * cannot drift apart. Import is the one data action the settings lock covers: it replaces every
+ * toggle in one go without ending anything, so an open Import made the lock decorative — paste a
+ * blob and every permission the lock was holding still is rewritten mid-session. Export only
+ * reads. Reset stays open on purpose: it ends the session before it wipes (Known Bug #4), so it
+ * is a way out, not a way round. */
+export const IMPORT_LOCKED_MESSAGE = "Import refused: your settings are locked until this session ends.";
+
+/** Exported for test/import-lock.mjs, which cannot reach the canvas click handler. */
+export function clickDataButton(index: number): void {
 	const name = DATA_BUTTONS[index];
 	if (name === "Export") {
 		const blob = exportSettings();
@@ -518,8 +527,21 @@ function clickDataButton(index: number): void {
 		return;
 	}
 	if (name === "Import") {
+		// Refused before the clipboard is read, so a locked click does not raise the browser's
+		// clipboard prompt for nothing, and said out loud because the button being grey is easy
+		// to miss (rule 5).
+		if (settingsLocked()) {
+			notifyLocal(IMPORT_LOCKED_MESSAGE);
+			return;
+		}
 		navigator.clipboard?.readText().then(
 			(text) => {
+				// Again here: the clipboard read is async, and a session can start while the
+				// browser is still asking.
+				if (settingsLocked()) {
+					notifyLocal(IMPORT_LOCKED_MESSAGE);
+					return;
+				}
 				const result = importSettings(text);
 				notifyLocal(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
 			},
@@ -538,17 +560,22 @@ function clickDataButton(index: number): void {
 
 function drawDataButtons(): void {
 	const armed = Date.now() < resetArmedUntil;
+	// Only Import greys out under the lock — see IMPORT_LOCKED_MESSAGE for why the other two
+	// stay live.
+	const importLocked = settingsLocked();
 	DATA_BUTTONS.forEach((name, i) => {
 		const isReset = name === "Reset";
+		const locked = name === "Import" && importLocked;
 		DrawButton(
 			dataButtonLeft(i),
 			DATA_BUTTON_TOP,
 			DATA_BUTTON_WIDTH,
 			DATA_BUTTON_HEIGHT,
 			isReset && armed ? "Confirm?" : name,
-			isReset ? (armed ? "#ffb3b3" : "#ffe0e0") : "White",
+			isReset ? (armed ? "#ffb3b3" : "#ffe0e0") : locked ? "#ddd" : "White",
 			"",
-			isReset ? "Erases everything — asks once first" : `${name} via clipboard`,
+			isReset ? "Erases everything — asks once first" : locked ? "Locked until this session ends" : `${name} via clipboard`,
+			locked,
 		);
 	});
 }
@@ -841,7 +868,7 @@ function rowPosition(index: number, total: number): { left: number; top: number;
  * Tabs stay clickable and the exit button still works — the screen is readable while
  * locked, just not editable. `/hypno safeword` remains the way out in every case, and
  * being a chat command it's untouched by any of this. */
-function settingsLocked(): boolean {
+export function settingsLocked(): boolean {
 	return getFeatures().lockedWhileHypnotized && isSessionLive();
 }
 
