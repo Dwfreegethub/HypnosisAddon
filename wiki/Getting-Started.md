@@ -64,7 +64,7 @@ If you want to get a feel for how sessions work without diving into deep changes
 
 * **Movement Restriction** — *"you cannot move"* (freezes)
 * **Speech Restriction** — *"you cannot speak"* (mutes)
-* **Posture Control** — pose commands: kneel, stand, sit, spread, arm positions
+* **Posture Control** — pose commands: kneel, stand, spread, all fours, arm positions
 * **Clothing Restriction** — prevents wardrobe access during trance
 
 It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**, and **Carry-Forward** off until you have skimmed **[Consent and Safety](Consent-and-Safety)**. Those features either outlive the session, alter your visual perception, or mislead your client, and they carry stricter safeguards for that reason.

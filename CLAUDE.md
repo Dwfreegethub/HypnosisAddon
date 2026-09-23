@@ -23,6 +23,7 @@ own design copy for. So it now points, and does not duplicate.
 | Known faults and decided fixes | `docs/design.md` → *Known Bugs* |
 | **Anything touching the induction roll, the AFK/prompt-timeout path, settings defaults, or extreme mode** | `docs/declared-skill-proposal.md` **first** — its decisions are settled and not all folded into `design.md` yet. §10 is the list of what is still open; §11 is what has *not* been verified |
 | Engineering record, BC API traps | `README.md` |
+| BC pose names, categories and the pose API | `docs/bc-pose-reference.md` (verified by DW, 2026-09-23) |
 
 Settled decisions are recorded in `design.md`. Do not re-decide one without flagging that you are.
 

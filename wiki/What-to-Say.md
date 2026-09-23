@@ -56,25 +56,22 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 | *"kneel spread"* · *"spread your knees"* | Posture Control · **Yielding** |
 | *"spread your legs"* · *"stand with your legs apart"* | Posture Control · **Yielding** |
 | *"legs closed"* · *"feet together"* | Posture Control · **Yielding** |
-| *"sit"* · *"sit down"* · *"sit on the floor"* | Posture Control · **Yielding** |
 | *"on all fours"* · *"get on your hands and knees"* | Posture Control · **Yielding** |
 | *"lie down"* · *"down on your stomach"* | Posture Control · **Yielding** |
 | *"stand"* · *"get up"* · *"on your feet"* | — *release* (legs only; arms stay where they are) |
 | *"hands behind your back"* | Posture Control · **Yielding** |
 | *"arms behind your back"* · *"box your arms"* | Posture Control · **Yielding** |
 | *"elbows behind your back"* | Posture Control · **Yielding** |
-| *"put your hands up"* · *"raise your arms"* · *"hands above your head"* | Posture Control · **Yielding** |
-| *"cross your arms"* | Posture Control · **Yielding** |
+| *"put your hands up"* · *"raise your arms"* · *"hands above your head"* · *"surrender"* · *"hands where I can see them"* | Posture Control · **Yielding** |
 | *"hold your arms out"* · *"yoke your arms"* | Posture Control · **Yielding** |
-| *"surrender"* · *"hands where I can see them"* | Posture Control · **Yielding** |
 | *"relax your arms"* · *"arms at your sides"* | — *release* (arms only) |
 | *“you can move again”* · *“your body is your own”* | — *release* |
 | *"follow me"* · *"stay close"* · *"heel"* | Follow / Leash · **Entranced** |
 | *“you can leave”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
 
-**Poses come in two groups, legs and arms,** and one never undoes the other: *"kneel"* then *"hands behind your back"* leaves the subject kneeling with hands clasped. A pose that bondage prevents does not happen, and the room sees the subject try and fail rather than a line claiming it worked.
+**Poses come in two groups, legs and arms,** and one never undoes the other: *"kneel"* then *"hands behind your back"* leaves the subject kneeling with hands clasped. A pose that bondage prevents does not happen, and the room sees the subject try and fail rather than a line claiming it worked. *"On all fours"* and *"lie down"* are whole-body poses, so they take the arms with them. Bondage Club has no sitting or crossed-arms pose, so *"sit"* and *"cross your arms"* do nothing.
 
-> ⚠️ **Watch your patter.** *"Surrender"* and *"relax your arms"* are ordinary hypnosis words as well as pose commands. With Posture Control ticked, *"Missy, surrender to my voice"* raises her hands, and *"Missy, relax your arms and legs"* drops any arm pose she is holding. *"Sit back and relax"* and *"sit with that feeling"* are safe: they do not count as *"sit"*.
+> ⚠️ **Watch your patter.** *"Surrender"* and *"relax your arms"* are ordinary hypnosis words as well as pose commands. With Posture Control ticked, *"Missy, surrender to my voice"* raises her hands, and *"Missy, relax your arms and legs"* drops any arm pose she is holding. 
 
 **Follow / Leash** hooks into Bondage Club's native leash system. The phrase makes the subject leashable on command; the hypnotist then takes the leash using the standard **Hold Leash** button. The game handles room transitions automatically, and the subject cannot walk away while held. This requires the subject's native BC leashing settings to allow it, and only the active hypnotist can hold the leash while under trance.
 

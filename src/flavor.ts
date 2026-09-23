@@ -25,16 +25,13 @@ export type FlavorKey =
 	| "kneel-spread"
 	| "legs-spread"
 	| "legs-closed"
-	| "sit"
 	| "all-fours"
 	| "lie-down"
 	| "hands-behind"
 	| "arms-behind"
 	| "elbows-behind"
 	| "arms-up"
-	| "arms-crossed"
 	| "arms-out"
-	| "surrender"
 	| "arms-relax"
 	/** A pose matched and was permitted, and BC did not take it — bondage, most likely. */
 	| "pose-blocked"
@@ -129,16 +126,13 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
 	"legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
 	"legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
-	sit: ["{name} folds down to sit on the floor, as if it had been {their} own idea."],
 	"all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
 	"lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
 	"hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
 	"arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
 	"elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
 	"arms-up": ["{name}'s arms rise over {their} head and stay there."],
-	"arms-crossed": ["{name}'s arms fold across {their} chest."],
 	"arms-out": ["{name}'s arms lift out to either side and hold there, level."],
-	surrender: ["{name}'s hands come up beside {their} head, palms open."],
 	"arms-relax": ["{name}'s arms drift down to {their} sides."],
 	"pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
@@ -237,16 +231,13 @@ const LINES: Record<FlavorKey, string[]> = {
 	"kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
 	"legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
 	"legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
-	sit: ["You are sitting on the floor. It seems like the obvious place to be."],
 	"all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
 	"lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
 	"hands-behind": ["Your hands find each other behind your back and stay clasped there."],
 	"arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
 	"elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
 	"arms-up": ["Your arms rise over your head and stay there, light and obedient."],
-	"arms-crossed": ["Your arms fold across your chest, and there they stay."],
 	"arms-out": ["Your arms lift out to either side and hold, level and steady."],
-	surrender: ["Your hands come up beside your head, palms open, before you think about it."],
 	"arms-relax": ["Your arms drift back down to your sides. They are yours again."],
 	"pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
 	"speech-block": [

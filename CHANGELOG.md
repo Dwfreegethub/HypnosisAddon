@@ -15,16 +15,16 @@ report it and say which version your chat line shows.
 ## v0.85.0 · 23 September 2026
 
 - **Many more poses.** With Posture Control ticked, a hypnotist can now have you kneel with your
-  knees spread, spread or close your legs, sit, go on all fours or lie down, and put your arms
-  behind your back, over your head, crossed, held out, or up in surrender. *"Relax your arms"* puts
-  them back. The What to Say tab lists every phrase.
+  knees spread, spread or close your legs, go on all fours or lie down, and put your hands or arms
+  behind your back, over your head, or held out to the sides. *"Relax your arms"* puts them back.
+  The What to Say tab lists every phrase.
 - **Legs and arms are separate.** Kneeling no longer drops your arms, and *"stand"* now only
   stands you up. If your hands were behind your back, they stay there.
 - **Poses that can't happen say so.** If your bondage stops you kneeling, the room sees you try and
   fail instead of reading that you knelt.
 - **Careful with "surrender" and "relax your arms".** They are pose commands now, so ordinary
   patter like *"surrender to my voice"* will raise your hands.
-- Some poses may not work yet. The pose names have not been checked in a live game.
+- All fours and lying down take your arms with them, the same as in the game's own pose menu.
 
 ## v0.84.3 · 23 September 2026
 

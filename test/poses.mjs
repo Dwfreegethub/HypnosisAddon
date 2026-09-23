@@ -7,22 +7,27 @@
 //   - rule 5: a pose BC refuses is reported as refused, never announced as done;
 //   - teardown undoes only what a suggestion set, never a pose the subject chose.
 //
-// BC's pose setter is stubbed to replace only the pose's own category, which is what the
-// code assumes and what could NOT be checked against BC's source when this was written (see
-// POSE_GROUPS in effects.ts). If BC turns out to behave differently, this suite still passes
-// and a live run is what shows it; the stub is the assumption, written down.
+// BC's pose setter is stubbed to replace only the pose's own category, with a BodyFull pose
+// (AllFours, Hogtied) displacing both. The names and categories are DW's verified reference
+// (docs/bc-pose-reference.md); the per-category replacement is the part still assumed, since
+// the setter itself was not read. If BC behaves differently, this suite still passes and a
+// live run is what shows it; the stub is the assumption, written down.
 const HYP = 246108;
 
+// The 15 BC poses by category, from docs/bc-pose-reference.md.
 const GROUP = {
-	Kneel: "L", KneelingSpread: "L", Spread: "L", LegsClosed: "L", Sit: "L", AllFours: "L", Hogtied: "L",
-	HandsBehindBack: "U", BackBoxTie: "U", BackElbowTouch: "U", OverHead: "U", CrossedArms: "U", Yoke: "U", Surrender: "U",
+	BaseLower: "L", Kneel: "L", KneelingSpread: "L", Spread: "L", LegsClosed: "L",
+	BaseUpper: "U", BackCuffs: "U", BackBoxTie: "U", BackElbowTouch: "U", OverTheHead: "U", Yoked: "U",
+	AllFours: "F", Hogtied: "F", TapedHands: "H", Suspension: "A",
 };
+/** BodyFull conflicts with upper and lower as well as with itself. */
+const clashes = (a, b) => a === b || (a === "F" && (b === "L" || b === "U")) || (b === "F" && (a === "L" || a === "U"));
 /** Poses "bondage" refuses right now. */
 let refuse = new Set();
 globalThis.CharacterSetActivePose = (C, pose) => {
 	if (pose === null) { C.ActivePose = []; return; }
 	if (!GROUP[pose] || refuse.has(pose)) return; // BC ignoring an unknown or blocked pose
-	C.ActivePose = [...(C.ActivePose ?? []).filter((p) => GROUP[p] !== GROUP[pose]), pose];
+	C.ActivePose = [...(C.ActivePose ?? []).filter((p) => !clashes(GROUP[p], GROUP[pose])), pose];
 };
 
 const emoticon = { Asset: { Name: "Emoticon", AllowEffect: ["Freeze", "DenialMode", "BlockWardrobe"] }, Property: { Effect: [] } };
@@ -77,9 +82,6 @@ const CASES = [
 	["Stand with your legs apart.", "legs-spread"],
 	["Stand with your feet together.", "legs-closed"],
 	["Legs closed.", "legs-closed"],
-	["Sit.", "sit"],
-	["Sit down.", "sit"],
-	["Sit on the floor.", "sit"],
 	["On all fours.", "all-fours"],
 	["Get on your hands and knees.", "all-fours"],
 	["Lie down.", "lie-down"],
@@ -93,30 +95,30 @@ const CASES = [
 	["Put your hands up.", "arms-up"],
 	["Raise your arms.", "arms-up"],
 	["Hands above your head.", "arms-up"],
-	["Cross your arms.", "arms-crossed"],
+	// BC has no crossed-arms pose (reference, 2026-09-23), so nothing should claim the line.
+	["Cross your arms.", null],
 	["Hold your arms out.", "arms-out"],
 	["Yoke your arms.", "arms-out"],
-	["Surrender.", "surrender"],
-	// Surrender is checked before arms-up on purpose.
-	["Put your hands up where I can see them.", "surrender"],
+	// BC has no surrender pose; OverTheHead is its closest.
+	["Surrender.", "arms-up"],
+	["Put your hands up where I can see them.", "arms-up"],
 	["Relax your arms.", "arms-relax"],
 	["Arms at your sides.", "arms-relax"],
 	["Stand up.", "stand"],
 	["On your feet.", "stand"],
-	// Patter that must not seat anyone on the floor.
+	// BC has no sitting pose; sitting is furniture. So "sit" must not reach any pose.
+	["Sit.", null],
 	["Sit back and relax.", null],
-	["Just sit with that feeling.", null],
-	["I sit down beside you.", null],
 	["I lie down next to you.", null],
 	// DW's call, 2026-09-23: kept despite the clash, and noted in the wiki. Pinned here so a
 	// change to it is a decision, not an accident.
-	["Surrender to my voice.", "surrender"],
+	["Surrender to my voice.", "arms-up"],
 ];
 for (const [phrase, want] of CASES) check(`match ${JSON.stringify(phrase)}`, voice.matchSuggestion(phrase), want);
 
 // Every new flavor key has a private line and a room line that names the character.
-for (const key of ["kneel-spread", "legs-spread", "legs-closed", "sit", "all-fours", "lie-down", "hands-behind",
-	"arms-behind", "elbows-behind", "arms-up", "arms-crossed", "arms-out", "surrender", "arms-relax", "pose-blocked"]) {
+for (const key of ["kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down", "hands-behind",
+	"arms-behind", "elbows-behind", "arms-up", "arms-out", "arms-relax", "pose-blocked"]) {
 	check(`${key} has a private line`, typeof flavor.flavor(key), "string");
 	check(`  ${key} room line names the character`, /Missy/.test(flavor.publicFlavor(key) ?? ""), true);
 }
@@ -129,14 +131,20 @@ session.forceTrance(HYP, 80, 80);
 reset();
 say("Missy, kneel.");
 say("Missy, hands behind your back.");
-check("kneel then hands behind: both held", poses(), ["HandsBehindBack", "Kneel"]);
-check("  the room was told the pose, not the whole appearance", poseSyncs.at(-1), ["Kneel", "HandsBehindBack"]);
+check("kneel then hands behind: both held", poses(), ["BackCuffs", "Kneel"]);
+check("  the room was told the pose, not the whole appearance", poseSyncs.at(-1), ["Kneel", "BackCuffs"]);
 
-say("Missy, sit.");
-check("sit replaces kneel and keeps the hands", poses(), ["HandsBehindBack", "Sit"]);
+say("Missy, spread your knees.");
+check("kneeling spread replaces kneel and keeps the hands", poses(), ["BackCuffs", "KneelingSpread"]);
 
 say("Missy, stand up.");
-check("stand clears the legs only", poses(), ["HandsBehindBack"]);
+check("stand clears the legs only", poses(), ["BackCuffs"]);
+
+// A whole-body pose takes the arms with it, and a leg command out of it leaves nothing behind.
+say("Missy, on all fours.");
+check("all fours replaces the hands too (BodyFull)", poses(), ["AllFours"]);
+say("Missy, stand.");
+check("  and stand clears it", poses(), []);
 
 say("Missy, spread your legs.");
 say("Missy, relax your arms.");
@@ -162,18 +170,18 @@ check("an unknown pose name does not report success", effects.setSuggestedPose("
 // --- permission --------------------------------------------------------------------------
 storage.setFeature("postureControl", false);
 reset();
-say("Missy, cross your arms.");
+say("Missy, hold your arms out.");
 check("Posture Control off: nothing happens", poses(), []);
-check("  and the hypnotist hears why", toHyp.some((t) => t.startsWith('[suggestion] Refused — "arms-crossed"')), true);
+check("  and the hypnotist hears why", toHyp.some((t) => t.startsWith('[suggestion] Refused — "arms-out"')), true);
 storage.setFeature("postureControl", true);
 
 // --- teardown undoes only ours --------------------------------------------------------------
 say("Missy, kneel.");
 // The subject raises her own arms from BC's pose menu, not by suggestion.
-CharacterSetActivePose(Player, "OverHead");
-check("before the safeword: our kneel, her own arms", poses(), ["Kneel", "OverHead"]);
+CharacterSetActivePose(Player, "OverTheHead");
+check("before the safeword: our kneel, her own arms", poses(), ["Kneel", "OverTheHead"]);
 session.safeword();
-check("the safeword undoes our kneel and leaves her arms", poses(), ["OverHead"]);
+check("the safeword undoes our kneel and leaves her arms", poses(), ["OverTheHead"]);
 CharacterSetActivePose(Player, null);
 
 // A pose she changed out of herself is hers now: ending the session must not reset it.
@@ -186,11 +194,11 @@ CharacterSetActivePose(Player, null);
 
 // --- a trigger's undo only takes back its own pose ------------------------------------------
 effects.setSuggestedPose("Kneel");
-effects.setSuggestedPose("Sit");
+effects.setSuggestedPose("Spread");
 effects.clearSuggestedPose("stance", "Kneel");
-check("undoing kneel leaves a sit said since", poses(), ["Sit"]);
-effects.clearSuggestedPose("stance", "Sit");
-check("  undoing the sit itself clears it", poses(), []);
+check("undoing kneel leaves a spread said since", poses(), ["Spread"]);
+effects.clearSuggestedPose("stance", "Spread");
+check("  undoing the spread itself clears it", poses(), []);
 
 // --- saved across a reconnect ----------------------------------------------------------------
 effects.setSuggestedPose("Kneel");

@@ -776,9 +776,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, 500);
   }
   var POSE_GROUPS = {
-    stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "Sit", "AllFours", "Hogtied", "BaseLower"],
-    arms: ["HandsBehindBack", "BackBoxTie", "BackElbowTouch", "OverHead", "CrossedArms", "Yoke", "Surrender", "BaseUpper"]
+    stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "AllFours", "Hogtied", "BaseLower"],
+    arms: ["BackCuffs", "BackBoxTie", "BackElbowTouch", "OverTheHead", "Yoked", "BaseUpper"]
   };
+  var FULL_BODY_POSES = ["AllFours", "Hogtied"];
   function poseGroupOf(pose) {
     if (POSE_GROUPS.stance.includes(pose)) return "stance";
     if (POSE_GROUPS.arms.includes(pose)) return "arms";
@@ -805,8 +806,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const after = currentPoses();
     const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
-    const lost = keep.filter((p) => !after.includes(p));
-    if (lost.length) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
+    const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
+    if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
     if (landed) ours[group] = pose;
     else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
     return landed;
@@ -1018,16 +1019,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
     "legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
     "legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
-    sit: ["{name} folds down to sit on the floor, as if it had been {their} own idea."],
     "all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
     "lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
     "hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
     "arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
     "elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
     "arms-up": ["{name}'s arms rise over {their} head and stay there."],
-    "arms-crossed": ["{name}'s arms fold across {their} chest."],
     "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
-    surrender: ["{name}'s hands come up beside {their} head, palms open."],
     "arms-relax": ["{name}'s arms drift down to {their} sides."],
     "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
     // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
@@ -1125,16 +1123,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
     "legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
     "legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
-    sit: ["You are sitting on the floor. It seems like the obvious place to be."],
     "all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
     "lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
     "hands-behind": ["Your hands find each other behind your back and stay clasped there."],
     "arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
     "elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
     "arms-up": ["Your arms rise over your head and stay there, light and obedient."],
-    "arms-crossed": ["Your arms fold across your chest, and there they stay."],
     "arms-out": ["Your arms lift out to either side and hold, level and steady."],
-    surrender: ["Your hands come up beside your head, palms open, before you think about it."],
     "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
     "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
     "speech-block": [
@@ -4464,12 +4459,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       patterns,
       unless,
       run: () => applyPose(pose),
-      // Undo only while it is still this pose: a trigger's kneel must not also undo a sit said since.
+      // Undo only while it is still this pose: a trigger's kneel must not also undo a spread said since.
       undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose)
     };
   }
-  var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "sit", "all-fours", "lie-down"];
-  var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-crossed", "arms-out", "surrender"];
+  var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
+  var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
   var POSE_SUGGESTIONS = [
     poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
       /\bkneel (?:with your knees )?(?:spread|apart)\b/,
@@ -4492,25 +4487,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       /(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
       /\bon your (?:stomach|belly|front)\b/
     ]),
-    poseSuggestion(
-      "sit",
-      "Sit",
-      ["sit", "sit down", "sit on the floor"],
-      [/(?<!\bi )(?<!\bwe )\bsit\b/],
-      // Everyday induction patter uses "sit" without meaning the floor: "sit back and relax",
-      // "just sit with that feeling", "sit still". Those are vetoed rather than listed out,
-      // because bare "Missy, sit" is the command people will actually type.
-      [/\bsit (?:back|with|still|tight|up|comfortably|quietly)\b/, /\bcannot sit\b/]
-    ),
-    // Arms. Surrender first: "hands up where I can see them" should raise them to the ears,
-    // not over the head.
-    poseSuggestion("surrender", "Surrender", ["surrender", "hands where I can see them"], [
-      // Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
-      // DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
-      /(?<!\bi )(?<!\bwe )\bsurrender\b/,
-      /\bwhere i can see them\b/
-    ]),
-    poseSuggestion("hands-behind", "HandsBehindBack", ["hands behind your back", "clasp your hands behind your back"], [
+    // Arms. Names per DW's verified reference (docs/bc-pose-reference.md): BC has no crossed-arms
+    // pose and no surrender pose, so "cross your arms" is not offered and "surrender" raises the
+    // arms over the head, its closest pose.
+    poseSuggestion("hands-behind", "BackCuffs", ["hands behind your back", "clasp your hands behind your back"], [
       /\bhands behind your back\b/
     ]),
     poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
@@ -4520,13 +4500,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
       /\belbows (?:behind your back|together)\b/
     ]),
-    poseSuggestion("arms-up", "OverHead", ["put your hands up", "raise your arms", "hands above your head"], [
+    poseSuggestion("arms-up", "OverTheHead", ["put your hands up", "raise your arms", "hands above your head", "surrender", "hands where I can see them"], [
       /\b(?:hands|arms) up\b/,
       /\braise your (?:arms|hands)\b/,
-      /\b(?:hands|arms) (?:above|over) your head\b/
+      /\b(?:hands|arms) (?:above|over) your head\b/,
+      // Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
+      // DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
+      /(?<!\bi )(?<!\bwe )\bsurrender\b/,
+      /\bwhere i can see them\b/
     ]),
-    poseSuggestion("arms-crossed", "CrossedArms", ["cross your arms"], [/\bcross your arms\b/, /\barms crossed\b/]),
-    poseSuggestion("arms-out", "Yoke", ["hold your arms out", "yoke your arms"], [
+    poseSuggestion("arms-out", "Yoked", ["hold your arms out", "yoke your arms"], [
       /\b(?:hold|put|stretch) your arms out\b/,
       /\byoke your arms\b/
     ]),

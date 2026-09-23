@@ -80,25 +80,29 @@ export function installEffectAllowList(): void {
 // Two groups, legs and arms, so that "hands behind your back" does not stand a kneeling
 // subject up and "kneel" does not drop her arms. BC keeps both in the one ActivePose array.
 //
-// THE NAMES ARE THE 2026-09-23 BRIEF'S AND ARE UNCONFIRMED. BC's pose list could not be read
-// from where this was written (rule 8), and several of these may not exist under these names.
-// A name BC does not know simply does not take, and setSuggestedPose() reads the pose back
-// and reports that, so a wrong name shows up as "did not land", never as a false announce.
-// Correct a name here and nowhere else.
+// NAMES VERIFIED by DW against upstream Typedef.d.ts, 2026-09-23 (docs/bc-pose-reference.md).
+// BC has 15 poses and these are the ones a spoken line can reach; TapedHands (BodyHands) and
+// Suspension (BodyAddon) are item-driven and left out. The brief's Sit, CrossedArms and
+// Surrender do not exist in BC, and its HandsBehindBack, OverHead and Yoke are really BackCuffs,
+// OverTheHead and Yoked. Correct a name here and nowhere else.
 //
-// ALSO UNCONFIRMED: that setting one named pose leaves the other group alone. Setting a pose
-// by name here relies on BC replacing only that pose's own category, as its own pose menu
-// does; the read-back logs a warning if the other group was lost, which is what to look for
-// in a live run.
+// STILL UNCONFIRMED: that setting one named pose leaves the other category alone. That is what
+// BC's categories are for, but the setter itself was not read. The read-back below logs a
+// warning if the other group was lost, which is what to look for in a live run.
 
 export type PoseGroup = "stance" | "arms";
 
-/** The base pose names are in here so clearing a group also clears BC's explicit
- * neutral for it, if it keeps one. Harmless when it does not. */
+/** The base pose names are in here so clearing a group also clears BC's explicit neutral
+ * for it (BaseLower / BaseUpper). AllFours and Hogtied are BodyFull in BC, not BodyLower:
+ * they sit in the stance group because they are what a leg command reaches, but setting
+ * one is expected to take the arms with it. */
 export const POSE_GROUPS: Record<PoseGroup, readonly string[]> = {
-	stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "Sit", "AllFours", "Hogtied", "BaseLower"],
-	arms: ["HandsBehindBack", "BackBoxTie", "BackElbowTouch", "OverHead", "CrossedArms", "Yoke", "Surrender", "BaseUpper"],
+	stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "AllFours", "Hogtied", "BaseLower"],
+	arms: ["BackCuffs", "BackBoxTie", "BackElbowTouch", "OverTheHead", "Yoked", "BaseUpper"],
 };
+
+/** BC's BodyFull poses: whole-body, so they displace an arm pose and an arm pose displaces them. */
+const FULL_BODY_POSES: readonly string[] = ["AllFours", "Hogtied"];
 
 export function poseGroupOf(pose: string): PoseGroup | null {
 	if (POSE_GROUPS.stance.includes(pose)) return "stance";
@@ -140,8 +144,9 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	const after = currentPoses();
 	// Cleared means nothing but the group's neutral is left in it.
 	const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
-	const lost = keep.filter((p) => !after.includes(p));
-	if (lost.length) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
+	// Losing the other group is expected when a whole-body pose is involved on either side.
+	const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
+	if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
 	if (landed) ours[group] = pose;
 	else log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
 	return landed;
@@ -171,7 +176,7 @@ export function clearSuggestedPose(group?: PoseGroup, only?: string): void {
 	const now = currentPoses();
 	for (const g of group ? [group] : (["stance", "arms"] as PoseGroup[])) {
 		const p = ours[g];
-		// `only`: a trigger undoing its own kneel must not also undo a sit said since.
+		// `only`: a trigger undoing its own kneel must not also undo a spread said since.
 		if (only && p !== only) continue;
 		ours[g] = null;
 		if (p && now.includes(p)) setSuggestedPose(null, g);

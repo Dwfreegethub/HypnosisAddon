@@ -401,17 +401,17 @@ function poseSuggestion(id: FlavorKey, pose: string, examples: string[], pattern
 		patterns,
 		unless,
 		run: () => applyPose(pose),
-		// Undo only while it is still this pose: a trigger's kneel must not also undo a sit said since.
+		// Undo only while it is still this pose: a trigger's kneel must not also undo a spread said since.
 		undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose),
 	};
 }
 
-const STANCE_IDS: FlavorKey[] = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "sit", "all-fours", "lie-down"];
-const ARM_IDS: FlavorKey[] = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-crossed", "arms-out", "surrender"];
+const STANCE_IDS: FlavorKey[] = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
+const ARM_IDS: FlavorKey[] = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
 
 /** Ordered: each entry is checked before the broader one it overlaps. "Stand with your legs
- * apart" is a stance, not "stand"; "kneel spread" is not a plain kneel; "hands up where I can
- * see them" is surrender, not arms up. So this whole block sits above stand and kneel. */
+ * apart" is a stance, not "stand"; "kneel spread" is not a plain kneel. So this whole block
+ * sits above stand and kneel. */
 const POSE_SUGGESTIONS: Suggestion[] = [
 	poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
 		/\bkneel (?:with your knees )?(?:spread|apart)\b/,
@@ -434,25 +434,10 @@ const POSE_SUGGESTIONS: Suggestion[] = [
 		/(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
 		/\bon your (?:stomach|belly|front)\b/,
 	]),
-	poseSuggestion(
-		"sit",
-		"Sit",
-		["sit", "sit down", "sit on the floor"],
-		[/(?<!\bi )(?<!\bwe )\bsit\b/],
-		// Everyday induction patter uses "sit" without meaning the floor: "sit back and relax",
-		// "just sit with that feeling", "sit still". Those are vetoed rather than listed out,
-		// because bare "Missy, sit" is the command people will actually type.
-		[/\bsit (?:back|with|still|tight|up|comfortably|quietly)\b/, /\bcannot sit\b/],
-	),
-	// Arms. Surrender first: "hands up where I can see them" should raise them to the ears,
-	// not over the head.
-	poseSuggestion("surrender", "Surrender", ["surrender", "hands where I can see them"], [
-		// Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
-		// DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
-		/(?<!\bi )(?<!\bwe )\bsurrender\b/,
-		/\bwhere i can see them\b/,
-	]),
-	poseSuggestion("hands-behind", "HandsBehindBack", ["hands behind your back", "clasp your hands behind your back"], [
+	// Arms. Names per DW's verified reference (docs/bc-pose-reference.md): BC has no crossed-arms
+	// pose and no surrender pose, so "cross your arms" is not offered and "surrender" raises the
+	// arms over the head, its closest pose.
+	poseSuggestion("hands-behind", "BackCuffs", ["hands behind your back", "clasp your hands behind your back"], [
 		/\bhands behind your back\b/,
 	]),
 	poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
@@ -462,13 +447,16 @@ const POSE_SUGGESTIONS: Suggestion[] = [
 	poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
 		/\belbows (?:behind your back|together)\b/,
 	]),
-	poseSuggestion("arms-up", "OverHead", ["put your hands up", "raise your arms", "hands above your head"], [
+	poseSuggestion("arms-up", "OverTheHead", ["put your hands up", "raise your arms", "hands above your head", "surrender", "hands where I can see them"], [
 		/\b(?:hands|arms) up\b/,
 		/\braise your (?:arms|hands)\b/,
 		/\b(?:hands|arms) (?:above|over) your head\b/,
+		// Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
+		// DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
+		/(?<!\bi )(?<!\bwe )\bsurrender\b/,
+		/\bwhere i can see them\b/,
 	]),
-	poseSuggestion("arms-crossed", "CrossedArms", ["cross your arms"], [/\bcross your arms\b/, /\barms crossed\b/]),
-	poseSuggestion("arms-out", "Yoke", ["hold your arms out", "yoke your arms"], [
+	poseSuggestion("arms-out", "Yoked", ["hold your arms out", "yoke your arms"], [
 		/\b(?:hold|put|stretch) your arms out\b/,
 		/\byoke your arms\b/,
 	]),
