@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.82.1
+// @version      0.82.2
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -1393,6 +1393,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
       )
     );
   }
+  function tranceExpiryLine() {
+    return pick([
+      "The trance thins out on its own, and you surface slowly.",
+      "Whatever was holding you under loosens by itself, and the room comes back.",
+      "The calm drains away of its own accord, and your head is your own again."
+    ]);
+  }
+  function announceTranceExpiry() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name} blinks slowly, and the distance goes out of {their} eyes as the trance wears off.",
+          "The looseness drains out of {name} by degrees, and {name} surfaces on {their} own.",
+          "{name} stirs and draws a longer breath, the trance having quietly run its course."
+        ])
+      )
+    );
+  }
+  function hypnotistExpiryFlavor(subject) {
+    return pick([
+      `${subject} comes up out of the trance unprompted.`,
+      `The trance lets go of ${subject} by itself.`,
+      `${subject} drifts back up out of trance.`
+    ]);
+  }
 
   // src/storage.ts
   var import_lz_string = __toESM(require_lz_string());
@@ -1699,7 +1724,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.82.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -2200,14 +2225,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const resume = () => {
       restoreLocalState(saved);
       restoreTriggers(saved);
+      let live = true;
       try {
-        handlers2?.restoreSession(saved);
+        live = handlers2?.restoreSession(saved) !== false;
         handlers2?.restoreCarried(saved);
       } catch (err) {
         log("could not restore the session:", err);
       }
-      tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
-      log("recovery: resumed");
+      if (live) tellPlayer("You were gone for a moment. You are still under, and it is as though you never left.");
+      log(live ? "recovery: resumed" : "recovery: the trance had run out while away");
     };
     if (saved.hypnotistId && handlers2?.inRoom(saved.hypnotistId)) {
       resume();
@@ -2402,6 +2428,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var maxAttempts = () => getMaxAttempts();
   var COOLDOWN_MS = 10 * 6e4;
   var SESSION_TIMEOUT_MS = 30 * 6e4;
+  var TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
   var RESISTANCE_FLOOR = 5;
   var CHANCE_CEILING = 95;
   var EXPERIENCE_WEIGHT = 0.25;
@@ -2520,7 +2547,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function saveForReconnect() {
     persistState();
   }
-  function pushUpdate(refusedReason) {
+  function pushUpdate(refusedReason, ended) {
     if (session.hypnotistId == null) return;
     const now = Date.now();
     sendHiddenMessage(
@@ -2534,7 +2561,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         depthBand: session.phase === "Hypnotized" ? depthBand(session.depth) : null,
         cooldownRemaining: Math.max(0, session.cooldownUntil - now),
         windowRemaining: session.phase === "InductionInProgress" ? INDUCTION_WINDOW_MS : 0,
-        refusedReason: refusedReason ?? null
+        refusedReason: refusedReason ?? null,
+        ended: ended ?? null
       },
       session.hypnotistId
     );
@@ -2556,7 +2584,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       to
     );
   }
-  function endSession(reason, quiet = false) {
+  function expireSession(when) {
+    endSession(
+      when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${TIMEOUT_MINUTES} minutes`,
+      false,
+      when
+    );
+  }
+  function endSession(reason, quiet = false, expiry) {
     clearTimers();
     const had = session.phase === "Hypnotized";
     const hypnotist = session.hypnotistId;
@@ -2576,9 +2611,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     runTeardown();
     session = freshSession();
     session.hypnotistId = hypnotist;
-    pushUpdate();
+    pushUpdate(void 0, had && expiry ? "timeout" : void 0);
     session.hypnotistId = null;
-    if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
+    if (!quiet && had && expiry) {
+      notify(`${tranceExpiryLine()} (${reason[0].toUpperCase()}${reason.slice(1)}.)`);
+      if (expiry === "here") announceTranceExpiry();
+    } else if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
     const carried = carryThroughWake();
     if (carried && !quiet) notify(carried);
   }
@@ -2704,7 +2742,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       setCurrentDepths(depths.full, depths.earned);
       session.hypnotizedAt = Date.now();
       sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-      sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+      sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
       applyTranceState();
       startPresenceWatch();
       noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
@@ -2757,7 +2795,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
     sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-    sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
     applyTranceState();
     startPresenceWatch();
     pushUpdate();
@@ -3058,6 +3096,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer(`${flavour} Attempt ${attempts} of ${max}. You can try again.`);
     }
   }
+  function reportExpiryToHypnotist(sender, message) {
+    if (message.refusedReason) return;
+    if (message.ended !== "timeout" || message.phase !== "Idle") return;
+    const name = findCharacterName(sender);
+    tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its ${TIMEOUT_MINUTES}-minute limit and has ended.`);
+  }
   function requestAttempt(memberNumber) {
     sendHiddenMessage(
       { type: "session-attempt", hypnotistName: Player?.Name ?? "Someone", skill: skillValue() },
@@ -3092,14 +3136,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (sessionTimer) clearTimeout(sessionTimer);
     if (remaining > 0) {
       sessionEndsAt = saved.sessionEndsAt;
-      sessionTimer = setTimeout(() => endSession("session timed out"), remaining);
+      sessionTimer = setTimeout(() => expireSession("here"), remaining);
     } else {
-      endSession("the session had already run out while you were away");
-      return;
+      expireSession("away");
+      return false;
     }
     startPresenceWatch();
     pushUpdate();
     log(`recovery: session restored, depth ${session.depth}, ${Math.round(remaining / 6e4)} min left`);
+    return true;
   }
   function installSession() {
     registerRecoveryHandlers({
@@ -3193,6 +3238,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (gained > 0) addSkill(SKILL_ATTEMPT_CREDIT * gained);
       if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
       reportMissToHypnotist(sender, message, prev);
+      reportExpiryToHypnotist(sender, message);
       views.set(sender, {
         phase: message.phase ?? "Idle",
         attempts: Number(message.attempts ?? 0),
@@ -7281,7 +7327,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.82.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8741,7 +8787,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/main.ts
   function showIndicator() {
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.82.1"} loaded`;
+    el.textContent = `ECHS v${"0.82.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -8764,14 +8810,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`FAILED to set up ${label}:`, err);
     }
   }
-  log(`script loaded (v${"0.82.1"})`);
+  log(`script loaded (v${"0.82.2"})`);
   showIndicator();
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.82.1",
+      version: "0.82.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

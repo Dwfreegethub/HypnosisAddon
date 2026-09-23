@@ -7,6 +7,9 @@ import {
 	inductionMissLine,
 	inductionSpentLine,
 	hypnotistMissFlavor,
+	tranceExpiryLine,
+	announceTranceExpiry,
+	hypnotistExpiryFlavor,
 } from "./flavor";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
@@ -121,6 +124,8 @@ const INDUCTION_WINDOW_MS = 60_000;
 const maxAttempts = () => getMaxAttempts();
 const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;
+/** The timeout as players are told it, on both sides of the expiry announcement. */
+const TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 60_000);
 /** Floor and ceiling on the induction chance, so neither outcome is ever certain. The
  * floor is what an actively resisting stranger still leaves open: 5% per attempt, ~14%
  * across a session's three. DW's settled call; meant to become a player setting. */
@@ -433,7 +438,13 @@ export function saveForReconnect(): void {
 	persistState();
 }
 
-function pushUpdate(refusedReason?: string): void {
+/** Why a session just ended, when it is something the hypnotist's client should say out loud.
+ * Only the timeout, for now: it is the one ending nobody on either side caused, so the one the
+ * hypnotist had no way to know about. Additive on the wire — an older client ignores it and
+ * its panel flips to idle exactly as before. */
+type EndedHow = "timeout";
+
+function pushUpdate(refusedReason?: string, ended?: EndedHow): void {
 	if (session.hypnotistId == null) return;
 	const now = Date.now();
 	sendHiddenMessage(
@@ -448,6 +459,7 @@ function pushUpdate(refusedReason?: string): void {
 			cooldownRemaining: Math.max(0, session.cooldownUntil - now),
 			windowRemaining: session.phase === "InductionInProgress" ? INDUCTION_WINDOW_MS : 0,
 			refusedReason: refusedReason ?? null,
+			ended: ended ?? null,
 		},
 		session.hypnotistId,
 	);
@@ -473,7 +485,21 @@ function refuse(to: number, reason: string): void {
 	);
 }
 
-function endSession(reason: string, quiet = false): void {
+/** How the thirty minutes ran out, if they did: while the subject was here to see it, or
+ * while they were logged out and are only now being told. Both tell the hypnotist; only the
+ * first is something the room could have watched happen. */
+type Expiry = "here" | "away";
+
+/** The timeout, spoken on all three screens. See tranceExpiryLine() in flavor.ts. */
+function expireSession(when: Expiry): void {
+	endSession(
+		when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${TIMEOUT_MINUTES} minutes`,
+		false,
+		when,
+	);
+}
+
+function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	clearTimers();
 	const had = session.phase === "Hypnotized";
 	const hypnotist = session.hypnotistId;
@@ -506,9 +532,17 @@ function endSession(reason: string, quiet = false): void {
 	runTeardown();
 	session = freshSession();
 	session.hypnotistId = hypnotist;
-	pushUpdate();
+	pushUpdate(undefined, had && expiry ? "timeout" : undefined);
 	session.hypnotistId = null;
-	if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
+	if (!quiet && had && expiry) {
+		// Its own line rather than the generic one below: "(session timed out)" in brackets was
+		// the whole of what a timeout used to say, and read as a status code, not as the trance
+		// ending. The reason stays in plain words after it so it is never mistaken for a wake.
+		notify(`${tranceExpiryLine()} (${reason[0].toUpperCase()}${reason.slice(1)}.)`);
+		// The room watched them go under; it sees them come back. Not on the away path: the room
+		// watched them leave, and nothing happened in front of anyone.
+		if (expiry === "here") announceTranceExpiry();
+	} else if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
 	// AFTER the clear, deliberately: the clear stays total so no branch can strand an
 	// effect, and anything the hypnotist made durable is put back from a list rather than
 	// by carving exceptions into the one function that guarantees a clean exit.
@@ -839,7 +873,7 @@ function runInductionRoll(): void {
 		setCurrentDepths(depths.full, depths.earned);
 		session.hypnotizedAt = Date.now();
 		sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-		sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+		sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
 		applyTranceState();
 		// Keep asking. Presence was true a microsecond ago, at the gate above — but the
 		// trance now runs for up to thirty minutes, and the question "is anyone still here"
@@ -938,7 +972,7 @@ export function forceTrance(hypnotistId: number, full: number, earned: number): 
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
 	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-	sessionTimer = setTimeout(() => endSession("session timed out"), SESSION_TIMEOUT_MS);
+	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
 	applyTranceState();
 	// A forced trance is still a trance: if the bot that forced it leaves the testing room,
 	// it ends the same way a real one would rather than becoming the one path that strands
@@ -1481,6 +1515,23 @@ function reportMissToHypnotist(sender: number, message: Record<string, any>, pre
 	}
 }
 
+/** Tell the hypnotist, in their own chat log, that a trance of theirs ran out on its own.
+ *
+ * Same hole reportMissToHypnotist closes, at the other end of the session: the timeout was
+ * visible to them only as the subject's panel flipping back to idle, and with the panel closed
+ * a trance simply stopped. Keyed on the `ended` marker rather than on a Hypnotized-to-Idle
+ * transition, because every ending makes that transition and most of them are not ours to
+ * narrate — a self-wake is the subject's, and the safeword already says itself.
+ *
+ * Fires once: the subject's client sets the marker only on the update that ends the trance,
+ * and every later update (a re-query, a refusal) carries none. A refusal never counts. */
+function reportExpiryToHypnotist(sender: number, message: Record<string, any>): void {
+	if (message.refusedReason) return;
+	if (message.ended !== "timeout" || message.phase !== "Idle") return;
+	const name = findCharacterName(sender);
+	tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its ${TIMEOUT_MINUTES}-minute limit and has ended.`);
+}
+
 export function requestAttempt(memberNumber: number): void {
 	// Name travels with the request so the subject's prompt can say who it is without
 	// depending on them having that character loaded and resolvable at that moment.
@@ -1528,7 +1579,7 @@ export function querySession(memberNumber: number): void {
 
 /** Put a saved trance back on. Called by recovery.ts once it has decided the scene is still
  * live — the decision is entirely there, and the mechanics entirely here. */
-function restoreSavedSession(saved: SavedSession): void {
+function restoreSavedSession(saved: SavedSession): boolean {
 	session.phase = "Hypnotized";
 	session.hypnotistId = saved.hypnotistId;
 	session.depth = Number(saved.depth) || 0;
@@ -1541,10 +1592,10 @@ function restoreSavedSession(saved: SavedSession): void {
 	if (sessionTimer) clearTimeout(sessionTimer);
 	if (remaining > 0) {
 		sessionEndsAt = saved.sessionEndsAt;
-		sessionTimer = setTimeout(() => endSession("session timed out"), remaining);
+		sessionTimer = setTimeout(() => expireSession("here"), remaining);
 	} else {
-		endSession("the session had already run out while you were away");
-		return;
+		expireSession("away");
+		return false;
 	}
 	// recovery.ts has already established the hypnotist is in the room — that is its own
 	// resume condition. From here on it is this watcher's question, so the two do not both
@@ -1552,6 +1603,7 @@ function restoreSavedSession(saved: SavedSession): void {
 	startPresenceWatch();
 	pushUpdate();
 	log(`recovery: session restored, depth ${session.depth}, ${Math.round(remaining / 60_000)} min left`);
+	return true;
 }
 
 export function installSession(): void {
@@ -1707,6 +1759,7 @@ export function installSession(): void {
 		if (gained > 0) addSkill(SKILL_ATTEMPT_CREDIT * gained);
 		if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
 		reportMissToHypnotist(sender, message, prev);
+		reportExpiryToHypnotist(sender, message);
 		views.set(sender, {
 			phase: (message.phase as SessionPhase) ?? "Idle",
 			attempts: Number(message.attempts ?? 0),
