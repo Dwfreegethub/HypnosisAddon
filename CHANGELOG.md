@@ -12,6 +12,15 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.83.2 · 23 September 2026
+
+- **"You cannot cum" really holds now.** In the first test of the last update, a toy was held back
+  but touching yourself still got you there. ECHS now stops it itself, whatever tries to finish you,
+  and keeps you right at the edge. You and the room are told when it holds you back.
+- A direct order to cum still works while you are denied, the same as before.
+
+---
+
 ## v0.83.1 · 23 September 2026
 
 - **"You cannot cum" works now.** Being told you could not cum was accepted, but the game did not

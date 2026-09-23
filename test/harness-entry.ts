@@ -7,6 +7,7 @@ export * as storage from "../src/storage";
 export * as triggers from "../src/triggers";
 export * as session from "../src/session";
 export * as selftouch from "../src/selftouch";
+export * as denial from "../src/denial";
 export * as carry from "../src/carry";
 export * as suppression from "../src/suppression";
 export * as timers from "../src/timers";
