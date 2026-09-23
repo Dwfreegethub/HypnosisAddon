@@ -233,7 +233,7 @@ scenarios* for what each scenario proves.
 | 15 — Reinforcement & decay | Triggers weaken with disuse, hold better the deeper they were planted, and are refreshed by a re-induction; strength is their effective depth when they fire |
 | 16 — Vertical tabs | Both canvas panels moved their tabs to the left edge, which lifts the ceiling from six tabs to nine and gives the panel back the band above it |
 
-**Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while a session is on you". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. **The lock covers the whole session, not only the trance** (v0.65.1): the prompt, the roleplay window and the misses between attempts are all locked, so a permission cannot be granted to someone mid-attempt and the attempt limit cannot be moved to hand them another try. The cooldown after a spent run is not locked — there is nothing left to protect against. **Import is locked with them** (v0.84.2), from the Data tab button and `/hypno import` alike, because it replaces every toggle at once without ending anything; Export (read-only) and Reset (ends the session before it wipes, Known Bug #4) stay open. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
+**Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while a session is on you". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. **The lock covers the whole session, not only the trance** (v0.65.1): the prompt, the roleplay window and the misses between attempts are all locked, so a permission cannot be granted to someone mid-attempt and the attempt limit cannot be moved to hand them another try. The cooldown after a spent run is not locked — there is nothing left to protect against. **Import is locked with them** (v0.84.3), from the Data tab button and `/hypno import` alike, because it replaces every toggle at once without ending anything; Export (read-only) and Reset (ends the session before it wipes, Known Bug #4) stay open. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
 A second tab holds the **trance defaults** — cannot move / cannot speak / screen fade, all ON by default, plus *Clothes Look Unchanged* (off, deliberately: the other three are things you feel, this one makes your own screen tell you something untrue) and *Others See Your Reactions* (on). A third holds **awareness** (what you can be made not to notice), a fourth **triggers** (planting, carry-forward, firing your own, showing the words, scope, duration), and a fifth is read-only **stats**. A **"?" button on both this screen and the remote panel** opens a five-tab help screen generated from the pattern library and command list themselves, so it cannot fall behind them.
 
@@ -3004,7 +3004,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   stripped it; if both are there, the orgasm is taking a route through neither function. BC's own
   code for both functions is quoted in `src/denial.ts`. Run sheet: *Needs Testing* item 14, step 1b.
 
-- ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision.
+- ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision. **Moved v0.84.2:** riding `startRecovery()` meant it almost never fired, since that poll stops for good 20 s after load when there is no room, and logging in then browsing the room list takes longer. It now rides the startup banner's poll in `welcome.ts` (up to ten minutes, gated on a known member number as well as a room), still with no poll of its own. `test/first-run-login.mjs`.
 
   **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
   wizard and starter set only appear *if you open settings* — so a fresh install is completely
@@ -4342,7 +4342,23 @@ deeper) and a third, Rei, who needs no add-on. Send the raw chat transcript back
 
 ---
 
-**Nine of sixteen topics confirmed; seven open, above.** Next bugs or regressions go in Known Bugs.
+### 16. The first-run notice on an ordinary login (v0.84.2) — **open, never run live**
+
+A character that has never had ECHS set up (or clear `welcomeShown` with a fresh settings reset on
+the Data tab). Send the raw chat transcript back.
+
+1. **The ordinary arrival.** Refresh BC, log in, and stay on the room list for at least **30
+   seconds** before joining any room. *Expect:* the first lines in the room's chat are the version
+   line, then *"nothing is switched on yet. Click the spiral to set up."* and the line about
+   reactions. *Failure looks like:* the version line alone. That was every fresh login before
+   v0.84.2, because the notice waited on a poll that had stopped 20 seconds after load.
+2. **Once only.** Refresh and join a room again. *Expect:* the version line, and no notice.
+3. **Nobody else sees it.** Have a second character in the room for step 1. *Expect:* they see
+   nothing from it.
+
+---
+
+**Nine of seventeen topics confirmed; eight open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

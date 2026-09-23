@@ -20,7 +20,7 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Fixed 2026-09-23 (v0.84.2) — Import got round the settings lock
+### Fixed 2026-09-23 (v0.84.3) — Import got round the settings lock
 
 "Lock settings while a session is on you" greyed and refused every checkbox and the attempt limit,
 but the Data tab's Export/Import/Reset branch in `menu.ts` handled its click and returned *before*
@@ -46,6 +46,30 @@ unticked) where Import must still work. **8 verified failing** against v0.84.1. 
 the greyed button has not been seen in a real BC client.
 
 ---
+
+### Fixed 2026-09-23 (v0.84.2) — the first-run notice never fired on an ordinary login
+
+Found reading the code for v0.81.0's startup banner, not reported by a tester. `maybeShowFirstRunNotice()`
+rode `startRecovery()`'s identity-and-room branch. That poll gives up on a room after
+`NO_ROOM_FALLBACK_MS` (20 s), runs recovery on identity alone, and clears itself for good. Logging
+in and then browsing the room list takes longer than 20 s, so the notice only ever got its chance on
+a refresh while already in a room, where BC rejoins quickly. The discovery gap v0.74.3 built it to
+close was still open for the people it was built for.
+
+The notice now rides `startStartupBanner()`'s poll in `welcome.ts`, which already existed for the
+same reason (it waits on `ServerPlayerIsInChatRoom()` for up to ten minutes) and prints right after
+the banner. So there is still exactly one poll serving the chat-log lines, and `recovery.ts` keeps
+its own no-room fallback unchanged. The banner's gate now also requires a known member number: the
+banner reads no settings but the notice does, and reading them before login is the v0.17.0 trap.
+Being in a room should already imply login, so this is a guard rather than a behaviour change. If a
+page sits in the lobby past the ten-minute give-up, nothing is marked shown and the notice waits for
+the next load.
+
+`test/first-run-login.mjs`, 13 checks, walks the ordinary arrival (load, log in, 25 s in the lobby,
+join at 55 s) through both real polls: 3 fail with the notice call taken back out of the banner
+poll, and 2 fail with the member-number gate removed. `test/banner.mjs` now marks its player welcomed
+first, since a fresh install there would print the notice after the banner too. **Not run live**:
+*Needs Testing* item 16.
 
 ### Fixed 2026-09-23 (v0.84.1) — two ways an orgasm still got past spoken denial
 

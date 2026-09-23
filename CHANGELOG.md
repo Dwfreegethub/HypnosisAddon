@@ -12,7 +12,7 @@ report it and say which version your chat line shows.
 
 ---
 
-## v0.84.2 · 23 September 2026
+## v0.84.3 · 23 September 2026
 
 - **Locking your settings now locks Import too.** If you ticked "Lock settings while a session is
   on you", pasting a saved backup could still replace every permission in the middle of a session.
@@ -20,6 +20,13 @@ report it and say which version your chat line shows.
   and says why. Export and Reset still work, and the safeword is untouched.
 
 ---
+
+## v0.84.2 · 23 September 2026
+
+- **New players now get the welcome note.** When ECHS has nothing switched on yet, it is meant to
+  tell you so the first time you join a room, and point you at the spiral to set it up. If you
+  spent more than about twenty seconds on the room list after logging in, which is most people,
+  that note never appeared. It now shows the first time you join a room, however long you took.
 
 ## v0.84.1 · 23 September 2026
 
