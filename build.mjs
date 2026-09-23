@@ -12,15 +12,45 @@ const watch = process.argv.includes("--watch");
 
 mkdirSync("dist", { recursive: true });
 
-const options = {
-	entryPoints: ["src/main.ts"],
+const common = {
 	bundle: true,
-	outfile: "dist/HypnosisAddon.user.js",
 	format: "iife",
 	target: "es2020",
-	banner: { js: banner },
 	define: { __VERSION__: JSON.stringify(pkg.version) },
 	logLevel: "info",
+};
+
+// The whole add-on as one userscript, header and all. This is the dev build: what a file://
+// install from a local checkout runs. Players no longer install it (v0.83.0) — see below.
+const options = {
+	...common,
+	entryPoints: ["src/main.ts"],
+	outfile: "dist/HypnosisAddon.user.js",
+	banner: { js: banner },
+};
+
+// Since v0.83.0 a player installs only the small loader, and the loader fetches the add-on from
+// jsDelivr on every page load. These are the two halves of that; `npm run release` copies them to
+// the committed files (root HypnosisAddon.user.js and cdn/HypnosisAddon.js).
+//
+// The bundle carries no userscript header: it is run by the loader's script tag, never installed,
+// and a header there would only invite someone to install it directly and lose the loader. Same
+// code as the dev build, byte for byte, below the header.
+const bundle = {
+	...common,
+	entryPoints: ["src/main.ts"],
+	outfile: "dist/HypnosisAddon.js",
+	banner: {
+		js: `// Erotic Chat Hypnosis Suite (ECHS) v${pkg.version}. Loaded at runtime by the installed loader;\n// this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js`,
+	},
+};
+// The loader carries the same header as the dev build (meta.txt): same name, namespace, update
+// URLs and @match list, which is what lets an existing install update onto it in place.
+const loader = {
+	...common,
+	entryPoints: ["src/loader-entry.ts"],
+	outfile: "dist/HypnosisAddon.loader.user.js",
+	banner: { js: banner },
 };
 
 if (watch) {
@@ -28,5 +58,5 @@ if (watch) {
 	await ctx.watch();
 	console.log("Watching for changes...");
 } else {
-	await esbuild.build(options);
+	await Promise.all([esbuild.build(options), esbuild.build(bundle), esbuild.build(loader)]);
 }

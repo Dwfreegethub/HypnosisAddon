@@ -121,44 +121,60 @@ to be stale and should not be hand-edited for version bumps.
 
 ## Publishing and the install story
 
-The player-facing install instructions in [`../README.md`](../README.md) are **live** as of v0.74.x.
-A built userscript is committed at the repo **root** as `HypnosisAddon.user.js`, and testers install
-it raw-on-`main`:
+**Since v0.83.0 players install a small loader, not the add-on.** The loader is committed at the repo
+**root** as `HypnosisAddon.user.js`, at the same raw-on-`main` URL testers have always installed from:
 `https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js`.
+On every page load it puts the add-on itself into the page from `cdn/HypnosisAddon.js`, in this order
+(`src/loader.ts`):
 
-This is **approach (A) below — "commit the build"**, chosen for alpha. `meta.txt` carries
-`@downloadURL`/`@updateURL` pointing at that same raw URL, so Tampermonkey **auto-updates** installed
-testers whenever the committed file's `@version` climbs. `dist/` stays gitignored; the ROOT file is
-the only committed build. (Still absent, nice-to-haves not blockers: `@icon`, `@homepageURL`,
-`@supportURL`.)
+1. **jsDelivr, following `main`**:
+   `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js`, as a script tag.
+   jsDelivr caches a branch URL for up to 12 hours by its own documentation, so
+   `.github/workflows/purge-cdn.yml` purges that URL on every push to `main` that changes the bundle.
+2. **The raw GitHub copy of the same file**, fetched and run inline. A script tag cannot point at raw
+   GitHub directly: it serves `text/plain` with `nosniff` (checked 2026-09-23). It allows any origin
+   and caches for five minutes. This is for players who can reach GitHub but not jsDelivr.
+3. **Neither:** a red note in the bottom-right corner saying ECHS could not load, which stays until
+   clicked, plus a console warning.
 
-**Keeping it current is a release step, not automatic.** The committed root file is a build artifact,
-so it goes stale the moment the version bumps unless regenerated — and a stale root file means testers
-keep the old script (and, since `@updateURL` reads *its* version, are told they are up to date). So on
-every release:
+Only a load that errors falls through. There is no timeout, on purpose: a slow jsDelivr answering after
+the fallback had run would load the add-on twice.
+
+**Decided by DW, 2026-09-23 (the recommended option on each):**
+- *Follow main, not tags.* Every merge reaches testers on their next refresh, with no tag to push. A
+  forgotten tag would have meant nothing loads.
+- *Fall back to GitHub, then say so.* jsDelivr has had reachability trouble in mainland China, which
+  may matter for Asia-server players (not confirmed).
+- *The loader's version tracks `package.json`.* Every release still bumps the root file, so a manager
+  shows the same number as the startup chat line, and the release steps are unchanged. It costs each
+  tester a ~5 KB re-download per release, which is nothing.
+
+**How existing installs move over.** The loader keeps the old file's name, namespace, `@match` list
+and both update URLs (all from `meta.txt`), and its version climbs past v0.82.3, so a manager's
+ordinary update check replaces the full add-on with the loader in place, with no reinstall. A tester
+whose manager has not checked yet simply runs v0.82.3 until it does. Saved settings live in the
+account's `ExtensionSettings` and are never touched, so no key migration is needed for this. **It is
+reversible the same way:** a release that puts the full add-on back at the root reaches every loader at
+its next update check, because the loader still checks the same URL.
+
+**A release is two committed files, both build artifacts:**
 
 ```bash
-npm run release   # build, then copy dist/HypnosisAddon.user.js over the committed root file
+npm run release   # build, then copy the loader to the root and the add-on to cdn/HypnosisAddon.js
 ```
 
-then commit the changed `HypnosisAddon.user.js` with the version bump, and add the release's
-plain-language line to the root [`CHANGELOG.md`](../CHANGELOG.md), which is what players read.
-`npm run build` deliberately does NOT touch the root file, so the dev loop never churns it.
+Commit both with the version bump, and add the release's plain-language line to the root
+[`CHANGELOG.md`](../CHANGELOG.md). A bump that skips this leaves testers on the old add-on. `npm run
+build` deliberately touches neither committed file; it writes three files to `dist/`: the loader, the
+bundle, and `dist/HypnosisAddon.user.js`, the whole add-on as one userscript, which is still what a
+local `file://` dev install uses. `test/loader.mjs` checks the loader's header against `meta.txt` and
+that the committed root file is the loader, not the full add-on.
 
-The two shapes this was chosen between:
-
-**(A) Commit the build, point the banner at it (CHOSEN).** A raw-on-branch URL beats a release asset
-because it is *stable*: it always serves the current file, so `@updateURL` never has to be rewritten.
-A release-asset URL is per-tag and would need either a rewrite each release or the
-`/releases/latest/download/` form plus a release step. The cost — paid by `npm run release` above — is
-that every build shows up as a diff and must be regenerated before each push, or users get a stale
-script.
-
-**(B) The loader shape, which is what LSCG does.** LSCG's README publishes a small committed
-*loader* userscript (`.../raw/main/lscgLoader.user.js`) that fetches the real bundle from GitHub
-Pages at runtime. The loader almost never changes, so Tampermonkey rarely needs to update anything
-and users are always on current code. Technique only — no LSCG code, per rule 7. This needs GitHub
-Pages enabled and a published bundle, and is the better end state if FUSAM listing is the goal.
+**Why this and not what came before.** Up to v0.82.3 the root file *was* the whole add-on, and updates
+reached testers only when their manager next checked (commonly once a day; not confirmed for every
+manager). The alternative recorded here at the time was LSCG's shape: a small loader fetching the real
+bundle from GitHub Pages. Technique only, no LSCG code, per rule 7. jsDelivr was chosen over Pages
+because it needs no repository setting switched on.
 
 **FUSAM — not verified.** FUSAM's own user-facing page (`sidiousious.gitlab.io/bc-addon-loader`)
 documents only how a *player* runs FUSAM, not what an add-on author must provide to be listed. The

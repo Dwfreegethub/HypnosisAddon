@@ -20,6 +20,49 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-23 (v0.83.0) — the install becomes a loader; the add-on comes from jsDelivr
+
+DW's tracker item "jsDelivr CDN loader", group D (distribution). DW picked the recommended option on
+all three calls. The full design, and how existing installs move over, is in
+[`DEVELOPMENT.md`](DEVELOPMENT.md) → *Publishing and the install story*.
+
+**What changed.** The root `HypnosisAddon.user.js` is now a ~5 KB loader (`src/loader.ts`). On every
+page load it adds the add-on from jsDelivr following `main`; if that load errors it fetches the raw
+GitHub copy and runs it inline; if that fails too it puts a red note on screen that stays until
+clicked. The add-on itself is committed at `cdn/HypnosisAddon.js`. `npm run release` now writes both
+files. A GitHub Action purges jsDelivr's cached copy on every push to `main` that changes the bundle.
+
+**Why.** Up to v0.82.3 a fix reached a tester only when their manager next checked for updates. Now
+it reaches them on their next refresh. It is also the shape FUSAM listing will want: a stable,
+fetchable bundle URL.
+
+**The three calls (DW, 2026-09-23):**
+- **Main, not tags.** No tag to push per release. The cost is jsDelivr's branch cache, up to 12 hours
+  by its own documentation, which the purge Action exists to clear.
+- **Fallback, then notice.** A second source for players who can reach GitHub but not jsDelivr. There
+  is deliberately no timeout: only a load that errors falls through, so a slow CDN answer can never
+  load the add-on a second time.
+- **The loader's version tracks `package.json`.** One version source, as before; a manager shows the
+  same number as the startup chat line.
+
+**Not in this release: the `ExtensionSettings` key migration**, group D's other item. The loader runs
+the same code under the same key, so it needs no migration.
+
+**Not verified, and why.** jsDelivr (the CDN and the purge endpoint) is unreachable from the build
+workspace (403 at the proxy), so the 12-hour figure and the purge URL are from jsDelivr's documentation
+as remembered, and the Action's first run is its first real test. Nothing here has confirmed that BC's
+page accepts a script tag from `cdn.jsdelivr.net`; other BC add-ons are believed to load this way. Both
+are item 13 under *Needs Testing* in `design.md`. What *was* checked from here: raw GitHub serves
+`text/plain` with `nosniff` (so a script tag there is refused, which is why the fallback fetches),
+`access-control-allow-origin: *`, and `max-age=300`.
+
+`test/loader.mjs`, new: the three load outcomes against a stub DOM, the loader's header against
+`meta.txt` (one version line, unchanged update URLs, name, namespace and every `@match`), and the shape
+of the two committed files. Each of six planted regressions was seen to fail before the suite was kept:
+no notice, no early return after a CDN load, a changed update URL, a second version line, a dropped
+host, and the full add-on copied back to the root. The loader logs through `log.ts`, so
+`test/console.mjs`'s "nothing reaches console directly" rule holds for it too.
+
 ### Fixed 2026-09-22 (v0.82.3) — tracker group C, small visible fixes
 
 DW's tracker group C, six items in one PR. Five shipped; the induction asterisk did not, see the

@@ -4229,9 +4229,43 @@ BC actually draws, which is the whole of steps 2 and 3.
    loaded" line and nothing per message. Switch on *Verbose* (Chrome) and the per-message lines
    appear. *Failure looks like:* a line for every message at the default level.
 
+### 13. The install loader (v0.83.0) — **open, never run live. Steps 1 and 2 belong BEFORE the merge**
+
+A merge here reaches every tester's install at their manager's next update check, and from then on
+their add-on only exists if the loader can fetch it. So the two things nothing here could check are
+run first, by hand, from the PR's own commit, with the loader not yet installed anywhere. Replace
+`<commit>` with the PR's latest commit hash.
+
+1. **BC accepts a script from jsDelivr.** Switch ECHS **off** in your userscript manager and load BC.
+   Open the browser console and paste
+   `document.head.appendChild(Object.assign(document.createElement("script"), {src: "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@<commit>/cdn/HypnosisAddon.js"}))`.
+   *Expect:* "ECHS v0.83.0 loaded" in the bottom-right corner and `script loaded (v0.83.0)` in the
+   console; entering a room prints the v0.83.0 chat line. *Failure looks like:* a console error
+   naming *Content Security Policy*, or nothing at all. Then the loader cannot work: **do not merge**.
+2. **The GitHub fallback runs.** Refresh, ECHS still off, and paste
+   `fetch("https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/<commit>/cdn/HypnosisAddon.js").then(r => r.text()).then(t => document.head.appendChild(Object.assign(document.createElement("script"), {textContent: t})))`.
+   *Expect:* the same as step 1. *Failure looks like:* a *Content Security Policy* error about an
+   inline script. The fallback is then useless, but jsDelivr alone still works, so this one does not
+   block the merge; write down what it said.
+
+After the merge:
+
+3. **The cache purge ran.** GitHub → Actions → *Purge jsDelivr cache*. *Expect:* a green run for the
+   merge commit. *Failure looks like:* red. That costs lag of up to 12 hours, not a broken install.
+4. **The update moves you over in place.** Switch ECHS back on, then in Tampermonkey use *Check for
+   userscript updates*. *Expect:* one ECHS entry, now v0.83.0, a few KB in size. *Failure looks like:*
+   two ECHS entries, which would load everything twice.
+5. **It loads.** Refresh BC. *Expect:* `loader v0.83.0: loading ECHS from jsDelivr` in the console,
+   then everything from step 1. Your settings, trust and triggers are as you left them.
+6. **The fallback, and the note.** Devtools → Network → block `cdn.jsdelivr.net` and refresh.
+   *Expect:* a console warning that the jsDelivr copy failed, then the add-on loads from GitHub. Also
+   block `raw.githubusercontent.com` and refresh. *Expect:* a red note in the corner saying ECHS could
+   not load, which stays until clicked and goes when clicked. *Failure looks like:* no add-on and no
+   note, which is the silent failure the note exists for.
+
 ---
 
-**Nine of twelve topics confirmed; three open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of fourteen topics confirmed; five open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
