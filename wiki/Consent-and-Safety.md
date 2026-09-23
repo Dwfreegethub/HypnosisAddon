@@ -42,6 +42,7 @@ Permissions are configured **per feature**:
 * Arousal control and forced climaxes
 * Undressing
 * Commanded activities (acting on command)
+* Touching someone else on command (its own tick, off by default; of the setup presets only Extreme turns it on)
 * Sensory modulation and awareness suppression
 * False reflections (clothing illusions)
 * Storing and firing trigger words

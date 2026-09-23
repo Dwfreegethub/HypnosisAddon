@@ -175,7 +175,7 @@ This **prevents** the subject from touching themselves. Commanding autonomous to
 
 ## Making Them Act
 
-Commands such as *"Missy, touch your breasts"* make the subject's character physically execute the activity in-game. This relies on a dedicated permission (**Made to Act**) with its own structured syntax. Full verb mappings, targeting rules, and restrictions are detailed in [Commanded Activities](Commanded-Activities).
+Commands such as *"Missy, touch your breasts"* make the subject's character physically execute the activity in-game. This relies on a dedicated permission (**Made to Act**) with its own structured syntax. The same verbs can be aimed at the hypnotist (*"Missy, kiss me"*) or, with **Made to Touch Others** also ticked, at someone else in the room by name (*"Missy, kiss Rei"*). Full verb mappings, targeting rules, and restrictions are detailed in [Commanded Activities](Commanded-Activities).
 
 ---
 
