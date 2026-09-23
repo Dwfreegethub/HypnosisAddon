@@ -12,7 +12,7 @@ report it and say which version your chat line shows.
 
 ---
 
-## v0.84.2 · 23 September 2026
+## v0.84.3 · 23 September 2026
 
 - **New players now get the welcome note.** When ECHS has nothing switched on yet, it is meant to
   tell you so the first time you join a room, and point you at the spiral to set it up. If you

@@ -3004,7 +3004,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   stripped it; if both are there, the orgasm is taking a route through neither function. BC's own
   code for both functions is quoted in `src/denial.ts`. Run sheet: *Needs Testing* item 14, step 1b.
 
-- ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision. **Moved v0.84.2:** riding `startRecovery()` meant it almost never fired, since that poll stops for good 20 s after load when there is no room, and logging in then browsing the room list takes longer. It now rides the startup banner's poll in `welcome.ts` (up to ten minutes, gated on a known member number as well as a room), still with no poll of its own. `test/first-run-login.mjs`.
+- ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision. **Moved v0.84.3:** riding `startRecovery()` meant it almost never fired, since that poll stops for good 20 s after load when there is no room, and logging in then browsing the room list takes longer. It now rides the startup banner's poll in `welcome.ts` (up to ten minutes, gated on a known member number as well as a room), still with no poll of its own. `test/first-run-login.mjs`.
 
   **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
   wizard and starter set only appear *if you open settings* — so a fresh install is completely
@@ -4342,7 +4342,7 @@ deeper) and a third, Rei, who needs no add-on. Send the raw chat transcript back
 
 ---
 
-### 16. The first-run notice on an ordinary login (v0.84.2) — **open, never run live**
+### 16. The first-run notice on an ordinary login (v0.84.3) — **open, never run live**
 
 A character that has never had ECHS set up (or clear `welcomeShown` with a fresh settings reset on
 the Data tab). Send the raw chat transcript back.
@@ -4351,7 +4351,7 @@ the Data tab). Send the raw chat transcript back.
    seconds** before joining any room. *Expect:* the first lines in the room's chat are the version
    line, then *"nothing is switched on yet. Click the spiral to set up."* and the line about
    reactions. *Failure looks like:* the version line alone. That was every fresh login before
-   v0.84.2, because the notice waited on a poll that had stopped 20 seconds after load.
+   v0.84.3, because the notice waited on a poll that had stopped 20 seconds after load.
 2. **Once only.** Refresh and join a room again. *Expect:* the version line, and no notice.
 3. **Nobody else sees it.** Have a second character in the room for step 1. *Expect:* they see
    nothing from it.

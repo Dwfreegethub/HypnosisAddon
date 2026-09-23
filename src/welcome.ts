@@ -17,7 +17,7 @@ import { wasWelcomeShown, markWelcomeShown, hasAnyPermissionGranted } from "./st
  * then (reading before login caches defaults over good data: the v0.17.0 trap) and there is
  * somewhere to print. Do not add another poll for it.
  *
- * Until v0.84.2 it rode startRecovery()'s poll instead, which stops for good 20 s after load
+ * Until v0.84.3 it rode startRecovery()'s poll instead, which stops for good 20 s after load
  * when there is no room yet. Logging in and browsing the room list takes longer than that, so
  * on an ordinary fresh login the notice never fired and the silence it exists to break stayed. */
 export function maybeShowFirstRunNotice(): void {

@@ -1,6 +1,6 @@
-// The first-run notice on an ordinary fresh login (v0.84.2).
+// The first-run notice on an ordinary fresh login (v0.84.3).
 //
-// Until v0.84.2 the notice rode startRecovery()'s startup poll, which stops for good 20 s after
+// Until v0.84.3 the notice rode startRecovery()'s startup poll, which stops for good 20 s after
 // load if there is still no room. Logging in and then browsing the room list takes longer than
 // that, so on the ordinary way to arrive the notice never fired, and a fresh install stayed as
 // silent as a broken one. It now rides the startup banner's poll, which waits up to ten minutes
