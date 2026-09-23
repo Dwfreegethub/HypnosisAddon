@@ -2969,6 +2969,16 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
 ### Todo (staging TBD)
 
+- **The stray asterisk on the induction's room line — parked 2026-09-23 by DW, to address later.**
+  From DW's tracker (group C): *"The induction chat announcement contains an erroneous leading
+  asterisk."* Not fixed in v0.82.3 because nothing in our code singles that line out: every room
+  line goes through `tellRoom()` as a `**`-emote, the v0.72.7 fix for the doubled name (Known Bug
+  #5). A stray `*` can only come from how BC *displays* a `**`-emote, which `test/notify.mjs`
+  models but cannot prove, and the BC source is unreachable from cloud sessions. **Start with** the
+  raw induction line copied from DW's chat exactly as shown, and ideally one other room line from the
+  same session to tell whether every room line has it or only this one. **Do not** change the `**`
+  prefix without that: the obvious "fix" brings the doubled name back.
+
 - ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision.
 
   **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
