@@ -232,6 +232,12 @@ export interface FeatureToggles {
 	 * The mirror of selfTouchControl, which only ever BLOCKS: this compels. Separate consent,
 	 * because being driven to act is a different thing from being stopped. */
 	compelActivity: boolean;
+	/** May a hypnotist make the subject act on SOMEONE ELSE in the room — "kiss Rei", "pinch
+	 * Rei's nipples" (v0.84.0). Needs compelActivity as well. Its own consent because being
+	 * made to act is not the same as being made to act on a stranger. Aiming at the hypnotist
+	 * ("kiss me") does NOT need this: they asked for it, and compelActivity already covers it
+	 * (DW, 2026-09-23). The TARGET's consent is BC's own — see handleTargetedActivityCommand. */
+	compelTouchOthers: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
 	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
 	 * on top of this permission — the same number as triggers and carry-forward, and the
@@ -447,6 +453,7 @@ function defaultFeatures(): FeatureToggles {
 		speechRestriction: false,
 		selfTouchControl: false,
 		compelActivity: false,
+		compelTouchOthers: false,
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
@@ -1049,6 +1056,7 @@ const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
 	"speechRestriction",
 	"selfTouchControl",
 	"compelActivity",
+	"compelTouchOthers",
 	"arousalControl",
 	"illusionControl",
 	"undressControl",

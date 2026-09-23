@@ -1,6 +1,6 @@
 {
   "name": "hypnosisaddon",
-  "version": "0.83.2",
+  "version": "0.84.0",
   "description": "Erotic Chat Hypnosis Suite (ECHS) — trust-based hypnosis mechanics for Bondage Club, shipped as a Tampermonkey userscript.",
   "scripts": {
     "build": "node build.mjs",

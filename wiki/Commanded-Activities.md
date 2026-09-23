@@ -1,7 +1,7 @@
 # Commanded Activities
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Commanded activities currently apply to **self-touch only**. Interpersonal actions (directing a subject to touch another player) are coming soon. Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
+> ECHS is in active alpha development. Since v0.84.0 a commanded activity can be aimed at someone else in the room by name, or at the hypnotist (see [Touching Someone Else](#touching-someone-else)). Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
 
 ---
 
@@ -84,6 +84,25 @@ This allows classic hypnotic tropes to work seamlessly: *"you cannot touch yours
 
 ---
 
+## Touching Someone Else
+
+*New in v0.84.0.* The same verbs, aimed at a person instead of `your <part>`:
+
+| Say | Lands on |
+|---|---|
+| *"Missy, kiss Rei"* | Rei's lips. Kiss, spank and pet have a default spot (lips, bottom, head). Other verbs ask for a part |
+| *"Missy, kiss Rei's nipples"* · *"Missy, lick Rei on the neck"* | The part you name |
+| *"Missy, kiss me"* · *"Missy, pinch my nipples"* | Whoever said it, the hypnotist |
+
+* **Names are exact.** Use the person's full name or their nickname as shown in the room. A partial or misspelled name does nothing. If two people answer to the same name, nothing happens and the hypnotist is told why.
+* **Permission:** the subject needs *Made to Act*. For anyone other than the hypnotist, she also needs **Made to Touch Others**, which is off by default.
+* **The other person's own game settings decide.** ECHS asks Bondage Club whether the subject could do this to them by clicking: their arousal zones and activity settings, and the item permission they give the subject. If the game says no, it does not happen. The other person needs no add-on.
+* **What the hypnotist is told when it doesn't land:** on their own body, which of their own settings stopped it. On anyone else, only that it didn't land and never why, so the command can't be used to learn a stranger's settings.
+* **`feel` is not used here.** *"Feel my hands on you"* is ordinary hypnotic patter, so it never aims a touch at anyone.
+* **Not yet in triggers.** A touch aimed at a person cannot be recorded into a trigger yet. Saying one while a trigger records is refused.
+
+---
+
 ## Storing in a Trigger
 
 A commanded activity can be recorded into a dormant trigger phrase just like any other action:
@@ -109,8 +128,8 @@ There is no redundant room narration from ECHS, ensuring chat stays clean and im
 
 ## Current Scope & Limits
 
-In the current build, commanded activities are **self-only** and **one-shot**. 
+In the current build, commanded activities are **one-shot**.
 
-* **Touching other players:** Coming soon! The groundwork is laid, but interpersonal actions are disabled while targeting rules are being refined.
+* **Touching other players:** Built in v0.84.0 for a named person or the hypnotist. A random pick (*"touch someone's hand"*) and aiming a trigger at a person are still to come.
 * **Toy activities:** Interacting with held toys is under consideration.
 * **Loops and conditions:** Sustained actions (*"keep stroking"*) and conditional triggers (*"touch yourself whenever you hear X"*) are planned for later phases.

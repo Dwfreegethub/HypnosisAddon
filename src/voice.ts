@@ -1050,6 +1050,19 @@ const OBJECT_MARKERS = new Set([
 	"as", "than", "or", "nor", "past", "beyond", "beneath", "above", "below", "off", "through",
 ]);
 
+/** Activity verbs, which take a PERSON as their object (v0.84.0). "Missy, kiss Rei" is one
+ * order to Missy with Rei as the thing kissed — without this set the name after the verb read
+ * as the start of a new address, the line was cut to "Missy, kiss", and Rei vanished. Only
+ * these verbs: "Natalia, stand Missy cum for me" must still split at Missy.
+ *
+ * KEEP IN STEP with ACTIVITY_VERBS below — the activity suite checks that every verb word
+ * there is in here. */
+export const OBJECT_VERBS = new Set([
+	"grope", "squeeze", "fondle", "pinch", "spank", "smack", "slap", "scratch", "tickle", "pull",
+	"tug", "choke", "massage", "knead", "nibble", "lick", "kiss", "suck", "bite", "pet", "finger",
+	"masturbate", "pleasure", "caress", "stroke", "touch", "feel", "rub",
+]);
+
 const bareWord = (w: string) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
 
 interface Segment {
@@ -1080,7 +1093,8 @@ function splitSegments(content: string, known: Set<string>): Segment[] {
 			// it is not an object marker, which is what keeps "look at Ella" one clause.
 			let cut = -1;
 			for (let j = i + 1; j < words.length; j++) {
-				if (isName(words[j]) && !OBJECT_MARKERS.has(bareWord(words[j - 1]))) {
+				const before = bareWord(words[j - 1]);
+				if (isName(words[j]) && !OBJECT_MARKERS.has(before) && !OBJECT_VERBS.has(before)) {
 					cut = j;
 					break;
 				}
@@ -2059,7 +2073,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 // wins, so the specific verbs sit above the catch-all Caress. Bare "touch yourself" is handled
 // separately (a random spot). No held-item activities here — those want a "with the <toy>"
 // extension later.
-const ACTIVITY_VERBS: { activity: string; re: RegExp }[] = [
+export const ACTIVITY_VERBS: { activity: string; re: RegExp }[] = [
 	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
 	{ activity: "Pinch", re: /\bpinch\b/ },
 	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -2142,13 +2156,18 @@ function pickVagueZone(): string | null {
 
 /** Perform `activityName` on the first of `groupNames` where BC currently allows it, as a
  * COMMANDED (involuntary) activity — the self-touch block stands aside, the physical filters do
- * not. Returns the group it landed on, or null if none were possible. */
-function runCommandedActivity(activityName: string, groupNames: string[]): string | null {
-	const family = Player?.AssetFamily ?? "Female3DCG";
+ * not. Returns the group it landed on, or null if none were possible.
+ *
+ * `target` is who it lands ON (v0.84.0); the actor is always us. ActivityAllowedForGroup is
+ * asked about THEIR zone, so BC reads their own synced arousal settings and our own reach,
+ * hands and mouth — the same answer BC would give if the subject clicked them herself. We add
+ * nothing to it and take nothing away. */
+function runCommandedActivity(activityName: string, groupNames: string[], target: any = Player): string | null {
+	const family = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
 	for (const groupName of groupNames) {
 		let allowed: any[] = [];
 		try {
-			allowed = ActivityAllowedForGroup(Player, groupName) || [];
+			allowed = ActivityAllowedForGroup(target, groupName) || [];
 		} catch {
 			allowed = [];
 		}
@@ -2158,7 +2177,7 @@ function runCommandedActivity(activityName: string, groupNames: string[]): strin
 		if (!groupObj) continue;
 		try {
 			beginCommandedActivity();
-			ActivityRun(Player, Player, groupObj, itemActivity);
+			ActivityRun(Player, target, groupObj, itemActivity);
 		} finally {
 			endCommandedActivity();
 		}
@@ -2251,6 +2270,200 @@ function runVagueTouch(sender: number): boolean {
 	return true;
 }
 
+// --- Commanded activities on OTHERS (v0.84.0) ---------------------------------------------
+// "Missy, kiss Rei" · "Missy, pinch Rei's nipples" · "Missy, kiss me". The same verbs as the
+// self grammar, aimed at somebody in the room. DW's calls, 2026-09-23:
+//   - Names are EXACT: a room member's Name or Nickname, whole. No prefix, no fuzzy. A near
+//     miss here would perform an intimate act on someone who was never named.
+//   - "me" / "my" is whoever spoke the line — the hypnotist, by member number.
+//   - No part named: a few verbs have one obvious spot (DEFAULT_PART). The rest ask.
+//   - Aiming at the hypnotist rides on "Made to act". Anyone else also needs the subject's
+//     "Made to touch others" (compelTouchOthers), off by default.
+//   - The TARGET's consent is BC's: ActivityAllowedForGroup asked about their zone, which reads
+//     their own synced settings, plus BC's item permission. We never widen it.
+//   - Refusals: the hypnotist hears why when it is THEIR OWN body; for anyone else only "did
+//     not land", so the command cannot be used to read a stranger's settings.
+//   - Not recordable into a trigger yet (a separate piece of work).
+
+/** Where a verb lands when no part is named. Only verbs with one obvious spot; the rest ask
+ * rather than choose a place on somebody else's body. */
+const DEFAULT_PART: Record<string, string> = { Kiss: "lips", Spank: "bottom", Pet: "head" };
+
+export interface TargetedActivityCommand {
+	activity: string;
+	/** "me" for whoever spoke; otherwise the roster name as normalize() spells it. */
+	target: string;
+	/** The spoken part word, or null when none was named. */
+	word: string | null;
+	/** A part was named but is not one we know ("Rei's cheek"). Refused rather than read as no
+	 * part at all, which would have sent the default — a kiss on the lips — somewhere else. */
+	unknownPart?: string;
+}
+
+/** Parse "<verb> <Name>[’s <part>]", "<verb> <Name> on the <part>", "<verb> me [on my <part>]"
+ * and "<verb> my <part>". `roster` is every name that may be aimed at — this is pure, so the
+ * grammar is testable without a room. Longest name first, so "Rei Chan" is not read as "Rei". */
+export function matchTargetedActivityCommand(content: string, roster: string[]): TargetedActivityCommand | null {
+	const text = normalize(content);
+	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
+	const names = [...new Set(roster.map((n) => normalize(String(n ?? ""))).filter((n) => n && n !== "me" && n !== "my"))]
+		.sort((a, b) => b.length - a.length);
+	const part = `(${Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length).join("|")})`;
+	const hit = (rest: string, lead: string): { word: string | null; unknownPart?: string } | null => {
+		// normalize() turns "Rei's" into "rei s", so the possessive is a bare "s" token.
+		const m =
+			new RegExp(`^${lead}(?: s)? ${part}\\b`).exec(rest) ??
+			new RegExp(`^${lead} on (?:the|her|his|their|my) ${part}\\b`).exec(rest);
+		if (m) return { word: m[1] };
+		const other = new RegExp(`^${lead}(?: s| on (?:the|her|his|their|my)) ([a-z]+)`).exec(rest);
+		if (other) return { word: null, unknownPart: other[1] };
+		return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
+	};
+	for (const v of ACTIVITY_VERBS) {
+		for (const m of text.matchAll(new RegExp(`${v.re.source} (.+)$`, "g"))) {
+			const rest = m[m.length - 1];
+			// "feel my voice", "feel my hands on you" is ordinary patter, not an order to caress
+			// the hypnotist — and a match here pre-empts every suggestion after it. So "feel" is
+			// a self-only verb; touch, caress, stroke and rub still aim.
+			if (/^feel\b/.test(m[0])) continue;
+			// Only a KNOWN part after "my": "rub my back" falls through to the suggestion table
+			// untouched rather than being claimed and refused.
+			const mine = new RegExp(`^my ${part}\\b`).exec(rest);
+			if (mine) return { activity: v.activity, target: "me", word: mine[1] };
+			const me = hit(rest, "me");
+			if (me) return { activity: v.activity, target: "me", ...me };
+			for (const n of names) {
+				const got = hit(rest, n);
+				if (got) return { activity: v.activity, target: n, ...got };
+			}
+		}
+	}
+	return null;
+}
+
+/** Everyone in the room but us, off BC's own roster on OUR client. */
+function roomOthers(): any[] {
+	const roster = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
+	return (roster as any[]).filter((c) => c?.MemberNumber && c.MemberNumber !== Player?.MemberNumber);
+}
+
+const namesOf = (c: any): string[] => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
+
+/** BC's item permission — may WE use items on them. Only an explicit false blocks, so a BC
+ * that lacks the function, or answers something unexpected, leaves the decision to
+ * ActivityAllowedForGroup rather than silently switching the feature off.
+ *
+ * UNVERIFIED against BC source (unreachable from where this was written): that
+ * ServerChatRoomGetAllowItem(source, target) exists with this shape, and whether BC itself
+ * gates ACTIVITIES on item permission at all. Honouring it can only refuse more, never less,
+ * which is the side DW asked to err on ("any limitations will stop me"). */
+function itemPermissionBlocks(target: any): boolean {
+	try {
+		if (typeof ServerChatRoomGetAllowItem === "function") return ServerChatRoomGetAllowItem(Player, target) === false;
+	} catch {
+		/* fall through to the synced flag */
+	}
+	return target?.AllowItem === false;
+}
+
+/** Why a touch on the HYPNOTIST's own body did not land, in terms of their own settings. Only
+ * ever called for the hypnotist — never for a third party (see the header above). Names a cause
+ * only where one is positively identified; otherwise lists where to look, rather than guess. */
+function ownRefusalReason(hyp: any, word: string, groups: string[]): string {
+	if (itemPermissionBlocks(hyp))
+		return "your BC item permissions don't let them use items on you. Whitelist them, or lower your item permission";
+	if (hyp?.ArousalSettings?.Active === "Inactive")
+		return "your BC arousal preference is set to Inactive, which turns activities on you off";
+	if (typeof PreferenceGetArousalZone === "function") {
+		try {
+			const closed = groups.every((g) => (PreferenceGetArousalZone(hyp, g)?.Factor ?? 1) <= 0);
+			if (closed) return `your BC arousal zones have your ${word} set to no`;
+		} catch {
+			/* fall through to the general answer */
+		}
+	}
+	return (
+		"something blocks it in BC — your arousal settings for that activity or zone, or they " +
+		"cannot reach (gagged, hands bound, too far away)"
+	);
+}
+
+/** Returns true if the line was an activity command aimed at someone else, and has been dealt
+ * with. Runs before the self grammar; a line with "your <part>" never matches here. */
+function handleTargetedActivityCommand(sender: number, content: string): boolean {
+	const roster = roomOthers();
+	const cmd = matchTargetedActivityCommand(content, roster.flatMap(namesOf));
+	if (!cmd) return false;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard a targeted activity command from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) {
+		log(`heard a targeted activity command from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	const f = getFeatures();
+	if (!f.hypnoEnabled || !f.compelActivity) {
+		tellHypnotist(sender, '[command] Refused — they have not enabled "Made to act".');
+		return true;
+	}
+	let target: any;
+	if (cmd.target === "me") {
+		target = roster.find((c) => c.MemberNumber === sender);
+	} else {
+		const hits = roster.filter((c) => namesOf(c).some((n) => normalize(n) === cmd.target));
+		if (hits.length > 1) {
+			tellHypnotist(sender, `[command] Refused — more than one person here answers to "${cmd.target}". I won't guess which.`);
+			return true;
+		}
+		target = hits[0];
+	}
+	if (!target) {
+		tellHypnotist(sender, "[command] Refused — I can't find who that's aimed at in the room.");
+		return true;
+	}
+	const onHypnotist = target.MemberNumber === sender;
+	const verb = cmd.activity === "MasturbateHand" ? "finger" : cmd.activity.toLowerCase();
+	if (!onHypnotist && !f.compelTouchOthers) {
+		tellHypnotist(sender, '[command] Refused — they have not enabled "Made to touch others".');
+		return true;
+	}
+	if (isRecording()) {
+		tellHypnotist(sender, "[command] Not recorded — a trigger can't aim at a person yet, only at themselves.");
+		return true;
+	}
+	const refusal = depthRefusal("compelActivity");
+	if (refusal) {
+		tellHypnotist(sender, `[command] Refused — ${refusal}.`);
+		return true;
+	}
+	// Same rule as the self grammar: OUR freeze yields to a command, a real restraint does not.
+	if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+		tellHypnotist(sender, "[command] Refused — a restraint has them frozen; they cannot move to.");
+		return true;
+	}
+	if (cmd.unknownPart) {
+		tellHypnotist(sender, `[command] I don't know "${cmd.unknownPart}" as a body part, so nothing happened.`);
+		return true;
+	}
+	const word = cmd.word ?? DEFAULT_PART[cmd.activity] ?? null;
+	if (!word) {
+		const who = onHypnotist ? "my" : `${cmd.target}'s`;
+		tellHypnotist(sender, `[command] Name a part — "${verb}" has no obvious spot. For example: "${verb} ${who} arms".`);
+		return true;
+	}
+	const groups = BODY_PARTS[word] ?? [];
+	const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
+	if (!landed) {
+		if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you — ${ownRefusalReason(target, word, groups)}.`);
+		else tellHypnotist(sender, `[command] "${verb}" didn't land.`);
+		return true;
+	}
+	log(`commanded ${cmd.activity} on ${target.MemberNumber}'s ${landed}`);
+	tellPlayer("Your body moves to them without waiting for you to decide.");
+	return true;
+}
+
 export function handleSpokenLine(sender: number, content: string): void {
 	// ADDRESSEE SCOPING, BEFORE ANY MATCHER READS THE LINE. "Missy, cum. Ella, kneel." used to
 	// reach both clients whole: each saw its own name, each matched the whole line, and both
@@ -2308,6 +2521,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// Positive activity COMMANDS ("touch your breasts") after the block/release handler above,
 	// so "you cannot touch your breasts" stays a block, and before the table matcher, which does
 	// not know these verbs.
+	// Aimed at someone else first: "kiss Rei" never contains "your <part>", and "kiss your
+	// lips" never names a room member, so the order only matters for being explicit.
+	if (handleTargetedActivityCommand(sender, line)) return;
 	if (handleActivityCommand(sender, line)) return;
 	// Match BEFORE the session check, so a line that WOULD have done something can say why
 	// it didn't. Checking the session first was silent — an unmatched line and a matched

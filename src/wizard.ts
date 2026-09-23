@@ -35,9 +35,12 @@ const GROUP_FEATURES: Record<string, (keyof FeatureToggles)[]> = {
 	perception: ["suppressClothing", "suppressBondage", "suppressActivities", "illusionControl"],
 	lasting: ["triggerControl", "carryForward"],
 };
+// Touching OTHER people is its own consent (v0.84.0) and no wizard question grants it — only
+// Extreme, which is "everything on". Listed here so every other answer turns it off.
 const ALL_FEATURES: (keyof FeatureToggles)[] = [
 	"hypnoEnabled",
 	...Object.values(GROUP_FEATURES).flat(),
+	"compelTouchOthers",
 ];
 
 export type Access = "easy" | "earned" | "deep";
@@ -132,7 +135,7 @@ export const PRESETS: Preset[] = [
 		name: "Extreme",
 		blurb: "Everything on — triggers, carry-forward and the illusion included — at the easiest access, arousal allowed to reach them. Complete trust.",
 		config: {
-			features: [...Object.values(GROUP_FEATURES).flat()],
+			features: [...Object.values(GROUP_FEATURES).flat(), "compelTouchOthers"],
 			access: "easy",
 			arousalShortcut: true,
 			// The highest rung the settings cycle offers today. Rung 4 ("Skill can beat my

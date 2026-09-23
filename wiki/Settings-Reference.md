@@ -25,6 +25,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Speech Restriction** | Allows verbal muting (*"you cannot speak"*). Affects standard room chat only; slash commands always bypass speech locks. |
 | **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
 | **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
+| **Made to Touch Others (needs Made to Act)** | Allows the hypnotist to aim those commands at someone else in the room (*"kiss Rei"*). Not needed for the hypnotist themselves (*"kiss me"*). Off by default. See [Commanded Activities](Commanded-Activities#touching-someone-else). |
 | **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
 | **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |

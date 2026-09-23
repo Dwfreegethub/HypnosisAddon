@@ -2590,7 +2590,18 @@ so a trigger phrase inside a command line stops swallowing the command).
 
 ---
 
-## Commanded Activities — Phase 2: acting on others (detail), spec'd 2026-09-16, not built
+## Commanded Activities — Phase 2: acting on others (detail), spec'd 2026-09-16, named targets built v0.84.0
+
+> **Built v0.84.0 (2026-09-23): named targets and "me".** *"Missy, kiss Rei"*, *"...Rei's nipples"*,
+> *"...Rei on the neck"*, *"...kiss me"*, *"...pinch my nipples"*. DW settled six calls that day,
+> recorded in [`CHANGELOG.md`](CHANGELOG.md) v0.84.0. In short: **exact names only**; per-verb
+> default part only for kiss, spank and pet; the subject's new `compelTouchOthers` (off) for anyone
+> but the hypnotist; reasons given only for the hypnotist's own body; the same `compelActivity` depth;
+> **triggers later**. **Still unbuilt from this spec:** `(someone|anyone)'s <part>` with the
+> filter-then-pick pool, zone tiers by depth, targets in triggers (member number plus name), and a
+> per-target cooldown. **Differs from the spec below:** no `allowTouchHypnotist` setting was added.
+> "Me" is gated by BC's own checks on the hypnotist and by the subject's *Made to act*, because the
+> hypnotist asking for it is their consent (DW's call 3).
 
 > **Related:** Phase 1 (self, one-shot) is **built v0.72.0–v0.72.6** — see the two sections above for
 > the grammar, the consent layers, the `act:` encoding and the pacing queue. This is the *others*
@@ -4290,9 +4301,34 @@ below is the one that failed, and **step 1b is the exact move that got through**
 4. **Command still wins.** While denied, say *"Missy, cum for me."* *Expect:* an orgasm, then denial
    back in force (repeat step 1). That is the settled rule, not a failure.
 
+### 15. Commanded activities on someone else (v0.84.0) — **open, never run live**
+
+Three characters in a room: the hypnotist, the subject (*Made to act* ticked, under at Yielding or
+deeper) and a third, Rei, who needs no add-on. Send the raw chat transcript back, not a summary.
+
+1. **Kiss me.** The hypnotist says *"Missy, kiss me."* *Expect:* a BC kiss on the hypnotist's lips in
+   the room, and one line to the subject that her body moved. *Failure looks like:* nothing, or a
+   `[command]` line naming a setting the hypnotist has not changed.
+2. **The new tick guards everyone else.** *"Missy, kiss Rei."* with *Made to Touch Others* off.
+   *Expect:* nothing happens and the hypnotist reads *Refused — they have not enabled "Made to touch
+   others"*. Tick it and say the line again. *Expect:* a kiss on Rei's lips.
+3. **A named spot.** *"Missy, kiss Rei's nipples."* *Expect:* the kiss lands on her nipples.
+4. **BC still decides.** Rei sets her own nipples to "no" in her BC arousal zones. Repeat step 3.
+   *Expect:* nothing happens and the hypnotist reads only *"kiss" didn't land.*, with no reason.
+   *Failure looks like:* the kiss happening anyway (we bypassed BC), or a reason being shown.
+5. **Item permission.** Rei sets her BC item permission so the subject may not use items on her, then
+   step 3 with her zone back on. *Expect:* didn't land. **This step also settles an unverified
+   point:** if clicking her in BC would still let the subject kiss her, we are stricter than BC. Say
+   which it was.
+6. **Your own settings.** The hypnotist turns their own lips to "no", then *"Missy, kiss me."*
+   *Expect:* the hypnotist is told their own zone is set to no.
+7. **Names are exact.** *"Missy, kiss Re."* (a partial name). *Expect:* nothing at all happens.
+8. **Two subjects, one line.** If a second subject is present: *"Missy, kiss Rei. Ella, kneel."*
+   *Expect:* both happen, each to the right person.
+
 ---
 
-**Nine of fifteen topics confirmed; six open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of sixteen topics confirmed; seven open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
