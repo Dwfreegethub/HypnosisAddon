@@ -2969,6 +2969,16 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
 ### Todo (staging TBD)
 
+- **The stray asterisk on the induction's room line — parked 2026-09-23 by DW, to address later.**
+  From DW's tracker (group C): *"The induction chat announcement contains an erroneous leading
+  asterisk."* Not fixed in v0.82.3 because nothing in our code singles that line out: every room
+  line goes through `tellRoom()` as a `**`-emote, the v0.72.7 fix for the doubled name (Known Bug
+  #5). A stray `*` can only come from how BC *displays* a `**`-emote, which `test/notify.mjs`
+  models but cannot prove, and the BC source is unreachable from cloud sessions. **Start with** the
+  raw induction line copied from DW's chat exactly as shown, and ideally one other room line from the
+  same session to tell whether every room line has it or only this one. **Do not** change the `**`
+  prefix without that: the obvious "fix" brings the doubled name back.
+
 - ~~**▶ NEXT — THE FIRST-RUN NOTICE. Approved 2026-09-16, ahead of alpha.**~~ — **built v0.74.3.** To the spec below: `welcome.ts` `maybeShowFirstRunNotice()`, fired from `startRecovery()`'s identity-and-room-known branch (no second poll); the two-line notice via `tellPlayer`; a sparse `welcomeShown` flag with the `normalise()` back-fill for already-configured users; fires whenever no hypnotist-actionable permission is granted (fresh install *or* enabled-but-empty), and marks a configured user shown without greeting them. `test/welcome.mjs`, 14 checks. See [`CHANGELOG.md`](CHANGELOG.md) (v0.74.3). The spec is left intact below as the record of the decision.
 
   **The problem, in one line:** every permission including `hypnoEnabled` defaults false, and the
@@ -3576,8 +3586,9 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   - **Exit paths are the hard constraint on both.** DW's "keep essential UI accessible" and his
     "kill-switches stay live at every tier" are the same rule from two directions.
     `/hypno safeword` must stay readable at `visionLevel` 3 and its confirmation must arrive at
-    `hearingLevel` 4. Note the current veil paints *after* `next()`, over menus and chat alike — a
-    vision layer must not inherit that.
+    `hearingLevel` 4. The veil used to paint after `DrawProcess`, over menus and chat alike; since
+    v0.82.3 it paints after `ChatRoomRun` over the character half only, and a vision layer should
+    start from there.
   - **Unverified, flagged rather than assumed:** the exact `SensDepChatLog` values that make
     `ChatRoomIsCharacterImpactedBySensoryDeprivation` return true. BC anonymising names under sensory
     deprivation is confirmed; the thresholds are not. This matters because **it is her setting, not
@@ -4192,9 +4203,35 @@ whole fix rests on.
    watcher must stay out of its way. *Failure looks like:* the trance ending the moment the subject
    leaves the room, which would be a worse bug than the one being fixed.
 
+### 12. Small visible fixes (v0.82.3) — **open, never run live**
+
+One client is enough for all of it. The unit suites prove the logic; what they cannot prove is what
+BC actually draws, which is the whole of steps 2 and 3.
+
+1. **Double brackets while silenced.** Be put under with *cannot speak* on, then type
+   `((brb, door))` in the room. *Expect:* it goes through to the room. *Failure looks like:* the
+   "cannot speak" refusal and the text left in the input box, which is what happened before.
+   Then type `hello ((sorry))`. *Expect:* still refused, because "hello" is speech.
+2. **The veil stays on the room.** Under, with screen fade on. *Expect:* the white wash covers the
+   characters on the left half of the room only; the chat log, the menu buttons along the top right
+   and the settings screens are untouched. Click a character to open their dialog. **Unverified
+   either way:** whether BC still runs the room's draw while a dialog is open. If it does, the
+   characters behind the dialog stay veiled; if it does not, the veil lifts until the dialog closes.
+   Either is acceptable; write down which. *Failure looks like:* white over the menu, the dialog or
+   the settings.
+3. **Preset blurbs.** Open settings with a fresh setup (or run the wizard again). *Expect:* each of
+   the four preset descriptions shows in full, wrapped onto two lines where needed, with no "…". Try
+   it again with a different font in BC's preferences. *Failure looks like:* a blurb ending in "…",
+   or two blurbs overlapping.
+4. **The loaded note.** Refresh the page. *Expect:* "ECHS v0.82.3 loaded" in the bottom-right
+   corner, gone about six seconds later. *Failure looks like:* it staying.
+5. **Console.** Open devtools at the default level and chat in a room. *Expect:* one "script
+   loaded" line and nothing per message. Switch on *Verbose* (Chrome) and the per-message lines
+   appear. *Failure looks like:* a line for every message at the default level.
+
 ---
 
-**Nine of eleven topics confirmed; two open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twelve topics confirmed; three open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

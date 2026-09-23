@@ -244,7 +244,7 @@ Matching is split into a pure `matchSuggestion()`, exercised by a 60-case suite 
 | Goal | Hook | Why there |
 |---|---|---|
 | Silence room speech | `ChatRoomSendChatMessage` | After command parsing and the emote/whisper branches — keeps `/hypno safeword`, emotes, whispers |
-| Trance veil | `DrawProcess` | Paint after `next()` to sit over everything, menus included |
+| Trance veil | `ChatRoomRun`, priority 9 | Paint after `next()` over x 0–1003 only, the character half. It was `DrawProcess` across the whole canvas until v0.82.3, which washed out every menu, settings screen and dialog. Priority 9 keeps it inside the induction prompt's hook (10), so the box draws on top |
 | Hide messages, **keep arousal** | `ChatRoomRegisterMessageHandler`, priority **320** | After Arousal Processing (210) and BC's own hiders (300/310), before Push-to-chat (500) |
 | Block self-touch **entirely** | `ActivityRun` | It applies arousal, runs the self-effect *and* sends the message — skipping it means nothing happened at all |
 

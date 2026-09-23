@@ -12,6 +12,22 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.82.3 · 22 September 2026
+
+- **Double brackets count as out of character now.** Typing `((brb))` while you were silenced got
+  refused as if you had spoken. It now goes through, the same as `(brb)` always did.
+- **The trance fog stays on the room.** The white haze used to cover everything on screen,
+  including the menus, the settings and the item dialogs. It now covers only the characters on the
+  left side of the room.
+- **Preset descriptions show in full.** In the setup screen, the Balanced and Extreme descriptions
+  were cut off partway, and with some fonts all four were. They now wrap onto a second line instead.
+- **The "loaded" note in the corner fades away.** It used to stay for the whole session. It now
+  shows for a few seconds after the game loads and then disappears. Your version is still on the
+  first line of your chat and in the settings title.
+- **Less clutter in the browser console.** Only real problems show at the normal level now.
+
+---
+
 ## v0.82.2 · 22 September 2026
 
 - **A trance that runs out on its own now says so, to everyone who should know.** A trance ends by

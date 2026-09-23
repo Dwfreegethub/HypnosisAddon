@@ -53,6 +53,21 @@ check("silenced: OOC with a colon too", passesWhileSilenced("(ooc: back in 5)"),
 check("silenced: real speech stays blocked", passesWhileSilenced("let me go"), false);
 check("silenced: IC + aside stays blocked", passesWhileSilenced("let me go (sorry, lag)"), false);
 
+// --- doubled and nested asides (v0.82.3) --------------------------------------------------
+// The flat "(...)" pattern stopped at the first ")", so "((brb))" left a lone ")" behind. That
+// read as in-character text: the speech gate blocked a player's OOC lifeline while silenced.
+for (const line of ["((brb))", "((ooc: back in 5))", "(( dog needs out ))", "(brb (dog needs out))", "((brb)"]) {
+	check(`doubled/nested is entirely OOC: ${JSON.stringify(line)}`, stripOOC(line), null);
+	check(`  and passes while silenced: ${JSON.stringify(line)}`, passesWhileSilenced(line), true);
+}
+check("doubled aside after IC text leaves no stray paren", stripOOC("Missy you cannot move ((brb))"), "Missy you cannot move");
+check("doubled aside before IC text", stripOOC("((sorry, lag)) Missy, you cannot move"), "Missy, you cannot move");
+check("doubled OOC suggestion does not match", matchSuggestion(stripOOC("((Missy, you cannot move))") ?? ""), null);
+// A ")" with nothing to close is not an aside, so a smiley is still speech.
+check("a lone smiley is still speech", stripOOC(":)"), ":)");
+check("  and stays blocked while silenced", passesWhileSilenced(":)"), false);
+check("IC line ending in a smiley is untouched", stripOOC("Missy you cannot move :)"), "Missy you cannot move :)");
+
 // Nothing to trip over.
 check("empty string", stripOOC(""), null);
 check("only spaces", stripOOC("   "), null);

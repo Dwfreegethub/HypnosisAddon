@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 
 // Hiding messages about things done TO the subject, without touching what those things
 // actually do. "You notice nothing that happens to you" — but arousal still moves.
@@ -126,7 +126,7 @@ export function classifyForTest(data: any, metadata: any): SuppressionCategory |
 
 export function installSuppression(): void {
 	if (typeof ChatRoomRegisterMessageHandler !== "function") {
-		log("ChatRoomRegisterMessageHandler missing — suppression not installed");
+		warn("ChatRoomRegisterMessageHandler missing — suppression not installed");
 		return;
 	}
 	ChatRoomRegisterMessageHandler({
@@ -142,7 +142,7 @@ export function installSuppression(): void {
 				return true; // stop processing — never reaches the display handler at 500
 			} catch (err) {
 				// Never let a bug in here eat someone's whole chat log.
-				log("suppression handler failed:", err);
+				warn("suppression handler failed:", err);
 				return false;
 			}
 		},
@@ -189,7 +189,7 @@ function installNumbness(): void {
 				log(`numb to ${metadata.ActivityName} — skipping arousal`);
 				return { skip: (h: any) => h?.Description === AROUSAL_HANDLER };
 			} catch (err) {
-				log("numbness handler failed:", err);
+				warn("numbness handler failed:", err);
 				return false;
 			}
 		},
@@ -198,7 +198,7 @@ function installNumbness(): void {
 	// stop working with no error anywhere. Say so at install time instead of in play.
 	const handlers = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
 	if (handlers && !handlers.some((h: any) => h?.Description === AROUSAL_HANDLER)) {
-		log(`WARNING: no handler named "${AROUSAL_HANDLER}" — numbness will not block arousal`);
+		warn(`WARNING: no handler named "${AROUSAL_HANDLER}" — numbness will not block arousal`);
 	}
 	log("numbness handler registered at priority 205");
 }

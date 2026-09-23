@@ -98,6 +98,70 @@ export function drawLeftTextFit(text: string, x: number, y: number, maxWidth: nu
 	MainCanvas.restore();
 }
 
+/** Left-aligned text that WRAPS onto extra lines before it shrinks too far, centred
+ * vertically on `yCentre` within `maxHeight`. For prose that has to be read in full: the
+ * preset blurbs on the setup wizard went through drawLeftTextFit, whose floor clips with "…",
+ * and two of the four were longer than their 1000px column even at that floor in Arial — so
+ * nobody could ever read how Balanced or Extreme ended. A player whose font preference is
+ * wider (monospace, Verdana-like) lost the end of all four.
+ *
+ * Tries each size from `maxSize` down to `minSize`, word-wrapping at `maxWidth`, and takes the
+ * largest whose lines fit the height. Only if even the floor cannot hold it is the last line
+ * clipped with "…" — the same last resort as drawLeftTextFit, reached far later. Returns what
+ * it drew, so the suites can check nothing was lost. */
+export function drawLeftTextWrap(
+	text: string,
+	x: number,
+	yCentre: number,
+	maxWidth: number,
+	maxHeight: number,
+	color = "Black",
+	maxSize = 32,
+	minSize = 18,
+): { size: number; lines: string[] } {
+	MainCanvas.save();
+	const font = (n: number) => (typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`);
+	const pitch = (n: number) => Math.round(n * 1.2);
+	let size = maxSize;
+	let lines: string[] = [];
+	for (; ; size -= 2) {
+		MainCanvas.font = font(size);
+		lines = wrapToWidth(text, maxWidth);
+		if (lines.length * pitch(size) <= maxHeight || size - 2 < minSize) break;
+	}
+	const room = Math.max(1, Math.floor(maxHeight / pitch(size)));
+	if (lines.length > room) {
+		lines = lines.slice(0, room);
+		let last = lines[room - 1];
+		while (last.length > 1 && MainCanvas.measureText(`${last}…`).width > maxWidth) last = last.slice(0, -1);
+		lines[room - 1] = `${last}…`;
+	}
+	MainCanvas.textAlign = "left";
+	MainCanvas.textBaseline = "middle";
+	MainCanvas.fillStyle = color;
+	const first = yCentre - ((lines.length - 1) * pitch(size)) / 2;
+	lines.forEach((line, i) => MainCanvas.fillText(line, x, first + i * pitch(size)));
+	MainCanvas.restore();
+	return { size, lines };
+}
+
+/** Word-wraps at the canvas's CURRENT font. A single word wider than the column is left
+ * whole rather than hard-split, as wrapText below does for the help screen. */
+function wrapToWidth(text: string, maxWidth: number): string[] {
+	const out: string[] = [];
+	let line = "";
+	for (const w of text.split(/\s+/).filter(Boolean)) {
+		const trial = line ? `${line} ${w}` : w;
+		if (!line || MainCanvas.measureText(trial).width <= maxWidth) line = trial;
+		else {
+			out.push(line);
+			line = w;
+		}
+	}
+	if (line) out.push(line);
+	return out.length ? out : [""];
+}
+
 /** Left-aligned text at a chosen size. DrawText is locked to BC's 36px; help content needs
  * to be denser than that or almost nothing fits on a page. */
 export function drawSmallText(text: string, x: number, y: number, size: number, color = "Black"): void {

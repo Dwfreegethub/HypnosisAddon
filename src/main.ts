@@ -1,8 +1,8 @@
 import bcModSdk from "bondage-club-mod-sdk";
-import { log } from "./log";
+import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, isSpeechBlocked, getScreenFade, hasOwnEffect } from "./effects";
+import { installEffectAllowList, isSpeechBlocked, drawTranceVeil, hasOwnEffect } from "./effects";
 import { announce } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -17,45 +17,27 @@ import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, 
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice } from "./notify";
-import { startStartupBanner } from "./welcome";
-
-function showIndicator(): void {
-	const el = document.createElement("div");
-	el.textContent = `ECHS v${__VERSION__} loaded`;
-	Object.assign(el.style, {
-		position: "fixed",
-		bottom: "4px",
-		right: "4px",
-		zIndex: "9999",
-		padding: "2px 6px",
-		background: "rgba(0,0,0,0.6)",
-		color: "#fff",
-		fontSize: "10px",
-		fontFamily: "monospace",
-		borderRadius: "3px",
-		pointerEvents: "none",
-	});
-	document.body.appendChild(el);
-}
+import { startStartupBanner, showLoadedToast } from "./welcome";
 
 function safely(label: string, fn: () => void): void {
 	try {
 		fn();
 	} catch (err) {
-		log(`FAILED to set up ${label}:`, err);
+		warn(`FAILED to set up ${label}:`, err);
 	}
 }
 
 // These run first and unconditionally — if anything below throws, this is still what
 // confirms the script itself executed at all, instead of everything going silent.
-log(`script loaded (v${__VERSION__})`);
+info(`script loaded (v${__VERSION__})`);
 // No load-time "TESTING MODE is ON" line any more: testing mode is now a runtime check on the
 // chat room (isTestingMode in log.ts), off by default and on only in the Hypno Testing room, so
 // there is nothing that could quietly ship switched on for it to warn about.
-showIndicator();
-// The same fact in the chat log, once a chat log exists. The watermark above is a DOM
-// element that stops being noticed and cannot be quoted back; the chat line can be, which is
-// how you find out which build somebody is actually running. Local to this player only.
+// A brief "loaded" note in the corner that fades out on its own — see showLoadedToast.
+safely("loaded toast", showLoadedToast);
+// The lasting record of the build is the chat line, once a chat log exists: it can be quoted
+// back, which is how you find out which build somebody is actually running. Local to this
+// player only.
 safely("startup banner", startStartupBanner);
 
 const modApi = bcModSdk.registerMod(
@@ -120,7 +102,7 @@ safely("ChatRoomMessage hook", () => {
 						return undefined;
 					}
 				} catch (err) {
-					log("trigger-setup check failed:", err);
+					warn("trigger-setup check failed:", err);
 				}
 			}
 
@@ -137,7 +119,7 @@ safely("ChatRoomMessage hook", () => {
 				try {
 					handleSpokenLine(data.Sender, inCharacter);
 				} catch (err) {
-					log("suggestion parsing failed:", err);
+					warn("suggestion parsing failed:", err);
 				}
 				// Roleplay during an induction window earns a bonus on the roll. Offered
 				// every line; session.ts decides whether one counts. Kept out of
@@ -146,7 +128,7 @@ safely("ChatRoomMessage hook", () => {
 				try {
 					noteInductionLine(data.Sender, inCharacter);
 				} catch (err) {
-					log("induction RP counting failed:", err);
+					warn("induction RP counting failed:", err);
 				}
 				// Trust accrual, independent of any session — this is the slow path that
 				// runs during ordinary conversation, long before anyone tries anything.
@@ -157,7 +139,7 @@ safely("ChatRoomMessage hook", () => {
 					const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
 					noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
 				} catch (err) {
-					log("trust accrual failed:", err);
+					warn("trust accrual failed:", err);
 				}
 			}
 			return result;
@@ -224,21 +206,18 @@ safely("wardrobe-block hook", () => {
 	);
 });
 
-// Trance veil. DrawProcess is BC's whole per-frame draw; painting after next() puts the
-// veil over everything, including the chat room and any menu on top of it.
+// Trance veil. Painted after ChatRoomRun's next(), so it lies over the room the player is
+// looking at and only there — see drawTranceVeil for the rect and why it no longer rides
+// DrawProcess. Priority 9, one BELOW prompt.ts's ChatRoomRun hook: the SDK calls higher
+// priorities first, so this one runs inside the prompt's and the Agree / Ignore / Fight box
+// paints over the veil rather than under it.
 safely("screen-fade hook", () => {
 	modApi.hookFunction(
-		"DrawProcess",
-		10,
+		"ChatRoomRun",
+		9,
 		((args: [number], next: (args: [number]) => any) => {
 			const result = next(args);
-			const fade = getScreenFade();
-			if (fade > 0) {
-				MainCanvas.save();
-				MainCanvas.fillStyle = `rgba(255, 255, 255, ${fade})`;
-				MainCanvas.fillRect(0, 0, MainCanvasWidth, MainCanvasHeight);
-				MainCanvas.restore();
-			}
+			drawTranceVeil();
 			return result;
 		}) as any,
 	);

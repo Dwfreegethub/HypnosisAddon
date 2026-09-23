@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { announce, announceBodyPart } from "./flavor";
 import { hasOwnEffect } from "./effects";
 import { getFeatures } from "./storage";
@@ -207,7 +207,7 @@ export function installSelfTouch(modApi: any): void {
 				}
 			} catch (err) {
 				// A bug here must never make activities impossible — fall through to normal.
-				log("self-touch check failed:", err);
+				warn("self-touch check failed:", err);
 			}
 			return next(args);
 		}) as any,

@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures } from "./storage";
 import { maybeShowFirstRunNotice } from "./welcome";
@@ -148,7 +148,7 @@ function read(): SavedSession | null {
 		const raw = localStorage.getItem(key);
 		return raw ? (JSON.parse(raw) as SavedSession) : null;
 	} catch (err) {
-		log("could not read saved session:", err);
+		warn("could not read saved session:", err);
 		return null;
 	}
 }
@@ -171,7 +171,7 @@ export function persist(state: Omit<SavedSession, "savedAt">): void {
 	try {
 		localStorage.setItem(key, JSON.stringify({ ...state, savedAt: Date.now() }));
 	} catch (err) {
-		log("could not save session state:", err);
+		warn("could not save session state:", err);
 	}
 }
 
@@ -358,7 +358,7 @@ export function snapshotTriggers(): SavedTrigger[] {
 	try {
 		return triggerSnapshot?.() ?? [];
 	} catch (err) {
-		log("could not snapshot triggers:", err);
+		warn("could not snapshot triggers:", err);
 		return [];
 	}
 }
@@ -375,7 +375,7 @@ function restoreTriggers(saved: SavedSession): number {
 			triggerRestore?.(t);
 			restored += 1;
 		} catch (err) {
-			log(`could not restore trigger ${t.key}:`, err);
+			warn(`could not restore trigger ${t.key}:`, err);
 		}
 	}
 	return restored;
@@ -396,7 +396,7 @@ function restoreDurable(saved: SavedSession): boolean {
 			handlers?.restoreCarried(saved);
 			carried = saved.carried.length;
 		} catch (err) {
-			log("could not restore carried suggestions:", err);
+			warn("could not restore carried suggestions:", err);
 		}
 	}
 	return triggers > 0 || carried > 0;
@@ -551,7 +551,7 @@ function waitForHypnotist(saved: SavedSession): RecoveryOutcome {
 			// exactly when the phrase is about to be used for the first time.
 			handlers?.restoreCarried(saved);
 		} catch (err) {
-			log("could not restore the session:", err);
+			warn("could not restore the session:", err);
 		}
 		// Only when it is true. A trance whose thirty minutes ran out while they were gone has
 		// just been ended, and said so; following that with "you are still under" contradicted it.

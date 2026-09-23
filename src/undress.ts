@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { hasOwnEffect } from "./effects";
 
 // "Take your dress off" — the design doc's Tier 1 *Remove clothes*, which it describes as a
@@ -126,7 +126,7 @@ export function undress(count: number): UndressResult {
 			InventoryRemove(Player, group, false);
 			removed.push(group);
 		} catch (err) {
-			log(`could not remove ${group}:`, err);
+			warn(`could not remove ${group}:`, err);
 		}
 	}
 	if (!removed.length) return { removed: [], refusal: "unavailable" };
@@ -138,7 +138,7 @@ export function undress(count: number): UndressResult {
 		CharacterRefresh(Player, true, false);
 		if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
 	} catch (err) {
-		log("could not sync appearance after undressing:", err);
+		warn("could not sync appearance after undressing:", err);
 	}
 	log(`undressed: ${removed.join(", ")}`);
 	return { removed };

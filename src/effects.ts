@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
 // invisible "Emoticon" appearance item's Property.Effect array rather than depending on
@@ -149,6 +149,27 @@ export function getScreenFade(): number {
 	return screenFade;
 }
 
+/** The part of the canvas the trance veil covers: the chat room's character half, x 0-1003
+ * by the full height. That is the rect BC's own ChatRoomDrawArousalOverlay fills (verified
+ * for prompt.ts against Screens/Online/ChatRoom/ChatRoom.js), so the veil lies over the
+ * bodies and nothing else — the room's menu buttons, the chat log and any dialog on the
+ * right half stay clear. */
+export const VEIL_WIDTH = 1003;
+
+/** Paints the veil, if there is one. Called from the ChatRoomRun hook in main.ts after the
+ * room has drawn, so it is only ever painted on the chat room screen.
+ *
+ * It used to paint after DrawProcess across the whole canvas, which put a white wash over
+ * every menu, the settings screens, the wardrobe and BC's own dialogs — whatever was on
+ * screen. The design asked for a veil over the scene, not over the game. */
+export function drawTranceVeil(): void {
+	if (screenFade <= 0) return;
+	MainCanvas.save();
+	MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
+	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+	MainCanvas.restore();
+}
+
 /** Everything a trance turns on, turned back off. Called on every exit path. */
 export function clearTranceStates(): void {
 	speechBlocked = false;
@@ -162,7 +183,7 @@ export function clearTranceStates(): void {
 export function applyEffect(effectName: string, character: any = Player): boolean {
 	const item = findEmoticonItem(character);
 	if (!item) {
-		log(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
+		warn(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
 		return false;
 	}
 	// Defensive: normally already done at startup, but an effect applied before the

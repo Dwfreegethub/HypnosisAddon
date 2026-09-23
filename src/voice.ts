@@ -1,4 +1,4 @@
-import { log, isTestingMode } from "./log";
+import { log, warn, isTestingMode } from "./log";
 import { applyEffect, removeEffect, hasOwnEffect, setSuggestedPose, setSpeechBlocked, isWalkingTrance } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
@@ -107,11 +107,26 @@ function normalize(text: string): string {
  * the aside is discarded. */
 export function stripOOC(content: string): string | null {
 	const text = String(content ?? "");
-	// Non-greedy, so two asides in one line are two spans rather than everything between them.
-	const stripped = text.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
-	// An unclosed "(" is an aside that ran to the end of the line — people do not close them.
-	const open = stripped.indexOf("(");
-	const final = (open === -1 ? stripped : stripped.slice(0, open)).trim();
+	// Counts depth rather than matching "(...)" with a flat pattern. The flat pattern stopped at
+	// the FIRST ")", so a doubled "((brb))" — the other common OOC habit — left its second ")"
+	// behind as in-character text: the speech gate then saw speech and blocked the lifeline.
+	// Nested asides "(brb (dog))" had the same leftover.
+	let kept = "";
+	let depth = 0;
+	for (const ch of text) {
+		if (ch === "(") {
+			depth++;
+			kept += " "; // an aside separates the words either side of it
+		} else if (ch === ")" && depth > 0) {
+			depth--;
+		} else if (depth === 0) {
+			// A ")" with no "(" to close is not an aside; it stays, so ":)" is still speech.
+			kept += ch;
+		}
+		// Anything else is inside an aside. An unclosed "(" is an aside that ran to the end of
+		// the line — people do not close them — so depth never returns to 0 and the rest drops.
+	}
+	const final = kept.replace(/\s+/g, " ").trim();
 	return final.length ? final : null;
 }
 
@@ -1823,7 +1838,7 @@ registerTriggerRecovery(
 			try {
 				applyActionById(id);
 			} catch (err) {
-				log(`recovery: could not re-apply "${id}":`, err);
+				warn(`recovery: could not re-apply "${id}":`, err);
 			}
 		}
 		markActive(saved.key);
