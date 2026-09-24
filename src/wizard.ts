@@ -253,6 +253,21 @@ function finish(): void {
 	stage = "welcome";
 }
 
+/** Leave the wizard from any page without applying anything. The answers so far are thrown
+ * away and no setting is touched — the same outcome as the welcome page's Skip, reachable from
+ * every question and the summary, where before the only ways out were Apply or leaving the
+ * screen (which kept the half-answered wizard waiting for next time).
+ *
+ * On a first run this marks setup done, as Skip does: otherwise shouldShowWizard() would still
+ * be true and "cancel" would land straight back on the welcome page, which is not an exit. The
+ * Setup button on the settings screen runs it again. On a re-run the settings are exactly as
+ * they were before it started. */
+export function cancelWizard(): void {
+	for (const k of Object.keys(answers)) delete answers[k];
+	if (getStarterState() === "new") setStarterState("done");
+	finish();
+}
+
 // --- geometry --------------------------------------------------------------------------------
 const WZ_LEFT = 260;
 const WZ_WIDTH = 1480;
@@ -266,6 +281,10 @@ const OPT_GAP = 14;
 const OPT_WIDTH = WZ_WIDTH - 80;
 const NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
 const NAV_HEIGHT = 56;
+const NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - 200;
+// Cancel sits beside the forward button rather than at the far left, where Back already is, so
+// the one-way-out button is never where a player reaches for "previous question".
+const NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - 200;
 
 function optionTop(i: number): number {
 	return OPT_TOP + i * (OPT_HEIGHT + OPT_GAP);
@@ -339,7 +358,8 @@ function describeConfig(cfg: SetupConfig): string[] {
 
 function drawNav(showBack: boolean, forward: string): void {
 	if (showBack) DrawButton(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT, "Back", "White", "", "");
-	DrawButton(WZ_LEFT + WZ_WIDTH - 40 - 200, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
+	DrawButton(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
+	DrawButton(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
 }
 
 // --- clicks ----------------------------------------------------------------------------------
@@ -347,6 +367,10 @@ function drawNav(showBack: boolean, forward: string): void {
  * whole screen). */
 export function clickWizard(): boolean {
 	if (stage === "welcome") return clickWelcome();
+	if (navCancelHit()) {
+		cancelWizard();
+		return true;
+	}
 	if (stage === "summary") {
 		if (navForwardHit()) {
 			applySetup(wizardConfig(answers));
@@ -400,7 +424,10 @@ function clickWelcome(): boolean {
 }
 
 function navForwardHit(): boolean {
-	return MouseIn(WZ_LEFT + WZ_WIDTH - 40 - 200, NAV_TOP, 200, NAV_HEIGHT);
+	return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+}
+function navCancelHit(): boolean {
+	return MouseIn(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT);
 }
 function navBackHit(): boolean {
 	return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);

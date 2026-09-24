@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.85.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.85.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6900,6 +6900,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     forced = false;
     stage = "welcome";
   }
+  function cancelWizard() {
+    for (const k of Object.keys(answers)) delete answers[k];
+    if (getStarterState() === "new") setStarterState("done");
+    finish();
+  }
   var WZ_LEFT = 260;
   var WZ_WIDTH = 1480;
   var WZ_TOP = PANEL_TOP;
@@ -6912,6 +6917,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var OPT_WIDTH = WZ_WIDTH - 80;
   var NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
   var NAV_HEIGHT = 56;
+  var NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - 200;
+  var NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - 200;
   function optionTop(i) {
     return OPT_TOP + i * (OPT_HEIGHT + OPT_GAP);
   }
@@ -6990,10 +6997,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawNav(showBack, forward) {
     if (showBack) DrawButton(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT, "Back", "White", "", "");
-    DrawButton(WZ_LEFT + WZ_WIDTH - 40 - 200, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
+    DrawButton(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
+    DrawButton(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
   }
   function clickWizard() {
     if (stage === "welcome") return clickWelcome();
+    if (navCancelHit()) {
+      cancelWizard();
+      return true;
+    }
     if (stage === "summary") {
       if (navForwardHit()) {
         applySetup(wizardConfig(answers));
@@ -7043,7 +7055,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function navForwardHit() {
-    return MouseIn(WZ_LEFT + WZ_WIDTH - 40 - 200, NAV_TOP, 200, NAV_HEIGHT);
+    return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+  }
+  function navCancelHit() {
+    return MouseIn(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT);
   }
   function navBackHit() {
     return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);
@@ -7673,7 +7688,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -9215,7 +9230,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9238,7 +9253,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.85.0"} loaded`;
+    el.textContent = `ECHS v${"0.85.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9269,14 +9284,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.85.0"})`);
+  info(`script loaded (v${"0.85.1"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.85.0",
+      version: "0.85.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

@@ -109,7 +109,7 @@ The wizard provides four starting templates:
 * **Balanced**
 * **Extreme**
 
-Alternatively, you can complete a short 5-question questionnaire to configure permissions automatically. The wizard cannot be launched during an active trance.
+Alternatively, you can complete a short 5-question questionnaire to configure permissions automatically. Every question, and the summary at the end, has a **Cancel** button that closes the wizard without changing anything; on the first page, **Skip** does the same. The wizard cannot be launched during an active trance.
 
 ---
 

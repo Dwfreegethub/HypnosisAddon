@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.85.1 · 23 September 2026
+
+- **You can now cancel the setup questions.** Every question in the setup, and the summary at
+  the end, has a **Cancel** button. It closes the setup without changing any of your settings, and
+  forgets whatever you had ticked. Before, once you started the questions the only way out was to
+  finish them. You can run the setup again at any time with the **Setup** button in the settings.
+
 ## v0.85.0 · 23 September 2026
 
 - **Many more poses.** With Posture Control ticked, a hypnotist can now have you kneel with your

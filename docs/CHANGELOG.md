@@ -20,6 +20,26 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-23 (v0.85.1) — Cancel in the setup wizard
+
+DW's request: an explicit way to abort the first-time setup. The welcome page already had
+*Skip — I'll set it up myself*, but once a player chose *Answer a few questions* the only ways out
+were **Apply** or BC's exit icon, and the exit icon only left the screen: the half-answered wizard
+(module state in `wizard.ts`) was waiting on the same question next time. Every question page and
+the summary now carry **Cancel**, placed beside the forward button rather than at the far left where
+Back is.
+
+`cancelWizard()` throws the answers away and writes no setting. **On a first run it marks setup done,
+exactly as Skip does**: leaving `starterState` at "new" would keep `shouldShowWizard()` true, and
+Cancel would land the player straight back on the welcome page, which is not an exit. A re-run from
+the Setup button leaves `starterState` alone. Taken as the default, since it is what Skip already
+means; say if a cancelled first run should instead offer the wizard again next time.
+
+`test/wizard.mjs` +17 checks, driven through the real click routing (every `DrawButton` recorded,
+`MouseIn` hitting one rectangle). The suite stops at the first missing Cancel on v0.85.0; removing
+the answer-clearing fails the "ticks do not resurface" check, and removing the first-run `done`
+fails three. **Not run live.** The exit icon's resume-where-you-left-off behaviour is unchanged.
+
 ### Added 2026-09-23 (v0.85.0) — the pose library
 
 DW's brief of 2026-09-23: the whole BC stance and arm catalogue, not only kneel and stand. Five leg

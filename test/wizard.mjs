@@ -121,5 +121,96 @@ check("no features -> hypnosis stays off", on("hypnoEnabled"), false);
 	}
 }
 
+// --- Cancel leaves the wizard from any page, applying nothing ---------------------------------
+// Driven through the real click routing: every DrawButton is recorded with its rectangle, and a
+// click is MouseIn answering true for that one rectangle. So a Cancel that is drawn but not wired,
+// or wired to the wrong rectangle, fails here rather than in play.
+// Failure looks like: no Cancel on a question page; the wizard still showing after Cancel; any
+// ticked answer reaching storage; or a half-answered wizard's ticks surviving into the next run.
+{
+	let buttons = [];
+	let target = null;
+	globalThis.DrawButton = (x, y, w, h, label) => buttons.push({ x, y, w, h, label: String(label).replace(/^✓\s+/, "") });
+	globalThis.MouseIn = (x, y, w, h) => !!target && target.x === x && target.y === y && target.w === w && target.h === h;
+	const draw = () => { buttons = []; wizard.drawWizard(); return buttons.map((b) => b.label); };
+	const click = (label) => {
+		draw();
+		target = buttons.find((b) => b.label === label) ?? null;
+		if (!target) throw new Error(`no button "${label}" on this page; saw ${JSON.stringify(buttons.map((b) => b.label))}`);
+		wizard.clickWizard();
+		target = null;
+	};
+	const toQuestions = () => click("Answer a few questions instead");
+	const nextTimes = (n) => { for (let i = 0; i < n; i++) click("Next"); };
+	const QUESTION_COUNT = 5;
+
+	// First run: tick something, then cancel from the first question.
+	reset();
+	check("cancel: a fresh install shows the wizard", wizard.shouldShowWizard(), true);
+	check("cancel: not on the welcome page (Skip is its way out)", draw().includes("Cancel"), false);
+	toQuestions();
+	check("cancel: offered on the first question", draw().includes("Cancel"), true);
+	click("Hold you still, quiet, kneeling; block the wardrobe");
+	click("Cancel");
+	check("cancel: the wizard closes", wizard.shouldShowWizard(), false);
+	check("cancel: first run is marked done, so the settings tabs show", storage.getStarterState(), "done");
+	check("cancel: the ticked answer was not applied", on("movementRestriction"), false);
+	check("cancel: hypnosis stays off", on("hypnoEnabled"), false);
+
+	// Every question page and the summary offer it.
+	reset();
+	toQuestions();
+	const offered = [];
+	for (let i = 0; i < QUESTION_COUNT; i++) { offered.push(draw().includes("Cancel")); click("Next"); }
+	offered.push(draw().includes("Apply") && draw().includes("Cancel"));
+	check("cancel: on all five questions and the summary", offered, [true, true, true, true, true, true]);
+	click("Cancel"); // the wizard's page is module state that reset() does not touch
+
+	// From the summary, one click short of Apply, still nothing is written.
+	reset();
+	toQuestions();
+	click("Undress you, and stop you touching yourself");
+	nextTimes(QUESTION_COUNT);
+	click("Cancel");
+	check("cancel from the summary: nothing applied", [on("undressControl"), on("hypnoEnabled")], [false, false]);
+	check("cancel from the summary: the wizard closes", wizard.shouldShowWizard(), false);
+
+	// The cancelled answers do not come back: a later run that ticks nothing applies nothing.
+	reset();
+	toQuestions();
+	click("Set your arousal, force or deny an orgasm");
+	click("Cancel");
+	reset();
+	toQuestions();
+	nextTimes(QUESTION_COUNT);
+	click("Apply");
+	check("cancel: discarded ticks do not resurface in the next run", on("arousalControl"), false);
+
+	// A re-run from the Setup button: cancelling leaves the existing settings exactly as they were.
+	reset();
+	wizard.applyPreset("light");
+	storage.setStarterState("applied");
+	const before = JSON.stringify(storage.getFeatures());
+	wizard.startWizard();
+	toQuestions();
+	click("Plant triggers and suggestions that outlive the trance");
+	click("Next");
+	click("Only deep — hardest to reach, nothing casual");
+	click("Cancel");
+	check("re-run cancel: permissions unchanged", JSON.stringify(storage.getFeatures()), before);
+	check("re-run cancel: no depth override written", storage.getDepthOverride("movementRestriction"), "");
+	check("re-run cancel: setup state left alone", storage.getStarterState(), "applied");
+	check("re-run cancel: the wizard closes", wizard.shouldShowWizard(), false);
+
+	// Cancel must not sit on top of Back or the forward button.
+	reset();
+	toQuestions();
+	click("Next");
+	draw();
+	const [cancel, back, next] = ["Cancel", "Back", "Next"].map((l) => buttons.find((b) => b.label === l));
+	const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+	check("cancel: clear of Back and Next", [overlaps(cancel, back), overlaps(cancel, next)], [false, false]);
+}
+
 console.log(`wizard: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

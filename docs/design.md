@@ -4388,9 +4388,21 @@ against upstream `Typedef.d.ts`); what this run checks is how BC behaves when th
    clash is deliberate (DW, 2026-09-23) and noted in the wiki. *"Missy, sit."* *Expect:* nothing,
    since BC has no sitting pose.
 
+### 18. Cancel in the setup wizard (v0.85.1) — **open, never run live**
+
+One character, fresh settings (`/hypno reset confirm`, or a new account). Open ECHS settings.
+
+1. **First run.** Choose *Answer a few questions instead*, tick one answer, click **Cancel**.
+   *Expect:* the ordinary settings tabs, with nothing ticked on Permissions. *Failure looks like:*
+   the welcome page again (setup not marked done), or the ticked permission switched on.
+2. **Where it sits.** On every question and the summary, **Cancel** is left of *Next* / *Apply*,
+   clear of *Back* and of the "2 of 5" counter. *Failure looks like:* overlapping buttons or text.
+3. **Re-run.** Apply any preset, then press **Setup**, go to the summary, click **Cancel**.
+   *Expect:* the tabs, every setting exactly as the preset left it.
+
 ---
 
-**Nine of eighteen topics confirmed; nine open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of nineteen topics confirmed; ten open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
