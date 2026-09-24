@@ -22,7 +22,7 @@ rule the whole architecture rests on.
 | [`design.md`](design.md) | **The design.** Philosophy, the trust and depth models, every settled decision and why, open questions, the todo list. Start here for *what this is meant to be*. |
 | [`feature-summary.md`](feature-summary.md) | Short player-facing list of what exists and what is planned. |
 | [`declared-skill-proposal.md`](declared-skill-proposal.md) | Settled decisions on the induction roll, the AFK/prompt-timeout path, settings defaults and extreme mode. Read **first** if you are touching any of those. |
-| [`../wiki/`](../wiki/) | Player-facing wiki pages, published to the GitHub wiki. Must be updated alongside the in-game help. |
+| [`../wiki/`](../wiki/) | Player-facing wiki pages. The source of the GitHub wiki: `.github/workflows/sync-wiki.yml` publishes it on every push to `main` that touches it, overwriting the live wiki, so edit here, never on the website. Must be updated alongside the in-game help. |
 | **This file** | The engineering record. Start here for *how it works and what will bite you*. |
 
 > This file used to carry its own copy of the design — philosophy, trust curve, feature tables,

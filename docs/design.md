@@ -3296,6 +3296,10 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
     are fixed**, or the wiki starts warning about things that no longer happen.
   - The pages are written against **v0.73.2** and say so. Bump that line when the content is
     re-checked, not when the version changes.
+  - **Publishing is automatic since 2026-09-23.** `.github/workflows/sync-wiki.yml` mirrors `wiki/`
+    into the GitHub wiki on every push to `main` that touches it. Until then it was copied by hand,
+    and the live wiki was found at v0.77.0 with `wiki/` at v0.85.0. The sync overwrites the live
+    wiki, so an edit made in the website's editor is lost at the next push: edit `wiki/` only.
 
 - **⚠ EARLY-SESSION PROGRESSION — DW's spec, 2026-09-17. Three levers for low-trust starts.**
   Restated in our terms; his intent and his three levers are unchanged and marked as his. **Read the
