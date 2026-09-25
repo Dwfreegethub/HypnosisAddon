@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
@@ -70,6 +70,16 @@ import {
 	drawLeftTextWrap,
 	drawTabsAndPanel,
 	tabTop,
+	type ScrollArea,
+	drawScrollArea,
+	clickScrollBar,
+	clampScroll,
+	scrollBy,
+	scrollY,
+	scrollShows,
+	scrollNeeded,
+	scrollContentWidth,
+	mouseInScroll,
 	TAB_LEFT,
 	TAB_WIDTH,
 } from "./panel";
@@ -102,6 +112,16 @@ interface Tab {
 	/** A tab that draws itself usually has to handle its own clicks too. Returns true when it
 	 * consumed the click, so the generic row handling below knows to stop. */
 	clickExtra?: () => boolean;
+	/** A control that scrolls with the checkbox rows, drawn below the last of them. `top` is
+	 * its screen y; `width` is what it may use before the scroll bar. */
+	scrollExtra?: {
+		height: () => number;
+		draw: (top: number, width: number) => void;
+		click: (top: number) => boolean;
+	};
+	/** Where the rows' scroll area ends, for a tab with fixed controls under it. Default: the
+	 * panel floor. */
+	rowsBottom?: number;
 }
 
 const TABS: Tab[] = [
@@ -123,8 +143,7 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
-		extra: drawAttemptControl,
-		clickExtra: clickAttemptControl,
+		scrollExtra: { height: attemptControlHeight, draw: drawAttemptControl, click: clickAttemptControl },
 	},
 	{
 		name: "Trance Defaults",
@@ -162,6 +181,9 @@ const TABS: Tab[] = [
 			{ key: "showTriggerWords", label: "Show trigger words when you list them" },
 		],
 		extra: drawTriggerControls,
+		// The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
+		// not clip to a canvas area, so the rows stop above them rather than scrolling under.
+		rowsBottom: 610,
 	},
 	{
 		// Depth earned its own tab rather than a column beside the permissions: thirteen
@@ -212,7 +234,6 @@ const HELP_SIZE = BACK_SIZE;
 
 const BOX_LEFT = CONTENT_LEFT;
 const BOX_SIZE = 70;
-const ROW_TOP_START = 280;
 const ROW_SPACING = 78;
 
 /** Columns for the Stats tab. */
@@ -271,68 +292,48 @@ function dataButtonLeft(index: number): number {
 // positioned in canvas coordinates and explicitly removed on every exit path, which is a
 // great deal of machinery for a choice between two numbers.
 //
-// In the first free row slot after the checkboxes — with thirteen rows that is the bottom of
-// the right-hand column, level with Self-Touch Control. It used to sit at a fixed 740 under
-// the left column, which was clear when the rows stopped at 662; the thirteenth row made the
-// left column seven deep, and its last checkbox (Self-Touch Control, at 748) was drawn UNDER
-// the button — a permission nobody could see or click (v0.85.4). Placed from rowPosition now,
-// so it moves with the rows, and test/menu-layout.mjs fails if anything on the tab overlaps
-// or leaves the panel.
+// The last item in the Permissions list, scrolling with the rows (v0.86.0). v0.85.4 had moved
+// it to the one free slot in a two-column layout; the list scrolls now, so it goes back to where
+// it reads naturally, after the last checkbox, with the whole width for its caption.
+const ATTEMPT_BUTTON_WIDTH = 560;
 const ATTEMPT_BUTTON_HEIGHT = 44;
-/** The caption's band stops this far above the panel floor. */
-const ATTEMPT_CAPTION_FLOOR_GAP = 20;
+const ATTEMPT_CAPTION_HEIGHT = 44;
+const ATTEMPT_CAPTION_GAP = 8;
 
-type Rect = { left: number; top: number; width: number; height: number };
-
-function attemptControlLayout(): { button: Rect; caption: Rect } {
-	const rows = TABS[0].rows ?? [];
-	const slot = rowPosition(rows.length, rows.length);
-	const width = PANEL_LEFT + PANEL_WIDTH - slot.left - 40;
-	// Centred on the row's checkbox height, so it reads as one more row rather than a stray.
-	const button = { left: slot.left, top: slot.top + (BOX_SIZE - ATTEMPT_BUTTON_HEIGHT) / 2, width, height: ATTEMPT_BUTTON_HEIGHT };
-	const captionTop = button.top + button.height + 10;
-	const caption = {
-		left: slot.left,
-		top: captionTop,
-		width,
-		height: PANEL_TOP + PANEL_HEIGHT - ATTEMPT_CAPTION_FLOOR_GAP - captionTop,
-	};
-	return { button, caption };
+function attemptControlHeight(): number {
+	return ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT;
 }
 
-function drawAttemptControl(): void {
+function drawAttemptControl(top: number, width: number): void {
 	const locked = settingsLocked();
-	const { button, caption } = attemptControlLayout();
 	DrawButton(
-		button.left,
-		button.top,
-		button.width,
-		button.height,
+		BOX_LEFT,
+		top,
+		ATTEMPT_BUTTON_WIDTH,
+		ATTEMPT_BUTTON_HEIGHT,
 		`Attempts before they must wait: ${getMaxAttempts()}`,
 		locked ? "#ddd" : "White",
 		"",
-		locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
+		// No tooltip while the pointer is outside the scroll area: the button may be half
+		// scrolled out, and BC would raise it from the clipped half.
+		!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
 		locked,
 	);
 	// What the setting COSTS, under the control that sets it — the same shape as the trigger
 	// decay caption. A count on its own does not say what happens when it runs out, and the
 	// ten minutes is the half a player is actually choosing between.
-	// Wrapped, not fitted: the column is half the panel now, and at one line the sentence would
-	// shrink past reading or be cut off with "…".
 	drawLeftTextWrap(
 		"When they run out, they cannot try you again for ten minutes.",
-		caption.left,
-		caption.top + caption.height / 2,
-		caption.width,
-		caption.height,
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
 		locked ? "Gray" : "#555",
-		28,
 	);
 }
 
-function clickAttemptControl(): boolean {
-	const { button } = attemptControlLayout();
-	if (!MouseIn(button.left, button.top, button.width, button.height)) return false;
+function clickAttemptControl(top: number): boolean {
+	if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
 	// Consumed either way: a greyed button that still cycles when clicked is the lock being
 	// decorative, which is the bug the checkboxes' own second check exists to stop.
 	if (settingsLocked()) return true;
@@ -856,29 +857,76 @@ function drawStats(): void {
 }
 
 // Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
-/** Only 7 rows fit between ROW_TOP_START and the panel floor, so a tab with more spills
- * off the bottom invisibly — which is exactly what happened when Permissions reached 8 and
- * the Lock row was drawn below the panel with no sign anything was missing. Past the
- * threshold a tab splits into two columns instead. */
-const MAX_ROWS_PER_COLUMN = 6;
-const COLUMN_TWO_LEFT = BOX_LEFT + 650;
-/** What a row label may use before it reaches the next column — or, in the right-hand column,
- * the panel edge. Only applied in two-column mode: capping a single-column tab would shrink
- * text that has the whole width to itself. */
-const ROW_LABEL_MAX = 480;
+// --- Checkbox rows: one column, scrolling ---------------------------------------------
+// History: a tab past six rows used to split into two columns (when Permissions reached eight,
+// the Lock row had been drawn below the panel with no sign anything was missing). Two columns
+// then filled too, and at thirteen rows Self-Touch Control was drawn under the attempt button
+// (v0.85.4). Since v0.86.0 every checkbox tab is one full-width column in a scroll area
+// (panel.ts), so a list can grow without re-laying out the screen, and a label never has to
+// squeeze into half the panel.
+const ROWS_TOP = 270;
+/** Space above the first row inside the area, so the first box does not touch its top. */
+const ROWS_PAD = 10;
+/** The area stops this far above the panel floor. */
+const ROWS_FLOOR_GAP = 20;
 
-function rowPosition(index: number, total: number): { left: number; top: number; labelMax: number } {
-	const twoColumn = total > MAX_ROWS_PER_COLUMN;
-	const perColumn = twoColumn ? Math.ceil(total / 2) : total;
-	const column = Math.floor(index / perColumn);
-	const row = index % perColumn;
-	return {
-		left: column === 0 ? BOX_LEFT : COLUMN_TWO_LEFT,
-		top: ROW_TOP_START + row * ROW_SPACING,
-		// A single column has the whole panel; two share it, and the left one must stop before
-		// the right one's checkbox rather than running under it.
-		labelMax: twoColumn ? ROW_LABEL_MAX : PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - BOX_SIZE - 60,
-	};
+/** One area, re-sized for whichever tab is showing. The offset is reset on every tab change
+ * and every visit — a list that opens half-scrolled hides its first rows. */
+const rowScroll: ScrollArea = {
+	left: BOX_LEFT,
+	top: ROWS_TOP,
+	width: PANEL_LEFT + PANEL_WIDTH - 20 - BOX_LEFT,
+	height: 0,
+	content: 0,
+	offset: 0,
+	step: ROW_SPACING,
+};
+
+/** When the rows were last drawn. The wheel listener acts only while they are on screen: it
+ * outlives the tab (and, if BC ever skips our unload, the screen), and a wheel turned over the
+ * Depth tab or the help page must not scroll a list nobody can see. */
+let rowsDrawnAt = 0;
+const ROWS_ON_SCREEN_MS = 500;
+
+function layoutRows(tab: Tab): void {
+	rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - ROWS_TOP;
+	rowScroll.content = ROWS_PAD + (tab.rows?.length ?? 0) * ROW_SPACING + (tab.scrollExtra?.height() ?? 0);
+	clampScroll(rowScroll);
+}
+
+function rowTop(index: number): number {
+	return scrollY(rowScroll, ROWS_PAD + index * ROW_SPACING);
+}
+
+function scrollExtraTop(tab: Tab): number {
+	return rowTop(tab.rows?.length ?? 0);
+}
+
+function onSettingsWheel(event: WheelEvent): void {
+	if (Date.now() - rowsDrawnAt > ROWS_ON_SCREEN_MS) return;
+	if (!scrollNeeded(rowScroll) || !mouseInScroll(rowScroll) || !event.deltaY) return;
+	// One row per notch, whatever the device reports: a trackpad sends many small deltas and a
+	// mouse a few large ones, and pixel-exact scrolling would leave rows cut in half.
+	scrollBy(rowScroll, Math.sign(event.deltaY) * rowScroll.step);
+}
+
+/** BC's extension-settings hooks do not forward the wheel (R132 Extensions.js has no wheel
+ * member), so the screen listens on the canvas itself, from load to exit/unload. The arrows
+ * work without it; a failure to attach is said, not swallowed. */
+function attachWheel(): void {
+	try {
+		MainCanvas.canvas.addEventListener("wheel", onSettingsWheel);
+	} catch (e) {
+		warn("settings: could not listen for the mouse wheel; use the scroll arrows", e);
+	}
+}
+
+function detachWheel(): void {
+	try {
+		MainCanvas.canvas.removeEventListener("wheel", onSettingsWheel);
+	} catch {
+		// Nothing was attached.
+	}
 }
 
 /** Are the checkboxes currently frozen? Read live at draw and click time rather than
@@ -959,10 +1007,13 @@ export function installMenu(): void {
 		load: () => {
 			activeTab = 0;
 			statPage = 0;
+			rowScroll.offset = 0;
+			attachWheel();
 			removeScopeControl();
 			closeHelp();
 		},
 		run: () => {
+			rowsDrawnAt = 0;
 			if (isHelpOpen()) {
 				// DOM controls belong to the settings screen and would float over the help
 				// text, which is canvas — they have to go before help draws over them.
@@ -1023,14 +1074,25 @@ export function installMenu(): void {
 			}
 			const features = getFeatures();
 			const rows = tab.rows ?? [];
-			rows.forEach((row, i) => {
-				const { left, top, labelMax } = rowPosition(i, rows.length);
-				// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
-				// Width, which overlaps the box for anything but very short text. Draw the
-				// label ourselves, left-aligned and clear of the box.
-				DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-				drawLeftTextFit(row.label, left + BOX_SIZE + 20, top + 26, labelMax, locked ? "Gray" : "Black");
+			const contentWidth = scrollContentWidth(rowScroll);
+			layoutRows(tab);
+			drawScrollArea(rowScroll, () => {
+				rows.forEach((row, i) => {
+					const top = rowTop(i);
+					if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+					// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
+					// Width, which overlaps the box for anything but very short text. Draw the
+					// label ourselves, left-aligned and clear of the box.
+					DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+					drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+				});
+				const extra = tab.scrollExtra;
+				if (extra) {
+					const top = scrollExtraTop(tab);
+					if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+				}
 			});
+			rowsDrawnAt = Date.now();
 			tab.extra?.();
 		},
 		click: () => {
@@ -1072,12 +1134,20 @@ export function installMenu(): void {
 			if (hitTab !== null) {
 				activeTab = hitTab;
 				depthPage = 0;
+				rowScroll.offset = 0;
 				removeScopeControl();
 				return;
 			}
+			// The scroll bar first: scrolling is not a setting, so it works while locked, and a
+			// click on the bar must never reach a row under it.
+			const tab = tabs[activeTab];
+			if (tab.rows) {
+				layoutRows(tab);
+				if (clickScrollBar(rowScroll)) return;
+			}
 			// A self-drawing tab handles its own clicks first. Stats predates this and keeps
 			// its handling inline below; Depth uses the hook.
-			if (tabs[activeTab].clickExtra?.()) return;
+			if (tab.clickExtra?.()) return;
 			// Data buttons live on the Stats tab, which has no rows.
 			if (tabs[activeTab].render) {
 				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
@@ -1098,14 +1168,17 @@ export function installMenu(): void {
 			}
 			// Checked here as well as at draw time, not just relied on visually: a greyed
 			// checkbox that still toggles when clicked is worse than no lock at all.
+			// Outside the scroll area nothing in the list is clickable: a row scrolled out of
+			// view still has coordinates, and they are wherever it WOULD be drawn.
+			if (!mouseInScroll(rowScroll)) return;
+			if (tab.scrollExtra?.click(scrollExtraTop(tab))) return;
 			if (settingsLocked()) return;
 			// Only the visible tab's rows are clickable — hidden tabs' rows occupy the same
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
-			const clickRows = visibleTabs()[activeTab].rows ?? [];
+			const clickRows = tab.rows ?? [];
 			clickRows.forEach((row, i) => {
-				const { left, top } = rowPosition(i, clickRows.length);
-				if (MouseIn(left, top, BOX_SIZE, BOX_SIZE)) {
+				if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
 					const next = !features[row.key];
 					setFeature(row.key, next);
 					onToggle(row.key, next);
@@ -1120,10 +1193,12 @@ export function installMenu(): void {
 		unload: () => {
 			removeScopeControl();
 			closeHelp();
+			detachWheel();
 		},
 		exit: () => {
 			removeScopeControl();
 			closeHelp();
+			detachWheel();
 			return true;
 		},
 	});

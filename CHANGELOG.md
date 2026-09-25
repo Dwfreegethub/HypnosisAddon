@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.86.0 · 24 September 2026
+
+- **Settings lists now scroll.** The Permissions tab is a single list you can scroll with the mouse
+  wheel or the arrows on its right-hand side, instead of two squeezed columns. Every setting has
+  room for its full name, and there is space for the settings still to come. The other tabs look
+  the same, just in one column.
+
 ## v0.85.4 · 24 September 2026
 
 - **The Self-Touch Control setting is back on the Permissions tab.** It was hidden under the

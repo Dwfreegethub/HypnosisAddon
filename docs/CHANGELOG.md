@@ -20,6 +20,66 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-24 (v0.86.0) — checkbox lists scroll
+
+DW, on v0.85.4's "the tab is now full, page it next time": *"one way or another we are going to
+need them."* Right, and building it once beats re-laying out a tab each time a setting is added.
+So every checkbox tab is now one full-width column in a scroll area, and the two-column split
+(`rowPosition`, `MAX_ROWS_PER_COLUMN`) is gone. Minor bump: a player has to learn that the list
+scrolls.
+
+**The scroll area lives in `panel.ts`**, not `menu.ts`, so the help screen or the remote panel
+can use it later. On canvas, three pieces have to agree:
+
+- **Drawing.** The content is drawn shifted by the offset and clipped to the area
+  (`MainCanvas.clip`). Rows wholly outside it are not drawn at all, so a hidden button cannot raise
+  a hover tooltip.
+- **Clicking.** A click is accepted only inside the area, and hit-tested at the same shifted
+  position the row was drawn at. Without that area check, the clipped-off half of a partly
+  visible row would still toggle it, which is the v0.85.4 fault again.
+- **The bar.** Arrows at each end move one row; the track pages. There is no drag, because BC's
+  canvas delivers clicks, not drags, and click-only also works on touch screens.
+
+**The wheel is wired by hand.** BC's extension-settings hooks don't forward the wheel. Checked
+against the R132 `Extensions.js`: there is no wheel member, although `Game.js` listens on the
+canvas for its own screens. So the settings screen adds its own `wheel` listener to
+`MainCanvas.canvas` on `load` and removes it on `exit` and `unload`. The listener also acts only
+while the rows were drawn in the last half-second, so a listener left behind by a missed unload,
+or a wheel turned over the help page or the Depth tab, moves nothing. One row per notch,
+whatever the device's delta.
+
+**Where things landed:**
+- The Permissions list scrolls, with the attempt control as its last item and its caption back on
+  one line.
+- Trance Defaults (seven rows, previously two columns) and Awareness fit without a bar.
+- Triggers' rows stop at y 610, because its dropdowns are DOM elements from 630 down, and DOM
+  cannot be clipped to a canvas area.
+- The scroll offset resets on every visit and tab change.
+- Scrolling works under the session lock; it changes no setting.
+
+**Not moved to the scroll area:** the Depth and Stats tabs page with Prev/Next, and so does help.
+They work, and their controls sit at fixed positions under the list. Moving them over is a
+separate change if it's wanted.
+
+`test/menu-layout.mjs`, rewritten for this, has 37 checks. It drives the real screen through
+stubbed drawing, recording the clip each item was drawn under, and checks:
+- the clip sits inside the panel, 20px above the floor, in one column, with nothing overlapping;
+- each of the 13 rows, reached by the ▼ arrow, toggles only itself;
+- the clipped half of a cut-off row is inert;
+- the attempt control sits whole at the end;
+- ▲ and the wheel move the list; a wheel with the pointer outside the list does nothing, and
+  neither does one turned over the help page;
+- Awareness has no bar, Trance Defaults is one column, and Triggers stops above 630;
+- exit and unload both remove the listener.
+
+Six mutations were each caught:
+- click ignores the area;
+- click ignores the offset;
+- exit leaves the listener;
+- the listener is not gated on the rows being drawn (the help-page check);
+- no clip;
+- the bar is clicked after the rows.
+
 ### Fixed 2026-09-24 (v0.85.4) — Self-Touch Control hidden under the attempt button
 
 DW's screenshot of the Permissions tab showed the *Attempts before they must wait* button drawn over
