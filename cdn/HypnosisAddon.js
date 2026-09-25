@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.85.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.85.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7215,34 +7215,49 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function dataButtonLeft(index) {
     return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
   }
-  var ATTEMPT_BUTTON_LEFT = BOX_LEFT;
-  var ATTEMPT_BUTTON_TOP = 740;
-  var ATTEMPT_BUTTON_WIDTH = 520;
   var ATTEMPT_BUTTON_HEIGHT = 44;
-  var ATTEMPT_CAPTION_Y = 826;
+  var ATTEMPT_CAPTION_FLOOR_GAP = 20;
+  function attemptControlLayout() {
+    const rows = TABS2[0].rows ?? [];
+    const slot = rowPosition(rows.length, rows.length);
+    const width = PANEL_LEFT + PANEL_WIDTH - slot.left - 40;
+    const button = { left: slot.left, top: slot.top + (BOX_SIZE - ATTEMPT_BUTTON_HEIGHT) / 2, width, height: ATTEMPT_BUTTON_HEIGHT };
+    const captionTop = button.top + button.height + 10;
+    const caption = {
+      left: slot.left,
+      top: captionTop,
+      width,
+      height: PANEL_TOP + PANEL_HEIGHT - ATTEMPT_CAPTION_FLOOR_GAP - captionTop
+    };
+    return { button, caption };
+  }
   function drawAttemptControl() {
     const locked = settingsLocked();
+    const { button, caption } = attemptControlLayout();
     DrawButton(
-      ATTEMPT_BUTTON_LEFT,
-      ATTEMPT_BUTTON_TOP,
-      ATTEMPT_BUTTON_WIDTH,
-      ATTEMPT_BUTTON_HEIGHT,
+      button.left,
+      button.top,
+      button.width,
+      button.height,
       `Attempts before they must wait: ${getMaxAttempts()}`,
       locked ? "#ddd" : "White",
       "",
       locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
       locked
     );
-    drawLeftTextFit(
+    drawLeftTextWrap(
       "When they run out, they cannot try you again for ten minutes.",
-      ATTEMPT_BUTTON_LEFT,
-      ATTEMPT_CAPTION_Y,
-      PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-      locked ? "Gray" : "#555"
+      caption.left,
+      caption.top + caption.height / 2,
+      caption.width,
+      caption.height,
+      locked ? "Gray" : "#555",
+      28
     );
   }
   function clickAttemptControl() {
-    if (!MouseIn(ATTEMPT_BUTTON_LEFT, ATTEMPT_BUTTON_TOP, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+    const { button } = attemptControlLayout();
+    if (!MouseIn(button.left, button.top, button.width, button.height)) return false;
     if (settingsLocked()) return true;
     const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
     log(`induction attempt limit set to ${next}`);
@@ -7718,7 +7733,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8793,9 +8808,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/prompt.ts
   var PANEL_LEFT2 = 150;
-  var PANEL_TOP3 = 250;
+  var PANEL_TOP2 = 250;
   var PANEL_WIDTH2 = 700;
-  var PANEL_HEIGHT3 = 300;
+  var PANEL_HEIGHT2 = 300;
   var BUTTON_TOP = 450;
   var BUTTON_WIDTH = 200;
   var BUTTON_HEIGHT = 70;
@@ -8810,17 +8825,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
   }
   function drawPrompt(hypnotistName, remainingMs, descriptor) {
-    DrawRect(PANEL_LEFT2, PANEL_TOP3, PANEL_WIDTH2, PANEL_HEIGHT3, "White");
-    DrawEmptyRect(PANEL_LEFT2, PANEL_TOP3, PANEL_WIDTH2, PANEL_HEIGHT3, "Black", 4);
+    DrawRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "White");
+    DrawEmptyRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "Black", 4);
     const centre = PANEL_LEFT2 + PANEL_WIDTH2 / 2;
     const inner = PANEL_WIDTH2 - 40;
-    DrawTextFit(`${hypnotistName} is trying to hypnotize you.`, centre, PANEL_TOP3 + 55, inner, "Black");
-    DrawTextFit("They are never told which you choose.", centre, PANEL_TOP3 + 105, inner, "Gray");
-    if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP3 + 138, inner, "#444");
+    DrawTextFit(`${hypnotistName} is trying to hypnotize you.`, centre, PANEL_TOP2 + 55, inner, "Black");
+    DrawTextFit("They are never told which you choose.", centre, PANEL_TOP2 + 105, inner, "Gray");
+    if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP2 + 138, inner, "#444");
     DrawTextFit(
       `${Math.ceil(remainingMs / 1e3)}s \u2014 no answer counts as Ignore.`,
       centre,
-      PANEL_TOP3 + 175,
+      PANEL_TOP2 + 175,
       inner,
       "Gray"
     );
@@ -8836,7 +8851,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return true;
       }
     }
-    return MouseIn(PANEL_LEFT2, PANEL_TOP3, PANEL_WIDTH2, PANEL_HEIGHT3);
+    return MouseIn(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2);
   }
   function installPrompt(modApi2) {
     modApi2.hookFunction(
@@ -9280,7 +9295,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.4"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9303,7 +9318,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.85.3"} loaded`;
+    el.textContent = `ECHS v${"0.85.4"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9334,14 +9349,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.85.3"})`);
+  info(`script loaded (v${"0.85.4"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.85.3",
+      version: "0.85.4",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

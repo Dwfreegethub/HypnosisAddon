@@ -67,6 +67,7 @@ import {
 	tabHitIndex,
 	drawLeftText,
 	drawLeftTextFit,
+	drawLeftTextWrap,
 	drawTabsAndPanel,
 	tabTop,
 	TAB_LEFT,
@@ -270,22 +271,43 @@ function dataButtonLeft(index: number): number {
 // positioned in canvas coordinates and explicitly removed on every exit path, which is a
 // great deal of machinery for a choice between two numbers.
 //
-// Below the checkbox rows, which stop at 662 with ten of them in two columns — the same band
-// the Depth and Stats tabs already use for their summary controls.
-const ATTEMPT_BUTTON_LEFT = BOX_LEFT;
-const ATTEMPT_BUTTON_TOP = 740;
-const ATTEMPT_BUTTON_WIDTH = 520;
+// In the first free row slot after the checkboxes — with thirteen rows that is the bottom of
+// the right-hand column, level with Self-Touch Control. It used to sit at a fixed 740 under
+// the left column, which was clear when the rows stopped at 662; the thirteenth row made the
+// left column seven deep, and its last checkbox (Self-Touch Control, at 748) was drawn UNDER
+// the button — a permission nobody could see or click (v0.85.4). Placed from rowPosition now,
+// so it moves with the rows, and test/menu-layout.mjs fails if anything on the tab overlaps
+// or leaves the panel.
 const ATTEMPT_BUTTON_HEIGHT = 44;
-/** Under the button, clear of the panel floor at 902. */
-const ATTEMPT_CAPTION_Y = 826;
+/** The caption's band stops this far above the panel floor. */
+const ATTEMPT_CAPTION_FLOOR_GAP = 20;
+
+type Rect = { left: number; top: number; width: number; height: number };
+
+function attemptControlLayout(): { button: Rect; caption: Rect } {
+	const rows = TABS[0].rows ?? [];
+	const slot = rowPosition(rows.length, rows.length);
+	const width = PANEL_LEFT + PANEL_WIDTH - slot.left - 40;
+	// Centred on the row's checkbox height, so it reads as one more row rather than a stray.
+	const button = { left: slot.left, top: slot.top + (BOX_SIZE - ATTEMPT_BUTTON_HEIGHT) / 2, width, height: ATTEMPT_BUTTON_HEIGHT };
+	const captionTop = button.top + button.height + 10;
+	const caption = {
+		left: slot.left,
+		top: captionTop,
+		width,
+		height: PANEL_TOP + PANEL_HEIGHT - ATTEMPT_CAPTION_FLOOR_GAP - captionTop,
+	};
+	return { button, caption };
+}
 
 function drawAttemptControl(): void {
 	const locked = settingsLocked();
+	const { button, caption } = attemptControlLayout();
 	DrawButton(
-		ATTEMPT_BUTTON_LEFT,
-		ATTEMPT_BUTTON_TOP,
-		ATTEMPT_BUTTON_WIDTH,
-		ATTEMPT_BUTTON_HEIGHT,
+		button.left,
+		button.top,
+		button.width,
+		button.height,
 		`Attempts before they must wait: ${getMaxAttempts()}`,
 		locked ? "#ddd" : "White",
 		"",
@@ -295,17 +317,22 @@ function drawAttemptControl(): void {
 	// What the setting COSTS, under the control that sets it — the same shape as the trigger
 	// decay caption. A count on its own does not say what happens when it runs out, and the
 	// ten minutes is the half a player is actually choosing between.
-	drawLeftTextFit(
+	// Wrapped, not fitted: the column is half the panel now, and at one line the sentence would
+	// shrink past reading or be cut off with "…".
+	drawLeftTextWrap(
 		"When they run out, they cannot try you again for ten minutes.",
-		ATTEMPT_BUTTON_LEFT,
-		ATTEMPT_CAPTION_Y,
-		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+		caption.left,
+		caption.top + caption.height / 2,
+		caption.width,
+		caption.height,
 		locked ? "Gray" : "#555",
+		28,
 	);
 }
 
 function clickAttemptControl(): boolean {
-	if (!MouseIn(ATTEMPT_BUTTON_LEFT, ATTEMPT_BUTTON_TOP, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+	const { button } = attemptControlLayout();
+	if (!MouseIn(button.left, button.top, button.width, button.height)) return false;
 	// Consumed either way: a greyed button that still cycles when clicked is the lock being
 	// decorative, which is the bug the checkboxes' own second check exists to stop.
 	if (settingsLocked()) return true;
