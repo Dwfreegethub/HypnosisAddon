@@ -20,6 +20,40 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-24 (v0.85.3) — routine console lines off by default, `/hypno debug`
+
+Fina's feedback, relayed by DW as a brief (`console_cleanup.md`): ECHS floods devtools. **Most of the
+brief was already done in v0.82.3**, which moved every routine line from `console.log` to
+`console.debug` behind the `log()`/`warn()`/`info()` split in `log.ts`. What it did not cover is
+the reader the complaint actually came from: another mod developer keeps the console at
+*Verbose* for their own work, and there `console.debug` shows, including one line per chat message
+(`main.ts`'s `ChatRoomMessage` hook).
+
+So `log()` is now gated: silent unless `/hypno debug` is on (stored in `localStorage` under
+`ECHS_DEBUG`, per browser) **or** the player is in the Hypno Testing room. The room turns it on by
+itself so a tester never loses diagnostics by forgetting a switch — Known Bug #11's next step reads
+exactly that per-message line. `warn()` and `info()` are not gated (rule 5, and the troubleshooting
+page's "script loaded" line).
+
+**Departures from the brief, deliberately:** the tag stays `[HypnosisAddon]` rather than `[ECHS]`,
+since the docs name it as a fixed identifier and a rename breaks anyone filtering on it; no fourth
+`error` level, because caught exceptions already go to `warn()`, which always shows; no `Log` object
+rename across 24 importers; no blanket try/catch pass, since every hook is already inside
+`safely()` or its own try/catch.
+
+**The gate reads the room, not `isTestingMode()`.** The harness pins `isTestingMode()` on for every
+suite, so a gate built on it could never be seen switched off in a test, and the suite would pass
+for the wrong reason. `isTestingMode()` is now `FORCE_TESTING || inTestingRoom()`, and the gate uses
+`inTestingRoom()`.
+
+`/hypno debug [on|off]` sits under Diagnostics, not Testing: a player outside the room may be asked
+to turn it on for a report. Its answer goes to chat. `test/console.mjs` grew from 7 to 32 checks:
+off, on, the room, reload persistence (a fresh module instance over the same storage), blocked
+storage, and the registered command. Checked to fail against three broken variants: gate removed
+(2 fail), gate on `isTestingMode()` (4 fail), `warn()` gated too (1 fail).
+
+---
+
 ### Fixed 2026-09-24 (v0.85.2) — a stuttering hypnotist's commands missed
 
 DW's request: spoken commands should survive stuttering and muffled speech. **What was actually

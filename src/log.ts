@@ -8,8 +8,55 @@ const TAG = "[HypnosisAddon]";
 // Chrome files under "Verbose" (hidden unless asked for) and Firefox under "Debug". They are
 // all still there for a tester who turns that level on.
 
-/** Routine diagnostics — what the add-on saw and did. Hidden at the browser's default level. */
+//
+// console.debug alone was not enough: other mod developers keep Verbose on for their own work,
+// and there our line per chat message was still a flood (Fina's feedback, v0.85.3). So routine
+// diagnostics are now also OFF unless asked for — `/hypno debug`, remembered per browser — and
+// on by themselves in the Hypno Testing room, so a tester never has to remember to ask. warn()
+// and info() are not gated: a fault must always show (rule 5), and so must the startup line.
+
+// Its own localStorage key, not the synced settings: this is about one browser's devtools, not
+// about the account, and it has to be readable before login, when the settings are not loaded.
+const DEBUG_KEY = "ECHS_DEBUG";
+
+function readDebugFlag(): boolean {
+	try {
+		return typeof localStorage !== "undefined" && localStorage.getItem(DEBUG_KEY) === "true";
+	} catch {
+		return false; // storage blocked: stay quiet
+	}
+}
+
+let debugFlag = readDebugFlag();
+
+/** Whether `/hypno debug` is switched on in this browser. The room does not count here. */
+export function isDebugFlagOn(): boolean {
+	return debugFlag;
+}
+
+/** Switch routine diagnostics on or off for this browser, and remember it across reloads.
+ * Returns false if the choice could not be saved (it still applies until the page reloads). */
+export function setDebugFlag(on: boolean): boolean {
+	debugFlag = on;
+	try {
+		localStorage.setItem(DEBUG_KEY, on ? "true" : "false");
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Whether log() writes anything right now: the flag, or standing in the testing room. The
+ * ROOM, not isTestingMode(): the harness pins that on for every suite, which would make the
+ * gate impossible to test switched off. */
+export function isDebugLogging(): boolean {
+	return debugFlag || inTestingRoom();
+}
+
+/** Routine diagnostics — what the add-on saw and did. Silent unless isDebugLogging(), and even
+ * then filed under the browser's Verbose / Debug level. */
 export function log(...args: unknown[]): void {
+	if (!isDebugLogging()) return;
 	console.debug(TAG, ...args);
 }
 
@@ -56,7 +103,11 @@ const FORCE_TESTING: boolean = false;
  * Reads BC's own current-room global; not being in a room (ChatRoomData null) reads as off, the
  * safe default. Wrapped so a missing or unexpected global can never throw into a handler. */
 export function isTestingMode(): boolean {
-	if (FORCE_TESTING) return true;
+	return FORCE_TESTING || inTestingRoom();
+}
+
+/** The room half of isTestingMode, without the harness override. */
+function inTestingRoom(): boolean {
 	try {
 		const name = typeof ChatRoomData !== "undefined" && ChatRoomData ? ChatRoomData.Name : null;
 		return typeof name === "string" && name.trim().toLowerCase() === TESTING_ROOM;

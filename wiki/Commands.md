@@ -46,6 +46,7 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 | `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. | Reviewing or clearing lingering suggestions before waking. |
 | `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. | Reviewing your induction experience and progression. |
 | `/echs storage` | Reports where settings loaded from and what each data source holds. | Troubleshooting settings persistence or storage migration issues. |
+| `/echs debug [on|off]` | Switches the add-on's routine browser-console lines on or off, for this browser only. Off by default; always on in the Hypno Testing room. With nothing after it, it flips the setting. | When you've been asked for console output with a bug report. The lines are filed under the console's *Verbose* (Chrome) or *Debug* (Firefox) level. |
 | `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. `stand` resets the legs only, the same as the spoken command. | Verifying that BC's native posture API is responding correctly. |
 
 ---

@@ -1,4 +1,4 @@
-import { log, isTestingMode } from "./log";
+import { log, isTestingMode, isDebugFlagOn, setDebugFlag, isDebugLogging } from "./log";
 import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch, isTriggerInEffect, describeTriggerList } from "./voice";
@@ -759,6 +759,26 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Where settings loaded from, and what each source holds",
 		Action: () => describeStorage().forEach(reply),
+	},
+	{
+		// Browser-console diagnostics, off by default so other mod developers' devtools stay
+		// clear. Not a Testing command: a player may be asked to turn it on to send a report.
+		Tag: "debug",
+		group: "Diagnostics",
+		args: "[on|off]",
+		Description: "Switch the add-on's routine console lines on or off (this browser only)",
+		Action: (args: string) => {
+			const word = firstWord(args).toLowerCase();
+			if (word && word !== "on" && word !== "off") {
+				reply("usage: /hypno debug [on|off] — with nothing, it switches to the other setting.");
+				return;
+			}
+			const on = word ? word === "on" : !isDebugFlagOn();
+			const saved = setDebugFlag(on);
+			reply(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that — it lasts until you reload.)"}`);
+			if (on) reply("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level — switch that on to see them.");
+			else if (isDebugLogging()) reply("They stay on while you're in the Hypno Testing room.");
+		},
 	},
 	{
 		// YOUR OWN number, never anyone else's — the only skill value a command will print, by

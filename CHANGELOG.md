@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.85.3 · 24 September 2026
+
+- **ECHS is quiet in the browser console.** It no longer writes a line for every chat message,
+  even with the console set to show everything, which was getting in the way of other add-on
+  makers. If you are asked for console output with a bug report, type `/hypno debug` to switch it
+  on (and again to switch it off). It is always on in the Hypno Testing room. Real errors still
+  show either way.
+
 ## v0.85.2 · 24 September 2026
 
 - **A stuttering hypnotist is understood again.** When the hypnotist is aroused, the game makes
