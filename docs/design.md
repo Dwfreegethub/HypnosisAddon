@@ -4256,7 +4256,11 @@ BC actually draws, which is the whole of steps 2 and 3.
    or two blurbs overlapping.
 4. **The loaded note.** Refresh the page. *Expect:* "ECHS v0.82.3 loaded" in the bottom-right
    corner, gone about six seconds later. *Failure looks like:* it staying.
-5. **Console.** Open devtools at the default level and chat in a room. *Expect:* one "script
+5. ~~**Console.**~~ **Done — marked by DW 2026-09-24 on v0.85.3** ("the log is much better").
+   Seen live: the default level is quiet in a busy room. Not run separately: the `/hypno debug`
+   toggle, its survival across a refresh, and the Hypno Testing room turning it on; DW closed the
+   step without them, and `test/console.mjs` covers all three. Original step kept for reference:
+   Open devtools at the default level and chat in a room. *Expect:* one "script
    loaded" line and nothing per message. Switch on *Verbose* (Chrome) and the per-message lines
    appear. *Failure looks like:* a line for every message at the default level.
    **Since v0.85.3** the per-message lines need more than *Verbose*: outside the Hypno Testing room
