@@ -14,7 +14,7 @@ import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
 import { installDenial } from "./denial";
-import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC } from "./voice";
+import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC, unstutter } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice } from "./notify";
@@ -90,7 +90,9 @@ safely("ChatRoomMessage hook", () => {
 			// "(brb)" must never fire a suggestion, build trust, or set off a trigger.
 			// Computed once here so every consumer below sees the same in-character text;
 			// null means the whole line was an aside, with nothing in character to react to.
-			const inCharacter = typeof data?.Content === "string" ? stripOOC(data.Content) : null;
+			// The sender's arousal stutter is undone first, so "M-Missy, k-kneel" is read as
+			// the words that were typed; see unstutter() for why that is exact.
+			const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
 
 			// Trigger setup, hidden from the subject when they've asked for that. The line
 			// still has to be PROCESSED — it's how the trigger gets built — so react to it
