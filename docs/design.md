@@ -4268,7 +4268,12 @@ BC actually draws, which is the whole of steps 2 and 3.
    per message; `/hypno debug` says ON in chat and the lines start; refresh and they are still on;
    `/hypno debug` again and they stop. In the Hypno Testing room they appear with the switch off.
    *Failure looks like:* lines at *Verbose* with the switch off outside the room, or none inside it.
-6. **The scrolling lists (v0.86.0; replaces the v0.85.4 two-column check).** Open settings on the
+6. ~~**The scrolling lists.**~~ **Done — marked by DW 2026-09-25 on v0.86.0** ("It looks very nice. I am
+   happy with it"). Seen live: the one-column list and the scroll bar. Not run separately: a click on
+   the hidden half of a cut-off row, the wheel over the help page, and scrolling under the session
+   lock; DW closed the step without them, and `test/menu-layout.mjs` covers all three. Original
+   step kept for reference: **The scrolling lists (v0.86.0; replaces the v0.85.4 two-column
+   check).** Open settings on the
    Permissions tab. *Expect:* one column of checkboxes, full width, with a scroll bar on the right
    (▲ at the top, ▼ at the bottom, a grey thumb between). The list is cut off cleanly at the bottom
    of the panel, with no row drawn over the panel's edge. Then:
