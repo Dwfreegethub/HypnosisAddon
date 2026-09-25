@@ -20,6 +20,35 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-24 (v0.85.2) — a stuttering hypnotist's commands missed
+
+DW's request: spoken commands should survive stuttering and muffled speech. **What was actually
+broken is narrower than it looked, and worse.** BC stutters on the *sender's* client
+(`SpeechTransformStutter`, `Speech.js`, verified R132): at the start of a word it inserts the
+word's own first letter and a dash, at most once per word, and the first word always. `normalize()`
+turned the dash into a space and left a stray letter, so `k-kneel` became "k kneel". A lone word
+still matched, since `kneel` finds it, which is why the obvious test passes. **A phrase did
+not:** the stray letter lands between its words. Swept over every What to Say example at BC
+intensities 0–10, **1,284 of 2,068 stuttered lines missed**, and `k-kneel s-spread` was read as a
+plain kneel.
+
+**Fix:** `unstutter()` in `voice.ts`, applied at the one chokepoint in `main.ts` before
+`stripOOC`, so suggestions, triggers, the name gate, induction RP and trust all read the typed
+words. The transform only adds, so removing `X-` before a word that starts with X is exact.
+Repeated typed stutters (`k-k-kneel`) are taken too; hyphens inside words (`re-read`, `T-shirt`)
+are not.
+
+**Decided 2026-09-24 (DW): a gag still works as a gag.** Gag garbling destroys the words. The only
+way through is the ungarbled copy some senders attach (BC's own `Original` entry when the sender
+has *Don't garble online chat and whispers when gagged* on, or BCX's `BCX_ORIGINAL_MESSAGE` tag,
+which `shared/decodeMessage.ts` in the other bots reads). Offered with a recommendation to honour
+it when the subject can see it; **DW chose never**. No mod-specific "drunk" speech exists in DW's
+rooms, so none is handled.
+
+New suite `test/stutter.mjs`, 111 checks, including BC's own stutter routine transcribed so the
+cases stutter as the game does, and the full catalogue sweep. **86 fail with `unstutter` reduced to a
+passthrough.** **Not run live.**
+
 ### Added 2026-09-23 (v0.85.1) — Cancel in the setup wizard
 
 DW's request: an explicit way to abort the first-time setup. The welcome page already had

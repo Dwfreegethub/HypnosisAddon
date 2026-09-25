@@ -102,6 +102,25 @@ function normalize(text: string): string {
 		.trim();
 }
 
+/** Undo BC's arousal stutter, so "M-Missy, y-you c-cannot move" reads as it was typed.
+ *
+ * BC stutters on the SENDER's client (SpeechTransformStutter in Speech.js, verified R132):
+ * at the start of a word it inserts that word's own first letter and a dash, at most once per
+ * word, and the first word of a line always. So "Missy" arrives as "M-Missy", and normalize()
+ * then turns the dash into a space and leaves a stray "m" in front of every stuttered word:
+ * the name gate missed and "k-kneel" matched nothing.
+ *
+ * The transform only ever adds, so removing "X-" in front of a word that starts with X gets
+ * the original back exactly. A repeated "k-k-kneel" is taken too, since players type their
+ * own stutters. Only at the start of a word: "re-read" and "co-op" are left alone.
+ *
+ * Gag garbling is NOT undone here, and is not meant to be: it destroys the words, and a
+ * gagged hypnotist's attached ungarbled copy is deliberately ignored (DW, 2026-09-24). A
+ * gag still works as a gag. */
+export function unstutter(content: string): string {
+	return String(content ?? "").replace(/(?<![\p{L}\p{N}'’-])(\p{L})(?:-\1)*-(?=\1)/giu, "");
+}
+
 /** Strip out-of-character asides before anything reads the line.
  *
  * Parentheses are BC's own OOC convention, and until now the add-on ignored that completely:

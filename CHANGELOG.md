@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.85.2 · 24 September 2026
+
+- **A stuttering hypnotist is understood again.** When the hypnotist is aroused, the game makes
+  them stutter ("M-Missy, y-you c-cannot move"), and most commands of more than one word stopped
+  working. They now land exactly as if they had been said plainly. A gag still works as a gag: a
+  gagged hypnotist's muffled words are not understood.
+
 ## v0.85.1 · 23 September 2026
 
 - **You can now cancel the setup questions.** Every question in the setup, and the summary at
