@@ -4268,6 +4268,13 @@ BC actually draws, which is the whole of steps 2 and 3.
    per message; `/hypno debug` says ON in chat and the lines start; refresh and they are still on;
    `/hypno debug` again and they stop. In the Hypno Testing room they appear with the switch off.
    *Failure looks like:* lines at *Verbose* with the switch off outside the room, or none inside it.
+6. **The Permissions tab (v0.85.4).** Open settings on the Permissions tab. *Expect:* seven rows
+   on the left ending in **Self-Touch Control**, six on the right ending in *Lock settings while a
+   session is on you*, and the *Attempts before they must wait* button under that, level with
+   Self-Touch Control, with its caption on two lines below it and clear of the panel's bottom edge.
+   Click Self-Touch Control's box and the button once each. *Expect:* the box ticks or unticks and
+   the number changes. *Failure looks like:* anything drawn on top of anything else, the caption
+   ending in "…" or crossing the bottom edge, or a click on one changing the other.
 
 ### 13. The install loader (v0.83.0) — **open, never run live. Steps 1 and 2 belong BEFORE the merge**
 

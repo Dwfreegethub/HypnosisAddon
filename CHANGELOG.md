@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.85.4 · 24 September 2026
+
+- **The Self-Touch Control setting is back on the Permissions tab.** It was hidden under the
+  "Attempts before they must wait" button, so you could not see it or click it. That button now
+  sits at the bottom of the right-hand column, with its explanation underneath, and nothing on the
+  tab overlaps any more.
+
 ## v0.85.3 · 24 September 2026
 
 - **ECHS is quiet in the browser console.** It no longer writes a line for every chat message,

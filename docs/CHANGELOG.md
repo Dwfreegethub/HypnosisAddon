@@ -20,6 +20,30 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-24 (v0.85.4) — Self-Touch Control hidden under the attempt button
+
+DW's screenshot of the Permissions tab showed the *Attempts before they must wait* button drawn over
+the Speech Restriction row and its caption running past the panel floor. What it actually hid was
+worse than an overlap: a tick mark peeking out from under the button was **Self-Touch Control**, the
+seventh row of the left column. The button sat at a fixed y 740, placed when the rows stopped at 662;
+the thirteenth permission (Made to Touch Others, v0.84.0) made `rowPosition` split the tab seven and
+six, putting that row's checkbox at 748 — under the button, whose click handler runs first. A
+permission nobody could see or change, and nothing said so (rule 5).
+
+The fix is the brief's option B, not its scrollbar: the button moves to the first free row slot, which
+is the bottom of the right-hand column, taken from `rowPosition(rows.length, …)` so it follows the
+rows rather than a pixel constant. The caption wraps (`drawLeftTextWrap`) in that half-width column
+and its band stops 20px above the floor. A scrollbar was not built: it is a lot of canvas machinery,
+and the tab has room for the settings it has. **It is now full.** A fourteenth row makes both columns
+seven deep and leaves no slot for the button; `test/menu-layout.mjs` fails on that (and on any
+overlap), and the answer then is paging, the way the Depth tab does it.
+
+`test/menu-layout.mjs` (14 checks) drives the real screen through `installMenu` with stubbed drawing
+primitives and records every checkbox, button and line of text. It asserts no two overlap, all sit in
+the panel, the caption is whole and 20px clear of the floor, and each checkbox and the button change
+their own setting when clicked where drawn. Against the old `menu.ts` it fails two: the overlap
+check (checkbox 6 × button, × caption, and its label × button) and "selfTouchControl did not toggle".
+
 ### Changed 2026-09-24 (v0.85.3) — routine console lines off by default, `/hypno debug`
 
 Fina's feedback, relayed by DW as a brief (`console_cleanup.md`): ECHS floods devtools. **Most of the
