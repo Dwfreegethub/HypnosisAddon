@@ -335,3 +335,123 @@ export function drawHelpLines(lines: readonly HelpLine[], page: number): number 
 	}
 	return pages.length;
 }
+
+// --- Scrolling ----------------------------------------------------------------------------
+// A vertical scroll area for a list that can outgrow its panel (v0.86.0). Before this, a tab
+// that ran out of height either split into two cramped columns or, once the columns were full,
+// drew its last row under whatever sat below — Self-Touch Control spent v0.84.0 to v0.85.3
+// hidden under the attempt button. A list now scrolls instead, and it can grow without anyone
+// re-laying out the screen.
+//
+// The canvas has no scrolling of its own, so this is three pieces that have to agree: the
+// content is drawn shifted by `offset` and clipped to the area; clicks are only accepted inside
+// the area (a row scrolled out of view must not be clickable where it WOULD be); and a bar down
+// the right edge shows how much there is and moves it. The bar is click-driven — arrows at each
+// end, the track pages — because BC's canvas has clicks but no drag, and that also serves touch.
+// The mouse wheel is wired by the screen (BC's extension-settings hooks do not forward it,
+// verified against R132 Extensions.js), through scrollBy below.
+export const SCROLLBAR_WIDTH = 44;
+const THUMB_MIN = 40;
+
+export interface ScrollArea {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	/** Total height of what is drawn inside, in content coordinates from 0. */
+	content: number;
+	/** How far down the content is scrolled, 0 .. content - height. */
+	offset: number;
+	/** One arrow click or wheel notch. */
+	step: number;
+}
+
+export function scrollMax(a: ScrollArea): number {
+	return Math.max(0, a.content - a.height);
+}
+
+/** Whether there is anything to scroll. When not, no bar is drawn and nothing moves. */
+export function scrollNeeded(a: ScrollArea): boolean {
+	return scrollMax(a) > 0;
+}
+
+export function clampScroll(a: ScrollArea): void {
+	a.offset = Math.min(scrollMax(a), Math.max(0, Math.round(a.offset)));
+}
+
+/** Move by `delta` pixels. Returns whether it moved, so a caller can tell an end from a scroll. */
+export function scrollBy(a: ScrollArea, delta: number): boolean {
+	const before = a.offset;
+	a.offset += delta;
+	clampScroll(a);
+	return a.offset !== before;
+}
+
+/** Screen y of something at content y `y`. */
+export function scrollY(a: ScrollArea, y: number): number {
+	return a.top + y - a.offset;
+}
+
+/** Width the content may use: the area less the bar, always reserved so text does not reflow
+ * the moment a list crosses the line into scrolling. */
+export function scrollContentWidth(a: ScrollArea): number {
+	return a.width - SCROLLBAR_WIDTH - 20;
+}
+
+export function mouseInScroll(a: ScrollArea): boolean {
+	return MouseIn(a.left, a.top, a.width, a.height);
+}
+
+/** Whether a rectangle, in screen coordinates, can be seen at all. Rows that cannot are not
+ * drawn, so a hidden button cannot raise a hover tooltip from outside the area. */
+export function scrollShows(a: ScrollArea, top: number, height: number): boolean {
+	return top + height > a.top && top < a.top + a.height;
+}
+
+function barLeft(a: ScrollArea): number {
+	return a.left + a.width - SCROLLBAR_WIDTH;
+}
+
+function thumb(a: ScrollArea): { top: number; height: number } {
+	const trackTop = a.top + SCROLLBAR_WIDTH;
+	const track = a.height - 2 * SCROLLBAR_WIDTH;
+	const height = Math.max(THUMB_MIN, Math.round((track * a.height) / a.content));
+	const max = scrollMax(a);
+	return { top: trackTop + (max ? Math.round(((track - height) * a.offset) / max) : 0), height };
+}
+
+/** Draw the content clipped to the area, then the bar if there is anything to scroll. */
+export function drawScrollArea(a: ScrollArea, drawContent: () => void): void {
+	clampScroll(a);
+	MainCanvas.save();
+	MainCanvas.beginPath();
+	MainCanvas.rect(a.left, a.top, a.width - SCROLLBAR_WIDTH, a.height);
+	MainCanvas.clip();
+	drawContent();
+	MainCanvas.restore();
+	if (!scrollNeeded(a)) return;
+	const x = barLeft(a);
+	const atTop = a.offset === 0;
+	const atEnd = a.offset >= scrollMax(a);
+	DrawRect(x, a.top + SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, a.height - 2 * SCROLLBAR_WIDTH, "#eee");
+	const t = thumb(a);
+	DrawRect(x + 6, t.top, SCROLLBAR_WIDTH - 12, t.height, "#999");
+	DrawButton(x, a.top, SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, "▲", atTop ? "#eee" : "White", "", "", atTop);
+	DrawButton(x, a.top + a.height - SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, "▼", atEnd ? "#eee" : "White", "", "", atEnd);
+}
+
+/** A click on the bar: arrows move one step, the track above or below the thumb moves a page.
+ * Returns true when the click was on the bar, moved or not, so it never falls through to a row
+ * underneath. */
+export function clickScrollBar(a: ScrollArea): boolean {
+	if (!scrollNeeded(a) || !MouseIn(barLeft(a), a.top, SCROLLBAR_WIDTH, a.height)) return false;
+	const page = Math.max(a.step, a.height - a.step);
+	if (MouseY < a.top + SCROLLBAR_WIDTH) scrollBy(a, -a.step);
+	else if (MouseY >= a.top + a.height - SCROLLBAR_WIDTH) scrollBy(a, a.step);
+	else {
+		const t = thumb(a);
+		if (MouseY < t.top) scrollBy(a, -page);
+		else if (MouseY >= t.top + t.height) scrollBy(a, page);
+	}
+	return true;
+}

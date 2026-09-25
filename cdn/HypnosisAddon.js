@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.85.4. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.86.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6435,6 +6435,75 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return pages.length;
   }
+  var SCROLLBAR_WIDTH = 44;
+  var THUMB_MIN = 40;
+  function scrollMax(a) {
+    return Math.max(0, a.content - a.height);
+  }
+  function scrollNeeded(a) {
+    return scrollMax(a) > 0;
+  }
+  function clampScroll(a) {
+    a.offset = Math.min(scrollMax(a), Math.max(0, Math.round(a.offset)));
+  }
+  function scrollBy(a, delta) {
+    const before = a.offset;
+    a.offset += delta;
+    clampScroll(a);
+    return a.offset !== before;
+  }
+  function scrollY(a, y) {
+    return a.top + y - a.offset;
+  }
+  function scrollContentWidth(a) {
+    return a.width - SCROLLBAR_WIDTH - 20;
+  }
+  function mouseInScroll(a) {
+    return MouseIn(a.left, a.top, a.width, a.height);
+  }
+  function scrollShows(a, top, height) {
+    return top + height > a.top && top < a.top + a.height;
+  }
+  function barLeft(a) {
+    return a.left + a.width - SCROLLBAR_WIDTH;
+  }
+  function thumb(a) {
+    const trackTop = a.top + SCROLLBAR_WIDTH;
+    const track = a.height - 2 * SCROLLBAR_WIDTH;
+    const height = Math.max(THUMB_MIN, Math.round(track * a.height / a.content));
+    const max = scrollMax(a);
+    return { top: trackTop + (max ? Math.round((track - height) * a.offset / max) : 0), height };
+  }
+  function drawScrollArea(a, drawContent) {
+    clampScroll(a);
+    MainCanvas.save();
+    MainCanvas.beginPath();
+    MainCanvas.rect(a.left, a.top, a.width - SCROLLBAR_WIDTH, a.height);
+    MainCanvas.clip();
+    drawContent();
+    MainCanvas.restore();
+    if (!scrollNeeded(a)) return;
+    const x = barLeft(a);
+    const atTop = a.offset === 0;
+    const atEnd = a.offset >= scrollMax(a);
+    DrawRect(x, a.top + SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, a.height - 2 * SCROLLBAR_WIDTH, "#eee");
+    const t = thumb(a);
+    DrawRect(x + 6, t.top, SCROLLBAR_WIDTH - 12, t.height, "#999");
+    DrawButton(x, a.top, SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, "\u25B2", atTop ? "#eee" : "White", "", "", atTop);
+    DrawButton(x, a.top + a.height - SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, SCROLLBAR_WIDTH, "\u25BC", atEnd ? "#eee" : "White", "", "", atEnd);
+  }
+  function clickScrollBar(a) {
+    if (!scrollNeeded(a) || !MouseIn(barLeft(a), a.top, SCROLLBAR_WIDTH, a.height)) return false;
+    const page2 = Math.max(a.step, a.height - a.step);
+    if (MouseY < a.top + SCROLLBAR_WIDTH) scrollBy(a, -a.step);
+    else if (MouseY >= a.top + a.height - SCROLLBAR_WIDTH) scrollBy(a, a.step);
+    else {
+      const t = thumb(a);
+      if (MouseY < t.top) scrollBy(a, -page2);
+      else if (MouseY >= t.top + t.height) scrollBy(a, page2);
+    }
+    return true;
+  }
 
   // src/help.ts
   var open = false;
@@ -7114,8 +7183,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "undressControl", label: "Undressing" },
         { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
       ],
-      extra: drawAttemptControl,
-      clickExtra: clickAttemptControl
+      scrollExtra: { height: attemptControlHeight, draw: drawAttemptControl, click: clickAttemptControl }
     },
     {
       name: "Trance Defaults",
@@ -7152,7 +7220,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "selfTrigger", label: "You can fire your own triggers" },
         { key: "showTriggerWords", label: "Show trigger words when you list them" }
       ],
-      extra: drawTriggerControls
+      extra: drawTriggerControls,
+      // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
+      // not clip to a canvas area, so the rows stop above them rather than scrolling under.
+      rowsBottom: 610
     },
     {
       // Depth earned its own tab rather than a column beside the permissions: thirteen
@@ -7188,7 +7259,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var HELP_SIZE = BACK_SIZE;
   var BOX_LEFT = CONTENT_LEFT;
   var BOX_SIZE = 70;
-  var ROW_TOP_START = 280;
   var ROW_SPACING = 78;
   var STAT_NAME_X = BOX_LEFT;
   var STAT_VALUE_X = BOX_LEFT + 460;
@@ -7215,49 +7285,39 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function dataButtonLeft(index) {
     return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
   }
+  var ATTEMPT_BUTTON_WIDTH = 560;
   var ATTEMPT_BUTTON_HEIGHT = 44;
-  var ATTEMPT_CAPTION_FLOOR_GAP = 20;
-  function attemptControlLayout() {
-    const rows = TABS2[0].rows ?? [];
-    const slot = rowPosition(rows.length, rows.length);
-    const width = PANEL_LEFT + PANEL_WIDTH - slot.left - 40;
-    const button = { left: slot.left, top: slot.top + (BOX_SIZE - ATTEMPT_BUTTON_HEIGHT) / 2, width, height: ATTEMPT_BUTTON_HEIGHT };
-    const captionTop = button.top + button.height + 10;
-    const caption = {
-      left: slot.left,
-      top: captionTop,
-      width,
-      height: PANEL_TOP + PANEL_HEIGHT - ATTEMPT_CAPTION_FLOOR_GAP - captionTop
-    };
-    return { button, caption };
+  var ATTEMPT_CAPTION_HEIGHT = 44;
+  var ATTEMPT_CAPTION_GAP = 8;
+  function attemptControlHeight() {
+    return ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT;
   }
-  function drawAttemptControl() {
+  function drawAttemptControl(top, width) {
     const locked = settingsLocked();
-    const { button, caption } = attemptControlLayout();
     DrawButton(
-      button.left,
-      button.top,
-      button.width,
-      button.height,
+      BOX_LEFT,
+      top,
+      ATTEMPT_BUTTON_WIDTH,
+      ATTEMPT_BUTTON_HEIGHT,
       `Attempts before they must wait: ${getMaxAttempts()}`,
       locked ? "#ddd" : "White",
       "",
-      locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
+      // No tooltip while the pointer is outside the scroll area: the button may be half
+      // scrolled out, and BC would raise it from the clipped half.
+      !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
       locked
     );
     drawLeftTextWrap(
       "When they run out, they cannot try you again for ten minutes.",
-      caption.left,
-      caption.top + caption.height / 2,
-      caption.width,
-      caption.height,
-      locked ? "Gray" : "#555",
-      28
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
     );
   }
-  function clickAttemptControl() {
-    const { button } = attemptControlLayout();
-    if (!MouseIn(button.left, button.top, button.width, button.height)) return false;
+  function clickAttemptControl(top) {
+    if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
     if (settingsLocked()) return true;
     const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
     log(`induction attempt limit set to ${next}`);
@@ -7666,21 +7726,48 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     drawDataButtons();
   }
-  var MAX_ROWS_PER_COLUMN = 6;
-  var COLUMN_TWO_LEFT = BOX_LEFT + 650;
-  var ROW_LABEL_MAX = 480;
-  function rowPosition(index, total) {
-    const twoColumn = total > MAX_ROWS_PER_COLUMN;
-    const perColumn = twoColumn ? Math.ceil(total / 2) : total;
-    const column = Math.floor(index / perColumn);
-    const row = index % perColumn;
-    return {
-      left: column === 0 ? BOX_LEFT : COLUMN_TWO_LEFT,
-      top: ROW_TOP_START + row * ROW_SPACING,
-      // A single column has the whole panel; two share it, and the left one must stop before
-      // the right one's checkbox rather than running under it.
-      labelMax: twoColumn ? ROW_LABEL_MAX : PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - BOX_SIZE - 60
-    };
+  var ROWS_TOP = 270;
+  var ROWS_PAD = 10;
+  var ROWS_FLOOR_GAP = 20;
+  var rowScroll = {
+    left: BOX_LEFT,
+    top: ROWS_TOP,
+    width: PANEL_LEFT + PANEL_WIDTH - 20 - BOX_LEFT,
+    height: 0,
+    content: 0,
+    offset: 0,
+    step: ROW_SPACING
+  };
+  var rowsDrawnAt = 0;
+  var ROWS_ON_SCREEN_MS = 500;
+  function layoutRows(tab) {
+    rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - ROWS_TOP;
+    rowScroll.content = ROWS_PAD + (tab.rows?.length ?? 0) * ROW_SPACING + (tab.scrollExtra?.height() ?? 0);
+    clampScroll(rowScroll);
+  }
+  function rowTop(index) {
+    return scrollY(rowScroll, ROWS_PAD + index * ROW_SPACING);
+  }
+  function scrollExtraTop(tab) {
+    return rowTop(tab.rows?.length ?? 0);
+  }
+  function onSettingsWheel(event) {
+    if (Date.now() - rowsDrawnAt > ROWS_ON_SCREEN_MS) return;
+    if (!scrollNeeded(rowScroll) || !mouseInScroll(rowScroll) || !event.deltaY) return;
+    scrollBy(rowScroll, Math.sign(event.deltaY) * rowScroll.step);
+  }
+  function attachWheel() {
+    try {
+      MainCanvas.canvas.addEventListener("wheel", onSettingsWheel);
+    } catch (e) {
+      warn("settings: could not listen for the mouse wheel; use the scroll arrows", e);
+    }
+  }
+  function detachWheel() {
+    try {
+      MainCanvas.canvas.removeEventListener("wheel", onSettingsWheel);
+    } catch {
+    }
   }
   function settingsLocked() {
     return getFeatures().lockedWhileHypnotized && isSessionLive();
@@ -7718,10 +7805,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       load: () => {
         activeTab2 = 0;
         statPage = 0;
+        rowScroll.offset = 0;
+        attachWheel();
         removeScopeControl();
         closeHelp();
       },
       run: () => {
+        rowsDrawnAt = 0;
         if (isHelpOpen()) {
           removeScopeControl();
           drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
@@ -7733,7 +7823,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.86.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -7768,11 +7858,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         const features = getFeatures();
         const rows = tab.rows ?? [];
-        rows.forEach((row, i) => {
-          const { left, top, labelMax } = rowPosition(i, rows.length);
-          DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-          drawLeftTextFit(row.label, left + BOX_SIZE + 20, top + 26, labelMax, locked ? "Gray" : "Black");
+        const contentWidth = scrollContentWidth(rowScroll);
+        layoutRows(tab);
+        drawScrollArea(rowScroll, () => {
+          rows.forEach((row, i) => {
+            const top = rowTop(i);
+            if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+            DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+            drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+          });
+          const extra = tab.scrollExtra;
+          if (extra) {
+            const top = scrollExtraTop(tab);
+            if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+          }
         });
+        rowsDrawnAt = Date.now();
         tab.extra?.();
       },
       click: () => {
@@ -7812,10 +7913,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (hitTab !== null) {
           activeTab2 = hitTab;
           depthPage = 0;
+          rowScroll.offset = 0;
           removeScopeControl();
           return;
         }
-        if (tabs[activeTab2].clickExtra?.()) return;
+        const tab = tabs[activeTab2];
+        if (tab.rows) {
+          layoutRows(tab);
+          if (clickScrollBar(rowScroll)) return;
+        }
+        if (tab.clickExtra?.()) return;
         if (tabs[activeTab2].render) {
           if (MouseIn(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
             statPage = Math.max(0, statPage - 1);
@@ -7833,12 +7940,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
           }
           return;
         }
+        if (!mouseInScroll(rowScroll)) return;
+        if (tab.scrollExtra?.click(scrollExtraTop(tab))) return;
         if (settingsLocked()) return;
         const features = getFeatures();
-        const clickRows = visibleTabs()[activeTab2].rows ?? [];
+        const clickRows = tab.rows ?? [];
         clickRows.forEach((row, i) => {
-          const { left, top } = rowPosition(i, clickRows.length);
-          if (MouseIn(left, top, BOX_SIZE, BOX_SIZE)) {
+          if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
             const next = !features[row.key];
             setFeature(row.key, next);
             onToggle(row.key, next);
@@ -7853,10 +7961,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       unload: () => {
         removeScopeControl();
         closeHelp();
+        detachWheel();
       },
       exit: () => {
         removeScopeControl();
         closeHelp();
+        detachWheel();
         return true;
       }
     });
@@ -9295,7 +9405,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.4"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.86.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9318,7 +9428,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.85.4"} loaded`;
+    el.textContent = `ECHS v${"0.86.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9349,14 +9459,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.85.4"})`);
+  info(`script loaded (v${"0.86.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.85.4",
+      version: "0.86.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

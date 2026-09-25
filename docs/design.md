@@ -4268,13 +4268,24 @@ BC actually draws, which is the whole of steps 2 and 3.
    per message; `/hypno debug` says ON in chat and the lines start; refresh and they are still on;
    `/hypno debug` again and they stop. In the Hypno Testing room they appear with the switch off.
    *Failure looks like:* lines at *Verbose* with the switch off outside the room, or none inside it.
-6. **The Permissions tab (v0.85.4).** Open settings on the Permissions tab. *Expect:* seven rows
-   on the left ending in **Self-Touch Control**, six on the right ending in *Lock settings while a
-   session is on you*, and the *Attempts before they must wait* button under that, level with
-   Self-Touch Control, with its caption on two lines below it and clear of the panel's bottom edge.
-   Click Self-Touch Control's box and the button once each. *Expect:* the box ticks or unticks and
-   the number changes. *Failure looks like:* anything drawn on top of anything else, the caption
-   ending in "…" or crossing the bottom edge, or a click on one changing the other.
+6. **The scrolling lists (v0.86.0; replaces the v0.85.4 two-column check).** Open settings on the
+   Permissions tab. *Expect:* one column of checkboxes, full width, with a scroll bar on the right
+   (▲ at the top, ▼ at the bottom, a grey thumb between). The list is cut off cleanly at the bottom
+   of the panel, with no row drawn over the panel's edge. Then:
+   - Click ▼ a few times. *Expect:* the list moves up one row per click, and ▼ greys out at the
+     end, where the *Attempts before they must wait* button and its one-line caption sit under the
+     Lock row. Click ▲ and the list comes back. Click the grey track below the thumb. *Expect:* it
+     jumps about a screen.
+   - Turn the mouse wheel over the list. *Expect:* one row per notch. Over the tabs on the left:
+     nothing. With the help page open: nothing moves behind it.
+   - With a row half cut off at the bottom, click the **hidden** half of its box (just below the
+     list's edge). *Expect:* nothing changes. Click the visible half. *Expect:* it ticks.
+   - Click Self-Touch Control and the Attempts button. *Expect:* each changes its own setting.
+   - Awareness and Trance Defaults: one column and no scroll bar. Triggers: four rows, no bar, and
+     the dropdowns below them untouched.
+   - Under a session lock, the scroll bar still works, but the checkboxes do not.
+   *Failure looks like:* a row drawn outside the list, a click landing on the wrong row after
+   scrolling, the wheel scrolling something you cannot see, or the list opening part-way down.
 
 ### 13. The install loader (v0.83.0) — **open, never run live. Steps 1 and 2 belong BEFORE the merge**
 
