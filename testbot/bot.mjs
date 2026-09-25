@@ -16,8 +16,8 @@
 //
 // In the room, drive it from chat:
 // TWO WAYS IN, and the second one matters more than it looks. Every command below can be
-// typed in chat with a `!`, or given as a slash command — `/bot next` — which reaches us over
-// the hidden channel instead of the room. Use the slash form whenever the subject is silenced,
+// typed in chat with a `!`, or given as a slash command — `/bot next` (BC's own command) or
+// `/hypno bot next` (ECHS's) — which reaches us over the hidden channel instead of the room. Use the slash form whenever the subject is silenced,
 // which several of these scenarios do on purpose: chat is blocked then, and `/bot` is not.
 //
 //   !tests            list the scenarios
@@ -318,6 +318,17 @@ socket.on("ChatRoomSyncSingle", (data) => noteAppearance(data?.Character));
 socket.on("ChatRoomSyncCharacter", (data) => noteAppearance(data?.Character));
 
 socket.on("ChatRoomMessage", (data) => {
+	// BC's own `/bot <text>` (CommandsDefault.js, R132) sends "ChatRoomBot <text>" as a hidden
+	// message to everyone else in the room. ECHS used to take the `/bot` name for itself, which
+	// broke it for every player with ECHS installed (v0.86.1); now the native command is the
+	// short form, and it survives silence the same way, being a command.
+	if (data?.Type === "Hidden" && typeof data?.Content === "string" && data.Content.startsWith("ChatRoomBot ")) {
+		if (data.Sender === me) return;
+		const text = data.Content.slice("ChatRoomBot ".length).trim();
+		logLine("RECV", `/bot from ${room.get(data.Sender) ?? data.Sender}: ${text}`);
+		if (text) handleCommand(data.Sender, `!${text.replace(/^[!/]+/, "")}`);
+		return;
+	}
 	if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG) {
 		const message = data?.Dictionary?.[0]?.message;
 		if (!message) return;

@@ -308,9 +308,11 @@ export function installCommands(): void {
 		],
 	});
 
+	// Our two tags and NOTHING else. CommandCombine REPLACES any command with the same tag
+	// (R132 Commands.js filters the old one out), so a top-level tag we register is taken from
+	// BC or from another add-on, for every player who has ECHS installed. See the note on
+	// sendToBot below for the one time that happened.
 	for (const tag of COMMAND_TAGS) CommandCombine(hypnoCommand(tag));
-
-	installBotCommand();
 }
 
 /** Drive the test bot from a slash command, because chat is not always available.
@@ -320,15 +322,19 @@ export function installCommands(): void {
  * when ordinary speech does not. That asymmetry is deliberate (it is what keeps
  * `/hypno safeword` reachable) and this rides on it.
  *
- * It does NOT send chat. Verified in the live client: CommandParse() returns CommandExecute()'s
- * BOOLEAN for anything starting with the command key, and ChatRoomSendChat() only sends when
- * it gets a string back — so an unregistered `/bot` never leaves the browser at all, it just
- * prints "no such command" locally. Registering it here is what makes it exist, and once it
- * exists the cleanest route to the bot is the hidden channel: unaffected by silence, invisible
- * to the room, and not dependent on the bot parsing room chat.
+ * ONLY as `/hypno bot` (and `/echs bot`) since v0.86.1. ECHS used to register a top-level
+ * `/bot` too, on the belief that BC had none. It does — CommandsDefault.js, R132: it sends
+ * "ChatRoomBot <text>" as a hidden message to everyone else in the room, which is how players
+ * talk to room bots — and CommandCombine replaces a command with the same tag. So every player
+ * with ECHS installed lost BC's `/bot`, and outside the testing room ours answered "join the
+ * Hypno Testing room" (Bella, #223446 and #254192, on 0.84.1). An add-on must not take a name
+ * it does not own.
+ *
+ * `/bot next` still works for testing, through BC's own command: testbot/bot.mjs reads the
+ * "ChatRoomBot" hidden message as well as ours.
  *
  * `!` in chat keeps working. Two ways in, and the one that survives a gag is the point. */
-/** Hand one line to the test bot. Shared by `/bot` and `/hypno bot`.
+/** Hand one line to the test bot, for `/hypno bot`.
  *
  * IT SAYS WHAT IT DID, and that is the point of this version. The first one sent the message
  * and returned in silence, so "the command never ran" and "the command ran and the bot did not
@@ -343,9 +349,8 @@ function sendToBot(args: string): void {
 	}
 	const text = (args ?? "").trim();
 	if (!text) {
-		reply("Usage: /bot <command> — e.g. /bot next, /bot run 2, /bot ok, /bot tests.");
-		reply("Goes over the hidden channel, so it works while you cannot speak.");
-		reply("If /bot itself does nothing, another add-on has claimed the name — use /hypno bot <command>.");
+		reply("Usage: /hypno bot <command> — e.g. /hypno bot next, /hypno bot run 2, /hypno bot ok.");
+		reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
 		return;
 	}
 	// The hypnotist first: mid-trance they are by definition the bot, and being unable to say
@@ -365,24 +370,7 @@ function sendToBot(args: string): void {
 	// Naming the target matters as much as confirming the send: if it went to the wrong person
 	// — a second bot instance, someone else in the room — that is invisible otherwise.
 	reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " — your hypnotist" : ""}.`);
-	log(`/bot -> ${target}: ${text}`);
-}
-
-/** `/bot` as a command of its own, which is the short form and the one worth typing.
- *
- * It can be shadowed. BC's CommandExecute picks the FIRST registered match by tag, so any
- * other add-on that claims "bot" wins and ours never runs — silently, since an unmatched tag
- * is only "no such command" when NOTHING owns it. `/hypno bot` in COMMANDS below cannot be
- * shadowed, because the tag it hangs off is ours. */
-function installBotCommand(): void {
-	// Registered unconditionally now that testing mode is a runtime, room-based check — the
-	// command must exist before you enter the testing room. sendToBot refuses when isTestingMode()
-	// is false, so outside the room it says so rather than doing anything.
-	CommandCombine({
-		Tag: "bot",
-		Description: "TESTING: send a command to the test bot (works while silenced)",
-		Action: sendToBot,
-	});
+	log(`/hypno bot -> ${target}: ${text}`);
 }
 
 /** The command list as the help screen sees it. Same list BC's own help and the bare
@@ -1051,12 +1039,11 @@ const COMMANDS: HypnoCommand[] = [
 		},
 	},
 	{
-		// The same thing `/bot` does, reachable through a tag nobody else can claim. Not a
-		// duplicate so much as the one that is guaranteed to work: see installBotCommand.
+		// Under our own tag, never a top-level /bot: that name is BC's. See sendToBot.
 		Tag: "bot",
 		group: "Testing",
 		args: "<command>",
-		Description: "TESTING: send a command to the test bot — the collision-proof form of /bot",
+		Description: "TESTING: send a command to the test bot (works while silenced)",
 		Action: sendToBot,
 	},
 	{

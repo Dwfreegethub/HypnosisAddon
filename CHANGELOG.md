@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.86.1 · 25 September 2026
+
+- **`/bot` works again for room bots.** ECHS had taken over the game's `/bot` command, so
+  talking to a room's bot answered "join the Hypno Testing room" instead. ECHS now leaves `/bot`
+  alone and only uses `/hypno` and `/echs`. Thanks to Bella for reporting it.
+
 ## v0.86.0 · 24 September 2026
 
 - **Settings lists now scroll.** The Permissions tab is a single list you can scroll with the mouse

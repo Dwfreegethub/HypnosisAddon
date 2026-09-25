@@ -20,6 +20,38 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-25 (v0.86.1) — ECHS took BC's `/bot` from every player
+
+Bella reported it twice, on 0.84.1 (#223446 and #254192): with ECHS loaded, `/bot` to a room's own
+bot answered "Not available — join the Hypno Testing room to use the test bot." Our bug, and not a
+new one. `installBotCommand` has registered a top-level `/bot` since the test harness was built. Its
+comment said an unregistered `/bot` "never leaves the browser". That was never checked against
+BC's own command list. R132 `CommandsDefault.js` does define `bot`: it sends
+`"ChatRoomBot " + text` as a hidden message to every other character in the room, which is how
+players address room bots. `CommandCombine` (R132 `Commands.js`) filters out any existing command
+with the same tag before adding, so ours **replaced** BC's rather than being shadowed by it. The old
+design note had this backwards: it worried that another add-on might shadow ours, when ours was
+the one doing the replacing. Once the testing gate became room-based, the replacement refused
+outside the Hypno Testing room, which is the message Bella saw.
+
+The fix:
+- **`/bot` is gone from ECHS.** `installCommands` registers `/hypno` and `/echs` and nothing
+  else; the test channel is `/hypno bot <text>`, as it already was.
+- **`/bot next` still drives the test bot,** through BC's native command. `testbot/bot.mjs` now
+  reads a hidden `ChatRoomBot <text>` from anyone but itself as the same command. It survives
+  silence for the same reason ours did: it's a command, parsed before the speech block.
+  Nothing about the test workflow changes, except that the test bot needs restarting to pick
+  this up.
+
+`test/command-namespace.mjs` (5 checks) runs BC's own `CommandCombine`, transcribed from R132, with
+BC's defaults (including its `bot`) registered first, then installs ECHS. It asserts ECHS adds
+exactly `hypno` and `echs`, BC's `/bot` is still BC's object, and no BC command was replaced.
+Against the old `commands.ts` it fails two: "BC's /bot is still BC's" and "no BC command was
+replaced".
+
+A player who already has the old version needs only the update and a page refresh. The
+replacement lived only in the page, so nothing lingers.
+
 ### Changed 2026-09-24 (v0.86.0) — checkbox lists scroll
 
 DW, on v0.85.4's "the tab is now full, page it next time": *"one way or another we are going to
