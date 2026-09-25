@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.85.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.85.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -655,7 +655,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/log.ts
   var TAG = "[HypnosisAddon]";
+  var DEBUG_KEY = "ECHS_DEBUG";
+  function readDebugFlag() {
+    try {
+      return typeof localStorage !== "undefined" && localStorage.getItem(DEBUG_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+  var debugFlag = readDebugFlag();
+  function isDebugFlagOn() {
+    return debugFlag;
+  }
+  function setDebugFlag(on) {
+    debugFlag = on;
+    try {
+      localStorage.setItem(DEBUG_KEY, on ? "true" : "false");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function isDebugLogging() {
+    return debugFlag || inTestingRoom();
+  }
   function log(...args) {
+    if (!isDebugLogging()) return;
     console.debug(TAG, ...args);
   }
   function warn(...args) {
@@ -667,7 +692,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var TESTING_ROOM = "hypno testing";
   var FORCE_TESTING = false;
   function isTestingMode() {
-    if (FORCE_TESTING) return true;
+    return FORCE_TESTING || inTestingRoom();
+  }
+  function inTestingRoom() {
     try {
       const name = typeof ChatRoomData !== "undefined" && ChatRoomData ? ChatRoomData.Name : null;
       return typeof name === "string" && name.trim().toLowerCase() === TESTING_ROOM;
@@ -4351,6 +4378,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function normalize(text) {
     return text.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\bcan'?t\b/g, "cannot").replace(/\bcan not\b/g, "cannot").replace(/\bdon'?t\b/g, "do not").replace(/\bwon'?t\b/g, "will not").replace(/\bmustn'?t\b/g, "must not").replace(/\bdoesn'?t\b/g, "does not").replace(/\bisn'?t\b/g, "is not").replace(/\baren'?t\b/g, "are not").replace(/\byou'?re\b/g, "you are").replace(/\byou'?ve\b/g, "you have").replace(/\bur\b/g, "your").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
   }
+  function unstutter(content) {
+    return String(content ?? "").replace(/(?<![\p{L}\p{N}'’-])(\p{L})(?:-\1)*-(?=\1)/giu, "");
+  }
   function stripOOC(content) {
     const text = String(content ?? "");
     let kept = "";
@@ -7688,7 +7718,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.85.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8371,6 +8401,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
       group: "Diagnostics",
       Description: "Where settings loaded from, and what each source holds",
       Action: () => describeStorage().forEach(reply)
+    },
+    {
+      // Browser-console diagnostics, off by default so other mod developers' devtools stay
+      // clear. Not a Testing command: a player may be asked to turn it on to send a report.
+      Tag: "debug",
+      group: "Diagnostics",
+      args: "[on|off]",
+      Description: "Switch the add-on's routine console lines on or off (this browser only)",
+      Action: (args) => {
+        const word = firstWord(args).toLowerCase();
+        if (word && word !== "on" && word !== "off") {
+          reply("usage: /hypno debug [on|off] \u2014 with nothing, it switches to the other setting.");
+          return;
+        }
+        const on = word ? word === "on" : !isDebugFlagOn();
+        const saved = setDebugFlag(on);
+        reply(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that \u2014 it lasts until you reload.)"}`);
+        if (on) reply("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level \u2014 switch that on to see them.");
+        else if (isDebugLogging()) reply("They stay on while you're in the Hypno Testing room.");
+      }
     },
     {
       // YOUR OWN number, never anyone else's — the only skill value a command will print, by
@@ -9230,7 +9280,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.85.3"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9253,7 +9303,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.85.1"} loaded`;
+    el.textContent = `ECHS v${"0.85.3"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9284,14 +9334,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.85.1"})`);
+  info(`script loaded (v${"0.85.3"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.85.1",
+      version: "0.85.3",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -9312,7 +9362,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return void 0;
         }
         log("ChatRoomMessage", data);
-        const inCharacter = typeof data?.Content === "string" ? stripOOC(data.Content) : null;
+        const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
         if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
           try {
             if (isTriggerSetupLine(data.Sender, inCharacter)) {

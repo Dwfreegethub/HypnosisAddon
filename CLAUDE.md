@@ -52,7 +52,13 @@ npm run build        # esbuild → dist/HypnosisAddon.user.js
 npm run watch        # same, rebuilding on save
 npm run typecheck    # tsc --noEmit
 npm test             # bundles, then runs every suite in test/
+npm run release      # build, then copy into the committed HypnosisAddon.user.js and cdn/HypnosisAddon.js
 ```
+
+**A version bump does not reach players until `npm run release` has run and both files it writes
+are committed in the same PR.** `npm run build` only writes `dist/`, which is not committed; the
+loader players install and the bundle it fetches are the two root copies. v0.85.2 and v0.85.3 were
+merged without it and sat unpublished until DW noticed the manager still said 0.85.1.
 
 Run `npm test` after any change to `src/voice.ts` — overlapping suggestion wording is the easiest
 mistake in this codebase to make and the hardest to see by hand. Read the check count off the test
