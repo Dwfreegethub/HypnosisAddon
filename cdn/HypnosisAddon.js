@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.86.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.86.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7823,7 +7823,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.86.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.86.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8161,7 +8161,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ]
     });
     for (const tag of COMMAND_TAGS) CommandCombine(hypnoCommand(tag));
-    installBotCommand();
   }
   function sendToBot(args) {
     if (!isTestingMode()) {
@@ -8170,9 +8169,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const text = (args ?? "").trim();
     if (!text) {
-      reply("Usage: /bot <command> \u2014 e.g. /bot next, /bot run 2, /bot ok, /bot tests.");
-      reply("Goes over the hidden channel, so it works while you cannot speak.");
-      reply("If /bot itself does nothing, another add-on has claimed the name \u2014 use /hypno bot <command>.");
+      reply("Usage: /hypno bot <command> \u2014 e.g. /hypno bot next, /hypno bot run 2, /hypno bot ok.");
+      reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
       return;
     }
     const hypnotist = currentHypnotistId();
@@ -8186,14 +8184,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     sendHiddenMessage({ type: "test-command", text }, target);
     const name = findCharacter(target)?.Name ?? `#${target}`;
     reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
-    log(`/bot -> ${target}: ${text}`);
-  }
-  function installBotCommand() {
-    CommandCombine({
-      Tag: "bot",
-      Description: "TESTING: send a command to the test bot (works while silenced)",
-      Action: sendToBot
-    });
+    log(`/hypno bot -> ${target}: ${text}`);
   }
   function commandHelp() {
     return COMMANDS.map((c) => ({
@@ -8795,12 +8786,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     },
     {
-      // The same thing `/bot` does, reachable through a tag nobody else can claim. Not a
-      // duplicate so much as the one that is guaranteed to work: see installBotCommand.
+      // Under our own tag, never a top-level /bot: that name is BC's. See sendToBot.
       Tag: "bot",
       group: "Testing",
       args: "<command>",
-      Description: "TESTING: send a command to the test bot \u2014 the collision-proof form of /bot",
+      Description: "TESTING: send a command to the test bot (works while silenced)",
       Action: sendToBot
     },
     {
@@ -9405,7 +9395,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.86.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.86.1"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9428,7 +9418,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.86.0"} loaded`;
+    el.textContent = `ECHS v${"0.86.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9459,14 +9449,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.86.0"})`);
+  info(`script loaded (v${"0.86.1"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.86.0",
+      version: "0.86.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

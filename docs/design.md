@@ -178,7 +178,8 @@ needs "Allow access to file URLs"), then refresh the BC tab after each rebuild.
 hypnotist, so the subject side can be exercised without a second human. `testbot/secrets.json` holds
 that account's password, is gitignored, and DW fills it in — never commit it, never print it. The
 subject drives the run with `/bot next`, `/bot run <n>`, `/bot retry`; those go over the hidden
-channel because a silenced subject cannot speak in the room. See *Test Harness — the eight
+channel because a silenced subject cannot speak in the room. `/bot` is **BC's own command**, not
+ours: ECHS registers only `/hypno` and `/echs` (v0.86.1), and `/hypno bot <text>` is its form. See *Test Harness — the eight
 scenarios* for what each scenario proves.
 
 ### Build flags and release steps
@@ -3975,10 +3976,13 @@ work; the bot is a protocol-aware message sender that knows what each step is su
 
 **Driving it.** `/bot run <n>` starts a scenario and `/bot next` advances it; `/bot retry`
 re-attempts a failed induction; `/bot status`, `/bot rooms` and `/bot trance` are utilities. These
-are registered slash commands that travel over the hidden channel rather than room chat — the
-scenarios that silence the subject would otherwise make it impossible to reach the next step. `/hypno bot <text>`
-is the collision-proof alias — BC's `GetCommands().find()` takes the *first* tag match, so a bare
-`/bot` can be shadowed by MBS, UBC or LSCG if one of them ever registers the same tag.
+are slash commands that travel over the hidden channel rather than room chat — the scenarios that
+silence the subject would otherwise make it impossible to reach the next step. **Since v0.86.1
+`/bot` is BC's native command**, which sends "ChatRoomBot <text>" hidden to everyone else in the
+room; the test bot reads that as well as ECHS's own `/hypno bot <text>`. ECHS used to register
+`/bot` itself, believing BC had none. `CommandCombine` replaces a command with the same tag, so
+every player with ECHS lost BC's `/bot` (Bella's reports, on 0.84.1). **ECHS registers `/hypno`
+and `/echs` and nothing else**, and `test/command-namespace.mjs` holds it to that.
 
 **Every step carries its expected result.** DW asked for this after a run where the output was
 impossible to grade: each step declares `want` (what should be observed) and, where it is not
