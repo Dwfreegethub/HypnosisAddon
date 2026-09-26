@@ -62,12 +62,29 @@ globalThis.ChatRoomSendEmote = () => {};
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
 globalThis.setInterval = () => 0;
+// The mod SDK's hook chain, WITH priorities: highest runs first, each passes on via next(), and the
+// original BC function runs at the end. v0.91.0's stand-in ignored priority, which is exactly why it
+// could not catch what DW hit live (v0.91.1 check: WCE and LSCG also hook PoseSetActive).
+const chains = {};
 const modApi = {
-	hookFunction(name, _priority, hook) {
-		const original = globalThis[name];
-		globalThis[name] = (...args) => hook(args, (a) => original(...a));
+	hookFunction(name, priority, hook) {
+		if (!chains[name]) {
+			const original = globalThis[name];
+			chains[name] = { original, hooks: [] };
+			globalThis[name] = (...args) => {
+				const { hooks } = chains[name];
+				const run = (i, a) => (i < hooks.length ? hooks[i].hook(a, (n) => run(i + 1, n)) : chains[name].original(...a));
+				return run(0, args);
+			};
+		}
+		chains[name].hooks.push({ priority, hook });
+		chains[name].hooks.sort((a, b) => b.priority - a.priority);
 	},
 };
+// ANOTHER ADD-ON, as DW's live check found them: a PoseSetActive hook at a higher priority than our
+// old 5, which applies the pose itself and never passes the call on. Failure: it runs before our hold.
+const bcPoseSetActive = globalThis.PoseSetActive;
+modApi.hookFunction("PoseSetActive", 50, (args) => { bcPoseSetActive(...args); return undefined; });
 
 const { effects, storage, session, voice } = await import("./harness-bundle.mjs");
 effects.installEffectAllowList();
@@ -101,6 +118,15 @@ check("held: standing up is refused", Player.ActivePose, ["BaseUpper", "Kneel"])
 PoseSetActive(Player, "OverTheHead");
 check("  and so is an arm pose (BC's own Freeze allows these)", Player.ActivePose, ["BaseUpper", "Kneel"]);
 check("  and she is told, once", said.filter((s) => /your body does not answer/.test(s)).length, 1);
+
+// --- an add-on that changes her pose WITHOUT PoseSetActive -------------------------------------------
+// The safety net: every pose update she sends passes ServerSend. Failure: the room is told she stood.
+later();
+Player.ActivePose = ["BaseUpper", "BaseLower"]; // set directly, round every hook
+ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+check("a pose set round every hook is put back before it is sent", Player.ActivePose, ["BaseUpper", "Kneel"]);
+check("  and the room is sent the held pose", poseUpdates.at(-1), ["BaseUpper", "Kneel"]);
+check("  and she is told", said.some((s) => /your body does not answer/.test(s)), true);
 
 // --- the hypnotist's spoken pose commands still move her (DW: yes) ---------------------------------
 // Failure: "Missy, stand" is refused like her own attempt.

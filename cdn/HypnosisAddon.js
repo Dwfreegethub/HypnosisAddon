@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.91.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.91.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -833,6 +833,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } finally {
       ownPoseChange--;
     }
+    noteHeldPose();
     if (ServerPlayerIsInChatRoom()) {
       ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
     }
@@ -931,6 +932,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   var ownPoseChange = 0;
   var lastHeldNotice = 0;
+  var heldPose = null;
+  var HOLD_PRIORITY = 1e3;
+  function noteHeldPose() {
+    heldPose = isHeldStill() ? currentPoses() : null;
+  }
   var HELD_NOTICE_GAP_MS = 5e3;
   function isHeldStill() {
     return hasOwnEffect("Freeze");
@@ -947,11 +953,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function restoreHeldPose(held) {
     Player.ActivePose = held;
+    heldPose = held.slice();
     if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
     if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
   }
   function installEffectHooks(modApi2) {
-    modApi2.hookFunction("PoseSetActive", 5, (args, next) => {
+    modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, (args, next) => {
       const [C] = args;
       if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange) {
         heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
@@ -960,7 +967,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       return next(args);
     });
-    modApi2.hookFunction("ChatRoomSyncCharacter", 5, (args, next) => {
+    modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args, next) => {
       const [data] = args;
       const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
       if (!aboutHer || !isHeldStill()) return next(args);
@@ -973,12 +980,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       return result;
     });
-    modApi2.hookFunction("ChatRoomSyncPose", 5, (args, next) => {
+    modApi2.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args, next) => {
       const [data] = args;
       if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
       restoreHeldPose(currentPoses());
       log("held still: refused an incoming pose update");
       return void 0;
+    });
+    modApi2.hookFunction("ServerSend", HOLD_PRIORITY, (args, next) => {
+      if (args[0] !== "ChatRoomCharacterPoseUpdate" || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+        return next(args);
+      }
+      Player.ActivePose = heldPose.slice();
+      if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+      heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+      log("held still: a pose change got past the hook; put the held pose back before it was sent");
+      return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
     });
     modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
       const result = next(args);
@@ -1019,6 +1036,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     refreshOwnEffects();
     if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+    if (effectName === "Freeze") noteHeldPose();
     const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
     if (!landed) {
       warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
@@ -1052,6 +1070,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (character === Player) {
       refreshOwnEffects();
       if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+      if (effectName === "Freeze") noteHeldPose();
     }
     return true;
   }
@@ -9022,7 +9041,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.91.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.91.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10717,7 +10736,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.91.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.91.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10740,7 +10759,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.91.1"} loaded`;
+    el.textContent = `ECHS v${"0.91.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10771,14 +10790,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.91.1"})`);
+  info(`script loaded (v${"0.91.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.91.1",
+      version: "0.91.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

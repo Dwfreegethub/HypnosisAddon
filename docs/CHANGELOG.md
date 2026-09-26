@@ -20,6 +20,30 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.91.2) — the pose hold lost to WCE and LSCG's hooks
+
+DW, live on v0.91.0 (confirmed on 0.91.0 after a hard refresh): held still, the pose menu and the
+kneel button (after the struggle) still changed Missy's pose. The chat-echo hold check read:
+- `hookedBy: ["WCE","ECHS","LSCG"]`
+- `overwritten: false`
+- `freeze: true`, `mapImmobile: true`
+
+So our hook was installed and ECHS knew she was held. The mod SDK runs hooks highest priority
+first. Ours was at 5, and a higher-priority `PoseSetActive` hook from one of the other two applied
+the pose itself without calling `next`, so our refusal never ran. The fix:
+- **Priority:** the three hold hooks (`PoseSetActive`, `ChatRoomSyncCharacter`,
+  `ChatRoomSyncPose`) now register at `HOLD_PRIORITY` 1000, so the hold decides first.
+- **A safety net on `ServerSend("ChatRoomCharacterPoseUpdate")`,** which every self pose change
+  ends in (R132 `_ClickButton`, `ChatRoomToggleKneel`). ECHS remembers the held pose (`heldPose`,
+  set when `Freeze` starts or ends, and after each of our own pose changes). Anything about to be
+  sent that differs is put back first, so an add-on that sets the pose round every hook still
+  cannot make it stick.
+
+`test/held-still.mjs`: the SDK stand-in now honours priority, which the old one did not and so
+could not see this. A competing hook at priority 50 that applies the pose itself now fails four
+checks with our old priority 5, and all 26 pass at 1000. There are three new safety-net checks,
+which fail without it.
+
 ### Fixed 2026-09-26 (v0.91.1) — the loader could run a week-old bundle
 
 Found while chasing DW's "the pose hold does nothing" report. `curl -I` on the jsDelivr URL showed
