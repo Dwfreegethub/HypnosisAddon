@@ -205,7 +205,63 @@ check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).siz
 check("  and fits without scrolling", !!down(), false);
 openTab(3); frame(); // Triggers
 check("Triggers' rows stop above its dropdowns at 630", boxes[0].clip.top + boxes[0].clip.height <= 630, true);
-check("  and all four still show", boxes.filter((b) => inside(b, b.clip)).length, 4);
+// Five rows since v0.87.0 (whole-words matching): four fit above the dropdowns, and the list
+// scrolls to the fifth rather than running under them.
+check("  four fit wholly in view", boxes.filter((b) => inside(b, b.clip)).length, 4);
+check("  and a scroll bar reaches the fifth", !!down(), true);
+
+// --- Planted (v0.88.0): the trigger inspector -------------------------------------------------
+{
+	const plantedTab = 4;
+	const t = (phrase, by) => ({ phrase, actions: ["movement-block"], installedBy: by, installedByName: `Hyp${by}`, installedAt: Date.now(), plantedDepth: 60, plantedChemical: false, reinforcedAt: Date.now(), firings: 0 });
+	storage.forgetAllTriggers();
+	openTab(plantedTab); frame();
+	check("Planted: empty says so", texts.some((x) => /No triggers are planted/.test(x.text)), true);
+	check("  and draws no Clear All", buttons.some((b) => b.label === "Clear All"), false);
+	for (let i = 1; i <= 8; i++) storage.saveTrigger(t(`word number ${i}`, 1000 + i));
+	frame();
+	const purges = () => buttons.filter((b) => b.label === "Purge");
+	check("Planted: six rows on the first page", purges().length, 6);
+	check("  each with Details", buttons.filter((b) => b.label === "Details").length, 6);
+	check("  paging shows (8 triggers)", ["Prev", "Next"].every((l) => buttons.some((b) => b.label === l)), true);
+	check("  Clear All shows", buttons.some((b) => b.label === "Clear All"), true);
+	check("  the phrase is not drawn", texts.some((x) => /word number/.test(x.text)), false);
+	const drawn = [...buttons.filter((b) => b.left >= panel.PANEL_LEFT && b.top > panel.BLURB_Y).map((b) => ({ name: b.label, ...b })), ...texts.filter((x) => x.top > panel.BLURB_Y + 20).map((x) => ({ name: x.text, ...x }))];
+	const hits = [];
+	for (let i = 0; i < drawn.length; i++) for (let j = i + 1; j < drawn.length; j++) if (overlaps(drawn[i], drawn[j])) hits.push(`${drawn[i].name}@${drawn[i].top} × ${drawn[j].name}@${drawn[j].top}`);
+	check("  nothing on it overlaps", hits, []);
+	check("  everything inside the panel", drawn.filter((r) => !inside(r, { left: panel.PANEL_LEFT, top: panel.PANEL_TOP, width: panel.PANEL_WIDTH, height: panel.PANEL_HEIGHT })).map((r) => r.name), []);
+	const next = buttons.find((b) => b.label === "Next");
+	clickAt(next.left + 5, next.top + 5); frame();
+	check("  Next shows the last two", purges().length, 2);
+	// Purge the first row on page 2 (trigger 7). Failure: nothing removed, or the wrong one.
+	const p7 = purges()[0];
+	clickAt(p7.left + 5, p7.top + 5); frame();
+	check("  Purge removes that trigger", storage.listTriggers().map((x) => x.installedBy).includes(1007), false);
+	check("  and only that one", storage.listTriggers().length, 7);
+	// Details, then Back.
+	const d = buttons.find((b) => b.label === "Details");
+	clickAt(d.left + 5, d.top + 5); frame();
+	check("  Details shows what it does", texts.some((x) => /What it does: you cannot move/.test(x.text)), true);
+	check("    and hides the word", texts.some((x) => /word number/.test(x.text)), false);
+	const back = buttons.find((b) => b.label === "Back");
+	clickAt(back.left + 5, back.top + 5); frame();
+	check("  Back returns to the list", buttons.some((b) => b.label === "Details"), true);
+	// Clear All asks first. Failure: one click clears.
+	const clear = () => buttons.find((b) => b.label === "Clear All" || b.label === "Confirm?");
+	clickAt(clear().left + 5, clear().top + 5); frame();
+	check("  Clear All: first click only arms it", [storage.listTriggers().length, clear().label], [7, "Confirm?"]);
+	clickAt(clear().left + 5, clear().top + 5); frame();
+	check("  second click clears", storage.listTriggers().length, 0);
+	// A click where the Stats tab's Reset button would be must be consumed here, not reset.
+	storage.saveTrigger(t("left alone", 2000));
+	storage.setFeature("hypnoEnabled", true);
+	frame();
+	clickAt(panel.CONTENT_LEFT + 2 * 220 + 10, 745);
+	check("  a click on empty panel space changes nothing", [storage.listTriggers().length, storage.getFeatures().hypnoEnabled], [1, true]);
+	storage.forgetAllTriggers();
+	storage.setFeature("hypnoEnabled", false);
+}
 // The wheel listener outlives the list: it must not scroll it while something else is drawn.
 // Probed through the help page, because closing help (unlike changing tab) keeps the offset.
 openTab(0); frame();

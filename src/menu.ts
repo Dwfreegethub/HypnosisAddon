@@ -12,6 +12,8 @@ import {
 	importSettings,
 	resetSettings,
 	getTriggerScope,
+	forgetTrigger,
+	forgetAllTriggers,
 	setTriggerScope,
 	getTriggerLifespan,
 	setTriggerLifespan,
@@ -43,6 +45,14 @@ import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
 import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES, decayLifetimeText } from "./triggers";
+import {
+	sweptTriggers,
+	triggerSummary,
+	triggerPhrasesVisible,
+	describeTriggerDetail,
+	isTriggerInEffect,
+	clearAllRefusal,
+} from "./voice";
 import { isHypnotized, isSessionLive, currentTier, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
@@ -190,6 +200,14 @@ const TABS: Tab[] = [
 		rowsBottom: 610,
 	},
 	{
+		// The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
+		// own because it is a LIST, which grows, and the Triggers tab is already full of controls.
+		name: "Planted",
+		blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
+		render: drawPlanted,
+		clickExtra: clickPlanted,
+	},
+	{
 		// Depth earned its own tab rather than a column beside the permissions: thirteen
 		// features times a tier control is more than the Permissions tab can carry, and the
 		// two questions are genuinely different anyway. The checkbox asks "may they ever";
@@ -285,6 +303,207 @@ const RESET_ARM_MS = 5000;
 
 function dataButtonLeft(index: number): number {
 	return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
+}
+
+// --- Planted tab: the trigger inspector ------------------------------------------------
+// A paged list, one row per trigger: the same summary `/hypno triggers` prints (who, how strong,
+// whether it is holding you), with Details and Purge. Details replaces the list with that one
+// trigger in full, the settings-screen version of `/hypno triggers <number>`: one deliberate
+// step to see what a trigger does. Purge refuses while the trigger is holding you, exactly as
+// `/hypno forgettrigger` does; Clear All refuses while anything is, and asks once.
+//
+// Neither is under the settings lock, on purpose: removing something planted in you is "always
+// available, never gated", the principle `/hypno forgettrigger` states. What protects a scene is
+// the refusal while a trigger holds you, and that applies here in full.
+const PLANTED_ROW_TOP = 295;
+const PLANTED_ROW_STEP = 62;
+const PLANTED_ROW_HEIGHT = 48;
+const PLANTED_ROWS_PER_PAGE = 6;
+const PLANTED_BUTTON_WIDTH = 150;
+const PLANTED_PURGE_LEFT = CONTENT_LEFT + 1060;
+const PLANTED_DETAILS_LEFT = PLANTED_PURGE_LEFT - PLANTED_BUTTON_WIDTH - 16;
+const PLANTED_TEXT_MAX = PLANTED_DETAILS_LEFT - CONTENT_LEFT - 20;
+const PLANTED_PAGE_TOP = 680;
+const CLEAR_ALL_TOP = 770;
+const CLEAR_ALL_WIDTH = 260;
+const CLEAR_ALL_HEIGHT = 60;
+const CLEAR_ALL_NOTE_X = CONTENT_LEFT + CLEAR_ALL_WIDTH + 30;
+const CLEAR_ALL_NOTE_WIDTH = PANEL_LEFT + PANEL_WIDTH - 40 - CLEAR_ALL_NOTE_X;
+/** The detail view's Purge, right of its Back button. */
+const DETAIL_PURGE_LEFT = CONTENT_LEFT + PLANTED_BUTTON_WIDTH + 20;
+let plantedPage = 0;
+/** 1-based index of the trigger shown in full, or 0 for the list. */
+let plantedDetail = 0;
+let clearAllArmedUntil = 0;
+const CLEAR_ALL_ARM_MS = 5000;
+
+function plantedPageCount(count: number): number {
+	return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE));
+}
+
+function plantedRowTop(slot: number): number {
+	return PLANTED_ROW_TOP + slot * PLANTED_ROW_STEP;
+}
+
+function drawPurgeButton(left: number, top: number, height: number, holding: boolean): void {
+	DrawButton(
+		left,
+		top,
+		PLANTED_BUTTON_WIDTH,
+		height,
+		holding ? "Holding" : "Purge",
+		holding ? "#ddd" : "#ffe0e0",
+		"",
+		holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+		holding,
+	);
+}
+
+function drawPlanted(): void {
+	const all = sweptTriggers();
+	if (plantedDetail > all.length) plantedDetail = 0;
+	if (plantedDetail) {
+		drawPlantedDetail(isTriggerInEffect(all[plantedDetail - 1]));
+		return;
+	}
+	const pages = plantedPageCount(all.length);
+	if (plantedPage >= pages) plantedPage = pages - 1;
+	if (!all.length) drawLeftTextFit("No triggers are planted in you.", CONTENT_LEFT, PLANTED_ROW_TOP + 24, PLANTED_TEXT_MAX, "Gray");
+	const reveal = triggerPhrasesVisible(false);
+	const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+	all.slice(start, start + PLANTED_ROWS_PER_PAGE).forEach((t, slot) => {
+		const top = plantedRowTop(slot);
+		const holding = isTriggerInEffect(t);
+		drawLeftTextFit(
+			`${start + slot + 1}. ${reveal ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`,
+			CONTENT_LEFT,
+			top + PLANTED_ROW_HEIGHT / 2,
+			PLANTED_TEXT_MAX,
+			holding ? "#a00000" : "Black",
+		);
+		DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+		drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
+	});
+	if (pages > 1) {
+		DrawButton(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", plantedPage === 0);
+		DrawButton(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", plantedPage >= pages - 1);
+		drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT / 2, "Gray");
+	}
+	drawClearAll(all.length);
+}
+
+/** Clear All is drawn greyed with the reason beside it when it would refuse — a disabled button
+ * with no reason is the silent refusal rule 5 forbids. It stays clickable, and says why. */
+function drawClearAll(count: number): void {
+	if (!count) return;
+	const refusal = clearAllRefusal();
+	const armed = !refusal && Date.now() < clearAllArmedUntil;
+	DrawButton(
+		CONTENT_LEFT,
+		CLEAR_ALL_TOP,
+		CLEAR_ALL_WIDTH,
+		CLEAR_ALL_HEIGHT,
+		armed ? "Confirm?" : "Clear All",
+		refusal ? "#ddd" : armed ? "#ffb3b3" : "#ffe0e0",
+		"",
+		refusal ? "Not while anything has hold of you" : "Removes every trigger, asks once first",
+		!!refusal,
+	);
+	drawLeftTextWrap(
+		refusal ??
+			(armed
+				? `Click again to remove all ${count}, including any you cannot see. This cannot be undone.`
+				: `Removes all ${count} trigger(s), including any you cannot see.`),
+		CLEAR_ALL_NOTE_X,
+		CLEAR_ALL_TOP + CLEAR_ALL_HEIGHT / 2,
+		CLEAR_ALL_NOTE_WIDTH,
+		CLEAR_ALL_HEIGHT + 20,
+		refusal || armed ? "#a00000" : "Gray",
+	);
+}
+
+function drawPlantedDetail(holding: boolean): void {
+	let y = PLANTED_ROW_TOP + 20;
+	for (const line of describeTriggerDetail(plantedDetail, false)) {
+		drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
+		y += 70;
+	}
+	DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+	drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
+}
+
+/** Remove one trigger, or say why not. Exported for the suite, which drives it without a canvas. */
+export function purgePlanted(index: number): string {
+	const t = sweptTriggers()[index - 1];
+	if (!t) return `There is no trigger ${index}.`;
+	if (isTriggerInEffect(t)) {
+		return (
+			`Trigger ${index} is holding you right now, so it can't be removed. ` +
+			"Wait for it to wear off, have whoever set it release you, or use /hypno safeword."
+		);
+	}
+	forgetTrigger(t.key);
+	log(`purged trigger ${index} (by ${t.installedByName}) from the settings screen`);
+	return `Trigger ${index} removed.`;
+}
+
+/** Clear All's click: refuse with the reason, arm, or clear. Exported for the suite. */
+export function clickClearAll(): string {
+	const refusal = clearAllRefusal();
+	if (refusal) {
+		clearAllArmedUntil = 0;
+		return refusal;
+	}
+	if (Date.now() > clearAllArmedUntil) {
+		clearAllArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
+		return "Click Clear All again within 5 seconds to remove every trigger planted in you.";
+	}
+	clearAllArmedUntil = 0;
+	return `Removed ${forgetAllTriggers()} trigger(s).`;
+}
+
+/** Every click on this tab is consumed, hit or miss: one falling through would reach the Stats
+ * tab's handling below, whose Export/Import/Reset buttons sit at these same coordinates. */
+function clickPlanted(): boolean {
+	const all = sweptTriggers();
+	if (plantedDetail) {
+		if (MouseIn(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT)) {
+			plantedDetail = 0;
+		} else if (MouseIn(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT)) {
+			const before = all.length;
+			notifyLocal(purgePlanted(plantedDetail));
+			if (sweptTriggers().length < before) plantedDetail = 0;
+		}
+		return true;
+	}
+	const pages = plantedPageCount(all.length);
+	if (pages > 1) {
+		if (MouseIn(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+			plantedPage = Math.max(0, plantedPage - 1);
+			return true;
+		}
+		if (MouseIn(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
+			plantedPage = Math.min(pages - 1, plantedPage + 1);
+			return true;
+		}
+	}
+	const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+	const onPage = Math.min(PLANTED_ROWS_PER_PAGE, all.length - start);
+	for (let slot = 0; slot < onPage; slot++) {
+		const top = plantedRowTop(slot);
+		if (MouseIn(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT)) {
+			plantedDetail = start + slot + 1;
+			return true;
+		}
+		if (MouseIn(PLANTED_PURGE_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT)) {
+			notifyLocal(purgePlanted(start + slot + 1));
+			return true;
+		}
+	}
+	if (all.length && MouseIn(CONTENT_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT)) {
+		notifyLocal(clickClearAll());
+	}
+	return true;
 }
 
 // --- Permissions tab: the attempt limit ------------------------------------------------
@@ -1043,6 +1262,9 @@ export function installMenu(): void {
 		load: () => {
 			activeTab = 0;
 			statPage = 0;
+			plantedPage = 0;
+			plantedDetail = 0;
+			clearAllArmedUntil = 0;
 			rowScroll.offset = 0;
 			attachWheel();
 			removeScopeControl();
@@ -1170,6 +1392,8 @@ export function installMenu(): void {
 			if (hitTab !== null) {
 				activeTab = hitTab;
 				depthPage = 0;
+				plantedDetail = 0;
+				clearAllArmedUntil = 0;
 				rowScroll.offset = 0;
 				removeScopeControl();
 				return;

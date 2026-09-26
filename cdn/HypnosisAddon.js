@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.87.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.88.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3752,6 +3752,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return before - settings.triggers.length;
   }
+  function forgetAllTriggers() {
+    const settings = loadSettings();
+    const count = settings.triggers.length;
+    settings.triggers = [];
+    saveSettings();
+    return count;
+  }
   function getTriggerScope() {
     return loadSettings().triggerScope;
   }
@@ -5845,13 +5852,60 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return isTestingMode() && fullRequested;
   }
   function describeTriggerList(fullRequested) {
-    pruneFadedTriggers(isTriggerInEffect);
-    const all = listTriggers();
+    const all = sweptTriggers();
     if (!all.length) return ["no triggers planted"];
     const reveal = triggerPhrasesVisible(fullRequested);
-    return all.map(
-      (t, i) => `${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} \u2192 ${t.actions.join(", ")}  (by ${t.installedByName}, ${describeStrength(t)}${describeOptions(t) ? `; ${describeOptions(t)}` : ""})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`
-    );
+    return [
+      `You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
+      ...all.map((t, i) => `${i + 1}. ${reveal ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`)
+    ];
+  }
+  function describeTriggerDetail(index, fullRequested) {
+    const all = sweptTriggers();
+    if (!Number.isInteger(index) || index < 1 || index > all.length) {
+      return [all.length ? `no trigger ${index} \u2014 you have ${all.length}.` : "no triggers planted"];
+    }
+    const t = all[index - 1];
+    const lines = [
+      `Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
+      `Strength now: ${describeStrength(t)}.`,
+      triggerPhrasesVisible(fullRequested) ? `Word: "${t.phrase}".` : "Word: hidden. Show trigger words, on the Triggers tab, reveals it.",
+      `What it does: ${t.actions.map(describeAction).join("; ")}.`
+    ];
+    const options = describeOptions(t);
+    if (options) lines.push(`Also: ${options}.`);
+    if (isTriggerInEffect(t)) lines.push("It is holding you right now.");
+    return lines;
+  }
+  function triggerSummary(t) {
+    return `by ${t.installedByName} (#${t.installedBy}), ${describeStrength(t)}` + (t.spent ? ", used up" : "") + (isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : "");
+  }
+  function sweptTriggers() {
+    pruneFadedTriggers(isTriggerInEffect);
+    return listTriggers();
+  }
+  function describeAction(id) {
+    if (id.startsWith("touch:")) {
+      const word = id.slice("touch:".length);
+      return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
+    }
+    if (id === "act:vague") return "you touch yourself somewhere";
+    if (id === "act:genital") return "you touch yourself between your legs";
+    if (id.startsWith("act:")) {
+      const [, activity, word] = id.split(":");
+      return `you ${activity.toLowerCase()} your ${word ?? "body"}`;
+    }
+    return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
+  }
+  function clearAllRefusal() {
+    if (isSessionLive()) {
+      return "A hypnosis session is running on you. End it first (/echs safeword always works), then clear your triggers.";
+    }
+    const held = listTriggers().filter(isTriggerInEffect).length;
+    if (held) {
+      return `${held === 1 ? "A trigger is" : `${held} triggers are`} holding you right now. Let go of it first (wait, be released, or /echs safeword), then clear your triggers.`;
+    }
+    return null;
   }
   function timerKey(trigger) {
     return `trigger:${trigger.installedBy}:${trigger.phrase}`;
@@ -6976,7 +7030,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, that trigger holds" \u2014 said while under with the one who`),
       body("planted it \u2014 resets the clock. Firing it only slows the fade."),
       dim("A trigger opened to arousal (above) fades fast whatever the rate."),
-      dim("/hypno triggers lists each one's strength and the tier it still reaches."),
+      dim("/hypno triggers lists each one's strength; add its number to see what it does."),
       gap(),
       head("Carrying a suggestion past waking"),
       body(`"Missy, you cannot tell what you are wearing"`),
@@ -7486,6 +7540,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       rowsBottom: 610
     },
     {
+      // The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
+      // own because it is a LIST, which grows, and the Triggers tab is already full of controls.
+      name: "Planted",
+      blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
+      render: drawPlanted,
+      clickExtra: clickPlanted
+    },
+    {
       // Depth earned its own tab rather than a column beside the permissions: thirteen
       // features times a tier control is more than the Permissions tab can carry, and the
       // two questions are genuinely different anyway. The checkbox asks "may they ever";
@@ -7544,6 +7606,173 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var RESET_ARM_MS = 5e3;
   function dataButtonLeft(index) {
     return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
+  }
+  var PLANTED_ROW_TOP = 295;
+  var PLANTED_ROW_STEP = 62;
+  var PLANTED_ROW_HEIGHT = 48;
+  var PLANTED_ROWS_PER_PAGE = 6;
+  var PLANTED_BUTTON_WIDTH = 150;
+  var PLANTED_PURGE_LEFT = CONTENT_LEFT + 1060;
+  var PLANTED_DETAILS_LEFT = PLANTED_PURGE_LEFT - PLANTED_BUTTON_WIDTH - 16;
+  var PLANTED_TEXT_MAX = PLANTED_DETAILS_LEFT - CONTENT_LEFT - 20;
+  var PLANTED_PAGE_TOP = 680;
+  var CLEAR_ALL_TOP = 770;
+  var CLEAR_ALL_WIDTH = 260;
+  var CLEAR_ALL_HEIGHT = 60;
+  var CLEAR_ALL_NOTE_X = CONTENT_LEFT + CLEAR_ALL_WIDTH + 30;
+  var CLEAR_ALL_NOTE_WIDTH = PANEL_LEFT + PANEL_WIDTH - 40 - CLEAR_ALL_NOTE_X;
+  var DETAIL_PURGE_LEFT = CONTENT_LEFT + PLANTED_BUTTON_WIDTH + 20;
+  var plantedPage = 0;
+  var plantedDetail = 0;
+  var clearAllArmedUntil = 0;
+  var CLEAR_ALL_ARM_MS = 5e3;
+  function plantedPageCount(count) {
+    return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE));
+  }
+  function plantedRowTop(slot) {
+    return PLANTED_ROW_TOP + slot * PLANTED_ROW_STEP;
+  }
+  function drawPurgeButton(left, top, height, holding) {
+    DrawButton(
+      left,
+      top,
+      PLANTED_BUTTON_WIDTH,
+      height,
+      holding ? "Holding" : "Purge",
+      holding ? "#ddd" : "#ffe0e0",
+      "",
+      holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+      holding
+    );
+  }
+  function drawPlanted() {
+    const all = sweptTriggers();
+    if (plantedDetail > all.length) plantedDetail = 0;
+    if (plantedDetail) {
+      drawPlantedDetail(isTriggerInEffect(all[plantedDetail - 1]));
+      return;
+    }
+    const pages = plantedPageCount(all.length);
+    if (plantedPage >= pages) plantedPage = pages - 1;
+    if (!all.length) drawLeftTextFit("No triggers are planted in you.", CONTENT_LEFT, PLANTED_ROW_TOP + 24, PLANTED_TEXT_MAX, "Gray");
+    const reveal = triggerPhrasesVisible(false);
+    const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+    all.slice(start, start + PLANTED_ROWS_PER_PAGE).forEach((t, slot) => {
+      const top = plantedRowTop(slot);
+      const holding = isTriggerInEffect(t);
+      drawLeftTextFit(
+        `${start + slot + 1}. ${reveal ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`,
+        CONTENT_LEFT,
+        top + PLANTED_ROW_HEIGHT / 2,
+        PLANTED_TEXT_MAX,
+        holding ? "#a00000" : "Black"
+      );
+      DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+      drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
+    });
+    if (pages > 1) {
+      DrawButton(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", plantedPage === 0);
+      DrawButton(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", plantedPage >= pages - 1);
+      drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT2 / 2, "Gray");
+    }
+    drawClearAll(all.length);
+  }
+  function drawClearAll(count) {
+    if (!count) return;
+    const refusal = clearAllRefusal();
+    const armed = !refusal && Date.now() < clearAllArmedUntil;
+    DrawButton(
+      CONTENT_LEFT,
+      CLEAR_ALL_TOP,
+      CLEAR_ALL_WIDTH,
+      CLEAR_ALL_HEIGHT,
+      armed ? "Confirm?" : "Clear All",
+      refusal ? "#ddd" : armed ? "#ffb3b3" : "#ffe0e0",
+      "",
+      refusal ? "Not while anything has hold of you" : "Removes every trigger, asks once first",
+      !!refusal
+    );
+    drawLeftTextWrap(
+      refusal ?? (armed ? `Click again to remove all ${count}, including any you cannot see. This cannot be undone.` : `Removes all ${count} trigger(s), including any you cannot see.`),
+      CLEAR_ALL_NOTE_X,
+      CLEAR_ALL_TOP + CLEAR_ALL_HEIGHT / 2,
+      CLEAR_ALL_NOTE_WIDTH,
+      CLEAR_ALL_HEIGHT + 20,
+      refusal || armed ? "#a00000" : "Gray"
+    );
+  }
+  function drawPlantedDetail(holding) {
+    let y = PLANTED_ROW_TOP + 20;
+    for (const line of describeTriggerDetail(plantedDetail, false)) {
+      drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
+      y += 70;
+    }
+    DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+    drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
+  }
+  function purgePlanted(index) {
+    const t = sweptTriggers()[index - 1];
+    if (!t) return `There is no trigger ${index}.`;
+    if (isTriggerInEffect(t)) {
+      return `Trigger ${index} is holding you right now, so it can't be removed. Wait for it to wear off, have whoever set it release you, or use /hypno safeword.`;
+    }
+    forgetTrigger(t.key);
+    log(`purged trigger ${index} (by ${t.installedByName}) from the settings screen`);
+    return `Trigger ${index} removed.`;
+  }
+  function clickClearAll() {
+    const refusal = clearAllRefusal();
+    if (refusal) {
+      clearAllArmedUntil = 0;
+      return refusal;
+    }
+    if (Date.now() > clearAllArmedUntil) {
+      clearAllArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
+      return "Click Clear All again within 5 seconds to remove every trigger planted in you.";
+    }
+    clearAllArmedUntil = 0;
+    return `Removed ${forgetAllTriggers()} trigger(s).`;
+  }
+  function clickPlanted() {
+    const all = sweptTriggers();
+    if (plantedDetail) {
+      if (MouseIn(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT)) {
+        plantedDetail = 0;
+      } else if (MouseIn(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT)) {
+        const before = all.length;
+        notifyLocal(purgePlanted(plantedDetail));
+        if (sweptTriggers().length < before) plantedDetail = 0;
+      }
+      return true;
+    }
+    const pages = plantedPageCount(all.length);
+    if (pages > 1) {
+      if (MouseIn(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
+        plantedPage = Math.max(0, plantedPage - 1);
+        return true;
+      }
+      if (MouseIn(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
+        plantedPage = Math.min(pages - 1, plantedPage + 1);
+        return true;
+      }
+    }
+    const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+    const onPage = Math.min(PLANTED_ROWS_PER_PAGE, all.length - start);
+    for (let slot = 0; slot < onPage; slot++) {
+      const top = plantedRowTop(slot);
+      if (MouseIn(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT)) {
+        plantedDetail = start + slot + 1;
+        return true;
+      }
+      if (MouseIn(PLANTED_PURGE_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT)) {
+        notifyLocal(purgePlanted(start + slot + 1));
+        return true;
+      }
+    }
+    if (all.length && MouseIn(CONTENT_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT)) {
+      notifyLocal(clickClearAll());
+    }
+    return true;
   }
   var ATTEMPT_BUTTON_WIDTH = 560;
   var ATTEMPT_BUTTON_HEIGHT = 44;
@@ -8089,6 +8318,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       load: () => {
         activeTab2 = 0;
         statPage = 0;
+        plantedPage = 0;
+        plantedDetail = 0;
+        clearAllArmedUntil = 0;
         rowScroll.offset = 0;
         attachWheel();
         removeScopeControl();
@@ -8107,7 +8339,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.87.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.88.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8197,6 +8429,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (hitTab !== null) {
           activeTab2 = hitTab;
           depthPage = 0;
+          plantedDetail = 0;
+          clearAllArmedUntil = 0;
           rowScroll.offset = 0;
           removeScopeControl();
           return;
@@ -8745,26 +8979,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // appears in the testing room and is gone outside it, so the screen never documents an
       // argument that would ignore you.
       get args() {
-        return isTestingMode() ? "[full]" : "";
+        return isTestingMode() ? "[number] [full]" : "[number]";
       },
-      Description: "List the triggers planted in you, and which are currently holding you",
+      Description: "List the triggers planted in you; add a number to see what one does",
       Action: (args) => {
-        const all = listTriggers();
-        if (!all.length) {
-          reply("no triggers planted");
+        const words = args.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const full = isTestingMode() && words.includes("full");
+        const number = words.find((w) => w !== "full");
+        if (number !== void 0) {
+          describeTriggerDetail(Number(number), full).forEach(reply);
           return;
         }
-        describeTriggerList(isTestingMode() && firstWord(args).toLowerCase() === "full").forEach(reply);
-        reply(
-          "Remove one with /hypno forgettrigger <number>, or all of them with 'all' \u2014 but not while it is holding you. /hypno safeword is the way out of that."
-        );
+        const lines = describeTriggerList(full);
+        lines.forEach(reply);
+        if (lines.length > 1) {
+          reply(
+            "See what one does with /hypno triggers <number>. Remove one with /hypno forgettrigger <number> (not while it is holding you; /hypno safeword is the way out of that)."
+          );
+        }
       }
     },
     {
       Tag: "forgettrigger",
       group: "Data",
       args: "<number|all>",
-      Description: "Remove a planted trigger by its number from /hypno triggers, or all",
+      Description: "Remove a planted trigger by its number from /hypno triggers, or all (asks first)",
       Action: (args) => {
         const token = args.trim().toLowerCase();
         if (!token) {
@@ -8772,13 +9011,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         const all = listTriggers();
-        if (token === "all") {
-          const held = all.filter(isTriggerInEffect);
-          const free = all.filter((t) => !isTriggerInEffect(t));
-          free.forEach((t) => forgetTrigger(t.key));
-          reply(
-            held.length ? `forgot ${free.length} trigger(s). ${held.length} still holding you \u2014 /hypno safeword clears everything and always works.` : `forgot ${free.length} trigger(s)`
-          );
+        if (token === "all" || token === "all confirm") {
+          if (!all.length) {
+            reply("no triggers planted");
+            return;
+          }
+          const refusal = clearAllRefusal();
+          if (refusal) {
+            reply(refusal);
+            return;
+          }
+          if (token === "all") {
+            reply(
+              `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /hypno forgettrigger all confirm to do it.`
+            );
+            return;
+          }
+          reply(`forgot ${forgetAllTriggers()} trigger(s)`);
           return;
         }
         const index = Number(token);
@@ -9679,7 +9928,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.87.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.88.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9702,7 +9951,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.87.0"} loaded`;
+    el.textContent = `ECHS v${"0.88.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9733,14 +9982,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.87.0"})`);
+  info(`script loaded (v${"0.88.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.87.0",
+      version: "0.88.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

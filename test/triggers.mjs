@@ -351,14 +351,21 @@ triggers.commitRecording();
 const listed = (full) => voice.describeTriggerList(full).join(" | ");
 
 storage.setFeature("showTriggerWords", false);
-check("hidden by default", /phrase hidden/.test(listed(false)), true);
-check("  and the word never leaks", /butterfly/.test(listed(false)), false);
+// Two levels since v0.88.0: the list says how many, who and how strong; `triggers <n>` says what
+// one does. The word follows the setting at both.
+const detail = (full) => voice.describeTriggerDetail(1, full).join(" | ");
+check("hidden by default", /Word: hidden/.test(detail(false)), true);
+check("  and the word never leaks from the list", /butterfly/.test(listed(false)), false);
+check("  nor from the detail", /butterfly/.test(detail(false)), false);
 // What IS always shown, hidden phrase or not — this is the line between private and secret.
-check("  but the trigger is still listed", /movement-block/.test(listed(false)), true);
-check("  with who planted it", /GameBot/.test(listed(false)), true);
+check("  but the trigger is still listed", /You have 1 trigger planted/.test(listed(false)), true);
+check("  with who planted it", /GameBot \(#246108\)/.test(listed(false)), true);
+check("  and its level", /full strength/.test(listed(false)), true);
+check("  but NOT what it does", /cannot move|movement/.test(listed(false)), false);
+check("what it does is one step further", /What it does: you cannot move/.test(detail(false)), true);
 
 check("the setting reveals it", /butterfly/.test((storage.setFeature("showTriggerWords", true), listed(false))), true);
-check("  and says so plainly", /phrase hidden/.test(listed(false)), false);
+check("  in the detail too", /Word: "butterfly"/.test(detail(false)), true);
 
 // `full` is the testing override, independent of the setting. Asserted against isTestingMode()
 // rather than `true`, so this stays correct in a shipped build where testing is room-gated and
