@@ -28,6 +28,15 @@ report it and say which version your chat line shows.
   trigger is strong.
 - **Waking works as usual**, and the safeword always works.
 - If a drop does not work, the person who said it is told why.
+- **Triggers can make you speak.** While planting, a hypnotist can say *"you will say 'I obey'"*,
+  or *"… three times"* for a mantra. When the trigger fires, you say those exact words aloud in
+  the room.
+  - This needs the new **Made to Speak** setting on the Permissions tab. It is off unless you turn
+    it on.
+  - A gag still garbles the words, and your owner's speech rules still apply.
+  - A trigger can speak for you even while a trance keeps you from speaking on your own.
+  - To stop runaway loops, at most six such lines go out a minute, and a line said this way never
+    sets off your own triggers.
 
 ## v0.89.0 · 25 September 2026
 

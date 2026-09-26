@@ -1141,7 +1141,7 @@ A single trigger can fire **multiple effects simultaneously** (no hard limit pla
 | Rooted | Can't exit/move, arms still free |
 | Follow | Compulsion to follow the trigger speaker |
 | Remove clothing item | Gradual or immediate, per consent settings |
-| Custom text response | Subject speaks a specific phrase (auto-spoken by the add-on) |
+| Custom text response | **Built (Build 5, inside v0.90.0)** — "you will say 'I obey' three times". Needs *Made to Speak*; sent through BC's own chat path so a gag garbles it |
 | Silence | **Built v0.10.0** — hooks `ChatRoomSendChatMessage`, so emotes, whispers and the safeword survive |
 | Any other session suggestion | Triggers can call any effect a live suggestion can produce |
 | **Wake** | Trigger effect that fires the normal wake flow — used with activity-fire triggers to wake on orgasm, touch, etc. |
@@ -2237,8 +2237,25 @@ Each is a separate minor release (rule 9) with its own live test.
 | 2 | **Built v0.88.0.** `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation. The inspector is its own tab, **Planted**. See *Needs Testing* item 20 |
 | 3 | **Built v0.89.0** (`conceal.ts`). Chat concealment of the phrase (`...`), checked against R132 `ChatRoom.js`: a post-handler at 50 transforms the displayed `msg`, and the ungarbled copy in `metadata.OriginalMsg`. See *Needs Testing* item 21 |
 | 4 | **Built v0.90.0.** Instant drop: `DROP_ACTION` recorded by "you will drop into trance" (or on the start line itself), the subject's Off / One time / Unlimited ceiling, and `dropIntoTrance()` in `session.ts` behind the induction attempt's own gates. See *Needs Testing* item 22 |
-| 5 | Spoken / mantra triggers — needs a new speech-compulsion permission; gag handling verified against BC's speech code first |
+| 5 | **Built, shipped inside v0.90.0** (DW, 2026-09-25: no bump until the overhaul is finished). Spoken and mantra triggers: `say:<n>:<text>` actions, the new *Made to Speak* permission (Entranced), sent through BC's `ChatRoomSendChatMessage`. **One decision for DW to confirm:** a forced line goes through OUR trance silence (see below). See *Needs Testing* item 23 |
 | 6 | Delayed compulsions — dormant triggers armed by waking, elapsed time, or a room event (arrival or speech) |
+
+**Versioning (DW, 2026-09-25):** Builds 5 and 6 ship inside v0.90.0, with no bump, until the
+overhaul is finished. This is a deliberate exception to rule 9. Their player-facing lines go under
+the v0.90.0 heading in the root `CHANGELOG.md`.
+
+### ⚠ Build 5: a forced line goes through our own silence — needs DW to confirm
+
+A trigger that makes the subject speak goes out through BC's `ChatRoomSendChatMessage`, which is
+what a typed line uses. Our speech-block hook sits on that same function. As built, the hook lets
+a forced line through (`withForcedSpeech` in `effects.ts`). The reasoning is that *Cannot speak*
+stops the subject speaking of their own accord, and a spoken trigger is the hypnotist speaking
+through them. Without the bypass, a drop plus a spoken line could never be heard: the drop applies
+the trance defaults, and *cannot speak* is on by default.
+
+**BC's own rules still apply:** an owner's BlockTalk rule, forbidden words, and gags (garbled by
+BC's `SpeechTransformProcess`). Only our own silence is bypassed. If DW would rather silence win,
+it is one line in `main.ts`, and the subject would then be told that the words could not come out.
 
 ---
 
@@ -4618,9 +4635,32 @@ trance: the freeze and fade, the room announcement, H's panel, and waking.
 8. **Reload while dropped.** Drop S, reload S's tab. *Expect:* the trance resumes as any trance
    does (item 3 of the recovery rules).
 
+### 23. Spoken and mantra triggers (Build 5, inside v0.90.0) — **open, never run live**
+
+H and S as before, plus R watching. `test/say.mjs` stubs BC's send; only a live room shows what
+the room actually receives, garbled or not.
+
+1. **Refused without the permission.** S leaves *Made to Speak* off (Permissions tab). H, with S
+   under, plants *"S, when you hear ember glow, you will say 'I obey'"*. *Expect:* H told S has not
+   enabled Made to Speak. Cancel.
+2. **Planting.** S ticks *Made to Speak*. H: *"S, your trigger word is ember glow"*, *"S, you will
+   say 'Good girls obey.' three times"*, *"S, remember trigger"*. *Expect:* SAVED lists a `say:3:`
+   action. `/echs triggers 1` on S reads `you say "Good girls obey." 3 times`.
+3. **Firing.** Wake S. H says *"ember glow"*. *Expect:* R sees S say "Good girls obey." three
+   times, a second or two apart, capitals and full stop intact.
+4. **Gagged.** Gag S (a ball gag). Fire it. *Expect:* R sees garbled text; with *Show ungarbled
+   messages* on, R sees the original in brackets.
+5. **Silenced.** Drop-and-say: plant a trigger with both a drop and a line. Fire it. *Expect:* S
+   drops (and, by default, cannot speak), and the line is still heard. **This is the behaviour
+   awaiting DW's confirmation above.**
+6. **An owner's BlockTalk rule** (if one can be set up): the line does not go out; S sees "The words
+   rise in you, but something stronger holds them back."
+7. **Loop guard.** S ticks *You can fire your own triggers*; plant a line that says the trigger's
+   own word. Fire it. *Expect:* said once, not forever.
+
 ---
 
-**Nine of twenty-three topics confirmed; fourteen open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty-four topics confirmed; fifteen open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

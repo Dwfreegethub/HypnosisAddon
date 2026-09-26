@@ -154,6 +154,7 @@ const TABS: Tab[] = [
 			{ key: "selfTouchControl", label: "Self-Touch Control" },
 			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
 			{ key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
+			{ key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
 			{ key: "undressControl", label: "Undressing" },

@@ -153,6 +153,8 @@ export const DEPTH_GATES: DepthGate[] = [
 	{ key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
 	// Deeper, still session-only.
 	{ key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
+	// Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
+	{ key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
 	{ key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
 	{ key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
 	// The earned-only three: two outlive the session, one lies to the subject.

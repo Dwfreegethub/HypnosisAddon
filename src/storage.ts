@@ -273,6 +273,10 @@ export interface FeatureToggles {
 	 * ("kiss me") does NOT need this: they asked for it, and compelActivity already covers it
 	 * (DW, 2026-09-23). The TARGET's consent is BC's own — see handleTargetedActivityCommand. */
 	compelTouchOthers: boolean;
+	/** May a planted trigger make the subject SAY something aloud (v0.90.0, trigger overhaul Build 5).
+	 * Its own consent: words in the subject's mouth, in front of the room, are a different thing from
+	 * a restriction on them. Sent through BC's own chat path, so a gag still garbles it. */
+	forcedSpeech: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
 	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
 	 * on top of this permission — the same number as triggers and carry-forward, and the
@@ -502,6 +506,7 @@ function defaultFeatures(): FeatureToggles {
 		selfTouchControl: false,
 		compelActivity: false,
 		compelTouchOthers: false,
+		forcedSpeech: false,
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
@@ -1123,6 +1128,7 @@ const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
 	"selfTouchControl",
 	"compelActivity",
 	"compelTouchOthers",
+	"forcedSpeech",
 	"arousalControl",
 	"illusionControl",
 	"undressControl",

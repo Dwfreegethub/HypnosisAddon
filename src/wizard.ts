@@ -41,6 +41,8 @@ const ALL_FEATURES: (keyof FeatureToggles)[] = [
 	"hypnoEnabled",
 	...Object.values(GROUP_FEATURES).flat(),
 	"compelTouchOthers",
+	// Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
+	"forcedSpeech",
 ];
 
 export type Access = "easy" | "earned" | "deep";

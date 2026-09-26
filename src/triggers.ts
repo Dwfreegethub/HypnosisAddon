@@ -755,10 +755,48 @@ export function beginRecording(
  * the subject is already under while it is planted — so it lives here rather than in SUGGESTIONS. */
 export const DROP_ACTION = "trance-drop";
 
+/** Words a trigger makes the subject say (v0.90.0, Build 5). Stored as `say:<times>:<text>`. The
+ * text is kept as the hypnotist typed it, case and punctuation included, because it is spoken
+ * back verbatim; it may itself contain colons, so it is everything after the SECOND colon. */
+export const SAY_PREFIX = "say:";
+/** A mantra repeats; past five it stops being a mantra and starts being spam. */
+export const MAX_SAY_TIMES = 5;
+/** BC's own cap is 1000 (ServerChatMessageMaxLength); a spoken trigger line is a sentence. */
+export const MAX_SAY_LENGTH = 200;
+
+export function sayActionId(text: string, times: number): string {
+	const n = Math.max(1, Math.min(MAX_SAY_TIMES, Math.round(times) || 1));
+	return `${SAY_PREFIX}${n}:${text.slice(0, MAX_SAY_LENGTH)}`;
+}
+
+export function parseSayAction(id: string): { times: number; text: string } | null {
+	if (!id.startsWith(SAY_PREFIX)) return null;
+	const rest = id.slice(SAY_PREFIX.length);
+	const colon = rest.indexOf(":");
+	if (colon < 0) return null;
+	const times = Number(rest.slice(0, colon));
+	const text = rest.slice(colon + 1);
+	if (!text || !Number.isInteger(times) || times < 1) return null;
+	return { times: Math.min(times, MAX_SAY_TIMES), text };
+}
+
 /** Record a suggestion instead of running it. Returns the message to show, or null if
  * we're not recording and the caller should run it normally. */
 export function recordAction(id: string): string | null {
 	if (!recording) return null;
+	// Words to say: the permission and its depth, asked at planting exactly as a spoken suggestion
+	// is asked before it is recorded, and again at firing (fireTrigger), as every action is.
+	if (id.startsWith(SAY_PREFIX)) {
+		if (!getFeatures().forcedSpeech) {
+			tellHypnotist(recording.hypnotistId, '[trigger] Refused — they have not enabled "Made to Speak" in their settings.');
+			return "Words gather in you, and go nowhere.";
+		}
+		const refusal = depthRefusal("forcedSpeech");
+		if (refusal) {
+			tellHypnotist(recording.hypnotistId, `[trigger] Refused — making them speak ${refusal}.`);
+			return "Words gather in you, and go nowhere.";
+		}
+	}
 	// A drop is the subject's to allow, and refused at planting as well as at firing: planting
 	// something she has said no to, only to have it refuse every time, would be a silent failure
 	// waiting to happen (rule 5). Refused plainly, with the setting named.

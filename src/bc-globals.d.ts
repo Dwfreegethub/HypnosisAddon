@@ -11,6 +11,9 @@ declare const Asset: any[];
 declare function ServerSend(message: string, data: any): void;
 declare function ChatRoomCharacterUpdate(character: any): void;
 declare function ServerPlayerIsInChatRoom(): boolean;
+/** BC R132 ChatRoom.js: garbles (gag, stutter) and sends one line of room chat as the player;
+ * returns false when an owner BlockTalk rule or a forbidden word stops it. */
+declare function ChatRoomSendChatMessage(msg: string): boolean;
 declare function ServerPlayerExtensionSettingsSync(name: string): void;
 declare function CommandCombine(add: any): void;
 declare function ChatRoomSendLocal(message: string, timeout?: number): void;

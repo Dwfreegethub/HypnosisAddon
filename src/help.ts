@@ -254,6 +254,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, only when you hear it exactly"   ← whole words only`),
 		dim("Their own settings still cap how long it lasts and who may fire it."),
 		body(`"Missy, you will drop into trance"   ← an instant drop`),
+		body(`"Missy, you will say 'I obey' three times"   ← words, aloud`),
+		dim("Words need Made to Speak on; a gag still garbles them."),
 		dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
 		gap(),
 		head("Firing and releasing one"),

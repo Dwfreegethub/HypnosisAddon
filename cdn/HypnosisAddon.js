@@ -874,6 +874,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isSpeechBlocked() {
     return speechBlocked;
   }
+  var forcedSpeaking = false;
+  function withForcedSpeech(send) {
+    forcedSpeaking = true;
+    try {
+      return send();
+    } finally {
+      forcedSpeaking = false;
+    }
+  }
+  function isForcedSpeech() {
+    return forcedSpeaking;
+  }
   function setScreenFade(opacity) {
     screenFade = Math.max(0, Math.min(1, opacity));
   }
@@ -1738,6 +1750,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
     // Deeper, still session-only.
     { key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
+    // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
+    { key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
     { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
     { key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
     // The earned-only three: two outlive the session, one lies to the subject.
@@ -3399,6 +3413,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       selfTouchControl: false,
       compelActivity: false,
       compelTouchOthers: false,
+      forcedSpeech: false,
       arousalControl: false,
       illusionControl: false,
       undressControl: false,
@@ -3829,6 +3844,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "selfTouchControl",
     "compelActivity",
     "compelTouchOthers",
+    "forcedSpeech",
     "arousalControl",
     "illusionControl",
     "undressControl",
@@ -4439,8 +4455,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return "Something is being set aside in you. You let it happen.";
   }
   var DROP_ACTION = "trance-drop";
+  var SAY_PREFIX = "say:";
+  var MAX_SAY_TIMES = 5;
+  var MAX_SAY_LENGTH = 200;
+  function sayActionId(text, times) {
+    const n = Math.max(1, Math.min(MAX_SAY_TIMES, Math.round(times) || 1));
+    return `${SAY_PREFIX}${n}:${text.slice(0, MAX_SAY_LENGTH)}`;
+  }
+  function parseSayAction(id) {
+    if (!id.startsWith(SAY_PREFIX)) return null;
+    const rest = id.slice(SAY_PREFIX.length);
+    const colon = rest.indexOf(":");
+    if (colon < 0) return null;
+    const times = Number(rest.slice(0, colon));
+    const text = rest.slice(colon + 1);
+    if (!text || !Number.isInteger(times) || times < 1) return null;
+    return { times: Math.min(times, MAX_SAY_TIMES), text };
+  }
   function recordAction(id) {
     if (!recording) return null;
+    if (id.startsWith(SAY_PREFIX)) {
+      if (!getFeatures().forcedSpeech) {
+        tellHypnotist(recording.hypnotistId, '[trigger] Refused \u2014 they have not enabled "Made to Speak" in their settings.');
+        return "Words gather in you, and go nowhere.";
+      }
+      const refusal = depthRefusal("forcedSpeech");
+      if (refusal) {
+        tellHypnotist(recording.hypnotistId, `[trigger] Refused \u2014 making them speak ${refusal}.`);
+        return "Words gather in you, and go nowhere.";
+      }
+    }
     if (id === DROP_ACTION) {
       if (getDropMode() === "off") {
         tellHypnotist(recording.hypnotistId, '[trigger] Refused \u2014 they have not allowed "Drop triggers" on their Triggers tab.');
@@ -5744,6 +5788,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
+  var SAY_RAW = /\byou(?:\s+will|\s*['‘’ʼ]ll)?\s+(?:say|repeat|recite|(?:answer|reply|respond)\s+with)(?:\s+(?:the\s+words|these\s+words|this))?\s*[,:]?\s+(.+?)\s*$/i;
+  var SAY_NORM = /\byou (?:will |ll )?(?:say|repeat|recite|(?:answer|reply|respond) with)\b/;
+  var SAY_TIMES = /[\s,.;:]*\b(one|two|three|four|five|\d+)\s+times?[.!]*$|[\s,.;:]*\b(once|twice|thrice)[.!]*$/i;
+  var SAY_TIME_WORDS = { one: 1, once: 1, two: 2, twice: 2, three: 3, thrice: 3, four: 4, five: 5 };
+  var NOT_WORDS = /^(?:nothing|anything|a word|not a word|no more|another word|a thing|out loud|aloud)[.!]*$/i;
+  function parseSayClause(raw) {
+    const match = SAY_RAW.exec(raw);
+    if (!match) return null;
+    let text = match[1];
+    let times = 1;
+    const t = SAY_TIMES.exec(text);
+    if (t) {
+      const word = (t[1] ?? t[2]).toLowerCase();
+      times = /^\d+$/.test(word) ? Number(word) : SAY_TIME_WORDS[word] ?? 1;
+      text = text.slice(0, t.index);
+    }
+    for (const name of playerOwnNames()) {
+      const n = String(name).trim();
+      if (!n) continue;
+      text = text.replace(new RegExp(`[,\\s]+${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[.!?]*$`, "i"), "");
+    }
+    text = text.trim().replace(/^["“'‘]\s*(.*?)\s*["”'’]$/s, "$1").trim();
+    if (!text || NOT_WORDS.test(text)) return null;
+    return { text, times: Math.max(1, Math.min(5, times)) };
+  }
   function parseTriggerControl(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
@@ -5755,6 +5824,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const match = pattern.exec(text);
       if (!match) continue;
       const captured = match[1];
+      const sayAt = SAY_NORM.exec(captured);
+      if (sayAt && sayAt.index > 0) {
+        const say = parseSayClause(content);
+        if (say) {
+          const head2 = captured.slice(0, sayAt.index).replace(/(?:\s+(?:and|then|so))+\s*$/, "");
+          return { kind: "start", phrase: cleanPhrase(head2), say };
+        }
+      }
       for (const drop of TRIGGER_DROP) {
         const d = drop.exec(captured);
         if (d && d.index > 0) {
@@ -5765,6 +5842,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return { kind: "start", phrase: cleanPhrase(captured) };
     }
     if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
+    if (SAY_NORM.test(text)) {
+      const say = parseSayClause(content);
+      if (say) return { kind: "say", ...say };
+    }
     return null;
   }
   function handleTriggerControl(sender, content) {
@@ -5782,6 +5863,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const message = applyRecordingOption(parsed.option);
       if (message === null) return false;
       tellPlayer(message);
+      return true;
+    }
+    if (parsed.kind === "say") {
+      if (!isRecording()) return false;
+      const line = recordAction(sayActionId(parsed.text, parsed.times));
+      if (line) tellPlayer(line);
       return true;
     }
     if (parsed.kind === "drop") {
@@ -5806,6 +5893,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (parsed.drop && isRecording()) {
       const dropLine = recordAction(DROP_ACTION);
       if (dropLine) tellPlayer(dropLine);
+    }
+    if (parsed.say && isRecording()) {
+      const sayLine = recordAction(sayActionId(parsed.say.text, parsed.say.times));
+      if (sayLine) tellPlayer(sayLine);
     }
     return true;
   }
@@ -5840,6 +5931,48 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (mode === "once") trigger.oneShot = true;
     tellHypnotist(speaker, `[trigger] They drop straight into trance (${tierLabel(tierOf(strength))}).`);
   }
+  var FORCED_LINE_CAP = 6;
+  var FORCED_WINDOW_MS = 6e4;
+  var forcedLineTimes = [];
+  var forcedCapNoticeAt = 0;
+  var FORCED_ECHOES = [];
+  function isForcedEcho(sender, content) {
+    if (sender !== Player?.MemberNumber) return false;
+    const text = normalize(content);
+    const i = FORCED_ECHOES.indexOf(text);
+    if (i < 0) return false;
+    FORCED_ECHOES.splice(i, 1);
+    return true;
+  }
+  function speakForSubject(text) {
+    if (!getFeatures().forcedSpeech || !getFeatures().hypnoEnabled) {
+      log("forced speech dropped mid-pace \u2014 permission revoked");
+      return;
+    }
+    if (typeof ChatRoomSendChatMessage !== "function" || !ServerPlayerIsInChatRoom?.()) return;
+    const now = Date.now();
+    forcedLineTimes = forcedLineTimes.filter((t) => now - t < FORCED_WINDOW_MS);
+    if (forcedLineTimes.length >= FORCED_LINE_CAP) {
+      log(`forced speech held back \u2014 ${FORCED_LINE_CAP} lines in the last minute`);
+      if (now - forcedCapNoticeAt > FORCED_WINDOW_MS) {
+        forcedCapNoticeAt = now;
+        tellPlayer("(ECHS held back a triggered line: too many in one minute, to stop a loop.)");
+      }
+      return;
+    }
+    forcedLineTimes.push(now);
+    FORCED_ECHOES.push(normalize(text));
+    if (FORCED_ECHOES.length > 20) FORCED_ECHOES.shift();
+    const sent = withForcedSpeech(() => ChatRoomSendChatMessage(text));
+    if (sent === false) {
+      FORCED_ECHOES.pop();
+      forcedLineTimes.pop();
+      log("forced speech refused by BC (owner rule or forbidden word)");
+      tellPlayer("The words rise in you, but something stronger holds them back.");
+      return;
+    }
+    log(`spoke for the subject: ${text}`);
+  }
   function fireTrigger(trigger, speaker) {
     if (!triggersArmed()) {
       log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
@@ -5861,6 +5994,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let tooWeak = 0;
     for (const id of trigger.actions) {
       if (id === DROP_ACTION) continue;
+      const say = parseSayAction(id);
+      if (say) {
+        if (!features.forcedSpeech) {
+          log(`trigger "${trigger.phrase}": say skipped, forcedSpeech not granted`);
+          continue;
+        }
+        if (!depthAllows("forcedSpeech", strength, strength)) {
+          log(`trigger "${trigger.phrase}": say too weak at ${strength}`);
+          tooWeak++;
+          continue;
+        }
+        compels++;
+        for (let i = 0; i < say.times; i++) steps.push(() => speakForSubject(say.text));
+        continue;
+      }
       if (id.startsWith("touch:")) {
         if (!features.selfTouchControl) {
           log(`trigger "${trigger.phrase}": ${id} skipped, selfTouchControl not granted`);
@@ -6000,6 +6148,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
     }
     if (id === DROP_ACTION) return "you drop straight into trance";
+    const say = parseSayAction(id);
+    if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
     if (id === "act:vague") return "you touch yourself somewhere";
     if (id === "act:genital") return "you touch yourself between your legs";
     if (id.startsWith("act:")) {
@@ -6078,6 +6228,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function handleTriggerFiring(sender, content) {
     const text = normalize(content);
     if (!text) return false;
+    if (isForcedEcho(sender, content)) return false;
     const matched = triggersFiredBy(sender, text);
     if (!matched.length) return false;
     for (const trigger of matched) {
@@ -7129,6 +7280,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
       dim("Their own settings still cap how long it lasts and who may fire it."),
       body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
+      body(`"Missy, you will say 'I obey' three times"   \u2190 words, aloud`),
+      dim("Words need Made to Speak on; a gag still garbles them."),
       dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
       head("Firing and releasing one"),
@@ -7266,7 +7419,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var ALL_FEATURES = [
     "hypnoEnabled",
     ...Object.values(GROUP_FEATURES).flat(),
-    "compelTouchOthers"
+    "compelTouchOthers",
+    // Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
+    "forcedSpeech"
   ];
   function applySetup(cfg) {
     const on = new Set(cfg.features);
@@ -7604,6 +7759,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "selfTouchControl", label: "Self-Touch Control" },
         { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
         { key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
+        { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
         { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
         { key: "undressControl", label: "Undressing" },
@@ -10301,6 +10457,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         if (!isSpeechBlocked()) return next(args);
+        if (isForcedSpeech()) return next(args);
         if (!getFeatures().blockOOC && stripOOC(args[0]) === null) return next(args);
         log("speech blocked:", args[0]);
         announce("speech-blocked-attempt");
