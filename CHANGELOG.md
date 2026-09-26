@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.91.1 · 26 September 2026
+
+- **Refreshing the game now always loads the newest ECHS.** Before, your browser could keep using
+  an older copy for up to a week, even after an update was out, unless you did a hard refresh. This
+  needs the small ECHS script your userscript manager installed to update itself. It does that on
+  its own, or you can update it by hand from your userscript manager.
+
 ## v0.91.0 · 26 September 2026
 
 - **"You cannot move" now holds you still.** You stay in the pose and the place you are in:

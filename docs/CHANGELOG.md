@@ -20,6 +20,20 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.91.1) — the loader could run a week-old bundle
+
+Found while chasing DW's "the pose hold does nothing" report. `curl -I` on the jsDelivr URL showed
+`Cache-Control: public, max-age=604800, s-maxage=43200`. The loader inserted a plain `<script
+src=CDN_URL>`, so a browser could answer from its own cache for up to seven days. The purge
+workflow clears jsDelivr's edge, not players' browsers, so the loader's own promise ("fetched
+fresh on every page load") was not true. `loadFromCdn` now uses `cdnUrlForThisLoad()`, which is the
+same URL plus `?t=<Date.now()>`. jsDelivr ignores the query string: requests with different `?t=`
+got the same `Age` (754–755s), so its purged edge copy is still what is served, and GitHub is not
+hit per load. Only the browser cache is defeated.
+
+This change is in the **installed loader** (`HypnosisAddon.user.js`), so it reaches players when
+their userscript manager next updates it. `test/loader.mjs`: +1 check (the timestamp).
+
 ### Added 2026-09-26 (v0.91.0) — "you cannot move" holds the pose and the place
 
 DW asked for this after v0.90.2 made the freeze actually land. BC's own `Freeze` (R132):
