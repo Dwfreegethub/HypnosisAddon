@@ -47,6 +47,16 @@ While having ECHS installed on both sides delivers the full experience, several 
 3. Reload Bondage Club and log in.
 4. Open your in-game **Preferences**, navigate to **Extensions**, and select **ECHS Hypnosis** to configure your boundaries and triggers.
 
+### No userscript manager? Use the bookmark loader
+
+This also works on phones and tablets.
+
+1. Open the [bookmark loader](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/bookmarklet.txt) and copy the **whole** line. It starts with `javascript:`.
+2. Create a bookmark named **ECHS** and paste that line into its **URL / address** field.
+3. Open Bondage Club and click the bookmark. You can do this on the login screen or after logging in.
+
+Click it each time you open the game. It always loads the newest version, and clicking it twice does no harm. Full steps are on the wiki's [Getting Started](https://github.com/Dwfreegethub/HypnosisAddon/wiki/Getting-Started) page.
+
 *Note: Listing on [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) is planned for a future release.*
 
 ---
