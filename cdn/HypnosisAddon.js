@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.92.4. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.92.5. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -968,7 +968,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
   }
   function installEffectHooks(modApi2) {
-    modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, (args, next) => {
+    const holdPose = (args, next) => {
       const [C, pose, force] = args;
       if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
         heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
@@ -976,7 +976,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return void 0;
       }
       return next(args);
-    });
+    };
+    modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, holdPose);
+    modApi2.hookFunction("CharacterSetActivePose", HOLD_PRIORITY, holdPose);
     modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args, next) => {
       const [data] = args;
       const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
@@ -1005,7 +1007,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return next(args);
     });
     modApi2.hookFunction("ServerSend", HOLD_PRIORITY, (args, next) => {
-      if (args[0] !== "ChatRoomCharacterPoseUpdate" || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+      if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
         return next(args);
       }
       Player.ActivePose = heldPose.slice();
@@ -9151,7 +9153,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.5"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10846,7 +10848,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.4"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.5"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10869,7 +10871,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.92.4"} loaded`;
+    el.textContent = `ECHS v${"0.92.5"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10900,14 +10902,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.92.4"})`);
+  info(`script loaded (v${"0.92.5"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.92.4",
+      version: "0.92.5",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

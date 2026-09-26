@@ -20,6 +20,32 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.92.5) — held still: pose commands refused under WCE's animation engine
+
+DW's live trace (test script section 8) put the refused pose change in `wce.js`. Reading it: with
+WCE's **animation engine** setting on, WCE hooks `PoseSetActive` AND the deprecated alias
+`CharacterSetActivePose` at priority 10, never calling on. It queues the pose, then applies its
+queue itself: it writes `Player.ActivePose` directly and sends `ChatRoomCharacterPoseUpdate`, both
+at once and again from a 250 ms timer. Its socket listener for `ChatRoomSyncPose` about her calls
+`PoseSetActive(Player, p)` for each pose. So with WCE on, BC's own `PoseSetActive` never runs. That
+is also why v0.92.3's "lift our Freeze for our own change" made no difference for DW.
+
+The fault: `setSuggestedPose` → WCE applies and sends at once, inside our call → our `ServerSend`
+safety net compared against `heldPose`, which is only moved AFTER the call, so it took the
+hypnotist's command for her own attempt. It put the old pose back ("You try to shift…"), and the
+command read as `pose-blocked`. WCE's queue still held the new pose, so every 250 ms WCE re-applied
+it and the net undid it again: her pose sent about four times a second, which is the "over and
+over" DW saw back in v0.91.x.
+
+Two changes in `effects.ts`: the net passes while `ownPoseChange` is set, and the hold hook also
+goes on `CharacterSetActivePose` (WCE's hook on the alias skips the `PoseSetActive` hold entirely).
+New suite `test/held-wce.mjs` stands in for WCE's engine (queue, immediate apply, timer, echo),
+described from reading wce.js with no WCE code. 13 of its 16 checks fail on v0.92.4, including
+8 pose sends in 8 timer ticks.
+
+Not fixed, noted: anything that gets a pose into WCE's queue by some path we do not hold would
+start the same fight again. None is known now.
+
 ### Fixed 2026-09-26 (v0.92.4) — "after you wake" compulsions woke her instead
 
 DW, live: "Any of the after you wake commands do not seem to work. They seem to wake me up." A

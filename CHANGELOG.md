@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.5 · 26 September 2026
+
+- **The hypnotist's pose commands work while you are held still, with WCE's animation engine on.**
+  With that WCE setting on, "arms behind your back" and similar commands were refused while you were
+  held, and you saw "You try to shift…" over and over. They now go through, and the repeated line is
+  gone.
+- While held still, you also can no longer change your pose through one route WCE opened up.
+
 ## v0.92.4 · 26 September 2026
 
 - **"After you wake" suggestions no longer wake you up on the spot.** Wordings such as *"after you
