@@ -294,6 +294,10 @@ export interface FeatureToggles {
 	 * Its own consent: words in the subject's mouth, in front of the room, are a different thing from
 	 * a restriction on them. Sent through BC's own chat path, so a gag still garbles it. */
 	forcedSpeech: boolean;
+	/** May a hypnotist narrow what the subject HEARS to one voice, or to lines that use her name
+	 * (v0.93.0). Its own consent, as the design has it: being blinded is not being deafened, and
+	 * neither is being made to speak. Everything else said in the room is hidden from her. */
+	hearingControl: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
 	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
 	 * on top of this permission — the same number as triggers and carry-forward, and the
@@ -524,6 +528,7 @@ function defaultFeatures(): FeatureToggles {
 		compelActivity: false,
 		compelTouchOthers: false,
 		forcedSpeech: false,
+		hearingControl: false,
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
@@ -1151,6 +1156,7 @@ const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
 	"compelActivity",
 	"compelTouchOthers",
 	"forcedSpeech",
+	"hearingControl",
 	"arousalControl",
 	"illusionControl",
 	"undressControl",

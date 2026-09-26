@@ -33,7 +33,7 @@ While having ECHS installed on both sides delivers the full experience, several 
 ## Core Capabilities
 
 * **Conversational Control:** Induce, deepen, and command entirely through typed room dialogue, whispers, or saved trigger phrases.
-* **Sensory Modulation:** Progressive blindness and hearing impairment (garbling, muffled room murmurs, or complete quiet) that strictly respect your native game limits and visual comfort settings.
+* **Sensory Modulation:** Hearing narrowed to the hypnotist's voice alone, or only to lines that use your name, with out-of-character text always getting through. Blindness is planned.
 * **Autonomous & Interpersonal Touch:** Support for directed self-touch, touching the hypnotist, or interacting with room bystanders, gated by current trance depth and room permission lists.
 * **Arousal & Orgasm Pacing:** Command-based arousal manipulation, teasing, and edging controls.
 * **Deceptive Awareness:** Optional modules for wardrobe illusions and suppressed touch/bondage awareness for deep trance immersion.

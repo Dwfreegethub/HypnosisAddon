@@ -265,3 +265,27 @@ prints the raw packet, what the chat drew, and which chat handlers changed it. I
 ```
 
 Correct looks like: raw `"*Name does something."`, shown `*Name does something.*`.
+
+---
+
+## 10. Hearing only one voice (v0.93.0)
+
+Needs a third player, **R**. Missy ticks **Hearing** on her Permissions tab. Missy: `/echs trance H 80`.
+
+**Only my voice**
+- [ ] H: *"Missy, you hear only my voice"* → Missy sees a line that the room has gone quiet around one voice.
+- [ ] R chats (*"hello everyone"*) → Missy sees nothing, plus one *"Other voices murmur…"*-style line. A second R line within a minute → nothing, and no second murmur line.
+- [ ] H chats without Missy's name (*"good girl"*) → Missy sees it.
+- [ ] R emotes (`*waves`) → Missy sees it.
+- [ ] R: *"hi (are you ok?)"* → Missy sees only *"(are you ok?)"*. R whispers *"(brb)"* → Missy sees *"(brb)"*.
+- [ ] R: *"Missy, you cannot move"* → nothing (Missy never saw it, and it does nothing).
+- [ ] H: *"Missy, you can hear everyone again"* → Missy is told the voices come back; R's next line shows.
+
+**Only my name**
+- [ ] H: *"Missy, you only hear what is said to you"*. R: *"Missy, hello"* → seen. R: *"hello all"* → not seen.
+- [ ] H: *"you can hear everyone again"* (no name) → still muffled. H: *"Missy, you can hear everyone again"* → back.
+
+**As a trigger** (Missy's trigger scope wide enough for R, e.g. *Everyone*)
+- [ ] H: *"Missy, your trigger word is hush now"*, *"Missy, you hear only my voice"*, *"Missy, remember trigger"*, *"Missy, wake up"*.
+- [ ] R: *"hush now"* → Missy hears only R now; H's chat is hidden from her.
+- [ ] Missy: `/echs safeword` → everyone audible again.

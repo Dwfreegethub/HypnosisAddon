@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.92.7. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.93.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1146,6 +1146,76 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function clearAllSuppression() {
     active.clear();
     numb = false;
+    hearing = null;
+  }
+  var hearing = null;
+  function setHearing(mode) {
+    hearing = mode;
+  }
+  function hearingMode() {
+    return hearing;
+  }
+  function hearsLine(sender, namesHer) {
+    if (!hearing || sender === Player?.MemberNumber) return true;
+    return hearing.kind === "voice" ? sender === hearing.member : namesHer;
+  }
+  var unheard = /* @__PURE__ */ new WeakSet();
+  function markUnheard(data) {
+    unheard.add(data);
+  }
+  function oocOnly(text) {
+    const spans = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of String(text ?? "")) {
+      if (ch === "(") {
+        if (depth === 0) current = "";
+        depth++;
+        current += ch;
+      } else if (ch === ")" && depth > 0) {
+        current += ch;
+        depth--;
+        if (depth === 0) spans.push(current);
+      } else if (depth > 0) {
+        current += ch;
+      }
+    }
+    if (depth > 0 && current.length > 1) spans.push(current);
+    return spans.join(" ").trim();
+  }
+  var OTHERS_FADE_GAP_MS = 6e4;
+  var lastOthersFade = 0;
+  function installHearingFilter(onHidden) {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 hearing only one voice will not hide chat");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
+      Priority: 90,
+      Callback: (data, _sender, msg) => hearingFilter(data, msg, onHidden)
+    });
+    log("hearing filter registered at priority 90");
+  }
+  function hearingFilter(data, msg, onHidden) {
+    try {
+      if (!hearing || !data || !unheard.has(data)) return false;
+      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+      const ooc = oocOnly(msg);
+      if (ooc) return { msg: ooc };
+      const now = Date.now();
+      if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
+        lastOthersFade = now;
+        onHidden(hearing);
+      }
+      return true;
+    } catch (err) {
+      warn("hearing filter failed:", err);
+      return false;
+    }
+  }
+  function resetOthersFade() {
+    lastOthersFade = 0;
   }
   function targetsPlayer(data, metadata) {
     if (metadata?.TargetMemberNumber != null) return metadata.TargetMemberNumber === Player.MemberNumber;
@@ -1363,6 +1433,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Your voice is handed back to you.",
       "The way to your own words opens up again.",
       "You could speak now. The thought arrives whole this time."
+    ],
+    "hear-voice": [
+      "The room goes quiet around one voice. It's the only one that reaches you now.",
+      "Every other voice slides out of focus. One stays sharp, and it's the one that matters.",
+      "You stop listening to the room. There's only one voice worth hearing."
+    ],
+    "hear-name": [
+      "The room softens into murmur. Only your name cuts through it.",
+      "Voices blur together. If one says your name, you'll hear it.",
+      "Talk that isn't meant for you stops reaching you."
+    ],
+    "hear-release": [
+      "The room's voices come back, one after another.",
+      "Sound fills back in around you. You can hear everyone again.",
+      "The murmur sharpens into words again, all of them."
     ],
     // Suppression flavor leans on absence rather than sensation — the point isn't that it
     // feels different, it's that nothing arrives to be noticed in the first place.
@@ -1582,6 +1667,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     tellPlayer(flavor(key));
     const seen = publicFlavor(key);
     if (seen) tellRoom(seen);
+  }
+  function announceOthersFade(kind) {
+    tellPlayer(
+      pick(
+        kind === "voice" ? [
+          "Other voices murmur somewhere far away. They don't matter.",
+          "Someone else is talking. The words slide past without landing.",
+          "There's talk at the edge of the room, soft and meaningless.",
+          "Voices drift by. None of them are the one you listen to.",
+          "The room hums with words that aren't for you."
+        ] : [
+          "Voices wash past. None of them are saying your name.",
+          "Words drift by, not meant for you, so they don't stay.",
+          "The room murmurs on. Nothing in it is yours to hear.",
+          "Someone speaks, but not to you, and it fades before it arrives."
+        ]
+      )
+    );
   }
   function announceBodyPartApplied(part) {
     tellPlayer(
@@ -1963,6 +2066,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
     // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
     { key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
+    { key: "hearingControl", label: "Hears only one voice", tier: "entranced", earnedOnly: false },
     { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
     { key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
     // The earned-only three: two outlive the session, one lies to the subject.
@@ -3628,6 +3732,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       compelActivity: false,
       compelTouchOthers: false,
       forcedSpeech: false,
+      hearingControl: false,
       arousalControl: false,
       illusionControl: false,
       undressControl: false,
@@ -4064,6 +4169,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "compelActivity",
     "compelTouchOthers",
     "forcedSpeech",
+    "hearingControl",
     "arousalControl",
     "illusionControl",
     "undressControl",
@@ -5069,6 +5175,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose)
     };
   }
+  var HEARING_IDS = ["hear-voice", "hear-name"];
   var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
   var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
   var POSE_SUGGESTIONS = [
@@ -5698,6 +5805,62 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ],
       run: () => setSpeechBlocked(true),
       undo: () => setSpeechBlocked(false)
+    },
+    // Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
+    // say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
+    {
+      id: "hear-release",
+      examples: ["you can hear everyone again", "your hearing comes back"],
+      release: true,
+      releaseOf: HEARING_IDS,
+      permission: "hearingControl",
+      patterns: [
+        /\byou (?:can|may|will) hear (?:everyone|everybody|everything|the (?:whole )?room|them all|all of them|others|other people)(?: again)?\b/,
+        /\byou (?:can|may) hear (?:again|normally)\b/,
+        /\byour hearing (?:is back|comes back|returns|is yours)\b/,
+        /\blisten to (?:everyone|everybody|the room) again\b/
+      ],
+      run: () => {
+        setHearing(null);
+      }
+    },
+    {
+      id: "hear-voice",
+      examples: ["you hear only my voice", "you will only hear me"],
+      permission: "hearingControl",
+      patterns: [
+        /\byou (?:will |can |)(?:only hear|hear only|hear nothing but|hear no one but|hear nobody but) (?:my voice|me)\b/,
+        /\bmy voice is (?:the only (?:one|voice|thing|sound)|all) you (?:can |will |)hear\b/,
+        /\bonly my voice (?:reaches you|matters|gets through)\b/,
+        /\byou (?:will |)(?:listen only|only listen) to (?:me|my voice)\b/
+      ],
+      // Locked to whoever said it, or to whoever FIRED the trigger carrying it (DW). With nobody
+      // behind it (a carried re-apply) there is no voice to keep, so it does not land (rule 5).
+      run: (speaker) => {
+        if (typeof speaker !== "number") return "effect-failed";
+        setHearing({ kind: "voice", member: speaker });
+        resetOthersFade();
+      },
+      undo: () => {
+        if (hearingMode()?.kind === "voice") setHearing(null);
+      }
+    },
+    {
+      id: "hear-name",
+      examples: ["you only hear what is said to you", "you only hear your name"],
+      permission: "hearingControl",
+      patterns: [
+        /\byou (?:will |can |)(?:only hear|hear only) (?:what is|what s|whats|things|words|what gets) (?:said|meant|directed|spoken|aimed) (?:to|at|for) you\b/,
+        /\byou (?:will |can |)(?:only hear|hear only) (?:your (?:own )?name|(?:lines|voices|words|people) (?:that|who) (?:say|use|call) your name)\b/,
+        /\bonly your name (?:reaches you|gets through|cuts through)\b/
+      ],
+      run: () => {
+        setHearing({ kind: "name" });
+        resetOthersFade();
+      },
+      undo: () => {
+        if (hearingMode()?.kind === "name") setHearing(null);
+      }
     },
     ...POSE_SUGGESTIONS,
     {
@@ -6540,7 +6703,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         continue;
       }
       holding++;
-      steps.push(() => announce(suggestion.run() || suggestion.id));
+      steps.push(() => announce(suggestion.run(speaker) || suggestion.id));
     }
     log(
       `trigger "${trigger.phrase}" firing ${steps.length} step(s) \u2014 ${holding} holding, ${compels} compel \u2014 at strength ${strength}${tooWeak ? ` (${tooWeak} too weak)` : ""}`
@@ -7238,6 +7401,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function handleSpokenLine(sender, content) {
+    if (!hearsLine(sender, mentionsAnyName(content, playerOwnNames()))) {
+      log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
+      return;
+    }
     if (!rereadingRest && personCondition(content) && handleTriggerControl(sender, content)) return;
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
     const line = scope.text;
@@ -7290,7 +7457,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     log(`matched suggestion "${id}" in: ${line}`);
-    const outcome = suggestion.run() || id;
+    const outcome = suggestion.run(sender) || id;
     if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
     if (Array.isArray(suggestion.permission) && !suggestion.release) {
       const { applied: applied2, skipped } = reachableCategories(suggestion.permission, features);
@@ -7308,7 +7475,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         noteReleased(of);
         dropCarried(of);
       }
-    } else {
+    } else if (!HEARING_IDS.includes(id)) {
       noteApplied(id);
     }
   }
@@ -7957,7 +8124,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     ...Object.values(GROUP_FEATURES).flat(),
     "compelTouchOthers",
     // Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
-    "forcedSpeech"
+    "forcedSpeech",
+    // Hearing only one voice (v0.93.0): the same.
+    "hearingControl"
   ];
   function applySetup(cfg) {
     const on = new Set(cfg.features);
@@ -8296,6 +8465,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
         { key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
         { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
+        { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
         { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
         { key: "undressControl", label: "Undressing" },
@@ -9182,7 +9352,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.7"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.93.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10877,7 +11047,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.7"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.93.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10900,7 +11070,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.92.7"} loaded`;
+    el.textContent = `ECHS v${"0.93.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10931,14 +11101,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.92.7"})`);
+  info(`script loaded (v${"0.93.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.92.7",
+      version: "0.93.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -10960,7 +11130,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         log("ChatRoomMessage", data);
         const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
-        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
+        const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!inCharacter && mentionsAnyName(inCharacter, playerOwnNames()));
+        if (!heard) markUnheard(data);
+        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
           try {
             if (isTriggerSetupLine(data.Sender, inCharacter)) {
               handleSpokenLine(data.Sender, inCharacter);
@@ -10975,7 +11147,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
           noteArrival(data.Sender);
         }
-        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
+        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
           try {
             handleSpokenLine(data.Sender, inCharacter);
           } catch (err) {
@@ -11043,6 +11215,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("session state machine", installSession);
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
+  safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
   safely("trigger word concealment", installConcealment);
   safely("delayed compulsions", installCompulsions);
   safely("self-touch hook", () => installSelfTouch(modApi));

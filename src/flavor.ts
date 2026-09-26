@@ -37,6 +37,10 @@ export type FlavorKey =
 	| "pose-blocked"
 	| "speech-block"
 	| "speech-release"
+	// Hearing only one voice (v0.93.0). Private only: nobody can watch someone stop hearing.
+	| "hear-voice"
+	| "hear-name"
+	| "hear-release"
 	/** Shown each time a silenced player actually tries to say something. */
 	| "speech-blocked-attempt"
 	| "awareness-block"
@@ -252,6 +256,21 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your voice is handed back to you.",
 		"The way to your own words opens up again.",
 		"You could speak now. The thought arrives whole this time.",
+	],
+	"hear-voice": [
+		"The room goes quiet around one voice. It's the only one that reaches you now.",
+		"Every other voice slides out of focus. One stays sharp, and it's the one that matters.",
+		"You stop listening to the room. There's only one voice worth hearing.",
+	],
+	"hear-name": [
+		"The room softens into murmur. Only your name cuts through it.",
+		"Voices blur together. If one says your name, you'll hear it.",
+		"Talk that isn't meant for you stops reaching you.",
+	],
+	"hear-release": [
+		"The room's voices come back, one after another.",
+		"Sound fills back in around you. You can hear everyone again.",
+		"The murmur sharpens into words again, all of them.",
 	],
 	// Suppression flavor leans on absence rather than sensation — the point isn't that it
 	// feels different, it's that nothing arrives to be noticed in the first place.
@@ -480,6 +499,28 @@ export function announce(key: FlavorKey): void {
 	tellPlayer(flavor(key));
 	const seen = publicFlavor(key);
 	if (seen) tellRoom(seen);
+}
+
+/** A line she did not hear, now and then (suppression.ts paces it). Private: nobody sees this. */
+export function announceOthersFade(kind: "voice" | "name"): void {
+	tellPlayer(
+		pick(
+			kind === "voice"
+				? [
+						"Other voices murmur somewhere far away. They don't matter.",
+						"Someone else is talking. The words slide past without landing.",
+						"There's talk at the edge of the room, soft and meaningless.",
+						"Voices drift by. None of them are the one you listen to.",
+						"The room hums with words that aren't for you.",
+					]
+				: [
+						"Voices wash past. None of them are saying your name.",
+						"Words drift by, not meant for you, so they don't stay.",
+						"The room murmurs on. Nothing in it is yours to hear.",
+						"Someone speaks, but not to you, and it fades before it arrives.",
+					],
+		),
+	);
 }
 
 /** Body-part refusals name the part, so they can't come from the static table. Uses the
