@@ -274,23 +274,106 @@ export function clearTranceStates(): void {
 	walkingTrance = false;
 }
 
+// --- Our effects, held by US, not only by the item (v0.90.2) ----------------------------------
+//
+// Found live by DW, 2026-09-26: "you cannot move" printed its flavour and did nothing. The Emoticon
+// item's whole Property had been replaced with {} within seconds of our write — not by BC (its
+// validator would have filtered the Effect array, not emptied the Property; our allow-list patch
+// was verified in place), but by one of the ~20 other add-ons DW runs, several of which rewrite
+// appearance or expressions. So the item cannot be the only place our effects live.
+//
+// OWN_EFFECTS is the truth for THIS client. The CharacterGetEffects hook (installEffectHooks) adds
+// it to the player's computed effects, so Player.HasEffect / CanWalk / leaving the room honour our
+// freeze whatever happens to the item. The item is still written, and re-written before every
+// appearance sync from us, because OTHER clients can only see an effect through it (a leasher's
+// ChatRoomCanBeLeashedBy, the hypnotist's remote panel).
+const OWN_EFFECTS = new Set<string>();
+let effectsHooked = false;
+
+/** Put every effect we hold back onto our Emoticon item, if another add-on took them off. Returns
+ * true if anything had to be restored. Cheap, and safe to call often. */
+function reassertItemEffects(): boolean {
+	if (!OWN_EFFECTS.size) return false;
+	const item = findEmoticonItem(Player);
+	if (!item) return false;
+	item.Property ??= {};
+	item.Property.Effect ??= [];
+	let restored = false;
+	for (const effect of OWN_EFFECTS) {
+		if (!item.Property.Effect.includes(effect)) {
+			item.Property.Effect.push(effect);
+			restored = true;
+		}
+	}
+	if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
+	return restored;
+}
+
+/** Hook BC so our effects count on this client even if the item loses them, and are put back on
+ * the item before our appearance goes to the room. Called once from main.ts. */
+export function installEffectHooks(modApi: any): void {
+	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
+	// CharacterLoadEffect caches it as C.Effect, which HasEffect and CanWalk read. With a group
+	// filter it is answering about specific item slots, so ours are added only when the Emoticon
+	// group is in scope (or no filter was given).
+	modApi.hookFunction("CharacterGetEffects", 5, (args: any[], next: (a: any[]) => any) => {
+		const result = next(args);
+		const [C, groups] = args;
+		if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
+		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
+		const merged = Array.isArray(result) ? result.slice() : [];
+		for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
+		return merged;
+	});
+	// Before our appearance is sent (ours or another add-on's update), make sure the item carries
+	// what we hold, so the room sees the same thing we do.
+	modApi.hookFunction("ChatRoomCharacterUpdate", 5, (args: any[], next: (a: any[]) => any) => {
+		const [C] = args;
+		if (C === Player || C?.IsPlayer?.()) reassertItemEffects();
+		return next(args);
+	});
+	effectsHooked = true;
+}
+
 export function applyEffect(effectName: string, character: any = Player): boolean {
 	const item = findEmoticonItem(character);
-	if (!item) {
-		warn(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
-		return false;
+	if (character !== Player) {
+		// Not used for anyone else today; kept item-only, as before.
+		if (!item) return false;
+		ensureEffectsAllowed();
+		item.Property ??= {};
+		item.Property.Effect ??= [];
+		if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+		return true;
 	}
+	OWN_EFFECTS.add(effectName);
 	// Defensive: normally already done at startup, but an effect applied before the
 	// retry loop succeeded would otherwise be stripped from our own appearance too.
 	ensureEffectsAllowed();
-	item.Property ??= {};
-	item.Property.Effect ??= [];
-	if (!item.Property.Effect.includes(effectName)) {
-		item.Property.Effect.push(effectName);
+	if (item) {
+		item.Property ??= {};
+		item.Property.Effect ??= [];
+		if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+	} else {
+		warn(`no Emoticon item found on ${Player?.Name ?? "player"} — ${effectName} holds on this client only`);
 	}
-	if (character === Player) {
-		refreshOwnEffects();
-		if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+	refreshOwnEffects();
+	if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+	// Rule 5: did it LAND? Asked of BC itself, the way every other part of the game will ask.
+	// Where BC has no effect cache to ask (outside the game), trust our own record.
+	const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
+	if (!landed) {
+		warn(`${effectName} applied but BC does not report it — ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+		// Take it back off everywhere: a freeze the room can see but she does not have would be a
+		// second, quieter lie on top of the first.
+		OWN_EFFECTS.delete(effectName);
+		const effects = findEmoticonItem(Player)?.Property?.Effect;
+		const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+		if (at !== -1) {
+			effects.splice(at, 1);
+			if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+		}
+		return false;
 	}
 	return true;
 }
@@ -313,20 +396,31 @@ function refreshOwnEffects(): void {
  * own Emoticon carrier rather than Character.HasEffect, which cannot tell the difference —
  * and the difference matters whenever we are about to narrate something, since describing a
  * player's actual chastity belt as hypnosis would be both wrong and confusing. */
-export function hasOwnEffect(effectName: string): boolean {
+/** Does the Emoticon ITEM itself carry this effect right now — what the room sees? Separate from
+ * hasOwnEffect, which also counts our own record: code that repairs the item after another add-on
+ * wiped it has to ask about the item alone. */
+export function itemCarriesEffect(effectName: string): boolean {
 	return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
 }
 
+//
+// Our record OR the item: the item alone is not enough (other add-ons wipe it), and our record alone
+// is not enough either — after a reload the record starts empty while the server hands back an item
+// still carrying a Freeze we put on before, and recovery has to be able to see that.
+export function hasOwnEffect(effectName: string): boolean {
+	return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+}
+
 export function removeEffect(effectName: string, character: any = Player): boolean {
+	const heldByUs = character === Player && OWN_EFFECTS.delete(effectName);
 	const item = findEmoticonItem(character);
 	const effects = item?.Property?.Effect;
-	if (!effects) return false;
-	const idx = effects.indexOf(effectName);
-	if (idx === -1) return false;
-	effects.splice(idx, 1);
+	const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+	if (idx !== -1) effects.splice(idx, 1);
+	if (!heldByUs && idx === -1) return false;
 	if (character === Player) {
 		refreshOwnEffects();
-		if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+		if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
 	}
 	return true;
 }

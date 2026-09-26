@@ -1,4 +1,4 @@
-# Test Script — Trigger Overhaul (v0.90.1)
+# Test Script — Trigger Overhaul (v0.90.2)
 
 One pass through every new trigger feature, in an order that reuses each setup. About 45 minutes.
 The subject is **Missy** throughout. Replace **H** with the hypnotist's name wherever it appears.
@@ -156,6 +156,17 @@ H: *"Missy, wake up"*.
 
 **Old meaning kept:** Missy: `/echs trance H 80`. H: *"Missy, when you wake up you will feel refreshed"*.
 - [ ] Missy wakes up, as that line always did. H sees `[trigger] Nothing after that could be kept as a compulsion, so none was set up.`
+
+---
+
+## 6b. "You cannot move" actually holds (v0.90.2)
+
+Missy: `/echs trance H 80`. H: *"Missy, you cannot move"*.
+- [ ] Missy: `/echs effects` → `ON  frozen`.
+- [ ] Missy, F12 console: `[Player.HasEffect("Freeze"), Player.CanWalk(), ChatRoomCanLeave()]` → `[true, false, false]`.
+- [ ] Missy presses **Leave** → refused.
+- [ ] Wait a minute (let the other add-ons do whatever they do), then repeat the console line → still `[true, false, false]`.
+- [ ] Missy: `/echs safeword` → the console line gives `[false, true, true]`.
 
 ---
 

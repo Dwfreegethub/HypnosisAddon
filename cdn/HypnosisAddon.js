@@ -905,41 +905,97 @@ One of mods you are using is using an old version of SDK. It will work for now b
     screenFade = 0;
     walkingTrance = false;
   }
-  function applyEffect(effectName, character = Player) {
+  var OWN_EFFECTS = /* @__PURE__ */ new Set();
+  var effectsHooked = false;
+  function reassertItemEffects() {
     var _a;
-    const item = findEmoticonItem(character);
-    if (!item) {
-      warn(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
-      return false;
-    }
-    ensureEffectsAllowed();
+    if (!OWN_EFFECTS.size) return false;
+    const item = findEmoticonItem(Player);
+    if (!item) return false;
     item.Property ?? (item.Property = {});
     (_a = item.Property).Effect ?? (_a.Effect = []);
-    if (!item.Property.Effect.includes(effectName)) {
-      item.Property.Effect.push(effectName);
+    let restored = false;
+    for (const effect of OWN_EFFECTS) {
+      if (!item.Property.Effect.includes(effect)) {
+        item.Property.Effect.push(effect);
+        restored = true;
+      }
     }
-    if (character === Player) {
-      refreshOwnEffects();
-      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+    if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
+    return restored;
+  }
+  function installEffectHooks(modApi2) {
+    modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
+      const result = next(args);
+      const [C, groups] = args;
+      if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
+      if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
+      const merged = Array.isArray(result) ? result.slice() : [];
+      for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
+      return merged;
+    });
+    modApi2.hookFunction("ChatRoomCharacterUpdate", 5, (args, next) => {
+      const [C] = args;
+      if (C === Player || C?.IsPlayer?.()) reassertItemEffects();
+      return next(args);
+    });
+    effectsHooked = true;
+  }
+  function applyEffect(effectName, character = Player) {
+    var _a, _b;
+    const item = findEmoticonItem(character);
+    if (character !== Player) {
+      if (!item) return false;
+      ensureEffectsAllowed();
+      item.Property ?? (item.Property = {});
+      (_a = item.Property).Effect ?? (_a.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+      return true;
+    }
+    OWN_EFFECTS.add(effectName);
+    ensureEffectsAllowed();
+    if (item) {
+      item.Property ?? (item.Property = {});
+      (_b = item.Property).Effect ?? (_b.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+    } else {
+      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
+    }
+    refreshOwnEffects();
+    if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+    const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
+    if (!landed) {
+      warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+      OWN_EFFECTS.delete(effectName);
+      const effects = findEmoticonItem(Player)?.Property?.Effect;
+      const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+      if (at !== -1) {
+        effects.splice(at, 1);
+        if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+      }
+      return false;
     }
     return true;
   }
   function refreshOwnEffects() {
     if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
   }
-  function hasOwnEffect(effectName) {
+  function itemCarriesEffect(effectName) {
     return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
   }
+  function hasOwnEffect(effectName) {
+    return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+  }
   function removeEffect(effectName, character = Player) {
+    const heldByUs = character === Player && OWN_EFFECTS.delete(effectName);
     const item = findEmoticonItem(character);
     const effects = item?.Property?.Effect;
-    if (!effects) return false;
-    const idx = effects.indexOf(effectName);
-    if (idx === -1) return false;
-    effects.splice(idx, 1);
+    const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+    if (idx !== -1) effects.splice(idx, 1);
+    if (!heldByUs && idx === -1) return false;
     if (character === Player) {
       refreshOwnEffects();
-      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+      if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
     }
     return true;
   }
@@ -1252,6 +1308,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Your hands work without consulting you, unhurried, until there is nothing left to bare.",
       "Piece by piece it goes, and none of it feels like a decision \u2014 only something easy and warm.",
       "You undress the way you would sink into a habit \u2014 thorough, dreamy, glad to."
+    ],
+    "effect-failed": [
+      "The words reach you, but for once your body does not answer them.",
+      "Something tries to settle over you and slides off."
     ],
     "undress-bare": [
       "Your hands go looking for something to take off and find nothing there.",
@@ -2026,7 +2086,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return deniedByUs || hasOwnEffect("DenialMode");
   }
   function denialCarrierLost() {
-    return deniedByUs && !hasOwnEffect("DenialMode");
+    return deniedByUs && !itemCarriesEffect("DenialMode");
   }
 
   // src/follow.ts
@@ -5152,9 +5212,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\byou will (not be able|be unable) to move\b/,
         /\byou will not move\b/
       ],
-      run: () => {
-        applyEffect("Freeze");
-      },
+      // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
+      // told it did not land, and the room is not told of a stillness that is not there.
+      run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
       undo: () => removeEffect("Freeze")
     },
     // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
@@ -5227,9 +5287,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\byou have forgotten how to (dress|undress|change)\b/,
         /\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/
       ],
-      run: () => {
-        applyEffect("BlockWardrobe");
-      },
+      run: () => applyEffect("BlockWardrobe") ? void 0 : "effect-failed",
       undo: () => removeEffect("BlockWardrobe")
     },
     // Taking clothes OFF, as opposed to clothing-block above, which is being unable to change
@@ -10726,6 +10784,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
   setRoomVoice(() => getFeatures().roomSeesReactions);
   safely("effect allow-list", installEffectAllowList);
+  safely("effect hooks", () => installEffectHooks(modApi));
   safely("speech-block hook", () => {
     modApi.hookFunction(
       "ChatRoomSendChatMessage",
