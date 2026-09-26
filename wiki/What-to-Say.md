@@ -31,6 +31,24 @@ The pattern library below is strictly for triggering **effects**, not for buildi
 
 ---
 
+## Going Deeper Mid-Trance
+
+Once she is under with you, you can take her one depth further at a time:
+
+| Say | |
+|---|---|
+| *"Missy, sink deeper"* · *"go deeper"* · *"drop deeper"* · *"fall deeper"* · *"sleep deeper"* · *"relax deeper"* · *"let go deeper"* · *"deeper and deeper"* · *"drift deeper into trance"* | One depth further, if it takes |
+
+* **Her name is needed**, as for every suggestion, and she has to be under with you.
+* **It is a roll.** Her trust in you, your skill, how long she has been under (more after a few minutes), and her answer at the induction prompt (Agree helps, Fight hurts) all count, and each step down is harder than the last: Entranced is harder than Yielding, Deep harder again, Blank hardest. If she has given you her trust (*"I trust you, Eri"*), it always takes.
+* **Pace:** at least a minute between tries, **and** a suggestion of yours that actually landed in between. Too soon, and you are told it is still settling.
+* **Her limit:** her Depth tab says how deep *"sink deeper"* may take her. It stops at **Entranced** unless she opens it further; she can also turn it off. You are told when she is as deep as she lets herself go.
+* **You see bands, never her exact depth:** *"It takes. They are deeply under."* or *"It does not take hold this time."* The room may see her sag or breathe slower, if she lets the room see her reactions.
+* **It never unlocks the earned-only three** (triggers, suggestions that outlive the trance, the clothing illusion). Those still need depth she has earned through trust.
+* A trigger cannot hold a deepening; the instant drop (*"...you will drop into trance"*) is the trigger's way under.
+
+---
+
 ## Ending a Trance — Never Gated
 
 These phrases require no permissions and no minimum depth. They always succeed.

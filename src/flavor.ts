@@ -104,7 +104,10 @@ export type FlavorKey =
 	/** A trigger too faded to do anything, firing as a feeling and nothing more. */
 	| "trigger-ghost"
 	/** The installer re-established their triggers during a session. */
-	| "trigger-reinforced";
+	| "trigger-reinforced"
+	// "Sink deeper" (v0.95.0). The room sees a success; a failure is private.
+	| "deepen"
+	| "deepen-failed";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -133,6 +136,11 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} keeps near, as though on an invisible leash.",
 	],
 	"follow-release": ["{name} steps back, {their} own distance to keep again."],
+	deepen: [
+		"{name}'s head lolls forward as {their} breathing slows further.",
+		"{name} sags a little, sinking further away.",
+		"{name}'s eyelids grow heavier, {their} breathing slow and even.",
+	],
 	kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
 	stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
 	// Every pose is as visible as kneeling, so each gets a room line. The body moves first and
@@ -401,6 +409,16 @@ const LINES: Record<FlavorKey, string[]> = {
 	"trigger-reinforced": [
 		"Something already inside you is gone over again, and set more firmly.",
 		"You do not know what was just deepened. It was deepened all the same.",
+	],
+	deepen: [
+		"Your mind clouds further as you sink down into a deeper trance.",
+		"You slip further down. It is quieter here.",
+		"The words pull you lower, and you let them.",
+		"Another layer of you goes soft and still.",
+	],
+	"deepen-failed": [
+		"You drift for a moment, and settle back where you were.",
+		"The words wash over you without taking you any lower.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",

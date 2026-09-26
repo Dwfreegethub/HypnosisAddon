@@ -492,6 +492,9 @@ interface HypnoAddonSettings {
 	 * default stays reversible (§2, and the same reasoning as depthGates). One of
 	 * SKILL_HONOUR_RUNGS; an invalid stored value is dropped on load. */
 	skillHonour?: string;
+	/** The deepest a spoken "sink deeper" may take her (v0.95.0), one of DEEPEST_TIERS. Absent means
+	 * "never chose" and resolves to DEFAULT_DEEPEST in code, the same sparse pattern as skillHonour. */
+	deepestTier?: string;
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
 	 * dismissed. Sparse, so a fresh install is "new" with nothing stored. */
 	starterState?: string;
@@ -631,6 +634,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.skillHonour !== undefined && !SKILL_HONOUR_RUNGS.some((r) => r.key === s.skillHonour)) {
 		delete s.skillHonour;
 	}
+	if (s.deepestTier !== undefined && !DEEPEST_TIERS.some((r) => r.key === s.deepestTier)) delete s.deepestTier;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
 	// Triggers planted before v0.60.0 have no strength history. Planting has always required
@@ -1176,6 +1180,33 @@ export function hasAnyPermissionGranted(): boolean {
 	const f = loadSettings().features;
 	return PERMISSION_KEYS.some((k) => f[k] === true);
 }
+// --- The deepest "sink deeper" goes (v0.95.0, DW 2026-09-26) -----------------------------
+//
+// In-session deepening moves her up one tier at a time; this is her own ceiling on it, for every
+// hypnotist alike. It limits DEEPENING only: an induction still lands wherever its roll puts it, as
+// it always has. Default Entranced (DW): deepening works out of the box but going to Deep or Blank
+// this way is hers to open. "never" turns deepening off. Tier keys are spelt out here rather than
+// imported from depth.ts, which imports this module.
+export const DEEPEST_TIERS: { key: string; label: string }[] = [
+	{ key: "never", label: "Never deeper" },
+	{ key: "yielding", label: "Yielding" },
+	{ key: "entranced", label: "Entranced" },
+	{ key: "deep", label: "Deep" },
+	{ key: "blank", label: "Blank" },
+];
+export const DEFAULT_DEEPEST = "entranced";
+export function getDeepestTier(): string {
+	return loadSettings().deepestTier ?? DEFAULT_DEEPEST;
+}
+export function setDeepestTier(key: string): void {
+	if (DEEPEST_TIERS.some((r) => r.key === key)) loadSettings().deepestTier = key;
+	saveSettings();
+}
+export function nextDeepestTier(current: string): string {
+	const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
+	return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
+}
+
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
 	saveSettings();

@@ -948,8 +948,29 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
 - Some state changes surfaced in chat for RP flavor (wording TBD)
 
 ### Trance Depth During a Session
-- **Fixed at entry** — depth is determined at the moment of successful induction based on trust, skill, and modifiers
-- To go deeper, the hypnotist must wake the subject and run a new induction
+- **Set at entry** — depth is determined at the moment of successful induction based on trust, skill, and modifiers
+- **CHANGED v0.95.0 (DW, 2026-09-26, job.md): it can now be deepened mid-trance.** "Missy, sink deeper"
+  and its variants take her one tier further, as a roll, never past her own "deepest I go" setting,
+  and on FULL depth only. The rule it replaces was "fixed at entry; to go deeper, wake and
+  re-induce". DW's decisions, all of them:
+  - **Beside fractionation, not instead of it.** Wake-and-re-induce stays planned, below.
+  - **Full depth only.** Earned depth does not move, so the earned-only three (triggers,
+    carry-forward, the illusion) still need depth earned through trust.
+  - **Ceiling: her own "deepest I go" setting**, one for everyone (Depth tab; Never · Yielding ·
+    Entranced · Deep · Blank; default **Entranced**; wizard Extreme sets Blank). It limits
+    deepening only, never where an induction lands. **A per-hypnotist ceiling is on the Todo list.**
+  - **The chance:** access (her trust, relationship floor, arousal floor, trust gift — the same
+    `effectiveAccess` the induction reads) + honoured skill + 2 per minute in trance (max 20) + her
+    induction choice (Agree +25 / Fight -25) − the tier being entered (Yielding 0, Entranced 10,
+    Deep 20, Blank 30), clamped 10-95. **Her trust gift, spent on this trance, makes it certain**
+    (DW's stand-in for the brief's "Automatic Hypnosis", which ECHS does not have).
+  - **Pace:** 60 seconds AND a suggestion from that hypnotist that landed in between (a table
+    suggestion whose run() returned its own id, a body-part block, or a commanded activity that
+    happened). A refusal does not count, nor does another deepening.
+  - **The hypnotist sees bands only** (the existing rule): "It takes. They are deeply under." Never
+    the tier name.
+  - One tier per success, to the next tier's floor. A trigger cannot hold a deepening; the instant
+    drop is the trigger's way under, and the hypnotist is told so.
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in
@@ -3541,6 +3562,10 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   4. **Lever B last, and only the bias half, and only with A2**, with the depth split done properly.
      Drop `bypassTrustRequirements`.
 
+- **PER-HYPNOTIST "DEEPEST I GO" — todo (DW, 2026-09-26).** v0.95.0 gave "sink deeper" one ceiling
+  for everyone (Depth tab, default Entranced). DW wants a per-hypnotist version later: a deepest tier
+  set against each person (likely from the Stats tab's trust list), the lower of it and the global
+  one applying. Not built; the global setting is the whole of it today.
 - **HEARING ONLY ONE VOICE — built v0.93.0 (DW, 2026-09-26).** A narrower, first slice of the hearing
   spec below: its level 3 ("suppressed with sporadic atmospheric fallback") aimed at one voice.
   DW's decisions, 2026-09-26:
@@ -4798,7 +4823,20 @@ BC's echo of her own line reaches the reader, for chat and for a whisper.
 4. **Used up.** After a trance from step 1 ends, H tries again. *Expect:* the box.
 5. **Lapses.** Give it, wait 5 minutes, H tries. *Expect:* the box.
 
-**Fifteen of twenty-eight topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+### 28. "Sink deeper" (v0.95.0) — **open, never run live**
+
+H and S as before. `test/deepen.mjs` covers the rules; only a live room shows the flow and the tell.
+
+1. **One step.** S under H at Yielding or shallower (`/echs trance H 25` in the testing room). H:
+   *"S, sink deeper"*. *Expect:* S feels it; H told "It takes. They are …"; the room sees a tell
+   (if S lets the room see reactions); S's Depth tab says Entranced.
+2. **The pace.** H says it again at once. *Expect:* "still settling". After a minute, again.
+   *Expect:* "Give them a suggestion to follow first". H: *"S, kneel"*, then *"S, sink deeper"*.
+3. **The ceiling.** S's setting at Entranced (default). *Expect:* "as deep as they let themselves
+   go". S sets Blank; the next one takes.
+4. **Earned stays.** At Deep by deepening, H tries to plant a trigger. *Expect:* refused (earned).
+
+**Fifteen of twenty-nine topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 

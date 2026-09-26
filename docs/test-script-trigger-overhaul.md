@@ -323,3 +323,17 @@ Missy awake, not under. **H** is the hypnotist.
 - [ ] H attempts first; while the box is up, Missy says *"I trust you, H"* → the box closes, answered as Agree.
 - [ ] Missy: `/echs trust H`, then waits 5 minutes. H attempts → the box (it lapsed).
 - [ ] Missy: `/echs trust H`, then `/echs safeword`. H attempts → the box.
+
+---
+
+## 13. "Sink deeper" (v0.95.0)
+
+Missy leaves her Depth tab's **"Sink deeper" stops at** on **Entranced** (the default). Missy: `/echs trance H 25` (Yielding).
+
+- [ ] H: *"Missy, sink deeper"* → Missy feels it; H sees `[deepen] It takes. They are …`; the room sees her sag or breathe slower. Missy's Depth tab: **Entranced**.
+- [ ] H at once: *"Missy, sink deeper"* → H: `…still settling. Try again in …s`.
+- [ ] Wait a minute. H: *"Missy, sink deeper"* → H: `Give them a suggestion to follow first…`.
+- [ ] H: *"Missy, kneel"*, then *"Missy, sink deeper"* → H: `…as deep as they let themselves go this way.` (the Entranced ceiling).
+- [ ] Missy sets **Blank**. A minute and a *"Missy, stand"* later, *"Missy, sink deeper"* → it takes (or `does not take hold` — a roll; try again after the next command).
+- [ ] At Deep by deepening: H tries *"Missy, your trigger word is silver bell"* → refused (planting needs earned depth, and deepening does not earn).
+- [ ] Missy: `/echs safeword` → depth gone.

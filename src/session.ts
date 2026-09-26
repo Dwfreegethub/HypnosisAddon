@@ -14,7 +14,7 @@ import {
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
-	getSkillHonour, skillValue, addSkill,
+	getSkillHonour, skillValue, addSkill, getDeepestTier,
 } from "./storage";
 import {
 	noteInductionSuccess,
@@ -29,6 +29,7 @@ import {
 	tierOf,
 	tierLabel,
 	DepthTier,
+	tierMinimum,
 	setCurrentDepths,
 	clearCurrentDepths,
 	arousalCounts,
@@ -243,6 +244,10 @@ interface SubjectSession {
 	depthEarned: number;
 	cooldownUntil: number;
 	hypnotizedAt: number;
+	/** In-session deepening (v0.95.0): when the last deepening was tried, and whether a suggestion
+	 * from the hypnotist has landed since. DW: 60 seconds AND at least one command between them. */
+	lastDeepenAt: number;
+	landedSinceDeepen: boolean;
 	/** Who the pending prompt names, and when it lapses. Held here rather than in the
 	 * prompt box so the on-screen panel and the chat fallback read one source of truth —
 	 * the box is a second way to answer the same prompt, not a second prompt. */
@@ -271,6 +276,8 @@ function freshSession(): SubjectSession {
 		depthEarned: 0,
 		cooldownUntil: 0,
 		hypnotizedAt: 0,
+		lastDeepenAt: 0,
+		landedSinceDeepen: true,
 		promptName: "",
 		promptExpiresAt: 0,
 		rpLines: 0,
@@ -1152,6 +1159,82 @@ export function dropIntoTrance(hypnotistId: number, full: number, earned: number
 	persistState();
 	log(`dropped into trance by ${hypnotistId}'s trigger, depth ${session.depth}/${session.depthEarned}`);
 	return null;
+}
+
+// --- "Sink deeper" (v0.95.0, DW 2026-09-26, from job.md) ---------------------------------------
+//
+// This CHANGES a settled rule, with DW's say-so: design.md had depth "fixed at entry; to go deeper,
+// wake and re-induce". Now the hypnotist can take her one tier deeper mid-trance. Fractionation
+// (wake and re-induce) stays planned beside it. DW's decisions:
+//  - One tier per success, to the next tier's floor, never past HER "deepest I go" setting
+//    (storage.getDeepestTier, default Entranced). A per-hypnotist ceiling is on the todo list.
+//  - FULL depth only. Earned depth does not move, so the Deep-tier features that outlive the
+//    trance or lie to her (triggers, carry-forward, the illusion) still need depth earned by trust.
+//  - The chance: her trust in them (the same access the induction reads) + their honoured skill
+//    + time in trance (2 per minute, up to 20) + her induction choice (Agree +25 / Fight -25),
+//    minus the tier being entered (Yielding 0, Entranced 10, Deep 20, Blank 30); 10-95.
+//  - Her trust gift, spent on this trance, makes it certain.
+//  - 60 seconds between tries AND a suggestion from them that landed in between.
+//  - The hypnotist sees bands only, never the tier (the existing rule).
+const DEEPEN_COOLDOWN_MS = 60_000;
+const DEEPEN_TIME_PER_MINUTE = 2;
+const DEEPEN_TIME_MAX = 20;
+const DEEPEN_TIER_PENALTY: Record<DepthTier, number> = { drifting: 0, yielding: 0, entranced: 10, deep: 20, blank: 30 };
+const DEEPEN_MIN = 10;
+const DEEPEN_MAX = 95;
+const TIER_ORDER: DepthTier[] = ["drifting", "yielding", "entranced", "deep", "blank"];
+
+export type DeepenOutcome =
+	| { kind: "deeper"; band: string }
+	| { kind: "failed" }
+	| { kind: "ceiling" }
+	| { kind: "never" }
+	| { kind: "cooldown"; seconds: number }
+	| { kind: "needs-command" };
+
+/** A suggestion from the hypnotist landed: the next deepening may be tried. voice.ts calls this. */
+export function noteSuggestionLanded(sender: number): void {
+	if (session.phase === "Hypnotized" && session.hypnotistId === sender) session.landedSinceDeepen = true;
+}
+
+/** The chance a deepening into `target` succeeds right now, 10-95. Exported for the tests and for
+ * /hypno chance. */
+export function deepenChance(hypnotistId: number, target: DepthTier): number {
+	if (trustGiftFloor(hypnotistId) > 0 && trustGift?.spentOn === session) return 100;
+	const minutes = session.hypnotizedAt ? (Date.now() - session.hypnotizedAt) / 60_000 : 0;
+	const raw =
+		effectiveAccess(hypnotistId) +
+		currentSkillTerms(false).additive +
+		Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) +
+		CHOICE_MODIFIER[session.choice ?? "ignore"] -
+		DEEPEN_TIER_PENALTY[target];
+	return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
+}
+
+/** One "sink deeper" from `sender`. The caller has checked that they are her hypnotist and that
+ * the line named her. Returns what happened; voice.ts does the telling. */
+export function tryDeepen(sender: number): DeepenOutcome {
+	const ceilingKey = getDeepestTier();
+	if (ceilingKey === "never") return { kind: "never" };
+	const now = tierOf(session.depth);
+	const ceiling = TIER_ORDER.indexOf(ceilingKey as DepthTier);
+	const at = TIER_ORDER.indexOf(now);
+	if (at >= ceiling || at >= TIER_ORDER.length - 1) return { kind: "ceiling" };
+	const wait = session.lastDeepenAt + DEEPEN_COOLDOWN_MS - Date.now();
+	if (session.lastDeepenAt && wait > 0) return { kind: "cooldown", seconds: Math.ceil(wait / 1000) };
+	if (!session.landedSinceDeepen) return { kind: "needs-command" };
+	const target = TIER_ORDER[at + 1];
+	const chance = deepenChance(sender, target);
+	const roll = Math.random() * 100;
+	session.lastDeepenAt = Date.now();
+	session.landedSinceDeepen = false;
+	log(`deepen ${now} → ${target}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
+	if (roll >= chance) return { kind: "failed" };
+	session.depth = Math.max(session.depth, tierMinimum(target));
+	setCurrentDepths(session.depth, session.depthEarned);
+	pushUpdate();
+	persistState();
+	return { kind: "deeper", band: depthBand(session.depth) };
 }
 
 function findCharacterName(memberId: number): string {
