@@ -47,6 +47,7 @@ export function tellRoom(message: string): void {
 	if (!roomVoice()) return;
 	if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
 	if (!ServerPlayerIsInChatRoom()) return;
+	noteRoomLine(message);
 	try {
 		// The leading "**" is load-bearing, not decoration. BC prepends the sender's name to
 		// a plain "*"-emote at display time, so a line that already contains the character's
@@ -58,6 +59,47 @@ export function tellRoom(message: string): void {
 	} catch (err) {
 		warn("could not emote to the room:", err);
 	}
+}
+
+// --- The double star (v0.92.7) ---------------------------------------------------------
+// DW's trace, 2026-09-26: a watcher saw "**Valerie rises, without seeming to decide to.*". The raw
+// packet from Valerie's client carried BOTH stars: something on her client (not ECHS, not WCE)
+// took over that ChatRoomSendEmote call and sent our text without BC's step that strips one "*".
+// The next line, through the same function, arrived correctly, so whatever it is does not do it
+// every time. We cannot see which add-on from here, and stepping round ChatRoomSendEmote would
+// also step round the owner's BlockEmote rule (see tellRoom). So the call still goes through BC,
+// and the packet is checked on its way out: if it is one of OUR recent lines with the extra star
+// still on, the star comes off. Nothing else is touched — a player's own "**" emote is not ours.
+
+/** Our recent room lines, as they would arrive if the star were NOT stripped. Short-lived. */
+const pendingLines: { line: string; at: number }[] = [];
+const PENDING_MS = 10_000;
+
+function noteRoomLine(message: string): void {
+	const now = Date.now();
+	while (pendingLines.length && (now - pendingLines[0].at > PENDING_MS || pendingLines.length > 20)) pendingLines.shift();
+	pendingLines.push({ line: `**${message}`.trim(), at: now });
+}
+
+/** The packet check. Exported for the suite. Returns the Content to send. */
+export function fixRoomLine(content: unknown): unknown {
+	if (typeof content !== "string") return content;
+	const i = pendingLines.findIndex((p) => p.line === content.trim() || p.line.slice(1) === content.trim());
+	if (i < 0) return content;
+	pendingLines.splice(i, 1);
+	if (!content.startsWith("**")) return content; // BC stripped it, as it should
+	log("room line: another add-on skipped BC's star strip; took the extra '*' off");
+	return content.slice(1);
+}
+
+/** Called once from main.ts. */
+export function installRoomLineGuard(modApi: any): void {
+	modApi.hookFunction("ServerSend", 1000, (args: any[], next: (a: any[]) => any) => {
+		const [type, data] = args;
+		if (type !== "ChatRoomChat" || data?.Type !== "Emote" || typeof data?.Content !== "string") return next(args);
+		const fixed = fixRoomLine(data.Content);
+		return fixed === data.Content ? next(args) : next([type, { ...data, Content: fixed }]);
+	});
 }
 
 // --- Pronouns -------------------------------------------------------------------------

@@ -20,6 +20,26 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.92.7) — ECHS room lines sometimes shown as "**…*"
+
+DW saw stray stars on another subject's ECHS lines ("**Valerie rises, without seeming to decide
+to.*") while not in a session herself. A watcher-side trace (ChatRoomMessage hook at 2000, each
+BC message handler wrapped to log what it changed) settled where: the RAW packet from Valerie's
+client was `**Valerie rises…`, both stars, and BC's "Emote messages formatting" handler then
+correctly took one off and the display wrapped it in `*…*`. Her next line, through the same
+`tellRoom` → `ChatRoomSendEmote("**…")`, arrived as `*…` and rendered cleanly. So something on
+her client took over that one `ChatRoomSendEmote` call and sent the text without BC's
+`msg.replace(/^\*/, "")` (R132 ChatRoom.js). Not ECHS, whose only room path is `tellRoom`, and
+not WCE, which does not hook `ChatRoomSendEmote`. Which add-on, and why only sometimes, is not
+known.
+
+Fix without knowing: `tellRoom` still calls BC's function, so the owner's BlockEmote rule is still
+honoured. It also notes the line, and a `ServerSend` hook (priority 1000,
+`installRoomLineGuard`) takes the extra star off an outgoing Emote only when it is one of our
+lines noted in the last 10 s, and only once. A player's own `**` emote is never edited. New suite
+`test/room-line.mjs`, 5 checks; the live-fault check fails with the fix disabled. **Only the
+SENDER's version matters:** Valerie's client must run v0.92.7.
+
 ### Added 2026-09-26 (v0.92.6) — "you will be frozen"
 
 Found by the v0.92.4 wording sweep: *"you will be frozen"* matched no suggestion anywhere, so as the

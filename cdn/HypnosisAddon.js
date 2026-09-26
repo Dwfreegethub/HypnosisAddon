@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.92.6. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.92.7. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -716,11 +716,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!roomVoice()) return;
     if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
     if (!ServerPlayerIsInChatRoom()) return;
+    noteRoomLine(message);
     try {
       ChatRoomSendEmote(`**${message}`);
     } catch (err) {
       warn("could not emote to the room:", err);
     }
+  }
+  var pendingLines = [];
+  var PENDING_MS = 1e4;
+  function noteRoomLine(message) {
+    const now = Date.now();
+    while (pendingLines.length && (now - pendingLines[0].at > PENDING_MS || pendingLines.length > 20)) pendingLines.shift();
+    pendingLines.push({ line: `**${message}`.trim(), at: now });
+  }
+  function fixRoomLine(content) {
+    if (typeof content !== "string") return content;
+    const i = pendingLines.findIndex((p) => p.line === content.trim() || p.line.slice(1) === content.trim());
+    if (i < 0) return content;
+    pendingLines.splice(i, 1);
+    if (!content.startsWith("**")) return content;
+    log("room line: another add-on skipped BC's star strip; took the extra '*' off");
+    return content.slice(1);
+  }
+  function installRoomLineGuard(modApi2) {
+    modApi2.hookFunction("ServerSend", 1e3, (args, next) => {
+      const [type, data] = args;
+      if (type !== "ChatRoomChat" || data?.Type !== "Emote" || typeof data?.Content !== "string") return next(args);
+      const fixed = fixRoomLine(data.Content);
+      return fixed === data.Content ? next(args) : next([type, { ...data, Content: fixed }]);
+    });
   }
   var PRONOUNS = {
     SheHer: { their: "her", them: "her", themselves: "herself" },
@@ -9157,7 +9182,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.6"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.7"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10852,7 +10877,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.6"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.7"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10875,7 +10900,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.92.6"} loaded`;
+    el.textContent = `ECHS v${"0.92.7"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10906,14 +10931,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.92.6"})`);
+  info(`script loaded (v${"0.92.7"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.92.6",
+      version: "0.92.7",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -10976,6 +11001,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   setRoomVoice(() => getFeatures().roomSeesReactions);
   safely("effect allow-list", installEffectAllowList);
   safely("effect hooks", () => installEffectHooks(modApi));
+  safely("room line guard", () => installRoomLineGuard(modApi));
   safely("speech-block hook", () => {
     modApi.hookFunction(
       "ChatRoomSendChatMessage",

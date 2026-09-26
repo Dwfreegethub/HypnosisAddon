@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.7 · 26 September 2026
+
+- **No more stray stars on ECHS lines in the room.** Some players' lines, such as
+  "**Valerie rises, without seeming to decide to.*", showed extra asterisks, because another add-on
+  on their side sometimes skipped a step. ECHS now checks its own lines before they are sent. The
+  player whose lines showed the stars needs this version.
+
 ## v0.92.6 · 26 September 2026
 
 - **"You will be frozen" now works** as a way of saying "you cannot move", on its own, in a trigger,
