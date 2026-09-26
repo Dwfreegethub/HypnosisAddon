@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      0.92.0
+// @version      0.92.1
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -64,7 +64,7 @@
 
   // src/loader.ts
   var CDN_URL = "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js";
-  var FALLBACK_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
+  var GITHUB_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
   function cdnUrlForThisLoad(now = Date.now()) {
     return `${CDN_URL}?t=${now}`;
   }
@@ -77,29 +77,29 @@
       (document.head || document.documentElement).appendChild(s);
     });
   }
-  async function loadFromFallback() {
+  async function loadFromGitHub() {
     try {
-      const res = await fetch(FALLBACK_URL, { cache: "no-cache" });
+      const res = await fetch(GITHUB_URL, { cache: "no-cache" });
       if (!res.ok) {
-        warn(`loader: GitHub fallback answered ${res.status}`);
+        warn(`loader: GitHub answered ${res.status}`);
         return false;
       }
       const code = await res.text();
       if (!code.trim()) {
-        warn("loader: GitHub fallback returned an empty file");
+        warn("loader: GitHub returned an empty file");
         return false;
       }
       const s = document.createElement("script");
       s.textContent = `${code}
-//# sourceURL=${FALLBACK_URL}`;
+//# sourceURL=${GITHUB_URL}`;
       (document.head || document.documentElement).appendChild(s);
       return true;
     } catch (err) {
-      warn("loader: GitHub fallback could not be fetched:", err);
+      warn("loader: GitHub could not be fetched:", err);
       return false;
     }
   }
-  var FAILED_NOTICE = "ECHS could not load: neither jsDelivr nor GitHub could be reached. Refresh the page to try again. (Click to dismiss.)";
+  var FAILED_NOTICE = "ECHS could not load: neither GitHub nor jsDelivr could be reached. Refresh the page to try again. (Click to dismiss.)";
   function showFailedNotice() {
     const el = document.createElement("div");
     el.textContent = FAILED_NOTICE;
@@ -121,14 +121,14 @@
     (document.body || document.documentElement).appendChild(el);
   }
   async function runLoader() {
-    info(`loader v${"0.92.0"}: loading ECHS from jsDelivr`);
-    if (await loadFromCdn()) return "cdn";
-    warn(`loader: jsDelivr copy failed to load (${CDN_URL}); trying GitHub directly`);
-    if (await loadFromFallback()) {
-      info("loader: loaded ECHS from the GitHub fallback");
-      return "fallback";
+    info(`loader v${"0.92.1"}: loading ECHS from GitHub`);
+    if (await loadFromGitHub()) return "github";
+    warn(`loader: GitHub copy failed to load (${GITHUB_URL}); trying jsDelivr`);
+    if (await loadFromCdn()) {
+      info("loader: loaded ECHS from jsDelivr");
+      return "cdn";
     }
-    warn("loader: ECHS was not loaded: both jsDelivr and the GitHub fallback failed");
+    warn("loader: ECHS was not loaded: both GitHub and jsDelivr failed");
     showFailedNotice();
     return "failed";
   }

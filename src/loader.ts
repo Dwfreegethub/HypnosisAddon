@@ -8,18 +8,20 @@
 // pulled in would be frozen into the installed copy, which is the thing this split exists to stop
 // changing. log.ts is here so the console levels stay the add-on's own (test/console.mjs).
 //
-// Where the add-on comes from, in order:
-//   1. jsDelivr, following main. A real CDN serving the right content type, so an ordinary
-//      script tag works. jsDelivr caches a branch URL for up to 12 hours by its own account (not
-//      verified from here: jsDelivr is unreachable from the build workspace), which is why
-//      .github/workflows/purge-cdn.yml clears that cache on every push that changes the bundle.
-//   2. The raw GitHub copy of the same file. raw.githubusercontent.com serves text/plain with
-//      nosniff (checked 2026-09-23), so a script tag pointed at it is refused; it has to be
-//      fetched and run as inline text instead. It allows any origin (access-control-allow-origin
-//      "*", checked the same day) and caches for five minutes. It exists for players who can
-//      reach GitHub but not jsDelivr.
+// Where the add-on comes from, in order (swapped in v0.92.1):
+//   1. The raw GitHub copy, straight from main. raw.githubusercontent.com serves text/plain with
+//      nosniff (checked 2026-09-23), so a script tag pointed at it is refused; it is fetched and
+//      run as inline text instead. It allows any origin (access-control-allow-origin "*") and
+//      caches for about five minutes, so a merged release reaches everyone within minutes.
+//   2. jsDelivr, following main, as a script tag — for players who cannot reach GitHub.
 //   3. Neither: say so on screen. A loader that fails quietly leaves a player with no add-on and
 //      nothing anywhere telling them why (rule 5).
+//
+// WHY GITHUB FIRST (2026-09-26). jsDelivr used to be first. From v0.91.3 its lookup of what `main`
+// means broke on its side (its data API answered 502, then `"version": null`), and it went on
+// serving v0.91.2 for over an hour of purges — each accepted, unthrottled, on both of its networks.
+// Serving an OLD copy is not an error, so the GitHub fallback never ran and every player stayed on
+// the old build. GitHub cannot serve a stale `main` for longer than its short cache.
 //
 // Only a load that ERRORS falls through to the next source. There is deliberately no timeout: a
 // slow jsDelivr that answered after the fallback had already run would put a second copy of the
@@ -33,7 +35,7 @@ import { info, warn } from "./log";
 /** jsDelivr's copy of the bundle on main. `npm run release` writes cdn/HypnosisAddon.js. */
 export const CDN_URL = "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js";
 /** The same file from GitHub directly, used only when the CDN copy fails to load. */
-export const FALLBACK_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
+export const GITHUB_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
 
 /** The CDN address with a per-load timestamp, so the browser cannot answer from its cache. */
 export function cdnUrlForThisLoad(now: number = Date.now()): string {
@@ -59,32 +61,32 @@ function loadFromCdn(): Promise<boolean> {
 
 /** Fetches the bundle from GitHub and runs it as an inline script. Resolves true only if the
  * fetch came back OK and non-empty; the text is then run the same way the CDN copy would be. */
-async function loadFromFallback(): Promise<boolean> {
+async function loadFromGitHub(): Promise<boolean> {
 	try {
-		const res = await fetch(FALLBACK_URL, { cache: "no-cache" });
+		const res = await fetch(GITHUB_URL, { cache: "no-cache" });
 		if (!res.ok) {
-			warn(`loader: GitHub fallback answered ${res.status}`);
+			warn(`loader: GitHub answered ${res.status}`);
 			return false;
 		}
 		const code = await res.text();
 		if (!code.trim()) {
-			warn("loader: GitHub fallback returned an empty file");
+			warn("loader: GitHub returned an empty file");
 			return false;
 		}
 		const s = document.createElement("script");
 		// sourceURL names the code in the console's stack traces, which would otherwise point at
 		// an anonymous inline script.
-		s.textContent = `${code}\n//# sourceURL=${FALLBACK_URL}`;
+		s.textContent = `${code}\n//# sourceURL=${GITHUB_URL}`;
 		(document.head || document.documentElement).appendChild(s);
 		return true;
 	} catch (err) {
-		warn("loader: GitHub fallback could not be fetched:", err);
+		warn("loader: GitHub could not be fetched:", err);
 		return false;
 	}
 }
 
 export const FAILED_NOTICE =
-	"ECHS could not load: neither jsDelivr nor GitHub could be reached. Refresh the page to try again. (Click to dismiss.)";
+	"ECHS could not load: neither GitHub nor jsDelivr could be reached. Refresh the page to try again. (Click to dismiss.)";
 
 /** A lasting on-screen line saying the add-on is not running. It stays until clicked, unlike the
  * add-on's own fading "loaded" toast: this is the only sign anything went wrong, and a player
@@ -110,15 +112,17 @@ function showFailedNotice(): void {
 	(document.body || document.documentElement).appendChild(el);
 }
 
-export async function runLoader(): Promise<"cdn" | "fallback" | "failed"> {
-	info(`loader v${__VERSION__}: loading ECHS from jsDelivr`);
-	if (await loadFromCdn()) return "cdn";
-	warn(`loader: jsDelivr copy failed to load (${CDN_URL}); trying GitHub directly`);
-	if (await loadFromFallback()) {
-		info("loader: loaded ECHS from the GitHub fallback");
-		return "fallback";
+export async function runLoader(): Promise<"github" | "cdn" | "failed"> {
+	info(`loader v${__VERSION__}: loading ECHS from GitHub`);
+	if (await loadFromGitHub()) return "github";
+	// Only after GitHub has FAILED, never alongside it: two copies in the page would hook everything
+	// twice. There is deliberately no timeout for the same reason.
+	warn(`loader: GitHub copy failed to load (${GITHUB_URL}); trying jsDelivr`);
+	if (await loadFromCdn()) {
+		info("loader: loaded ECHS from jsDelivr");
+		return "cdn";
 	}
-	warn("loader: ECHS was not loaded: both jsDelivr and the GitHub fallback failed");
+	warn("loader: ECHS was not loaded: both GitHub and jsDelivr failed");
 	showFailedNotice();
 	return "failed";
 }

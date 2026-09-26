@@ -51,49 +51,49 @@ globalThis.fetch = async (url, opts) => { fetchCalls.push(url); return fetchImpl
 const consoleLines = [];
 for (const k of ["info", "warn", "debug", "log"]) console[k] = (...a) => consoleLines.push(`${k}: ${a.join(" ")}`);
 
-const { runLoader, CDN_URL, FALLBACK_URL, FAILED_NOTICE } = await import("./loader-bundle.mjs");
+const { runLoader, CDN_URL, GITHUB_URL, FAILED_NOTICE } = await import("./loader-bundle.mjs");
 
 const reset = () => { appended = []; fetchCalls = []; consoleLines.length = 0; };
 const scripts = () => appended.filter((e) => e.tag === "script");
 const notices = () => appended.filter((e) => e.tag === "div");
 const okText = (text) => async () => ({ ok: true, status: 200, text: async () => text });
 
-// --- jsDelivr loads: one script tag, nothing else -------------------------------------------
-// Failure looks like: a fetch to GitHub here, which is the double load (2) — the fallback running
-// even though the CDN copy already ran.
-reset(); cdnOutcome = "load"; fetchImpl = okText("/* bundle */");
-check("CDN ok: outcome", await runLoader(), "cdn");
-check("CDN ok: one script tag, pointed at jsDelivr", scripts().map((s) => s.src.split("?")[0]), [CDN_URL]);
-// v0.91.1: jsDelivr tells browsers to keep the bundle for a week; a per-load timestamp stops a
-// refresh running last week's copy. Failure looks like: the bare URL, cacheable by the browser.
-check("CDN ok: the address carries a per-load timestamp", /\?t=\d{13}$/.test(scripts()[0]?.src ?? ""), true);
-check("CDN ok: GitHub never fetched", fetchCalls.length, 0);
-check("CDN ok: no failure notice", notices().length, 0);
+// --- GitHub answers: the bundle runs inline, once, and jsDelivr is never asked (v0.92.1) ----------
+// Failure looks like: a script tag with a src here — jsDelivr asked as well, the double load.
+reset(); cdnOutcome = "load"; fetchImpl = okText("/* the add-on */");
+check("GitHub ok: outcome", await runLoader(), "github");
+check("GitHub ok: fetched once, from GitHub", fetchCalls, [GITHUB_URL]);
+check("GitHub ok: one script, inline", scripts().map((s) => Boolean(s.src)), [false]);
+check("GitHub ok: it carries the fetched code", scripts()[0]?.textContent.startsWith("/* the add-on */"), true);
+check("GitHub ok: jsDelivr never asked", scripts().some((s) => s.src), false);
+check("GitHub ok: no failure notice", notices().length, 0);
 
-// --- jsDelivr fails, GitHub answers: the bundle runs inline, once ----------------------------
-// Failure looks like: outcome "failed" or no second script, meaning a player who can reach GitHub
-// but not jsDelivr gets nothing.
-reset(); cdnOutcome = "error"; fetchImpl = okText("/* the add-on */");
-check("fallback: outcome", await runLoader(), "fallback");
-check("fallback: GitHub fetched once, at the fallback URL", fetchCalls, [FALLBACK_URL]);
-check("fallback: two script tags, the second inline", scripts().map((s) => Boolean(s.src)), [true, false]);
-check("fallback: inline script carries the fetched code", scripts()[1]?.textContent.startsWith("/* the add-on */"), true);
-check("fallback: no failure notice", notices().length, 0);
-check("fallback: console says it fell back", consoleLines.some((l) => l.includes("GitHub fallback")), true);
-
-// --- both fail, three ways: each must end in the visible notice -------------------------------
-// Failure looks like: no div appended. That is (1), the silent failure this suite exists for.
-const failures = {
+// --- GitHub fails, jsDelivr loads: one script tag -------------------------------------------------
+// Failure looks like: outcome "failed", meaning a player who can reach jsDelivr but not GitHub gets
+// nothing; or an inline script as well, the double load.
+const githubFailures = {
 	"GitHub answers 404": async () => ({ ok: false, status: 404, text: async () => "Not Found" }),
 	"GitHub unreachable": async () => { throw new TypeError("Failed to fetch"); },
 	"GitHub returns an empty file": okText("   \n"),
 };
-for (const [label, impl] of Object.entries(failures)) {
+for (const [label, impl] of Object.entries(githubFailures)) {
+	reset(); cdnOutcome = "load"; fetchImpl = impl;
+	check(`${label}, jsDelivr ok: outcome`, await runLoader(), "cdn");
+	check(`${label}, jsDelivr ok: one script tag, pointed at jsDelivr`, scripts().map((s) => (s.src ?? "").split("?")[0]), [CDN_URL]);
+	// v0.91.1: jsDelivr tells browsers to keep the bundle for a week; a per-load timestamp stops a
+	// refresh running last week's copy. Failure looks like: the bare URL, cacheable by the browser.
+	check(`${label}, jsDelivr ok: the address carries a per-load timestamp`, /\?t=\d{13}$/.test(scripts()[0]?.src ?? ""), true);
+	check(`${label}, jsDelivr ok: console says it fell back`, consoleLines.some((l) => l.includes("trying jsDelivr")), true);
+}
+
+// --- both fail, three ways: each must end in the visible notice -------------------------------
+// Failure looks like: no div appended. That is (1), the silent failure this suite exists for.
+for (const [label, impl] of Object.entries(githubFailures)) {
 	reset(); cdnOutcome = "error"; fetchImpl = impl;
-	check(`${label}: outcome`, await runLoader(), "failed");
-	check(`${label}: nothing run inline`, scripts().filter((s) => !s.src).length, 0);
-	check(`${label}: one notice on screen, saying so`, notices().map((n) => n.textContent), [FAILED_NOTICE]);
-	check(`${label}: console warning names both sources`, consoleLines.some((l) => l.startsWith("warn:") && l.includes("both jsDelivr and the GitHub fallback")), true);
+	check(`${label}, jsDelivr fails: outcome`, await runLoader(), "failed");
+	check(`${label}, jsDelivr fails: nothing run inline`, scripts().filter((s) => !s.src).length, 0);
+	check(`${label}, jsDelivr fails: one notice on screen, saying so`, notices().map((n) => n.textContent), [FAILED_NOTICE]);
+	check(`${label}, jsDelivr fails: console warning names both sources`, consoleLines.some((l) => l.startsWith("warn:") && l.includes("both GitHub and jsDelivr")), true);
 }
 // The notice stays until clicked, then goes.
 const notice = notices()[0];
@@ -109,7 +109,7 @@ const release = read("release.mjs");
 const BUNDLE_PATH = "cdn/HypnosisAddon.js";
 check("release writes the bundle to cdn/HypnosisAddon.js", release.includes(`"${BUNDLE_PATH}"`), true);
 check("jsDelivr URL: this repo, following main, that path", CDN_URL, `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/${BUNDLE_PATH}`);
-check("GitHub URL: this repo, main, that path", FALLBACK_URL, `https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/${BUNDLE_PATH}`);
+check("GitHub URL: this repo, main, that path", GITHUB_URL, `https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/${BUNDLE_PATH}`);
 const purge = existsSync(new URL(".github/workflows/purge-cdn.yml", root)) ? read(".github/workflows/purge-cdn.yml") : "";
 check("the cache purge clears the same URL the loader loads", purge.includes(`purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/${BUNDLE_PATH}`), true);
 
