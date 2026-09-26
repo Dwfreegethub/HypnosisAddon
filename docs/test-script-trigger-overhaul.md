@@ -207,7 +207,7 @@ screens. The in-room lines plus H's `[trigger]` lines are usually enough to find
 
 ---
 
-## 8. Diagnostic: pose commands refused while held (fixed in v0.92.5)
+## 8. Diagnostic: pose commands refused while held (fixed in v0.92.5, confirmed by DW)
 
 **Result:** the trace showed WCE's animation engine applying the pose itself; fixed in v0.92.5. To
 confirm the fix, run steps 2–5 without the trace: step 5 should now land the pose, with no

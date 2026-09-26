@@ -3828,7 +3828,7 @@ Observed in play but not yet traced to a root cause. Add date and any reproducti
 | ~~7~~ | ~~**Self-touch stayed locked out by bondage gear after the session ended**~~ — **fixed v0.81.1.** DW's tracker (2026-09-22): after "don't touch yourself" and then a restraint, self-touch stayed blocked through the safeword, unticking movement, and switching the add-on off; only removing the item cleared it. **Root cause:** the `ActivityRun` hook in `selftouch.ts` stopped self-touch on `Player.HasEffect("Freeze")`, which is true for **any** Freeze — a real device's as well as ours on the Emoticon carrier. Every exit cleared our state correctly; the hook then kept tripping on the item, with no session, no permission and no add-on behind it, and narrated the restraint to the room as hypnosis. The "don't touch yourself" order was incidental. Now reads `hasOwnEffect("Freeze")` (the split `voice.ts` already drew for commanded touch), and the hook stands aside entirely while *Hypnosis Enabled* is off. | 2026-09-22 | `test/selftouch.mjs`, 25 checks, **10 verified failing against v0.81.0**; each half of the fix was reverted in turn and its own checks seen to fail. **Not run live.** Unverified against BC source: whether BC itself stops self-activities under a real Freeze. Either way that is BC's rule to apply, not ours. |
 | ~~8~~ | ~~**A fired trigger was cleared by a relog instead of serving out its time**~~ — **fixed v0.82.1.** DW's tracker (2026-09-22): active trigger effects and their durations were wiped by logging out or reconnecting. **Root cause:** the reconnect design (v0.44.0, *Priority Work Session — 2026-09-01* item 5) was right and the restore half worked, but the save half never ran for a trigger. `persistState()` in `session.ts` already knew to save one; nothing asked it to. Every caller sits on a session transition and the 5-second heartbeat is armed only by one, while a trigger normally fires with no trance running. The reload then found nothing saved, read the trigger's Freeze on the Emoticon item as an orphan from a crash, and took it off with *"Something was still holding you from before."* Fixed by saving when a trigger fires, when it lets go, and when one is restored (`saveForReconnect()`). Saving exposed a second trap, fixed in the same change: once a copy exists the orphan check is skipped, so a trigger whose clock ran out while the subject was away left its Freeze on with nothing to release it. The durable-only restore now takes our BC effects off first and puts back only what still has time. An expired **carried** suggestion had the same shape (`restoreCarried()` reads a spent remainder as "no clock" and held forever) and is skipped the same way. Clocks keep running while logged out, as `until` has always been wall time. **DW's call 2026-09-22: keep ticking, do not pause.** | 2026-09-22 | `test/relog.mjs`, 38 checks, reloads by importing a **second copy of the bundle** so no module state carries over: **20 verified failing against v0.82.0**. Four more in `test/recovery.mjs`, plus two for the carry, all six seen failing first. **Not run live.** *Needs Testing* item 3 below was marked covered by the test bot; the code as it stood could not have passed it, so that run most likely had something else in force keeping the heartbeat alive. |
 | ~~9~~ | ~~**A trance that timed out told nobody**~~ — **fixed v0.82.2.** DW's tracker (2026-09-22): when a 30-minute trance times out, neither side is told. **Half right:** the subject did get *"[You come out of trance. (session timed out)]"*, which reads as a status code. The hypnotist got nothing in chat (only the panel flipping to idle) and the room never saw the subject surface. Now announced on all three screens, v0.76.0's pattern: subject line with the reason in words, a room line behind *Others see your reactions*, and an `ended: "timeout"` marker on the final `session-update` that the hypnotist's client prints a line for. Choice-agnostic by word list and by byte-identical wire message across agree / ignore / fight. Same change: a trance that ran out while logged out, resumed inside the five-minute window, no longer follows the expiry with *"You are still under."* | 2026-09-22 | `test/expiry.mjs`, 48 checks; crashes on v0.82.1, and the still-under check fails with only the `recovery.ts` half reverted. **Not run live.** Telling the hypnotist was a default taken while DW was away; the timeout reveals nothing about the choice or depth. |
-| 10 | **Spoken orgasm denial does not stop orgasms** — **OPEN, parked 2026-09-23 by DW; on the Todo list.** v0.83.1 failed live; v0.83.2 was also reported not working the same night, no transcript yet. What follows is the record of both attempts. **v0.83.2:** the subject's own masturbation still finished her on v0.83.1 while a toy was held (DW's transcript, *Needs Testing* item 14). BC's `ActivityOrgasmPrepare` and `ActivityTimerProgress`, read from the live client via `bcModSdk.getPatchingInfo()`, confirm the cache was the right thing to fix: BC refuses only when `C.Effect` carries DenialMode, and only when nobody passes `Bypass`. BCX and WCE were hooking those two functions in the room. `src/denial.ts` now hooks both `ActivityOrgasmPrepare` and `ActivityOrgasmStart` and, while OUR carrier holds DenialMode, swallows the call and pins the meter at 99 as BC does, so no other mod's route around BC's check matters. `test/denial.mjs`, 20 checks, 8 failing with the hook disabled. **Not verified:** which path Rei's orgasm actually took. **The v0.83.1 entry:** DW's tracker (2026-09-22): *"Spoken orgasm denial suggestions fail to hook and prevent orgasm events."* Two causes. **(1) BC never saw it.** `setOrgasmDenied()` wrote `DenialMode` onto the Emoticon carrier and sent the appearance to the room, but BC answers "is this player denied" from the cached `Player.Effect` (both `HasEffect` and `ActivityOrgasmPrepare` read it), and only `CharacterLoadEffect` rebuilds that. The hypnotist was told it landed; the next orgasm BC started from a vibrator or an activity went through until something unrelated refreshed the character. v0.74.0 had found exactly this for the forced-orgasm pierce and fixed it there only. `applyEffect`/`removeEffect` now rebuild the cache for the player every time, which also makes our Freeze, BlockWardrobe and Leash take hold at once. **(2) The words missed.** *must not / mustn't*, *are not to*, *not permitted to*, *forbidden from cumming* and *don't you dare* matched nothing, and a denial that names its own end, *"you cannot cum until I allow you to cum"*, matched **allow** first and lifted the denial it was laying down. `orgasm-allow` now has an `unless` veto for a negated orgasm followed by *until/unless/till/before*. | 2026-09-22 | `test/activity.mjs` (+7) and `test/arousal.mjs` (+12): **3 and 10 verified failing on v0.82.3**. **Not run live**, and **unverified against BC source** (unreachable from the workspace): that `ActivityOrgasmPrepare` reads the cache is taken from the v0.74.0 comment and `DEVELOPMENT.md`, not re-read. *Needs Testing* item 14. By design and unchanged: "cum for me" still pierces our own denial (DW, 2026-09-12, command always wins), and every trance ending lifts it. |
+| ~~10~~ | ~~**Spoken orgasm denial does not stop orgasms**~~ — **closed 2026-09-26: confirmed working live by DW, on v0.90.2 onward.** The cause that remained after v0.83.2 was other add-ons wiping the Emoticon item's whole `Property`, which silently took DenialMode off; v0.90.2 keeps our effects in their own record and re-asserts them (`docs/CHANGELOG.md`, v0.90.2). The record of the earlier attempts follows. Was: **OPEN, parked 2026-09-23 by DW.** v0.83.1 failed live; v0.83.2 was also reported not working the same night, no transcript yet. What follows is the record of both attempts. **v0.83.2:** the subject's own masturbation still finished her on v0.83.1 while a toy was held (DW's transcript, *Needs Testing* item 14). BC's `ActivityOrgasmPrepare` and `ActivityTimerProgress`, read from the live client via `bcModSdk.getPatchingInfo()`, confirm the cache was the right thing to fix: BC refuses only when `C.Effect` carries DenialMode, and only when nobody passes `Bypass`. BCX and WCE were hooking those two functions in the room. `src/denial.ts` now hooks both `ActivityOrgasmPrepare` and `ActivityOrgasmStart` and, while OUR carrier holds DenialMode, swallows the call and pins the meter at 99 as BC does, so no other mod's route around BC's check matters. `test/denial.mjs`, 20 checks, 8 failing with the hook disabled. **Not verified:** which path Rei's orgasm actually took. **The v0.83.1 entry:** DW's tracker (2026-09-22): *"Spoken orgasm denial suggestions fail to hook and prevent orgasm events."* Two causes. **(1) BC never saw it.** `setOrgasmDenied()` wrote `DenialMode` onto the Emoticon carrier and sent the appearance to the room, but BC answers "is this player denied" from the cached `Player.Effect` (both `HasEffect` and `ActivityOrgasmPrepare` read it), and only `CharacterLoadEffect` rebuilds that. The hypnotist was told it landed; the next orgasm BC started from a vibrator or an activity went through until something unrelated refreshed the character. v0.74.0 had found exactly this for the forced-orgasm pierce and fixed it there only. `applyEffect`/`removeEffect` now rebuild the cache for the player every time, which also makes our Freeze, BlockWardrobe and Leash take hold at once. **(2) The words missed.** *must not / mustn't*, *are not to*, *not permitted to*, *forbidden from cumming* and *don't you dare* matched nothing, and a denial that names its own end, *"you cannot cum until I allow you to cum"*, matched **allow** first and lifted the denial it was laying down. `orgasm-allow` now has an `unless` veto for a negated orgasm followed by *until/unless/till/before*. | 2026-09-22 | `test/activity.mjs` (+7) and `test/arousal.mjs` (+12): **3 and 10 verified failing on v0.82.3**. **Not run live**, and **unverified against BC source** (unreachable from the workspace): that `ActivityOrgasmPrepare` reads the cache is taken from the v0.74.0 comment and `DEVELOPMENT.md`, not re-read. *Needs Testing* item 14. By design and unchanged: "cum for me" still pierces our own denial (DW, 2026-09-12, command always wins), and every trance ending lifts it. |
 | 11 | **Room emotes show an unbalanced asterisk: `**Missy kneels…*`** — **OPEN, parked 2026-09-24 by DW.** Reported by DW from in-game play on v0.85.1, on DW's own screen with no other add-on believed to be involved. Seen on pose flavour lines (kneel, elbows behind), and probably the same thing as the stray induction asterisk that `docs/CHANGELOG.md` left unfixed in the v0.82.3 entry. **Traced so far, against current BC master (`GameVersion` R132, `ChatRoom.js`):** `tellRoom` (`notify.ts`) is the only room-emote path, and it sends `` ChatRoomSendEmote(`**${message}`) ``. `ChatRoomSendEmote` strips one leading `*` (unchanged since 2021), so `*Missy kneels…` goes out. The *Emote messages formatting* processor strips the next `*` and adds no name (unchanged since 2022), and the display wraps the result as `*…*`. That gives a balanced `*Missy kneels…*`. The observed `**…*` is exactly that wrap with one strip missing, so the text most likely arrives with **two** leading asterisks, or a display step is being skipped. No template begins with `*`. None of our hooks (`ChatRoomMessage`, `ChatRoomSendChatMessage`) or registered handlers (`suppression.ts`, priorities 205 and 320) touch emotes. **Control:** DW typing `**test` by hand in the same room showed a correct `*test*`, although it goes through the same `ChatRoomSendEmote`. **Do not "fix" by sending a single `*`:** that brings back Known Bug #5 (doubled name) for everyone on unmodded BC. | 2026-09-24 | **Next step is one capture, not more code reading.** Trigger a broken line in the Hypno Testing room and read the raw `Content` of its `ChatRoomMessage` console entry (our hook logs it at *Verbose*; on by itself in that room, `/hypno debug` elsewhere), or run `ServerSocket.on("ChatRoomMessage", d => { if (d.Type === "Emote") console.log(JSON.stringify(d.Content)); })`. `"*Missy…"` means the wire text is right and something at display adds the `*`. `"**Missy…"` means the send side stripped too little: check `ChatRoomSendEmote.toString()` and `bcModSdk.getModsInfo()`. `testbot/session.log` predates v0.72.7 and cannot answer this. |
 
 ### Known Bug #6 — what the code says before the screenshot arrives
@@ -4419,7 +4419,7 @@ After the merge:
    not load, which stays until clicked and goes when clicked. *Failure looks like:* no add-on and no
    note, which is the silent failure the note exists for.
 
-### 14. Spoken orgasm denial (v0.83.2) — **open. v0.83.1 and v0.83.2 both reported failing 2026-09-23; parked, see Todo**
+### ~~14. Spoken orgasm denial (v0.83.2)~~ — **confirmed working by DW 2026-09-26, on v0.90.2 onward (Known Bug #10 closed)**
 
 Two clients, the subject with *Arousal & Orgasm* ticked and BC arousal not set to Inactive.
 
@@ -4526,7 +4526,10 @@ One character, fresh settings (`/hypno reset confirm`, or a new account). Open E
 3. **Re-run.** Apply any preset, then press **Setup**, go to the summary, click **Cancel**.
    *Expect:* the tabs, every setting exactly as the preset left it.
 
-### 19. Trigger options (v0.87.0) — **open, never run live**
+### 19. Trigger options (v0.87.0) — **mostly confirmed by DW 2026-09-26; step 4 (expiry) still open**
+
+Confirmed live: once-only (after the v0.90.2 fix) and whole words. Not yet run: a trigger
+actually expiring at its lifespan (step 4).
 
 Two characters: a hypnotist H and a subject S with Triggers allowed, S in a Deep trance from H.
 `test/trigger-options.mjs` covers the logic; this is the part it cannot see — the real chat path, the
@@ -4556,7 +4559,7 @@ settings screen and a reload.
 7. **Layout.** S's Triggers tab: the lifespan dropdown sits right of the scope dropdown, on the same
    row, not overlapping it or its label, and both disappear on switching tabs.
 
-### 20. The trigger inspector (v0.88.0) — **open, never run live**
+### ~~20. The trigger inspector (v0.88.0)~~ — **confirmed by DW 2026-09-26**
 
 Two characters, H and S as in item 19, with S's *Show trigger words* **off**. H plants two triggers
 in S (any suggestion each; make one "you cannot move").
@@ -4584,7 +4587,7 @@ in S (any suggestion each; make one "you cannot move").
    `/echs forgettrigger all confirm`, nothing removed. Then the confirm → removed.
 8. **Purge a free one.** Plant one; on **Planted** click *Purge*. *Expect:* "Trigger 1 removed."
 
-### 21. Trigger words shown as "..." in chat (v0.89.0) — **open, never run live**
+### ~~21. Trigger words shown as "..." in chat (v0.89.0)~~ — **confirmed by DW 2026-09-26** ("words are hidden, I think"; the v0.90.2 fix for masking after a safeword included)
 
 H and S as before; S's *Show trigger words* **off**, *Awareness > Trigger setup* **off** (so the
 setup lines are drawn at all). A third player R in the room, to compare screens.
@@ -4609,7 +4612,7 @@ setup lines are drawn at all). A third player R in the room, to compare screens.
 9. **Notifications.** With BC chat notifications on and the tab in the background, H says it.
    *Expect:* the desktop notification shows "..." too.
 
-### 22. Instant drop triggers (v0.90.0) — **open, never run live**
+### 22. Instant drop triggers (v0.90.0) — **open, never run live. Next to test (DW, 2026-09-26)**
 
 H and S as before, plus a third player R. `test/drop.mjs` covers the rules; this checks the real
 trance: the freeze and fade, the room announcement, H's panel, and waking.
@@ -4635,7 +4638,7 @@ trance: the freeze and fade, the room announcement, H's panel, and waking.
 8. **Reload while dropped.** Drop S, reload S's tab. *Expect:* the trance resumes as any trance
    does (item 3 of the recovery rules).
 
-### 23. Spoken and mantra triggers (Build 5, inside v0.90.0) — **open, never run live**
+### ~~23. Spoken and mantra triggers (Build 5, inside v0.90.0)~~ — **confirmed by DW 2026-09-26** (spoken lines and "three times")
 
 H and S as before, plus R watching. `test/say.mjs` stubs BC's send; only a live room shows what
 the room actually receives, garbled or not.
@@ -4658,7 +4661,10 @@ the room actually receives, garbled or not.
 7. **Loop guard.** S ticks *You can fire your own triggers*; plant a line that says the trigger's
    own word. Fire it. *Expect:* said once, not forever.
 
-### 24. Delayed compulsions (Build 6, inside v0.90.0) — **open, never run live**
+### 24. Delayed compulsions (Build 6, inside v0.90.0) — **timed ones confirmed by DW 2026-09-26 (after v0.92.4); steps 5 and 6 still open**
+
+Confirmed live: the after-waking compulsions, once v0.92.4 fixed the wordings that woke her. Still to
+run: **5, "when I come back"** and **6, "when I speak, you cannot move"**.
 
 H and S as before, plus R. `test/compulsion.mjs` drives the rules with a fake clock; the parts it
 cannot reach are BC's real `ServerEnter` message, the 5-second poller in a real tab, and a
@@ -4690,7 +4696,9 @@ reload while a compulsion is armed.
 
 ---
 
-**Nine of twenty-five topics confirmed; sixteen open, above.** Next bugs or regressions go in Known Bugs.
+**Thirteen of twenty-five topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
+the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 
 ---
 
