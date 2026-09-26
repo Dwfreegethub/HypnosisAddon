@@ -46,6 +46,8 @@ Permissions are configured **per feature**:
 * Sensory modulation and awareness suppression
 * False reflections (clothing illusions)
 * Storing and firing trigger words
+* Triggers that drop you straight into trance (**Drop triggers**, on the Triggers tab, Off by default)
+* Triggers that make you say words aloud (**Made to Speak**, off by default)
 
 ### Adjusting Permissions & Mid-Trance Locks
 Outside of trance, unticking a permission immediately drops whatever effect was active and disarms that part of any planted trigger you have saved.
@@ -72,7 +74,8 @@ Both must pass at the exact moment a line is spoken. Ticking a permission simply
 A few features are guarded much more strictly by default because they outlive the scene, alter your perception, or simulate real involuntary action:
 
 * **Clothing Illusion:** Your screen keeps rendering your original outfit, while the rest of the room sees what you are actually wearing.
-* **Planted Triggers:** Trigger words that stay primed in your client to fire later—inside or outside of trance, even days down the line.
+* **Planted Triggers:** Trigger words that stay primed in your client to fire later—inside or outside of trance, even days down the line. You never see your own trigger words unless you choose to, not even in chat.
+* **Compulsions:** Triggers with no word, waiting for a time after you wake, or for someone to arrive or speak. They never go off while you are in a trance.
 * **Carry-Forward Suggestions:** Effects set to stay active after you wake up.
 * **Awareness Suppression:** Hides clothing changes, ropes, or touch interactions from your chat log. The actions happen in the room, but your client doesn't notify you.
 
@@ -95,7 +98,7 @@ Getting worked up or highly aroused can lower your resistance and open doors, bu
 These exits cannot be disabled, locked, or overridden by any hypnotic command, trigger, or setting:
 
 ### Emergency Safewords & Disabling
-* **`/echs safeword` (or `/hypno safeword`):** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
+* **`/echs safeword` (or `/hypno safeword`):** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. It also discards any compulsion that was waiting for you to wake, so nothing goes off minutes after you said stop. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
 * **Unticking "Hypnosis Enabled":** Completely shuts down the add-on from your native extension menu.
 
 ### Waking Up & Natural Releases
@@ -109,7 +112,8 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 * **Induction Window:** An unanswered induction prompt closes on its own after the countdown expires.
 
 ### One Deliberate Refusal
-* `/echs forgettrigger` (or `/hypno forgettrigger`) **will refuse to delete a trigger while that trigger is actively holding you.** Deleting a trigger while you are under its direct influence is blocked to preserve scene tension—use `/echs safeword` instead for an immediate, clean break.
+* `/echs forgettrigger` (or `/hypno forgettrigger`), and **Purge** on the Planted tab, **will refuse to delete a trigger while that trigger is actively holding you.** Deleting a trigger while you are under its direct influence is blocked to preserve scene tension—use `/echs safeword` instead for an immediate, clean break.
+* **Clear All** (and `/echs forgettrigger all`) will not run while any trigger is holding you or a session is running. Clear that first, then clear the list. It asks you to confirm before it removes anything.
 
 ---
 

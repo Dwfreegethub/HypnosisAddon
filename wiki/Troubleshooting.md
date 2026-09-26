@@ -62,7 +62,7 @@ If an effect or restriction persists unexpectedly, escalate in this order:
 
 1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes.
 2. **Release by Name:** The hypnotist who applied the effect can speak a targeted release phrase (e.g., *"Missy, you are released from sleepy time"*).
-3. **Use the Emergency Safeword:** Type `/echs safeword` (or `/hypno safeword`). This instantly breaks trances, clears all active triggers, and purges all lingering effects from any state.
+3. **Use the Emergency Safeword:** Type `/echs safeword` (or `/hypno safeword`). This instantly breaks trances, releases every trigger that is holding you, discards compulsions waiting for you to wake, and purges all lingering effects from any state.
 
 *Note on `/echs forgettrigger`:* The command intentionally refuses to delete a trigger while that specific trigger is actively holding you. Use your safeword for an immediate clean break.
 
@@ -88,6 +88,10 @@ The icon is intentionally visible for all players rather than hidden for non-use
 * **Natural Decay:** Type `/echs triggers` (or `/hypno triggers`) to review trigger strength. A trigger's remaining strength represents the depth tier it fires at. A decayed trigger will fire its shallow actions (like freezing) but fail to execute deeper actions.
 * **Revoked Permission:** Permissions are re-checked at the exact moment a trigger fires. If *Movement Restriction* was unticked after a trigger was planted, the movement portion of that trigger will fail to execute.
 * **Scope Restrictions:** If the trigger was planted by someone else and your scope is set to *Hypnotist only*, other players cannot fire it. Firing your own triggers is also disabled by default (*"You can fire your own triggers"* on the Triggers tab).
+* **Used Up or Timed Out:** A trigger set to work once is gone after it fires, and a trigger with a time limit stops at that time. Check with `/echs triggers <number>`.
+* **Whole Words Only:** If the trigger, or your **Triggers fire only on whole words** setting, needs the whole words, it will not fire inside a longer word.
+* **A Drop That Did Nothing:** A drop needs **Drop triggers** on, and follows the rules of an ordinary hypnosis attempt: not already in a trance, nobody else part-way through, the speaker in the room. Whoever said it is told why.
+* **A Compulsion That Has Not Gone Off:** Compulsions never fire while you are in a trance. One timed from waking only starts its clock when you wake from a trance with the hypnotist who planted it, and your safeword discards it.
 
 ---
 
@@ -105,7 +109,7 @@ The icon is intentionally visible for all players rather than hidden for non-use
 * **Pose Words in Ordinary Patter:** *"Surrender"* and *"relax your arms"* are pose commands as well as common hypnosis phrasing. With *Posture Control* ticked, *"Missy, surrender to my voice"* raises her arms over her head, and *"Missy, relax your arms"* drops any arm pose she is holding. Leave the name out of that sentence, or rephrase, if you only meant atmosphere.
 * **Whole-Body Poses:** *"On all fours"* and *"lie down"* use Bondage Club's whole-body poses, so they replace any arm pose rather than combining with it. *"Lie down"* may need a supporting item worn before the game allows it; if it does, it reports as not landing rather than failing silently.
 * **Trigger Phrase Collisions in Commands:** If a planted trigger phrase appears inside a spoken command line, the trigger handler may take precedence and swallow the command.
-* **Internal Action IDs:** In some diagnostic outputs like `/echs triggers`, queued actions may display raw internal IDs (e.g., `act:genital`) rather than localized descriptions.
+* **Internal Action IDs:** The hypnotist's private `[trigger]` confirmations still name actions by their internal IDs (e.g., `movement-block`, `act:genital`). Your own `/echs triggers <number>` shows them in plain words.
 * **Trigger Decay Balancing:** Live trigger decay curves are actively being calibrated across real play sessions and remain disabled by default.
 
 ---

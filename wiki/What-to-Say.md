@@ -181,7 +181,17 @@ Commands such as *"Missy, touch your breasts"* make the subject's character phys
 
 ## Making It Last
 
-To configure subconscious triggers that activate days later or suggestions that persist through waking, see [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
+To configure subconscious triggers that activate days later or suggestions that persist through waking, see [Triggers and Lasting Effects](Triggers-and-Lasting-Effects). While planting a trigger, these lines shape it:
+
+| Say | What It Does |
+|---|---|
+| *"this trigger works only once"* · *"it works every time"* | Once, or until it fades. |
+| *"it lasts 2 hours"* · *"it lasts forever"* | A time limit, or none. |
+| *"anyone can use it"* · *"only I can use it"* | Who may fire it, within the subject's own setting. |
+| *"only when you hear it exactly"* | Whole words only. |
+| *"you will drop into trance"* | An instant drop (needs **Drop triggers**). |
+| *"you will say 'I obey' three times"* | Words said aloud (needs **Made to Speak**). |
+| *"five minutes after you wake, …"* · *"when Rei comes in, …"* · *"when Rei speaks, …"* | A compulsion: no word, waits for that instead. |
 
 ---
 
