@@ -20,6 +20,36 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.95.0) — "sink deeper", in-session deepening (CHANGES a settled rule)
+
+From DW's brief (job.md, not committed). **It reverses design.md's "depth is fixed at entry; to go
+deeper, wake and re-induce"**, with DW's say-so, and keeps fractionation planned beside it. The full
+decision list is in design.md → *Trance Depth During a Session*. Where the brief and ECHS differed,
+DW chose: a new subject-side ceiling (`deepestTier`, Depth tab, default Entranced; per-hypnotist
+parked on the Todo list) for the brief's nonexistent "configured maximum"; the trust gift for its
+nonexistent "Automatic Hypnosis"; bands, not tier names, to the hypnotist; 60 s AND a landed
+suggestion between tries (the brief said 30-45 s); the chance with the induction choice added and
+the brief's unbuilt "susceptibility bias" left out.
+
+**Full depth only.** `tryDeepen` raises `session.depth` to the next tier's floor and calls
+`setCurrentDepths(full, session.depthEarned)`; earned is untouched, so the earned-only three stay
+behind trust (mutation: raising earned too fails 2 checks). `deepenChance` reads `effectiveAccess`
+(so the relationship, arousal and trust-gift floors all count, as at induction) + `currentSkillTerms`
++ time + `CHOICE_MODIFIER[choice]` − tier penalty. A forced or trigger-dropped trance has no choice
+and counts as Ignore.
+
+**Parsing.** `handleDeepening` sits after the walking-trance handler and before the body-part and
+table matchers, so "go deeper" is never read as movement. Negation is anchored to the verb ("don't
+go any deeper" refused; "don't stop, go deeper" accepted). "Let that trigger sink deeper" still
+reinforces (its handler runs first). Planting: `splitStartAtAction` now also splits at a deepening
+rest, so "when you hear silver bell, sink deeper" plants "silver bell" rather than swallowing the
+whole line as the phrase, and the re-read tells the hypnotist a trigger cannot hold a deepening
+(the instant drop can). Landing is noted by `noteSuggestionLanded` from the table path (outcome ===
+id), body-part blocks and commanded activities that happened.
+
+`test/deepen.mjs`, 51 checks: removing the ceiling fails 1, the pace 4, the planting guard 2,
+raising earned depth 2. Persisted with the session (`persistState`), so a reload keeps the depth.
+
 ### Added 2026-09-26 (v0.94.0) — "I trust you, Eri"
 
 DW: "a one time trust boost. If the subject says that they trust the hypnotist it will give them a

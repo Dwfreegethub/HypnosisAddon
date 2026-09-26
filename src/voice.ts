@@ -28,6 +28,8 @@ import {
 	isSessionLive,
 	isHypnotized,
 	dropIntoTrance,
+	tryDeepen,
+	noteSuggestionLanded,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
@@ -1901,7 +1903,9 @@ function splitStartAtAction(content: string, start: RegExp): { head: string; res
 	while ((p = PAUSE.exec(captured))) {
 		const head = captured.slice(0, p.index).trim();
 		const rest = captured.slice(p.index + p[0].length).replace(/^\s*(?:(?:and|then)\s+)*/, "").trim();
-		if (head && rest && isRecordableAction(rest)) return { head, rest };
+		// A deepening is split off too, though a trigger cannot hold one, so the phrase is not
+		// polluted with it ("silver bell sink deeper") and the hypnotist is told why (v0.95.0).
+		if (head && rest && (isRecordableAction(rest) || isDeepeningLine(rest))) return { head, rest };
 	}
 	return null;
 }
@@ -2721,6 +2725,64 @@ function handleReinforcement(sender: number, content: string): boolean {
 	return true;
 }
 
+// --- "Sink deeper" (v0.95.0, DW 2026-09-26, from job.md) --------------------------------------
+// One tier deeper mid-trance; session.tryDeepen() decides, from her settings, whether it may and
+// whether it takes. Every outcome is said to the hypnotist (rule 5), in bands only, never the tier.
+const DEEPEN = [
+	/\b(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float) (?:down )?(?:even |much |a little |a bit |further and |ever )?deeper\b/,
+	/\bdeeper and deeper\b/,
+	/\bdeeper (?:down )?(?:into|in) (?:trance|the trance|sleep)\b/,
+];
+const DEEPEN_NEGATED =
+	/\b(?:do not|don t|dont|never|not|no|cannot|can t)\s+(?:(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float)\s+(?:any\s+)?)?deeper\b/;
+
+export function isDeepeningLine(content: string): boolean {
+	const text = normalize(content);
+	return DEEPEN.some((p) => p.test(text)) && !DEEPEN_NEGATED.test(text);
+}
+
+function handleDeepening(sender: number, line: string): boolean {
+	if (!isDeepeningLine(line)) return false;
+	if (!isSessionActiveWith(sender) || !isHypnotized()) {
+		log(`heard a deepening line from ${sender} but she is not under with them`);
+		return true;
+	}
+	if (!mentionsAnyName(line, playerOwnNames())) {
+		log(`heard a deepening line from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	// A trigger or compulsion being planted (its rest is re-read through here with rereadingRest):
+	// a deepening is not something one can hold, and it must not happen now instead.
+	if (isRecording() || rereadingRest) {
+		tellHypnotist(sender, "[deepen] A trigger cannot hold a deepening. The instant drop can: \"…you will drop into trance\".");
+		return true;
+	}
+	const r = tryDeepen(sender);
+	switch (r.kind) {
+		case "deeper":
+			announce("deepen");
+			tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
+			break;
+		case "failed":
+			tellPlayer(flavor("deepen-failed"));
+			tellHypnotist(sender, "[deepen] It does not take hold this time.");
+			break;
+		case "ceiling":
+			tellHypnotist(sender, "[deepen] They are already as deep as they let themselves go this way.");
+			break;
+		case "never":
+			tellHypnotist(sender, "[deepen] They do not let themselves be taken deeper this way.");
+			break;
+		case "cooldown":
+			tellHypnotist(sender, `[deepen] The last one is still settling. Try again in ${r.seconds}s.`);
+			break;
+		case "needs-command":
+			tellHypnotist(sender, "[deepen] Give them a suggestion to follow first; the last deepening needs something to settle on.");
+			break;
+	}
+	return true;
+}
+
 function handleTriggerFiring(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text) return false;
@@ -2995,6 +3057,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	}
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
 	else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
+	noteSuggestionLanded(sender);
 	const actionId = cmd.all ? "touch:all" : `touch:${cmd.word}`;
 	if (cmd.block) {
 		noteApplied(actionId);
@@ -3243,6 +3306,7 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		return true;
 	}
 	tellPlayer("Your body does it without waiting for you to decide.");
+	noteSuggestionLanded(sender);
 	repeatTouch(sender, cmd.times, () => runCommandedActivity(activity, groups) != null);
 	return true;
 }
@@ -3545,6 +3609,8 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// After wake (so "come back to me" wakes rather than walks) and before the matcher (so the
 	// leave phrases can pre-empt the movement suggestion while walking).
 	if (handleWalkingTrance(sender, line)) return;
+	// "Sink deeper" (v0.95.0). Before the matcher, so "go deeper" is never read as movement.
+	if (handleDeepening(sender, line)) return;
 	if (handleBodyPartLine(sender, line)) return;
 	// Positive activity COMMANDS ("touch your breasts") after the block/release handler above,
 	// so "you cannot touch your breasts" stays a block, and before the table matcher, which does
@@ -3626,6 +3692,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// is why it returns a key rather than a boolean.
 	const outcome = suggestion.run(sender) || id;
 	if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
+	else noteSuggestionLanded(sender);
 	// A PARTIAL SUCCESS IS ITS OWN OUTCOME TOO. The broad awareness line applies whichever of
 	// its three categories are permitted and deep enough, and used to say nothing about the
 	// rest — so a hypnotist who said "you will not notice" with only touches ticked was told

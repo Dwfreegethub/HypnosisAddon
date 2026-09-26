@@ -16,6 +16,8 @@ import {
 	clearDepthOverrides,
 	setChemicalScope,
 	setSkillHonour,
+	setDeepestTier,
+	DEFAULT_DEEPEST,
 	setTriggerDecayRate,
 	setChemicalReach,
 	getStarterState,
@@ -64,6 +66,8 @@ export interface SetupConfig {
 	/** Open the earned-only illusion and triggers to arousal (the fast-decay tradeoff). Extreme
 	 * only — the wizard never turns this on for you. */
 	openChemical?: boolean;
+	/** How deep "sink deeper" may take her (v0.95.0). Absent = the default, Entranced. */
+	deepest?: string;
 }
 
 /** Write a whole configuration to storage. The one place presets and the wizard converge, so
@@ -86,6 +90,7 @@ export function applySetup(cfg: SetupConfig): void {
 	// The earned-only shortcut is off unless a preset (Extreme) explicitly opens it.
 	setChemicalReach("illusionControl", !!cfg.openChemical);
 	setChemicalReach("triggerControl", !!cfg.openChemical);
+	setDeepestTier(cfg.deepest ?? DEFAULT_DEEPEST);
 
 	setStarterState("done");
 }
@@ -148,6 +153,7 @@ export const PRESETS: Preset[] = [
 			honour: "capped",
 			triggersFade: false,
 			openChemical: true,
+			deepest: "blank",
 		},
 	},
 ];

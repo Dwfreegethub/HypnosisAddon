@@ -39,6 +39,10 @@ import {
 	setSkillHonour,
 	nextSkillHonour,
 	SKILL_HONOUR_RUNGS,
+	DEEPEST_TIERS,
+	getDeepestTier,
+	setDeepestTier,
+	nextDeepestTier,
 	getChemicalReach,
 	setChemicalReach,
 } from "./storage";
@@ -648,6 +652,9 @@ const DEFAULTS_BUTTON_WIDTH = 240;
  * sentences ("Only from people I trust"). */
 const HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
 const HONOUR_BUTTON_WIDTH = 720;
+/** "Deepest I go" (v0.95.0): beside the honour button, in the free right half of that row. */
+const DEEPEST_BUTTON_LEFT = SCOPE_BUTTON_LEFT + HONOUR_BUTTON_WIDTH + 20;
+const DEEPEST_BUTTON_WIDTH = 440;
 let depthPage = 0;
 
 function depthPageCount(): number {
@@ -737,6 +744,14 @@ function drawDepthGates(): void {
 			"Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
 		locked,
 	);
+	const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
+	DrawButton(
+		DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
+		`"Sink deeper" stops at: ${deepest}`, locked ? "#ddd" : "White", "",
+		"The deepest a hypnotist can talk you down mid-trance, one tier at a time. " +
+			"An induction still lands wherever its roll puts it. Never reaches the three above that say otherwise.",
+		locked,
+	);
 
 	// Where they are RIGHT NOW, so the numbers above mean something while reading the list.
 	//
@@ -769,6 +784,12 @@ function clickDepthGates(): boolean {
 	if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
 		clearDepthOverrides();
 		notifyLocal("Depth requirements reset to their defaults.");
+		return true;
+	}
+	if (MouseIn(DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+		const next = nextDeepestTier(getDeepestTier());
+		setDeepestTier(next);
+		log(`deepest tier set to ${next}`);
 		return true;
 	}
 	if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {

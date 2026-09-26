@@ -12,6 +12,18 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.95.0 · 26 September 2026
+
+- **New: going deeper mid-trance.** Once you are under, your hypnotist can say *"Missy, sink
+  deeper"* (or go, drop, fall, sleep, relax deeper, or *"deeper and deeper"*) to take you one depth
+  further. It is a roll: your trust in them, their skill, how long you have been under and your
+  answer at the prompt all count, and each step down is harder. At most once a minute, and only
+  after one of their suggestions has landed. If you have told them *"I trust you"*, it always takes.
+- **Your limit:** the Depth tab's new *"Sink deeper" stops at* setting. It is **Entranced** unless
+  you change it, and it can be turned off. Going deeper this way never unlocks triggers,
+  suggestions that outlive the trance, or the clothing illusion.
+- Your hypnotist is told whether it took, but never your exact depth.
+
 ## v0.94.0 · 26 September 2026
 
 - **New: giving your trust.** Say *"I trust you, Eri"* (or whisper *"I trust you"* to Eri, or type

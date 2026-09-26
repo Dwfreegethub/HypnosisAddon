@@ -43,6 +43,8 @@ You don't need a spreadsheet to play. Your receptivity to a hypnotist comes down
    * **Owners:** Automatically have enough baseline access to reach everything you've permitted.
 3. **Arousal (The Heat of the Moment):** Being worked up lowers your natural resistance, giving strangers a temporary way in. However, arousal has a strict built-in ceiling (defaulting to **Yielding**). A stranger can leverage arousal to make you freeze or kneel, but arousal alone can *never* leave triggers behind or alter your perception.
 
+**Going deeper once under.** The induction sets where you start. After that, a hypnotist can say *"Missy, sink deeper"* to take you one depth further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Your Depth tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never reaches the earned-only features. See [What to Say](What-to-Say#going-deeper-mid-trance).
+
 Want to see exactly where you and a partner stand? Type:
 ```text
 /echs chance <name>
