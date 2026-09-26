@@ -12,6 +12,17 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.89.0 · 25 September 2026
+
+- **You no longer see your trigger words in chat.** When someone says one of your trigger words,
+  or plants a new one in you, you see "..." in its place. The trigger still works. This happens
+  only on your own screen: everyone else in the room sees the message as it was sent.
+- It covers normal chat, whispers and emotes, and the ungarbled copy the game can show beside a
+  gagged player's words.
+- Your own messages are never changed.
+- **Want to see them?** Tick *Show trigger words* on the Triggers tab, and your words show in
+  chat, just as they do in the list.
+
 ## v0.88.0 · 25 September 2026
 
 - **`/echs triggers` is a short summary now.** It says how many triggers you have, who planted

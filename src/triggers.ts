@@ -504,6 +504,11 @@ export function isRecording(): boolean {
 	return recording !== null;
 }
 
+/** The phrase being recorded right now, if any — concealed in chat like a planted one. */
+export function recordingPhrase(): string | null {
+	return recording?.phrase ?? null;
+}
+
 export function cancelRecording(): void {
 	recording = null;
 }

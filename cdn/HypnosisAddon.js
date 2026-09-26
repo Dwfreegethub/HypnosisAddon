@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.88.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.89.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -4238,6 +4238,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isRecording() {
     return recording !== null;
   }
+  function recordingPhrase() {
+    return recording?.phrase ?? null;
+  }
   function cancelRecording() {
     recording = null;
   }
@@ -8339,7 +8342,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.88.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.89.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -9850,6 +9853,102 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
   }
 
+  // src/conceal.ts
+  var WORD_SPELLINGS = {
+    cannot: String.raw`(?:cannot|can['‘’ʼ]?t|can\s+not)`,
+    // normalize() reads "ur" as "your" only as a whole word, so the "ur" ending "our" must not match.
+    your: String.raw`(?:your|(?<![a-z])ur)`
+  };
+  var PAIR_SPELLINGS = {
+    "do not": String.raw`(?:do[^a-z]+not|don['‘’ʼ]?t)`,
+    "will not": String.raw`(?:will[^a-z]+not|won['‘’ʼ]?t)`,
+    "must not": String.raw`(?:must[^a-z]+not|mustn['‘’ʼ]?t)`,
+    "does not": String.raw`(?:does[^a-z]+not|doesn['‘’ʼ]?t)`,
+    "is not": String.raw`(?:is[^a-z]+not|isn['‘’ʼ]?t)`,
+    "are not": String.raw`(?:are[^a-z]+not|aren['‘’ʼ]?t)`,
+    "you are": String.raw`(?:you[^a-z]+are|you['‘’ʼ]?re)`,
+    "you have": String.raw`(?:you[^a-z]+have|you['‘’ʼ]?ve)`
+  };
+  function wordPattern(word) {
+    const stutter = `(?:${word[0]}-)*`;
+    return stutter + (WORD_SPELLINGS[word] ?? word);
+  }
+  function phrasePattern(phrase, strict) {
+    const words = phrase.split(" ").filter(Boolean);
+    if (!words.length) return null;
+    const parts = [];
+    for (let i = 0; i < words.length; i++) {
+      const pair = words[i + 1] !== void 0 ? PAIR_SPELLINGS[`${words[i]} ${words[i + 1]}`] : void 0;
+      if (pair) {
+        parts.push(`(?:${words[i][0]}-)*${pair}`);
+        i++;
+        continue;
+      }
+      parts.push(wordPattern(words[i]));
+    }
+    const body2 = parts.join("[^a-z]+");
+    return strict ? `(?<![a-z])${body2}(?![a-z])` : body2;
+  }
+  function concealPhrases(text, phrases) {
+    const sorted = phrases.slice().sort((a, b) => b.phrase.length - a.phrase.length);
+    let out = text;
+    for (const { phrase, strict } of sorted) {
+      const source = phrasePattern(phrase, strict);
+      if (!source) continue;
+      out = out.replace(new RegExp(source, "gi"), "...");
+    }
+    return out;
+  }
+  function phrasesToConceal(sender, content) {
+    const strictAll = getFeatures().strictTriggerMatch;
+    const phrases = listTriggers().map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
+    const recording2 = recordingPhrase();
+    if (recording2) phrases.push({ phrase: recording2, strict: false });
+    if (isSessionActiveWith(sender)) {
+      const inCharacter = stripOOC(unstutter(content));
+      const line = inCharacter === null ? null : scopeToAddressee(inCharacter, playerOwnNames(), otherRoomNames(sender)).text;
+      const parsed = line === null ? null : parseTriggerControl(line);
+      if (parsed?.kind === "start" && parsed.phrase) phrases.push({ phrase: parsed.phrase, strict: false });
+    }
+    return phrases;
+  }
+  function concealing(data) {
+    if (!getFeatures().hypnoEnabled) return false;
+    if (triggerPhrasesVisible(false)) return false;
+    if (data?.Sender === Player?.MemberNumber) return false;
+    return data?.Type === "Chat" || data?.Type === "Whisper" || data?.Type === "Emote";
+  }
+  function concealHandler(data, msg, metadata) {
+    if (!concealing(data) || typeof msg !== "string") return false;
+    const phrases = phrasesToConceal(data.Sender, String(data.Content ?? ""));
+    if (!phrases.length) return false;
+    const masked = concealPhrases(msg, phrases);
+    if (metadata && typeof metadata.OriginalMsg === "string") {
+      metadata.OriginalMsg = concealPhrases(metadata.OriginalMsg, phrases);
+    }
+    if (masked === msg) return false;
+    log("concealed a trigger word in a chat line");
+    return { msg: masked };
+  }
+  function installConcealment() {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 trigger words will not be concealed in chat");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: show trigger words as ... (after emote formatting, before garbling)",
+      Priority: 50,
+      Callback: (data, _sender, msg, metadata) => {
+        try {
+          return concealHandler(data, msg, metadata);
+        } catch (err) {
+          warn("trigger-word concealment failed:", err);
+          return false;
+        }
+      }
+    });
+  }
+
   // src/denial.ts
   var DENIAL_HOLD = 99;
   var ORGASM_HAPPENING = 2;
@@ -9928,7 +10027,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.88.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.89.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9951,7 +10050,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.88.0"} loaded`;
+    el.textContent = `ECHS v${"0.89.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9982,14 +10081,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.88.0"})`);
+  info(`script loaded (v${"0.89.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.88.0",
+      version: "0.89.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -10088,6 +10187,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("session state machine", installSession);
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
+  safely("trigger word concealment", installConcealment);
   safely("self-touch hook", () => installSelfTouch(modApi));
   safely("orgasm denial hooks", () => installDenial(modApi));
   safely("follow-leash hook", () => installFollow(modApi));

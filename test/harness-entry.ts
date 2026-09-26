@@ -25,3 +25,4 @@ export * as effects from "../src/effects";
 export * as recovery from "../src/recovery";
 export * as welcome from "../src/welcome";
 export * as commands from "../src/commands";
+export * as conceal from "../src/conceal";
