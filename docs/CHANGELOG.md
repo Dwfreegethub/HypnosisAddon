@@ -45,7 +45,7 @@ hold (yes). While OUR `Freeze` is on (`isHeldStill()`, `effects.ts`):
 - **The trance default is covered for free.** Walking trance removes our `Freeze`, so it releases
   the hold; the safeword clears it like everything else.
 
-**Items are deliberately not blocked** (flagged to DW). A pose-forcing item is applied by BC's
+**Items are deliberately not blocked** (DW confirmed 2026-09-26: don't block items). A pose-forcing item is applied by BC's
 item system under her own item permissions. Refusing it would mean refusing other players' items,
 and nobody could restrain a held-still subject.
 
