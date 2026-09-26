@@ -20,6 +20,68 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.90.0, Build 6, no bump) — delayed compulsions
+
+Build 6, the last of the *Trigger Overhaul*, shipped inside v0.90.0 per DW.
+
+**Phrase-less triggers, on the existing record.** A compulsion is a `Trigger` with `phrase: ""`, a
+synthetic `key` (`<fireOn>:<installer>:<installedAt>`), and `fireOn` = `wake` / `arrive` /
+`speak`, plus `delayMs` / `dueAt` or `watchName` / `watchMember`. It is the `key` field that Build 1
+added "so phrase-less triggers can exist later", used as intended. Scope, strength, decay, expiry,
+options, one-shot, the list, the detail and Purge all apply unchanged. `timerKey` and the drain key
+moved from `phrase` to `key`: identical strings for every phrase trigger, and distinct for two
+compulsions by the same installer. `normalise` drops invalid condition fields.
+
+**Planting.** `parseCondition` (`voice.ts`) reads the start line on the digit-keeping
+normalisation, before `TRIGGER_START`, so "when you hear Rei's voice" is a condition and not a
+trigger word:
+- "N minutes after you wake"
+- "when you wake"
+- "when X comes in"
+- "when X speaks" / "when you hear X's voice"
+
+X is resolved at planting (`resolveWatch`): a room member by number, an absent name kept by name,
+"I" as the installer, "anyone" as `*`. Pronouns are refused. Whatever follows the clause is
+recorded by re-reading it, with the subject's name, through the ordinary handlers (words to say and
+drops taken directly), with firing suppressed for that pass. **Two traps found and fixed on the
+way:**
+- A line naming a room member ("when Rei comes in") was cut to "Missy, when" by addressee scoping.
+  A person-watching condition line is now read whole, behind the same trance-and-name gate.
+- "Missy, when you wake up you will feel refreshed" has always *woken* her (bare "wake"). If
+  nothing recordable follows a clause, the recording is dropped and the line falls through, so it
+  keeps that meaning.
+
+**Firing.**
+- **Wake** arms in a new `onWake` hook: `teardown.ts`, run by `endSession` on an ordinary end of a
+  *trance*, never an attempt. Only the installer's trance arms their compulsion. Arming stores
+  `dueAt`; a 5-second `setInterval` (`installCompulsions`, deliberately outside `timers.ts`, which
+  `clearAllTimers()` empties at every trance end) fires what is due. A stored time outlives reloads,
+  and the clock keeps running offline (DW, 2026-09-25).
+- **Arrival** comes from BC's own entry notice. It is an `Action` message with
+  `Content: "ServerEnter"`, sent by the arriving member after `ChatRoomSyncMemberJoin` (checked
+  against R132). We read it in our hook after `next()`, so "Rei entered." prints first.
+- **Speech** is any chat line from the watched person (`handleTriggerFiring`).
+
+None fire while she is hypnotised. A compulsion fires *as its installer* (scope is not asked,
+because nobody said anything to fire it), so a drop in one makes the installer the hypnotist, and
+needs them present. One-time by default, as the spec asks; "it works every time" keeps it, and a
+wake compulsion then goes back to waiting for the next wake. `onTotalStop` (safeword, hard floor)
+discards every wake compulsion, armed or not (rule 2). Arrival and speech compulsions persist
+through a safeword, as planted phrase triggers always have.
+
+`test/compulsion.mjs`, 57 checks. Verified by mutation: dropping each of these turned its own
+checks red or crashed the suite:
+- arming on wake
+- the safeword discard
+- the installer-only arming
+- the not-while-under guard (on both the due and the event paths)
+- the one-time default
+- the scoping bypass
+- the fall-through for an empty rest
+- the speech hook
+
+Live steps: *Needs Testing* item 24.
+
 ### Added 2026-09-25 (v0.90.0, Build 5, no bump) — spoken and mantra triggers
 
 Build 5 of the *Trigger Overhaul*. DW asked for no version bump until the overhaul is done, so

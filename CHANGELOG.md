@@ -37,6 +37,19 @@ report it and say which version your chat line shows.
   - A trigger can speak for you even while a trance keeps you from speaking on your own.
   - To stop runaway loops, at most six such lines go out a minute, and a line said this way never
     sets off your own triggers.
+- **Compulsions: triggers that wait for something instead of a word.** While you are under, a
+  hypnotist can set one up and finish with "remember trigger":
+  - *"five minutes after you wake, you will kneel"*
+  - *"when Rei comes in, …"*
+  - *"when I speak, …"*
+
+  How they work:
+  - They never go off while you are in a trance.
+  - They work once, unless the hypnotist says they work every time.
+  - The time after waking keeps counting while you are logged off.
+  - Your safeword clears any that are waiting for you to wake.
+  - They show in `/echs triggers` and on the Planted tab like any other trigger, and you can purge
+    them the same way.
 
 ## v0.89.0 · 25 September 2026
 

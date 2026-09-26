@@ -46,7 +46,9 @@ Alternatively, you can step through five short questions to select exactly which
 ### Initiating Hypnosis via Profiles
 Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 
 
-Clicking that spiral sends a session induction request directly to that player. (You can also initiate sessions via chat commands).
+Clicking that spiral opens their hypnosis panel, where **Attempt Hypnosis** sends the induction request.
+
+**Or type it:** `/echs induce <name>` (for example `/echs induce Missy`) does exactly the same from chat, and `/echs retry` tries the same person again. See [Commands](Commands#starting-a-hypnosis--for-the-hypnotist).
 
 ---
 

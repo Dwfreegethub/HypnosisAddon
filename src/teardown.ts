@@ -9,6 +9,38 @@
 // same reason timers.ts does.
 
 const cleanups = new Set<() => void>();
+const wakeListeners = new Set<(hypnotistId: number | null) => void>();
+const totalStopListeners = new Set<() => void>();
+
+/** Run on an ORDINARY end of a trance — a wake, a timeout — and not on the safeword or the hard
+ * floor, which have their own hook below. Delayed compulsions arm here (triggers.ts). */
+export function onWake(listener: (hypnotistId: number | null) => void): void {
+	wakeListeners.add(listener);
+}
+export function runWake(hypnotistId: number | null): void {
+	for (const listener of wakeListeners) {
+		try {
+			listener(hypnotistId);
+		} catch {
+			// As runTeardown: a listener is a small state change and must not break a wake.
+		}
+	}
+}
+
+/** Run on the safeword and the hard floor only. Nothing that was waiting for a wake may go off
+ * after someone has said stop (rule 2). */
+export function onTotalStop(listener: () => void): void {
+	totalStopListeners.add(listener);
+}
+export function runTotalStop(): void {
+	for (const listener of totalStopListeners) {
+		try {
+			listener();
+		} catch {
+			// Never let a listener stand between the safeword and finishing.
+		}
+	}
+}
 
 /** Register a cleanup to run on every trance teardown. Registered at module load, so it is
  * always in force. The callback must be a trivial state reset — see runTeardown on why. */

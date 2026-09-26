@@ -26,6 +26,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
 | **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
 | **Made to Touch Others (needs Made to Act)** | Allows the hypnotist to aim those commands at someone else in the room (*"kiss Rei"*). Not needed for the hypnotist themselves (*"kiss me"*). Off by default. See [Commanded Activities](Commanded-Activities#touching-someone-else). |
+| **Made to Speak (a trigger says words for you)** | Allows a planted trigger to make you say words aloud in the room (*"you will say 'I obey'"*). A gag still garbles them. Off by default; of the setup presets only Extreme turns it on. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects#words-to-say). |
 | **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
 | **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
@@ -35,7 +36,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 * **Induction Attempt Limit:** Choose between 2 or 3 attempts before triggering a 10-minute cooldown (default: 2).
 * **Starter Set:** A one-click preset on fresh installs that enables five safe, session-only basics, reversible with a single click.
 
-*(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab).*
+*(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab).*
 
 ---
 
@@ -62,7 +63,7 @@ Controls perceptual filtering — what your character can be hypnotically made n
 * **Clothing Changes:** Suppresses chat notices when items of clothing are removed or replaced.
 * **Bondage Changes:** Suppresses chat notices when anything in an item slot is applied, adjusted, locked, or removed: restraints, and also gags, collars, blindfolds, toys and locks.
 * **Touches / Activities:** Suppresses chat feedback from physical interactions.
-* **Trigger Setup (Hide Planted Phrases):** Hides the setup dialogue while a trigger is being installed, preventing you from consciously reading your own trigger phrase.
+* **Trigger Setup (Hide Planted Phrases):** Hides the whole setup dialogue while a trigger is being installed. Even with this off, the trigger word itself shows as "..." unless you have ticked **Show trigger words**.
 
 ---
 
@@ -73,14 +74,29 @@ Manages long-term suggestions and conditioned words:
 * **Allow Triggers to Be Planted:** Master permission for storing trigger words in your client.
 * **Suggestions That Outlive Trance (Carry-Forward):** Allows post-hypnotic suggestions to remain active after waking.
 * **Self-Triggering:** Permits you to trigger your own planted words (off by default).
-* **Reveal Trigger Words:** Displays clear-text phrases when listing triggers via `/echs triggers` (off by default for blind trigger play).
+* **Show Trigger Words:** Shows your trigger words in the trigger list and in chat. Off by default: your words appear as "..." in chat and are left out of the list, for blind trigger play.
+* **Triggers Fire Only on Whole Words:** A trigger no longer fires inside a longer word (*"sleepy"* stops firing on *"sleepyhead"*). Off by default.
 * **Trigger Duration:** Sets how long a triggered state persists before releasing (or until manually dispelled).
 * **Trigger Decay Rate:** Configures how quickly dormant planted triggers naturally fade over time (*Never · Very Slowly · Slowly · Typical · Fast · Very Fast*; default: *Never*).
-* **Trigger Scope:** A permission ladder governing who can fire your triggers (*Hypnotist Only* up to *Anyone*).
+* **Trigger Scope:** A permission ladder governing who can fire your triggers (*Hypnotist Only* up to *Anyone*). A hypnotist can ask for less for one trigger, never more.
+* **Longest a New Trigger Lasts:** Gives every trigger planted from now on a time limit (*No limit · 15 minutes · 30 minutes · 1 hour · 2 hours · 6 hours · 1 day*; default: *No limit*). Triggers you already have are not shortened.
+* **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). Scroll down the tab to reach it. See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
 
 ---
 
-## 5. Depth Tab
+## 5. Planted Tab
+
+Lists the triggers planted in you, six to a page: who planted each one and how strong it still is.
+
+* **Details:** Shows what that trigger does, its options, and, for a compulsion, what it is waiting for.
+* **Purge:** Removes that trigger. Refused while the trigger is holding you (the button reads *Holding*).
+* **Clear All:** Removes every trigger, including any you cannot see. Refused while a trigger is holding you or a session is running, with the reason shown beside it; otherwise it asks you to click twice.
+
+Purge and Clear All are not affected by the setting lock: removing something planted in you is always available.
+
+---
+
+## 6. Depth Tab
 
 * **Per-Feature Tier Assignments:** Move any individual feature up or down the depth tiers (*Drifting, Yielding, Entranced, Deep, Blank*). Tier gates are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
@@ -89,7 +105,7 @@ Manages long-term suggestions and conditioned words:
 
 ---
 
-## 6. Stats & Advanced Tab
+## 7. Stats & Advanced Tab
 
 Accessible via the **Advanced** toggle below the tabs:
 
@@ -99,7 +115,7 @@ Accessible via the **Advanced** toggle below the tabs:
 
 ---
 
-## 7. Setup Wizard
+## 8. Setup Wizard
 
 On fresh installs or after running a reset, opening the settings menu launches the guided **Setup Wizard**. You can re-run it at any time from within the settings interface.
 
@@ -113,7 +129,7 @@ Alternatively, you can complete a short 5-question questionnaire to configure pe
 
 ---
 
-## 8. Data & Backup
+## 9. Data & Backup
 
 * `/echs export` (or `/hypno export`): Generates an encoded text backup of all current settings, thresholds, and trust records.
 * `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.

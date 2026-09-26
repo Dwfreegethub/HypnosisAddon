@@ -15,6 +15,18 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 
 ---
 
+## Starting a Hypnosis — for the Hypnotist
+
+| Command | What It Does |
+|---|---|
+| **`/echs induce <name>`** | **Attempts an induction on that player** — exactly the same as clicking *Attempt Hypnosis* on their profile's spiral panel. The name can be their name, nickname, the start of either (*"/echs induce Mis"*), or their member number. |
+| `/echs induce` | With only one other person in the room, attempts them. Otherwise it lists who is here, with member numbers. |
+| **`/echs retry`** | Tries again on the last person you attempted — for your second attempt after a miss. |
+
+You are told the attempt went out; what happens next is the other player's choice, made privately on their own client. `/echs chance <name>` (under Diagnostics) shows your odds first.
+
+---
+
 ## Session — Usable From Any State
 
 | Command | What It Does | When You Would Use It |
@@ -42,7 +54,8 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 | `/echs match <phrase>` | Reports what that phrase would trigger, or why it failed. | Quickly diagnosing whether phrasing was invalid or a permission/depth gate blocked it. Reports the name gate separately. |
 | `/echs chance [name]` | Displays the calculated induction probability for each response against a target. | Deciding whether an attempt is mathematically viable or tuning trust. |
 | `/echs gates` | Lists every depth gate, its threshold, and whether you are deep enough right now. | Checking *"How deep do I need to be for this to work?"* |
-| `/echs triggers` | Displays all triggers planted in you, and flags any currently holding you. | Shows trigger strength and accessible tiers. (Displaying the actual phrase depends on your privacy settings). |
+| `/echs triggers` | Says how many triggers are planted in you, who planted each one, and how strong it still is. Flags any currently holding you. | A quick look without learning what they do. |
+| `/echs triggers <number>` | Shows that one trigger in full: what it does, its options, and what a compulsion is waiting for. | Choosing to see what a trigger does. (The trigger word shows only if you ticked *Show trigger words*). |
 | `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. | Reviewing or clearing lingering suggestions before waking. |
 | `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. | Reviewing your induction experience and progression. |
 | `/echs storage` | Reports where settings loaded from and what each data source holds. | Troubleshooting settings persistence or storage migration issues. |
@@ -59,7 +72,8 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 | `/echs import <blob>` | Restores your settings from a previously exported text blob. |
 | `/echs reset` | Wipes all settings and progression back to defaults (requests confirmation, and clears any active trance first). |
 | `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
-| `/echs forgettrigger <number\|all>` | Deletes a planted trigger by its index from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
+| `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
+| `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
 | `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. |
 
 ---

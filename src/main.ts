@@ -15,7 +15,16 @@ import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
 import { installDenial } from "./denial";
-import { handleSpokenLine, mentionsAnyName, playerOwnNames, isTriggerSetupLine, stripOOC, unstutter } from "./voice";
+import {
+	handleSpokenLine,
+	mentionsAnyName,
+	playerOwnNames,
+	isTriggerSetupLine,
+	stripOOC,
+	unstutter,
+	noteArrival,
+	installCompulsions,
+} from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice } from "./notify";
@@ -115,6 +124,13 @@ safely("ChatRoomMessage hook", () => {
 			// above the line that caused it ("Your knees fold under you." printing before
 			// "GameBot: Missy Kneel"). Cause should read before effect.
 			const result = next(args);
+
+			// Someone came in. BC announces it as an Action message whose Content is exactly
+			// "ServerEnter", sent by the arriving member (R132 ChatRoom.js). After next(), so
+			// "Rei entered." reads before whatever her arrival sets off.
+			if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
+				noteArrival(data.Sender);
+			}
 
 			// Spoken suggestions: ordinary chat we can hear from someone running a session
 			// on us. Never consumes the message — the line is still said out loud, and the
@@ -241,6 +257,10 @@ safely("message suppression", installSuppression);
 // Trigger words shown as "..." on the subject's own screen, at priority 50 in the same chain —
 // see conceal.ts for why there.
 safely("trigger word concealment", installConcealment);
+
+// Delayed compulsions due after a wake: checked on their own interval, which outlives every
+// clearAllTimers() — see installCompulsions in voice.ts.
+safely("delayed compulsions", installCompulsions);
 
 // Blocks self-directed activities outright (no arousal, no message) rather than hiding
 // them — see selftouch.ts for why ActivityRun and not the handler chain.

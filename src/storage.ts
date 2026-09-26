@@ -215,7 +215,24 @@ export interface Trigger {
 	/** Match the phrase only as whole words ("sleepy" does not fire on "sleepyhead"). The
 	 * subject's `strictTriggerMatch` forces this on for every trigger. */
 	strict?: boolean;
+	// --- delayed compulsions (trigger overhaul Build 6, inside v0.90.0) ---------------------
+	/** What fires it, when it is not a phrase. Absent = a phrase trigger, as every trigger was.
+	 * `wake`: `delayMs` after the subject wakes from a trance with its installer.
+	 * `arrive`: when the watched person enters the room. `speak`: when they speak.
+	 * These have `phrase: ""` and a synthetic `key` — design.md, "Trigger Storage". */
+	fireOn?: "wake" | "arrive" | "speak";
+	/** `wake` only: how long after waking. */
+	delayMs?: number;
+	/** `wake` only: wall-clock time it is due, set when the trance ends. Absent = dormant. */
+	dueAt?: number;
+	/** `arrive`/`speak`: whose arrival or voice. "*" = anyone but the subject. */
+	watchName?: string;
+	/** `arrive`/`speak`: their member number, when they could be identified at planting. */
+	watchMember?: number;
 }
+
+/** The non-phrase conditions a trigger can fire on. */
+export const TRIGGER_CONDITIONS = ["wake", "arrive", "speak"] as const;
 
 export type TriggerScope =
 	| "hypnotist"
@@ -628,6 +645,11 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (typeof t.oneShot !== "boolean") delete t.oneShot;
 			if (typeof t.spent !== "boolean") delete t.spent;
 			if (typeof t.strict !== "boolean") delete t.strict;
+			if (t.fireOn !== undefined && !TRIGGER_CONDITIONS.includes(t.fireOn)) delete t.fireOn;
+			if (t.delayMs !== undefined && !(typeof t.delayMs === "number" && t.delayMs >= 0)) delete t.delayMs;
+			if (t.dueAt !== undefined && !(typeof t.dueAt === "number" && t.dueAt > 0)) delete t.dueAt;
+			if (t.watchName !== undefined && typeof t.watchName !== "string") delete t.watchName;
+			if (t.watchMember !== undefined && typeof t.watchMember !== "number") delete t.watchMember;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the

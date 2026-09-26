@@ -380,7 +380,7 @@ function drawPlanted(): void {
 		const top = plantedRowTop(slot);
 		const holding = isTriggerInEffect(t);
 		drawLeftTextFit(
-			`${start + slot + 1}. ${reveal ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`,
+			`${start + slot + 1}. ${reveal && t.phrase ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`,
 			CONTENT_LEFT,
 			top + PLANTED_ROW_HEIGHT / 2,
 			PLANTED_TEXT_MAX,
