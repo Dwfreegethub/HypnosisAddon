@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.94.0 · 26 September 2026
+
+- **New: giving your trust.** Say *"I trust you, Eri"* (or whisper *"I trust you"* to Eri, or type
+  `/echs trust Eri`). If Eri tries to hypnotize you in the next 5 minutes, you are not asked: it goes
+  ahead as Agree, and your trust in Eri counts as at least 65 for that induction and the trance it
+  leads to. It is used up by that one induction; next time you are asked again. It never unlocks
+  triggers, suggestions that outlive the trance, or the clothing illusion. Your safeword clears it.
+
 ## v0.93.1 · 26 September 2026
 
 - While your sight is taken, the trance's soft white veil steps aside, so the dark stays dark

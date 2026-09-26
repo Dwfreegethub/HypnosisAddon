@@ -595,7 +595,121 @@ export function effectiveAccess(memberId: number): number {
 	// what arousal is lending right now. The relationship half is category-aware — an owner
 	// lifts everything, a friend only session-scoped things — while the arousal half is
 	// session-only by construction, which is why it is applied here and nowhere else.
-	return Math.max(accessFor(memberId, "session"), chemicalFloor());
+	return Math.max(accessFor(memberId, "session"), chemicalFloor(), trustGiftFloor(memberId));
+}
+
+// --- "I trust you" (v0.94.0, DW 2026-09-26) ----------------------------------------------
+//
+// The subject says "I trust you, Eri" (or whispers "I trust you" to Eri, or types
+// /hypno trust Eri). For the next 5 minutes, an induction from Eri skips the Agree / Ignore /
+// Fight box and goes ahead as Agree, and for that one induction her trust in Eri counts as at
+// least 65. DW's choices: the name is required; it reaches session and arousal only; a floor of
+// 65; and it is USED UP BY ONE INDUCTION. So once an induction takes it, it lasts for that
+// induction and the trance it leads to (retries after a miss included), and then it is gone,
+// however soon; if no induction comes within 5 minutes, it lapses unused.
+//
+// Where it reaches, and why here: it is added to effectiveAccess() beside the arousal floor and
+// NOT to the earned half (accessFor alone, which chanceBeforeInvariant reads for earnedOnly).
+// Full depth rises, so the Entranced-tier features (arousal) come within reach; earned depth
+// does not, so the Deep-tier features that outlive the trance or lie to her (triggers,
+// carry-forward, the illusion) still need trust she has really built. Nothing is stored: a
+// gift is a moment, and a reload forgets it.
+//
+// It is her own client, reading her own words (rule 1). The safeword clears it (rule 2).
+const TRUST_GIFT_MS = 5 * 60_000;
+export const TRUST_GIFT_FLOOR = 65;
+interface TrustGift {
+	memberId: number;
+	name: string;
+	/** Until when an unused gift is waiting for an induction. */
+	until: number;
+	/** The session object the gift was spent on. `session` is replaced wholesale by
+	 * freshSession() whenever an encounter ends, so identity is exactly "this induction". */
+	spentOn: SubjectSession | null;
+}
+let trustGift: TrustGift | null = null;
+
+function trustGiftWaiting(memberId: number): boolean {
+	return !!trustGift && trustGift.memberId === memberId && !trustGift.spentOn && Date.now() < trustGift.until;
+}
+
+/** The floor the gift lends right now, or 0. */
+export function trustGiftFloor(memberId: number): number {
+	const g = trustGift;
+	if (!g || g.memberId !== memberId) return 0;
+	if (g.spentOn) return g.spentOn === session && session.phase !== "Idle" ? TRUST_GIFT_FLOOR : 0;
+	return Date.now() < g.until ? TRUST_GIFT_FLOOR : 0;
+}
+
+/** Spend the gift on the encounter in progress. */
+function spendTrustGift(): void {
+	if (trustGift) trustGift.spentOn = session;
+	log(`trust gift spent on this induction (floor ${TRUST_GIFT_FLOOR})`);
+}
+
+/** She gives her trust to someone. Returns the private line to show her. */
+export function giveTrust(memberId: number, name: string): string {
+	if (!getFeatures().hypnoEnabled) return "Hypnosis is switched off, so there is nothing to trust anyone with.";
+	if (memberId === Player?.MemberNumber) return "You cannot give your trust to yourself.";
+	const current = session.hypnotistId === memberId && session.phase !== "Idle";
+	// Already under: the roll and the depth are settled, so there is nothing left for it to change,
+	// and saying she sank further would be a lie about her own state (rule 4). Not kept either: a
+	// trance usually outlasts 5 minutes, so it would lapse unseen.
+	if (current && session.phase === "Hypnotized") {
+		return `You are already under with ${name}. Your trust has nothing more to do this time.`;
+	}
+	if (current && trustGift?.memberId === memberId && trustGift.spentOn === session) {
+		return `${name} already has your trust for this one.`;
+	}
+	trustGift = { memberId, name, until: Date.now() + TRUST_GIFT_MS, spentOn: null };
+	log(`trust gift to ${name} [${memberId}], waiting ${TRUST_GIFT_MS / 60_000} min`);
+	if (current && session.phase === "AttemptMade") {
+		// The box is already up for them: this IS the answer.
+		spendTrustGift();
+		if (promptTimer) {
+			clearTimeout(promptTimer);
+			promptTimer = null;
+		}
+		session.choice = "agree";
+		beginInductionWindow();
+		return `You trust ${name}. You let yourself go along with it.`;
+	}
+	if (current) {
+		// Mid-window, or after a miss: it goes to this induction, and she goes along with the rest.
+		spendTrustGift();
+		session.choice = "agree";
+		return `You trust ${name}. You stop holding anything back.`;
+	}
+	return `You trust ${name}. If they reach for you in the next ${TRUST_GIFT_MS / 60_000} minutes, you will go along with it without being asked.`;
+}
+
+/** "I trust you", with any softener BC players naturally put in. */
+const TRUST_LINE = /\bi (?:really |truly |completely |fully |totally |do |still )?trust you\b/;
+
+/** Her own chat line, checked for "I trust you". Returns what to tell her, or null when the line
+ * is not one. `whisperTo` is the member she whispered it to, which names them by itself. */
+export function noticeTrustLine(text: string, whisperTo?: number): string | null {
+	const t = text.toLowerCase().replace(/[‘’]/g, "'");
+	if (!TRUST_LINE.test(t)) return null;
+	// A question is not a gift: "do I trust you?", "I trust you?".
+	if (/\?\s*$/.test(t)) return null;
+	const others = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).filter(
+		(c: any) => c?.MemberNumber && c.MemberNumber !== Player?.MemberNumber,
+	);
+	if (typeof whisperTo === "number" && whisperTo !== Player?.MemberNumber) {
+		const c = others.find((o: any) => o.MemberNumber === whisperTo);
+		return giveTrust(whisperTo, c?.Name ?? `#${whisperTo}`);
+	}
+	const esc = (n: string) => n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const named = others.filter((c: any) =>
+		[c.Name, c.Nickname].filter(Boolean).some((n: string) => new RegExp(`(^|[^\\w])${esc(n)}($|[^\\w])`).test(t)),
+	);
+	if (named.length === 1) return giveTrust(named[0].MemberNumber, named[0].Name);
+	if (!getFeatures().hypnoEnabled) return null;
+	// Rule 5: she meant something by it, so say why nothing happened.
+	return named.length > 1
+		? "That names more than one person here, so your trust went to no one. Say it with one name."
+		: 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
 }
 
 /** The roll, resolved twice: once with everything, once with only what was earned.
@@ -815,6 +929,9 @@ export function describeChances(memberId: number): string[] {
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
+		...(trustGiftFloor(memberId) > 0
+			? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`]
+			: []),
 		// Skill only shows when this client honoured some — zero outside an attempt, zero on
 		// rung Ignore, zero for a stranger on rung Trusted. It is the HONOURED value, the same
 		// one the descriptor reads, not the claim.
@@ -1380,6 +1497,7 @@ export function stopForReset(): "trance" | "induction" | null {
  * hard floor's once, and the half that drifted was the half nobody tests. */
 function totalStop(hypnotistMessage: string, localMessage: string): void {
 	clearTimers();
+	trustGift = null;
 	// Nothing survives a safeword, and that must include the copy on disk — otherwise the
 	// next reload would faithfully restore the very thing the safeword was used to escape.
 	// Explicit rather than relying on pushUpdate below, which is skipped entirely when there
@@ -1719,7 +1837,17 @@ export function installSession(): void {
 		// the relationship are the subject's, and the far side never learns the result.
 		session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
 		pushUpdate();
-		showPrompt(String(message.hypnotistName ?? `#${sender}`));
+		const who = String(message.hypnotistName ?? `#${sender}`);
+		// She said she trusts them (v0.94.0): no box, it goes ahead as Agree.
+		if (trustGiftWaiting(sender)) {
+			spendTrustGift();
+			session.promptName = who;
+			session.choice = "agree";
+			notify(`${who} reaches for you, and you let them. You told them you trust them.`);
+			beginInductionWindow();
+			return;
+		}
+		showPrompt(who);
 	});
 
 	// THE TEST BOT'S OWN WORDS MUST NOT BE SPOKEN IN THE ROOM.

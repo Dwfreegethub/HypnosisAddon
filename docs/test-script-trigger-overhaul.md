@@ -308,3 +308,18 @@ Missy ticks **Sight** on her Permissions tab. Missy: `/echs trance H 80`.
 - [ ] *"Missy, you cannot see"*, then *"Missy, wake up"* → sight back.
 - [ ] Under again: *"Missy, you cannot see"*, *"Missy, that will stay with you"*, *"Missy, wake up"* → still black after the wake. Missy: `/echs safeword` → sight back.
 - [ ] Under again: *"Missy, you cannot see"*, then Missy unticks **Sight** → sight back at once.
+
+---
+
+## 12. "I trust you" (v0.94.0)
+
+Missy awake, not under. **H** is the hypnotist.
+
+- [ ] Missy says *"I trust you, H"* (H's real name). Missy sees *"You trust H. If they reach for you in the next 5 minutes…"*. The room sees only her line.
+- [ ] H: Attempt Hypnosis. **No Agree / Ignore / Fight box** on Missy's screen; she sees *"H reaches for you, and you let them."* The minute runs as normal.
+- [ ] After that trance ends (*"Missy, wake up"*), H attempts again → **the box is back** (used up).
+- [ ] Missy **whispers** *"I trust you"* to H → the same private line. H attempts → no box.
+- [ ] Missy says *"I trust you"* with no name → she is told to say the name. H attempts → the box.
+- [ ] H attempts first; while the box is up, Missy says *"I trust you, H"* → the box closes, answered as Agree.
+- [ ] Missy: `/echs trust H`, then waits 5 minutes. H attempts → the box (it lapsed).
+- [ ] Missy: `/echs trust H`, then `/echs safeword`. H attempts → the box.
