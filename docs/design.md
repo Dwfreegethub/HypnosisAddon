@@ -3579,9 +3579,9 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   the Emoticon item, so it does not sync. Cleared in `clearTranceStates()`; not restored by a reload,
   as with the other live suggestions. A level BC caps lower is reported (`sight-capped`, rule 5).
   `test/sight.mjs` models R132's GetBlindLevel.
-  **Open, noticed while building:** if the one voice she hears leaves the room, she hears no one
-  until the trance or the trigger's hold ends (or her safeword). Ending it when that person leaves
-  would be a small change if DW wants it.
+  **Decided (DW, 2026-09-26): it stays on when the one voice leaves the room.** She hears no one
+  until the trance or the trigger’s hold ends, the release, or her safeword. DW: "The tist might want
+  to leave them deaf." Do not add an auto-end on departure without flagging it.
 
 - **⚠ SENSORY SUPPRESSION — two specs from DW, 2026-09-16. POST-ALPHA: ship alpha first, then these
   next.** Vision and hearing arrived as separate specs and are filed as one item, because **they are
