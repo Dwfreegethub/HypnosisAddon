@@ -20,6 +20,37 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.92.2) — the bookmark loader
+
+DW asked for one "with what we have". A `javascript:` bookmark runs in the page when clicked, as
+the installed loader does, and the add-on needs nothing a userscript manager provides: the loader is
+`@grant none`, and the bundle has no `GM_` or `unsafeWindow`. So it is the loader's logic in one
+line: GitHub first (fetched, run inline), then jsDelivr as a script tag with `?t=`, then an
+`alert()`, since there is no page of ours to draw a notice on.
+
+**Built from the loader's own addresses, never retyped.** `src/bookmarklet.ts` imports `CDN_URL`
+and `GITHUB_URL` from `loader.ts`. `build.mjs` bundles it as a throwaway ESM module, imports it, and
+writes `dist/bookmarklet.txt`; `release.mjs` copies that to the committed `bookmarklet.txt`, which
+the wiki links raw.
+
+**A bookmark is clicked by hand, often twice, and after login.** It asks the mod SDK
+(`bcModSdk.getModsInfo()`) whether "ECHS" is already registered, and says so instead of loading
+again. That covers a second click, and the userscript having already loaded it. The mod SDK would
+otherwise throw on the duplicate registration. A load after login is expected to work: storage is
+read lazily from `Player`, and commands, menus and hooks all register at any time. This is not yet
+verified live.
+
+`test/bookmarklet.mjs`, 21 checks, builds the source as `build.mjs` does and runs the line against
+a stub page:
+- GitHub ok
+- three GitHub failures, each falling to jsDelivr
+- both failing, with an alert
+- already loaded
+- other add-ons loaded but not ECHS
+- the committed copy is current
+
+Removing the guard, or asking jsDelivr alongside GitHub, fails 2 checks each.
+
 ### Fixed 2026-09-26 (v0.92.1) — the loader goes to GitHub first
 
 From v0.91.3, jsDelivr went on serving v0.91.2. Every purge came back accepted, `throttled: false`,

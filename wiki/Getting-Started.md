@@ -14,6 +14,19 @@
 
 **Updates are automatic.** The script includes an update URL, so your userscript manager checks for and pulls new versions on its own schedule — you do not need to reinstall to stay updated.
 
+### Without a userscript manager: the bookmark loader
+
+No Tampermonkey or Violentmonkey, or playing on a phone or tablet? Use a bookmark instead.
+
+1. Open **[the bookmark loader](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/bookmarklet.txt)**. It is a single line starting with `javascript:`. Copy **all** of it.
+2. Make a new bookmark (any page will do, then edit it). Name it **ECHS**, and paste the line into its **address / URL** field in place of the web address.
+3. Open Bondage Club, then click the bookmark. ECHS starts, just as the userscript would. You can click it on the login screen or after logging in.
+
+* **Click it each time** you open Bondage Club. A bookmark does not run on its own the way a userscript does.
+* **It always loads the newest version**, so there is nothing to update.
+* **Clicking it twice does no harm:** it tells you ECHS is already loaded. It also knows if the userscript already loaded it.
+* Some browsers remove the `javascript:` part when you paste. If the bookmark does nothing, check the address still starts with `javascript:`.
+
 *(Note: Listing on FUSAM is planned for a future release, but is not yet arranged.)*
 
 **Does the other player need it installed?** For a full, interactive session, yes — both of you need the script running. However, two things will work on you even if your partner has nothing installed:

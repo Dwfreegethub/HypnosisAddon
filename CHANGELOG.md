@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.2 · 26 September 2026
+
+- **You can load ECHS from a bookmark,** with no userscript manager needed, which also works on
+  phones and tablets. Getting Started on the wiki shows how to set it up. Click the bookmark each
+  time you open Bondage Club; it always loads the newest version, and clicking it twice does no
+  harm.
+
 ## v0.92.1 · 26 September 2026
 
 - **Updates reach you within minutes.** ECHS now loads straight from GitHub, and only uses its
