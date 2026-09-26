@@ -204,3 +204,46 @@ Missy: `/echs trance H 80`. H: *"Missy, kneel"*, then *"Missy, you cannot move"*
 
 **Anything that doesn't match:** note the section and step, and copy the exact lines from both
 screens. The in-room lines plus H's `[trigger]` lines are usually enough to find the cause.
+
+---
+
+## 8. Diagnostic: pose commands refused while held (open, after v0.92.3)
+
+**The fault:** once H says *"Missy, you cannot move"*, H's *"Missy, arms behind your back"* is refused
+with `[suggestion] "arms-behind" matched but did not land: pose-blocked`, and Missy sees *"You try to
+shift, and your body does not answer…"*. It works once she is released. This trace shows which code
+makes each pose change, so we can tell which add-on re-issues it.
+
+**Before starting (Missy):** her chat line reads **v0.92.4** or later (refresh if not). The hold and
+pose-command settings are on as for section 6b. Nothing restrains her arms, so any refusal comes from
+ECHS.
+
+**1. Missy: turn the trace on**
+- Press **F12** and open **Console**. If Chrome says pasting is blocked, type `allow pasting` and press Enter first.
+- Paste this line and press Enter:
+
+```
+(() => { const d = bcModSdk.registerMod({ name: "ECHSPoseTrace", fullName: "ECHS pose trace", version: "1" }); d.hookFunction("PoseSetActive", 2000, (args, next) => { if (args[0] === Player) { const who = (new Error().stack || "").split("\n").slice(2, 6).map(l => l.trim().replace(/^at /, "").slice(0, 70)).join(" < "); ChatRoomSendLocal("TRACE PoseSetActive(" + args[1] + ") ← " + who); } return next(args); }); ChatRoomSendLocal("ECHS pose trace on (refresh the page to remove it)"); })()
+```
+
+- [ ] `ECHS pose trace on` appears in Missy's chat (only she sees it). The console can be closed; the trace stays on.
+
+**2. Missy: go under.** Missy: `/echs trance H 80`, or H induces her the normal way.
+
+**3. H: a control test while Missy is not held**
+- H: *"Missy, arms behind your back"*
+- [ ] Missy's arms go behind her back, and she sees one or more `TRACE PoseSetActive(BackBoxTie)` lines.
+- H: *"Missy, arms at your sides"* (or *"relax your arms"*) to reset.
+
+**4. H: hold her still.** H: *"Missy, you cannot move"*.
+- [ ] Missy is held.
+
+**5. H: the real test**
+- H: *"Missy, arms behind your back"*
+- [ ] Expected fault: H sees `pose-blocked`, and Missy sees *"You try to shift…"*.
+
+**6. Missy: wait 5 seconds, then copy everything** from step 3 onward: every `TRACE …` line, the ECHS
+messages, and what H saw. The TRACE lines are the part that matters. Step 3 shows the path that works
+and step 5 the path that fails; the difference names the add-on.
+
+**7. Clean up (Missy):** `/echs safeword`, then **refresh the page** to remove the trace.
