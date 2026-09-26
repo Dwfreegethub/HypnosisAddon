@@ -20,6 +20,16 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-25 (v0.90.1) — the bare `/echs` menu names `induce`
+
+DW: the command to start an induction "keeps not making it in the wiki or is not clear". It had
+been a `Session` command since the command layer was built, but it was listed only in
+`/hypno commands` and never in the bare `/hypno` menu. That menu is the signpost a new player
+actually reads, and `induce` is the first thing a new hypnotist needs, so it now carries one line
+for `induce <name>` and `retry`. The wiki gained the same (docs commit on the same stack).
+`test/alias.mjs` asserts the menu names it, and that both subcommands exist. The first assertion
+fails on v0.90.0.
+
 ### Added 2026-09-25 (v0.90.0, Build 6, no bump) — delayed compulsions
 
 Build 6, the last of the *Trigger Overhaul*, shipped inside v0.90.0 per DW.

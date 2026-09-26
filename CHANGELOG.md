@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.90.1 · 25 September 2026
+
+- **Typing `/echs` now tells you how to start.** The short menu lists `/echs induce <name>`, which
+  starts hypnotizing someone just like the *Attempt Hypnosis* button, and `/echs retry`, which
+  tries the same person again.
+
 ## v0.90.0 · 25 September 2026
 
 - **Drop triggers.** A hypnotist can plant a trigger that drops you straight into trance when

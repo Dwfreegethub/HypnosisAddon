@@ -95,6 +95,10 @@ byTag("echs")?.Action("");
 const menu = local.join("\n");
 check("bare /echs prints the menu", menu.includes("Erotic Chat Hypnosis Suite (ECHS)"), true);
 check("  and the menu says the two tags are the same command", menu.includes("/echs is the same command as /hypno"), true);
+// v0.90.1: how to START is the first thing a new hypnotist needs, and it was only findable in the
+// full command list. Failure: the menu stops naming induce, or names a command that does not exist.
+check("  and it names how to start an induction", menu.includes("/hypno induce <name>"), true);
+check("  a command that really exists", !!sub(byTag("echs"), "induce") && !!sub(byTag("echs"), "retry"), true);
 
 local = [];
 sub(byTag("echs"), "commands")?.Action("");
