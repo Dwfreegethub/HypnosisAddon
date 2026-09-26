@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.91.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.92.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6120,6 +6120,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
     return null;
   }
+  var PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
+  function isRecordableAction(text) {
+    return !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+  }
+  function splitStartAtAction(content, start) {
+    const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
+    const m = start.exec(raw);
+    if (!m) return null;
+    const captured = m[1];
+    PAUSE.lastIndex = 0;
+    let p;
+    while (p = PAUSE.exec(captured)) {
+      const head2 = captured.slice(0, p.index).trim();
+      const rest = captured.slice(p.index + p[0].length).replace(/^\s*(?:(?:and|then)\s+)*/, "").trim();
+      if (head2 && rest && isRecordableAction(rest)) return { head: head2, rest };
+    }
+    return null;
+  }
   function parseTriggerControl(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
@@ -6148,6 +6166,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return { kind: "start", phrase: cleanPhrase(head2), drop: true };
         }
       }
+      const split = splitStartAtAction(content, pattern);
+      if (split) return { kind: "start", phrase: cleanPhrase(normalize(split.head)), rest: split.rest };
       return { kind: "start", phrase: cleanPhrase(captured) };
     }
     if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
@@ -6248,6 +6268,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } else {
       const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
       if (line) tellPlayer(line);
+    }
+    if (parsed.rest && isRecording()) {
+      rereadingRest = true;
+      try {
+        handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
+      } finally {
+        rereadingRest = false;
+      }
     }
     if (parsed.drop && isRecording()) {
       const dropLine = recordAction(DROP_ACTION);
@@ -6435,7 +6463,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           continue;
         }
         compels++;
-        steps.push(() => {
+        for (let rep = 0; rep < parseActId(id).times; rep++) steps.push(() => {
           if (!getFeatures().compelActivity) {
             log(`trigger "${trigger.phrase}": ${id} dropped mid-pace \u2014 compelActivity revoked`);
             return;
@@ -6550,11 +6578,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (id === DROP_ACTION) return "you drop straight into trance";
     const say = parseSayAction(id);
     if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
-    if (id === "act:vague") return "you touch yourself somewhere";
-    if (id === "act:genital") return "you touch yourself between your legs";
     if (id.startsWith("act:")) {
-      const [, activity, word] = id.split(":");
-      return `you ${activity.toLowerCase()} your ${word ?? "body"}`;
+      const { base, times } = parseActId(id);
+      const suffix = times > 1 ? ` ${times} times` : "";
+      if (base === "act:vague") return `you touch yourself somewhere${suffix}`;
+      if (base === "act:genital") return `you touch yourself between your legs${suffix}`;
+      const [, activity, word] = base.split(":");
+      return `you ${activity.toLowerCase()} your ${word ?? "body"}${suffix}`;
     }
     return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
   }
@@ -6858,24 +6888,42 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will ?not|no longer|stop)\b/;
   var GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
   var VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
+  var MAX_TOUCH_TIMES = 5;
+  var REPEAT_RAW = /\b(one|two|three|four|five|\d+)\s+times?\b|\b(twice|thrice)\b/i;
+  function repeatCount(raw) {
+    const m = REPEAT_RAW.exec(raw);
+    if (!m) return 1;
+    const word = (m[1] ?? m[2]).toLowerCase();
+    const n = /^\d+$/.test(word) ? Number(word) : SAY_TIME_WORDS[word] ?? 1;
+    return Math.max(1, Math.min(MAX_TOUCH_TIMES, n));
+  }
   function matchActivityCommand(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
-    if (GENITAL_SELF.test(text)) return { kind: "genital" };
-    if (VAGUE_SELF.test(text)) return { kind: "vague" };
+    const times = repeatCount(content);
+    const withTimes = (cmd) => times > 1 ? { ...cmd, times } : cmd;
+    if (GENITAL_SELF.test(text)) return withTimes({ kind: "genital" });
+    if (VAGUE_SELF.test(text)) return withTimes({ kind: "vague" });
     const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
     for (const v of ACTIVITY_VERBS) {
       if (!v.re.test(text)) continue;
       for (const word of words) {
-        if (new RegExp(`\\byour ${word}\\b`).test(text)) return { kind: "part", activity: v.activity, word };
+        if (new RegExp(`\\byour ${word}\\b`).test(text)) return withTimes({ kind: "part", activity: v.activity, word });
       }
     }
     return null;
   }
   function activityActionId(cmd) {
-    if (cmd.kind === "vague") return "act:vague";
-    if (cmd.kind === "genital") return "act:genital";
-    return `act:${cmd.activity}:${cmd.word}`;
+    const times = cmd.times && cmd.times > 1 ? `*${cmd.times}` : "";
+    if (cmd.kind === "vague") return `act:vague${times}`;
+    if (cmd.kind === "genital") return `act:genital${times}`;
+    return `act:${cmd.activity}:${cmd.word}${times}`;
+  }
+  function parseActId(id) {
+    const star = id.lastIndexOf("*");
+    if (star < 0) return { base: id, times: 1 };
+    const n = Number(id.slice(star + 1));
+    return { base: id.slice(0, star), times: Number.isInteger(n) && n > 1 ? Math.min(n, MAX_TOUCH_TIMES) : 1 };
   }
   var VAGUE_ZONES = [
     "ItemBreast",
@@ -6923,7 +6971,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
-  function performActivityAction(id) {
+  function performActivityAction(fullId) {
+    const id = parseActId(fullId).base;
     if (id === "act:vague") {
       const zone = pickVagueZone();
       return zone ? runCommandedActivity("Caress", [zone]) != null : false;
@@ -6963,7 +7012,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellHypnotist(sender, "[command] Refused \u2014 a restraint has them frozen; they cannot move to.");
       return true;
     }
-    if (cmd.kind === "vague") return runVagueTouch(sender);
+    if (cmd.kind === "vague") {
+      runVagueTouch(sender);
+      repeatTouch(sender, cmd.times, () => {
+        const pick2 = pickVagueZone();
+        return pick2 ? runCommandedActivity("Caress", [pick2]) != null : false;
+      });
+      return true;
+    }
     const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;
     const groups = cmd.kind === "genital" ? ["ItemVulva"] : BODY_PARTS[cmd.word] ?? [];
     const landed = runCommandedActivity(activity, groups);
@@ -6972,7 +7028,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     tellPlayer("Your body does it without waiting for you to decide.");
+    repeatTouch(sender, cmd.times, () => runCommandedActivity(activity, groups) != null);
     return true;
+  }
+  function repeatTouch(sender, times, touch) {
+    let left = (times ?? 1) - 1;
+    if (left <= 0) return;
+    const tick = () => {
+      if (!isSessionActiveWith(sender) || !getFeatures().compelActivity || Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+        log(`repeated touch stopped with ${left} to go \u2014 no longer allowed`);
+        return;
+      }
+      if (!touch()) {
+        tellHypnotist(sender, `[command] Stopped after fewer touches than asked \u2014 it would not land again.`);
+        return;
+      }
+      left--;
+      if (left > 0) scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+    };
+    scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
   }
   function runVagueTouch(sender) {
     const pick2 = pickVagueZone();
@@ -7572,6 +7646,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(body(`"you cannot touch your breasts" \xB7 "...touch yourself"`));
     lines.push(dim("   (selfTouchControl) \u2014 around 40 body words are understood."));
     lines.push(body(`"touch your breasts" \xB7 "pinch your nipples" \xB7 "lick your thighs"`));
+    lines.push(dim(`Add "three times" to repeat a touch, up to five.`));
     lines.push(dim("   (Made to Act) \u2014 one grammar: <verb> your <part>. touch \xB7 caress \xB7 rub \xB7"));
     lines.push(dim("   pinch \xB7 spank \xB7 slap \xB7 scratch \xB7 tickle \xB7 pull \xB7 lick \xB7 kiss \xB7 bite \xB7"));
     lines.push(dim('   massage \xB7 pet. Bare "touch yourself" wanders; name a part to steer it.'));
@@ -9055,7 +9130,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.91.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10750,7 +10825,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.91.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10773,7 +10848,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.91.3"} loaded`;
+    el.textContent = `ECHS v${"0.92.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10804,14 +10879,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.91.3"})`);
+  info(`script loaded (v${"0.92.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.91.3",
+      version: "0.92.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

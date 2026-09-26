@@ -28,6 +28,7 @@ Triggers are installed while the subject is deep in trance:
 * **Actions are recorded, not performed:** When building a trigger that contains a freeze, the action is buffered without executing. This avoids freezing the subject mid-setup or forcing the hypnotist to undo states during installation.
 * **Capacity:** Up to **8 actions** can be stored in a single trigger phrase.
 * **Canceling:** Saying *"Missy, forget the trigger"* drops the recording buffer without saving.
+* **An action on the same line:** after a pause — a comma, a dash, *"and"* or *"then"* — the rest of the start line is recorded too: *"Missy, when you hear ember glow, touch your breasts three times"* plants *"ember glow"* with the touch. Without a pause, the whole phrase is the word, as before.
 * **Renaming on the fly:** Saying a new *"Missy, your trigger word is [new phrase]"* while still recording renames the buffer while preserving the actions already queued.
 * **Subject Privacy:** Feedback during setup is delivered to the hypnotist. The subject never sees their trigger word by default: not when it is planted, not when someone says it, and not in the trigger list (see [Your Trigger Words Stay Hidden](#4-your-trigger-words-stay-hidden)). If **Awareness → Trigger setup** is enabled, the subject's client also hides the entire planting dialogue from chat.
 * **Phrase Length:** A trigger phrase must be **at least 5 characters** long to avoid triggering accidentally during regular room conversation.

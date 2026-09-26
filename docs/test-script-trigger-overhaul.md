@@ -1,4 +1,4 @@
-# Test Script — Trigger Overhaul (v0.91.0)
+# Test Script — Trigger Overhaul (v0.92.0)
 
 One pass through every new trigger feature, in an order that reuses each setup. About 45 minutes.
 The subject is **Missy** throughout. Replace **H** with the hypnotist's name wherever it appears.
@@ -131,6 +131,16 @@ H: *"Missy, wake up"*. H: *"silver bell"*.
 - [ ] Missy drops (and cannot speak normally), **and** "Yes." still appears in the room.
 
 H: *"Missy, wake up"*. Missy: `/echs forgettrigger all` then `/echs forgettrigger all confirm` to clean up.
+
+---
+
+## 5b. Repeated touches and actions on the start line (v0.92.0)
+
+Missy ticks *Made to Act*. Missy: `/echs trance H 80`.
+- [ ] H: *"Missy, touch your breasts three times"* → three caresses in the room, a second or two apart.
+- [ ] H: *"Missy, when you hear ember glow, touch your breasts three times"*, *"Missy, remember trigger"* → SAVED names **ember glow** with one action `act:Caress:breasts*3`.
+- [ ] H: *"Missy, wake up"*, then *"ember glow"* → three caresses.
+- [ ] H plants *"Missy, your trigger word is time to kneel"* (no pause) → SAVED names **time to kneel** (unchanged meaning).
 
 ---
 

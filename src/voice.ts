@@ -1745,12 +1745,40 @@ export function parseCondition(content: string): ParsedCondition | null {
 	return null;
 }
 
+/** A pause in a raw line: punctuation, a dash, or a joining "and" / "then". */
+const PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
+
+/** Is this, on its own, something that would be recorded into a trigger? */
+function isRecordableAction(text: string): boolean {
+	return !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+}
+
+/** Split a start line's raw capture at the first pause after which an action follows. `start` is
+ * the TRIGGER_START pattern that matched; it is run again on the raw, lower-cased line so the
+ * capture keeps its punctuation. Returns null when there is no such pause. */
+function splitStartAtAction(content: string, start: RegExp): { head: string; rest: string } | null {
+	const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
+	const m = start.exec(raw);
+	if (!m) return null;
+	const captured = m[1];
+	PAUSE.lastIndex = 0;
+	let p: RegExpExecArray | null;
+	while ((p = PAUSE.exec(captured))) {
+		const head = captured.slice(0, p.index).trim();
+		const rest = captured.slice(p.index + p[0].length).replace(/^\s*(?:(?:and|then)\s+)*/, "").trim();
+		if (head && rest && isRecordableAction(rest)) return { head, rest };
+	}
+	return null;
+}
+
 export type TriggerControl =
 	| { kind: "condition"; condition: ParsedCondition }
 	| { kind: "say"; text: string; times: number }
 	/** `drop` when the start line carried its own drop clause ("when you hear X, you will drop
 	 * into trance"): the phrase is X, and the drop is recorded straight away. */
-	| { kind: "start"; phrase: string; drop?: boolean; say?: { text: string; times: number } }
+	/** `rest`: an action said on the same line after a pause ("when you hear X, kneel"), raw, to be
+	 * recorded as if said on its own line (v0.92.0). */
+	| { kind: "start"; phrase: string; drop?: boolean; say?: { text: string; times: number }; rest?: string }
 	| { kind: "drop" }
 	| { kind: "commit" }
 	| { kind: "cancel" }
@@ -1793,6 +1821,12 @@ export function parseTriggerControl(content: string): TriggerControl {
 				return { kind: "start", phrase: cleanPhrase(head), drop: true };
 			}
 		}
+		// Any other action said on the same line, after a PAUSE: "when you hear ember glow, touch
+		// your breasts three times" (DW, 2026-09-26 — it planted the whole line as the word). Split
+		// only where the hypnotist actually paused, so a phrase with no pause in it keeps its old
+		// meaning. Read from the raw line: the pause marks and "3 times" live there.
+		const split = splitStartAtAction(content, pattern);
+		if (split) return { kind: "start", phrase: cleanPhrase(normalize(split.head)), rest: split.rest };
 		return { kind: "start", phrase: cleanPhrase(captured) };
 	}
 	if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
@@ -1924,6 +1958,17 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	} else {
 		const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
 		if (line) tellPlayer(line);
+	}
+	// An action after a pause on the same line: re-read it with her name, through the ordinary
+	// paths, which record rather than perform while a recording is open. Firing is suppressed for
+	// that pass, as for a compulsion's rest (rereadingRest).
+	if (parsed.rest && isRecording()) {
+		rereadingRest = true;
+		try {
+			handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
+		} finally {
+			rereadingRest = false;
+		}
 	}
 	// The drop clause said on the same line, recorded only if the recording actually began.
 	if (parsed.drop && isRecording()) {
@@ -2217,7 +2262,8 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			// can land during the pause between steps, and ActivityRun validates nothing.
 			// runCommandedActivity re-reads ActivityAllowedForGroup (so a belt landing mid-drain
 			// yields nothing), and the permission and our-vs-real freeze are re-checked here too.
-			steps.push(() => {
+			// A repeat ("*3") is that many steps, each paced and each re-checked (v0.92.0).
+			for (let rep = 0; rep < parseActId(id).times; rep++) steps.push(() => {
 				if (!getFeatures().compelActivity) {
 					log(`trigger "${trigger.phrase}": ${id} dropped mid-pace — compelActivity revoked`);
 					return;
@@ -2419,11 +2465,13 @@ export function describeAction(id: string): string {
 	if (id === DROP_ACTION) return "you drop straight into trance";
 	const say = parseSayAction(id);
 	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
-	if (id === "act:vague") return "you touch yourself somewhere";
-	if (id === "act:genital") return "you touch yourself between your legs";
 	if (id.startsWith("act:")) {
-		const [, activity, word] = id.split(":");
-		return `you ${activity.toLowerCase()} your ${word ?? "body"}`;
+		const { base, times } = parseActId(id);
+		const suffix = times > 1 ? ` ${times} times` : "";
+		if (base === "act:vague") return `you touch yourself somewhere${suffix}`;
+		if (base === "act:genital") return `you touch yourself between your legs${suffix}`;
+		const [, activity, word] = base.split(":");
+		return `you ${activity.toLowerCase()} your ${word ?? "body"}${suffix}`;
 	}
 	return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
 }
@@ -2853,23 +2901,44 @@ const GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
 /** Bare generic self-touch — too vague, so it wanders (see handleActivityCommand). */
 const VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
 
-export type ActivityCommand =
+export type ActivityCommand = (
 	| { kind: "genital" }
 	| { kind: "vague" }
-	| { kind: "part"; activity: string; word: string };
+	| { kind: "part"; activity: string; word: string }
+) & {
+	/** "touch your breasts three times" (v0.92.0). Present only when more than once. */
+	times?: number;
+};
+
+/** The most a touch may repeat — the same cap as a mantra. */
+export const MAX_TOUCH_TIMES = 5;
+/** "three times", "3 times", "twice", "thrice" anywhere in the line. Read from the RAW line:
+ * normalize() strips digits, so "3 times" would otherwise arrive as "times". */
+const REPEAT_RAW = /\b(one|two|three|four|five|\d+)\s+times?\b|\b(twice|thrice)\b/i;
+
+/** How many times a line asks for, 1 when it does not say. Capped at MAX_TOUCH_TIMES. */
+export function repeatCount(raw: string): number {
+	const m = REPEAT_RAW.exec(raw);
+	if (!m) return 1;
+	const word = (m[1] ?? m[2]).toLowerCase();
+	const n = /^\d+$/.test(word) ? Number(word) : SAY_TIME_WORDS[word] ?? 1;
+	return Math.max(1, Math.min(MAX_TOUCH_TIMES, n));
+}
 
 /** Parse a compelled-activity command. Pure — no BC calls — so the grammar is unit-testable. */
 export function matchActivityCommand(content: string): ActivityCommand | null {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
-	if (GENITAL_SELF.test(text)) return { kind: "genital" };
-	if (VAGUE_SELF.test(text)) return { kind: "vague" };
+	const times = repeatCount(content);
+	const withTimes = <T extends object>(cmd: T): T & { times?: number } => (times > 1 ? { ...cmd, times } : cmd);
+	if (GENITAL_SELF.test(text)) return withTimes({ kind: "genital" as const });
+	if (VAGUE_SELF.test(text)) return withTimes({ kind: "vague" as const });
 	// Longest part word first, so "clitoris" is not shadowed by "clit" etc.
 	const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
 	for (const v of ACTIVITY_VERBS) {
 		if (!v.re.test(text)) continue;
 		for (const word of words) {
-			if (new RegExp(`\\byour ${word}\\b`).test(text)) return { kind: "part", activity: v.activity, word };
+			if (new RegExp(`\\byour ${word}\\b`).test(text)) return withTimes({ kind: "part" as const, activity: v.activity, word });
 		}
 	}
 	return null;
@@ -2879,9 +2948,21 @@ export function matchActivityCommand(content: string): ActivityCommand | null {
  * RECORDED into a trigger and replayed later, exactly as a body-part block records "touch:breasts".
  * The `act:` prefix keeps it distinct from those blocks; performActivityAction() reads it back. */
 function activityActionId(cmd: ActivityCommand): string {
-	if (cmd.kind === "vague") return "act:vague";
-	if (cmd.kind === "genital") return "act:genital";
-	return `act:${cmd.activity}:${cmd.word}`;
+	// A repeat rides IN the id ("act:Caress:breasts*3"), so three touches take one of a trigger's
+	// eight action slots, the way "say:3:..." does for a mantra (DW, 2026-09-26).
+	const times = cmd.times && cmd.times > 1 ? `*${cmd.times}` : "";
+	if (cmd.kind === "vague") return `act:vague${times}`;
+	if (cmd.kind === "genital") return `act:genital${times}`;
+	return `act:${cmd.activity}:${cmd.word}${times}`;
+}
+
+/** An `act:` id split into the touch itself and how many times. Ids planted before v0.92.0 have
+ * no `*N` and read as once. */
+export function parseActId(id: string): { base: string; times: number } {
+	const star = id.lastIndexOf("*");
+	if (star < 0) return { base: id, times: 1 };
+	const n = Number(id.slice(star + 1));
+	return { base: id.slice(0, star), times: Number.isInteger(n) && n > 1 ? Math.min(n, MAX_TOUCH_TIMES) : 1 };
 }
 
 // Where a bare "touch yourself" may wander. The commonplace zones; the pick is filtered to what
@@ -2941,7 +3022,8 @@ function runCommandedActivity(activityName: string, groupNames: string[], target
  * whether it landed. Used only by a FIRING trigger — the live command path builds its own cmd
  * and reports to the hypnotist; here there is no hypnotist to nudge, so a vague one just wanders
  * silently. The caller (fireTrigger) has already checked the permission and the freeze. */
-function performActivityAction(id: string): boolean {
+function performActivityAction(fullId: string): boolean {
+	const id = parseActId(fullId).base;
 	if (id === "act:vague") {
 		const zone = pickVagueZone();
 		return zone ? runCommandedActivity("Caress", [zone]) != null : false;
@@ -2995,7 +3077,14 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		return true;
 	}
 
-	if (cmd.kind === "vague") return runVagueTouch(sender);
+	if (cmd.kind === "vague") {
+		runVagueTouch(sender);
+		repeatTouch(sender, cmd.times, () => {
+			const pick = pickVagueZone();
+			return pick ? runCommandedActivity("Caress", [pick]) != null : false;
+		});
+		return true;
+	}
 	const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;
 	const groups = cmd.kind === "genital" ? ["ItemVulva"] : BODY_PARTS[cmd.word] ?? [];
 	const landed = runCommandedActivity(activity, groups);
@@ -3004,7 +3093,31 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		return true;
 	}
 	tellPlayer("Your body does it without waiting for you to decide.");
+	repeatTouch(sender, cmd.times, () => runCommandedActivity(activity, groups) != null);
 	return true;
+}
+
+/** The rest of "… three times" (v0.92.0): each further touch on its own paced tick, the same
+ * rhythm as a trigger's steps, so it reads as three touches and not one pasted three times.
+ * Each tick re-asks everything the first one did — still under with this hypnotist, "Made to act"
+ * still granted, no real restraint freezing her — since any of it can change in between, and a
+ * safeword clears the pending ticks with every other timer. The hypnotist is told if one stops. */
+function repeatTouch(sender: number, times: number | undefined, touch: () => boolean): void {
+	let left = (times ?? 1) - 1;
+	if (left <= 0) return;
+	const tick = () => {
+		if (!isSessionActiveWith(sender) || !getFeatures().compelActivity || (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze"))) {
+			log(`repeated touch stopped with ${left} to go — no longer allowed`);
+			return;
+		}
+		if (!touch()) {
+			tellHypnotist(sender, `[command] Stopped after fewer touches than asked — it would not land again.`);
+			return;
+		}
+		left--;
+		if (left > 0) scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+	};
+	scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
 }
 
 /** Bare "touch yourself" — too generic, so the hands go somewhere at random, and the hypnotist

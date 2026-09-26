@@ -12,6 +12,16 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.0 · 26 September 2026
+
+- **A hypnotist can make you touch yourself more than once.** *"Missy, touch your breasts three
+  times"* (or *"3 times"*, *"twice"*, up to five) repeats it, a second or two apart. It works in a
+  trance and inside a trigger. In a trigger the whole repeat uses one of its eight action slots.
+- **An action said on the same line as the trigger word is recorded.** *"When you hear ember glow,
+  touch your breasts three times"* now plants the word "ember glow" with the touch. Before, the
+  whole line became the trigger word. This needs a pause, such as a comma, a dash, "and" or
+  "then". Without one, the line is read as before.
+
 ## v0.91.3 · 26 September 2026
 
 - **While you are held still, the kneel/stand button is greyed out,** the same as when an item
