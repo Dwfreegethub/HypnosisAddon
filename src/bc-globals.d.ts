@@ -168,6 +168,8 @@ declare const CurrentTime: number;
 // illusion.ts for why that matters.
 declare function CharacterLoadSimple(characterId: string): any;
 declare function CharacterRefresh(character: any, push?: boolean, refreshDialog?: boolean): void;
+/** BC R132 Pose.js: how a pose change may happen. NEVER = 0 draws the kneel button "Blocked". */
+declare const PoseChangeStatus: { NEVER: 0; NEVER_WITHOUT_AID: 1; ALWAYS_WITH_STRUGGLE: 2; ALWAYS: 3 };
 // Character.js — rebuilds the cached C.Effect array from the character's appearance (via
 // CharacterGetEffects). HasEffect and ActivityOrgasmPrepare read that CACHE, so after we splice
 // an effect off our Emoticon carrier we must call this or BC keeps seeing the stale effect.

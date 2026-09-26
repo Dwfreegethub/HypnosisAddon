@@ -20,6 +20,31 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.91.3) — the held-still kneel button, and the repeating line
+
+DW, live on v0.91.2: the pose menu was held, but the kneel/stand button still ran its mini-game.
+BC's success path posts "StandUp" to the room before calling `PoseSetActive`, so the room was told
+she stood while our refusal kept her kneeling. The refusal line also repeated "over and over". DW
+compared it with frog-tie metal cuffs, which grey the button out completely.
+
+**How BC does it (R132).** The button's state comes from `PoseCanChangeUnaidedStatus(Player, pose)`
+across every stand (or kneel) pose:
+- `NEVER` draws it "Blocked", and `ChatRoomToggleKneel` has no case for it, so nothing happens.
+  Items that restrict `AllowedActivePoseMapping` produce this, which is how the cuffs work.
+- BC's own `Freeze` only produces `ALWAYS_WITH_STRUGGLE`, the "Limited" (yellow) button and the
+  mini-game.
+
+We now hook `PoseCanChangeUnaidedStatus` at `HOLD_PRIORITY`. While held, any pose she is not
+already in answers `NEVER`, and our own changes pass. BC's `CanKneel` reads the same function, so
+everything asking "can she kneel" agrees.
+
+**The repeat.** `PoseSetActive` is called with the pose she is *already in* (by BC or another
+add-on), and each call counted as an attempt. `poseWouldChange()` now lets calls that change
+nothing through silently, and the notice gap went from 5 to 30 seconds.
+
+`test/held-still.mjs`: 32 checks, up from 26. Dropping the button block fails 2 and dropping the
+no-op pass fails 1.
+
 ### Fixed 2026-09-26 (v0.91.2) — the pose hold lost to WCE and LSCG's hooks
 
 DW, live on v0.91.0 (confirmed on 0.91.0 after a hard refresh): held still, the pose menu and the

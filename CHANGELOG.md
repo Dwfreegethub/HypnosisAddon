@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.91.3 · 26 September 2026
+
+- **While you are held still, the kneel/stand button is greyed out,** the same as when an item
+  such as frog-tie cuffs keeps you from standing. Before, it let you play the struggle game and
+  then told the room you had stood up, when you had not.
+- **The "your body does not answer" line no longer repeats over and over.** You see it when you
+  actually try to move, at most every 30 seconds.
+
 ## v0.91.2 · 26 September 2026
 
 - **"You cannot move" now really stops you changing pose,** even with other add-ons such as WCE or
