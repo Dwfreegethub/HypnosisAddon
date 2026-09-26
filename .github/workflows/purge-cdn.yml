@@ -32,11 +32,11 @@ jobs:
       - name: Purge, then confirm jsDelivr serves this version
         run: |
           want=$(node -p "require('./package.json').version")
-          url="https://cdn.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/cdn/HypnosisAddon.js"
+          url="https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js"
           for attempt in 1 2 3 4 5; do
             # Give GitHub a moment to settle the branch before jsDelivr looks it up again.
             sleep 20
-            curl -fsS --retry 3 --retry-delay 5 "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/cdn/HypnosisAddon.js" > /dev/null
+            curl -fsS --retry 3 --retry-delay 5 "https://purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js" > /dev/null
             sleep 10
             got=$(curl -fsS "${url}?t=$(date +%s%N)" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | grep -m1 -F "$want" || true)
             if [ "$got" = "$want" ] || [ "$got" = "v$want" ]; then

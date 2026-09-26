@@ -20,6 +20,33 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.92.1) — the loader goes to GitHub first
+
+From v0.91.3, jsDelivr went on serving v0.91.2. Every purge came back accepted, `throttled: false`,
+on both of its networks (CF and FY). Its own resolver for `@main`
+(`data.jsdelivr.com/v1/packages/gh/…/resolved?specifier=main`) answered 502 "Couldn't fetch
+versions", then `"version": null`. So it was their lookup of the branch, not our file, our URL or
+our purges:
+- `raw.githubusercontent.com` served the current bundle throughout.
+- v0.91.2 had gone out normally after the loader's `?t=` change, and jsDelivr ignores the query.
+
+The loader treated jsDelivr as primary and GitHub only as an *error* fallback. A stale copy is not
+an error, so every player stayed on the old build.
+- **`runLoader` order:** GitHub first (`GITHUB_URL`, formerly `FALLBACK_URL`: fetched with
+  `cache: "no-cache"` and run inline, as the fallback always was), then jsDelivr as a script tag,
+  then the on-screen failure notice. GitHub's cache is about five minutes, so that is now the
+  release lag.
+- **No double load:** the second source is still only tried after the first has failed, with no
+  timeout.
+- **Outcomes** are now `"github" | "cdn" | "failed"`.
+- **`test/loader.mjs`** was rewritten for the new order: GitHub ok; each of three GitHub failures
+  falling to jsDelivr; and all three with both failing. Putting jsDelivr first again fails 11
+  checks.
+
+**Also fixed:** `decf02b` (the self-checking purge workflow) had put `${GITHUB_REPOSITORY}` in the
+purge URL. `test/loader.mjs`'s "the cache purge clears the same URL the loader loads" caught it; I
+had not run the suite after that CI-only commit. The literal URL is back.
+
 ### Added 2026-09-26 (v0.92.0) — repeated touches, and any action on the start line
 
 DW, live: "I tried to make Missy touch herself 3 times… that does not work." Two findings:

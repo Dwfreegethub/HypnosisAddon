@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.1 · 26 September 2026
+
+- **Updates reach you within minutes.** ECHS now loads straight from GitHub, and only uses its
+  other source (jsDelivr) if GitHub can't be reached. On 26 September jsDelivr got stuck serving
+  an older version for hours after new ones were out. This needs the small ECHS script in your
+  userscript manager to update, which it does on its own, or you can update it by hand.
+
 ## v0.92.0 · 26 September 2026
 
 - **A hypnotist can make you touch yourself more than once.** *"Missy, touch your breasts three
