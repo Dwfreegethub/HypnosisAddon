@@ -4751,7 +4751,7 @@ reload while a compulsion is armed.
 
 ---
 
-### 25. Hearing only one voice (v0.93.0) — **open, never run live**
+### 25. Hearing only one voice (v0.93.0) — **confirmed live** (DW, 2026-09-26: "those both work")
 
 H and S as before, plus a third player R. S ticks **Hearing** (Permissions). `test/hearing.mjs`
 covers the rules; this checks BC's real chat pipeline, which the suite only models.
@@ -4769,7 +4769,8 @@ covers the rules; this checks BC's real chat pipeline, which the suite only mode
 5. **As a trigger.** Plant *"your trigger word is hush now"* + *"you hear only my voice"*. Wake. R
    says *"hush now"*. *Expect:* S hears only R. H is not heard. `/echs safeword` ends it.
 
-### 26. Sight (v0.93.0) — **open, never run live**
+### 26. Sight (v0.93.0) — **confirmed live** (DW, 2026-09-26: "those both work"). The white trance
+veil greyed the dark; v0.93.1 lifts it while BC darkens her screen — retest that the black is black.
 
 H and S as before. S ticks **Sight**. `test/sight.mjs` models BC's blindness; only a live client
 shows the real screen, Blind Adjacent and the map.
@@ -4783,7 +4784,7 @@ shows the real screen, Blind Adjacent and the map.
 4. **Release and endings.** *"S, you can see again"* clears it. So does waking, the safeword, and
    unticking Sight. With *"S, that will stay with you"* before the wake, it survives the wake.
 
-**Thirteen of twenty-seven topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+**Fifteen of twenty-seven topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 

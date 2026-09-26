@@ -174,6 +174,8 @@ declare const PoseChangeStatus: { NEVER: 0; NEVER_WITHOUT_AID: 1; ALWAYS_WITH_ST
 // CharacterGetEffects). HasEffect and ActivityOrgasmPrepare read that CACHE, so after we splice
 // an effect off our Emoticon carrier we must call this or BC keeps seeing the stale effect.
 declare function CharacterLoadEffect(character: any): void;
+// Character.js (R132) — 1 normal, 0.3 / 0.15 / 0 as her blind level rises; 1 in photo mode.
+declare function CharacterGetDarkFactor(character: any, eyesOnly?: boolean): number;
 declare function CharacterLoadCanvas(character: any): void;
 declare function DrawCharacter(
 	character: any,

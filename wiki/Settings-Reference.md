@@ -51,7 +51,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 | **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. |
 | **Cannot Speak** | On | The trance silences standard room speech automatically. |
 | **Silence OOC Too** | Off | By default, single-parentheses OOC text `(like this)` passes through muted speech. Enabling this suppresses OOC chat while silenced. |
-| **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances. |
+| **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
 | **Release on Disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |

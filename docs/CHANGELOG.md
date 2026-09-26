@@ -20,6 +20,17 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.93.1) — the trance veil greyed out blindness
+
+Found live by DW, the day sight shipped: "the black and white make the screen look gray". BC draws
+its blindness darkening inside ChatRoomRun, and our 30% white veil is painted after ChatRoomRun's
+`next()`, so it lay on top of BC's dark and lifted black to grey. `drawTranceVeil` now paints nothing
+while `CharacterGetDarkFactor(Player) < 1` (R132 Character.js: 0.3 / 0.15 / 0 for blind levels 1-3,
+1 in photo mode or for VR avatars at level 3). Asking BC rather than our own `sightLevel` means a
+real blindfold gets the same treatment, and BC's own exceptions (where it does not darken) keep the
+veil. It is decided per frame, so the veil returns the frame sight does. Walking trance's thin veil
+follows the same rule. `test/sight.mjs` +6 checks (35), 3 failing with the line removed.
+
 ### Added 2026-09-26 (v0.93.0) — sight
 
 In the same release as hearing (below). BC's three blindness levels as `sight-dim` / `sight-dark` /

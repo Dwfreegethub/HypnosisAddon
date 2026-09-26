@@ -47,6 +47,6 @@ Needs the **Sight** permission (Permissions tab, off by default) and an **Entran
 
 **How long it lasts:** until the trance ends, the release, or her safeword. *"That will stay with you"* can carry it past the wake, and it can be planted in a trigger. Unticking **Sight** ends it at once. Reloading the page mid-trance clears it, as it does "you cannot speak".
 
-The trance's own soft white veil is separate, and stays.
+The trance's own soft white veil steps aside while her sight is dimmed or gone, so the dark is not washed grey, and comes back when she can see again. A real blindfold worn in a trance does the same.
 
 See also [What to Say](What-to-Say#hearing--hearing--entranced) and [Settings Reference](Settings-Reference).
