@@ -698,7 +698,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "movement-block",
-		examples: ["you cannot move", "stay still", "you are frozen"],
+		examples: ["you cannot move", "stay still", "you are frozen", "you will be frozen"],
 		permission: "movementRestriction",
 		patterns: [
 			// The optional (\w+ ) throughout lets one adverb slip in without needing a
@@ -716,6 +716,10 @@ const SUGGESTIONS: Suggestion[] = [
 			// hypnotist's benefit, not a different mechanic.
 			/\byou will (not be able|be unable) to move\b/,
 			/\byou will not move\b/,
+			// v0.92.6 (DW): "you will be frozen", the future of "you are frozen", and "you'll be
+			// frozen" ("you'll" is not expanded by normalize, so it arrives as "you ll"). Not "you
+			// will not / never / no longer be frozen", which say the opposite.
+			/\byou (will|ll) (?!not\b|never\b|no\b)(\w+ )?be (\w+ )?(frozen|paralyzed|rooted|immobile|stuck)\b/,
 		],
 		// Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
 		// told it did not land, and the room is not told of a stillness that is not there.

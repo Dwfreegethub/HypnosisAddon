@@ -58,6 +58,14 @@ const CASES = [
 	["Stay where you are.", "movement-block"],
 	["Your body will not obey you.", "movement-block"],
 	["you are rooted to the spot", "movement-block"],
+	// v0.92.6: the future tense. Failure: unmatched, or the negatives below read as a freeze.
+	["You will be frozen.", "movement-block"],
+	["you'll be frozen in place", "movement-block"],
+	["You will soon be completely frozen.", "movement-block"],
+	["you will be stuck where you stand", "movement-block"],
+	["You will not be frozen.", null],
+	["you will never be frozen again", null],
+	["you will no longer be frozen", null],
 	// --- movement: release ---
 	["You can move again.", "movement-release"],
 	["you may move", "movement-release"],

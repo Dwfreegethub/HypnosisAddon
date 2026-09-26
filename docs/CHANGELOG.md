@@ -20,6 +20,16 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.92.6) — "you will be frozen"
+
+Found by the v0.92.4 wording sweep: *"you will be frozen"* matched no suggestion anywhere, so as the
+rest of a wake compulsion it planted nothing. `movement-block` gains the future of its "you are
+frozen" pattern, `you (will|ll) [adverb] be [adverb] frozen|paralyzed|rooted|immobile|stuck`, with a
+lookahead refusing *not / never / no* ("you will not be frozen", "no longer be frozen"). "You'll" is
+matched as "you ll" because `normalize` does not expand it; expanding it globally would widen every
+"you will" pattern at once, which was not the ask. Added to the examples, so the in-game help table
+shows it. `test/voicetest.mjs` +7 (4 positive, 3 negative).
+
 ### Fixed 2026-09-26 (v0.92.5) — held still: pose commands refused under WCE's animation engine
 
 DW's live trace (test script section 8) put the refused pose change in `wce.js`. Reading it: with
