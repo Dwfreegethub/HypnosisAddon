@@ -4681,8 +4681,12 @@ reload while a compulsion is armed.
 6. **Speech.** *"S, when R speaks, you cannot move"*, wake, R says anything. *Expect:* S frozen.
 7. **Never while under.** Plant an arrival compulsion, keep S under, have R rejoin. *Expect:*
    nothing; after the wake, R rejoining fires it.
-8. **Old meaning kept.** S under. H: *"S, when you wake up you will feel refreshed"*. *Expect:* S
-   wakes, as this line always did; H is told nothing was set up as a compulsion.
+8. **Nothing to keep (re-decided v0.92.4).** S under. H: *"S, when you wake up you will feel
+   refreshed"*. *Expect:* S stays under; H is told nothing was set up and that S is still under.
+   Adding *"Wake up now"* to the same line wakes S and plants nothing. (Before v0.92.4 this line
+   woke S, and so did every wake wording the parser missed, e.g. *"after you wake up, …"*.)
+9. **Wordings (v0.92.4).** *"S, after you wake up, you cannot move"*, *"once you are awake, …"*,
+   *"upon waking, …"*. *Expect:* each plants a wake compulsion and S stays under.
 
 ---
 

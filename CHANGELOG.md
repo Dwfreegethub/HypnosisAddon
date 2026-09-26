@@ -12,6 +12,16 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.4 · 26 September 2026
+
+- **"After you wake" suggestions no longer wake you up on the spot.** Wordings such as *"after you
+  wake up, …"*, *"when you awaken, …"*, *"once you are awake, …"* and *"upon waking, …"* were not
+  recognised, and because they contain "wake" they woke you instead. They now plant the suggestion
+  for after the trance, as intended.
+- If the hypnotist says something after "when you wake" that ECHS cannot keep, you now stay in
+  trance and the hypnotist is told, instead of being woken. A line that also says "wake up" still
+  wakes you.
+
 ## v0.92.3 · 26 September 2026
 
 - **The hypnotist can pose you again while you are held still.** Once "you cannot move" really held,

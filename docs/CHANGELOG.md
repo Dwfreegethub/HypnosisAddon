@@ -20,6 +20,30 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.92.4) — "after you wake" compulsions woke her instead
+
+DW, live: "Any of the after you wake commands do not seem to work. They seem to wake me up." A
+wording sweep through the whole planting path found the wake clause only accepted
+`when|as soon as|the moment|once` + `you wake`/`you open your eyes`/`you come out of …`, or a timed
+"N minutes after …". So "after you wake up, …", "when you awaken", "when you are awake", "upon
+waking", "after waking" were not conditions. The ones containing the word "wake" then reached the
+wake handler and woke her. The ones that didn't ("upon waking") did nothing, silently.
+
+Two changes. The clause now also takes `after` (with `right`/`just`/`soon`/`straight`), `upon`,
+and the verbs `awaken`, `awake`, `are (wide) awake (again)`, `awakening`, `come out of the trance`.
+"On waking" was left out on purpose: "come on, you, wake up" would read as a condition.
+
+**Decided (re-decides Build 6's "old meaning kept"):** a wake clause whose rest cannot be recorded
+used to fall through and wake her, "as that line always did". It now keeps her under and tells the
+hypnotist so, since losing the trance to a misheard suggestion is the worse failure, and a
+hypnotist can always just say "wake up". The exception is a line whose rest itself says to wake up
+("…you will feel refreshed. Wake up now"), which still wakes her and plants nothing. Person clauses
+("when Rei comes in") are unchanged. Covered in `test/compulsion.mjs`, 12 of whose new checks fail
+on v0.92.3.
+
+The suggestion "wake with something other than wake" was not needed: every wording now plants, and
+"when you open your eyes" / "when you come out of trance" already worked as alternatives.
+
 ### Fixed 2026-09-26 (v0.92.3) — the hypnotist's pose commands refused while held
 
 DW, live: once frozen, the hypnotist's spoken pose commands stopped working. Our own path was fine:

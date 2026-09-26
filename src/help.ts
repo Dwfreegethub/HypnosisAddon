@@ -260,6 +260,7 @@ function lastingLines(): HelpLine[] {
 		gap(),
 		head("Compulsions — waiting for something, not a word"),
 		body(`"Missy, five minutes after you wake, you will kneel"`),
+		body(`"Missy, after you wake up, ..."   "Missy, when you open your eyes, ..."`),
 		body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
 		dim("Then \"remember trigger\". Once, unless you say it works every time;"),
 		dim("never while they are under. Their safeword clears the after-waking ones."),
