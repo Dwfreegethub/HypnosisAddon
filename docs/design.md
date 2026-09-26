@@ -4535,7 +4535,7 @@ settings screen and a reload.
 1. **Options while planting.** H: *"S, your trigger word is ember glow"*, *"S, you cannot move"*,
    *"S, this trigger works only once"*, *"S, it lasts 2 hours"*, *"S, remember trigger"*.
    *Expect:* H sees a `[trigger] Noted …` line for each option, then a SAVED line ending
-   `Options: works once, ends in 120 minutes`. S sees *"The shape of it shifts, just slightly."*
+   `Options: works once, ends in 2 hours`. S sees *"The shape of it shifts, just slightly."*
    twice. *Failure looks like:* an option line recorded as a suggestion (H's SAVED line lists
    extra actions), or no Noted line.
 2. **Once means once.** Wake S. H says *"ember glow"*. *Expect:* S is frozen. `/echs triggers` on S
