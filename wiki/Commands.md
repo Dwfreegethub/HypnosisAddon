@@ -15,6 +15,18 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 
 ---
 
+## Starting a Hypnosis — for the Hypnotist
+
+| Command | What It Does |
+|---|---|
+| **`/echs induce <name>`** | **Attempts an induction on that player** — exactly the same as clicking *Attempt Hypnosis* on their profile's spiral panel. The name can be their name, nickname, the start of either (*"/echs induce Mis"*), or their member number. |
+| `/echs induce` | With only one other person in the room, attempts them. Otherwise it lists who is here, with member numbers. |
+| **`/echs retry`** | Tries again on the last person you attempted — for your second attempt after a miss. |
+
+You are told the attempt went out; what happens next is the other player's choice, made privately on their own client. `/echs chance <name>` (under Diagnostics) shows your odds first.
+
+---
+
 ## Session — Usable From Any State
 
 | Command | What It Does | When You Would Use It |

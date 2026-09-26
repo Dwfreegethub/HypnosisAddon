@@ -14,7 +14,9 @@
 ### Step 1: Open Their Profile and Click the Spiral Icon
 The spiral icon is visible on every player's profile card because client-side extensions cannot detect third-party add-ons without sending a ping. Clicking it sends a quiet background query. Within about three seconds, the panel will either open or inform you that the target is not running the add-on, complete with a *Check again* button. The icon remains visible regardless, ensuring the profile card never becomes a public list of who has the script installed.
 
-### Step 2: Click "Attempt Hypnosis"
+### Step 2: Click "Attempt Hypnosis" (or type `/echs induce <name>`)
+*Prefer the keyboard?* **`/echs induce Missy`** in chat does exactly the same as the button, and **`/echs retry`** tries the same person again after a miss.
+
 The target receives a private induction dialog offering three choices: **Agree**, **Ignore**, or **Fight**. You are never told which option they picked. Silence for 60 seconds automatically defaults to Ignore.
 
 ### Step 3: Use the Induction Window
@@ -62,9 +64,9 @@ You are always in control of your boundaries. See [Consent and Safety](Consent-a
 The universal exit:
 
 `/echs safeword` (or `/hypno safeword`)  
-Instantly clears active trances, purges triggers, and restores all character controls from any state. Slash commands always bypass speech restrictions.
+Instantly clears active trances, releases any trigger holding you, and restores all character controls from any state. Slash commands always bypass speech restrictions.
 
-*(Note on Waking:* A planned feature will allow subjects to attempt breaking out of shallow trances using `/echs wake`. For now, active trances are concluded by the hypnotist speaking wake phrases like *"Missy, wake up"*, using their remote panel button, letting the session timer expire, or using the safeword).*
+*(Note on Waking:* In a shallow trance, the subject can surface on their own with `/echs wake`; a deep trance refuses and says so. Otherwise a trance ends when the hypnotist speaks a wake phrase like *"Missy, wake up"*, clicks the Wake Up button on their panel, when the session timer expires, or with the safeword).*
 
 ---
 

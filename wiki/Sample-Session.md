@@ -30,7 +30,7 @@ Elena does not need any permissions switched on to act as a hypnotist—her own 
 
 Because they have only spoken casually a few times, Missy's stored trust in Elena is low.
 
-Elena opens Missy's player profile card, clicks the **spiral icon**, and selects **Attempt Hypnosis**.
+Elena opens Missy's player profile card, clicks the **spiral icon**, and selects **Attempt Hypnosis**. *(Typing `/echs induce Missy` in chat does exactly the same.)*
 
 **Missy's screen displays a prompt:**
 
@@ -62,7 +62,7 @@ Elena has **two attempts by default** before triggering a 10-minute cooldown (Mi
 
 ## 3. Attempt Two — The Induction Lands
 
-They chat for a while longer, naturally increasing their interaction count and trust. Elena initiates a second attempt.
+They chat for a while longer, naturally increasing their interaction count and trust. Elena initiates a second attempt, this time by typing `/echs retry`, which tries the last person she attempted again.
 
 This time, Missy clicks **Agree**, adding a significant bonus to the calculation.
 
@@ -170,7 +170,7 @@ Every restriction applied by the active session releases simultaneously—Missy 
 
 The planted trigger remains dormant in Missy's client. It does not fire upon waking; it simply rests in memory.
 
-*(Elena could also click the **Wake Up** button on her remote panel. A planned future feature will allow subjects to attempt waking themselves from shallow trances via `/echs wake`; for now, waking is handled by the hypnotist, session timeouts, or the safeword).*
+*(Elena could also click the **Wake Up** button on her remote panel. Missy can surface on her own with `/echs wake` if the trance is shallow; otherwise waking is handled by the hypnotist, the session timeout, or the safeword).*
 
 ---
 

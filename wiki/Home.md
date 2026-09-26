@@ -9,7 +9,7 @@ A conversational hypnosis add-on for [Bondage Club](https://www.bondageprojects.
 
 ---
 
-One player acts as hypnotist. They try an induction; you privately choose to agree, ignore, or resist; and if the trance lands, you slip under to a depth decided by your shared dynamic and the roll. 
+One player acts as hypnotist. They try an induction — the spiral icon on your profile, or **`/echs induce <your name>`** in chat — and you privately choose to agree, ignore, or resist; and if the trance lands, you slip under to a depth decided by your shared dynamic and the roll. 
 
 From there, suggestions work through ordinary chat and whispers — *"Missy, you cannot move"*, *"Missy, touch your breasts"* — and your own client checks every single line against your saved permissions in real-time. Suggestions can be set to outlive the trance, or planted as trigger words that fire whenever spoken.
 
