@@ -27,7 +27,7 @@ import {
 } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
-import { setRoomVoice } from "./notify";
+import { setRoomVoice, installRoomLineGuard } from "./notify";
 import { startStartupBanner, showLoadedToast } from "./welcome";
 
 function safely(label: string, fn: () => void): void {
@@ -185,6 +185,9 @@ safely("effect allow-list", installEffectAllowList);
 // Our effects count on this client even when another add-on wipes the Emoticon item they ride on,
 // and are put back on it before our appearance syncs — see effects.ts, "held by US".
 safely("effect hooks", () => installEffectHooks(modApi));
+
+// Our room lines arrive with one star, even when another add-on skips BC's strip (notify.ts).
+safely("room line guard", () => installRoomLineGuard(modApi));
 
 // Speech blocking. ChatRoomSendChatMessage is the right hook rather than ChatRoomSendChat:
 // it runs AFTER command parsing and after the emote and whisper branches, so being silenced
