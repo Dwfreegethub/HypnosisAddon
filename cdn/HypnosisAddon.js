@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.93.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.94.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3054,7 +3054,72 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return Math.max(0, Math.min(STRANGER_CEILING, progress));
   }
   function effectiveAccess(memberId) {
-    return Math.max(accessFor(memberId, "session"), chemicalFloor());
+    return Math.max(accessFor(memberId, "session"), chemicalFloor(), trustGiftFloor(memberId));
+  }
+  var TRUST_GIFT_MS = 5 * 6e4;
+  var TRUST_GIFT_FLOOR = 65;
+  var trustGift = null;
+  function trustGiftWaiting(memberId) {
+    return !!trustGift && trustGift.memberId === memberId && !trustGift.spentOn && Date.now() < trustGift.until;
+  }
+  function trustGiftFloor(memberId) {
+    const g = trustGift;
+    if (!g || g.memberId !== memberId) return 0;
+    if (g.spentOn) return g.spentOn === session && session.phase !== "Idle" ? TRUST_GIFT_FLOOR : 0;
+    return Date.now() < g.until ? TRUST_GIFT_FLOOR : 0;
+  }
+  function spendTrustGift() {
+    if (trustGift) trustGift.spentOn = session;
+    log(`trust gift spent on this induction (floor ${TRUST_GIFT_FLOOR})`);
+  }
+  function giveTrust(memberId, name) {
+    if (!getFeatures().hypnoEnabled) return "Hypnosis is switched off, so there is nothing to trust anyone with.";
+    if (memberId === Player?.MemberNumber) return "You cannot give your trust to yourself.";
+    const current = session.hypnotistId === memberId && session.phase !== "Idle";
+    if (current && session.phase === "Hypnotized") {
+      return `You are already under with ${name}. Your trust has nothing more to do this time.`;
+    }
+    if (current && trustGift?.memberId === memberId && trustGift.spentOn === session) {
+      return `${name} already has your trust for this one.`;
+    }
+    trustGift = { memberId, name, until: Date.now() + TRUST_GIFT_MS, spentOn: null };
+    log(`trust gift to ${name} [${memberId}], waiting ${TRUST_GIFT_MS / 6e4} min`);
+    if (current && session.phase === "AttemptMade") {
+      spendTrustGift();
+      if (promptTimer) {
+        clearTimeout(promptTimer);
+        promptTimer = null;
+      }
+      session.choice = "agree";
+      beginInductionWindow();
+      return `You trust ${name}. You let yourself go along with it.`;
+    }
+    if (current) {
+      spendTrustGift();
+      session.choice = "agree";
+      return `You trust ${name}. You stop holding anything back.`;
+    }
+    return `You trust ${name}. If they reach for you in the next ${TRUST_GIFT_MS / 6e4} minutes, you will go along with it without being asked.`;
+  }
+  var TRUST_LINE = /\bi (?:really |truly |completely |fully |totally |do |still )?trust you\b/;
+  function noticeTrustLine(text, whisperTo) {
+    const t = text.toLowerCase().replace(/[‘’]/g, "'");
+    if (!TRUST_LINE.test(t)) return null;
+    if (/\?\s*$/.test(t)) return null;
+    const others2 = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).filter(
+      (c) => c?.MemberNumber && c.MemberNumber !== Player?.MemberNumber
+    );
+    if (typeof whisperTo === "number" && whisperTo !== Player?.MemberNumber) {
+      const c = others2.find((o) => o.MemberNumber === whisperTo);
+      return giveTrust(whisperTo, c?.Name ?? `#${whisperTo}`);
+    }
+    const esc = (n) => n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const named = others2.filter(
+      (c) => [c.Name, c.Nickname].filter(Boolean).some((n) => new RegExp(`(^|[^\\w])${esc(n)}($|[^\\w])`).test(t))
+    );
+    if (named.length === 1) return giveTrust(named[0].MemberNumber, named[0].Name);
+    if (!getFeatures().hypnoEnabled) return null;
+    return named.length > 1 ? "That names more than one person here, so your trust went to no one. Say it with one name." : 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
   }
   function resolveDepths(hypnotistId, choice, roll) {
     const full = inductionChance(hypnotistId, choice);
@@ -3133,6 +3198,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return [
       `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} \u2192 access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
       `  ${describeRelationship(memberId)}`,
+      ...trustGiftFloor(memberId) > 0 ? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`] : [],
       // Skill only shows when this client honoured some — zero outside an attempt, zero on
       // rung Ignore, zero for a stranger on rung Trusted. It is the HONOURED value, the same
       // one the descriptor reads, not the claim.
@@ -3463,6 +3529,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function totalStop(hypnotistMessage, localMessage) {
     clearTimers();
+    trustGift = null;
     clearCurrentDepths();
     stopWaiting();
     stopPersistHeartbeat();
@@ -3649,7 +3716,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       session.phase = "AttemptMade";
       session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
       pushUpdate();
-      showPrompt(String(message.hypnotistName ?? `#${sender}`));
+      const who = String(message.hypnotistName ?? `#${sender}`);
+      if (trustGiftWaiting(sender)) {
+        spendTrustGift();
+        session.promptName = who;
+        session.choice = "agree";
+        notify(`${who} reaches for you, and you let them. You told them you trust them.`);
+        beginInductionWindow();
+        return;
+      }
+      showPrompt(who);
     });
     registerHiddenHandler("test-note", (_sender, message) => {
       if (!isTestingMode()) return;
@@ -8048,7 +8124,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("ignore it, believe it only from people you trust, cap it for everyone,"),
       body("or the default: full weight once you know someone, capped before that."),
       body("You feel it as a read on their manner at the prompt, never a number,"),
-      body("and it can never reach the earned-only three.")
+      body("and it can never reach the earned-only three."),
+      gap(),
+      head("Giving your trust"),
+      body('Say "I trust you, Eri", or whisper "I trust you" to them. If Eri'),
+      body("reaches for you within 5 minutes, you are not asked: it goes ahead"),
+      body("as Agree, and your trust in them counts as at least 65 for that one"),
+      body("induction and the trance it leads to. Then it is spent."),
+      dim("It never reaches the earned-only three. /hypno trust <name> does the"),
+      dim("same; the safeword clears it.")
     ];
   }
   function lastingLines() {
@@ -9453,7 +9537,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.93.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.94.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -9863,6 +9947,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
       group: "Session",
       Description: "Resist a hypnosis attempt \u2014 lowers their roll",
       Action: () => answerPrompt("fight")
+    },
+    {
+      Tag: "trust",
+      group: "Session",
+      args: "<name|number>",
+      Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
+      Action: (args) => {
+        const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /hypno trust <name or member number>") : null;
+        if (!wholeName(args)) reply("Who? usage: /hypno trust <name or member number>");
+        if (target) reply(giveTrust(target.id, target.name));
+      }
     },
     {
       Tag: "wake",
@@ -11154,7 +11249,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.93.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.94.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11177,7 +11272,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.93.1"} loaded`;
+    el.textContent = `ECHS v${"0.94.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11208,14 +11303,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.93.1"})`);
+  info(`script loaded (v${"0.94.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.93.1",
+      version: "0.94.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -11253,6 +11348,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const result = next(args);
         if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
           noteArrival(data.Sender);
+        }
+        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && typeof Player?.MemberNumber === "number" && data.Sender === Player.MemberNumber) {
+          try {
+            const told = noticeTrustLine(inCharacter, data.Type === "Whisper" ? data.Target : void 0);
+            if (told) tellPlayer(told);
+          } catch (err) {
+            warn("trust line failed:", err);
+          }
         }
         if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
           try {

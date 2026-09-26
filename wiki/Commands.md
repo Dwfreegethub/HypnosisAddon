@@ -33,6 +33,7 @@ You are told the attempt went out; what happens next is the other player's choic
 |---|---|---|
 | `/echs agree` | Accept an attempt — cooperative, improves their induction roll. | Answering an induction prompt without clicking, e.g. while in the wardrobe. |
 | `/echs ignore` | Neither help nor resist. | Passive response. Letting the prompt time out in silence counts as this. |
+| `/echs trust <name>` | Give a hypnotist your trust: their next induction within 5 minutes skips the prompt and goes ahead as Agree, with your trust in them counting as at least 65 for that one induction. Saying *"I trust you, <name>"* in the room does the same. | Letting someone you know take you under without the prompt. |
 | `/echs fight` | Resist — significantly lowers their roll. | Actively struggling against the induction without clicking. |
 | `/echs wake` | Wake yourself, if the trance is shallow enough. | Attempting to shake off a light trance. A deep trance will refuse and inform you. |
 | **`/echs safeword`** | **Hard stop. Clears the active trance and every lingering effect. Always works.** | Any time, under any condition, from any state. |

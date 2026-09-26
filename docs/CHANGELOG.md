@@ -20,6 +20,37 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.94.0) — "I trust you, Eri"
+
+DW: "a one time trust boost. If the subject says that they trust the hypnotist it will give them a
+big boost and then it does not ask the induction question. Lasts for like 5 min." DW's answers: the
+name is required (spoken, or whispered to them, or `/hypno trust <name>`); it reaches session and
+arousal only; a floor of 65; used up by one induction.
+
+**Reading of "lasts 5 minutes" + "used up by one induction" (flagged to DW):** the gift waits 5
+minutes for an induction. The induction that takes it keeps it through its retries and the trance it
+leads to, however long, and it ends with that encounter. The alternative, a flat 5 minutes, would
+drop her mid-trance from 65 back to her real trust, which only moves the roll and depth already
+rolled, so it would change nothing she could see but the `/hypno chance` line.
+
+**Where it reaches.** Added to `effectiveAccess()` beside the arousal floor, not to `accessFor()`,
+which is the earned half `chanceBeforeInvariant(…, earnedOnly)` reads. Since v0.50.0 depth is the
+gate, and the category argument to `accessFor` is only ever asked for "session", so the only way to
+honour "session + arousal only" is to keep the gift off earned depth: full depth rises (Entranced,
+arousal), earned depth does not (Deep-tier illusion, triggers, carry-forward). A subject who has opened
+those to full depth on her Depth tab will find the gift reaches them too; that is her setting.
+
+**Mechanics.** `session.ts`: one `trustGift` at a time. `spentOn` holds the `session` object it was
+spent on; `session` is replaced by `freshSession()` at every encounter end, so identity is exactly
+"this induction". The `session-attempt` handler skips `showPrompt` and runs `beginInductionWindow`
+with choice Agree. Said while the box is up, it answers it; said mid-window or after a miss, the
+choice becomes Agree; said while already under with them, nothing is given and she is told plainly (the roll and depth are settled, so claiming she sank further would lie about her own state). `totalStop` clears it
+(safeword, hypnosis off, reset). Not persisted. Her own lines are read in `main.ts` off BC's echo of
+them (a whisper carries `Target`, R132 ChatRoom.js); `noticeTrustLine` refuses questions, "don't
+trust", two names, a name that only prefixes someone's, and tells her why when a trust line named no
+one (rule 5). `test/trust-gift.mjs`, 41 checks; with the prompt skip removed 8 fail, with the floor
+leaked into earned depth 1, with a spent gift never ending 1.
+
 ### Fixed 2026-09-26 (v0.93.1) — the trance veil greyed out blindness
 
 Found live by DW, the day sight shipped: "the black and white make the screen look gray". BC draws

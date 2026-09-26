@@ -4784,7 +4784,21 @@ shows the real screen, Blind Adjacent and the map.
 4. **Release and endings.** *"S, you can see again"* clears it. So does waking, the safeword, and
    unticking Sight. With *"S, that will stay with you"* before the wake, it survives the wake.
 
-**Fifteen of twenty-seven topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+### 27. "I trust you" (v0.94.0) — **open, never run live**
+
+H and S as before, S awake. `test/trust-gift.mjs` covers the logic; only a live room shows that
+BC's echo of her own line reaches the reader, for chat and for a whisper.
+
+1. **Spoken.** S says *"I trust you, H"*. *Expect:* S sees a private "If they reach for you in the
+   next 5 minutes…". H starts an induction. *Expect:* no box on S's screen; S sees "…you let them";
+   the induction window runs. `/hypno chance H` on S shows "your trust, given".
+2. **Whispered.** Whisper *"I trust you"* to H. *Expect:* the same private line.
+3. **No name.** S says *"I trust you"* to the room. *Expect:* told to say the name; H's next induction
+   shows the box.
+4. **Used up.** After a trance from step 1 ends, H tries again. *Expect:* the box.
+5. **Lapses.** Give it, wait 5 minutes, H tries. *Expect:* the box.
+
+**Fifteen of twenty-eight topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 

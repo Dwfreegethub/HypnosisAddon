@@ -36,6 +36,7 @@ import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import {
 	answerPrompt,
+	giveTrust,
 	selfWake,
 	safeword,
 	describeSession,
@@ -424,6 +425,19 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Session",
 		Description: "Resist a hypnosis attempt — lowers their roll",
 		Action: () => answerPrompt("fight"),
+	},
+	{
+		Tag: "trust",
+		group: "Session",
+		args: "<name|number>",
+		Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
+		Action: (args: string) => {
+			// The name is required, never assumed from who happens to be in the room (DW): trust
+			// is given to someone.
+			const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /hypno trust <name or member number>") : null;
+			if (!wholeName(args)) reply("Who? usage: /hypno trust <name or member number>");
+			if (target) reply(giveTrust(target.id, target.name));
+		},
 	},
 	{
 		Tag: "wake",

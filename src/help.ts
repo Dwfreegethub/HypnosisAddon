@@ -228,6 +228,14 @@ function depthTrustLines(): HelpLine[] {
 		body("or the default: full weight once you know someone, capped before that."),
 		body("You feel it as a read on their manner at the prompt, never a number,"),
 		body("and it can never reach the earned-only three."),
+		gap(),
+		head("Giving your trust"),
+		body('Say "I trust you, Eri", or whisper "I trust you" to them. If Eri'),
+		body("reaches for you within 5 minutes, you are not asked: it goes ahead"),
+		body("as Agree, and your trust in them counts as at least 65 for that one"),
+		body("induction and the trance it leads to. Then it is spent."),
+		dim("It never reaches the earned-only three. /hypno trust <name> does the"),
+		dim("same; the safeword clears it."),
 	];
 }
 

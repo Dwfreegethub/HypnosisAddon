@@ -8,7 +8,7 @@ import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
-import { installSession, noteInductionLine } from "./session";
+import { installSession, noteInductionLine, noticeTrustLine } from "./session";
 import { installSuppression, installHearingFilter, hearsLine, markUnheard } from "./suppression";
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
@@ -27,7 +27,7 @@ import {
 } from "./voice";
 import { noteConversation } from "./trust";
 import { getFeatures } from "./storage";
-import { setRoomVoice, installRoomLineGuard } from "./notify";
+import { setRoomVoice, installRoomLineGuard, tellPlayer } from "./notify";
 import { startStartupBanner, showLoadedToast } from "./welcome";
 
 function safely(label: string, fn: () => void): void {
@@ -144,6 +144,22 @@ safely("ChatRoomMessage hook", () => {
 			// Spoken suggestions: ordinary chat we can hear from someone running a session
 			// on us. Never consumes the message — the line is still said out loud, and the
 			// effect (if any) lands alongside it.
+			// Her own "I trust you, Eri" (v0.94.0). BC echoes her own lines back through here, a
+			// whisper with Target set to whom she whispered it (R132 ChatRoom.js).
+			if (
+				(data?.Type === "Chat" || data?.Type === "Whisper") &&
+				inCharacter &&
+				typeof Player?.MemberNumber === "number" &&
+				data.Sender === Player.MemberNumber
+			) {
+				try {
+					const told = noticeTrustLine(inCharacter, data.Type === "Whisper" ? data.Target : undefined);
+					if (told) tellPlayer(told);
+				} catch (err) {
+					warn("trust line failed:", err);
+				}
+			}
+
 			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
 				try {
 					handleSpokenLine(data.Sender, inCharacter);

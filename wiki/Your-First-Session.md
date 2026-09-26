@@ -52,6 +52,16 @@ Your choice is completely private and is never disclosed to the hypnotist. You c
 
 This is especially helpful if your wardrobe or another UI screen is open when the prompt lands.
 
+### Giving Your Trust Ahead of Time
+If you already know you want to go under for someone, say so in the room: *"I trust you, Eri"* (or *"Eri, I trust you"*, or whisper *"I trust you"* to them). You can also type `/echs trust Eri`.
+
+* **Their name is needed.** A bare *"I trust you"* said to the room goes to no one, and you are told how to say it.
+* **For the next 5 minutes,** if Eri starts an induction on you, the prompt does not appear. It goes ahead as **Agree**.
+* **Your trust in them counts as at least 65** for that induction and the trance it leads to, so it is more likely to land and to go deeper. It reaches ordinary suggestions and arousal. It does **not** reach triggers, suggestions that outlive the trance, or the clothing illusion, which still need trust you have really built.
+* **It is used up by that one induction**, however long the trance lasts. The next time, you are asked again. If Eri does not try within 5 minutes, it lapses.
+* Said while Eri's prompt is already on your screen, it answers it as Agree.
+* Your safeword clears it. Nothing about it is saved: a reload forgets it.
+
 ### Step 2: Going Under
 If the attempt succeeds, your client enters a trance state. The resulting depth tier depends on the roll margin: a narrow success leaves you in a light, shallow trance, while a decisive success sends you deeper.
 
