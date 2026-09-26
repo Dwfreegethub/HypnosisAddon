@@ -2237,14 +2237,14 @@ Each is a separate minor release (rule 9) with its own live test.
 | 2 | **Built v0.88.0.** `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation. The inspector is its own tab, **Planted**. See *Needs Testing* item 20 |
 | 3 | **Built v0.89.0** (`conceal.ts`). Chat concealment of the phrase (`...`), checked against R132 `ChatRoom.js`: a post-handler at 50 transforms the displayed `msg`, and the ungarbled copy in `metadata.OriginalMsg`. See *Needs Testing* item 21 |
 | 4 | **Built v0.90.0.** Instant drop: `DROP_ACTION` recorded by "you will drop into trance" (or on the start line itself), the subject's Off / One time / Unlimited ceiling, and `dropIntoTrance()` in `session.ts` behind the induction attempt's own gates. See *Needs Testing* item 22 |
-| 5 | **Built, shipped inside v0.90.0** (DW, 2026-09-25: no bump until the overhaul is finished). Spoken and mantra triggers: `say:<n>:<text>` actions, the new *Made to Speak* permission (Entranced), sent through BC's `ChatRoomSendChatMessage`. **One decision for DW to confirm:** a forced line goes through OUR trance silence (see below). See *Needs Testing* item 23 |
+| 5 | **Built, shipped inside v0.90.0** (DW, 2026-09-25: no bump until the overhaul is finished). Spoken and mantra triggers: `say:<n>:<text>` actions, the new *Made to Speak* permission (Entranced), sent through BC's `ChatRoomSendChatMessage`. A forced line goes through our own trance silence — **decided by DW 2026-09-25** (see below). See *Needs Testing* item 23 |
 | 6 | **Built, shipped inside v0.90.0.** Delayed compulsions: phrase-less triggers (`fireOn` wake / arrive / speak, synthetic `key`) planted by a condition line. Wake arms on an ordinary wake by the installer and is a stored `dueAt`, polled every 5s; arrival from BC's `ServerEnter`; speech from any chat line. One-time by default, never while under, discarded by the safeword. See *Needs Testing* item 24 |
 
 **Versioning (DW, 2026-09-25):** Builds 5 and 6 ship inside v0.90.0, with no bump, until the
 overhaul is finished. This is a deliberate exception to rule 9. Their player-facing lines go under
 the v0.90.0 heading in the root `CHANGELOG.md`.
 
-### ⚠ Build 5: a forced line goes through our own silence — needs DW to confirm
+### Build 5: a forced line goes through our own silence — decided 2026-09-25
 
 A trigger that makes the subject speak goes out through BC's `ChatRoomSendChatMessage`, which is
 what a typed line uses. Our speech-block hook sits on that same function. As built, the hook lets
@@ -2254,8 +2254,8 @@ through them. Without the bypass, a drop plus a spoken line could never be heard
 the trance defaults, and *cannot speak* is on by default.
 
 **BC's own rules still apply:** an owner's BlockTalk rule, forbidden words, and gags (garbled by
-BC's `SpeechTransformProcess`). Only our own silence is bypassed. If DW would rather silence win,
-it is one line in `main.ts`, and the subject would then be told that the words could not come out.
+BC's `SpeechTransformProcess`). Only our own silence is bypassed. **DW chose this over "silence wins" on 2026-09-25**, for the
+drop-plus-words reason above. Do not re-decide it without flagging that you are.
 
 ---
 
@@ -4651,8 +4651,8 @@ the room actually receives, garbled or not.
 4. **Gagged.** Gag S (a ball gag). Fire it. *Expect:* R sees garbled text; with *Show ungarbled
    messages* on, R sees the original in brackets.
 5. **Silenced.** Drop-and-say: plant a trigger with both a drop and a line. Fire it. *Expect:* S
-   drops (and, by default, cannot speak), and the line is still heard. **This is the behaviour
-   awaiting DW's confirmation above.**
+   drops (and, by default, cannot speak), and the line is still heard. This is the
+   behaviour DW decided on, 2026-09-25.
 6. **An owner's BlockTalk rule** (if one can be set up): the line does not go out; S sees "The words
    rise in you, but something stronger holds them back."
 7. **Loop guard.** S ticks *You can fire your own triggers*; plant a line that says the trigger's
