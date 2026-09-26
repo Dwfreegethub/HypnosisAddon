@@ -289,3 +289,22 @@ Needs a third player, **R**. Missy ticks **Hearing** on her Permissions tab. Mis
 - [ ] H: *"Missy, your trigger word is hush now"*, *"Missy, you hear only my voice"*, *"Missy, remember trigger"*, *"Missy, wake up"*.
 - [ ] R: *"hush now"* → Missy hears only R now; H's chat is hidden from her.
 - [ ] Missy: `/echs safeword` → everyone audible again.
+
+---
+
+## 11. Sight (v0.93.0)
+
+Missy ticks **Sight** on her Permissions tab. Missy: `/echs trance H 80`.
+
+- [ ] H: *"Missy, your vision is dimming"* → Missy's screen dims. H looks at Missy: nothing has changed on her.
+- [ ] H: *"Missy, you can barely see"* → very dark.
+- [ ] H: *"Missy, you cannot see"* → black.
+- [ ] H: *"Missy, you can see again"* → normal.
+
+**BC's cap wins.** Missy sets BC's *Sensory Deprivation* to **Light** (Preferences → Immersion).
+- [ ] H: *"Missy, you cannot see"* → very dark, not black. H sees `[suggestion] "sight-blind" matched but did not land: sight-capped.`; Missy sees *"…Some light stays with you."* Missy sets Sensory Deprivation back.
+
+**Endings**
+- [ ] *"Missy, you cannot see"*, then *"Missy, wake up"* → sight back.
+- [ ] Under again: *"Missy, you cannot see"*, *"Missy, that will stay with you"*, *"Missy, wake up"* → still black after the wake. Missy: `/echs safeword` → sight back.
+- [ ] Under again: *"Missy, you cannot see"*, then Missy unticks **Sight** → sight back at once.

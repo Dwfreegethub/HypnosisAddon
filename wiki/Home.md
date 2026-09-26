@@ -33,7 +33,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | | |
 |---|---|
 | **[Commanded Activities](Commanded-Activities)** | Being made to act rather than just freeze — autonomous movement and touch. |
-| **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name. Blindness is planned. |
+| **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name; sight dimmed, darkened or taken, by BC's own blindness. |
 | **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, compulsions that wait for a moment, and suggestions that survive waking. |
 | **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
 | **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |

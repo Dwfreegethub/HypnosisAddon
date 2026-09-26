@@ -20,8 +20,13 @@ report it and say which version your chat line shows.
   there and don't matter. She still sees emotes and activities, and text in (parentheses) always
   gets through. What she can't hear can't command her. It works in a trigger too, where "my voice"
   means whoever says the trigger word. It needs the new **Hearing** permission, off by default.
-- The wiki's Sensory Modulation page is written, and the hearing phrases it listed that were
-  never built are gone.
+- **New: sight.** *"Missy, your vision is dimming"*, *"Missy, you can barely see"* and *"Missy, you
+  cannot see"* use Bondage Club's own three levels of blindness, so your own game settings still
+  decide how dark it can get: with Sensory Deprivation on Light, it stops at very dark. *"Missy, you
+  can see again"* ends it. Nobody else sees a change. It needs the new **Sight** permission, off by
+  default.
+- The wiki's Sensory Modulation page is written, and the phrases it listed that were never built
+  are gone.
 
 ## v0.92.7 · 26 September 2026
 

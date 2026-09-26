@@ -36,7 +36,7 @@ const drain = () => {
 	}
 };
 
-const { voice, storage, session, timers, suppression, effects } = await import("./harness-bundle.mjs");
+const { voice, storage, session, timers, suppression, effects, menu } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -171,6 +171,15 @@ say("Missy, you hear only my voice");
 say("Missy, that will stay with you");
 session.wakeByHypnotist(HYP);
 check("not carried past the wake", mode(), null);
+
+// Unticking Hearing releases it at once, as every permission does. Failure: still muffled.
+reset();
+under();
+say("Missy, you hear only my voice");
+storage.setFeature("hearingControl", false);
+menu.onToggle("hearingControl", false);
+check("unticking Hearing ends it at once", mode(), null);
+storage.setFeature("hearingControl", true);
 
 console.log(`hearing: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

@@ -298,6 +298,9 @@ export interface FeatureToggles {
 	 * (v0.93.0). Its own consent, as the design has it: being blinded is not being deafened, and
 	 * neither is being made to speak. Everything else said in the room is hidden from her. */
 	hearingControl: boolean;
+	/** May a hypnotist take the subject's sight: dim, very dark, or blind (v0.93.0). BC's own
+	 * blindness levels, capped by her own Sensory Deprivation setting exactly as BC caps a blindfold. */
+	sightControl: boolean;
 	/** The clothing illusion: the subject's own screen keeps showing how they looked when
 	 * it was applied, while everyone else sees the truth. Carries a trust threshold of 65
 	 * on top of this permission — the same number as triggers and carry-forward, and the
@@ -529,6 +532,7 @@ function defaultFeatures(): FeatureToggles {
 		compelTouchOthers: false,
 		forcedSpeech: false,
 		hearingControl: false,
+		sightControl: false,
 		arousalControl: false,
 		illusionControl: false,
 		undressControl: false,
@@ -1157,6 +1161,7 @@ const PERMISSION_KEYS: (keyof FeatureToggles)[] = [
 	"compelTouchOthers",
 	"forcedSpeech",
 	"hearingControl",
+	"sightControl",
 	"arousalControl",
 	"illusionControl",
 	"undressControl",

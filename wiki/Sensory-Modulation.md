@@ -1,6 +1,6 @@
 # Sensory Modulation
 
-What the subject can perceive, narrowed by suggestion. **Hearing is built** (v0.93.0). Blindness, and a softer "muffled" hearing, are planned and not built yet.
+What the subject can perceive, narrowed by suggestion. **Hearing and sight are built** (v0.93.0). A softer "muffled" hearing is planned and not built yet.
 
 ## Hearing only one voice
 
@@ -27,5 +27,26 @@ Needs the **Hearing** permission (Permissions tab, off by default) and an **Entr
 * **`/echs safeword` always ends it.**
 
 Bondage Club's own deafness cannot do this: at any level it only garbles speech, and it has no way to let one voice through. ECHS hides the lines itself, before BC's deafness and before BC's chat log, so a hidden line is not in her log either.
+
+## Sight
+
+Needs the **Sight** permission (Permissions tab, off by default) and an **Entranced** trance.
+
+| The hypnotist says | What she sees |
+|---|---|
+| *"your vision is dimming"* · *"the room grows dim"* | Dim: her screen at about a third of its brightness (BC's light blindness) |
+| *"you can barely see"* · *"everything is going dark"* | Very dark (BC's normal blindness) |
+| *"you cannot see"* · *"you are blind"* · *"everything is fading to black"* | Black (BC's heavy blindness) |
+| *"you can see again"* · *"your vision clears"* | — *release* |
+
+**It is Bondage Club's own blindness**, not an overlay of ours, so BC's limits and her own BC settings always win:
+* **Her Sensory Deprivation setting.** On **Light**, BC stops at "very dark", even for *"you cannot see"*. The hypnotist is told it stopped short, and she is told some light stays with her.
+* **Everything BC does with blindness follows her settings:** the darkened screen; *Blind Adjacent* (only the people next to her are visible); *Blind Disable Examine*; names hidden under her Sensory Deprivation level; a shorter sight range on a map; and struggling out of items is harder, as under any blindfold.
+* **A real blindfold adds to it**, by BC's own rules, and the cap still holds.
+* **Nobody else sees any change.** Her appearance is not touched.
+
+**How long it lasts:** until the trance ends, the release, or her safeword. *"That will stay with you"* can carry it past the wake, and it can be planted in a trigger. Unticking **Sight** ends it at once. Reloading the page mid-trance clears it, as it does "you cannot speak".
+
+The trance's own soft white veil is separate, and stays.
 
 See also [What to Say](What-to-Say#hearing--hearing--entranced) and [Settings Reference](Settings-Reference).

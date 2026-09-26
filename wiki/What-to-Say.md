@@ -104,7 +104,20 @@ This blocks regular public room chat. It cannot touch slash commands, so emergen
 
 **Spoken, it lasts until the trance ends** (or the release, or her safeword). It is not carried by *"that will stay with you"*. **As a trigger** (*"Missy, your trigger word is hush now"*, *"Missy, you hear only my voice"*, *"Missy, remember trigger"*), "my voice" means **whoever says the trigger word**, and it lasts as long as her trigger effects do. Her safeword always ends it.
 
-*Blindness, and a softer "muffled" hearing, are not built yet.*
+### Sight — Sight · Entranced
+
+| Say | What she sees |
+|---|---|
+| *"your vision is dimming"* · *"the room grows dim"* | Dim: her screen at about a third of its brightness (BC's light blindness) |
+| *"you can barely see"* · *"everything is going dark"* | Very dark (BC's normal blindness) |
+| *"you cannot see"* · *"you are blind"* · *"everything is fading to black"* | Black (BC's heavy blindness) |
+| *"you can see again"* · *"your vision clears"* | — *release* |
+
+**This is Bondage Club's own blindness**, so her own BC settings decide how far it goes and what comes with it. With her *Sensory Deprivation* setting on **Light**, BC never goes past "very dark", whatever you say (you are told when that happens). Her *Blind Adjacent*, *Blind Disable Examine* and name-hiding settings apply exactly as they do under a blindfold, and a real blindfold adds to it. Nobody else sees any change.
+
+It ends with the trance, the release, or her safeword, and *"that will stay with you"* can carry it past the wake. It can be planted in a trigger.
+
+*A softer "muffled" hearing is not built yet.*
 
 ---
 

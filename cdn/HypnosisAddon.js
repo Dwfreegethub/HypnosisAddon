@@ -934,9 +934,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
     MainCanvas.restore();
   }
+  var BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
+  var BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
+  var sightLevel = 0;
+  function setSight(level) {
+    sightLevel = level;
+    refreshOwnEffects();
+    return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level;
+  }
+  function getSight() {
+    return sightLevel;
+  }
   function clearTranceStates() {
     speechBlocked = false;
     screenFade = 0;
+    if (sightLevel) setSight(0);
     walkingTrance = false;
   }
   var OWN_EFFECTS = /* @__PURE__ */ new Set();
@@ -1044,6 +1056,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
       const result = next(args);
       const [C, groups] = args;
+      if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g) => BLIND_GROUPS.includes(g))) {
+        const withSight = Array.isArray(result) ? result.slice() : [];
+        withSight.push(BLIND_EFFECTS[sightLevel]);
+        return withSight;
+      }
       if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
       if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
       if (ownPoseChange > 0 && OWN_EFFECTS.has("Freeze")) {
@@ -1444,6 +1461,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Voices blur together. If one says your name, you'll hear it.",
       "Talk that isn't meant for you stops reaching you."
     ],
+    "sight-dim": [
+      "The room dims, as if someone turned the lights down.",
+      "Your vision softens and greys at the edges.",
+      "Everything is a little harder to make out now."
+    ],
+    "sight-dark": [
+      "The dark closes in. You can barely make anything out.",
+      "Shapes blur into shadow. You can hardly see.",
+      "Most of the light slips away from your eyes."
+    ],
+    "sight-blind": [
+      "Everything goes black. Your eyes are open, and there is nothing to see.",
+      "The last of the light fades, and the darkness is complete.",
+      "You cannot see. The dark doesn't feel like something to fight."
+    ],
+    "sight-release": [
+      "Light seeps back in, and the room takes shape again.",
+      "Your vision clears.",
+      "You can see again."
+    ],
+    "sight-capped": ["The dark deepens, but not all the way. Some light stays with you."],
     "hear-release": [
       "The room's voices come back, one after another.",
       "Sound fills back in around you. You can hear everyone again.",
@@ -2067,6 +2105,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
     { key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
     { key: "hearingControl", label: "Hears only one voice", tier: "entranced", earnedOnly: false },
+    { key: "sightControl", label: "Sight", tier: "entranced", earnedOnly: false },
     { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
     { key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
     // The earned-only three: two outlive the session, one lies to the subject.
@@ -3733,6 +3772,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       compelTouchOthers: false,
       forcedSpeech: false,
       hearingControl: false,
+      sightControl: false,
       arousalControl: false,
       illusionControl: false,
       undressControl: false,
@@ -4170,6 +4210,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "compelTouchOthers",
     "forcedSpeech",
     "hearingControl",
+    "sightControl",
     "arousalControl",
     "illusionControl",
     "undressControl",
@@ -5176,6 +5217,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
   }
   var HEARING_IDS = ["hear-voice", "hear-name"];
+  function applySight(level) {
+    const got = setSight(level);
+    if (got <= 0) {
+      setSight(0);
+      return "effect-failed";
+    }
+    if (got < level) return "sight-capped";
+  }
+  function sightSuggestion(id, level, examples, patterns) {
+    return {
+      id,
+      examples,
+      permission: "sightControl",
+      patterns,
+      run: () => applySight(level),
+      // Only while it is still this level: a trigger's dimming must not undo a blindness said since.
+      undo: () => {
+        if (getSight() === level) setSight(0);
+      }
+    };
+  }
+  var SIGHT_IDS = ["sight-dim", "sight-dark", "sight-blind"];
   var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
   var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
   var POSE_SUGGESTIONS = [
@@ -5862,6 +5925,41 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (hearingMode()?.kind === "name") setHearing(null);
       }
     },
+    // Sight (v0.93.0, DW). Release first. Then darkest to lightest, so "fading to black" is blindness
+    // before "fading" can read as dimming. The illusion's "you cannot see what you are wearing" sits
+    // earlier in the table and wins, as the first match always does.
+    {
+      id: "sight-release",
+      examples: ["you can see again", "your vision clears"],
+      release: true,
+      releaseOf: SIGHT_IDS,
+      permission: "sightControl",
+      patterns: [
+        /\byou (?:can|may) see (?:again|clearly|normally)\b/,
+        /\byour (?:vision|sight|eyesight) (?:clears|is clearing|returns|comes back|is back|is yours)\b/,
+        /\bthe (?:light|world|room) (?:comes back|returns)\b/
+      ],
+      run: () => {
+        setSight(0);
+      }
+    },
+    sightSuggestion("sight-blind", 3, ["you cannot see", "everything goes black", "everything is fading to black"], [
+      /\byou cannot (?:\w+ )?see(?! (?:what|how|yourself|your (?:clothes|clothing|outfit)))\b/,
+      /\byou are (?:\w+ )?blind\b/,
+      /\byou will (?:be (?:\w+ )?blind|not be able to see|be unable to see)\b/,
+      /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|fading|fades|turning|turns) (?:to |)black\b/,
+      /\b(?:everything|the (?:world|room)) (?:is |)(?:completely |totally |)(?:black|dark) now\b/,
+      /\bdarkness takes your (?:sight|vision|eyes)\b/
+    ]),
+    sightSuggestion("sight-dark", 2, ["you can barely see", "everything is going dark"], [
+      /\byou can (?:barely|hardly|scarcely) see\b/,
+      /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|growing|grows|getting|gets|turning|turns) (?:very |so |)dark\b/,
+      /\bthe dark(?:ness|) closes in\b/
+    ]),
+    sightSuggestion("sight-dim", 1, ["your vision is dimming", "the room grows dim"], [
+      /\byour (?:vision|sight|eyesight) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|blurring|blurs|fading|fades|softening|softens)\b/,
+      /\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/
+    ]),
     ...POSE_SUGGESTIONS,
     {
       id: "stand",
@@ -8125,8 +8223,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "compelTouchOthers",
     // Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
     "forcedSpeech",
-    // Hearing only one voice (v0.93.0): the same.
-    "hearingControl"
+    // Hearing only one voice and sight (v0.93.0): the same.
+    "hearingControl",
+    "sightControl"
   ];
   function applySetup(cfg) {
     const on = new Set(cfg.features);
@@ -8466,6 +8565,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
         { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
         { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
+        { key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
         { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
         { key: "undressControl", label: "Undressing" },
@@ -9528,6 +9628,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
       case "selfTouchControl":
         if (!enabled) clearSelfTouchBlocks();
+        break;
+      case "hearingControl":
+        if (!enabled) setHearing(null);
+        break;
+      case "sightControl":
+        if (!enabled) setSight(0);
         break;
       case "suppressClothing":
         if (!enabled) setSuppressed("clothing", false);

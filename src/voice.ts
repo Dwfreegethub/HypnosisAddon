@@ -9,6 +9,9 @@ import {
 	setSpeechBlocked,
 	isWalkingTrance,
 	withForcedSpeech,
+	setSight,
+	getSight,
+	type SightLevel,
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
@@ -450,6 +453,32 @@ function poseSuggestion(id: FlavorKey, pose: string, examples: string[], pattern
 /** The two hearing modes (v0.93.0). Not carried by "that will stay with you": a carried re-apply has
  * no speaker, and "only my voice" means nothing without one. */
 const HEARING_IDS: FlavorKey[] = ["hear-voice", "hear-name"];
+
+/** Sight (v0.93.0): BC's own blindness level, which her settings may cap lower (rule 5: said). */
+function applySight(level: SightLevel): FlavorKey | void {
+	const got = setSight(level);
+	if (got <= 0) {
+		setSight(0);
+		return "effect-failed";
+	}
+	if (got < level) return "sight-capped";
+}
+
+function sightSuggestion(id: FlavorKey, level: SightLevel, examples: string[], patterns: RegExp[]): Suggestion {
+	return {
+		id,
+		examples,
+		permission: "sightControl",
+		patterns,
+		run: () => applySight(level),
+		// Only while it is still this level: a trigger's dimming must not undo a blindness said since.
+		undo: () => {
+			if (getSight() === level) setSight(0);
+		},
+	};
+}
+
+const SIGHT_IDS: FlavorKey[] = ["sight-dim", "sight-dark", "sight-blind"];
 
 const STANCE_IDS: FlavorKey[] = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
 const ARM_IDS: FlavorKey[] = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
@@ -1146,6 +1175,41 @@ const SUGGESTIONS: Suggestion[] = [
 			if (hearingMode()?.kind === "name") setHearing(null);
 		},
 	},
+	// Sight (v0.93.0, DW). Release first. Then darkest to lightest, so "fading to black" is blindness
+	// before "fading" can read as dimming. The illusion's "you cannot see what you are wearing" sits
+	// earlier in the table and wins, as the first match always does.
+	{
+		id: "sight-release",
+		examples: ["you can see again", "your vision clears"],
+		release: true,
+		releaseOf: SIGHT_IDS,
+		permission: "sightControl",
+		patterns: [
+			/\byou (?:can|may) see (?:again|clearly|normally)\b/,
+			/\byour (?:vision|sight|eyesight) (?:clears|is clearing|returns|comes back|is back|is yours)\b/,
+			/\bthe (?:light|world|room) (?:comes back|returns)\b/,
+		],
+		run: () => {
+			setSight(0);
+		},
+	},
+	sightSuggestion("sight-blind", 3, ["you cannot see", "everything goes black", "everything is fading to black"], [
+		/\byou cannot (?:\w+ )?see(?! (?:what|how|yourself|your (?:clothes|clothing|outfit)))\b/,
+		/\byou are (?:\w+ )?blind\b/,
+		/\byou will (?:be (?:\w+ )?blind|not be able to see|be unable to see)\b/,
+		/\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|fading|fades|turning|turns) (?:to |)black\b/,
+		/\b(?:everything|the (?:world|room)) (?:is |)(?:completely |totally |)(?:black|dark) now\b/,
+		/\bdarkness takes your (?:sight|vision|eyes)\b/,
+	]),
+	sightSuggestion("sight-dark", 2, ["you can barely see", "everything is going dark"], [
+		/\byou can (?:barely|hardly|scarcely) see\b/,
+		/\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|growing|grows|getting|gets|turning|turns) (?:very |so |)dark\b/,
+		/\bthe dark(?:ness|) closes in\b/,
+	]),
+	sightSuggestion("sight-dim", 1, ["your vision is dimming", "the room grows dim"], [
+		/\byour (?:vision|sight|eyesight) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|blurring|blurs|fading|fades|softening|softens)\b/,
+		/\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/,
+	]),
 	...POSE_SUGGESTIONS,
 	{
 		id: "stand",

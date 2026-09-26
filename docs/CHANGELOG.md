@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.93.0) — sight
+
+In the same release as hearing (below). BC's three blindness levels as `sight-dim` / `sight-dark` /
+`sight-blind`, permission `sightControl`. DW: "link into BC's blindness, do not override the BC
+blindness limits". Re-verified on R132: `Player.GetBlindLevel()` sums `BlindLight`/`BlindNormal`/
+`BlindHeavy` from `CharacterGetEffects(this, ["ItemHead","ItemHood","ItemNeck","ItemDevices"], true)`
+and clamps to 2 under `SensDepLight`, else 3; `CharacterLoadEffect` drops its `_BlindLevel` cache.
+The 2026-09-16 notes proposed hooking `CharacterGetDarkFactor` instead, and said our clamp would then
+be "mandatory". That hook would have bypassed BC's clamp and covered only the screen. Adding the effect
+inside the existing `CharacterGetEffects` hook, only for a query naming those groups, goes through
+BC's front door. BC then applies its own clamp, and every consumer of `GetBlindLevel`/`IsBlind` (Blind
+Adjacent, Blind Disable Examine, SensDep name hiding, map range, struggle difficulty) behaves as
+under a blindfold. The effect is never in the unfiltered list, and never on the Emoticon item, so
+nothing syncs. `setSight` refreshes the cache (`CharacterLoadEffect`) and returns what BC reports, so a
+capped level is said (`sight-capped`). `test/sight.mjs`, 29 checks, 9 failing with the hook branch
+disabled. Unticking Sight or Hearing now releases it at once (`menu.onToggle`), like every other
+permission.
+
 ### Added 2026-09-26 (v0.93.0) — hearing only one voice
 
 DW's request, with his answers recorded in `design.md` (*Development Stages > Todo*, "HEARING ONLY

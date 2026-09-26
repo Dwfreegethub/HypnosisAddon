@@ -3566,6 +3566,19 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   and cannot let one voice through, so it could not be used. Not carried by "that will stay with
   you" (a carried re-apply has no speaker). Spoken, it ends with the trance (`clearAllSuppression`);
   a trigger's lasts as long as its effects. `test/hearing.mjs`.
+  **Sight, built alongside it (v0.93.0, DW 2026-09-26).** The vision ladder below, as BC's own three
+  levels: `sight-dim` 1, `sight-dark` 2, `sight-blind` 3, `sight-release`; permission `sightControl`
+  (Entranced; wizard: Extreme only). DW: all three levels, one permission, no "close your eyes" yet,
+  triggers and carry both allowed. **The route, re-verified on R132:** `GetBlindLevel` still reads
+  only ItemHead/ItemHood/ItemNeck/ItemDevices through `CharacterGetEffects(C, groups, true)`, then
+  clamps (2 under SensDepLight, else 3). So rather than the `CharacterGetDarkFactor` hook proposed
+  below (which would bypass BC's clamp and cover only the screen), our existing `CharacterGetEffects`
+  hook adds `BlindLight`/`BlindNormal`/`BlindHeavy` when BC asks about those groups. BC's clamp,
+  and everything BC hangs off blindness (Blind Adjacent, Blind Disable Examine, SensDep name hiding,
+  map range, struggling), follow her settings with nothing of ours in the way. Nothing is written to
+  the Emoticon item, so it does not sync. Cleared in `clearTranceStates()`; not restored by a reload,
+  as with the other live suggestions. A level BC caps lower is reported (`sight-capped`, rule 5).
+  `test/sight.mjs` models R132's GetBlindLevel.
   **Open, noticed while building:** if the one voice she hears leaves the room, she hears no one
   until the trance or the trigger's hold ends (or her safeword). Ending it when that person leaves
   would be a small change if DW wants it.
@@ -4756,7 +4769,21 @@ covers the rules; this checks BC's real chat pipeline, which the suite only mode
 5. **As a trigger.** Plant *"your trigger word is hush now"* + *"you hear only my voice"*. Wake. R
    says *"hush now"*. *Expect:* S hears only R. H is not heard. `/echs safeword` ends it.
 
-**Thirteen of twenty-six topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+### 26. Sight (v0.93.0) — **open, never run live**
+
+H and S as before. S ticks **Sight**. `test/sight.mjs` models BC's blindness; only a live client
+shows the real screen, Blind Adjacent and the map.
+
+1. **The three levels.** S under H. H: *"S, your vision is dimming"*, then *"S, you can barely see"*,
+   then *"S, you cannot see"*. *Expect:* S's screen dims, darkens, then goes black. The room sees
+   nothing change on S.
+2. **BC's cap.** S sets *Sensory Deprivation* to **Light** (BC's Immersion settings). H: *"S, you
+   cannot see"*. *Expect:* very dark, not black; H told `sight-capped`; S told some light stays.
+3. **Her other settings.** With *Blind Adjacent* on, only characters next to S are visible.
+4. **Release and endings.** *"S, you can see again"* clears it. So does waking, the safeword, and
+   unticking Sight. With *"S, that will stay with you"* before the wake, it survives the wake.
+
+**Thirteen of twenty-seven topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 

@@ -41,6 +41,13 @@ export type FlavorKey =
 	| "hear-voice"
 	| "hear-name"
 	| "hear-release"
+	// Sight (v0.93.0), BC's three blindness levels. Private only, like hearing.
+	| "sight-dim"
+	| "sight-dark"
+	| "sight-blind"
+	| "sight-release"
+	/** Asked for more darkness than her own settings allow; BC stopped it short. */
+	| "sight-capped"
 	/** Shown each time a silenced player actually tries to say something. */
 	| "speech-blocked-attempt"
 	| "awareness-block"
@@ -267,6 +274,27 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Voices blur together. If one says your name, you'll hear it.",
 		"Talk that isn't meant for you stops reaching you.",
 	],
+	"sight-dim": [
+		"The room dims, as if someone turned the lights down.",
+		"Your vision softens and greys at the edges.",
+		"Everything is a little harder to make out now.",
+	],
+	"sight-dark": [
+		"The dark closes in. You can barely make anything out.",
+		"Shapes blur into shadow. You can hardly see.",
+		"Most of the light slips away from your eyes.",
+	],
+	"sight-blind": [
+		"Everything goes black. Your eyes are open, and there is nothing to see.",
+		"The last of the light fades, and the darkness is complete.",
+		"You cannot see. The dark doesn't feel like something to fight.",
+	],
+	"sight-release": [
+		"Light seeps back in, and the room takes shape again.",
+		"Your vision clears.",
+		"You can see again.",
+	],
+	"sight-capped": ["The dark deepens, but not all the way. Some light stays with you."],
 	"hear-release": [
 		"The room's voices come back, one after another.",
 		"Sound fills back in around you. You can hear everyone again.",
