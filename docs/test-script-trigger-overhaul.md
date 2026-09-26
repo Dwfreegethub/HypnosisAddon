@@ -171,7 +171,7 @@ Missy: `/echs trance H 80`. H: *"Missy, you cannot move"*.
 ## 6c. Held still: pose and place (v0.91.0)
 
 Missy: `/echs trance H 80`. H: *"Missy, kneel"*, then *"Missy, you cannot move"*.
-- [ ] Missy tries BC's kneel/stand button, then the pose menu (arms up) → nothing changes; Missy sees *"You try to shift, and your body does not answer…"* (once per few seconds).
+- [ ] Missy's kneel/stand button is **greyed out** (like frog-tie cuffs make it) and does nothing when clicked. The pose menu (arms up) changes nothing; Missy sees *"You try to shift, and your body does not answer…"* once, not repeatedly.
 - [ ] H uses BC's own "help her stand" on Missy → Missy snaps back to kneeling on both screens; Missy sees *"Someone tries to move you…"*.
 - [ ] H: *"Missy, stand"* → she stands (the hypnotist's spoken commands still work).
 - [ ] H puts an item on Missy (e.g. cuffs) → it goes on.

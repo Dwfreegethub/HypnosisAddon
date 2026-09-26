@@ -42,6 +42,9 @@ globalThis.PoseSetActive = (C, pose) => {
 	else C.ActivePose = [pose, lower];
 };
 globalThis.CharacterSetActivePose = (C, pose) => PoseSetActive(C, pose);
+// R132 Pose.js, trimmed: BC's own Freeze makes a cross-category change (stand<->kneel) a struggle.
+globalThis.PoseChangeStatus = { NEVER: 0, NEVER_WITHOUT_AID: 1, ALWAYS_WITH_STRUGGLE: 2, ALWAYS: 3 };
+globalThis.PoseCanChangeUnaidedStatus = (C, pose) => (C.HasEffect("Freeze") && LOWER.includes(pose) ? PoseChangeStatus.ALWAYS_WITH_STRUGGLE : PoseChangeStatus.ALWAYS);
 // Another player's sync of her whole character: BC loads the pose (and items) that came with it.
 globalThis.ChatRoomSyncCharacter = (data) => {
 	if (data.Character.MemberNumber !== Player.MemberNumber) return;
@@ -100,7 +103,7 @@ const check = (label, got, want) => {
 const realNow = Date.now;
 let offset = 0;
 Date.now = () => realNow() + offset;
-const later = () => { offset += 10_000; said = []; poseUpdates = []; };
+const later = () => { offset += 60_000; said = []; poseUpdates = []; }; // past the 30 s notice gap
 
 // --- not held: poses are hers ------------------------------------------------------------------
 PoseSetActive(Player, "Kneel");
@@ -118,6 +121,20 @@ check("held: standing up is refused", Player.ActivePose, ["BaseUpper", "Kneel"])
 PoseSetActive(Player, "OverTheHead");
 check("  and so is an arm pose (BC's own Freeze allows these)", Player.ActivePose, ["BaseUpper", "Kneel"]);
 check("  and she is told, once", said.filter((s) => /your body does not answer/.test(s)).length, 1);
+
+// --- the kneel/stand button is Blocked, as a real restraint makes it (v0.91.3) -------------------------
+// BC's own Freeze answers ALWAYS_WITH_STRUGGLE (the yellow "Limited" button, whose mini-game posts
+// "stands up" before asking for the pose). Failure: anything but NEVER for a pose she is not in.
+check("held: standing answers NEVER (button Blocked)", PoseCanChangeUnaidedStatus(Player, "BaseLower"), PoseChangeStatus.NEVER);
+check("  an arm pose too", PoseCanChangeUnaidedStatus(Player, "OverTheHead"), PoseChangeStatus.NEVER);
+check("  the pose she is already in is left to BC", PoseCanChangeUnaidedStatus(Player, "Kneel") !== PoseChangeStatus.NEVER, true);
+
+// --- asking for the pose she is already in is not an attempt to move (v0.91.3) -------------------------
+// DW saw the refusal line "over and over". Failure: any line for a call that changes nothing.
+later();
+for (let i = 0; i < 5; i++) PoseSetActive(Player, "Kneel");
+check("repeated calls for her current pose: no refusal line", said.filter((s) => /your body does not answer/.test(s)).length, 0);
+check("  and the pose is unchanged", Player.ActivePose, ["BaseUpper", "Kneel"]);
 
 // --- an add-on that changes her pose WITHOUT PoseSetActive -------------------------------------------
 // The safety net: every pose update she sends passes ServerSend. Failure: the room is told she stood.
@@ -160,6 +177,7 @@ effects.removeEffect("Freeze");
 PoseSetActive(Player, "BaseLower");
 check("released: she can stand", Player.ActivePose, ["BaseUpper", "BaseLower"]);
 check("  and MapImmobile is gone", Player.HasEffect("MapImmobile"), false);
+check("  and the button is hers again", PoseCanChangeUnaidedStatus(Player, "Kneel"), PoseChangeStatus.ALWAYS);
 
 // --- the trance's own Cannot Move holds her too (DW: yes) -------------------------------------------
 later();

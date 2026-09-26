@@ -349,7 +349,9 @@ const HOLD_PRIORITY = 1000;
 function noteHeldPose(): void {
 	heldPose = isHeldStill() ? currentPoses() : null;
 }
-const HELD_NOTICE_GAP_MS = 5000;
+// 30 s (v0.91.3): DW saw the line "over and over" at 5 s. Mostly that was repeated no-op calls, now
+// let through silently (poseWouldChange); this keeps any that remain from reading as spam.
+const HELD_NOTICE_GAP_MS = 30_000;
 
 /** Is our freeze holding her still? */
 export function isHeldStill(): boolean {
@@ -368,6 +370,17 @@ function samePoses(a: unknown, b: unknown): boolean {
 	return norm(a) === norm(b);
 }
 
+/** Would PoseSetActive(Player, pose, force) actually change anything? BC and other add-ons call it
+ * with the pose she is already in (DW, v0.91.2: the refusal line "over and over"); such calls change
+ * nothing and are not an attempt to move, so they pass silently. */
+function poseWouldChange(pose: unknown, force: unknown): boolean {
+	const now = currentPoses();
+	if (pose == null) return !now.every((p) => p.startsWith("Base"));
+	if (typeof pose !== "string") return true;
+	if (force) return !samePoses(now, [pose]);
+	return !now.includes(pose);
+}
+
 /** Put her held pose back and tell the room, after something else moved her. */
 function restoreHeldPose(held: string[]): void {
 	Player.ActivePose = held;
@@ -382,8 +395,8 @@ export function installEffectHooks(modApi: any): void {
 	// Her own pose change, from any of BC's paths (pose menu, kneel/stand button, the struggle
 	// mini-game) — all end in PoseSetActive (R132 Pose.js).
 	modApi.hookFunction("PoseSetActive", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
-		const [C] = args;
-		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange) {
+		const [C, pose, force] = args;
+		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
 			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
 			log("held still: refused a pose change");
 			return undefined;
@@ -412,6 +425,20 @@ export function installEffectHooks(modApi: any): void {
 		restoreHeldPose(currentPoses());
 		log("held still: refused an incoming pose update");
 		return undefined;
+	});
+	// THE BUTTON, the way a real restraint does it (v0.91.3). BC's kneel/stand button reads
+	// PoseCanChangeUnaidedStatus for every pose it could go to (R132 ChatRoom.js): NEVER draws it
+	// "Blocked" and ChatRoomToggleKneel then does nothing at all, which is how DW's frog-tie cuffs
+	// behave. BC's own Freeze only gives ALWAYS_WITH_STRUGGLE ("Limited"): the mini-game runs, and its
+	// success posts "stands up" to the room BEFORE asking for the pose — so our refusal left the room
+	// told something that did not happen. Held still, every pose she is not already in answers NEVER.
+	// BC's CanKneel reads the same status, so everything that asks "can she kneel" agrees.
+	modApi.hookFunction("PoseCanChangeUnaidedStatus", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
+		const [C, poseName] = args;
+		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && !currentPoses().includes(poseName)) {
+			return typeof PoseChangeStatus !== "undefined" ? PoseChangeStatus.NEVER : 0;
+		}
+		return next(args);
 	});
 	// THE SAFETY NET. Every way her pose reaches the room ends in ServerSend("ChatRoomCharacterPoseUpdate")
 	// (R132: the pose menu's _ClickButton, ChatRoomToggleKneel). If something changed her pose
