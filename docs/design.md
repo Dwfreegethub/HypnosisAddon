@@ -3070,7 +3070,21 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
 ### Todo (staging TBD)
 
-- **The stray asterisk on the induction's room line — parked 2026-09-23 by DW, to address later.**
+- **Stray asterisks on room lines — worked around in v0.92.7; a deeper look parked for the future
+  (DW, 2026-09-26: "that works for now").** A watcher-side trace found the cause: the raw packet from
+  the *sender's* client sometimes carries `**text`, because another add-on on the sender's side
+  takes over `ChatRoomSendEmote` and skips BC's step that strips one `*`. It is not ECHS and not
+  WCE, and it happens only sometimes. v0.92.7 takes the extra star off ECHS's own lines in a
+  `ServerSend` hook (`installRoomLineGuard` in `notify.ts`; reasoning in `docs/CHANGELOG.md`).
+  **What that does not cover, for the future:** it only works when the *sender* runs v0.92.7 or
+  later. Nothing on the watching side, and nothing for a player who never updates or does not run
+  the add-on, fixes what they see. The same goes for an add-on that sends outside `ServerSend`. The
+  deeper options: a sender-side trace (`ChatRoomSendEmote` hooked at 2000, logging who is hooking it)
+  to name the add-on and report it to its author; or build the Emote packet ourselves, checking the
+  owner's BlockEmote rule directly, so no other add-on's hook sits between us and the wire. The
+  watcher-side trace snippet is in this session's record (DW's chat, 2026-09-26) and can be rebuilt
+  from the description above.
+  **The earlier report this replaces (parked 2026-09-23):**
   From DW's tracker (group C): *"The induction chat announcement contains an erroneous leading
   asterisk."* Not fixed in v0.82.3 because nothing in our code singles that line out: every room
   line goes through `tellRoom()` as a `**`-emote, the v0.72.7 fix for the doubled name (Known Bug
@@ -3079,7 +3093,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   raw induction line copied from DW's chat exactly as shown, and ideally one other room line from the
   same session to tell whether every room line has it or only this one. **Do not** change the `**`
   prefix without that: the obvious "fix" brings the doubled name back.
-- **Spoken orgasm denial still does not stop orgasms — NOT RESOLVED, parked 2026-09-23 by DW.** *(2026-09-26: possibly the same cause as the "you cannot move" failure fixed in v0.90.2 — another add-on wiping the Emoticon item our effects ride on. Re-test on v0.90.2 before digging further; see `docs/CHANGELOG.md`.)*
+- ~~**Spoken orgasm denial still does not stop orgasms**~~ — **confirmed working by DW 2026-09-26 on v0.90.2 onward; Known Bug #10 closed.** Was: NOT RESOLVED, parked 2026-09-23 by DW. *(2026-09-26: possibly the same cause as the "you cannot move" failure fixed in v0.90.2 — another add-on wiping the Emoticon item our effects ride on. Re-test on v0.90.2 before digging further; see `docs/CHANGELOG.md`.)*
 - **Spoken orgasm denial still does not stop orgasms — NOT RESOLVED, parked 2026-09-23 by DW.**
   Known Bug #10. Two fixes shipped and neither held live. v0.83.1 got DenialMode into BC's cached
   `Player.Effect`; in play a toy was then held at 99 but the subject's own masturbation still
