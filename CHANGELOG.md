@@ -12,6 +12,22 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.91.0 · 26 September 2026
+
+- **"You cannot move" now holds you still.** You stay in the pose and the place you are in:
+  - You can't change your own pose, arms included.
+  - You can't leave the room.
+  - In a map room, you can't walk.
+
+  Before, it only stopped you leaving the room.
+- **The hypnotist can still pose you.** Their spoken commands, such as *"Missy, kneel"*, still move
+  you. Nobody else can change your pose while you are held; if someone tries, it is undone and you
+  are told.
+- **The trance's own *Cannot Move* works the same way.** It holds you until you wake, or until the
+  hypnotist lets you walk.
+- **Items can still be put on you** while you are held.
+- **Your safeword always ends it.**
+
 ## v0.90.2 · 25 September 2026
 
 - **A trigger that works once now disappears however it lets go.** After it had fired, releasing

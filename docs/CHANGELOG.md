@@ -20,6 +20,40 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.91.0) — "you cannot move" holds the pose and the place
+
+DW asked for this after v0.90.2 made the freeze actually land. BC's own `Freeze` (R132):
+- `CanWalk()` is false, so `ChatRoomCanLeave()` refuses.
+- `PoseCanChangeUnaidedStatus` makes standing↔kneeling a struggle.
+- Nothing else: arm poses and same-category changes are free.
+- On a map, `ChatRoomMapViewCanEnterTile` only multiplies the time by 6.
+
+DW's answers the same day: the hypnotist's spoken pose commands still move a frozen subject (yes);
+other players may not change her pose (no); the trance's own *Cannot Move* default gets the same
+hold (yes). While OUR `Freeze` is on (`isHeldStill()`, `effects.ts`):
+- **Her own pose changes are refused.** A hook on `PoseSetActive` catches them: every path (the
+  pose menu, the kneel/stand button, the struggle mini-game) ends there. Our own calls pass through
+  an `ownPoseChange` counter in `setSuggestedPose`. She is told, at most every 5 seconds.
+- **Another player's change is undone.** Their assist sets it on their client and syncs her whole
+  character (`ChatRoomKneelStandAssist` → `ChatRoomCharacterUpdate`). That reaches her as a
+  `ChatRoomSyncCharacter` of herself, from another source. Her held pose is put back and re-sent
+  with `ChatRoomCharacterPoseUpdate`; the rest of that sync (her items) stands. A bare
+  `ChatRoomSyncPose` about her is refused the same way.
+- **On a map she can't walk.** The `CharacterGetEffects` hook adds BC's own `MapImmobile` beside
+  our `Freeze`, so `ChatRoomMapViewCanEnterTile` returns 0 and even forced moves stop. It's local
+  only; nobody else needs it.
+- **The trance default is covered for free.** Walking trance removes our `Freeze`, so it releases
+  the hold; the safeword clears it like everything else.
+
+**Items are deliberately not blocked** (flagged to DW). A pose-forcing item is applied by BC's
+item system under her own item permissions. Refusing it would mean refusing other players' items,
+and nobody could restrain a held-still subject.
+
+`test/held-still.mjs`, 23 checks, against R132 transcriptions of `PoseSetActive`, the effect
+functions and the two sync handlers. Verified by mutation: dropping her own hold, the pass for our
+commands, the undo of others, `MapImmobile`, or the bare-pose refusal each turned its own checks
+red.
+
 ### Fixed 2026-09-25 (v0.90.2) — a used-up one-shot lingered after a safeword or a wake
 
 Found by DW on the first live run of the test script (section 1). A one-shot that has fired is
