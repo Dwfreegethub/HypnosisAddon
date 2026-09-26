@@ -146,6 +146,8 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	} finally {
 		ownPoseChange--;
 	}
+	// The hold now holds her HERE. Before the room is told, so the ServerSend guard knows this one.
+	noteHeldPose();
 	if (ServerPlayerIsInChatRoom()) {
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 	}
@@ -334,6 +336,19 @@ function reassertItemEffects(): boolean {
 // permissions, and refusing it would stop anyone restraining a held-still subject. Flagged to DW.
 let ownPoseChange = 0;
 let lastHeldNotice = 0;
+/** The pose she is being held in, or null when she is not held. Set when the hold starts, and
+ * after each of OUR pose changes; the ServerSend guard compares against it. */
+let heldPose: string[] | null = null;
+
+/** Hook priority for the hold (v0.91.2). The mod SDK runs hooks highest first, and DW's live check
+ * showed WCE and LSCG both hooking PoseSetActive; at our old priority 5 one of them ran first,
+ * applied the pose itself and never passed the call on, so our refusal was never reached. The
+ * hold has to decide before anyone else acts. */
+const HOLD_PRIORITY = 1000;
+
+function noteHeldPose(): void {
+	heldPose = isHeldStill() ? currentPoses() : null;
+}
 const HELD_NOTICE_GAP_MS = 5000;
 
 /** Is our freeze holding her still? */
@@ -356,6 +371,7 @@ function samePoses(a: unknown, b: unknown): boolean {
 /** Put her held pose back and tell the room, after something else moved her. */
 function restoreHeldPose(held: string[]): void {
 	Player.ActivePose = held;
+	heldPose = held.slice();
 	if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
 	if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 }
@@ -365,7 +381,7 @@ function restoreHeldPose(held: string[]): void {
 export function installEffectHooks(modApi: any): void {
 	// Her own pose change, from any of BC's paths (pose menu, kneel/stand button, the struggle
 	// mini-game) — all end in PoseSetActive (R132 Pose.js).
-	modApi.hookFunction("PoseSetActive", 5, (args: any[], next: (a: any[]) => any) => {
+	modApi.hookFunction("PoseSetActive", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [C] = args;
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange) {
 			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
@@ -377,7 +393,7 @@ export function installEffectHooks(modApi: any): void {
 	// Someone else changing her pose: their client sets it and syncs her whole character (R132
 	// ChatRoomKneelStandAssist -> ChatRoomCharacterUpdate), which reaches her as a
 	// ChatRoomSyncCharacter of herself. Her items from that sync stand; her pose goes back.
-	modApi.hookFunction("ChatRoomSyncCharacter", 5, (args: any[], next: (a: any[]) => any) => {
+	modApi.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
 		if (!aboutHer || !isHeldStill()) return next(args);
@@ -390,12 +406,26 @@ export function installEffectHooks(modApi: any): void {
 		}
 		return result;
 	});
-	modApi.hookFunction("ChatRoomSyncPose", 5, (args: any[], next: (a: any[]) => any) => {
+	modApi.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
 		restoreHeldPose(currentPoses());
 		log("held still: refused an incoming pose update");
 		return undefined;
+	});
+	// THE SAFETY NET. Every way her pose reaches the room ends in ServerSend("ChatRoomCharacterPoseUpdate")
+	// (R132: the pose menu's _ClickButton, ChatRoomToggleKneel). If something changed her pose
+	// without PoseSetActive — or got round the hook above — the held pose goes back before the room
+	// hears otherwise. Our own changes already moved heldPose, so they pass.
+	modApi.hookFunction("ServerSend", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
+		if (args[0] !== "ChatRoomCharacterPoseUpdate" || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+			return next(args);
+		}
+		Player.ActivePose = heldPose.slice();
+		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+		heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+		log("held still: a pose change got past the hook; put the held pose back before it was sent");
+		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
 	});
 	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
 	// CharacterLoadEffect caches it as C.Effect, which HasEffect and CanWalk read. With a group
@@ -447,6 +477,7 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 	}
 	refreshOwnEffects();
 	if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+	if (effectName === "Freeze") noteHeldPose();
 	// Rule 5: did it LAND? Asked of BC itself, the way every other part of the game will ask.
 	// Where BC has no effect cache to ask (outside the game), trust our own record.
 	const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
@@ -509,6 +540,7 @@ export function removeEffect(effectName: string, character: any = Player): boole
 	if (character === Player) {
 		refreshOwnEffects();
 		if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+		if (effectName === "Freeze") noteHeldPose();
 	}
 	return true;
 }

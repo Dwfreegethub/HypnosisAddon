@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.91.2 · 26 September 2026
+
+- **"You cannot move" now really stops you changing pose,** even with other add-ons such as WCE or
+  LSCG running. In v0.91.0 those add-ons could handle the pose change first, so the pose menu and
+  the kneel button still worked while you were held.
+
 ## v0.91.1 · 26 September 2026
 
 - **Refreshing the game now always loads the newest ECHS.** Before, your browser could keep using
