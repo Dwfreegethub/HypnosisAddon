@@ -18,6 +18,9 @@ import {
 	getTriggerLifespan,
 	setTriggerLifespan,
 	TRIGGER_LIFESPANS,
+	getDropMode,
+	setDropMode,
+	DROP_MODES,
 	getTriggerDuration,
 	setTriggerDuration,
 	getDecayRate,
@@ -195,6 +198,7 @@ const TABS: Tab[] = [
 			{ key: "strictTriggerMatch", label: "Triggers fire only on whole words" },
 		],
 		extra: drawTriggerControls,
+		scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
 		// The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
 		// not clip to a canvas area, so the rows stop above them rather than scrolling under.
 		rowsBottom: 610,
@@ -553,6 +557,51 @@ function drawAttemptControl(top: number, width: number): void {
 		ATTEMPT_CAPTION_HEIGHT,
 		locked ? "Gray" : "#555",
 	);
+}
+
+// --- Triggers tab: drop triggers ---------------------------------------------------------
+// Off / One time / Unlimited (v0.90.0, design.md "Trigger Overhaul", decision 10). The last item in
+// the Triggers list, scrolling with its rows, for the reason the attempt control is on the
+// Permissions tab: the fixed band under the rows is full of DOM dropdowns. Click-to-cycle, same as
+// that control, with what the current choice MEANS written under it.
+function dropCaption(): string {
+	const mode = getDropMode();
+	if (mode === "off") return "A trigger cannot drop you straight into trance.";
+	if (mode === "once") return "A trigger may drop you into trance once, then it is gone.";
+	return "A trigger may drop you into trance each time, until it fades — if its hypnotist asked.";
+}
+
+function drawDropControl(top: number, width: number): void {
+	const locked = settingsLocked();
+	const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
+	DrawButton(
+		BOX_LEFT,
+		top,
+		ATTEMPT_BUTTON_WIDTH,
+		ATTEMPT_BUTTON_HEIGHT,
+		`Drop triggers: ${label}`,
+		locked ? "#ddd" : "White",
+		"",
+		!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "Whether a trigger can put you straight under",
+		locked,
+	);
+	drawLeftTextWrap(
+		dropCaption(),
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+}
+
+function clickDropControl(top: number): boolean {
+	if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+	if (settingsLocked()) return true;
+	const index = DROP_MODES.findIndex((m) => m.key === getDropMode());
+	const next = setDropMode(DROP_MODES[(index + 1) % DROP_MODES.length].key);
+	log(`drop triggers set to ${next}`);
+	return true;
 }
 
 function clickAttemptControl(top: number): boolean {

@@ -984,6 +984,55 @@ export function forceTrance(hypnotistId: number, full: number, earned: number): 
 	return null;
 }
 
+/** An instant drop (v0.90.0, design.md "Trigger Overhaul", decision 10): a planted trigger puts the
+ * subject straight into trance, with no prompt, no window and no roll. Returns null on success, or
+ * the reason it did not land, worded for the person who spoke the trigger.
+ *
+ * The GATES are the induction attempt's (the `session-attempt` handler below), because DW's rule is
+ * that a drop "follows who can hypnotise you today". Only the roll and the prompt are skipped, and
+ * those are what the subject consented away by allowing drop triggers and letting this one be
+ * planted. Whether drops are allowed at all, and the trigger's own scope, are checked by the caller.
+ *
+ * `hypnotistId` is whoever SPOKE the trigger: they are the one running the trance now, and the wake
+ * button, the presence watch and the session timeout all key on them.
+ *
+ * Not counted as practice or trust (no noteInductionAttempt / noteInductionSuccess): nothing was
+ * attempted. The trigger was earned when it was planted. */
+export function dropIntoTrance(hypnotistId: number, full: number, earned: number): string | null {
+	if (!getFeatures().hypnoEnabled) return "they aren't open to hypnosis";
+	if (hypnotistId === Player?.MemberNumber) return "a drop needs someone else to go under for";
+	if (memberInRoom(hypnotistId) === false) return "you aren't in the room with them";
+	if (session.cooldownUntil > Date.now() && session.hypnotistId === hypnotistId) return "not yet — try again later";
+	if (session.phase === "Hypnotized") {
+		return session.hypnotistId === hypnotistId ? "they are already under" : "they are already in a trance";
+	}
+	// Exactly the attempt's rule, cooldown included: another hypnotist's cooldown is still "someone
+	// else is working on them" until it runs out and the phase returns to Idle.
+	if (session.phase !== "Idle" && session.hypnotistId !== hypnotistId) {
+		return "someone else is already working on them";
+	}
+	clearTimers();
+	session = freshSession();
+	session.hypnotistId = hypnotistId;
+	session.phase = "Hypnotized";
+	session.depth = Math.max(0, Math.min(100, Math.round(full)));
+	session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
+	setCurrentDepths(session.depth, session.depthEarned);
+	session.hypnotizedAt = Date.now();
+	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
+	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+	// The trance defaults — freeze, silence, fade, whatever the subject accepted for being under —
+	// in the one call every other way into trance uses.
+	applyTranceState();
+	startPresenceWatch();
+	notify(`You drop straight under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
+	announceTranceEnter();
+	pushUpdate();
+	persistState();
+	log(`dropped into trance by ${hypnotistId}'s trigger, depth ${session.depth}/${session.depthEarned}`);
+	return null;
+}
+
 function findCharacterName(memberId: number): string {
 	const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
 		(x: any) => x?.MemberNumber === memberId,

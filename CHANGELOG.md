@@ -12,6 +12,23 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.90.0 · 25 September 2026
+
+- **Drop triggers.** A hypnotist can plant a trigger that drops you straight into trance when
+  it is said, with no prompt and no roll. While planting, they say *"you will drop into
+  trance"*, or put it on the same line: *"when you hear ember glow, you will drop into trance"*.
+- **They are off unless you turn them on.** New on the Triggers tab (scroll down):
+  - **Drop triggers: Off** (the default): no drop can be planted in you or work on you.
+  - **One time:** each drop trigger works once, then it is gone.
+  - **Unlimited:** it works each time, until it fades, if the hypnotist asked for that. If they
+    did not, it still works only once.
+- **A drop follows the same rules as an ordinary hypnosis attempt.** It does not work if you are
+  already in a trance, if someone else is part-way through hypnotizing you, or if the person
+  saying it is not in the room. Whoever says it becomes your hypnotist, and you go as deep as the
+  trigger is strong.
+- **Waking works as usual**, and the safeword always works.
+- If a drop does not work, the person who said it is told why.
+
 ## v0.89.0 · 25 September 2026
 
 - **You no longer see your trigger words in chat.** When someone says one of your trigger words,

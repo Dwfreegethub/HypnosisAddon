@@ -11,7 +11,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, listTriggers, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, listTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -22,6 +22,7 @@ import {
 	currentHypnotistId,
 	saveForReconnect,
 	isSessionLive,
+	dropIntoTrance,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
@@ -74,6 +75,7 @@ import {
 	forgetIfSpent,
 	describeOptions,
 	TriggerOption,
+	DROP_ACTION,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -1492,6 +1494,14 @@ const TRIGGER_START = [
 ];
 const TRIGGER_COMMIT = [/\bremember (?:the |this |that )?trigger\b/, /\bthe trigger is set\b/, /\block (?:it |that )?in\b/];
 const TRIGGER_CANCEL = [/\b(?:forget|cancel|never mind|nevermind) (?:the |that |this )?trigger\b/];
+// An instant drop, recorded into the trigger being planted (v0.90.0). Every form ends in trance or
+// "under", never a bare "drop": "drop on your knees" is kneel, and must stay kneel.
+// "under" alone, never "under the table": a following object makes it a place, not a trance.
+const DROP_INTO = String.raw`(?:straight |right |back |deep |deeply |down )*(?:into (?:a )?(?:deep )?trance|under(?! (?:the|a|an|my|your|his|her|their|it|that|this|there)\b))`;
+const TRIGGER_DROP = [
+	new RegExp(String.raw`\byou (?:will |ll )?(?:drop|sink|fall|slip|go) ${DROP_INTO}\b`),
+	new RegExp(String.raw`\b(?:it|this|that|this trigger|that trigger|the word|the words) (?:will )?(?:drops?|puts?|sends?|takes?) you ${DROP_INTO}\b`),
+];
 
 /** Strip the subject's own name out of a captured phrase.
  *
@@ -1630,7 +1640,10 @@ export function parseTriggerOption(content: string): TriggerOption | null {
 }
 
 export type TriggerControl =
-	| { kind: "start"; phrase: string }
+	/** `drop` when the start line carried its own drop clause ("when you hear X, you will drop
+	 * into trance"): the phrase is X, and the drop is recorded straight away. */
+	| { kind: "start"; phrase: string; drop?: boolean }
+	| { kind: "drop" }
 	| { kind: "commit" }
 	| { kind: "cancel" }
 	| { kind: "option"; option: TriggerOption }
@@ -1648,8 +1661,21 @@ export function parseTriggerControl(content: string): TriggerControl {
 	if (option) return { kind: "option", option };
 	for (const pattern of TRIGGER_START) {
 		const match = pattern.exec(text);
-		if (match) return { kind: "start", phrase: cleanPhrase(match[1]) };
+		if (!match) continue;
+		// "when you hear sleepy time, you will drop into trance": the start pattern captures to the
+		// end of the line, so the drop clause would become part of the phrase. Split it off.
+		const captured = match[1];
+		for (const drop of TRIGGER_DROP) {
+			const d = drop.exec(captured);
+			if (d && d.index > 0) {
+				// "...is ember glow and you will drop": the joining word is not part of the phrase.
+				const head = captured.slice(0, d.index).replace(/(?:\s+(?:and|then|so))+\s*$/, "");
+				return { kind: "start", phrase: cleanPhrase(head), drop: true };
+			}
+		}
+		return { kind: "start", phrase: cleanPhrase(captured) };
 	}
+	if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
 	return null;
 }
 
@@ -1679,6 +1705,13 @@ function handleTriggerControl(sender: number, content: string): boolean {
 		tellPlayer(message);
 		return true;
 	}
+	if (parsed.kind === "drop") {
+		// Only mid-recording; otherwise the line is not ours and falls through.
+		if (!isRecording()) return false;
+		const line = recordAction(DROP_ACTION);
+		if (line) tellPlayer(line);
+		return true;
+	}
 	if (parsed.kind === "commit") {
 		if (!isRecording()) return false;
 		const message = commitRecording(isTriggerInEffect);
@@ -1691,10 +1724,15 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
 	if (isRecording()) {
 		renameRecording(sender, parsed.phrase, isTriggerInEffect);
-		return true;
+	} else {
+		const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
+		if (line) tellPlayer(line);
 	}
-	const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
-	if (line) tellPlayer(line);
+	// The drop clause said on the same line, recorded only if the recording actually began.
+	if (parsed.drop && isRecording()) {
+		const dropLine = recordAction(DROP_ACTION);
+		if (dropLine) tellPlayer(dropLine);
+	}
 	return true;
 }
 
@@ -1728,7 +1766,38 @@ function drainTriggerSteps(trigger: Trigger, steps: (() => void)[]): void {
 	scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
 }
 
-function fireTrigger(trigger: Trigger): void {
+/** The drop half of a firing trigger (v0.90.0, design.md "Trigger Overhaul", decision 10).
+ *
+ * Her setting is read NOW, not at planting: turning drops off disarms every drop trigger already
+ * in her, the same way revoking a permission disarms that action (gate 2 in triggers.ts). Who may
+ * drop her is session.ts's attempt gate; the trigger's own scope was already checked to get here.
+ *
+ * Depth is the trigger's strength, both halves — except a chemically seeded trigger, whose earned
+ * half is 0. Earned depth gates planting, carrying and the illusion; a drop must not turn arousal
+ * spent on planting a trigger into earned depth later (rule 4).
+ *
+ * The speaker is told why a drop did not take, since they cannot see her side (rule 5). */
+function fireDrop(trigger: Trigger, speaker: number, strength: number): void {
+	const mode = getDropMode();
+	if (mode === "off") {
+		log(`trigger "${trigger.phrase}": drop refused, drop triggers are off`);
+		tellHypnotist(speaker, "[trigger] The drop did not take — they have not allowed drop triggers.");
+		tellPlayer("Something pulls at you, toward trance, and lets go.");
+		return;
+	}
+	const refusal = dropIntoTrance(speaker, strength, trigger.plantedChemical ? 0 : strength);
+	if (refusal) {
+		log(`trigger "${trigger.phrase}": drop refused — ${refusal}`);
+		tellHypnotist(speaker, `[trigger] The drop did not take — ${refusal}.`);
+		return;
+	}
+	// Her "one time" is a ceiling applied at firing too: a trigger planted while she allowed
+	// unlimited drops is used up by its next drop once she has lowered it.
+	if (mode === "once") trigger.oneShot = true;
+	tellHypnotist(speaker, `[trigger] They drop straight into trance (${tierLabel(tierOf(strength))}).`);
+}
+
+function fireTrigger(trigger: Trigger, speaker: number): void {
 	if (!triggersArmed()) {
 		log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
 		return;
@@ -1760,11 +1829,15 @@ function fireTrigger(trigger: Trigger): void {
 	// and so arm the auto-release; a compel is a one-shot event and must NOT reach that machinery,
 	// or a compel-only trigger would report itself as gripping her and refuse forgettrigger — so
 	// it is counted apart.
+	// THE DROP FIRST, and not paced: the rest of the trigger's actions land on someone already under,
+	// which is the order the words promise.
+	if (trigger.actions.includes(DROP_ACTION)) fireDrop(trigger, speaker, strength);
 	const steps: (() => void)[] = [];
 	let holding = 0;
 	let compels = 0;
 	let tooWeak = 0;
 	for (const id of trigger.actions) {
+		if (id === DROP_ACTION) continue; // handled above
 		// Body-part actions carry their parameter in the id ("touch:breasts"), since the
 		// pattern library can't hold a per-part entry for all 26 of them.
 		if (id.startsWith("touch:")) {
@@ -2002,6 +2075,7 @@ export function describeAction(id: string): string {
 		const word = id.slice("touch:".length);
 		return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
 	}
+	if (id === DROP_ACTION) return "you drop straight into trance";
 	if (id === "act:vague") return "you touch yourself somewhere";
 	if (id === "act:genital") return "you touch yourself between your legs";
 	if (id.startsWith("act:")) {
@@ -2118,7 +2192,7 @@ function handleTriggerFiring(sender: number, content: string): boolean {
 			log(`trigger "${trigger.phrase}" suppressed — installer already has a live session`);
 			continue;
 		}
-		fireTrigger(trigger);
+		fireTrigger(trigger, sender);
 	}
 	return true;
 }

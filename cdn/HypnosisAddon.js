@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.89.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.90.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -2858,6 +2858,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`TESTING: forced trance with ${hypnotistId}, depth ${session.depth}/${session.depthEarned}`);
     return null;
   }
+  function dropIntoTrance(hypnotistId, full, earned) {
+    if (!getFeatures().hypnoEnabled) return "they aren't open to hypnosis";
+    if (hypnotistId === Player?.MemberNumber) return "a drop needs someone else to go under for";
+    if (memberInRoom(hypnotistId) === false) return "you aren't in the room with them";
+    if (session.cooldownUntil > Date.now() && session.hypnotistId === hypnotistId) return "not yet \u2014 try again later";
+    if (session.phase === "Hypnotized") {
+      return session.hypnotistId === hypnotistId ? "they are already under" : "they are already in a trance";
+    }
+    if (session.phase !== "Idle" && session.hypnotistId !== hypnotistId) {
+      return "someone else is already working on them";
+    }
+    clearTimers();
+    session = freshSession();
+    session.hypnotistId = hypnotistId;
+    session.phase = "Hypnotized";
+    session.depth = Math.max(0, Math.min(100, Math.round(full)));
+    session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
+    setCurrentDepths(session.depth, session.depthEarned);
+    session.hypnotizedAt = Date.now();
+    sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
+    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+    applyTranceState();
+    startPresenceWatch();
+    notify(`You drop straight under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
+    announceTranceEnter();
+    pushUpdate();
+    persistState();
+    log(`dropped into trance by ${hypnotistId}'s trigger, depth ${session.depth}/${session.depthEarned}`);
+    return null;
+  }
   function findCharacterName(memberId) {
     const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (x) => x?.MemberNumber === memberId
@@ -3404,6 +3434,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       triggerScope: "hypnotist",
       triggerDurationMinutes: 5,
       triggerLifespanMinutes: 0,
+      dropTriggers: "off",
       maxAttempts: DEFAULT_MAX_ATTEMPTS,
       // OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
       // whenever it was last touched, so shipping this switched on would decay months of
@@ -3437,6 +3468,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
     if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
     if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
+    if (!DROP_MODES.some((m) => m.key === s.dropTriggers)) s.dropTriggers = "off";
     if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
     if (s.skillHonour !== void 0 && !SKILL_HONOUR_RUNGS.some((r) => r.key === s.skillHonour)) {
       delete s.skillHonour;
@@ -3842,6 +3874,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { minutes: 360, label: "6 hours" },
     { minutes: 1440, label: "1 day" }
   ];
+  var DROP_MODES = [
+    { key: "off", label: "Off" },
+    { key: "once", label: "One time" },
+    { key: "unlimited", label: "Unlimited" }
+  ];
+  function getDropMode() {
+    return loadSettings().dropTriggers;
+  }
+  function setDropMode(mode) {
+    const value = DROP_MODES.some((m) => m.key === mode) ? mode : "off";
+    loadSettings().dropTriggers = value;
+    saveSettings();
+    return value;
+  }
   function getTriggerLifespan() {
     return loadSettings().triggerLifespanMinutes;
   }
@@ -4255,7 +4301,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let noted;
     switch (option.kind) {
       case "once":
-        recording.oneShot = option.value || void 0;
+        recording.oneShot = option.value;
         noted = option.value ? "it will work once, then be gone" : "it will work every time";
         break;
       case "lifespan":
@@ -4392,8 +4438,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return "Something is being set aside in you. You let it happen.";
   }
+  var DROP_ACTION = "trance-drop";
   function recordAction(id) {
     if (!recording) return null;
+    if (id === DROP_ACTION) {
+      if (getDropMode() === "off") {
+        tellHypnotist(recording.hypnotistId, '[trigger] Refused \u2014 they have not allowed "Drop triggers" on their Triggers tab.');
+        return "Something reaches for a door in you that stays shut.";
+      }
+      if (recording.actions.includes(DROP_ACTION)) {
+        tellHypnotist(recording.hypnotistId, "[trigger] Already recorded \u2014 this trigger drops them once per firing.");
+        return "That is already there.";
+      }
+    }
     if (recording.actions.length >= MAX_ACTIONS) {
       log(`trigger action ignored \u2014 already at the ${MAX_ACTIONS} action cap`);
       tellHypnotist(recording.hypnotistId, `[trigger] Ignored \u2014 already at the ${MAX_ACTIONS} action limit.`);
@@ -4435,7 +4492,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       firings: 0,
       key: recording.phrase
     };
-    if (recording.oneShot) trigger.oneShot = true;
+    const isDrop = trigger.actions.includes(DROP_ACTION);
+    if (recording.oneShot === true || isDrop && (recording.oneShot !== false || getDropMode() === "once")) {
+      trigger.oneShot = true;
+    }
     if (recording.strict) trigger.strict = true;
     if (recording.scope) trigger.scope = recording.scope;
     const ceilingMs = getTriggerLifespan() * 6e4;
@@ -4448,6 +4508,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (trigger.scope && scopeIsWider(trigger.scope, getTriggerScope())) {
       notes.push(`Her settings only allow "${scopeLabel(getTriggerScope())}", so that is who can fire it.`);
+    }
+    if (isDrop && recording.oneShot === false && getDropMode() === "once") {
+      notes.push("Her settings let a drop trigger work only once, so it will.");
     }
     if (getFeatures().strictTriggerMatch && !trigger.strict) {
       notes.push("Her settings make every trigger fire on the whole words only.");
@@ -5560,6 +5623,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   ];
   var TRIGGER_COMMIT = [/\bremember (?:the |this |that )?trigger\b/, /\bthe trigger is set\b/, /\block (?:it |that )?in\b/];
   var TRIGGER_CANCEL = [/\b(?:forget|cancel|never mind|nevermind) (?:the |that |this )?trigger\b/];
+  var DROP_INTO = String.raw`(?:straight |right |back |deep |deeply |down )*(?:into (?:a )?(?:deep )?trance|under(?! (?:the|a|an|my|your|his|her|their|it|that|this|there)\b))`;
+  var TRIGGER_DROP = [
+    new RegExp(String.raw`\byou (?:will |ll )?(?:drop|sink|fall|slip|go) ${DROP_INTO}\b`),
+    new RegExp(String.raw`\b(?:it|this|that|this trigger|that trigger|the word|the words) (?:will )?(?:drops?|puts?|sends?|takes?) you ${DROP_INTO}\b`)
+  ];
   function cleanPhrase(raw) {
     let phrase = raw.trim();
     for (const name of playerOwnNames()) {
@@ -5685,8 +5753,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (option) return { kind: "option", option };
     for (const pattern of TRIGGER_START) {
       const match = pattern.exec(text);
-      if (match) return { kind: "start", phrase: cleanPhrase(match[1]) };
+      if (!match) continue;
+      const captured = match[1];
+      for (const drop of TRIGGER_DROP) {
+        const d = drop.exec(captured);
+        if (d && d.index > 0) {
+          const head2 = captured.slice(0, d.index).replace(/(?:\s+(?:and|then|so))+\s*$/, "");
+          return { kind: "start", phrase: cleanPhrase(head2), drop: true };
+        }
+      }
+      return { kind: "start", phrase: cleanPhrase(captured) };
     }
+    if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
     return null;
   }
   function handleTriggerControl(sender, content) {
@@ -5706,6 +5784,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer(message);
       return true;
     }
+    if (parsed.kind === "drop") {
+      if (!isRecording()) return false;
+      const line = recordAction(DROP_ACTION);
+      if (line) tellPlayer(line);
+      return true;
+    }
     if (parsed.kind === "commit") {
       if (!isRecording()) return false;
       const message = commitRecording(isTriggerInEffect);
@@ -5715,10 +5799,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
     if (isRecording()) {
       renameRecording(sender, parsed.phrase, isTriggerInEffect);
-      return true;
+    } else {
+      const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
+      if (line) tellPlayer(line);
     }
-    const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
-    if (line) tellPlayer(line);
+    if (parsed.drop && isRecording()) {
+      const dropLine = recordAction(DROP_ACTION);
+      if (dropLine) tellPlayer(dropLine);
+    }
     return true;
   }
   var TRIGGER_STEP_BASE_MS = 1200;
@@ -5735,7 +5823,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
     scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
   }
-  function fireTrigger(trigger) {
+  function fireDrop(trigger, speaker, strength) {
+    const mode = getDropMode();
+    if (mode === "off") {
+      log(`trigger "${trigger.phrase}": drop refused, drop triggers are off`);
+      tellHypnotist(speaker, "[trigger] The drop did not take \u2014 they have not allowed drop triggers.");
+      tellPlayer("Something pulls at you, toward trance, and lets go.");
+      return;
+    }
+    const refusal = dropIntoTrance(speaker, strength, trigger.plantedChemical ? 0 : strength);
+    if (refusal) {
+      log(`trigger "${trigger.phrase}": drop refused \u2014 ${refusal}`);
+      tellHypnotist(speaker, `[trigger] The drop did not take \u2014 ${refusal}.`);
+      return;
+    }
+    if (mode === "once") trigger.oneShot = true;
+    tellHypnotist(speaker, `[trigger] They drop straight into trance (${tierLabel(tierOf(strength))}).`);
+  }
+  function fireTrigger(trigger, speaker) {
     if (!triggersArmed()) {
       log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
       return;
@@ -5749,11 +5854,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       markSpent(trigger, false);
       return;
     }
+    if (trigger.actions.includes(DROP_ACTION)) fireDrop(trigger, speaker, strength);
     const steps = [];
     let holding = 0;
     let compels = 0;
     let tooWeak = 0;
     for (const id of trigger.actions) {
+      if (id === DROP_ACTION) continue;
       if (id.startsWith("touch:")) {
         if (!features.selfTouchControl) {
           log(`trigger "${trigger.phrase}": ${id} skipped, selfTouchControl not granted`);
@@ -5892,6 +5999,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const word = id.slice("touch:".length);
       return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
     }
+    if (id === DROP_ACTION) return "you drop straight into trance";
     if (id === "act:vague") return "you touch yourself somewhere";
     if (id === "act:genital") return "you touch yourself between your legs";
     if (id.startsWith("act:")) {
@@ -5977,7 +6085,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log(`trigger "${trigger.phrase}" suppressed \u2014 installer already has a live session`);
         continue;
       }
-      fireTrigger(trigger);
+      fireTrigger(trigger, sender);
     }
     return true;
   }
@@ -7020,6 +7128,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
       body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
       dim("Their own settings still cap how long it lasts and who may fire it."),
+      body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
+      dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
       head("Firing and releasing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
@@ -7538,6 +7648,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
       ],
       extra: drawTriggerControls,
+      scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
       // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
       // not clip to a canvas area, so the rows stop above them rather than scrolling under.
       rowsBottom: 610
@@ -7807,6 +7918,43 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ATTEMPT_CAPTION_HEIGHT,
       locked ? "Gray" : "#555"
     );
+  }
+  function dropCaption() {
+    const mode = getDropMode();
+    if (mode === "off") return "A trigger cannot drop you straight into trance.";
+    if (mode === "once") return "A trigger may drop you into trance once, then it is gone.";
+    return "A trigger may drop you into trance each time, until it fades \u2014 if its hypnotist asked.";
+  }
+  function drawDropControl(top, width) {
+    const locked = settingsLocked();
+    const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
+    DrawButton(
+      BOX_LEFT,
+      top,
+      ATTEMPT_BUTTON_WIDTH,
+      ATTEMPT_BUTTON_HEIGHT,
+      `Drop triggers: ${label}`,
+      locked ? "#ddd" : "White",
+      "",
+      !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "Whether a trigger can put you straight under",
+      locked
+    );
+    drawLeftTextWrap(
+      dropCaption(),
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+  }
+  function clickDropControl(top) {
+    if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
+    if (settingsLocked()) return true;
+    const index = DROP_MODES.findIndex((m) => m.key === getDropMode());
+    const next = setDropMode(DROP_MODES[(index + 1) % DROP_MODES.length].key);
+    log(`drop triggers set to ${next}`);
+    return true;
   }
   function clickAttemptControl(top) {
     if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
@@ -8342,7 +8490,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.89.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.90.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10027,7 +10175,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.89.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.90.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10050,7 +10198,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.89.0"} loaded`;
+    el.textContent = `ECHS v${"0.90.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10081,14 +10229,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.89.0"})`);
+  info(`script loaded (v${"0.90.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.89.0",
+      version: "0.90.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

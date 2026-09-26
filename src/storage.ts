@@ -431,6 +431,10 @@ interface HypnoAddonSettings {
 	 * trigger's effects hold. Applies at planting only: lowering it does not shorten triggers
 	 * already in place. */
 	triggerLifespanMinutes: number;
+	/** Drop triggers: off (the default — a drop is refused, planted or fired), once (every drop
+	 * trigger works one time and is gone), or unlimited (it works until it fades, if its installer
+	 * asked for that). One of DROP_MODES. */
+	dropTriggers: DropMode;
 	/** How many induction attempts one hypnotist gets before a cooldown. One of
 	 * ATTEMPT_LIMITS; anything else is normalised back to the default on load. */
 	maxAttempts: number;
@@ -534,6 +538,7 @@ function defaultSettings(): HypnoAddonSettings {
 		triggerScope: "hypnotist",
 		triggerDurationMinutes: 5,
 		triggerLifespanMinutes: 0,
+		dropTriggers: "off",
 		maxAttempts: DEFAULT_MAX_ATTEMPTS,
 		// OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
 		// whenever it was last touched, so shipping this switched on would decay months of
@@ -588,6 +593,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// per cooldown is a pace change, and it is the pace that was decided.
 	if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
 	if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
+	if (!DROP_MODES.some((m) => m.key === s.dropTriggers)) s.dropTriggers = "off";
 	if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
 	// An invalid rung is DELETED, not defaulted, so the code default keeps governing it — a
 	// stored "trusted" would freeze today's default into that install forever.
@@ -1179,6 +1185,26 @@ export const TRIGGER_LIFESPANS: { minutes: number; label: string }[] = [
 	{ minutes: 360, label: "6 hours" },
 	{ minutes: 1440, label: "1 day" },
 ];
+
+/** Whether a trigger may drop the subject straight into trance (v0.90.0, design.md "Trigger
+ * Overhaul", decision 10). The subject's ceiling on what an installer asks for. */
+export type DropMode = "off" | "once" | "unlimited";
+export const DROP_MODES: { key: DropMode; label: string }[] = [
+	{ key: "off", label: "Off" },
+	{ key: "once", label: "One time" },
+	{ key: "unlimited", label: "Unlimited" },
+];
+
+export function getDropMode(): DropMode {
+	return loadSettings().dropTriggers;
+}
+
+export function setDropMode(mode: DropMode): DropMode {
+	const value = DROP_MODES.some((m) => m.key === mode) ? mode : "off";
+	loadSettings().dropTriggers = value;
+	saveSettings();
+	return value;
+}
 
 export function getTriggerLifespan(): number {
 	return loadSettings().triggerLifespanMinutes;

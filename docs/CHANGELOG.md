@@ -20,6 +20,62 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.90.0) — instant drop triggers
+
+Build 4 of the *Trigger Overhaul* (decision 10). This reverses the old "no LSCG-style auto-drop"
+note in *Open Questions*, as recorded in Build 0.
+
+**The action.** `DROP_ACTION` (`"trance-drop"`, `triggers.ts`) is recorded into a trigger, not run
+live: the subject is already under while it is planted. It is not in `SUGGESTIONS` for the same
+reason. It is recorded by `TRIGGER_DROP` (`voice.ts`), or by a drop clause on the start line
+itself: "when you hear X, you will drop into trance". `TRIGGER_START` captures to the end of the
+line, so `parseTriggerControl` splits the clause off, and a trailing "and"/"then", and records
+both. Every drop form ends in "into trance" or a bare "under": "drop on your knees" is kneel, and
+"under the table" is a place.
+
+**The setting.** `dropTriggers`: `off` (default) / `once` / `unlimited`, cycled by a button that
+scrolls in after the Triggers tab's rows, like the attempt control on Permissions. It is read
+three times:
+- at record (refused when off, and the hypnotist told)
+- at commit: one-time unless the installer said "every time" *and* the subject allows unlimited.
+  The recording's `oneShot` became tri-state for this: unsaid is not "every time".
+- at fire: off refuses, and once marks the trigger one-shot, so lowering the setting disarms
+  existing unlimited drops after their next use.
+
+**Who may drop her.** `dropIntoTrance()` (`session.ts`) re-uses the `session-attempt` handler's
+gates exactly, per DW ("follows who can hypnotise you"):
+- *Hypnosis Enabled*
+- the speaker is on the roster
+- no cooldown with that speaker
+- not already hypnotised
+- nobody else's session in progress, which includes another hypnotist's cooldown
+
+I first wrote a cooldown exception and removed it, because the attempt handler has none. A drop
+by her own voice is refused. The trigger's own scope was already checked before firing. On
+success it runs the success path's tail:
+- depths, then the 30-minute timeout
+- `applyTranceState()` (the trance defaults)
+- the presence watch
+- `announceTranceEnter()`
+- `pushUpdate()`, so the speaker's panel sees the session
+- `persistState()`
+
+It is not counted as practice or trust, because nothing was attempted.
+
+**Depth.** Both halves are the trigger's strength, except that a chemically seeded trigger gets
+earned 0 (rule 4). Earned depth gates planting, carrying and the illusion, so a drop from a
+trigger bought with arousal must not hand back earned depth.
+
+**Order.** The drop runs synchronously before the paced actions, so the rest of the trigger lands
+on someone already under. It is not "holding": the trance is session state, ended by wake,
+timeout or safeword. Every refusal is told to the speaker over the hidden channel (rule 5). When
+drops are off, the subject also gets a line, since something did happen to them.
+
+`test/drop.mjs`, 50 checks, plus 3 in `menu-layout.mjs` for the control. Verified by mutation:
+removing the off check at firing, the chemical rule, once-at-firing, the default one-time, the
+off check at planting, or any of the room, already-under and self gates each turned its own checks
+red. Live steps: *Needs Testing* item 22.
+
 ### Added 2026-09-25 (v0.89.0) — trigger words shown as "..." in the subject's chat
 
 Build 3 of the *Trigger Overhaul* (decision 6). New module `conceal.ts`. DW pointed at LSCG, which

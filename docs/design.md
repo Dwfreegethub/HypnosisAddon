@@ -1131,7 +1131,7 @@ A single trigger can fire **multiple effects simultaneously** (no hard limit pla
 
 | Effect | Notes |
 |--------|-------|
-| Hypnotic induction | Trigger word puts the subject directly into trance |
+| Hypnotic induction | **Built v0.90.0** as the instant drop: the trigger puts the subject straight into trance, if they allow *Drop triggers*. See *Trigger Overhaul*, decision 10 |
 | Arousal increase | **Built v0.27.0** — four named levels, driving BC's own `ActivitySetArousal` |
 | Instant orgasm | **Built v0.27.0** — `ActivityOrgasmPrepare` + `ActivityOrgasmStart`, skipping BC's resist window |
 | Block orgasm | **Built v0.27.0** — BC's own `DenialMode` effect, so it also stops vibrators and activities |
@@ -2236,7 +2236,7 @@ Each is a separate minor release (rule 9) with its own live test.
 | 1 | **Built v0.87.0.** Record fields (`key`, `scope?`, `expiresAt?`, usage mode, match mode), hard expiry, lifespan ceiling, one-shot, strict matching, and the spoken options that set them. See `docs/CHANGELOG.md` for how, and *Needs Testing* item 19 |
 | 2 | **Built v0.88.0.** `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation. The inspector is its own tab, **Planted**. See *Needs Testing* item 20 |
 | 3 | **Built v0.89.0** (`conceal.ts`). Chat concealment of the phrase (`...`), checked against R132 `ChatRoom.js`: a post-handler at 50 transforms the displayed `msg`, and the ungarbled copy in `metadata.OriginalMsg`. See *Needs Testing* item 21 |
-| 4 | Instant drop |
+| 4 | **Built v0.90.0.** Instant drop: `DROP_ACTION` recorded by "you will drop into trance" (or on the start line itself), the subject's Off / One time / Unlimited ceiling, and `dropIntoTrance()` in `session.ts` behind the induction attempt's own gates. See *Needs Testing* item 22 |
 | 5 | Spoken / mantra triggers — needs a new speech-compulsion permission; gag handling verified against BC's speech code first |
 | 6 | Delayed compulsions — dormant triggers armed by waking, elapsed time, or a room event (arrival or speech) |
 
@@ -4592,9 +4592,35 @@ setup lines are drawn at all). A third player R in the room, to compare screens.
 9. **Notifications.** With BC chat notifications on and the tab in the background, H says it.
    *Expect:* the desktop notification shows "..." too.
 
+### 22. Instant drop triggers (v0.90.0) — **open, never run live**
+
+H and S as before, plus a third player R. `test/drop.mjs` covers the rules; this checks the real
+trance: the freeze and fade, the room announcement, H's panel, and waking.
+
+1. **Refused while off.** S leaves *Drop triggers: Off* (Triggers tab, scroll down). H, with S under:
+   *"S, when you hear ember glow, you will drop into trance"*. *Expect:* H told S has not allowed
+   drop triggers; the recording starts but holds no drop. Cancel it.
+2. **Planting.** S sets *Drop triggers: Unlimited*. H plants the same line and *"S, remember
+   trigger"*. *Expect:* H's SAVED line lists `trance-drop` and says *works once*, because nothing
+   said otherwise. Wake S.
+3. **The drop.** H says *"ember glow"*. *Expect:* S goes straight under with no prompt: frozen,
+   the screen fade, "You drop straight under. (deep)", and the room sees the usual trance line. H
+   is told they dropped; H's remote panel shows S hypnotised by H. `/echs triggers` on S: the
+   trigger is gone (it was one-time).
+4. **Waking.** H's Wake button, or `/echs wake` if shallow, ends it as any trance. *Failure looks
+   like:* S cannot be woken except by safeword.
+5. **Unlimited.** Plant again with *"S, it works every time"*. Wake, drop, wake, drop. *Expect:* it
+   works each time and stays listed.
+6. **Lowered to once.** Set S to *One time*. H drops S. *Expect:* it works, then it is gone.
+7. **Refusals said out loud.** With S already under H, R speaks a drop trigger R may fire (widen S's
+   scope). *Expect:* R told S is already in a trance. S sets *Off*; H speaks one. *Expect:* no
+   trance, H told, S sees "Something pulls at you, toward trance, and lets go."
+8. **Reload while dropped.** Drop S, reload S's tab. *Expect:* the trance resumes as any trance
+   does (item 3 of the recovery rules).
+
 ---
 
-**Nine of twenty-two topics confirmed; thirteen open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty-three topics confirmed; fourteen open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

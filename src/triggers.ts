@@ -9,6 +9,7 @@ import {
 	getTriggerDecayRate,
 	getTriggerScope,
 	getTriggerLifespan,
+	getDropMode,
 	Trigger,
 	TriggerScope,
 	TRIGGER_SCOPE_KEYS,
@@ -539,7 +540,9 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 	let noted: string;
 	switch (option.kind) {
 		case "once":
-			recording.oneShot = option.value || undefined;
+			// Kept as said, true OR false: a drop trigger defaults to one-time only when the
+			// installer said nothing, so "it works every time" has to be remembered as a no.
+			recording.oneShot = option.value;
 			noted = option.value ? "it will work once, then be gone" : "it will work every time";
 			break;
 		case "lifespan":
@@ -748,10 +751,27 @@ export function beginRecording(
 	return "Something is being set aside in you. You let it happen.";
 }
 
+/** The action id for an instant drop into trance. Not a suggestion — nothing to apply live, since
+ * the subject is already under while it is planted — so it lives here rather than in SUGGESTIONS. */
+export const DROP_ACTION = "trance-drop";
+
 /** Record a suggestion instead of running it. Returns the message to show, or null if
  * we're not recording and the caller should run it normally. */
 export function recordAction(id: string): string | null {
 	if (!recording) return null;
+	// A drop is the subject's to allow, and refused at planting as well as at firing: planting
+	// something she has said no to, only to have it refuse every time, would be a silent failure
+	// waiting to happen (rule 5). Refused plainly, with the setting named.
+	if (id === DROP_ACTION) {
+		if (getDropMode() === "off") {
+			tellHypnotist(recording.hypnotistId, '[trigger] Refused — they have not allowed "Drop triggers" on their Triggers tab.');
+			return "Something reaches for a door in you that stays shut.";
+		}
+		if (recording.actions.includes(DROP_ACTION)) {
+			tellHypnotist(recording.hypnotistId, "[trigger] Already recorded — this trigger drops them once per firing.");
+			return "That is already there.";
+		}
+	}
 	if (recording.actions.length >= MAX_ACTIONS) {
 		log(`trigger action ignored — already at the ${MAX_ACTIONS} action cap`);
 		tellHypnotist(recording.hypnotistId, `[trigger] Ignored — already at the ${MAX_ACTIONS} action limit.`);
@@ -801,7 +821,12 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		firings: 0,
 		key: recording.phrase,
 	};
-	if (recording.oneShot) trigger.oneShot = true;
+	// A drop trigger is one-time unless its installer said "every time" AND she allows more than
+	// once (decision 10: unspecified means one-time, and her setting is the ceiling).
+	const isDrop = trigger.actions.includes(DROP_ACTION);
+	if (recording.oneShot === true || (isDrop && (recording.oneShot !== false || getDropMode() === "once"))) {
+		trigger.oneShot = true;
+	}
 	if (recording.strict) trigger.strict = true;
 	if (recording.scope) trigger.scope = recording.scope;
 	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
@@ -818,6 +843,9 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	}
 	if (trigger.scope && scopeIsWider(trigger.scope, getTriggerScope())) {
 		notes.push(`Her settings only allow "${scopeLabel(getTriggerScope())}", so that is who can fire it.`);
+	}
+	if (isDrop && recording.oneShot === false && getDropMode() === "once") {
+		notes.push("Her settings let a drop trigger work only once, so it will.");
 	}
 	if (getFeatures().strictTriggerMatch && !trigger.strict) {
 		notes.push("Her settings make every trigger fire on the whole words only.");
