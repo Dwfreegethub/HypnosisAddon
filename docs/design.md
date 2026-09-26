@@ -971,6 +971,15 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     the tier name.
   - One tier per success, to the next tier's floor. A trigger cannot hold a deepening; the instant
     drop is the trigger's way under, and the hypnotist is told so.
+  - **v0.96.0 (DW, same day): half steps, and fighting back up.** A full step is now a tier's width
+    (+20, and at least the next tier's floor). A roll missing by under 20 is a half step (+10):
+    "slightly deeper but not enough to make a difference", though two make one. **Fighting mid-
+    trance:** `/hypno fight` (agree / ignore) while under sets her stance for the rest of the
+    trance, privately. When fighting and a deepening misses outright, she may come up one tier (to
+    its middle), and from Drifting she wakes (`endSession`). The chance: by current tier Drifting
+    45 / Yielding 35 / Entranced 25 / Deep 15 / Blank 8, minus honoured skill × 0.2 (up to 20) and
+    access × 0.1 (up to 10), clamped 3-60. DW: "a little better than slim" when shallow, "the
+    deeper you are you have less chance", skill counts more than trust. `/hypno chance` shows both.
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in
@@ -4835,6 +4844,9 @@ H and S as before. `test/deepen.mjs` covers the rules; only a live room shows th
 3. **The ceiling.** S's setting at Entranced (default). *Expect:* "as deep as they let themselves
    go". S sets Blank; the next one takes.
 4. **Earned stays.** At Deep by deepening, H tries to plant a trigger. *Expect:* refused (earned).
+5. **Fighting (v0.96.0).** S under at Yielding: `/echs fight`, then `/echs chance H` shows both odds.
+   H keeps deepening (a minute and a landed suggestion apart). *Expect:* misses sometimes bring S up
+   ("they push back up"); from Drifting, awake. A near miss is "It half takes".
 
 **Fifteen of twenty-nine topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including

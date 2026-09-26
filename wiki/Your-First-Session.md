@@ -52,6 +52,12 @@ Your choice is completely private and is never disclosed to the hypnotist. You c
 
 This is especially helpful if your wardrobe or another UI screen is open when the prompt lands.
 
+### Fighting It Once You Are Under
+Your choice at the prompt lasts the whole trance, and you can change it while under: `/echs fight`, `/echs agree` or `/echs ignore`. It matters when the hypnotist tries to take you deeper (*"sink deeper"*):
+* **Fighting** makes each deepening harder, and one that misses outright may bring you **up** a depth instead. From Drifting, that wakes you.
+* The shallower you are, the better your chance of fighting up. Their skill, and to a lesser extent your trust in them, make it harder.
+* `/echs chance <name>` shows both odds while you are under with them. The hypnotist is never told which you chose, though they see you come up.
+
 ### Giving Your Trust Ahead of Time
 If you already know you want to go under for someone, say so in the room: *"I trust you, Eri"* (or *"Eri, I trust you"*, or whisper *"I trust you"* to them). You can also type `/echs trust Eri`.
 

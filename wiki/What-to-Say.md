@@ -41,6 +41,8 @@ Once she is under with you, you can take her one depth further at a time:
 
 * **Her name is needed**, as for every suggestion, and she has to be under with you.
 * **It is a roll.** Her trust in you, your skill, how long she has been under (more after a few minutes), and her answer at the induction prompt (Agree helps, Fight hurts) all count, and each step down is harder than the last: Entranced is harder than Yielding, Deep harder again, Blank hardest. If she has given you her trust (*"I trust you, Eri"*), it always takes.
+* **A near miss is half a step.** A roll that just misses still sinks her a little: usually not enough to reach the next depth, but two of those make a full step.
+* **She can fight it.** If she chose Fight at the prompt, or types `/echs fight` while under, every deepening is harder, and one that misses outright may bring her **up** a depth instead (and from Drifting, awake). The shallower she is, the better her chance; your skill, and to a lesser extent her trust in you, hold her down. You are told when she comes up.
 * **Pace:** at least a minute between tries, **and** a suggestion of yours that actually landed in between. Too soon, and you are told it is still settling.
 * **Her limit:** her Depth tab says how deep *"sink deeper"* may take her. It stops at **Entranced** unless she opens it further; she can also turn it off. You are told when she is as deep as she lets herself go.
 * **You see bands, never her exact depth:** *"It takes. They are deeply under."* or *"It does not take hold this time."* The room may see her sag or breathe slower, if she lets the room see her reactions.

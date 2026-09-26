@@ -12,6 +12,18 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.96.0 · 26 September 2026
+
+- **Fighting it once you are under.** Type `/echs fight` while in a trance and you resist going
+  deeper for the rest of it (`/echs agree` or `/echs ignore` to stop). When a *"sink deeper"* misses
+  outright while you are fighting, you may come back **up** a depth instead, and from Drifting you
+  wake up. The shallower you are, the better your chance; your hypnotist's skill, and a little your
+  trust in them, make it harder. Choosing Fight at the prompt counts too.
+- **Half steps.** A *"sink deeper"* that only just misses still takes you a little deeper, not yet
+  enough to change anything; two of those make a full step.
+- `/echs chance <name>` shows your odds of going deeper, and of fighting back up, while you are
+  under with them.
+
 ## v0.95.0 · 26 September 2026
 
 - **New: going deeper mid-trance.** Once you are under, your hypnotist can say *"Missy, sink

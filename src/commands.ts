@@ -411,19 +411,19 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "agree",
 		group: "Session",
-		Description: "Accept a hypnosis attempt — cooperative, improves their roll",
+		Description: "Accept a hypnosis attempt — cooperative, improves their roll. Under: stop resisting",
 		Action: () => answerPrompt("agree"),
 	},
 	{
 		Tag: "ignore",
 		group: "Session",
-		Description: "Neither help nor resist a hypnosis attempt",
+		Description: "Neither help nor resist a hypnosis attempt (or, under, going deeper)",
 		Action: () => answerPrompt("ignore"),
 	},
 	{
 		Tag: "fight",
 		group: "Session",
-		Description: "Resist a hypnosis attempt — lowers their roll",
+		Description: "Resist a hypnosis attempt — lowers their roll. Under: fight going deeper, and maybe back up",
 		Action: () => answerPrompt("fight"),
 	},
 	{

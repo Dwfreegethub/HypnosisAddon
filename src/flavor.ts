@@ -107,7 +107,11 @@ export type FlavorKey =
 	| "trigger-reinforced"
 	// "Sink deeper" (v0.95.0). The room sees a success; a failure is private.
 	| "deepen"
-	| "deepen-failed";
+	| "deepen-failed"
+	// v0.96.0: a near miss (private), and fighting back up or out (the room sees it).
+	| "deepen-half"
+	| "deepen-surface"
+	| "deepen-woke";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -136,6 +140,14 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} keeps near, as though on an invisible leash.",
 	],
 	"follow-release": ["{name} steps back, {their} own distance to keep again."],
+	"deepen-surface": [
+		"{name} stirs, surfacing a little.",
+		"{name}'s eyes flicker, a little more awake than before.",
+	],
+	"deepen-woke": [
+		"{name} blinks hard, and comes fully awake.",
+		"{name} shakes {their} head and surfaces, awake.",
+	],
 	deepen: [
 		"{name}'s head lolls forward as {their} breathing slows further.",
 		"{name} sags a little, sinking further away.",
@@ -419,6 +431,20 @@ const LINES: Record<FlavorKey, string[]> = {
 	"deepen-failed": [
 		"You drift for a moment, and settle back where you were.",
 		"The words wash over you without taking you any lower.",
+	],
+	"deepen-half": [
+		"You sink, a little. Not far. Not yet.",
+		"Something in you gives a fraction further, and holds.",
+		"The words tug you down a little way before you settle.",
+	],
+	"deepen-surface": [
+		"You push against it, and for once the pull gives. You come up a little, clearer.",
+		"You fight the words off and rise, a layer nearer the surface.",
+		"Something in you refuses. You drift upward, a little more yourself.",
+	],
+	"deepen-woke": [
+		"You fight it all the way up, and break the surface. You are awake.",
+		"You refuse, and keep refusing, and suddenly you are clear-headed and awake.",
 	],
 	"selftouch-frozen": [
 		"Your hand doesn't move. Nothing of yours does.",
