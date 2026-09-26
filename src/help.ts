@@ -242,6 +242,7 @@ function depthTrustLines(): HelpLine[] {
 		body("or ignore to stop). A deepening that misses outright may then bring"),
 		body("you up a depth, and from Drifting, awake. The shallower you are, the"),
 		body("better your chance; their skill, and your trust in them, hold you down."),
+		body("Falling just short still brings you up a little; two make a full step."),
 		dim("/hypno chance <name> shows both odds while you are under with them."),
 		gap(),
 		dim('Your Depth tab says how far: "Sink deeper" stops at Entranced unless'),

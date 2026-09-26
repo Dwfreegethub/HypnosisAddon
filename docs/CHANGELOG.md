@@ -20,6 +20,15 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-26 (v0.96.2) — her half step up, fighting
+
+DW: "Lets give the subject a chance to move 10 points as well. I want a sub fighting to stand a
+chance." The mirror of the hypnotist's half step: when she is fighting, a deepening misses outright,
+and her push-back roll misses `surfaceChance` by under `DEEPEN_HALF_BAND` (20), she comes up
+`DEEPEN_HALF_STEP` (10). Outcome `half-up`; private unless it crosses a tier (then the room tell). If
+it would take her to 0 or below, she wakes. Net effect: at Yielding against a stranger, 55% of
+clean misses now move her up at least a little, up from 35%. `test/deepen.mjs` +7 (78).
+
 ### Fixed 2026-09-26 (v0.96.1) — her stance is lost on a reload
 
 DW asked to confirm that Fight at the prompt stays in force for every deepening. It does:

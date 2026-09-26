@@ -948,7 +948,10 @@ export function describeChances(memberId: number): string[] {
 								? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more`
 								: "you are as deep as it goes"),
 						...(stance === "fight"
-							? [`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}`]
+							? [
+									`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}` +
+										`, a half step up within ${DEEPEN_HALF_BAND} more`,
+								]
 							: []),
 					];
 				})()
@@ -1208,6 +1211,8 @@ export type DeepenOutcome =
 	| { kind: "failed" }
 	/** She was fighting, it missed outright, and she came up a tier (v0.96.0). */
 	| { kind: "surfaced"; band: string }
+	/** Her near miss while fighting: up 10 (v0.96.2). */
+	| { kind: "half-up"; band: string; crossed: boolean }
 	/** ...from Drifting, which wakes her. The session has already ended. */
 	| { kind: "woke" }
 	| { kind: "ceiling" }
@@ -1324,7 +1329,18 @@ export function tryDeepen(sender: number): DeepenOutcome {
 	const surface = surfaceChance(sender);
 	const pushBack = Math.random() * 100;
 	log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
-	if (pushBack >= surface) return { kind: "failed" };
+	if (pushBack >= surface) {
+		// Her near miss (v0.96.2, DW: "give the subject a chance to move 10 points as well. I want a
+		// sub fighting to stand a chance"): the mirror of the hypnotist's half step. Up 10, usually
+		// the same tier; two make one. From the top of Drifting there is nowhere left, so she wakes.
+		if (pushBack >= surface + DEEPEN_HALF_BAND) return { kind: "failed" };
+		if (session.depth - DEEPEN_HALF_STEP <= 0) {
+			endSession("you fought your way up and out");
+			return { kind: "woke" };
+		}
+		moveTo(session.depth - DEEPEN_HALF_STEP);
+		return { kind: "half-up", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
+	}
 	if (at === 0) {
 		endSession("you fought your way up and out");
 		return { kind: "woke" };

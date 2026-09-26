@@ -980,6 +980,8 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     45 / Yielding 35 / Entranced 25 / Deep 15 / Blank 8, minus honoured skill × 0.2 (up to 20) and
     access × 0.1 (up to 10), clamped 3-60. DW: "a little better than slim" when shallow, "the
     deeper you are you have less chance", skill counts more than trust. `/hypno chance` shows both.
+    **v0.96.2:** her half step up. A push-back roll missing by under 20 still brings her up 10
+    (DW: "I want a sub fighting to stand a chance"); to 0 or below, she wakes.
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in

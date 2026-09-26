@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.96.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.96.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1623,6 +1623,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "You fight the words off and rise, a layer nearer the surface.",
       "Something in you refuses. You drift upward, a little more yourself."
     ],
+    "deepen-half-up": [
+      "You push back, and rise a little. Not far, but it is yours.",
+      "You fight the pull and gain a little ground toward the surface.",
+      "Something in you digs in, and you come up a fraction."
+    ],
     "deepen-woke": [
       "You fight it all the way up, and break the surface. You are awake.",
       "You refuse, and keep refusing, and suddenly you are clear-headed and awake."
@@ -3244,7 +3249,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const stance = session.choice ?? "ignore";
         return [
           `  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` + (next ? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more` : "you are as deep as it goes"),
-          ...stance === "fight" ? [`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}`] : []
+          ...stance === "fight" ? [
+            `  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}, a half step up within ${DEEPEN_HALF_BAND} more`
+          ] : []
         ];
       })() : [],
       ...trustGiftFloor(memberId) > 0 ? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`] : [],
@@ -3448,7 +3455,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const surface = surfaceChance(sender);
     const pushBack = Math.random() * 100;
     log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
-    if (pushBack >= surface) return { kind: "failed" };
+    if (pushBack >= surface) {
+      if (pushBack >= surface + DEEPEN_HALF_BAND) return { kind: "failed" };
+      if (session.depth - DEEPEN_HALF_STEP <= 0) {
+        endSession("you fought your way up and out");
+        return { kind: "woke" };
+      }
+      moveTo(session.depth - DEEPEN_HALF_STEP);
+      return { kind: "half-up", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
+    }
     if (at === 0) {
       endSession("you fought your way up and out");
       return { kind: "woke" };
@@ -7249,6 +7264,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         announce("deepen-surface");
         tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
         break;
+      case "half-up":
+        if (r.crossed) {
+          announce("deepen-surface");
+          tellHypnotist(sender, `[deepen] It does not take, and they claw their way up. They are ${r.band}.`);
+        } else {
+          tellPlayer(flavor("deepen-half-up"));
+          tellHypnotist(sender, "[deepen] It does not take, and they claw back a little.");
+        }
+        break;
       case "woke":
         announce("deepen-woke");
         tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
@@ -8367,6 +8391,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("or ignore to stop). A deepening that misses outright may then bring"),
       body("you up a depth, and from Drifting, awake. The shallower you are, the"),
       body("better your chance; their skill, and your trust in them, hold you down."),
+      body("Falling just short still brings you up a little; two make a full step."),
       dim("/hypno chance <name> shows both odds while you are under with them."),
       gap(),
       dim('Your Depth tab says how far: "Sink deeper" stops at Entranced unless'),
@@ -9805,7 +9830,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.96.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.96.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -11517,7 +11542,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.96.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.96.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11540,7 +11565,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.96.1"} loaded`;
+    el.textContent = `ECHS v${"0.96.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11571,14 +11596,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.96.1"})`);
+  info(`script loaded (v${"0.96.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.96.1",
+      version: "0.96.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

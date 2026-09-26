@@ -2781,6 +2781,15 @@ function handleDeepening(sender: number, line: string): boolean {
 			announce("deepen-surface");
 			tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
 			break;
+		case "half-up":
+			if (r.crossed) {
+				announce("deepen-surface");
+				tellHypnotist(sender, `[deepen] It does not take, and they claw their way up. They are ${r.band}.`);
+			} else {
+				tellPlayer(flavor("deepen-half-up"));
+				tellHypnotist(sender, "[deepen] It does not take, and they claw back a little.");
+			}
+			break;
 		case "woke":
 			announce("deepen-woke");
 			tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
