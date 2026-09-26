@@ -205,16 +205,50 @@ session.wakeByHypnotist(HYP);
 say("hello everyone", REI);
 check("Rei speaks: it fires", voice.isTriggerInEffect(only()), true);
 
-// --- a line with nothing to keep after the clause keeps its old meaning ------------------------------------
-// "when you wake up you will feel refreshed" used to wake her (it contains "wake"). Failure: it now
-// silently starts a compulsion and leaves her under.
+// --- a wake clause with nothing to keep after it (v0.92.4) -------------------------------------------------
+// "when you wake up you will feel refreshed" used to WAKE her, since it contains "wake"; so did every
+// wording the parser missed ("after you wake up, …"), which is how DW found it. Now she stays under
+// and the hypnotist is told. Failure: she wakes, a recording is left open, or nothing is said.
 reset();
 under();
 say("Missy, when you wake up you will feel refreshed");
 check("nothing kept: no recording left open", triggers.isRecording(), false);
 check("  no compulsion stored", compulsions().length, 0);
-check("  the hypnotist told", /none was set up/.test(toHyp.join(" ")), true);
-check("  and the line still wakes her, as before", session.isHypnotized(), false);
+check("  the hypnotist told, and told she is still under", /none was set up\. They are still under/.test(toHyp.join(" ")), true);
+check("  she is NOT woken by it", session.isHypnotized(), true);
+// The same line that ALSO says to wake up is a wake-up. Failure: she stays under.
+reset();
+under();
+say("Missy, when you wake up you will feel refreshed. Wake up now");
+check("patter + 'wake up now': wakes her", session.isHypnotized(), false);
+check("  and plants nothing", compulsions().length, 0);
+reset();
+under();
+say("Missy, wake up");
+check("a plain 'wake up' still wakes her", session.isHypnotized(), false);
+
+// --- the ways of saying "after you wake" (v0.92.4) -------------------------------------------------------
+// Each used to fall through to the wake handler and wake her. Failure: not a wake condition, or the
+// wrong delay. And the reverse: ordinary wake-ups must not read as conditions.
+for (const [line, delay] of [
+	["Missy, after you wake up, you cannot move", 0],
+	["Missy, after you wake, you will kneel", 0],
+	["Missy, right after you wake up, kneel", 0],
+	["Missy, when you awaken, you cannot move", 0],
+	["Missy, once you are awake again, you cannot move", 0],
+	["Missy, upon waking, you cannot move", 0],
+	["Missy, after waking you cannot move", 0],
+	["Missy, when you come out of the trance, you cannot move", 0],
+	["Missy, five minutes after you are awake, you cannot move", 5 * MIN],
+]) {
+	check(`wording: "${line}"`, [c(line)?.fireOn, c(line)?.delayMs], ["wake", delay]);
+}
+for (const line of ["Missy, wake up", "Missy, come on, you, wake up", "Missy, you are awake now", "Missy, wake up after I count to three"]) {
+	check(`still a wake-up, not a condition: "${line}"`, c(line), null);
+}
+reset();
+t = plant("Missy, after you wake up, you cannot move");
+check("'after you wake up' plants, and leaves her under", [t?.fireOn, t?.actions, session.isHypnotized()], ["wake", ["movement-block"], true]);
 
 // --- a clause alone stays open for the lines after it ---------------------------------------------------
 reset();

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.92.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.92.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6101,9 +6101,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return { text, times: Math.max(1, Math.min(5, times)) };
   }
   var COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
-  var WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|open your eyes|come out of (?:it|trance|this))|waking(?: up)?)`;
+  var WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|awaken|awake|are (?:wide )?awake(?: again)?|open your eyes|come out of (?:it|trance|the trance|this))|waking(?: up)?|awakening)`;
+  var WAKE_LEAD = String.raw`(?:${COND_LEAD}|(?:right |just |soon |straight )?after|upon)`;
   var COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
-  var COND_WAKE_NOW = new RegExp(String.raw`\b${COND_LEAD} ${WAKE_VERB}\b`);
+  var COND_WAKE_NOW = new RegExp(String.raw`\b${WAKE_LEAD} ${WAKE_VERB}\b`);
   var COND_ARRIVE = new RegExp(
     String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`
   );
@@ -6190,6 +6191,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   var rereadingRest = false;
   function handleConditionStart(sender, content, parsed) {
+    if (parsed.fireOn === "wake" && parsed.rest && isWakeLine(parsed.rest)) return false;
     if (isRecording()) {
       tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
       return true;
@@ -6231,6 +6233,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (describeRecording() === before) {
       cancelRecording();
+      if (parsed.fireOn === "wake") {
+        tellHypnotist(
+          sender,
+          '[trigger] Nothing after "when you wake" could be kept as a compulsion, so none was set up. They are still under; say "wake up" to wake them.'
+        );
+        return true;
+      }
       tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
       return false;
     }
@@ -7774,6 +7783,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("Compulsions \u2014 waiting for something, not a word"),
       body(`"Missy, five minutes after you wake, you will kneel"`),
+      body(`"Missy, after you wake up, ..."   "Missy, when you open your eyes, ..."`),
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       dim('Then "remember trigger". Once, unless you say it works every time;'),
       dim("never while they are under. Their safeword clears the after-waking ones."),
@@ -9141,7 +9151,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.92.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10836,7 +10846,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.92.4"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10859,7 +10869,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.92.3"} loaded`;
+    el.textContent = `ECHS v${"0.92.4"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10890,14 +10900,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.92.3"})`);
+  info(`script loaded (v${"0.92.4"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.92.3",
+      version: "0.92.4",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

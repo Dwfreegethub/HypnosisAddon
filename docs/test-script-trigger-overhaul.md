@@ -164,8 +164,11 @@ H: *"Missy, wake up"*.
 **When H comes back:** Missy: `/echs trance H 80`. H: *"Missy, when I come back, you cannot move"*, *"Missy, remember trigger"*, *"Missy, wake up"*. H leaves the room and rejoins.
 - [ ] Missy sees "H entered." then is frozen. H leaving and rejoining again → nothing (one-time). Missy: `/echs safeword`.
 
-**Old meaning kept:** Missy: `/echs trance H 80`. H: *"Missy, when you wake up you will feel refreshed"*.
-- [ ] Missy wakes up, as that line always did. H sees `[trigger] Nothing after that could be kept as a compulsion, so none was set up.`
+**Other wordings (v0.92.4):** Missy: `/echs trance H 80`. H: *"Missy, after you wake up, you cannot move"*, *"Missy, remember trigger"*.
+- [ ] Missy stays under, and SAVED ends `It fires the moment they wake.` H: *"Missy, wake up"* → Missy frozen. Missy: `/echs safeword`.
+
+**Nothing to keep:** Missy: `/echs trance H 80`. H: *"Missy, when you wake up you will feel refreshed"*.
+- [ ] Missy stays under. H sees `[trigger] Nothing after "when you wake" could be kept as a compulsion, so none was set up. They are still under; say "wake up" to wake them.` H: *"Missy, wake up"*.
 
 ---
 

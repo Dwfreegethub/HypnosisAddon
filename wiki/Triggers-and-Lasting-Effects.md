@@ -123,7 +123,7 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | Say | When It Fires |
 |---|---|
 | *"Missy, five minutes after you wake, you will kneel"* | Five minutes after you next wake from a trance with that hypnotist. |
-| *"Missy, when you wake, you cannot move"* | The moment you wake. |
+| *"Missy, when you wake, you cannot move"* · *"after you wake up, …"* · *"once you are awake, …"* · *"upon waking, …"* · *"when you open your eyes, …"* | The moment you wake. |
 | *"Missy, when Rei comes in, …"* | When Rei next enters the room. |
 | *"Missy, when I come back, …"* | When the hypnotist returns to the room. |
 | *"Missy, when Rei speaks, …"* · *"when you hear Rei's voice, …"* | When Rei next says anything in chat. |
@@ -135,7 +135,7 @@ Whatever follows the condition on the same line is recorded, just as on its own 
 * **The clock keeps running:** a compulsion timed from waking keeps counting while you are logged off, and goes off soon after you are back in a room if its time has passed.
 * **Only that hypnotist's trance starts the clock:** waking from someone else's trance does not.
 * **Your safeword clears them:** any compulsion waiting for you to wake is discarded by `/echs safeword`. Compulsions waiting for a person are kept, as ordinary triggers are.
-* A line such as *"Missy, when you wake up you will feel refreshed"*, with nothing that can be kept after the condition, does what it always did and is not stored.
+* A line such as *"Missy, when you wake up you will feel refreshed"*, with nothing that can be kept after the condition, is not stored. You stay in trance and the hypnotist is told. If the same line also says *"wake up"*, it wakes you as usual.
 
 Compulsions otherwise work like any trigger: the same permissions, strength, fading and options, and they show in your trigger list with the condition in place of a word.
 

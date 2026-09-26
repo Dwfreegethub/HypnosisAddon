@@ -1696,9 +1696,13 @@ export function parseSayClause(raw: string): { text: string; times: number } | n
 // since "5 minutes" must survive. Checked before TRIGGER_START, whose "when you hear (.+)" would
 // otherwise read "when you hear Rei's voice" as a trigger word.
 const COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
-const WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|open your eyes|come out of (?:it|trance|this))|waking(?: up)?)`;
+// v0.92.4 (DW, 2026-09-26: "after you wake" lines woke her instead of planting). These all plant
+// now: "after you wake", "upon waking", "when you awaken", "once you are awake again". Not "on
+// waking": "come on, you, wake up" would read as a condition.
+const WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|awaken|awake|are (?:wide )?awake(?: again)?|open your eyes|come out of (?:it|trance|the trance|this))|waking(?: up)?|awakening)`;
+const WAKE_LEAD = String.raw`(?:${COND_LEAD}|(?:right |just |soon |straight )?after|upon)`;
 const COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
-const COND_WAKE_NOW = new RegExp(String.raw`\b${COND_LEAD} ${WAKE_VERB}\b`);
+const COND_WAKE_NOW = new RegExp(String.raw`\b${WAKE_LEAD} ${WAKE_VERB}\b`);
 const COND_ARRIVE = new RegExp(
 	String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`,
 );
@@ -1846,10 +1850,14 @@ let rereadingRest = false;
  * record what follows the clause through the ordinary paths, exactly as if said on its own line.
  *
  * A clause with nothing recordable after it ("when you wake up you will feel refreshed") is NOT a
- * compulsion: the recording is dropped and the line falls through, so it does what it always did.
- * That keeps the old meaning of such lines — including waking her, since they contain "wake". A
- * clause alone on its line ("when Rei comes in,") stays open for the lines that follow. */
+ * compulsion: the recording is dropped and the hypnotist told. For a wake clause she now stays
+ * under (v0.92.4; it used to wake her, since the line contains "wake"), unless the line ALSO says
+ * to wake up. A person clause falls through, so it does what it always did. A clause alone on its
+ * line ("when Rei comes in,") stays open for the lines that follow. */
 function handleConditionStart(sender: number, content: string, parsed: ParsedCondition): boolean {
+	// "when you wake up you will feel refreshed, now wake up": the line also wakes her, so it is a
+	// wake-up with some patter, not a compulsion. Left to the wake handler, as before.
+	if (parsed.fireOn === "wake" && parsed.rest && isWakeLine(parsed.rest)) return false;
 	if (isRecording()) {
 		tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
 		return true;
@@ -1894,6 +1902,17 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 	}
 	if (describeRecording() === before) {
 		cancelRecording();
+		if (parsed.fireOn === "wake") {
+			// v0.92.4: this used to fall through and WAKE her, since the line contains "wake". A
+			// hypnotist planting something for after the trance does not mean "wake up now", and
+			// losing the trance to a misheard suggestion is the worse failure. She stays under, and
+			// the hypnotist is told both things (rule 5).
+			tellHypnotist(
+				sender,
+				'[trigger] Nothing after "when you wake" could be kept as a compulsion, so none was set up. They are still under; say "wake up" to wake them.',
+			);
+			return true;
+		}
 		tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
 		return false;
 	}
