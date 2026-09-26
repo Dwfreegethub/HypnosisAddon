@@ -209,6 +209,17 @@ check("Triggers' rows stop above its dropdowns at 630", boxes[0].clip.top + boxe
 // scrolls to the fifth rather than running under them.
 check("  four fit wholly in view", boxes.filter((b) => inside(b, b.clip)).length, 4);
 check("  and a scroll bar reaches the fifth", !!down(), true);
+// v0.90.0: the drop-trigger control scrolls in after the rows, as the attempt control does on
+// Permissions. Failure: it cannot be reached, or clicking it does not cycle the setting.
+{
+	for (let i = 0; i < 10; i++) { const d = down(); if (d) clickAt(d.left + 5, d.top + 5); frame(); }
+	const drop = buttons.find((b) => /^Drop triggers: /.test(b.label));
+	check("  the Drop triggers control scrolls into view", !!drop && inside(drop, drop.clip), true);
+	check("    and reads Off by default", drop?.label, "Drop triggers: Off");
+	clickAt(drop.left + 5, drop.top + 5); frame();
+	check("    a click cycles it to One time", storage.getDropMode(), "once");
+	storage.setDropMode("off");
+}
 
 // --- Planted (v0.88.0): the trigger inspector -------------------------------------------------
 {

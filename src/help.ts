@@ -253,6 +253,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
 		body(`"Missy, only when you hear it exactly"   ← whole words only`),
 		dim("Their own settings still cap how long it lasts and who may fire it."),
+		body(`"Missy, you will drop into trance"   ← an instant drop`),
+		dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
 		gap(),
 		head("Firing and releasing one"),
 		body(`Say the phrase — it works with no session, which is the point.`),
