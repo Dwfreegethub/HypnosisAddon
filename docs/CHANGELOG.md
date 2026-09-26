@@ -42,6 +42,18 @@ once used as a trigger would be eaten in every room indefinitely.
 `test/conceal.mjs`, +9 checks replaying the report, covering release, safeword, wake and
 expired. Five of them fail on v0.90.1.
 
+**Also in v0.90.2 — names with spaces in commands.** DW, the same day: `/hypno trance Missys
+Helper 80` put the subject under at depth **0**. Every command taking a name read the first word as
+the name, so "Helper" became the depth (`Number("Helper") || 0`). An old bug: `trance`, `settrust`,
+`relate` and `bumptrust` read the value from the second word. The name-only commands (`induce`,
+`chance`, `ping`) used the first word and worked only while it was a unique prefix. `forgettrust`
+compares whole names, so it could never match a two-word name. Now `splitNameAndTail` reads values
+from the END: up to N trailing words that look like a value. The rest of the line is the name, and
+the name-only commands take the whole line. Member numbers still work:
+- `trance` counts only 0–100 as a depth, so `/hypno trance 12345 80` still reads 12345 as who.
+
+New `test/command-names.mjs`, 13 checks. Ten fail on v0.90.1.
+
 ### Changed 2026-09-25 (v0.90.1) — the bare `/echs` menu names `induce`
 
 DW: the command to start an induction "keeps not making it in the wiki or is not clear". It had

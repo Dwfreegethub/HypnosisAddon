@@ -19,6 +19,9 @@ report it and say which version your chat line shows.
   trigger list, and its word stayed hidden in chat.
 - **Only words that are still triggers are hidden.** Once a trigger is used up, has run out of
   time, or has faded away, its word shows in chat again as normal text.
+- **Commands work with names that have spaces in them.** A command like `/echs induce Missys
+  Helper` or `/echs chance Missys Helper` read only the first word of the name. That picked the
+  wrong person, or nobody, when two players' names started the same way.
 
 ## v0.90.1 · 25 September 2026
 

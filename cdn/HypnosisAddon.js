@@ -9161,6 +9161,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else reply(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
     return null;
   }
+  function splitNameAndTail(args, max, isTail) {
+    const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+    const tail = [];
+    while (tail.length < max && parts.length && isTail(parts[parts.length - 1])) tail.unshift(parts.pop());
+    return { name: parts.join(" "), tail };
+  }
+  function wholeName(args) {
+    return (args ?? "").trim().replace(/\s+/g, " ");
+  }
+  var isNumber = (w) => w !== "" && Number.isFinite(Number(w));
   function firstWord(args) {
     return (args ?? "").trim().split(/\s+/)[0] ?? "";
   }
@@ -9389,9 +9399,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Jump trust to a value without playing to it",
       Action: (args) => {
         const usage = "usage: /hypno settrust [name or member number] <0-100>";
-        const parts = args.trim().split(/\s+/).filter(Boolean);
-        const [token, rawValue] = parts.length >= 2 ? parts : ["", parts[0]];
-        const value = Number(rawValue);
+        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+        const value = tail.length ? Number(tail[0]) : NaN;
         if (!Number.isFinite(value)) {
           reply(usage);
           return;
@@ -9422,8 +9431,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply(usage);
           return;
         }
-        const [token, rawKind] = parts.length >= 2 ? parts : ["", parts[0]];
-        const kind = rawKind.toLowerCase();
+        const KINDS = ["none", "friend", "lover", "owner", "clear"];
+        const split = splitNameAndTail(args, 1, (w) => KINDS.includes(w.toLowerCase()));
+        const token = split.name;
+        const kind = (split.tail[0] ?? parts[parts.length - 1]).toLowerCase();
         if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
           reply(usage);
           return;
@@ -9661,7 +9672,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Attempt an induction on someone, the same as the remote's button",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno induce [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno induce [name or member number]");
         if (!target) return;
         startInduction(target);
       }
@@ -9689,7 +9700,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Show the induction chance for each choice against someone",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno chance [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno chance [name or member number]");
         if (target) describeChances(target.id).forEach(reply);
       }
     },
@@ -9801,7 +9812,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Send a hidden-message round trip to test the channel",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno ping [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno ping [name or member number]");
         if (!target) return;
         sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
         reply(`sent ping to ${target.name} (${target.id})`);
@@ -9814,9 +9825,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Add n interactions (conversation is 1, an induction is 5)",
       Action: (args) => {
         const usage = "usage: /hypno bumptrust [name or member number] <interactions>";
-        const parts = args.trim().split(/\s+/).filter(Boolean);
-        const [token, rawDelta] = parts.length >= 2 ? parts : ["", parts[0]];
-        const delta = Number(rawDelta ?? "1");
+        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+        const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
         if (!Number.isFinite(delta)) {
           reply(usage);
           return;
@@ -9842,7 +9852,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "<name|number>",
       Description: "Delete a stored trust entry outright \u2014 see /hypno logtrust for the numbers",
       Action: (args) => {
-        const token = firstWord(args);
+        const token = wholeName(args);
         if (!token) {
           reply("Usage: /hypno forgettrust <name|number>. /hypno logtrust lists them with their numbers.");
           return;
@@ -9912,13 +9922,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply("Not available \u2014 join the Hypno Testing room to use this.");
           return;
         }
-        const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-        const looksLikeDepth = parts.length && /^\d{1,3}$/.test(parts[0]) && Number(parts[0]) <= 100;
-        const token = looksLikeDepth ? "" : parts.shift() ?? "";
+        const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
+        const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
         const target = targetOrAsk(token, "Usage: /hypno trance [who] [depth] [earned]");
         if (!target) return;
-        const full = parts.length ? Math.max(0, Math.min(100, Number(parts[0]) || 0)) : 80;
-        const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
+        const full = depths.length ? Number(depths[0]) : 80;
+        const earned = depths.length > 1 ? Number(depths[1]) : full;
         const refused = forceTrance(target.id, full, earned);
         if (refused) {
           reply(`Can't: ${refused}.`);
