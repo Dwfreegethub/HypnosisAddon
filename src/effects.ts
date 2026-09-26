@@ -219,6 +219,22 @@ export function isSpeechBlocked(): boolean {
 	return speechBlocked;
 }
 
+/** True only while a trigger is speaking FOR the subject (v0.90.0). The speech-block hook lets
+ * that one line through: being silenced stops the subject speaking of their own accord, and a
+ * forced line is the hypnotist speaking through them. BC's own BlockTalk rule and gag still apply. */
+let forcedSpeaking = false;
+export function withForcedSpeech<T>(send: () => T): T {
+	forcedSpeaking = true;
+	try {
+		return send();
+	} finally {
+		forcedSpeaking = false;
+	}
+}
+export function isForcedSpeech(): boolean {
+	return forcedSpeaking;
+}
+
 export function setScreenFade(opacity: number): void {
 	screenFade = Math.max(0, Math.min(1, opacity));
 }

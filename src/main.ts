@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, isSpeechBlocked, drawTranceVeil, hasOwnEffect } from "./effects";
+import { installEffectAllowList, isSpeechBlocked, isForcedSpeech, drawTranceVeil, hasOwnEffect } from "./effects";
 import { announce } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -177,6 +177,8 @@ safely("speech-block hook", () => {
 		10,
 		((args: [string], next: (args: [string]) => any) => {
 			if (!isSpeechBlocked()) return next(args);
+			// A trigger speaking for the subject goes through our silence (effects.ts, withForcedSpeech).
+			if (isForcedSpeech()) return next(args);
 			// OOC asides pass by default even while silenced — see storage's blockOOC note.
 			// A message that is ENTIRELY out of character (stripOOC returns null) goes
 			// through as the subject's practical lifeline; anything with in-character content

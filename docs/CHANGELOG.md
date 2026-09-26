@@ -20,6 +20,52 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.90.0, Build 5, no bump) — spoken and mantra triggers
+
+Build 5 of the *Trigger Overhaul*. DW asked for no version bump until the overhaul is done, so
+this ships inside v0.90.0: a deliberate exception to rule 9, recorded in `design.md`.
+
+**The action.** It is stored as `say:<times>:<text>` (`sayActionId`/`parseSayAction`,
+`triggers.ts`). The text is verbatim, and it is everything after the second colon, so colons in
+the words survive. Times is capped at 5 and the text at 200 characters. It is recorded by
+`parseSayClause` (`voice.ts`), which reads the RAW line because the words are spoken back exactly
+as typed:
+- quotes stripped
+- a trailing vocative name dropped
+- "N times", "twice" and similar taken as the count
+- silence objects rejected ("say nothing", "not a word"), so those stay speech-block
+- "answer/reply/respond" counted only with "with"
+- it works on the start line too ("when you hear X, you will say Y")
+
+**The permission.** `forcedSpeech` (*Made to Speak*), off by default, with a depth gate at
+Entranced (session-scoped, not earned-only). It is checked at record, the way a spoken suggestion
+is checked before recording, and at fire, twice: in `fireTrigger` and again on the paced tick in
+`speakForSubject`. The wizard never grants it; only Extreme does, the same as `compelTouchOthers`.
+It is in `PERMISSION_KEYS`, so granting it counts as "configured" for the first-run notice.
+
+**The send, verified against R132.** `ChatRoomSendChatMessage` applies the owner's BlockTalk rule
+and the forbidden-word check. It then builds the message through
+`ChatRoomGenerateChatRoomChatMessage`, which runs `SpeechTransformProcess` (gag, stutter) and
+attaches the ungarbled original. So the spec's "route through the native garbler" is simply BC's
+send. A `false` return means BC refused, and the subject is told. Our own speech-block hook is on
+the same function; it lets a forced line through via `withForcedSpeech` (`effects.ts`). That call
+is flagged for DW in `design.md`.
+
+**Loops.** A forced line's normalised text is queued in `FORCED_ECHOES` and consumed when the
+server echoes it back to us, so it never fires our own triggers. Without that, a trigger that says
+its own word, with self-firing on, would loop forever. Across the room, where one subject's words
+fire another's triggers, there is a hard cap of six forced lines per minute. The subject is told
+once per window when a line is held back. Lines BC refused don't count toward the cap.
+
+A mantra is one paced step per repetition, on the existing trigger drain (1.2–2s). A say action
+is not "holding": it is a one-off event, like a compel.
+
+`test/say.mjs`, 39 checks. Verified by mutation: dropping the planting permission check, the
+planting depth check, the bypass flag, the echo guard, the cap, the repetition, or the silence
+exclusion each turned its own checks red. Dropping the firing-time permission check in
+`fireTrigger` alone did not, because `speakForSubject` checks it again on its own tick. The
+behaviour is covered, but not that one line. Live steps: *Needs Testing* item 23.
+
 ### Added 2026-09-25 (v0.90.0) — instant drop triggers
 
 Build 4 of the *Trigger Overhaul* (decision 10). This reverses the old "no LSCG-style auto-drop"

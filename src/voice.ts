@@ -8,6 +8,7 @@ import {
 	poseGroupOf,
 	setSpeechBlocked,
 	isWalkingTrance,
+	withForcedSpeech,
 } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
@@ -76,6 +77,8 @@ import {
 	describeOptions,
 	TriggerOption,
 	DROP_ACTION,
+	sayActionId,
+	parseSayAction,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -1639,10 +1642,47 @@ export function parseTriggerOption(content: string): TriggerOption | null {
 	return null;
 }
 
+// Words a trigger makes the subject say (v0.90.0, Build 5): "Missy, you will say 'I obey'", with an
+// optional "three times" for a mantra. Read from the RAW line, not the normalised one — the words
+// are spoken back exactly as the hypnotist typed them, capitals and punctuation included.
+// "answer"/"reply"/"respond" count only with "with", so "you will answer my questions" stays
+// conversation. Nothing-to-say objects ("say nothing", "not a word") are silence, not speech.
+const SAY_RAW =
+	/\byou(?:\s+will|\s*['‘’ʼ]ll)?\s+(?:say|repeat|recite|(?:answer|reply|respond)\s+with)(?:\s+(?:the\s+words|these\s+words|this))?\s*[,:]?\s+(.+?)\s*$/i;
+/** The same clause on NORMALISED text, to split it off a start line. */
+const SAY_NORM = /\byou (?:will |ll )?(?:say|repeat|recite|(?:answer|reply|respond) with)\b/;
+const SAY_TIMES = /[\s,.;:]*\b(one|two|three|four|five|\d+)\s+times?[.!]*$|[\s,.;:]*\b(once|twice|thrice)[.!]*$/i;
+const SAY_TIME_WORDS: Record<string, number> = { one: 1, once: 1, two: 2, twice: 2, three: 3, thrice: 3, four: 4, five: 5 };
+const NOT_WORDS = /^(?:nothing|anything|a word|not a word|no more|another word|a thing|out loud|aloud)[.!]*$/i;
+
+/** The words, and how many times, from a raw line — or null. Exported for the suite. */
+export function parseSayClause(raw: string): { text: string; times: number } | null {
+	const match = SAY_RAW.exec(raw);
+	if (!match) return null;
+	let text = match[1];
+	let times = 1;
+	const t = SAY_TIMES.exec(text);
+	if (t) {
+		const word = (t[1] ?? t[2]).toLowerCase();
+		times = /^\d+$/.test(word) ? Number(word) : SAY_TIME_WORDS[word] ?? 1;
+		text = text.slice(0, t.index);
+	}
+	// A trailing vocative ("..., Missy") is the name gate, not the words.
+	for (const name of playerOwnNames()) {
+		const n = String(name).trim();
+		if (!n) continue;
+		text = text.replace(new RegExp(`[,\\s]+${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[.!?]*$`, "i"), "");
+	}
+	text = text.trim().replace(/^["“'‘]\s*(.*?)\s*["”'’]$/s, "$1").trim();
+	if (!text || NOT_WORDS.test(text)) return null;
+	return { text, times: Math.max(1, Math.min(5, times)) };
+}
+
 export type TriggerControl =
+	| { kind: "say"; text: string; times: number }
 	/** `drop` when the start line carried its own drop clause ("when you hear X, you will drop
 	 * into trance"): the phrase is X, and the drop is recorded straight away. */
-	| { kind: "start"; phrase: string; drop?: boolean }
+	| { kind: "start"; phrase: string; drop?: boolean; say?: { text: string; times: number } }
 	| { kind: "drop" }
 	| { kind: "commit" }
 	| { kind: "cancel" }
@@ -1665,6 +1705,16 @@ export function parseTriggerControl(content: string): TriggerControl {
 		// "when you hear sleepy time, you will drop into trance": the start pattern captures to the
 		// end of the line, so the drop clause would become part of the phrase. Split it off.
 		const captured = match[1];
+		// "when you hear X, you will say Y": the same split, for words to say. The words come from
+		// the RAW line, since they are spoken back verbatim.
+		const sayAt = SAY_NORM.exec(captured);
+		if (sayAt && sayAt.index > 0) {
+			const say = parseSayClause(content);
+			if (say) {
+				const head = captured.slice(0, sayAt.index).replace(/(?:\s+(?:and|then|so))+\s*$/, "");
+				return { kind: "start", phrase: cleanPhrase(head), say };
+			}
+		}
 		for (const drop of TRIGGER_DROP) {
 			const d = drop.exec(captured);
 			if (d && d.index > 0) {
@@ -1676,6 +1726,10 @@ export function parseTriggerControl(content: string): TriggerControl {
 		return { kind: "start", phrase: cleanPhrase(captured) };
 	}
 	if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
+	if (SAY_NORM.test(text)) {
+		const say = parseSayClause(content);
+		if (say) return { kind: "say", ...say };
+	}
 	return null;
 }
 
@@ -1705,6 +1759,14 @@ function handleTriggerControl(sender: number, content: string): boolean {
 		tellPlayer(message);
 		return true;
 	}
+	if (parsed.kind === "say") {
+		// Only mid-recording. Outside one, "you will say ..." is not a thing this add-on does live —
+		// and falling through lets the line be read as whatever else it might be.
+		if (!isRecording()) return false;
+		const line = recordAction(sayActionId(parsed.text, parsed.times));
+		if (line) tellPlayer(line);
+		return true;
+	}
 	if (parsed.kind === "drop") {
 		// Only mid-recording; otherwise the line is not ours and falls through.
 		if (!isRecording()) return false;
@@ -1732,6 +1794,10 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	if (parsed.drop && isRecording()) {
 		const dropLine = recordAction(DROP_ACTION);
 		if (dropLine) tellPlayer(dropLine);
+	}
+	if (parsed.say && isRecording()) {
+		const sayLine = recordAction(sayActionId(parsed.say.text, parsed.say.times));
+		if (sayLine) tellPlayer(sayLine);
 	}
 	return true;
 }
@@ -1797,6 +1863,65 @@ function fireDrop(trigger: Trigger, speaker: number, strength: number): void {
 	tellHypnotist(speaker, `[trigger] They drop straight into trance (${tierLabel(tierOf(strength))}).`);
 }
 
+// --- speaking for the subject (v0.90.0, Build 5) ----------------------------------------------
+//
+// Two runaway risks, both real. A subject whose own triggers are self-firing could plant a line
+// containing their own trigger word and fire it forever; and two subjects whose triggers speak each
+// other's words would ping-pong across the room. So: our own forced lines never fire our own
+// triggers (FORCED_ECHOES, consumed when the server echoes the line back), and no more than
+// FORCED_LINE_CAP forced lines go out per FORCED_WINDOW_MS whatever caused them.
+const FORCED_LINE_CAP = 6;
+const FORCED_WINDOW_MS = 60_000;
+let forcedLineTimes: number[] = [];
+let forcedCapNoticeAt = 0;
+const FORCED_ECHOES: string[] = [];
+
+/** Is this line, from us, one a trigger made us say? Consumes the match. Exported for the suite. */
+export function isForcedEcho(sender: number, content: string): boolean {
+	if (sender !== Player?.MemberNumber) return false;
+	const text = normalize(content);
+	const i = FORCED_ECHOES.indexOf(text);
+	if (i < 0) return false;
+	FORCED_ECHOES.splice(i, 1);
+	return true;
+}
+
+/** Say `text` aloud as the subject, through BC's own chat path — so a gag garbles it (BC's
+ * SpeechTransformProcess, applied in ChatRoomGenerateChatRoomChatMessage, verified R132) and an
+ * owner's BlockTalk rule or forbidden word stops it. Our own trance silence does not: that stops
+ * the subject speaking of their own accord, and this is the hypnotist speaking through them. */
+function speakForSubject(text: string): void {
+	if (!getFeatures().forcedSpeech || !getFeatures().hypnoEnabled) {
+		log("forced speech dropped mid-pace — permission revoked");
+		return;
+	}
+	if (typeof ChatRoomSendChatMessage !== "function" || !ServerPlayerIsInChatRoom?.()) return;
+	const now = Date.now();
+	forcedLineTimes = forcedLineTimes.filter((t) => now - t < FORCED_WINDOW_MS);
+	if (forcedLineTimes.length >= FORCED_LINE_CAP) {
+		log(`forced speech held back — ${FORCED_LINE_CAP} lines in the last minute`);
+		// Said once per window, not per held line — rule 5 without flooding the log it protects.
+		if (now - forcedCapNoticeAt > FORCED_WINDOW_MS) {
+			forcedCapNoticeAt = now;
+			tellPlayer("(ECHS held back a triggered line: too many in one minute, to stop a loop.)");
+		}
+		return;
+	}
+	forcedLineTimes.push(now);
+	FORCED_ECHOES.push(normalize(text));
+	if (FORCED_ECHOES.length > 20) FORCED_ECHOES.shift();
+	const sent = withForcedSpeech(() => ChatRoomSendChatMessage(text));
+	if (sent === false) {
+		// BC refused it: an owner rule, or a forbidden word. Not ours to override.
+		FORCED_ECHOES.pop();
+		forcedLineTimes.pop(); // nothing went out, so nothing counts toward the cap
+		log("forced speech refused by BC (owner rule or forbidden word)");
+		tellPlayer("The words rise in you, but something stronger holds them back.");
+		return;
+	}
+	log(`spoke for the subject: ${text}`);
+}
+
 function fireTrigger(trigger: Trigger, speaker: number): void {
 	if (!triggersArmed()) {
 		log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
@@ -1838,6 +1963,23 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	let tooWeak = 0;
 	for (const id of trigger.actions) {
 		if (id === DROP_ACTION) continue; // handled above
+		// Words to say ("say:<n>:<text>"). A one-off event like a compel: nothing to hold, nothing
+		// to release. Each repetition is its own paced step, so a mantra is said, not pasted.
+		const say = parseSayAction(id);
+		if (say) {
+			if (!features.forcedSpeech) {
+				log(`trigger "${trigger.phrase}": say skipped, forcedSpeech not granted`);
+				continue;
+			}
+			if (!depthAllows("forcedSpeech", strength, strength)) {
+				log(`trigger "${trigger.phrase}": say too weak at ${strength}`);
+				tooWeak++;
+				continue;
+			}
+			compels++;
+			for (let i = 0; i < say.times; i++) steps.push(() => speakForSubject(say.text));
+			continue;
+		}
 		// Body-part actions carry their parameter in the id ("touch:breasts"), since the
 		// pattern library can't hold a per-part entry for all 26 of them.
 		if (id.startsWith("touch:")) {
@@ -2076,6 +2218,8 @@ export function describeAction(id: string): string {
 		return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
 	}
 	if (id === DROP_ACTION) return "you drop straight into trance";
+	const say = parseSayAction(id);
+	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
 	if (id === "act:vague") return "you touch yourself somewhere";
 	if (id === "act:genital") return "you touch yourself between your legs";
 	if (id.startsWith("act:")) {
@@ -2183,6 +2327,8 @@ function handleReinforcement(sender: number, content: string): boolean {
 function handleTriggerFiring(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text) return false;
+	// A line a trigger made us say never fires our own triggers — see FORCED_ECHOES.
+	if (isForcedEcho(sender, content)) return false;
 	const matched = triggersFiredBy(sender, text);
 	if (!matched.length) return false;
 	// Don't double-fire while the installer already has us under and is speaking
