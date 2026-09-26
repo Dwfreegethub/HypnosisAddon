@@ -115,6 +115,9 @@ export interface SavedSession {
 	depthEarned: number;
 	/** Absolute deadline of the session timeout, so a resume does not get a fresh 30 minutes. */
 	sessionEndsAt: number;
+	/** Her stance for the trance (agree / ignore / fight), which "sink deeper" rolls against and
+	 * fighting back up reads (v0.96.1). Absent in saves from before it; restored as no stance. */
+	choice?: string | null;
 	speechBlocked: boolean;
 	screenFade: number;
 	suppressed: SuppressionCategory[];
