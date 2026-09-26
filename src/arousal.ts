@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, hasOwnEffect, removeEffect } from "./effects";
+import { applyEffect, hasOwnEffect, removeEffect, itemCarriesEffect } from "./effects";
 
 // Arousal and orgasm control.
 //
@@ -139,5 +139,7 @@ export function orgasmDeniedByUs(): boolean {
 
 /** Is our denial recorded in memory but missing from the carrier? denial.ts re-applies it. */
 export function denialCarrierLost(): boolean {
-	return deniedByUs && !hasOwnEffect("DenialMode");
+	// The ITEM, not hasOwnEffect: our own record still holds DenialMode when another add-on wipes the
+	// item, and what needs repairing here is the item — it is what the room sees (v0.90.2).
+	return deniedByUs && !itemCarriesEffect("DenialMode");
 }

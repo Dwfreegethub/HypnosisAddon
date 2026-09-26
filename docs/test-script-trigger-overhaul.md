@@ -1,4 +1,4 @@
-# Test Script — Trigger Overhaul (v0.90.1)
+# Test Script — Trigger Overhaul (v0.90.2)
 
 One pass through every new trigger feature, in an order that reuses each setup. About 45 minutes.
 The subject is **Missy** throughout. Replace **H** with the hypnotist's name wherever it appears.
@@ -47,6 +47,8 @@ H: *"Missy, wake up"*. Then H says *"Ember glow!"*
 - [ ] Missy: `/echs triggers` → `You have 1 trigger planted:` then `1. by H (#…), full strength (80, Blank), used up  ** HOLDING YOU NOW **`.
 - [ ] H says *"ember glow"* again → nothing happens (used up).
 - [ ] H: *"Missy, you are released from ember glow"* → Missy can move. Missy: `/echs triggers` → `no triggers planted`.
+- [ ] H says *"ember glow"* once more → Missy now sees the words in full (it is no longer a trigger).
+- [ ] **(v0.90.2)** Repeat this section, but end it with Missy typing `/echs safeword` instead of the release. *Expect the same:* `/echs triggers` → `no triggers planted`, and "ember glow" shows in full. On v0.90.1 it stayed listed and masked.
 
 ---
 
@@ -154,6 +156,17 @@ H: *"Missy, wake up"*.
 
 **Old meaning kept:** Missy: `/echs trance H 80`. H: *"Missy, when you wake up you will feel refreshed"*.
 - [ ] Missy wakes up, as that line always did. H sees `[trigger] Nothing after that could be kept as a compulsion, so none was set up.`
+
+---
+
+## 6b. "You cannot move" actually holds (v0.90.2)
+
+Missy: `/echs trance H 80`. H: *"Missy, you cannot move"*.
+- [ ] Missy: `/echs effects` → `ON  frozen`.
+- [ ] Missy, F12 console: `[Player.HasEffect("Freeze"), Player.CanWalk(), ChatRoomCanLeave()]` → `[true, false, false]`.
+- [ ] Missy presses **Leave** → refused.
+- [ ] Wait a minute (let the other add-ons do whatever they do), then repeat the console line → still `[true, false, false]`.
+- [ ] Missy: `/echs safeword` → the console line gives `[false, true, true]`.
 
 ---
 

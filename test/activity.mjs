@@ -49,7 +49,7 @@ globalThis.CharacterSetActivePose = () => {};
 const toHyp = [];
 globalThis.ServerSend = (_t, data) => { const m = data?.Dictionary?.[0]?.message; if (m?.type === "trigger-status") toHyp.push(m.text); };
 
-const { voice, storage, session, depth } = await import("./harness-bundle.mjs");
+const { voice, storage, session, depth, effects } = await import("./harness-bundle.mjs");
 session.installSession();
 
 let pass = 0, fail = 0;
@@ -120,6 +120,7 @@ say("Missy, touch your breasts.");
 check("our own freeze does NOT stop a command", lastRun(), { activity: "Caress", group: "ItemBreast" });
 
 reset();
+effects.removeEffect("Freeze"); // our own freeze off first: since v0.90.2 we hold a record of it, not only the item
 emoticon.Property.Effect = []; realItemEffects = ["Freeze"]; CharacterLoadEffect(Player); // a REAL restraint
 say("Missy, touch your breasts.");
 check("a real restraint's freeze still stops it", runCalls.length, 0);

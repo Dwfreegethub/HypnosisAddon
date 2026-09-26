@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.90.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.90.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -905,41 +905,97 @@ One of mods you are using is using an old version of SDK. It will work for now b
     screenFade = 0;
     walkingTrance = false;
   }
-  function applyEffect(effectName, character = Player) {
+  var OWN_EFFECTS = /* @__PURE__ */ new Set();
+  var effectsHooked = false;
+  function reassertItemEffects() {
     var _a;
-    const item = findEmoticonItem(character);
-    if (!item) {
-      warn(`no Emoticon item found on ${character?.Name ?? "target"}, cannot apply effect`);
-      return false;
-    }
-    ensureEffectsAllowed();
+    if (!OWN_EFFECTS.size) return false;
+    const item = findEmoticonItem(Player);
+    if (!item) return false;
     item.Property ?? (item.Property = {});
     (_a = item.Property).Effect ?? (_a.Effect = []);
-    if (!item.Property.Effect.includes(effectName)) {
-      item.Property.Effect.push(effectName);
+    let restored = false;
+    for (const effect of OWN_EFFECTS) {
+      if (!item.Property.Effect.includes(effect)) {
+        item.Property.Effect.push(effect);
+        restored = true;
+      }
     }
-    if (character === Player) {
-      refreshOwnEffects();
-      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+    if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
+    return restored;
+  }
+  function installEffectHooks(modApi2) {
+    modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
+      const result = next(args);
+      const [C, groups] = args;
+      if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
+      if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
+      const merged = Array.isArray(result) ? result.slice() : [];
+      for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
+      return merged;
+    });
+    modApi2.hookFunction("ChatRoomCharacterUpdate", 5, (args, next) => {
+      const [C] = args;
+      if (C === Player || C?.IsPlayer?.()) reassertItemEffects();
+      return next(args);
+    });
+    effectsHooked = true;
+  }
+  function applyEffect(effectName, character = Player) {
+    var _a, _b;
+    const item = findEmoticonItem(character);
+    if (character !== Player) {
+      if (!item) return false;
+      ensureEffectsAllowed();
+      item.Property ?? (item.Property = {});
+      (_a = item.Property).Effect ?? (_a.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+      return true;
+    }
+    OWN_EFFECTS.add(effectName);
+    ensureEffectsAllowed();
+    if (item) {
+      item.Property ?? (item.Property = {});
+      (_b = item.Property).Effect ?? (_b.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+    } else {
+      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
+    }
+    refreshOwnEffects();
+    if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+    const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
+    if (!landed) {
+      warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+      OWN_EFFECTS.delete(effectName);
+      const effects = findEmoticonItem(Player)?.Property?.Effect;
+      const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+      if (at !== -1) {
+        effects.splice(at, 1);
+        if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+      }
+      return false;
     }
     return true;
   }
   function refreshOwnEffects() {
     if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
   }
-  function hasOwnEffect(effectName) {
+  function itemCarriesEffect(effectName) {
     return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
   }
+  function hasOwnEffect(effectName) {
+    return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+  }
   function removeEffect(effectName, character = Player) {
+    const heldByUs = character === Player && OWN_EFFECTS.delete(effectName);
     const item = findEmoticonItem(character);
     const effects = item?.Property?.Effect;
-    if (!effects) return false;
-    const idx = effects.indexOf(effectName);
-    if (idx === -1) return false;
-    effects.splice(idx, 1);
+    const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+    if (idx !== -1) effects.splice(idx, 1);
+    if (!heldByUs && idx === -1) return false;
     if (character === Player) {
       refreshOwnEffects();
-      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+      if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
     }
     return true;
   }
@@ -1252,6 +1308,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Your hands work without consulting you, unhurried, until there is nothing left to bare.",
       "Piece by piece it goes, and none of it feels like a decision \u2014 only something easy and warm.",
       "You undress the way you would sink into a habit \u2014 thorough, dreamy, glad to."
+    ],
+    "effect-failed": [
+      "The words reach you, but for once your body does not answer them.",
+      "Something tries to settle over you and slides off."
     ],
     "undress-bare": [
       "Your hands go looking for something to take off and find nothing there.",
@@ -2026,7 +2086,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return deniedByUs || hasOwnEffect("DenialMode");
   }
   function denialCarrierLost() {
-    return deniedByUs && !hasOwnEffect("DenialMode");
+    return deniedByUs && !itemCarriesEffect("DenialMode");
   }
 
   // src/follow.ts
@@ -4224,9 +4284,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const base = TRIGGER_DECAY_PER_DAY[getTriggerDecayRate()] ?? 0;
     return base * (TIER_HOLD[tierOf(t.plantedDepth)] ?? 1);
   }
+  function triggerIsGone(t, isHolding) {
+    return (!!t.spent || triggerStrength(t) <= 0) && !isHolding(t);
+  }
   function pruneFadedTriggers(isHolding) {
     const all = listTriggers();
-    const dead = all.filter((t) => (t.spent || triggerStrength(t) <= 0) && !isHolding(t));
+    const dead = all.filter((t) => triggerIsGone(t, isHolding));
     if (!dead.length) return 0;
     for (const t of dead) {
       const why = t.spent ? "was used up" : isExpired(t) ? "has expired" : "has faded away entirely";
@@ -4363,6 +4426,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`trance torn down mid-recording \u2014 abandoning ${recordingLabel()}`);
       recording = null;
     }
+    const spent = listTriggers().filter((t) => t.spent);
+    for (const t of spent) forgetTrigger(t.key);
+    if (spent.length) log(`teardown removed ${spent.length} used-up trigger(s)`);
   });
   onWake((hypnotistId) => {
     if (hypnotistId == null) return;
@@ -5146,9 +5212,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\byou will (not be able|be unable) to move\b/,
         /\byou will not move\b/
       ],
-      run: () => {
-        applyEffect("Freeze");
-      },
+      // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
+      // told it did not land, and the room is not told of a stillness that is not there.
+      run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
       undo: () => removeEffect("Freeze")
     },
     // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
@@ -5221,9 +5287,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\byou have forgotten how to (dress|undress|change)\b/,
         /\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/
       ],
-      run: () => {
-        applyEffect("BlockWardrobe");
-      },
+      run: () => applyEffect("BlockWardrobe") ? void 0 : "effect-failed",
       undo: () => removeEffect("BlockWardrobe")
     },
     // Taking clothes OFF, as opposed to clothing-block above, which is being unable to change
@@ -8902,7 +8966,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.90.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.90.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -9155,6 +9219,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else reply(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
     return null;
   }
+  function splitNameAndTail(args, max, isTail) {
+    const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+    const tail = [];
+    while (tail.length < max && parts.length && isTail(parts[parts.length - 1])) tail.unshift(parts.pop());
+    return { name: parts.join(" "), tail };
+  }
+  function wholeName(args) {
+    return (args ?? "").trim().replace(/\s+/g, " ");
+  }
+  var isNumber = (w) => w !== "" && Number.isFinite(Number(w));
   function firstWord(args) {
     return (args ?? "").trim().split(/\s+/)[0] ?? "";
   }
@@ -9383,9 +9457,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Jump trust to a value without playing to it",
       Action: (args) => {
         const usage = "usage: /hypno settrust [name or member number] <0-100>";
-        const parts = args.trim().split(/\s+/).filter(Boolean);
-        const [token, rawValue] = parts.length >= 2 ? parts : ["", parts[0]];
-        const value = Number(rawValue);
+        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+        const value = tail.length ? Number(tail[0]) : NaN;
         if (!Number.isFinite(value)) {
           reply(usage);
           return;
@@ -9416,8 +9489,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply(usage);
           return;
         }
-        const [token, rawKind] = parts.length >= 2 ? parts : ["", parts[0]];
-        const kind = rawKind.toLowerCase();
+        const KINDS = ["none", "friend", "lover", "owner", "clear"];
+        const split = splitNameAndTail(args, 1, (w) => KINDS.includes(w.toLowerCase()));
+        const token = split.name;
+        const kind = (split.tail[0] ?? parts[parts.length - 1]).toLowerCase();
         if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
           reply(usage);
           return;
@@ -9655,7 +9730,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Attempt an induction on someone, the same as the remote's button",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno induce [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno induce [name or member number]");
         if (!target) return;
         startInduction(target);
       }
@@ -9683,7 +9758,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Show the induction chance for each choice against someone",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno chance [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno chance [name or member number]");
         if (target) describeChances(target.id).forEach(reply);
       }
     },
@@ -9795,7 +9870,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Send a hidden-message round trip to test the channel",
       Action: (args) => {
-        const target = targetOrAsk(firstWord(args), "usage: /hypno ping [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /hypno ping [name or member number]");
         if (!target) return;
         sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
         reply(`sent ping to ${target.name} (${target.id})`);
@@ -9808,9 +9883,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Add n interactions (conversation is 1, an induction is 5)",
       Action: (args) => {
         const usage = "usage: /hypno bumptrust [name or member number] <interactions>";
-        const parts = args.trim().split(/\s+/).filter(Boolean);
-        const [token, rawDelta] = parts.length >= 2 ? parts : ["", parts[0]];
-        const delta = Number(rawDelta ?? "1");
+        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+        const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
         if (!Number.isFinite(delta)) {
           reply(usage);
           return;
@@ -9836,7 +9910,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "<name|number>",
       Description: "Delete a stored trust entry outright \u2014 see /hypno logtrust for the numbers",
       Action: (args) => {
-        const token = firstWord(args);
+        const token = wholeName(args);
         if (!token) {
           reply("Usage: /hypno forgettrust <name|number>. /hypno logtrust lists them with their numbers.");
           return;
@@ -9906,13 +9980,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply("Not available \u2014 join the Hypno Testing room to use this.");
           return;
         }
-        const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-        const looksLikeDepth = parts.length && /^\d{1,3}$/.test(parts[0]) && Number(parts[0]) <= 100;
-        const token = looksLikeDepth ? "" : parts.shift() ?? "";
+        const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
+        const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
         const target = targetOrAsk(token, "Usage: /hypno trance [who] [depth] [earned]");
         if (!target) return;
-        const full = parts.length ? Math.max(0, Math.min(100, Number(parts[0]) || 0)) : 80;
-        const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
+        const full = depths.length ? Number(depths[0]) : 80;
+        const earned = depths.length > 1 ? Number(depths[1]) : full;
         const refused = forceTrance(target.id, full, earned);
         if (refused) {
           reply(`Can't: ${refused}.`);
@@ -10462,7 +10535,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function phrasesToConceal(sender, content) {
     const strictAll = getFeatures().strictTriggerMatch;
-    const phrases = listTriggers().map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
+    const phrases = listTriggers().filter((t) => !triggerIsGone(t, isTriggerInEffect)).map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
     const recording2 = recordingPhrase();
     if (recording2) phrases.push({ phrase: recording2, strict: false });
     if (isSessionActiveWith(sender)) {
@@ -10588,7 +10661,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.90.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.90.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10611,7 +10684,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.90.1"} loaded`;
+    el.textContent = `ECHS v${"0.90.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10642,14 +10715,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.90.1"})`);
+  info(`script loaded (v${"0.90.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.90.1",
+      version: "0.90.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -10711,6 +10784,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
   setRoomVoice(() => getFeatures().roomSeesReactions);
   safely("effect allow-list", installEffectAllowList);
+  safely("effect hooks", () => installEffectHooks(modApi));
   safely("speech-block hook", () => {
     modApi.hookFunction(
       "ChatRoomSendChatMessage",

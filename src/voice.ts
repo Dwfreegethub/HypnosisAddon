@@ -717,7 +717,9 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou will (not be able|be unable) to move\b/,
 			/\byou will not move\b/,
 		],
-		run: () => { applyEffect("Freeze"); },
+		// Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
+		// told it did not land, and the room is not told of a stillness that is not there.
+		run: () => (applyEffect("Freeze") ? undefined : "effect-failed"),
 		undo: () => removeEffect("Freeze"),
 	},
 	// Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
@@ -784,7 +786,7 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou have forgotten how to (dress|undress|change)\b/,
 			/\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/,
 		],
-		run: () => { applyEffect("BlockWardrobe"); },
+		run: () => (applyEffect("BlockWardrobe") ? undefined : "effect-failed"),
 		undo: () => removeEffect("BlockWardrobe"),
 	},
 	// Taking clothes OFF, as opposed to clothing-block above, which is being unable to change

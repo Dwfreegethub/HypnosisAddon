@@ -20,6 +20,74 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-25 (v0.90.2) — a used-up one-shot lingered after a safeword or a wake
+
+Found by DW on the first live run of the test script (section 1). A one-shot that has fired is
+kept, marked `spent`, while it holds the subject, and `undoTrigger` removes it when it lets go. A
+release by name goes through `undoTrigger`. A safeword or an ordinary wake instead lets go of
+every hold at once through `clearAllTimers()`, which bypasses it. The spent record then stayed
+stored until something next read the list. So after a safeword the trigger was still listed, and
+its word was still masked in chat, while the same trigger released by name was gone and its word
+showed. The fix is in two parts:
+- `onTeardown` in `triggers.ts` now removes every spent trigger. It runs after `clearAllTimers()`
+  in both `endSession` and `totalStop`, so nothing is holding by then.
+- `conceal.ts` masks only live triggers, via a new `triggerIsGone()` shared with
+  `pruneFadedTriggers`. A word whose trigger is used up, expired or faded, and not holding, shows
+  as typed, even before a prune has run.
+
+That second part is DW's decision the same day (option A over B): only live trigger words are
+hidden. Keeping a memory of old words, and masking them forever, was rejected, because a phrase
+once used as a trigger would be eaten in every room indefinitely.
+
+`test/conceal.mjs`, +9 checks replaying the report, covering release, safeword, wake and
+expired. Five of them fail on v0.90.1.
+
+**Also in v0.90.2 — our effects no longer depend on the Emoticon item surviving.** DW, live,
+2026-09-26: "you cannot move" printed its flavour and did nothing. `/echs effects` showed `-
+frozen`, and the console read `Player.HasEffect("Freeze") === false`, `CanWalk() === true`,
+`ChatRoomCanLeave() === true`. The diagnostic showed Missy's Emoticon item as `Property: {}`
+seconds after our write. Our `AllowEffect` patch was verified in place, and about 20 other add-ons
+were loaded (LSCG, BCX, WCE, BCOM, Liko's among them). BC's validator filters an `Effect` array, it
+does not empty the whole Property, so another add-on is replacing the item's properties. Everything
+we carry on that item (`Freeze`, `BlockWardrobe`, `DenialMode`, `Leash`) was exposed to it.
+
+The fix (`effects.ts`):
+- **Our own record:** an `OWN_EFFECTS` set is the source of truth for this client.
+- **A hook on `CharacterGetEffects`** (R132 Character.js; `CharacterLoadEffect` caches its result
+  as `C.Effect`) adds our effects for the player. `HasEffect`, `CanWalk` and `ChatRoomCanLeave`
+  then honour them whatever happens to the item. It is scoped: a group-filtered question about
+  another slot does not see them.
+- **A hook on `ChatRoomCharacterUpdate`** writes them back onto the item before any appearance of
+  ours is sent, whoever sent it. Other clients, which can only see an effect through the item,
+  stay in step.
+- **`hasOwnEffect` is our record or the item.** After a reload the record is empty, and recovery
+  must still see a `Freeze` the server hands back.
+- **`itemCarriesEffect` is new, and asks about the item alone.** The denial repair
+  (`denialCarrierLost`) needs it.
+- **Rule 5:** `applyEffect` now checks with BC that the effect landed. If not, it takes it back off
+  everywhere and returns false. `movement-block` and `clothing-block` then return `effect-failed`,
+  so the hypnotist is told it did not land, and the subject gets a private line. The room is not
+  told of a stillness that is not there. Before this, the flavour and the room emote played either
+  way.
+
+This may be what was behind Known Bug #10 (spoken orgasm denial reported not holding), which rides
+the same item. It needs a live re-test on v0.90.2. `test/effect-wipe.mjs`, 21 checks, runs BC's
+effect functions transcribed from R132 and wipes the item two ways. Ten fail on the old effects
+code. `activity.mjs` and `touch-others.mjs` now take our own freeze off through the API before
+simulating a real restraint's.
+
+**Also in v0.90.2 — names with spaces in commands.** DW, the same day: `/hypno trance Missys
+Helper 80` put the subject under at depth **0**. Every command taking a name read the first word as
+the name, so "Helper" became the depth (`Number("Helper") || 0`). An old bug: `trance`, `settrust`,
+`relate` and `bumptrust` read the value from the second word. The name-only commands (`induce`,
+`chance`, `ping`) used the first word and worked only while it was a unique prefix. `forgettrust`
+compares whole names, so it could never match a two-word name. Now `splitNameAndTail` reads values
+from the END: up to N trailing words that look like a value. The rest of the line is the name, and
+the name-only commands take the whole line. Member numbers still work:
+- `trance` counts only 0–100 as a depth, so `/hypno trance 12345 80` still reads 12345 as who.
+
+New `test/command-names.mjs`, 13 checks. Ten fail on v0.90.1.
+
 ### Changed 2026-09-25 (v0.90.1) — the bare `/echs` menu names `induce`
 
 DW: the command to start an induction "keeps not making it in the wiki or is not clear". It had

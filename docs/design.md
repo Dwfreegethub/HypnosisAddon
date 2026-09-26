@@ -3079,7 +3079,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   raw induction line copied from DW's chat exactly as shown, and ideally one other room line from the
   same session to tell whether every room line has it or only this one. **Do not** change the `**`
   prefix without that: the obvious "fix" brings the doubled name back.
-
+- **Spoken orgasm denial still does not stop orgasms — NOT RESOLVED, parked 2026-09-23 by DW.** *(2026-09-26: possibly the same cause as the "you cannot move" failure fixed in v0.90.2 — another add-on wiping the Emoticon item our effects ride on. Re-test on v0.90.2 before digging further; see `docs/CHANGELOG.md`.)*
 - **Spoken orgasm denial still does not stop orgasms — NOT RESOLVED, parked 2026-09-23 by DW.**
   Known Bug #10. Two fixes shipped and neither held live. v0.83.1 got DenialMode into BC's cached
   `Player.Effect`; in play a toy was then held at 99 but the subject's own masturbation still

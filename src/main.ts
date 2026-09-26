@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, isSpeechBlocked, isForcedSpeech, drawTranceVeil, hasOwnEffect } from "./effects";
+import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, hasOwnEffect } from "./effects";
 import { announce } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -181,6 +181,10 @@ safely("ChatRoomMessage hook", () => {
 setRoomVoice(() => getFeatures().roomSeesReactions);
 
 safely("effect allow-list", installEffectAllowList);
+
+// Our effects count on this client even when another add-on wipes the Emoticon item they ride on,
+// and are put back on it before our appearance syncs — see effects.ts, "held by US".
+safely("effect hooks", () => installEffectHooks(modApi));
 
 // Speech blocking. ChatRoomSendChatMessage is the right hook rather than ChatRoomSendChat:
 // it runs AFTER command parsing and after the emote and whisper branches, so being silenced

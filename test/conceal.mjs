@@ -21,7 +21,7 @@ globalThis.ChatRoomSendLocal = () => {};
 let registered = [];
 globalThis.ChatRoomRegisterMessageHandler = (h) => registered.push(h);
 
-const { conceal, storage, session, triggers, depth } = await import("./harness-bundle.mjs");
+const { conceal, storage, session, triggers, depth, voice } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -126,6 +126,40 @@ check("the phrase being recorded is masked", run(msg("velvet dark, remember that
 triggers.cancelRecording();
 session.safeword();
 check("a cancelled recording is no longer masked", run(msg("velvet dark")), false);
+
+// --- only LIVE trigger words are hidden (v0.90.2, DW's option A) -----------------------------------
+// Found live on v0.90.1: a used-up one-shot released BY NAME was deleted and its word showed again,
+// but one cleared by the SAFEWORD stayed stored (spent) and its word stayed masked. Every way of
+// letting go must end the same. Failure: after the safeword or a wake, still stored or still "...".
+const plantOnce = () => {
+	storage.forgetAllTriggers();
+	depth.setCurrentDepths(80, 80);
+	triggers.beginRecording(HYP, "GameBot", "ember glow");
+	triggers.recordAction("movement-block");
+	triggers.applyRecordingOption({ kind: "once", value: true });
+	triggers.commitRecording();
+	voice.handleSpokenLine(HYP, "ember glow"); // fires: spent, and holding her
+};
+plantOnce();
+check("a spent one-shot that still holds her: word hidden", run(msg("ember glow!")), { msg: "...!" });
+voice.handleSpokenLine(HYP, "Missy you are released from ember glow");
+check("released by name: gone", storage.listTriggers().length, 0);
+check("  and the word shows", run(msg("ember glow!")), false);
+plantOnce();
+session.safeword();
+check("safeword: the spent one-shot is gone too", storage.listTriggers().length, 0);
+check("  and the word shows, exactly as after a release", run(msg("ember glow!")), false);
+plantOnce();
+session.forceTrance(HYP, 80, 80);
+voice.handleSpokenLine(HYP, "Missy, wake up");
+check("an ordinary wake: gone too", storage.listTriggers().length, 0);
+check("  and the word shows", run(msg("ember glow!")), false);
+// An expired trigger is not a trigger either, even before anything prunes it.
+storage.forgetAllTriggers();
+plant("amber light", { expiresAt: Date.now() - 1000 });
+check("expired: its word shows", run(msg("amber light")), false);
+check("  while it is still stored (not yet pruned)", storage.listTriggers().length, 1);
+storage.forgetAllTriggers();
 
 // --- the handler never throws into BC's chain -----------------------------------------------------
 check("junk data is ignored", registered[0].Callback(null, null, null, null), false);

@@ -12,6 +12,23 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.90.2 · 25 September 2026
+
+- **A trigger that works once now disappears however it lets go.** After it had fired, releasing
+  it by name removed it, but using your safeword or waking up left it behind. It stayed in your
+  trigger list, and its word stayed hidden in chat.
+- **Only words that are still triggers are hidden.** Once a trigger is used up, has run out of
+  time, or has faded away, its word shows in chat again as normal text.
+- **"You cannot move" works again, and no longer claims to when it doesn't.** Another add-on could
+  quietly wipe the freeze a moment after ECHS put it on, so you were told you had frozen while you
+  could still walk and leave the room. ECHS now keeps hold of its own effects: being frozen, the
+  wardrobe block, orgasm denial and being leashed. It puts them back if another add-on removes them.
+  If one still fails to take hold, the hypnotist is told, and you see a line saying it did not
+  settle. Your safeword clears all of them, as always.
+- **Commands work with names that have spaces in them.** A command like `/echs induce Missys
+  Helper` or `/echs chance Missys Helper` read only the first word of the name. That picked the
+  wrong person, or nobody, when two players' names started the same way.
+
 ## v0.90.1 · 25 September 2026
 
 - **Typing `/echs` now tells you how to start.** The short menu lists `/echs induce <name>`, which

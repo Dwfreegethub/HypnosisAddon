@@ -82,6 +82,9 @@ export type FlavorKey =
 	| "undress-all"
 	/** Asked to undress with nothing left to take off. */
 	| "undress-bare"
+	/** A restriction (freeze, wardrobe block) that was said, permitted and deep enough, and still
+	 * did not take hold in the game. Private only: the room must not be told of a freeze that is not there. */
+	| "effect-failed"
 	/** Hands bound, or a lock that is not ours. */
 	| "undress-blocked"
 	/** Told to strip while OUR OWN freeze is holding her. Distinct from undress-blocked,
@@ -321,6 +324,10 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your hands work without consulting you, unhurried, until there is nothing left to bare.",
 		"Piece by piece it goes, and none of it feels like a decision — only something easy and warm.",
 		"You undress the way you would sink into a habit — thorough, dreamy, glad to.",
+	],
+	"effect-failed": [
+		"The words reach you, but for once your body does not answer them.",
+		"Something tries to settle over you and slides off.",
 	],
 	"undress-bare": [
 		"Your hands go looking for something to take off and find nothing there.",

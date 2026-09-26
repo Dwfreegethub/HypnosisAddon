@@ -45,7 +45,7 @@ globalThis.CharacterSetActivePose = () => {};
 const toHyp = [];
 globalThis.ServerSend = (_t, data) => { const m = data?.Dictionary?.[0]?.message; if (m?.type === "trigger-status") toHyp.push(m.text); };
 
-const { voice, storage, session } = await import("./harness-bundle.mjs");
+const { voice, storage, session, effects } = await import("./harness-bundle.mjs");
 session.installSession();
 
 let pass = 0, fail = 0;
@@ -214,6 +214,7 @@ say("kiss Rei");
 check("the subject's name is still required", runCalls.length, 0);
 
 reset();
+effects.removeEffect("Freeze"); // our own freeze off first (v0.90.2: held in our record too)
 emoticon.Property.Effect = []; realItemEffects = ["Freeze"]; CharacterLoadEffect(Player);
 say("Missy, kiss Rei.");
 check("a real restraint's freeze stops it", runCalls.length, 0);
