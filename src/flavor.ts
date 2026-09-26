@@ -111,7 +111,9 @@ export type FlavorKey =
 	// v0.96.0: a near miss (private), and fighting back up or out (the room sees it).
 	| "deepen-half"
 	| "deepen-surface"
-	| "deepen-woke";
+	| "deepen-woke"
+	// v0.96.2: her near miss fighting, up a little. Private.
+	| "deepen-half-up";
 
 /** Public counterparts, for the things somebody standing there would actually see.
  *
@@ -441,6 +443,11 @@ const LINES: Record<FlavorKey, string[]> = {
 		"You push against it, and for once the pull gives. You come up a little, clearer.",
 		"You fight the words off and rise, a layer nearer the surface.",
 		"Something in you refuses. You drift upward, a little more yourself.",
+	],
+	"deepen-half-up": [
+		"You push back, and rise a little. Not far, but it is yours.",
+		"You fight the pull and gain a little ground toward the surface.",
+		"Something in you digs in, and you come up a fraction.",
 	],
 	"deepen-woke": [
 		"You fight it all the way up, and break the surface. You are awake.",

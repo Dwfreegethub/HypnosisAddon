@@ -55,6 +55,7 @@ This is especially helpful if your wardrobe or another UI screen is open when th
 ### Fighting It Once You Are Under
 Your choice at the prompt lasts the whole trance, and you can change it while under: `/echs fight`, `/echs agree` or `/echs ignore`. It matters when the hypnotist tries to take you deeper (*"sink deeper"*):
 * **Fighting** makes each deepening harder, and one that misses outright may bring you **up** a depth instead. From Drifting, that wakes you.
+* Even a push back that falls just short brings you up a little; two of those make a full depth.
 * The shallower you are, the better your chance of fighting up. Their skill, and to a lesser extent your trust in them, make it harder.
 * `/echs chance <name>` shows both odds while you are under with them. The hypnotist is never told which you chose, though they see you come up.
 

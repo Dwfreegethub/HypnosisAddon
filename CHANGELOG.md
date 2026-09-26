@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.96.2 · 26 September 2026
+
+- **A fighting subject stands more of a chance.** When a *"sink deeper"* misses and you are
+  fighting, even a push back that falls just short now brings you up a little. Two of those make a
+  full step up, and near the surface one can wake you. `/echs chance` shows it.
+
 ## v0.96.1 · 26 September 2026
 
 - Whether you are fighting, going along or neither now survives a page reload mid-trance. Before,

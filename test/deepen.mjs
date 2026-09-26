@@ -255,6 +255,36 @@ seq(0.99, 0);
 say("Missy, sink deeper");
 check("from Drifting, fighting up wakes her", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
 check("  the hypnotist is told she is awake", /They are awake/.test(lastHyp()), true);
+// Her near miss (v0.96.2): a push back that misses by under 20 still brings her up 10.
+// Failure: no half step up, a half step that changes the tier, or one past the surface not waking her.
+reset();
+storage.setDeepestTier("blank");
+under(55); // Entranced; a stranger's surface chance there is 25 less a tenth of trust
+session.answerPrompt("fight");
+const sc = session.surfaceChance(HYP);
+seq(0.99, (sc + 10) / 100); // deepening misses outright; push back misses by 10
+say("Missy, sink deeper");
+check("fighting, a near miss: up 10, same tier", [depth.currentDepth(), tier()], [45, "entranced"]);
+check("  the hypnotist is told", /claw back a little/.test(lastHyp()), true);
+check("  private", room.length, 0);
+later();
+say("Missy, you will not notice being undressed");
+seq(0.99, (sc + 10) / 100);
+say("Missy, sink deeper");
+check("a second one crosses up a tier", [depth.currentDepth(), tier()], [35, "yielding"]);
+check("  and is told as coming up", /claw their way up/.test(lastHyp()), true);
+later();
+say("Missy, you will not notice being undressed");
+seq(0.99, 0.99);
+say("Missy, sink deeper");
+check("a push back that misses by more: nothing", depth.currentDepth(), 35);
+reset();
+under(8);
+session.answerPrompt("fight");
+seq(0.99, (session.surfaceChance(HYP) + 10) / 100);
+say("Missy, sink deeper");
+check("near the surface, a half step up wakes her", session.isHypnotized(), false);
+
 // Not fighting: a clean miss never brings her up, whatever the second roll.
 reset();
 under(25);
