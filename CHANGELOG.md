@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.90.2 · 25 September 2026
+
+- **A trigger that works once now disappears however it lets go.** After it had fired, releasing
+  it by name removed it, but using your safeword or waking up left it behind. It stayed in your
+  trigger list, and its word stayed hidden in chat.
+- **Only words that are still triggers are hidden.** Once a trigger is used up, has run out of
+  time, or has faded away, its word shows in chat again as normal text.
+
 ## v0.90.1 · 25 September 2026
 
 - **Typing `/echs` now tells you how to start.** The short menu lists `/echs induce <name>`, which

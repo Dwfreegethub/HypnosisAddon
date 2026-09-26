@@ -1,6 +1,6 @@
 import { log, warn } from "./log";
 import { getFeatures, listTriggers } from "./storage";
-import { recordingPhrase } from "./triggers";
+import { recordingPhrase, triggerIsGone } from "./triggers";
 import {
 	parseTriggerControl,
 	triggerPhrasesVisible,
@@ -9,6 +9,7 @@ import {
 	otherRoomNames,
 	stripOOC,
 	unstutter,
+	isTriggerInEffect,
 } from "./voice";
 import { isSessionActiveWith } from "./session";
 
@@ -99,7 +100,11 @@ export function concealPhrases(text: string, phrases: { phrase: string; strict: 
  * and — for a planting line from the hypnotist who has us under — the phrase it is about to plant. */
 export function phrasesToConceal(sender: number, content: string): { phrase: string; strict: boolean }[] {
 	const strictAll = getFeatures().strictTriggerMatch;
-	const phrases = listTriggers().map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
+	// Only LIVE triggers (DW, 2026-09-25): a word whose trigger is used up, expired or faded, and no
+	// longer holding her, is not a trigger word any more and shows as typed.
+	const phrases = listTriggers()
+		.filter((t) => !triggerIsGone(t, isTriggerInEffect))
+		.map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
 	const recording = recordingPhrase();
 	if (recording) phrases.push({ phrase: recording, strict: false });
 	// Only where handleTriggerControl would act on it: mid-trance, from that hypnotist, and the part

@@ -20,6 +20,28 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-25 (v0.90.2) — a used-up one-shot lingered after a safeword or a wake
+
+Found by DW on the first live run of the test script (section 1). A one-shot that has fired is
+kept, marked `spent`, while it holds the subject, and `undoTrigger` removes it when it lets go. A
+release by name goes through `undoTrigger`. A safeword or an ordinary wake instead lets go of
+every hold at once through `clearAllTimers()`, which bypasses it. The spent record then stayed
+stored until something next read the list. So after a safeword the trigger was still listed, and
+its word was still masked in chat, while the same trigger released by name was gone and its word
+showed. The fix is in two parts:
+- `onTeardown` in `triggers.ts` now removes every spent trigger. It runs after `clearAllTimers()`
+  in both `endSession` and `totalStop`, so nothing is holding by then.
+- `conceal.ts` masks only live triggers, via a new `triggerIsGone()` shared with
+  `pruneFadedTriggers`. A word whose trigger is used up, expired or faded, and not holding, shows
+  as typed, even before a prune has run.
+
+That second part is DW's decision the same day (option A over B): only live trigger words are
+hidden. Keeping a memory of old words, and masking them forever, was rejected, because a phrase
+once used as a trigger would be eaten in every room indefinitely.
+
+`test/conceal.mjs`, +9 checks replaying the report, covering release, safeword, wake and
+expired. Five of them fail on v0.90.1.
+
 ### Changed 2026-09-25 (v0.90.1) — the bare `/echs` menu names `induce`
 
 DW: the command to start an induction "keeps not making it in the wiki or is not clear". It had

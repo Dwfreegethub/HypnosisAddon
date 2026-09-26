@@ -291,10 +291,17 @@ function decayPerDayFor(t: Trigger): number {
  * thing that is gripping someone would leave the grip applied with nothing left to release it,
  * which is the stranded-effect bug this codebase has fixed twice already. It goes on the next
  * read after it lets go. */
+/** Is this trigger finished — used up, expired or faded to nothing — and no longer holding the
+ * subject? Then it is no longer a trigger at all: it is pruned, and its word is no longer hidden
+ * in chat (DW, 2026-09-25: option A — only live trigger words are concealed). */
+export function triggerIsGone(t: Trigger, isHolding: (t: Trigger) => boolean): boolean {
+	return (!!t.spent || triggerStrength(t) <= 0) && !isHolding(t);
+}
+
 export function pruneFadedTriggers(isHolding: (t: Trigger) => boolean): number {
 	const all = listTriggers();
 	// A spent one-shot goes the same way and under the same rule: only once it has let go.
-	const dead = all.filter((t) => (t.spent || triggerStrength(t) <= 0) && !isHolding(t));
+	const dead = all.filter((t) => triggerIsGone(t, isHolding));
 	if (!dead.length) return 0;
 	for (const t of dead) {
 		const why = t.spent ? "was used up" : isExpired(t) ? "has expired" : "has faded away entirely";
@@ -574,6 +581,14 @@ onTeardown(() => {
 		log(`trance torn down mid-recording — abandoning ${recordingLabel()}`);
 		recording = null;
 	}
+	// A used-up one-shot is kept only while it holds the subject, and is removed by undoTrigger
+	// when it lets go. A wake or a safeword lets go of EVERY hold at once (clearAllTimers, before
+	// this runs) without going through undoTrigger, which left the spent record behind — still
+	// listed, and its word still hidden in chat — until something next read the list (DW,
+	// 2026-09-25, found live on v0.90.1). Nothing is holding by now, so every spent one goes.
+	const spent = listTriggers().filter((t) => t.spent);
+	for (const t of spent) forgetTrigger(t.key);
+	if (spent.length) log(`teardown removed ${spent.length} used-up trigger(s)`);
 });
 
 // --- delayed compulsions: arming and matching (Build 6) ---------------------------------------

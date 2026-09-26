@@ -47,6 +47,8 @@ H: *"Missy, wake up"*. Then H says *"Ember glow!"*
 - [ ] Missy: `/echs triggers` → `You have 1 trigger planted:` then `1. by H (#…), full strength (80, Blank), used up  ** HOLDING YOU NOW **`.
 - [ ] H says *"ember glow"* again → nothing happens (used up).
 - [ ] H: *"Missy, you are released from ember glow"* → Missy can move. Missy: `/echs triggers` → `no triggers planted`.
+- [ ] H says *"ember glow"* once more → Missy now sees the words in full (it is no longer a trigger).
+- [ ] **(v0.90.2)** Repeat this section, but end it with Missy typing `/echs safeword` instead of the release. *Expect the same:* `/echs triggers` → `no triggers planted`, and "ember glow" shows in full. On v0.90.1 it stayed listed and masked.
 
 ---
 

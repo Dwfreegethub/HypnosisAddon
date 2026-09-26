@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.90.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.90.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -4224,9 +4224,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const base = TRIGGER_DECAY_PER_DAY[getTriggerDecayRate()] ?? 0;
     return base * (TIER_HOLD[tierOf(t.plantedDepth)] ?? 1);
   }
+  function triggerIsGone(t, isHolding) {
+    return (!!t.spent || triggerStrength(t) <= 0) && !isHolding(t);
+  }
   function pruneFadedTriggers(isHolding) {
     const all = listTriggers();
-    const dead = all.filter((t) => (t.spent || triggerStrength(t) <= 0) && !isHolding(t));
+    const dead = all.filter((t) => triggerIsGone(t, isHolding));
     if (!dead.length) return 0;
     for (const t of dead) {
       const why = t.spent ? "was used up" : isExpired(t) ? "has expired" : "has faded away entirely";
@@ -4363,6 +4366,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`trance torn down mid-recording \u2014 abandoning ${recordingLabel()}`);
       recording = null;
     }
+    const spent = listTriggers().filter((t) => t.spent);
+    for (const t of spent) forgetTrigger(t.key);
+    if (spent.length) log(`teardown removed ${spent.length} used-up trigger(s)`);
   });
   onWake((hypnotistId) => {
     if (hypnotistId == null) return;
@@ -8902,7 +8908,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.90.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.90.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10462,7 +10468,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function phrasesToConceal(sender, content) {
     const strictAll = getFeatures().strictTriggerMatch;
-    const phrases = listTriggers().map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
+    const phrases = listTriggers().filter((t) => !triggerIsGone(t, isTriggerInEffect)).map((t) => ({ phrase: t.phrase, strict: strictAll || !!t.strict }));
     const recording2 = recordingPhrase();
     if (recording2) phrases.push({ phrase: recording2, strict: false });
     if (isSessionActiveWith(sender)) {
@@ -10588,7 +10594,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.90.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.90.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -10611,7 +10617,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.90.1"} loaded`;
+    el.textContent = `ECHS v${"0.90.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -10642,14 +10648,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.90.1"})`);
+  info(`script loaded (v${"0.90.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.90.1",
+      version: "0.90.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
