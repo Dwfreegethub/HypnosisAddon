@@ -207,7 +207,11 @@ screens. The in-room lines plus H's `[trigger]` lines are usually enough to find
 
 ---
 
-## 8. Diagnostic: pose commands refused while held (open, after v0.92.3)
+## 8. Diagnostic: pose commands refused while held (fixed in v0.92.5)
+
+**Result:** the trace showed WCE's animation engine applying the pose itself; fixed in v0.92.5. To
+confirm the fix, run steps 2–5 without the trace: step 5 should now land the pose, with no
+*"You try to shift…"*. Keep the trace for any pose fault that comes back.
 
 **The fault:** once H says *"Missy, you cannot move"*, H's *"Missy, arms behind your back"* is refused
 with `[suggestion] "arms-behind" matched but did not land: pose-blocked`, and Missy sees *"You try to

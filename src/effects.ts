@@ -404,7 +404,11 @@ function restoreHeldPose(held: string[]): void {
 export function installEffectHooks(modApi: any): void {
 	// Her own pose change, from any of BC's paths (pose menu, kneel/stand button, the struggle
 	// mini-game) — all end in PoseSetActive (R132 Pose.js).
-	modApi.hookFunction("PoseSetActive", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
+	//
+	// AND the deprecated alias CharacterSetActivePose (v0.92.5). In BC it only calls PoseSetActive
+	// (R132 Character.js), but WCE's animation engine hooks both names and never calls on, so a call
+	// by the old name never reached the PoseSetActive hold: WCE queued it and applied it itself.
+	const holdPose = (args: any[], next: (a: any[]) => any) => {
 		const [C, pose, force] = args;
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
 			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
@@ -412,7 +416,9 @@ export function installEffectHooks(modApi: any): void {
 			return undefined;
 		}
 		return next(args);
-	});
+	};
+	modApi.hookFunction("PoseSetActive", HOLD_PRIORITY, holdPose);
+	modApi.hookFunction("CharacterSetActivePose", HOLD_PRIORITY, holdPose);
 	// Someone else changing her pose: their client sets it and syncs her whole character (R132
 	// ChatRoomKneelStandAssist -> ChatRoomCharacterUpdate), which reaches her as a
 	// ChatRoomSyncCharacter of herself. Her items from that sync stand; her pose goes back.
@@ -453,9 +459,13 @@ export function installEffectHooks(modApi: any): void {
 	// THE SAFETY NET. Every way her pose reaches the room ends in ServerSend("ChatRoomCharacterPoseUpdate")
 	// (R132: the pose menu's _ClickButton, ChatRoomToggleKneel). If something changed her pose
 	// without PoseSetActive — or got round the hook above — the held pose goes back before the room
-	// hears otherwise. Our own changes already moved heldPose, so they pass.
+	// hears otherwise. Our own changes pass: after, because they moved heldPose; and DURING, because
+	// another add-on may send the pose itself before setSuggestedPose has moved heldPose (v0.92.5,
+	// DW's live trace: WCE's animation engine applies and sends a queued pose at once, and this net
+	// took the hypnotist's command for her own attempt, put the old pose back, and then fought WCE's
+	// 250 ms re-apply timer, sending her pose over and over).
 	modApi.hookFunction("ServerSend", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
-		if (args[0] !== "ChatRoomCharacterPoseUpdate" || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+		if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
 			return next(args);
 		}
 		Player.ActivePose = heldPose.slice();
