@@ -20,6 +20,31 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.92.3) — the hypnotist's pose commands refused while held
+
+DW, live: once frozen, the hypnotist's spoken pose commands stopped working. Our own path was fine:
+`setSuggestedPose` marks its calls (`ownPoseChange`), and both the `PoseSetActive` hold and the
+`PoseCanChangeUnaidedStatus` hook let them through. But WCE and LSCG hook `PoseSetActive` below
+our priority 1000, and one of them applies the pose itself. Since v0.90.2 made our `Freeze`
+actually stick, that add-on sees a frozen character and refuses: BC's own rule for `Freeze` is
+"only with a struggle". Before v0.90.2 our Freeze never survived on DW's client, so this never
+showed.
+
+**The fix follows DW's rule that the command wins over our own freeze** (as `applyUndress` already
+does). For the duration of one of our own pose changes:
+- `setSuggestedPose` rebuilds BC's effect cache.
+- The `CharacterGetEffects` hook leaves OUR `Freeze` (and so `MapImmobile`) out.
+- It keeps a `Freeze` from any other item, because that's a real restraint.
+- The cache is rebuilt again in `finally`.
+
+It's local only; nothing is synced. The `PoseCanChangeUnaidedStatus` hook already passed during our
+changes, so BC now answers as it would without our freeze.
+
+`test/held-still.mjs`: the stand-in competing hook now also refuses frozen characters, the
+behaviour inferred from DW's report. Against v0.92.2's code the hypnotist's "stand" fails (3
+checks). New checks: the hold is restored straight after, and a real restraint's freeze still
+stops the command. 34 checks.
+
 ### Added 2026-09-26 (v0.92.2) — the bookmark loader
 
 DW asked for one "with what we have". A `javascript:` bookmark runs in the page when clicked, as
