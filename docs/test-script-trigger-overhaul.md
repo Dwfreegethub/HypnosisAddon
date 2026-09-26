@@ -1,4 +1,4 @@
-# Test Script — Trigger Overhaul (v0.90.2)
+# Test Script — Trigger Overhaul (v0.91.0)
 
 One pass through every new trigger feature, in an order that reuses each setup. About 45 minutes.
 The subject is **Missy** throughout. Replace **H** with the hypnotist's name wherever it appears.
@@ -167,6 +167,17 @@ Missy: `/echs trance H 80`. H: *"Missy, you cannot move"*.
 - [ ] Missy presses **Leave** → refused.
 - [ ] Wait a minute (let the other add-ons do whatever they do), then repeat the console line → still `[true, false, false]`.
 - [ ] Missy: `/echs safeword` → the console line gives `[false, true, true]`.
+
+## 6c. Held still: pose and place (v0.91.0)
+
+Missy: `/echs trance H 80`. H: *"Missy, kneel"*, then *"Missy, you cannot move"*.
+- [ ] Missy tries BC's kneel/stand button, then the pose menu (arms up) → nothing changes; Missy sees *"You try to shift, and your body does not answer…"* (once per few seconds).
+- [ ] H uses BC's own "help her stand" on Missy → Missy snaps back to kneeling on both screens; Missy sees *"Someone tries to move you…"*.
+- [ ] H: *"Missy, stand"* → she stands (the hypnotist's spoken commands still work).
+- [ ] H puts an item on Missy (e.g. cuffs) → it goes on.
+- [ ] *(Map room, if available)* Missy tries to walk → she doesn't move at all.
+- [ ] Missy: `/echs safeword` → she can change pose and walk again.
+- [ ] **Trance default:** Missy ticks *Trance Defaults → Cannot Move*, then `/echs trance H 80` → her own pose changes are refused. H: *"Missy, walk with me"* → she can move again.
 
 ---
 

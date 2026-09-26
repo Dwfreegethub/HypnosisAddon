@@ -1,4 +1,5 @@
 import { log, warn } from "./log";
+import { tellPlayer } from "./notify";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
 // invisible "Emoticon" appearance item's Property.Effect array rather than depending on
@@ -131,12 +132,19 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	const before = currentPoses();
 	const otherGroup: PoseGroup = group === "stance" ? "arms" : "stance";
 	const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
-	if (pose !== null) {
-		CharacterSetActivePose(Player, pose);
-	} else {
-		// There is no "clear one group" call to rely on, so reset and put the other group back.
-		CharacterSetActivePose(Player, null);
-		for (const p of keep) CharacterSetActivePose(Player, p);
+	// OUR pose change: the hypnotist's spoken command still moves a held-still subject (DW,
+	// 2026-09-26), so the PoseSetActive hold lets these through.
+	ownPoseChange++;
+	try {
+		if (pose !== null) {
+			CharacterSetActivePose(Player, pose);
+		} else {
+			// There is no "clear one group" call to rely on, so reset and put the other group back.
+			CharacterSetActivePose(Player, null);
+			for (const p of keep) CharacterSetActivePose(Player, p);
+		}
+	} finally {
+		ownPoseChange--;
 	}
 	if (ServerPlayerIsInChatRoom()) {
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
@@ -309,9 +317,86 @@ function reassertItemEffects(): boolean {
 	return restored;
 }
 
+// --- Held still (v0.91.0, DW 2026-09-26) ------------------------------------------------------
+//
+// BC's own Freeze is weak: it blocks the Leave button and makes standing<->kneeling a struggle, and
+// nothing else — arms and same-category poses stay free, and in a map room it only slows walking
+// (ChatRoomMapViewCanEnterTile, R132: `!Player.CanWalk()` multiplies the time by 6). DW wanted
+// "you cannot move" to mean what it says: held in the pose and the place she is in.
+//
+// While OUR Freeze is on (the spoken suggestion, a trigger, or the trance's own Cannot Move
+// default — DW: yes to all three):
+//   - her own pose changes are refused (PoseSetActive hook). Our calls pass (ownPoseChange), so the
+//     hypnotist's spoken pose commands still move her (DW: yes);
+//   - another player changing her pose is undone on her client and re-synced (DW: no to others);
+//   - on a map, BC's own MapImmobile is added beside Freeze, which stops walking outright.
+// Items are NOT blocked: an item that forces a pose is applied by BC's item system under her item
+// permissions, and refusing it would stop anyone restraining a held-still subject. Flagged to DW.
+let ownPoseChange = 0;
+let lastHeldNotice = 0;
+const HELD_NOTICE_GAP_MS = 5000;
+
+/** Is our freeze holding her still? */
+export function isHeldStill(): boolean {
+	return hasOwnEffect("Freeze");
+}
+
+function heldNotice(line: string): void {
+	const now = Date.now();
+	if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
+	lastHeldNotice = now;
+	tellPlayer(line);
+}
+
+function samePoses(a: unknown, b: unknown): boolean {
+	const norm = (p: unknown) => (Array.isArray(p) ? p : typeof p === "string" && p ? [p] : []).slice().sort().join(",");
+	return norm(a) === norm(b);
+}
+
+/** Put her held pose back and tell the room, after something else moved her. */
+function restoreHeldPose(held: string[]): void {
+	Player.ActivePose = held;
+	if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+	if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+}
+
 /** Hook BC so our effects count on this client even if the item loses them, and are put back on
  * the item before our appearance goes to the room. Called once from main.ts. */
 export function installEffectHooks(modApi: any): void {
+	// Her own pose change, from any of BC's paths (pose menu, kneel/stand button, the struggle
+	// mini-game) — all end in PoseSetActive (R132 Pose.js).
+	modApi.hookFunction("PoseSetActive", 5, (args: any[], next: (a: any[]) => any) => {
+		const [C] = args;
+		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange) {
+			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+			log("held still: refused a pose change");
+			return undefined;
+		}
+		return next(args);
+	});
+	// Someone else changing her pose: their client sets it and syncs her whole character (R132
+	// ChatRoomKneelStandAssist -> ChatRoomCharacterUpdate), which reaches her as a
+	// ChatRoomSyncCharacter of herself. Her items from that sync stand; her pose goes back.
+	modApi.hookFunction("ChatRoomSyncCharacter", 5, (args: any[], next: (a: any[]) => any) => {
+		const [data] = args;
+		const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
+		if (!aboutHer || !isHeldStill()) return next(args);
+		const held = currentPoses();
+		const result = next(args);
+		if (!samePoses(held, Player?.ActivePose)) {
+			restoreHeldPose(held);
+			heldNotice("Someone tries to move you, and your body will not be moved.");
+			log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+		}
+		return result;
+	});
+	modApi.hookFunction("ChatRoomSyncPose", 5, (args: any[], next: (a: any[]) => any) => {
+		const [data] = args;
+		if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+		restoreHeldPose(currentPoses());
+		log("held still: refused an incoming pose update");
+		return undefined;
+	});
 	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
 	// CharacterLoadEffect caches it as C.Effect, which HasEffect and CanWalk read. With a group
 	// filter it is answering about specific item slots, so ours are added only when the Emoticon
@@ -323,6 +408,9 @@ export function installEffectHooks(modApi: any): void {
 		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
 		const merged = Array.isArray(result) ? result.slice() : [];
 		for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
+		// Held still on a map: BC's own MapImmobile stops walking outright (R132
+		// ChatRoomMapViewCanEnterTile returns 0), where Freeze alone only slows it.
+		if (merged.includes("Freeze") && isHeldStill() && !merged.includes("MapImmobile")) merged.push("MapImmobile");
 		return merged;
 	});
 	// Before our appearance is sent (ours or another add-on's update), make sure the item carries

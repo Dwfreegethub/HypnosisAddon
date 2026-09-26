@@ -49,9 +49,11 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 ### Movement and Posture
 
+**"You cannot move" holds her still.** She stays in the pose and the place she is in: her own pose changes are refused (arms too), she cannot leave the room, and on a map room she cannot walk. Your spoken pose commands (*"Missy, kneel"*) still move her; nobody else can change her pose. Items can still be put on her. Her safeword always ends it.
+
 | Say | Needs |
 |---|---|
-| *"you cannot move"* · *"stay still"* · *"you are frozen"* | Movement Restriction · **Yielding** |
+| *"you cannot move"* · *"stay still"* · *"you are frozen"* | Movement Restriction · **Yielding** — holds her in her pose and place (see below) |
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding** |
 | *"kneel spread"* · *"spread your knees"* | Posture Control · **Yielding** |
 | *"spread your legs"* · *"stand with your legs apart"* | Posture Control · **Yielding** |

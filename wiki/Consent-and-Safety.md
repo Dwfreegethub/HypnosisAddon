@@ -35,7 +35,7 @@ This is a structural design rule, not just an honor system. A modified hypnotist
 On a fresh install, every permission starts switched **off**, including the master **Hypnosis Enabled** toggle. If you install the script and it seems completely dead, that is entirely intentional. We don't touch your character until you explicitly say what's fair game.
 
 Permissions are configured **per feature**:
-* Movement restriction (freezing)
+* Movement restriction (freezing — held in your pose and place; your safeword always ends it)
 * Speech restriction (muting)
 * Posture control (kneeling, standing, and leg and arm poses)
 * Wardrobe restrictions (blocking clothing changes)
