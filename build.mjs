@@ -1,5 +1,7 @@
 import esbuild from "esbuild";
-import { readFileSync, mkdirSync } from "fs";
+import { readFileSync, mkdirSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 // package.json is the single source of truth for the version — meta.txt's banner and the
@@ -59,4 +61,11 @@ if (watch) {
 	console.log("Watching for changes...");
 } else {
 	await Promise.all([esbuild.build(options), esbuild.build(bundle), esbuild.build(loader)]);
+	// The bookmark loader (v0.92.2): generated from src/bookmarklet.ts, which takes its addresses
+	// from the loader's own constants, so the two cannot drift. Built as a throwaway ESM module,
+	// imported, and written out as the one line a player pastes into a bookmark.
+	await esbuild.build({ ...common, format: "esm", entryPoints: ["src/bookmarklet.ts"], outfile: "dist/bookmarklet.gen.mjs", logLevel: "warning" });
+	const { bookmarkletUrl } = await import(pathToFileURL(resolve("dist/bookmarklet.gen.mjs")).href + "?v=" + Date.now());
+	writeFileSync("dist/bookmarklet.txt", bookmarkletUrl() + "\n");
+	console.log("  dist/bookmarklet.txt (the bookmark loader)");
 }

@@ -23,5 +23,7 @@ execFileSync(process.execPath, ["build.mjs"], { stdio: "inherit" });
 mkdirSync("cdn", { recursive: true });
 copyFileSync("dist/HypnosisAddon.loader.user.js", "HypnosisAddon.user.js");
 copyFileSync("dist/HypnosisAddon.js", "cdn/HypnosisAddon.js");
+copyFileSync("dist/bookmarklet.txt", "bookmarklet.txt");
 console.log("release: synced dist/HypnosisAddon.loader.user.js -> HypnosisAddon.user.js (the installed loader)");
 console.log("release: synced dist/HypnosisAddon.js -> cdn/HypnosisAddon.js (what the loader fetches; commit both)");
+console.log("release: synced dist/bookmarklet.txt -> bookmarklet.txt (the bookmark loader; commit it too)");

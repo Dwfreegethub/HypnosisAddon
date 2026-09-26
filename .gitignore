@@ -9,3 +9,4 @@ test/harness-bundle.mjs
 test/arousal-bundle.mjs
 test/loader-bundle.mjs
 .aider*
+test/bookmarklet.gen.mjs
