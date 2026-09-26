@@ -20,6 +20,36 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.93.0) — hearing only one voice
+
+DW's request, with his answers recorded in `design.md` (*Development Stages > Todo*, "HEARING ONLY
+ONE VOICE", above the sensory spec). Two modes (`hear-voice`, locked to the speaker or the trigger's
+firer; `hear-name`, lines with her name from anyone), a release, and a new permission,
+`hearingControl` (Entranced).
+
+**Why not BC's deafness, which DW suggested hooking:** verified against R132. `Player.GetDeafLevel()`
+feeds `SpeechTransformDeafenIntensity`, and the "Sensory-deprivation processing" handler (priority 100)
+garbles the line and, at level 4, masks the sender's name. It never hides a line and cannot let one
+sender through. So the display is our own handler at 90: before that garble, so the OOC we keep is
+readable, and before "Save chats and whispers to the chat log" (110), so an unheard line is not
+logged either. Returning `true` hides; `{ msg }` with only the `(…)` spans keeps the OOC.
+
+**The gate** is the first thing in `handleSpokenLine`: an unheard line reaches no matcher, no trigger
+and no speech compulsion. `main.ts` marks unheard lines for the display handler (a `WeakSet` on the
+message object) and keeps them out of trust and the induction's RP count. `Suggestion.run` now takes
+the speaker (the live path passes the sender, a trigger passes the firer) so "my voice" knows whose.
+Carried re-applies pass none, so the hearing ids are kept out of carry (`noteApplied`) rather than
+failing on re-apply.
+
+`test/hearing.mjs`, 38 checks. The gate's two checks fail with the gate disabled, and the display's
+six fail with the handler disabled. Two checks in the first draft could not fail: a trigger never
+fires while its planter has her under, and the trance's own Cannot Move default froze her
+regardless. Both were rewritten.
+
+Also: Python string escaping turned a regex word boundary into a backspace character twice. Once
+in this build's patterns (all six new help examples stopped matching, which the suite caught at
+once), and once, earlier, in this file, now fixed.
+
 ### Fixed 2026-09-26 (v0.92.7) — ECHS room lines sometimes shown as "**…*"
 
 DW saw stray stars on another subject's ECHS lines ("**Valerie rises, without seeming to decide
@@ -848,7 +878,7 @@ broken is narrower than it looked, and worse.** BC stutters on the *sender's* cl
 (`SpeechTransformStutter`, `Speech.js`, verified R132): at the start of a word it inserts the
 word's own first letter and a dash, at most once per word, and the first word always. `normalize()`
 turned the dash into a space and left a stray letter, so `k-kneel` became "k kneel". A lone word
-still matched, since `kneel` finds it, which is why the obvious test passes. **A phrase did
+still matched, since `\bkneel\b` finds it, which is why the obvious test passes. **A phrase did
 not:** the stray letter lands between its words. Swept over every What to Say example at BC
 intensities 0–10, **1,284 of 2,068 stuttered lines missed**, and `k-kneel s-spread` was read as a
 plain kneel.

@@ -12,6 +12,17 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.93.0 · 26 September 2026
+
+- **New: hearing only one voice.** A hypnotist can say *"Missy, you hear only my voice"*, and Missy
+  hears only them, or *"Missy, you only hear what is said to you"*, and she hears only lines that use
+  her name. Everything else said in the room is hidden, with the odd line that other voices are
+  there and don't matter. She still sees emotes and activities, and text in (parentheses) always
+  gets through. What she can't hear can't command her. It works in a trigger too, where "my voice"
+  means whoever says the trigger word. It needs the new **Hearing** permission, off by default.
+- The wiki's Sensory Modulation page is written, and the hearing phrases it listed that were
+  never built are gone.
+
 ## v0.92.7 · 26 September 2026
 
 - **No more stray stars on ECHS lines in the room.** Some players' lines, such as
