@@ -7,7 +7,7 @@
 
 Most features are **spoken**, not typed — see [What to Say](What-to-Say). These slash commands are the utility exceptions for managing sessions, inspecting client states, and handling emergency exits.
 
-* `/echs` (or `/hypno`) on its own prints a short in-game command menu.
+* `/echs` (or `/hypno`) on its own prints a short in-game command menu, starting with how to begin: `/echs induce <name>`.
 * `/echs help` (or `/hypno help`) opens the built-in guide.
 * `/echs commands` (or `/hypno commands`) lists every registered command.
 

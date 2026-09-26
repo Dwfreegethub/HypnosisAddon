@@ -208,6 +208,7 @@ const GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} — 
 function menuLines(): string[] {
 	return [
 		"Erotic Chat Hypnosis Suite (ECHS) — most of this works by SPEAKING to someone in a session, not by typing.",
+		"  /hypno induce <name> — start hypnotizing someone (the same as the Attempt Hypnosis button); /hypno retry tries them again",
 		"  /hypno help — open the full on-screen guide: what to say, trust, depth, triggers",
 		"  /hypno commands — list every typed command",
 		"  /hypno match <phrase> — check what a phrase would do, and why nothing happened",
