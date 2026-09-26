@@ -10,6 +10,7 @@ import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine } from "./session";
 import { installSuppression } from "./suppression";
+import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
 import { installSelfTouch } from "./selftouch";
@@ -234,6 +235,10 @@ safely("trigger status channel", installTriggers);
 // Registers into BC's own message-handler chain at a priority chosen so arousal still
 // applies — see suppression.ts for why 320 specifically.
 safely("message suppression", installSuppression);
+
+// Trigger words shown as "..." on the subject's own screen, at priority 50 in the same chain —
+// see conceal.ts for why there.
+safely("trigger word concealment", installConcealment);
 
 // Blocks self-directed activities outright (no arousal, no message) rather than hiding
 // them — see selftouch.ts for why ActivityRun and not the handler chain.

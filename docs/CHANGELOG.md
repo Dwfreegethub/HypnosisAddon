@@ -20,6 +20,56 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.89.0) — trigger words shown as "..." in the subject's chat
+
+Build 3 of the *Trigger Overhaul* (decision 6). New module `conceal.ts`. DW pointed at LSCG, which
+does the same for its own trigger word. It was used as a technique reference only (rule 7); no LSCG
+code is involved.
+
+**Where, verified against R132 `ChatRoom.js`.** `ChatRoomMessageRunHandlers` runs "post" handlers
+(Priority ≥ 0) in order, and a handler that returns `{ msg }` changes the text every later handler
+sees, including "Push message to the chat" at 500, which draws it. We register at **50**. That is
+after "Emote messages formatting" (0), which prepends the sender's name, and before
+"Sensory-deprivation processing" (100). The deafness garbling at 100 would otherwise leave a
+half-scrambled word we could not match. The notification at 500 reads the same `msg`, so desktop
+notifications are masked too. BC attaches a gagged sender's ungarbled text as
+`metadata.OriginalMsg` and draws it in brackets when the viewer has *Show ungarbled messages* on.
+That copy is masked as well.
+
+**What it does not touch.** `data.Content` is never changed. Our own `ChatRoomMessage` hook reads it
+to fire triggers, and BC's chat log (priority 110) and other add-ons read it too. Only what the
+subject's screen draws changes.
+
+**The planting line.** `main.ts` renders a line before reacting to it (cause before effect,
+v0.72.x). So when "your trigger word is X" is drawn, recording has not begun and X is stored
+nowhere. The handler runs the planting path's own parser, `parseTriggerControl` on the scoped,
+unstuttered, OOC-stripped line, under the same gate (the sender has the subject in trance), and
+conceals what it would capture. It also conceals the phrase currently being recorded, and every
+stored trigger.
+
+**Matching raw text to a normalised phrase.** Triggers are stored normalised (lower case, runs of
+non-letters collapsed to one space, contractions expanded, "ur" read as "your"). `phrasePattern()`
+inverts that per word:
+- any case
+- any run of non-letters between words
+- BC's arousal stutter in front of a word (`s-s-sleepy`)
+- the folded spellings: `can't`/`can not` as "cannot", `don't` as "do not" and the other pairs,
+  straight and curly apostrophes
+- whole-word "ur"
+
+Substring triggers are concealed inside longer words ("...head"), because they fire there. Strict
+triggers, or all triggers under the master toggle, are concealed only as whole words. Longest
+phrases are masked first, so a phrase containing another disappears whole.
+
+**Not concealed:** Action and Activity messages (they never fire a trigger), the subject's own
+lines, anything while *Hypnosis Enabled* is off (the floor), and anything while *Show trigger
+words* is on. Gag garbling is still never decoded (DW, 2026-09-24), so a gagged speaker's garbled
+line has nothing to mask, only its ungarbled copy.
+
+`test/conceal.mjs`, 42 checks. Verified by mutation: dropping the ungarbled copy, the planting-line
+parse, the stutter allowance, strictness, the floor, or the recording phrase each turned its own
+checks red. Live steps: *Needs Testing* item 21.
+
 ### Added 2026-09-25 (v0.88.0) — the trigger inspector: summary, detail, Planted tab, Clear All rules
 
 Build 2 of the *Trigger Overhaul* (decisions 7–9 in `design.md`).

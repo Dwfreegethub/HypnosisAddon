@@ -145,6 +145,7 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 | `arousal.ts` | Drives BC's *own* arousal system; forced orgasm and denial |
 | `selftouch.ts` | Hooks `ActivityRun`; whole-body and per-body-part blocks |
 | `suppression.ts` | Hides messages about things done to the subject, without changing what they do |
+| `conceal.ts` | Shows the subject's trigger words as `...` in their own chat, via BC's message-handler chain at priority 50. Changes only what is drawn |
 | `effects.ts` | The Emoticon-item technique for injecting BC effects (`Freeze`, `BlockWardrobe`, `DenialMode`) |
 | `recovery.ts` | Surviving a disconnect; clearing orphaned effects on every load |
 | `remote.ts` | The hypnotist's panel, hooked onto the subject's Information Sheet |
@@ -2234,7 +2235,7 @@ Each is a separate minor release (rule 9) with its own live test.
 |---|---|
 | 1 | **Built v0.87.0.** Record fields (`key`, `scope?`, `expiresAt?`, usage mode, match mode), hard expiry, lifespan ceiling, one-shot, strict matching, and the spoken options that set them. See `docs/CHANGELOG.md` for how, and *Needs Testing* item 19 |
 | 2 | **Built v0.88.0.** `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation. The inspector is its own tab, **Planted**. See *Needs Testing* item 20 |
-| 3 | Chat concealment of the phrase (`...`). **Verify BC's chat display path in the local clone first** — this rewrites what the subject's screen shows for someone else's message |
+| 3 | **Built v0.89.0** (`conceal.ts`). Chat concealment of the phrase (`...`), checked against R132 `ChatRoom.js`: a post-handler at 50 transforms the displayed `msg`, and the ungarbled copy in `metadata.OriginalMsg`. See *Needs Testing* item 21 |
 | 4 | Instant drop |
 | 5 | Spoken / mantra triggers — needs a new speech-compulsion permission; gag handling verified against BC's speech code first |
 | 6 | Delayed compulsions — dormant triggers armed by waking, elapsed time, or a room event (arrival or speech) |
@@ -4566,9 +4567,34 @@ in S (any suggestion each; make one "you cannot move").
    `/echs forgettrigger all confirm`, nothing removed. Then the confirm → removed.
 8. **Purge a free one.** Plant one; on **Planted** click *Purge*. *Expect:* "Trigger 1 removed."
 
+### 21. Trigger words shown as "..." in chat (v0.89.0) — **open, never run live**
+
+H and S as before; S's *Show trigger words* **off**, *Awareness > Trigger setup* **off** (so the
+setup lines are drawn at all). A third player R in the room, to compare screens.
+`test/conceal.mjs` proves the masking; only a live run proves BC draws what the handler returns.
+
+1. **Planting.** H, with S under: *"S, your trigger word is ember glow"*. *Expect on S's screen:*
+   "S, your trigger word is ...". *On R's:* the full line — only S's screen changes. *Failure
+   looks like:* the word on S's screen, or R's line changed.
+2. **While recording.** H: *"ember glow, S — you cannot move"*, then *"S, remember trigger"*.
+   *Expect:* S sees "..., S — you cannot move".
+3. **Firing.** Wake S. H says *"Ember glow!"*. *Expect:* S sees "...!" and is frozen. Release.
+4. **Other senders, emotes, whispers.** R says it in chat; H emotes *"whispers ember glow"*; H
+   whispers it to S. *Expect:* "..." every time, and the emote still starts with H's name.
+5. **Stutter.** Raise H's arousal until BC stutters their speech; H says it. *Expect:* "..." with
+   no leftover "e-" in front.
+6. **Gagged, with "Show ungarbled messages" on.** Gag H; on S turn on BC's *Show ungarbled
+   messages* (Immersion). H says it. *Expect:* the bracketed ungarbled copy reads "[...]".
+7. **The opt-out and the floor.** Tick *Show trigger words*: H says it, S sees the word. Untick it;
+   untick *Hypnosis Enabled*: S sees the word. Re-tick. *Failure looks like:* masking with either
+   one set that way.
+8. **Your own line.** S types the word. *Expect:* S sees what they typed, unmasked.
+9. **Notifications.** With BC chat notifications on and the tab in the background, H says it.
+   *Expect:* the desktop notification shows "..." too.
+
 ---
 
-**Nine of twenty-one topics confirmed; twelve open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty-two topics confirmed; thirteen open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
