@@ -182,5 +182,35 @@ check("carried: still blind after the wake", blind(), 3);
 session.safeword();
 check("  until the safeword", blind(), 0);
 
+// --- the trance veil steps aside while she is blind (v0.93.1, DW: "the black and white make the
+// screen look gray") ------------------------------------------------------------------------------------
+// Failure: the white veil still painted over BC's dark, or not back once her sight returns. The dark
+// factor is R132's CharacterGetDarkFactor, trimmed; the canvas only counts veil paints.
+globalThis.CommonPhotoMode = false;
+globalThis.CharacterGetDarkFactor = (C) => {
+	const lvl = C.GetBlindLevel();
+	return lvl >= 3 ? 0 : CommonPhotoMode ? 1 : lvl === 2 ? 0.15 : lvl === 1 ? 0.3 : 1;
+};
+let veils = 0;
+globalThis.MainCanvasHeight = 1000;
+globalThis.MainCanvas = { save() {}, restore() {}, fillStyle: "", fillRect() { veils++; } };
+const paints = () => { veils = 0; effects.drawTranceVeil(); return veils; };
+reset();
+storage.setFeature("tranceScreenFade", true);
+under();
+check("under, seeing: the veil is painted", [effects.getScreenFade() > 0, paints()], [true, 1]);
+for (const [line, lvl] of [["Missy, your vision is dimming", 1], ["Missy, you can barely see", 2], ["Missy, you cannot see", 3]]) {
+	say(line);
+	check(`blind level ${lvl}: no veil`, [blind(), paints()], [lvl, 0]);
+}
+say("Missy, you can see again");
+check("sight back, still under: the veil returns", [blind(), paints()], [0, 1]);
+say("Missy, you cannot see");
+CommonPhotoMode = true;
+check("level 2 in photo mode, where BC does not darken: the veil stays", (Player.GameplaySettings.SensDepChatLog = "SensDepLight", Player._BlindLevel = undefined, [blind(), paints()]), [2, 1]);
+CommonPhotoMode = false;
+Player.GameplaySettings.SensDepChatLog = "Normal";
+reset();
+
 console.log(`sight: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

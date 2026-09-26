@@ -275,9 +275,17 @@ export const VEIL_WIDTH = 1003;
  *
  * It used to paint after DrawProcess across the whole canvas, which put a white wash over
  * every menu, the settings screens, the wardrobe and BC's own dialogs — whatever was on
- * screen. The design asked for a veil over the scene, not over the game. */
+ * screen. The design asked for a veil over the scene, not over the game.
+ *
+ * It steps aside while BC is darkening her screen for blindness (v0.93.1, DW: "the black and white
+ * make the screen look gray"). A white wash over BC's dark lifts it towards grey, so "you cannot
+ * see" looked like fog, not black. Asked of BC's own CharacterGetDarkFactor (R132 Character.js),
+ * so it covers our sight suggestions and a real blindfold alike, and follows BC's own exceptions
+ * (photo mode, VR avatars): wherever BC does not darken, the veil stays. It returns by itself the
+ * frame her sight comes back. */
 export function drawTranceVeil(): void {
 	if (screenFade <= 0) return;
+	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
 	MainCanvas.save();
 	MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
 	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);

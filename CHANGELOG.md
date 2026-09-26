@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.93.1 · 26 September 2026
+
+- While your sight is taken, the trance's soft white veil steps aside, so the dark stays dark
+  instead of turning grey. It comes back as soon as you can see again. The same goes for a real
+  blindfold worn in a trance.
+
 ## v0.93.0 · 26 September 2026
 
 - **New: hearing only one voice.** A hypnotist can say *"Missy, you hear only my voice"*, and Missy
