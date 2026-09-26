@@ -26,6 +26,12 @@ Once you know *"touch your breasts"*, you automatically get *"pinch your nipples
 
 ---
 
+### More Than Once
+
+Add a count to repeat it, up to five times: *"Missy, touch your breasts three times"* (or *"3 times"*, *"twice"*). Each touch is its own action a second or two apart, so the room sees three touches, not one. Inside a trigger, the whole repeat takes a single action slot. Her safeword, or a lost permission, stops the rest.
+
+---
+
 ## Recognized Verbs
 
 Words grouped on the same row trigger the same underlying game activity. **First match wins**, so a specific verb takes priority over a broader catch-all.

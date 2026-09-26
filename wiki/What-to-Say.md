@@ -193,6 +193,7 @@ To configure subconscious triggers that activate days later or suggestions that 
 | *"only when you hear it exactly"* | Whole words only. |
 | *"you will drop into trance"* | An instant drop (needs **Drop triggers**). |
 | *"you will say 'I obey' three times"* | Words said aloud (needs **Made to Speak**). |
+| *"touch your breasts three times"* | A touch, repeated (up to five; one action slot). |
 | *"five minutes after you wake, …"* · *"when Rei comes in, …"* · *"when Rei speaks, …"* | A compulsion: no word, waits for that instead. |
 
 ---

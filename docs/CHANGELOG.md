@@ -20,6 +20,38 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.92.0) — repeated touches, and any action on the start line
+
+DW, live: "I tried to make Missy touch herself 3 times… that does not work." Two findings:
+- **No repeat for touches.** "Three times" was only understood by `parseSayClause`, so a commanded
+  touch ran once and ignored the count.
+- **A start-line trap.** `TRIGGER_START` captures to the end of the line, and only drop and say
+  clauses were split off it. So "when you hear ember glow, touch your breasts three times" planted
+  "ember glow touch your breasts three times" as the word.
+
+DW's calls: repeats for touching and words only, and not at a slot per touch.
+
+- **The count lives in the action.** `ActivityCommand.times`, from `repeatCount()` on the RAW
+  line, because `normalize()` strips digits. It is capped at `MAX_TOUCH_TIMES` (5) and set only
+  when above 1, so the old shape is unchanged. The count travels in the action id, like `say:<n>:`:
+  `act:Caress:breasts*3`, `act:vague*2`. `parseActId()` reads it, and ids without `*N` read as
+  once. One slot per repeat was rejected; so was raising the 8-action cap.
+- **Live repeats.** The first touch runs at once, and the rest go through `repeatTouch()` on the
+  trigger pacing (1.2–2 s). Each tick re-checks the session, "Made to act" and a real restraint's
+  freeze. A safeword clears the pending ticks with every timer.
+- **Trigger repeats.** `fireTrigger` pushes one paced, re-validated step per repeat.
+- **The start line.** `splitStartAtAction()` reruns the matched `TRIGGER_START` pattern on the raw
+  lower-cased line, so punctuation survives, and looks for a PAUSE (`,;:.!?`, a dash, or
+  "and"/"then"). It splits at the first pause followed by something `isRecordableAction()`
+  accepts: a commanded activity, a suggestion or a body-part block. The rest is re-read through
+  `handleSpokenLine` with the subject's name. That pass has firing suppressed (`rereadingRest`),
+  because a trigger word inside the rest must not go off while another trigger is being planted.
+  Requiring a pause is what keeps "your trigger word is time to kneel" whole.
+
+`test/repeat-touch.mjs`, 23 checks. Verified by mutation: removing the re-read guard, the split, or
+the trigger's repeat each fails its own checks. The guard check uses another installer's
+scope-everyone trigger, so nothing else could stop it.
+
 ### Fixed 2026-09-26 (v0.91.3) — the held-still kneel button, and the repeating line
 
 DW, live on v0.91.2: the pose menu was held, but the kneel/stand button still ran its mini-game.
