@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.3 · 26 September 2026
+
+- **The hypnotist can pose you again while you are held still.** Once "you cannot move" really held,
+  other add-ons such as WCE and LSCG also saw you as frozen, and refused the hypnotist's spoken pose
+  commands. The hypnotist's commands now go through, as intended. A real restraint that stops you
+  moving still stops them.
+
 ## v0.92.2 · 26 September 2026
 
 - **You can load ECHS from a bookmark,** with no userscript manager needed, which also works on

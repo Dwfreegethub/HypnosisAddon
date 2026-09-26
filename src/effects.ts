@@ -134,7 +134,16 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
 	// OUR pose change: the hypnotist's spoken command still moves a held-still subject (DW,
 	// 2026-09-26), so the PoseSetActive hold lets these through.
+	// THE COMMAND WINS OVER OUR OWN FREEZE (v0.92.3), as it already does for undressing. Other
+	// add-ons (WCE, LSCG) hook PoseSetActive AFTER our hold and can refuse to pose a character
+	// who is frozen — and since v0.90.2 our Freeze really is on her, so DW found the hypnotist's
+	// spoken pose commands refused. For the moment of our own change, OUR Freeze is left out of
+	// her effects (the CharacterGetEffects hook reads ownPoseChange) and BC's cache rebuilt, so
+	// whatever asks sees her as a real restraint would leave her. A real restraint's Freeze stays.
+	// Local only: nothing is sent to the room, and the cache is rebuilt again straight after.
+	const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
 	ownPoseChange++;
+	if (liftOwnFreeze) refreshOwnEffects();
 	try {
 		if (pose !== null) {
 			CharacterSetActivePose(Player, pose);
@@ -145,6 +154,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 		}
 	} finally {
 		ownPoseChange--;
+		if (liftOwnFreeze) refreshOwnEffects();
 	}
 	// The hold now holds her HERE. Before the room is told, so the ServerSend guard knows this one.
 	noteHeldPose();
@@ -463,6 +473,16 @@ export function installEffectHooks(modApi: any): void {
 		const [C, groups] = args;
 		if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
 		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
+		// During our own pose change (setSuggestedPose): our Freeze is lifted — ours only. A Freeze
+		// from any other item is a real restraint and stays; so does every other effect we hold.
+		if (ownPoseChange > 0 && OWN_EFFECTS.has("Freeze")) {
+			const realFreeze = (C.Appearance ?? []).some(
+				(i: any) => i?.Asset?.Group?.Name !== EMOTICON_ASSET_NAME && (i?.Property?.Effect?.includes("Freeze") || i?.Asset?.Effect?.includes("Freeze")),
+			);
+			const merged = (Array.isArray(result) ? result : []).filter((e: string) => realFreeze || e !== "Freeze");
+			for (const effect of OWN_EFFECTS) if (effect !== "Freeze" && !merged.includes(effect)) merged.push(effect);
+			return merged;
+		}
 		const merged = Array.isArray(result) ? result.slice() : [];
 		for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
 		// Held still on a map: BC's own MapImmobile stops walking outright (R132

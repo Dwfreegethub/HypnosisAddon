@@ -84,10 +84,17 @@ const modApi = {
 		chains[name].hooks.sort((a, b) => b.priority - a.priority);
 	},
 };
-// ANOTHER ADD-ON, as DW's live check found them: a PoseSetActive hook at a higher priority than our
-// old 5, which applies the pose itself and never passes the call on. Failure: it runs before our hold.
+// ANOTHER ADD-ON, as DW's live checks found them: a PoseSetActive hook at a higher priority than our
+// old 5, which applies the pose itself and never passes the call on (v0.91.2) — AND refuses to pose a
+// character who is frozen, as BC's own rules would (v0.92.3: once our Freeze really held, the
+// hypnotist's spoken pose commands were refused). Failure: it runs before our hold, or it refuses
+// the hypnotist.
 const bcPoseSetActive = globalThis.PoseSetActive;
-modApi.hookFunction("PoseSetActive", 50, (args) => { bcPoseSetActive(...args); return undefined; });
+modApi.hookFunction("PoseSetActive", 50, (args) => {
+	if (args[0].HasEffect("Freeze")) return undefined; // "frozen: can't move"
+	bcPoseSetActive(...args);
+	return undefined;
+});
 
 const { effects, storage, session, voice } = await import("./harness-bundle.mjs");
 effects.installEffectAllowList();
@@ -152,6 +159,15 @@ check("our own pose change goes through", effects.setSuggestedPose("BaseLower", 
 check("  she stands", Player.ActivePose, ["BaseUpper", "BaseLower"]);
 check("  and the room is told her new pose", poseUpdates.at(-1), ["BaseUpper", "BaseLower"]);
 effects.setSuggestedPose("Kneel", "stance");
+check("  and the hold is back straight after (Freeze and MapImmobile)", [Player.HasEffect("Freeze"), Player.HasEffect("MapImmobile")], [true, true]);
+// A REAL restraint's freeze is not ours to lift: the other add-on still refuses. Failure: our
+// command pierces someone's actual bondage.
+const heavy = { Asset: { Name: "HeavyChains", Group: { Name: "ItemFeet" }, Effect: ["Freeze"] }, Property: {} };
+Player.Appearance.push(heavy);
+CharacterLoadEffect(Player);
+check("a real restraint's freeze still stops our command", [effects.setSuggestedPose("BaseLower", "stance"), Player.ActivePose], [false, ["BaseUpper", "Kneel"]]);
+Player.Appearance.pop();
+CharacterLoadEffect(Player);
 
 // --- another player cannot change her pose (DW: no) -------------------------------------------------
 // Failure: their "help her stand" sticks.
