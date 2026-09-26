@@ -423,6 +423,7 @@ function persistState(): void {
 		depth: session.depth,
 		depthEarned: session.depthEarned,
 		sessionEndsAt,
+		choice: session.choice,
 		applied: appliedSuggestions(),
 		carried,
 		carriedUntil: timerDeadline("carry-forward"),
@@ -1943,6 +1944,9 @@ function restoreSavedSession(saved: SavedSession): boolean {
 	session.hypnotistId = saved.hypnotistId;
 	session.depth = Number(saved.depth) || 0;
 	session.depthEarned = Number(saved.depthEarned) || 0;
+	// Her stance survives the reload (v0.96.1): a fight chosen at the prompt must not quietly turn
+	// into Ignore because the page reloaded.
+	session.choice = saved.choice === "agree" || saved.choice === "ignore" || saved.choice === "fight" ? saved.choice : null;
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
 	// The session keeps the time it had left, not a fresh allowance. Reconnecting is not a way

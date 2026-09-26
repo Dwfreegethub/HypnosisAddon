@@ -12,6 +12,11 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.96.1 · 26 September 2026
+
+- Whether you are fighting, going along or neither now survives a page reload mid-trance. Before,
+  a reload quietly turned a Fight into "neither".
+
 ## v0.96.0 · 26 September 2026
 
 - **Fighting it once you are under.** Type `/echs fight` while in a trance and you resist going

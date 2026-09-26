@@ -20,6 +20,14 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-26 (v0.96.1) — her stance is lost on a reload
+
+DW asked to confirm that Fight at the prompt stays in force for every deepening. It does:
+`session.choice` is set by the prompt and nothing clears it when the roll lands. But it was not in
+`SavedSession`, so `restoreSavedSession` after a mid-trance reload left it null, which rolls as
+Ignore and never surfaces her. Now saved as `choice` and restored (validated; older saves restore as
+null). `test/recovery.mjs` checks a Fight survives a save and restore.
+
 ### Added 2026-09-26 (v0.96.0) — half steps, and fighting back up
 
 DW, after a first live try (4 deepenings while "fighting": 3 took, 1 held): "the deeper you already
