@@ -3082,8 +3082,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   deeper options: a sender-side trace (`ChatRoomSendEmote` hooked at 2000, logging who is hooking it)
   to name the add-on and report it to its author; or build the Emote packet ourselves, checking the
   owner's BlockEmote rule directly, so no other add-on's hook sits between us and the wire. The
-  watcher-side trace snippet is in this session's record (DW's chat, 2026-09-26) and can be rebuilt
-  from the description above.
+  watcher-side trace is saved in `docs/test-script-trigger-overhaul.md`, section 9.
   **The earlier report this replaces (parked 2026-09-23):**
   From DW's tracker (group C): *"The induction chat announcement contains an erroneous leading
   asterisk."* Not fixed in v0.82.3 because nothing in our code singles that line out: every room

@@ -251,3 +251,17 @@ messages, and what H saw. The TRACE lines are the part that matters. Step 3 show
 and step 5 the path that fails; the difference names the add-on.
 
 **7. Clean up (Missy):** `/echs safeword`, then **refresh the page** to remove the trace.
+
+---
+
+## 9. Diagnostic: stray "**" on ECHS room lines (worked around in v0.92.7)
+
+Run by a **watcher** (anyone who sees the stars; no session needed). For each ECHS-style room line it
+prints the raw packet, what the chat drew, and which chat handlers changed it. If **raw** already has
+`**`, the sender's client is at fault (their name is on the `STAR from` line). Refresh to remove.
+
+```
+(() => { const cut = (s) => JSON.stringify(String(s)).slice(0, 140); const who = (n) => { const i = bcModSdk.getPatchingInfo().get(n); return i ? i.hookedByMods.join("/") + (i.currentEntrypoint !== i.sdkEntrypoint ? " (OVERWRITTEN)" : "") : "none"; }; const ours = (d) => d && d.Type === "Emote" && typeof d.Content === "string" && d.Content.startsWith("*"); let steps = null; for (const h of ChatRoomMessageHandlers) { const cb = h.Callback; h.Callback = function (data, sender, msg) { const r = cb.apply(this, arguments); if (steps && ours(data) && r && typeof r === "object" && r.msg && r.msg !== msg) steps.push((h.Description || "?") + " [" + h.Priority + "] -> " + cut(r.msg)); return r; }; } const d = bcModSdk.registerMod({ name: "ECHSStarTrace", fullName: "ECHS star trace", version: "1" }); d.hookFunction("ChatRoomMessage", 2000, (args, next) => { const data = args[0]; if (!ours(data)) return next(args); steps = []; const r = next(args); const log = document.querySelector("#TextAreaChatLog"); const last = log && log.lastElementChild ? log.lastElementChild.innerText : "(no chat log)"; const got = steps; steps = null; ChatRoomSendLocal("STAR from " + (ChatRoomCharacter.find((c) => c.MemberNumber === data.Sender)?.Name ?? "?") + " #" + data.Sender + " | raw " + cut(data.Content) + " | shown " + cut(last) + " | changed by: " + (got.length ? got.join(" ; ") : "no handler")); return r; }); ChatRoomSendLocal("ECHS star trace on. Hooks: ChatRoomMessage=" + who("ChatRoomMessage") + " | Display=" + who("ChatRoomMessageDisplay") + " | SendEmote=" + who("ChatRoomSendEmote") + " | handlers=" + ChatRoomMessageHandlers.length + " (refresh to remove)"); })()
+```
+
+Correct looks like: raw `"*Name does something."`, shown `*Name does something.*`.
