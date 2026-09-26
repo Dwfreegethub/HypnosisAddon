@@ -936,6 +936,22 @@ export function describeChances(memberId: number): string[] {
 		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
 			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
+		...(session.phase === "Hypnotized" && session.hypnotistId === memberId
+			? (() => {
+					const at = TIER_ORDER.indexOf(tierOf(session.depth));
+					const next = TIER_ORDER[at + 1];
+					const stance = session.choice ?? "ignore";
+					return [
+						`  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` +
+							(next
+								? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more`
+								: "you are as deep as it goes"),
+						...(stance === "fight"
+							? [`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}`]
+							: []),
+					];
+				})()
+			: []),
 		...(trustGiftFloor(memberId) > 0
 			? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`]
 			: []),
@@ -1186,7 +1202,13 @@ const TIER_ORDER: DepthTier[] = ["drifting", "yielding", "entranced", "deep", "b
 
 export type DeepenOutcome =
 	| { kind: "deeper"; band: string }
+	/** A near miss: half a step, usually still inside the same tier (v0.96.0). */
+	| { kind: "half"; band: string; crossed: boolean }
 	| { kind: "failed" }
+	/** She was fighting, it missed outright, and she came up a tier (v0.96.0). */
+	| { kind: "surfaced"; band: string }
+	/** ...from Drifting, which wakes her. The session has already ended. */
+	| { kind: "woke" }
 	| { kind: "ceiling" }
 	| { kind: "never" }
 	| { kind: "cooldown"; seconds: number }
@@ -1213,6 +1235,56 @@ export function deepenChance(hypnotistId: number, target: DepthTier): number {
 
 /** One "sink deeper" from `sender`. The caller has checked that they are her hypnotist and that
  * the line named her. Returns what happened; voice.ts does the telling. */
+// --- Half steps and fighting back up (v0.96.0, DW 2026-09-26) -----------------------------
+//
+// DW: "the deeper you already are the less chance you have of fighting upwards ... the tist
+// experience and to a lesser extent your trust has an effect ... Maybe there can be half jumps so
+// the tist can get you slightly deeper but not enough to make a difference."
+//  - A full step is one tier's width (20), no longer "to the next tier's floor", so a half step
+//    already taken still counts. A roll that misses by less than DEEPEN_HALF_BAND is a half step
+//    (10): usually no new tier, but two of them make one.
+//  - Fighting is chosen mid-trance with /hypno fight (and undone with agree / ignore), as well as
+//    at the prompt. When she is fighting and a deepening misses outright, she may come up one
+//    tier: likelier the shallower she is, less likely the more skilled the hypnotist and, to a
+//    lesser extent, the more she trusts them. From Drifting, coming up is waking.
+const DEEPEN_STEP = 20;
+const DEEPEN_HALF_STEP = 10;
+const DEEPEN_HALF_BAND = 20;
+const SURFACE_BASE: Record<DepthTier, number> = { drifting: 45, yielding: 35, entranced: 25, deep: 15, blank: 8 };
+/** Their honoured skill (0-100) takes up to 20 off; her access (0-100) up to 10. */
+const SURFACE_SKILL_WEIGHT = 0.2;
+const SURFACE_TRUST_WEIGHT = 0.1;
+const SURFACE_MIN = 3;
+const SURFACE_MAX = 60;
+
+/** Her chance, fighting, of coming up a tier when a deepening misses outright. */
+export function surfaceChance(hypnotistId: number): number {
+	const raw =
+		SURFACE_BASE[tierOf(session.depth)] -
+		session.honouredSkill * SURFACE_SKILL_WEIGHT -
+		effectiveAccess(hypnotistId) * SURFACE_TRUST_WEIGHT;
+	return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
+}
+
+/** The deepest depth her ceiling allows: the last point inside her ceiling tier. */
+function ceilingDepth(ceiling: number): number {
+	const next = TIER_ORDER[ceiling + 1];
+	return next ? tierMinimum(next) - 1 : 100;
+}
+
+/** She changes her stance mid-trance (/hypno fight, agree, ignore). Private, as at the prompt. */
+function setTranceStance(choice: SessionChoice): void {
+	session.choice = choice;
+	notify(
+		choice === "fight"
+			? "You start fighting it. Somewhere under the calm, you push back."
+			: choice === "agree"
+				? "You stop resisting and let it take you."
+				: "You stop pushing either way.",
+	);
+	persistState();
+}
+
 export function tryDeepen(sender: number): DeepenOutcome {
 	const ceilingKey = getDeepestTier();
 	if (ceilingKey === "never") return { kind: "never" };
@@ -1229,12 +1301,37 @@ export function tryDeepen(sender: number): DeepenOutcome {
 	session.lastDeepenAt = Date.now();
 	session.landedSinceDeepen = false;
 	log(`deepen ${now} → ${target}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
-	if (roll >= chance) return { kind: "failed" };
-	session.depth = Math.max(session.depth, tierMinimum(target));
-	setCurrentDepths(session.depth, session.depthEarned);
-	pushUpdate();
-	persistState();
-	return { kind: "deeper", band: depthBand(session.depth) };
+	const cap = ceilingDepth(ceiling);
+	const moveTo = (depth: number): void => {
+		session.depth = Math.max(0, Math.min(100, Math.round(depth)));
+		// Earned never exceeds full, and deepening never raises it (v0.95.0).
+		session.depthEarned = Math.min(session.depthEarned, session.depth);
+		setCurrentDepths(session.depth, session.depthEarned);
+		pushUpdate();
+		persistState();
+	};
+	if (roll < chance) {
+		// At least the next tier's floor, so a full step always crosses a tier.
+		moveTo(Math.min(cap, Math.max(session.depth + DEEPEN_STEP, tierMinimum(target))));
+		return { kind: "deeper", band: depthBand(session.depth) };
+	}
+	if (roll < chance + DEEPEN_HALF_BAND) {
+		moveTo(Math.min(cap, session.depth + DEEPEN_HALF_STEP));
+		return { kind: "half", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
+	}
+	if (session.choice !== "fight") return { kind: "failed" };
+	const surface = surfaceChance(sender);
+	const pushBack = Math.random() * 100;
+	log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
+	if (pushBack >= surface) return { kind: "failed" };
+	if (at === 0) {
+		endSession("you fought your way up and out");
+		return { kind: "woke" };
+	}
+	// Up one tier, to the middle of it.
+	const up = TIER_ORDER[at - 1];
+	moveTo(tierMinimum(up) + DEEPEN_STEP / 2);
+	return { kind: "surfaced", band: depthBand(session.depth) };
 }
 
 function findCharacterName(memberId: number): string {
@@ -1490,6 +1587,12 @@ export function answerPrompt(raw: string): void {
 	const choice = (raw ?? "").trim().toLowerCase() as SessionChoice;
 	if (!["agree", "ignore", "fight"].includes(choice)) {
 		notify("usage: /hypno agree | ignore | fight");
+		return;
+	}
+	// Under already: the choice becomes her stance for the rest of the trance (v0.96.0). It is what
+	// "sink deeper" rolls against, and fighting can bring her back up.
+	if (session.phase === "Hypnotized") {
+		setTranceStance(choice);
 		return;
 	}
 	if (session.phase !== "AttemptMade") {

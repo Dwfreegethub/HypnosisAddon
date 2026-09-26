@@ -2763,9 +2763,27 @@ function handleDeepening(sender: number, line: string): boolean {
 			announce("deepen");
 			tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
 			break;
+		case "half":
+			// Usually still the same tier: "slightly deeper but not enough to make a difference" (DW).
+			if (r.crossed) {
+				announce("deepen");
+				tellHypnotist(sender, `[deepen] Only just, but it is enough. They are ${r.band}.`);
+			} else {
+				tellPlayer(flavor("deepen-half"));
+				tellHypnotist(sender, "[deepen] It half takes. They sink a little, not yet enough to matter.");
+			}
+			break;
 		case "failed":
 			tellPlayer(flavor("deepen-failed"));
 			tellHypnotist(sender, "[deepen] It does not take hold this time.");
+			break;
+		case "surfaced":
+			announce("deepen-surface");
+			tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
+			break;
+		case "woke":
+			announce("deepen-woke");
+			tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
 			break;
 		case "ceiling":
 			tellHypnotist(sender, "[deepen] They are already as deep as they let themselves go this way.");

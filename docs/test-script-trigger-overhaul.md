@@ -337,3 +337,5 @@ Missy leaves her Depth tab's **"Sink deeper" stops at** on **Entranced** (the de
 - [ ] Missy sets **Blank**. A minute and a *"Missy, stand"* later, *"Missy, sink deeper"* → it takes (or `does not take hold` — a roll; try again after the next command).
 - [ ] At Deep by deepening: H tries *"Missy, your trigger word is silver bell"* → refused (planting needs earned depth, and deepening does not earn).
 - [ ] Missy: `/echs safeword` → depth gone.
+- [ ] **Fighting (v0.96.0).** Missy: `/echs trance H 25`, then `/echs fight` → she sees *"You start fighting it…"*. `/echs chance H` shows *deepening now* and *fighting back up if it misses*.
+- [ ] H deepens a few times, a minute and one landed suggestion apart (use *"Missy, you will not notice being undressed"* at Drifting, where movement is out of reach). Expect a mix of `It takes`, `It half takes`, `does not take hold`, and `they push back up`. From Drifting, a push back up wakes her: H sees `…They are awake.`

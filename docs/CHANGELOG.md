@@ -20,6 +20,27 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-26 (v0.96.0) — half steps, and fighting back up
+
+DW, after a first live try (4 deepenings while "fighting": 3 took, 1 held): "the deeper you already
+are the less chance you have of fighting upwards ... the tist experience and to a lesser extent your
+trust has an effect ... Maybe there can be half jumps". Likely cause of that run: a trance forced
+with `/echs trance` has no prompt answer, so it rolled as Ignore, and a high-trust test hypnotist
+outweighs Fight's −25 anyway.
+
+`tryDeepen` now has four outcomes. Full step: `max(depth + 20, next tier floor)`, capped at her
+ceiling tier's top (a half step already taken now counts, which "to the next floor" threw away).
+Half step: a roll within `DEEPEN_HALF_BAND` (20) above the chance, +10, capped the same; told
+"It half takes", or "Only just, but it is enough" if it crosses a tier. Miss. Or, when
+`session.choice === "fight"`, a second roll against `surfaceChance()` = `SURFACE_BASE[tier] −
+honouredSkill × 0.2 − effectiveAccess × 0.1`, clamped 3-60; success moves her to the middle of the
+tier above, or at Drifting ends the session ("you fought your way up and out"). Room tells for
+coming up and waking; the half step is private. `answerPrompt` while Hypnotized now sets the stance
+instead of refusing. `describeChances` shows the deepening and surfacing odds while under with them.
+
+`test/deepen.mjs` 71 checks (+20). Mutations: no half step fails 5; surfacing without fighting 1;
+never surfacing 5; depth ignored in the surface chance 2; skill ignored 1.
+
 ### Added 2026-09-26 (v0.95.0) — "sink deeper", in-session deepening (CHANGES a settled rule)
 
 From DW's brief (job.md, not committed). **It reverses design.md's "depth is fixed at entry; to go

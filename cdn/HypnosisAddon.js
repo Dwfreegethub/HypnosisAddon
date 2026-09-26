@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.95.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.96.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1322,6 +1322,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "{name} keeps near, as though on an invisible leash."
     ],
     "follow-release": ["{name} steps back, {their} own distance to keep again."],
+    "deepen-surface": [
+      "{name} stirs, surfacing a little.",
+      "{name}'s eyes flicker, a little more awake than before."
+    ],
+    "deepen-woke": [
+      "{name} blinks hard, and comes fully awake.",
+      "{name} shakes {their} head and surfaces, awake."
+    ],
     deepen: [
       "{name}'s head lolls forward as {their} breathing slows further.",
       "{name} sags a little, sinking further away.",
@@ -1604,6 +1612,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "deepen-failed": [
       "You drift for a moment, and settle back where you were.",
       "The words wash over you without taking you any lower."
+    ],
+    "deepen-half": [
+      "You sink, a little. Not far. Not yet.",
+      "Something in you gives a fraction further, and holds.",
+      "The words tug you down a little way before you settle."
+    ],
+    "deepen-surface": [
+      "You push against it, and for once the pull gives. You come up a little, clearer.",
+      "You fight the words off and rise, a layer nearer the surface.",
+      "Something in you refuses. You drift upward, a little more yourself."
+    ],
+    "deepen-woke": [
+      "You fight it all the way up, and break the surface. You are awake.",
+      "You refuse, and keep refusing, and suddenly you are clear-headed and awake."
     ],
     "selftouch-frozen": [
       "Your hand doesn't move. Nothing of yours does.",
@@ -3215,6 +3237,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return [
       `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} \u2192 access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
       `  ${describeRelationship(memberId)}`,
+      ...session.phase === "Hypnotized" && session.hypnotistId === memberId ? (() => {
+        const at = TIER_ORDER.indexOf(tierOf(session.depth));
+        const next = TIER_ORDER[at + 1];
+        const stance = session.choice ?? "ignore";
+        return [
+          `  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` + (next ? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more` : "you are as deep as it goes"),
+          ...stance === "fight" ? [`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}`] : []
+        ];
+      })() : [],
       ...trustGiftFloor(memberId) > 0 ? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`] : [],
       // Skill only shows when this client honoured some — zero outside an attempt, zero on
       // rung Ignore, zero for a stranger on rung Trusted. It is the HONOURED value, the same
@@ -3357,6 +3388,29 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const raw = effectiveAccess(hypnotistId) + currentSkillTerms(false).additive + Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) + CHOICE_MODIFIER[session.choice ?? "ignore"] - DEEPEN_TIER_PENALTY[target];
     return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
   }
+  var DEEPEN_STEP = 20;
+  var DEEPEN_HALF_STEP = 10;
+  var DEEPEN_HALF_BAND = 20;
+  var SURFACE_BASE = { drifting: 45, yielding: 35, entranced: 25, deep: 15, blank: 8 };
+  var SURFACE_SKILL_WEIGHT = 0.2;
+  var SURFACE_TRUST_WEIGHT = 0.1;
+  var SURFACE_MIN = 3;
+  var SURFACE_MAX = 60;
+  function surfaceChance(hypnotistId) {
+    const raw = SURFACE_BASE[tierOf(session.depth)] - session.honouredSkill * SURFACE_SKILL_WEIGHT - effectiveAccess(hypnotistId) * SURFACE_TRUST_WEIGHT;
+    return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
+  }
+  function ceilingDepth(ceiling) {
+    const next = TIER_ORDER[ceiling + 1];
+    return next ? tierMinimum(next) - 1 : 100;
+  }
+  function setTranceStance(choice) {
+    session.choice = choice;
+    notify(
+      choice === "fight" ? "You start fighting it. Somewhere under the calm, you push back." : choice === "agree" ? "You stop resisting and let it take you." : "You stop pushing either way."
+    );
+    persistState();
+  }
   function tryDeepen(sender) {
     const ceilingKey = getDeepestTier();
     if (ceilingKey === "never") return { kind: "never" };
@@ -3373,12 +3427,34 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.lastDeepenAt = Date.now();
     session.landedSinceDeepen = false;
     log(`deepen ${now} \u2192 ${target}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
-    if (roll >= chance) return { kind: "failed" };
-    session.depth = Math.max(session.depth, tierMinimum(target));
-    setCurrentDepths(session.depth, session.depthEarned);
-    pushUpdate();
-    persistState();
-    return { kind: "deeper", band: depthBand(session.depth) };
+    const cap = ceilingDepth(ceiling);
+    const moveTo = (depth) => {
+      session.depth = Math.max(0, Math.min(100, Math.round(depth)));
+      session.depthEarned = Math.min(session.depthEarned, session.depth);
+      setCurrentDepths(session.depth, session.depthEarned);
+      pushUpdate();
+      persistState();
+    };
+    if (roll < chance) {
+      moveTo(Math.min(cap, Math.max(session.depth + DEEPEN_STEP, tierMinimum(target))));
+      return { kind: "deeper", band: depthBand(session.depth) };
+    }
+    if (roll < chance + DEEPEN_HALF_BAND) {
+      moveTo(Math.min(cap, session.depth + DEEPEN_HALF_STEP));
+      return { kind: "half", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
+    }
+    if (session.choice !== "fight") return { kind: "failed" };
+    const surface = surfaceChance(sender);
+    const pushBack = Math.random() * 100;
+    log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
+    if (pushBack >= surface) return { kind: "failed" };
+    if (at === 0) {
+      endSession("you fought your way up and out");
+      return { kind: "woke" };
+    }
+    const up = TIER_ORDER[at - 1];
+    moveTo(tierMinimum(up) + DEEPEN_STEP / 2);
+    return { kind: "surfaced", band: depthBand(session.depth) };
   }
   function findCharacterName(memberId) {
     const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -3536,6 +3612,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const choice = (raw ?? "").trim().toLowerCase();
     if (!["agree", "ignore", "fight"].includes(choice)) {
       notify("usage: /hypno agree | ignore | fight");
+      return;
+    }
+    if (session.phase === "Hypnotized") {
+      setTranceStance(choice);
       return;
     }
     if (session.phase !== "AttemptMade") {
@@ -7150,9 +7230,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
         announce("deepen");
         tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
         break;
+      case "half":
+        if (r.crossed) {
+          announce("deepen");
+          tellHypnotist(sender, `[deepen] Only just, but it is enough. They are ${r.band}.`);
+        } else {
+          tellPlayer(flavor("deepen-half"));
+          tellHypnotist(sender, "[deepen] It half takes. They sink a little, not yet enough to matter.");
+        }
+        break;
       case "failed":
         tellPlayer(flavor("deepen-failed"));
         tellHypnotist(sender, "[deepen] It does not take hold this time.");
+        break;
+      case "surfaced":
+        announce("deepen-surface");
+        tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
+        break;
+      case "woke":
+        announce("deepen-woke");
+        tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
         break;
       case "ceiling":
         tellHypnotist(sender, "[deepen] They are already as deep as they let themselves go this way.");
@@ -8260,7 +8357,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body('"deeper and deeper") takes you one depth further, if it takes.'),
       body("Your trust, their skill, how long you have been under and your"),
       body("answer at the prompt all count; the deeper the step, the harder."),
-      body("A minute apart, with a suggestion that landed in between."),
+      body("A minute apart, with a suggestion that landed in between. A near"),
+      body("miss still sinks you half a step; two of those make a full one."),
+      gap(),
+      head("Fighting it, once under"),
+      body("/hypno fight while under means you resist from then on (/hypno agree"),
+      body("or ignore to stop). A deepening that misses outright may then bring"),
+      body("you up a depth, and from Drifting, awake. The shallower you are, the"),
+      body("better your chance; their skill, and your trust in them, hold you down."),
+      dim("/hypno chance <name> shows both odds while you are under with them."),
+      gap(),
       dim('Your Depth tab says how far: "Sink deeper" stops at Entranced unless'),
       dim("you open it. It never reaches the earned-only three."),
       gap(),
@@ -9697,7 +9803,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.95.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.96.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10093,19 +10199,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     {
       Tag: "agree",
       group: "Session",
-      Description: "Accept a hypnosis attempt \u2014 cooperative, improves their roll",
+      Description: "Accept a hypnosis attempt \u2014 cooperative, improves their roll. Under: stop resisting",
       Action: () => answerPrompt("agree")
     },
     {
       Tag: "ignore",
       group: "Session",
-      Description: "Neither help nor resist a hypnosis attempt",
+      Description: "Neither help nor resist a hypnosis attempt (or, under, going deeper)",
       Action: () => answerPrompt("ignore")
     },
     {
       Tag: "fight",
       group: "Session",
-      Description: "Resist a hypnosis attempt \u2014 lowers their roll",
+      Description: "Resist a hypnosis attempt \u2014 lowers their roll. Under: fight going deeper, and maybe back up",
       Action: () => answerPrompt("fight")
     },
     {
@@ -11409,7 +11515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.95.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.96.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11432,7 +11538,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.95.0"} loaded`;
+    el.textContent = `ECHS v${"0.96.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11463,14 +11569,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.95.0"})`);
+  info(`script loaded (v${"0.96.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.95.0",
+      version: "0.96.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
