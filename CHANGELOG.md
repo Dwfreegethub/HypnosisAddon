@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.92.6 · 26 September 2026
+
+- **"You will be frozen" now works** as a way of saying "you cannot move", on its own, in a trigger,
+  or after "when you wake". So do *"you'll be frozen"* and *"you will be stuck"*. *"You will not be
+  frozen"* is not read as a freeze.
+
 ## v0.92.5 · 26 September 2026
 
 - **The hypnotist's pose commands work while you are held still, with WCE's animation engine on.**

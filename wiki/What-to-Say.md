@@ -53,7 +53,7 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 | Say | Needs |
 |---|---|
-| *"you cannot move"* · *"stay still"* · *"you are frozen"* | Movement Restriction · **Yielding** — holds her in her pose and place (see below) |
+| *"you cannot move"* · *"stay still"* · *"you are frozen"* · *"you will be frozen"* | Movement Restriction · **Yielding** — holds her in her pose and place (see below) |
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding** |
 | *"kneel spread"* · *"spread your knees"* | Posture Control · **Yielding** |
 | *"spread your legs"* · *"stand with your legs apart"* | Posture Control · **Yielding** |
