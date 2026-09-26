@@ -1,7 +1,7 @@
 import { log, warn } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
-import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates } from "./effects";
+import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates, setSight } from "./effects";
 import {
 	getFeatures,
 	setFeature,
@@ -42,7 +42,7 @@ import {
 	getChemicalReach,
 	setChemicalReach,
 } from "./storage";
-import { setSuppressed, setNumb, clearAllSuppression } from "./suppression";
+import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
@@ -155,6 +155,8 @@ const TABS: Tab[] = [
 			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
 			{ key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
 			{ key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
+			{ key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
+			{ key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
 			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
 			{ key: "undressControl", label: "Undressing" },
@@ -1559,6 +1561,12 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "selfTouchControl":
 			if (!enabled) clearSelfTouchBlocks();
+			break;
+		case "hearingControl":
+			if (!enabled) setHearing(null);
+			break;
+		case "sightControl":
+			if (!enabled) setSight(0);
 			break;
 		case "suppressClothing":
 			if (!enabled) setSuppressed("clothing", false);

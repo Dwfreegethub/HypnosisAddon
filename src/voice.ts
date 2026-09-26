@@ -9,8 +9,11 @@ import {
 	setSpeechBlocked,
 	isWalkingTrance,
 	withForcedSpeech,
+	setSight,
+	getSight,
+	type SightLevel,
 } from "./effects";
-import { setSuppressed, setNumb } from "./suppression";
+import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, getDropMode, listTriggers, updateTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
@@ -223,8 +226,11 @@ interface Suggestion {
 	/** Returns a flavor key to report something OTHER than the usual outcome — used by the
 	 * arousal suggestions, which can match and be permitted and still not land (the
 	 * player's meter is off, or a chastity item refused the orgasm). Returning nothing
-	 * means "it worked", and the suggestion's own id is used, as before. */
-	run: () => FlavorKey | void;
+	 * means "it worked", and the suggestion's own id is used, as before.
+	 *
+	 * `speaker` is who said it, or who fired the trigger that carries it (v0.93.0): "you hear only
+	 * my voice" has to know whose voice. Absent when a carried suggestion is re-applied. */
+	run: (speaker?: number) => FlavorKey | void;
 }
 
 /** Arousal suggestions can match, be permitted, and still not land — the player's own BC
@@ -443,6 +449,36 @@ function poseSuggestion(id: FlavorKey, pose: string, examples: string[], pattern
 		undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose),
 	};
 }
+
+/** The two hearing modes (v0.93.0). Not carried by "that will stay with you": a carried re-apply has
+ * no speaker, and "only my voice" means nothing without one. */
+const HEARING_IDS: FlavorKey[] = ["hear-voice", "hear-name"];
+
+/** Sight (v0.93.0): BC's own blindness level, which her settings may cap lower (rule 5: said). */
+function applySight(level: SightLevel): FlavorKey | void {
+	const got = setSight(level);
+	if (got <= 0) {
+		setSight(0);
+		return "effect-failed";
+	}
+	if (got < level) return "sight-capped";
+}
+
+function sightSuggestion(id: FlavorKey, level: SightLevel, examples: string[], patterns: RegExp[]): Suggestion {
+	return {
+		id,
+		examples,
+		permission: "sightControl",
+		patterns,
+		run: () => applySight(level),
+		// Only while it is still this level: a trigger's dimming must not undo a blindness said since.
+		undo: () => {
+			if (getSight() === level) setSight(0);
+		},
+	};
+}
+
+const SIGHT_IDS: FlavorKey[] = ["sight-dim", "sight-dark", "sight-blind"];
 
 const STANCE_IDS: FlavorKey[] = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
 const ARM_IDS: FlavorKey[] = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
@@ -1083,6 +1119,97 @@ const SUGGESTIONS: Suggestion[] = [
 		run: () => setSpeechBlocked(true),
 		undo: () => setSpeechBlocked(false),
 	},
+	// Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
+	// say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
+	{
+		id: "hear-release",
+		examples: ["you can hear everyone again", "your hearing comes back"],
+		release: true,
+		releaseOf: HEARING_IDS,
+		permission: "hearingControl",
+		patterns: [
+			/\byou (?:can|may|will) hear (?:everyone|everybody|everything|the (?:whole )?room|them all|all of them|others|other people)(?: again)?\b/,
+			/\byou (?:can|may) hear (?:again|normally)\b/,
+			/\byour hearing (?:is back|comes back|returns|is yours)\b/,
+			/\blisten to (?:everyone|everybody|the room) again\b/,
+		],
+		run: () => {
+			setHearing(null);
+		},
+	},
+	{
+		id: "hear-voice",
+		examples: ["you hear only my voice", "you will only hear me"],
+		permission: "hearingControl",
+		patterns: [
+			/\byou (?:will |can |)(?:only hear|hear only|hear nothing but|hear no one but|hear nobody but) (?:my voice|me)\b/,
+			/\bmy voice is (?:the only (?:one|voice|thing|sound)|all) you (?:can |will |)hear\b/,
+			/\bonly my voice (?:reaches you|matters|gets through)\b/,
+			/\byou (?:will |)(?:listen only|only listen) to (?:me|my voice)\b/,
+		],
+		// Locked to whoever said it, or to whoever FIRED the trigger carrying it (DW). With nobody
+		// behind it (a carried re-apply) there is no voice to keep, so it does not land (rule 5).
+		run: (speaker) => {
+			if (typeof speaker !== "number") return "effect-failed";
+			setHearing({ kind: "voice", member: speaker });
+			resetOthersFade();
+		},
+		undo: () => {
+			if (hearingMode()?.kind === "voice") setHearing(null);
+		},
+	},
+	{
+		id: "hear-name",
+		examples: ["you only hear what is said to you", "you only hear your name"],
+		permission: "hearingControl",
+		patterns: [
+			/\byou (?:will |can |)(?:only hear|hear only) (?:what is|what s|whats|things|words|what gets) (?:said|meant|directed|spoken|aimed) (?:to|at|for) you\b/,
+			/\byou (?:will |can |)(?:only hear|hear only) (?:your (?:own )?name|(?:lines|voices|words|people) (?:that|who) (?:say|use|call) your name)\b/,
+			/\bonly your name (?:reaches you|gets through|cuts through)\b/,
+		],
+		run: () => {
+			setHearing({ kind: "name" });
+			resetOthersFade();
+		},
+		undo: () => {
+			if (hearingMode()?.kind === "name") setHearing(null);
+		},
+	},
+	// Sight (v0.93.0, DW). Release first. Then darkest to lightest, so "fading to black" is blindness
+	// before "fading" can read as dimming. The illusion's "you cannot see what you are wearing" sits
+	// earlier in the table and wins, as the first match always does.
+	{
+		id: "sight-release",
+		examples: ["you can see again", "your vision clears"],
+		release: true,
+		releaseOf: SIGHT_IDS,
+		permission: "sightControl",
+		patterns: [
+			/\byou (?:can|may) see (?:again|clearly|normally)\b/,
+			/\byour (?:vision|sight|eyesight) (?:clears|is clearing|returns|comes back|is back|is yours)\b/,
+			/\bthe (?:light|world|room) (?:comes back|returns)\b/,
+		],
+		run: () => {
+			setSight(0);
+		},
+	},
+	sightSuggestion("sight-blind", 3, ["you cannot see", "everything goes black", "everything is fading to black"], [
+		/\byou cannot (?:\w+ )?see(?! (?:what|how|yourself|your (?:clothes|clothing|outfit)))\b/,
+		/\byou are (?:\w+ )?blind\b/,
+		/\byou will (?:be (?:\w+ )?blind|not be able to see|be unable to see)\b/,
+		/\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|fading|fades|turning|turns) (?:to |)black\b/,
+		/\b(?:everything|the (?:world|room)) (?:is |)(?:completely |totally |)(?:black|dark) now\b/,
+		/\bdarkness takes your (?:sight|vision|eyes)\b/,
+	]),
+	sightSuggestion("sight-dark", 2, ["you can barely see", "everything is going dark"], [
+		/\byou can (?:barely|hardly|scarcely) see\b/,
+		/\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|growing|grows|getting|gets|turning|turns) (?:very |so |)dark\b/,
+		/\bthe dark(?:ness|) closes in\b/,
+	]),
+	sightSuggestion("sight-dim", 1, ["your vision is dimming", "the room grows dim"], [
+		/\byour (?:vision|sight|eyesight) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|blurring|blurs|fading|fades|softening|softens)\b/,
+		/\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/,
+	]),
 	...POSE_SUGGESTIONS,
 	{
 		id: "stand",
@@ -2322,7 +2449,7 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			continue;
 		}
 		holding++;
-		steps.push(() => announce(suggestion.run() || suggestion.id));
+		steps.push(() => announce(suggestion.run(speaker) || suggestion.id));
 	}
 	log(
 		`trigger "${trigger.phrase}" firing ${steps.length} step(s) — ${holding} holding, ${compels} compel — ` +
@@ -3352,6 +3479,13 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 }
 
 export function handleSpokenLine(sender: number, content: string): void {
+	// WHAT SHE CANNOT HEAR CANNOT ACT ON HER (v0.93.0, DW). While she hears only one voice, or only
+	// lines with her name, anything else said in the room is not read at all: no command, no
+	// trigger word, no "when Rei speaks". Before everything, so no path below can reach round it.
+	if (!hearsLine(sender, mentionsAnyName(content, playerOwnNames()))) {
+		log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
+		return;
+	}
 	// ADDRESSEE SCOPING, BEFORE ANY MATCHER READS THE LINE. "Missy, cum. Ella, kneel." used to
 	// reach both clients whole: each saw its own name, each matched the whole line, and both
 	// ran whichever suggestion sits earlier in SUGGESTIONS — so one command was lost and the
@@ -3490,7 +3624,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 	//
 	// run() returning a key OTHER than the suggestion's own id is exactly this case, and that
 	// is why it returns a key rather than a boolean.
-	const outcome = suggestion.run() || id;
+	const outcome = suggestion.run(sender) || id;
 	if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
 	// A PARTIAL SUCCESS IS ITS OWN OUTCOME TOO. The broad awareness line applies whichever of
 	// its three categories are permitted and deep enough, and used to say nothing about the
@@ -3516,7 +3650,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 			noteReleased(of);
 			dropCarried(of);
 		}
-	} else {
+	} else if (!HEARING_IDS.includes(id)) {
 		noteApplied(id);
 	}
 }

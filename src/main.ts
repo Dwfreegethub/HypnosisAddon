@@ -3,13 +3,13 @@ import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, hasOwnEffect } from "./effects";
-import { announce } from "./flavor";
+import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine } from "./session";
-import { installSuppression } from "./suppression";
+import { installSuppression, installHearingFilter, hearsLine, markUnheard } from "./suppression";
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
@@ -104,10 +104,19 @@ safely("ChatRoomMessage hook", () => {
 			// the words that were typed; see unstutter() for why that is exact.
 			const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
 
+			// Hearing only one voice (v0.93.0): a line she cannot hear is marked for the display
+			// filter (suppression.ts, which keeps only its OOC text) and is not read below at all.
+			// handleSpokenLine asks the same question itself; this also keeps an unheard line out of
+			// trust and the induction's roleplay count.
+			const heard =
+				(data?.Type !== "Chat" && data?.Type !== "Whisper") ||
+				hearsLine(data.Sender, !!inCharacter && mentionsAnyName(inCharacter, playerOwnNames()));
+			if (!heard) markUnheard(data);
+
 			// Trigger setup, hidden from the subject when they've asked for that. The line
 			// still has to be PROCESSED — it's how the trigger gets built — so react to it
 			// here and then don't call next(), rather than suppressing it wholesale.
-			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
 				try {
 					if (isTriggerSetupLine(data.Sender, inCharacter)) {
 						handleSpokenLine(data.Sender, inCharacter);
@@ -135,7 +144,7 @@ safely("ChatRoomMessage hook", () => {
 			// Spoken suggestions: ordinary chat we can hear from someone running a session
 			// on us. Never consumes the message — the line is still said out loud, and the
 			// effect (if any) lands alongside it.
-			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
+			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
 				try {
 					handleSpokenLine(data.Sender, inCharacter);
 				} catch (err) {
@@ -260,6 +269,7 @@ safely("trigger status channel", installTriggers);
 // Registers into BC's own message-handler chain at a priority chosen so arousal still
 // applies — see suppression.ts for why 320 specifically.
 safely("message suppression", installSuppression);
+safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
 
 // Trigger words shown as "..." on the subject's own screen, at priority 50 in the same chain —
 // see conceal.ts for why there.

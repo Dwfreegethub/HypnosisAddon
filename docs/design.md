@@ -3541,6 +3541,48 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
   4. **Lever B last, and only the bias half, and only with A2**, with the depth split done properly.
      Drop `bypassTrustRequirements`.
 
+- **HEARING ONLY ONE VOICE — built v0.93.0 (DW, 2026-09-26).** A narrower, first slice of the hearing
+  spec below: its level 3 ("suppressed with sporadic atmospheric fallback") aimed at one voice.
+  DW's decisions, 2026-09-26:
+  - **Two versions.** *"you hear only my voice"*: everything one person says, named or not; a trigger
+    locks it to whoever FIRED it. *"you only hear what is said to you"*: lines with her name, from
+    anyone. This settles the "is the hypnotist simply always audible?" question below for the first
+    version (yes, whole lines, no name needed), and the second uses the name gate's "anywhere in the
+    line" test, not "starts with".
+  - **OOC in (parentheses), in chat or whispers, is the only thing from anyone else that gets
+    through.** This settles the open "do whispers still work?" question the way it recommended:
+    exempt OOC content, not the whisper channel.
+  - **What she cannot hear cannot act on her**: other people's commands, trigger words and
+    "when Rei speaks" do nothing. This settles the "residue" question below the way it
+    recommended ("nothing lands").
+  - **Emotes, activities and actions stay visible.** She can still see the room.
+  - An occasional line in place of what she missed, at most once a minute, the first straight away.
+
+  Built as: its own permission `hearingControl` (Entranced, not earned-only; wizard: Extreme only);
+  suggestions `hear-voice` / `hear-name` / `hear-release`; the gate at the top of
+  `handleSpokenLine` (`hearsLine`); the display in `suppression.ts` as a message handler at **90**,
+  before BC's deafness garble (100) and chat-log save (110), keeping only OOC. BC's own deafness
+  was checked first (R132 `SpeechTransformDeafenIntensity` and the handler at 100): it only garbles
+  and cannot let one voice through, so it could not be used. Not carried by "that will stay with
+  you" (a carried re-apply has no speaker). Spoken, it ends with the trance (`clearAllSuppression`);
+  a trigger's lasts as long as its effects. `test/hearing.mjs`.
+  **Sight, built alongside it (v0.93.0, DW 2026-09-26).** The vision ladder below, as BC's own three
+  levels: `sight-dim` 1, `sight-dark` 2, `sight-blind` 3, `sight-release`; permission `sightControl`
+  (Entranced; wizard: Extreme only). DW: all three levels, one permission, no "close your eyes" yet,
+  triggers and carry both allowed. **The route, re-verified on R132:** `GetBlindLevel` still reads
+  only ItemHead/ItemHood/ItemNeck/ItemDevices through `CharacterGetEffects(C, groups, true)`, then
+  clamps (2 under SensDepLight, else 3). So rather than the `CharacterGetDarkFactor` hook proposed
+  below (which would bypass BC's clamp and cover only the screen), our existing `CharacterGetEffects`
+  hook adds `BlindLight`/`BlindNormal`/`BlindHeavy` when BC asks about those groups. BC's clamp,
+  and everything BC hangs off blindness (Blind Adjacent, Blind Disable Examine, SensDep name hiding,
+  map range, struggling), follow her settings with nothing of ours in the way. Nothing is written to
+  the Emoticon item, so it does not sync. Cleared in `clearTranceStates()`; not restored by a reload,
+  as with the other live suggestions. A level BC caps lower is reported (`sight-capped`, rule 5).
+  `test/sight.mjs` models R132's GetBlindLevel.
+  **Open, noticed while building:** if the one voice she hears leaves the room, she hears no one
+  until the trance or the trigger's hold ends (or her safeword). Ending it when that person leaves
+  would be a small change if DW wants it.
+
 - **⚠ SENSORY SUPPRESSION — two specs from DW, 2026-09-16. POST-ALPHA: ship alpha first, then these
   next.** Vision and hearing arrived as separate specs and are filed as one item, because **they are
   one feature.** DW's rule that blindness must *not* mask names is justified by voice identification;
@@ -4709,7 +4751,39 @@ reload while a compulsion is armed.
 
 ---
 
-**Thirteen of twenty-five topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+### 25. Hearing only one voice (v0.93.0) — **open, never run live**
+
+H and S as before, plus a third player R. S ticks **Hearing** (Permissions). `test/hearing.mjs`
+covers the rules; this checks BC's real chat pipeline, which the suite only models.
+
+1. **Only my voice.** S under H. H: *"S, you hear only my voice"*. *Expect:* S told the room has
+   gone quiet around one voice. R chats: S sees nothing, and one "other voices" line at most a
+   minute. H chats without S's name: S sees it. R emotes: S sees it.
+2. **OOC gets through.** R says *"hi (are you ok?)"* and whispers *"(brb)"*. *Expect:* S sees only
+   *"(are you ok?)"* and *"(brb)"*.
+3. **Unheard means no effect.** R, with a trigger S has planted for anyone, says it. *Expect:*
+   nothing fires. R's line is also absent from S's chat log.
+4. **Only my name.** H: *"S, you only hear what is said to you"*. R: *"S, hello"* (seen) and
+   *"hello all"* (not seen). H: *"you can hear everyone again"* without the name: still muffled.
+   H: *"S, you can hear everyone again"*: everything back.
+5. **As a trigger.** Plant *"your trigger word is hush now"* + *"you hear only my voice"*. Wake. R
+   says *"hush now"*. *Expect:* S hears only R. H is not heard. `/echs safeword` ends it.
+
+### 26. Sight (v0.93.0) — **open, never run live**
+
+H and S as before. S ticks **Sight**. `test/sight.mjs` models BC's blindness; only a live client
+shows the real screen, Blind Adjacent and the map.
+
+1. **The three levels.** S under H. H: *"S, your vision is dimming"*, then *"S, you can barely see"*,
+   then *"S, you cannot see"*. *Expect:* S's screen dims, darkens, then goes black. The room sees
+   nothing change on S.
+2. **BC's cap.** S sets *Sensory Deprivation* to **Light** (BC's Immersion settings). H: *"S, you
+   cannot see"*. *Expect:* very dark, not black; H told `sight-capped`; S told some light stays.
+3. **Her other settings.** With *Blind Adjacent* on, only characters next to S are visible.
+4. **Release and endings.** *"S, you can see again"* clears it. So does waking, the safeword, and
+   unticking Sight. With *"S, that will stay with you"* before the wake, it survives the wake.
+
+**Thirteen of twenty-seven topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 

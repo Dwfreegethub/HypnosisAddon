@@ -90,19 +90,34 @@ This blocks regular public room chat. It cannot touch slash commands, so emergen
 
 ---
 
-### Sensory Modulation *(Feature Pending / Experimental)*
+### Hearing — Hearing · Entranced
 
-> *Note: Auditory and visual modulation systems are actively in progress. These commands may be partially functional or pending integration in the current alpha build.*
-
-| Say | Needs |
+| Say | What she hears |
 |---|---|
-| *"you cannot hear clearly"* · *"voices are muffled"* | Hearing Impairment · **Drifting** |
-| *"you hear nothing"* · *"the room is silent"* | Complete Deafness · **Entranced** |
-| *“you can hear again”* · *“your hearing returns”* | — *release* |
-| *"everything is going dark"* · *"you cannot see"* | Blindness / Darkness · **Entranced** |
-| *“your vision clears”* · *“you can see again”* | — *release* |
+| *"you hear only my voice"* · *"you will only hear me"* · *"my voice is the only one you can hear"* | Everything **you** say, named or not. Nobody else. |
+| *"you only hear what is said to you"* · *"you only hear your name"* | Only lines that use **her name**, from anyone. |
+| *"you can hear everyone again"* · *"your hearing comes back"* | — *release* |
 
-Visual and auditory effects respect native game sensory caps and client accessibility toggles.
+**What she still gets:** everything she can *see* — emotes, activities, items going on, people coming and going — and her own lines. **Out-of-character text in (parentheses) always gets through**, in chat or whispers, from anyone: a friend can still ask *"(are you ok?)"*. Everything else said in the room is hidden, and now and then (at most once a minute) she is told that other voices are there and don't matter.
+
+**What she can't hear can't reach her.** While it is on, other people's commands and trigger words do nothing to her. In the "her name" version, a line that names her is heard, so it works as normal.
+
+**Spoken, it lasts until the trance ends** (or the release, or her safeword). It is not carried by *"that will stay with you"*. **As a trigger** (*"Missy, your trigger word is hush now"*, *"Missy, you hear only my voice"*, *"Missy, remember trigger"*), "my voice" means **whoever says the trigger word**, and it lasts as long as her trigger effects do. Her safeword always ends it.
+
+### Sight — Sight · Entranced
+
+| Say | What she sees |
+|---|---|
+| *"your vision is dimming"* · *"the room grows dim"* | Dim: her screen at about a third of its brightness (BC's light blindness) |
+| *"you can barely see"* · *"everything is going dark"* | Very dark (BC's normal blindness) |
+| *"you cannot see"* · *"you are blind"* · *"everything is fading to black"* | Black (BC's heavy blindness) |
+| *"you can see again"* · *"your vision clears"* | — *release* |
+
+**This is Bondage Club's own blindness**, so her own BC settings decide how far it goes and what comes with it. With her *Sensory Deprivation* setting on **Light**, BC never goes past "very dark", whatever you say (you are told when that happens). Her *Blind Adjacent*, *Blind Disable Examine* and name-hiding settings apply exactly as they do under a blindfold, and a real blindfold adds to it. Nobody else sees any change.
+
+It ends with the trance, the release, or her safeword, and *"that will stay with you"* can carry it past the wake. It can be planted in a trigger.
+
+*A softer "muffled" hearing is not built yet.*
 
 ---
 

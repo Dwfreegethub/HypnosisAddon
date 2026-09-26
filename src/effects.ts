@@ -284,10 +284,41 @@ export function drawTranceVeil(): void {
 	MainCanvas.restore();
 }
 
+// --- Sight (v0.93.0, DW 2026-09-26) -------------------------------------------------------------
+//
+// "You cannot see", in BC's own three levels: 1 dim (screen at 30%), 2 very dark (15%), 3 black.
+// DW: link into BC's blindness and never override its limits. Verified against R132 Character.js:
+// Player.GetBlindLevel() counts BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects asked
+// about ItemHead, ItemHood, ItemNeck and ItemDevices ONLY — so an effect on our Emoticon carrier is
+// never counted — and then clamps to 2 when her Sensory Deprivation setting is Light, else to 3. So
+// our CharacterGetEffects hook adds the level's effect when, and only when, BC asks about those
+// groups: BC's own clamp still applies, and everything BC does with blindness (the dark screen,
+// Blind Adjacent, Blind Disable Examine, name hiding under her SensDep setting, map sight range,
+// harder struggling) follows her own settings. Nothing is written to the item, so the room sees no
+// change: blindness is hers alone, as BC's is.
+export type SightLevel = 0 | 1 | 2 | 3;
+const BLIND_EFFECTS: Record<Exclude<SightLevel, 0>, string> = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
+/** The item groups BC reads blindness from (R132 GetBlindLevel). */
+const BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
+let sightLevel: SightLevel = 0;
+
+/** Set how much she can see; 0 is normal. BC's blindness cache is rebuilt at once. Returns the level
+ * BC actually reports afterwards, which her own settings may have capped lower. */
+export function setSight(level: SightLevel): number {
+	sightLevel = level;
+	refreshOwnEffects();
+	return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level;
+}
+
+export function getSight(): SightLevel {
+	return sightLevel;
+}
+
 /** Everything a trance turns on, turned back off. Called on every exit path. */
 export function clearTranceStates(): void {
 	speechBlocked = false;
 	screenFade = 0;
+	if (sightLevel) setSight(0);
 	// Walking trance is a MODE of a trance, so it cannot outlive one — every exit path that
 	// clears the veil clears this too, or a woken subject would keep a flag saying they are
 	// still walking under.
@@ -481,6 +512,12 @@ export function installEffectHooks(modApi: any): void {
 	modApi.hookFunction("CharacterGetEffects", 5, (args: any[], next: (a: any[]) => any) => {
 		const result = next(args);
 		const [C, groups] = args;
+		// Sight: only when BC asks about the groups it reads blindness from (see setSight).
+		if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g: string) => BLIND_GROUPS.includes(g))) {
+			const withSight = Array.isArray(result) ? result.slice() : [];
+			withSight.push(BLIND_EFFECTS[sightLevel as 1 | 2 | 3]);
+			return withSight;
+		}
 		if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
 		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
 		// During our own pose change (setSuggestedPose): our Freeze is lifted — ours only. A Freeze

@@ -43,6 +43,9 @@ const ALL_FEATURES: (keyof FeatureToggles)[] = [
 	"compelTouchOthers",
 	// Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
 	"forcedSpeech",
+	// Hearing only one voice and sight (v0.93.0): the same.
+	"hearingControl",
+	"sightControl",
 ];
 
 export type Access = "easy" | "earned" | "deep";

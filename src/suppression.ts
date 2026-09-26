@@ -60,6 +60,123 @@ export function isNumb(): boolean {
 export function clearAllSuppression(): void {
 	active.clear();
 	numb = false;
+	hearing = null;
+}
+
+// --- Hearing only one voice (v0.93.0, DW 2026-09-26) --------------------------------------
+//
+// Two modes. "Missy, you hear only my voice": everything that one person says reaches her, named
+// or not (a trigger locks it to whoever FIRED it). "Missy, you only hear what is said to you":
+// only lines that use her name, from anyone. Everyone else's chat and in-character whispers are
+// hidden, now and then replaced by a line that other voices are there and do not matter.
+//
+// DW's answers, 2026-09-26: OOC text in (parentheses), in chat or whispers, always gets through —
+// the safety line; emotes, activities and actions stay visible (she can still SEE the room); and
+// what she cannot hear cannot act on her: other people's commands and trigger words do nothing.
+// That last part is enforced where lines are READ (voice.ts handleSpokenLine, via hearsLine); this
+// module only hides the display.
+//
+// BC's own deafness cannot do this (verified, R132 Speech.js SpeechTransformDeafenIntensity and the
+// "Sensory-deprivation processing" handler at 100): at any level it only garbles, never hides, and
+// it cannot let one voice through. So the display half is a message handler at 90 — before BC's
+// garble at 100 (the OOC we keep is read as typed) and before "Save chats and whispers to the chat
+// log" at 110, so a line she did not hear is not in her log either. ECHS's own lines are local
+// (tellPlayer) and never enter this pipeline; BC's safeword actions are Actions, never touched.
+
+export type HearingMode = { kind: "voice"; member: number } | { kind: "name" };
+
+let hearing: HearingMode | null = null;
+
+export function setHearing(mode: HearingMode | null): void {
+	hearing = mode;
+}
+
+export function hearingMode(): HearingMode | null {
+	return hearing;
+}
+
+/** Can she hear a spoken line from `sender`? `namesHer` is whether the line uses her name. Her own
+ * lines always; with no mode on, everything. */
+export function hearsLine(sender: number, namesHer: boolean): boolean {
+	if (!hearing || sender === Player?.MemberNumber) return true;
+	return hearing.kind === "voice" ? sender === hearing.member : namesHer;
+}
+
+/** Messages the ChatRoomMessage hook (main.ts) found she cannot hear, for the handler below. Marked
+ * there because that hook already knows the in-character text and her names; a WeakSet so nothing
+ * is kept once BC lets go of the message. */
+const unheard = new WeakSet<object>();
+
+export function markUnheard(data: object): void {
+	unheard.add(data);
+}
+
+/** The out-of-character parts of a line, as typed: every "(…)" span, an unclosed one running to the
+ * end, joined by a space. "" when there are none. */
+export function oocOnly(text: string): string {
+	const spans: string[] = [];
+	let depth = 0;
+	let current = "";
+	for (const ch of String(text ?? "")) {
+		if (ch === "(") {
+			if (depth === 0) current = "";
+			depth++;
+			current += ch;
+		} else if (ch === ")" && depth > 0) {
+			current += ch;
+			depth--;
+			if (depth === 0) spans.push(current);
+		} else if (depth > 0) {
+			current += ch;
+		}
+	}
+	if (depth > 0 && current.length > 1) spans.push(current);
+	return spans.join(" ").trim();
+}
+
+/** How often the "other voices" line may appear. The first hidden line after the mode starts gets
+ * one; after that at most one a minute, so it reads as atmosphere and never as a counter. */
+const OTHERS_FADE_GAP_MS = 60_000;
+let lastOthersFade = 0;
+
+/** The display half. `onHidden` is given the mode when a line is hidden and a fade line is due. */
+export function installHearingFilter(onHidden: (mode: HearingMode) => void): void {
+	if (typeof ChatRoomRegisterMessageHandler !== "function") {
+		warn("ChatRoomRegisterMessageHandler missing — hearing only one voice will not hide chat");
+		return;
+	}
+	ChatRoomRegisterMessageHandler({
+		Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
+		Priority: 90,
+		Callback: (data: any, _sender: any, msg: string) => hearingFilter(data, msg, onHidden),
+	});
+	log("hearing filter registered at priority 90");
+}
+
+/** The handler body, exported for the suite. BC's return shapes: false passes, true hides, {msg}
+ * rewrites. */
+export function hearingFilter(data: any, msg: string, onHidden: (mode: HearingMode) => void): boolean | { msg: string } {
+	try {
+		if (!hearing || !data || !unheard.has(data)) return false;
+		if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+		const ooc = oocOnly(msg);
+		if (ooc) return { msg: ooc };
+		const now = Date.now();
+		if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
+			lastOthersFade = now;
+			onHidden(hearing);
+		}
+		return true;
+	} catch (err) {
+		// Never let a bug in here eat someone's chat.
+		warn("hearing filter failed:", err);
+		return false;
+	}
+}
+
+/** A new mode starts its own atmosphere: the first hidden line after it gets the fade line. */
+export function resetOthersFade(): void {
+	lastOthersFade = 0;
 }
 
 /** Did this message describe something happening TO us, rather than by us or to someone
