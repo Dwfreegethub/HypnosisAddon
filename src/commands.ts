@@ -716,7 +716,7 @@ const COMMANDS: HypnoCommand[] = [
 			if (token === "all") {
 				const held = all.filter(isTriggerInEffect);
 				const free = all.filter((t) => !isTriggerInEffect(t));
-				free.forEach((t) => forgetTrigger(t.phrase));
+				free.forEach((t) => forgetTrigger(t.key));
 				reply(
 					held.length
 						? `forgot ${free.length} trigger(s). ${held.length} still holding you — ` +
@@ -738,7 +738,7 @@ const COMMANDS: HypnoCommand[] = [
 				);
 				return;
 			}
-			const gone = forgetTrigger(all[index - 1].phrase);
+			const gone = forgetTrigger(all[index - 1].key);
 			reply(gone ? `forgot trigger ${index}` : "nothing removed");
 		},
 	},

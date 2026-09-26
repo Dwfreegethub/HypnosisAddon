@@ -13,6 +13,9 @@ import {
 	resetSettings,
 	getTriggerScope,
 	setTriggerScope,
+	getTriggerLifespan,
+	setTriggerLifespan,
+	TRIGGER_LIFESPANS,
 	getTriggerDuration,
 	setTriggerDuration,
 	getDecayRate,
@@ -179,6 +182,7 @@ const TABS: Tab[] = [
 			{ key: "carryForward", label: "Suggestions that outlive the trance" },
 			{ key: "selfTrigger", label: "You can fire your own triggers" },
 			{ key: "showTriggerWords", label: "Show trigger words when you list them" },
+			{ key: "strictTriggerMatch", label: "Triggers fire only on whole words" },
 		],
 		extra: drawTriggerControls,
 		// The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
@@ -649,6 +653,13 @@ const TRIGGER_DECAY_LABEL_MAX = 500;
 const TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
 const TRIGGER_DECAY_WIDTH = 500;
 
+// The lifespan ceiling shares the scope row, to its right: the scope dropdown ends at +760 and
+// the decay dropdown below ends at +1180, so this spans +800 to +1180 and lines up with it.
+const LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
+const LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
+const LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
+const LIFESPAN_WIDTH = 380;
+
 const DURATION_ID = "HypnosisAddonTriggerDuration";
 const DURATION_LABEL_Y = 760;
 const DURATION_CENTRE_X = CONTENT_LEFT + 70;
@@ -660,7 +671,7 @@ const DECAY_CAPTION_Y = 858;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 }
@@ -673,6 +684,7 @@ function removeScopeControl(): void {
 function syncTabControls(tabName: string): void {
 	if (tabName !== "Triggers") {
 		if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
+		if (document.getElementById(LIFESPAN_ID)) ElementRemove(LIFESPAN_ID);
 		if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
 		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
@@ -709,6 +721,7 @@ function drawDecayControl(): void {
 function drawTriggerControls(): void {
 	const locked = settingsLocked();
 	drawScopeControl(locked);
+	drawLifespanControl(locked);
 	drawDurationControl(locked);
 	drawTriggerDecayControl(locked);
 }
@@ -789,8 +802,31 @@ function drawDurationControl(locked: boolean): void {
 	ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
 }
 
+/** The longest a newly planted trigger may live. Applies at planting: a hypnotist asking for
+ * longer is clamped to it and told so, and lowering it does not shorten triggers already there. */
+function drawLifespanControl(locked: boolean): void {
+	drawLeftTextFit("Longest a new trigger lasts:", LIFESPAN_LABEL_X, SCOPE_LABEL_Y, LIFESPAN_WIDTH, locked ? "Gray" : "Black");
+	let element = document.getElementById(LIFESPAN_ID) as HTMLSelectElement | null;
+	if (!element) {
+		element = ElementCreateDropdown(
+			LIFESPAN_ID,
+			TRIGGER_LIFESPANS.map((l) => l.label),
+			function () {
+				const saved = setTriggerLifespan(TRIGGER_LIFESPANS[this.selectedIndex]?.minutes ?? 0);
+				log(`trigger lifespan ceiling set to ${saved} min`);
+			},
+		);
+	}
+	// Re-synced every frame, like the scope control: an import or reset changes it underneath us.
+	const index = TRIGGER_LIFESPANS.findIndex((l) => l.minutes === getTriggerLifespan());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	ElementPosition(LIFESPAN_ID, LIFESPAN_CENTRE_X, SCOPE_CENTRE_Y, LIFESPAN_WIDTH, SCOPE_HEIGHT);
+}
+
 function drawScopeControl(locked: boolean): void {
-	drawLeftText("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, locked ? "Gray" : "Black");
+	// Width-capped now that the lifespan control shares this row from +800.
+	drawLeftTextFit("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, SCOPE_WIDTH, locked ? "Gray" : "Black");
 	let element = document.getElementById(SCOPE_ID) as HTMLSelectElement | null;
 	if (!element) {
 		element = ElementCreateDropdown(

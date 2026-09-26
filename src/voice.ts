@@ -68,6 +68,11 @@ import {
 	reinforceTriggersBy,
 	noteTriggerFired,
 	TRIGGER_GHOST_THRESHOLD,
+	applyRecordingOption,
+	markSpent,
+	forgetIfSpent,
+	describeOptions,
+	TriggerOption,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -1525,7 +1530,110 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
 }
 
-export type TriggerControl = { kind: "start"; phrase: string } | { kind: "commit" } | { kind: "cancel" } | null;
+// Options the installer can speak while a trigger is being recorded (v0.87.0, design.md "Trigger
+// Overhaul"). Worded the way someone would say it in a scene, not as settings — DW asked for these
+// to sound as natural as possible.
+//
+// Matched against a light normalisation that KEEPS DIGITS: normalize() turns "lasts 2 hours" into
+// "lasts hours". Apostrophes become spaces, so "you'll" is "you ll" and "it's" is "it s".
+//
+// Every pattern is anchored on the trigger itself ("this trigger", "it", "the word") or on who says
+// it, never on a bare time or a bare "once". A recording is in progress when these are heard, and a
+// line that is not an option is RECORDED as a suggestion — so "Missy, for the next hour you cannot
+// move" has to stay a suggestion, not quietly become a lifespan. Checked BEFORE the start patterns,
+// because "only when I say it exactly" contains TRIGGER_START's "when I say (.+)".
+const OPT_SUBJ = String.raw`(?:this trigger|that trigger|the trigger|this word|that word|this phrase|that phrase|it)`;
+const OPT_YOU = String.raw`(?:you will|you ll|you)`;
+const OPT_OBEY = String.raw`(?:obey|respond to|answer|react to)`;
+const OPT_NUM = String.raw`(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety|half an?)`;
+const OPT_UNIT = String.raw`(minutes?|mins?|hours?|hrs?|days?)`;
+const NUMBER_WORDS: Record<string, number> = {
+	a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+	ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, "forty five": 45, forty: 40,
+	fifty: 50, sixty: 60, ninety: 90, "half a": 0.5, "half an": 0.5,
+};
+const UNIT_MS: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000 };
+
+const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => TriggerOption | null }[] = [
+	// Whole words only. First: the "only when I say it ..." family below would read these as
+	// "only me" if they came later.
+	...[
+		String.raw`\bonly (?:when|if) (?:you hear |i say )?(?:it|the word|the words|the phrase|those words|that word|that phrase) (?:exactly|on its own|by itself|alone)\b`,
+		String.raw`\bonly the (?:exact|whole) (?:word|words|phrase)\b`,
+		String.raw`\b(?:exactly|precisely) as i say it\b`,
+		String.raw`\b(?:it|the word|the words|the phrase) (?:has|have|needs?) to be (?:said )?(?:exactly|on its own|by itself|whole)\b`,
+		String.raw`\bnot (?:as )?(?:a )?part of (?:another|other|a longer) words?\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "strict", value: true }) })),
+	// Works once / every time.
+	...[
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?works? (?:only )?(?:once|one time)\b`,
+		String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) (?:only )?(?:once|one time)\b`,
+		String.raw`\b(?:it is|it s|this is) (?:a )?one (?:time|shot|use)(?: only| trigger| thing)?\b`,
+		String.raw`\bonce and then (?:it is |it s |it will be )?(?:gone|done|forgotten)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "once", value: true }) })),
+	...[
+		String.raw`\b${OPT_SUBJ} (?:will )?works? every (?:single )?time\b`,
+		String.raw`\b${OPT_YOU} ${OPT_OBEY} (?:it|this|that|this trigger|that trigger) every (?:single )?time\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "once", value: false }) })),
+	// Lifespan.
+	...[
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:fades?|wears? off|goes away|disappears?|ends?|expires?) (?:in|after) (?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+		String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) for (?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: lifespanOption })),
+	...[
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:lasts?|stays?|holds?) forever\b`,
+		String.raw`\b${OPT_SUBJ} (?:will )?never (?:fades?|wears? off|goes away|ends?|expires?)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "lifespan", ms: 0 }) })),
+	// Who may fire it. The subject's own setting still caps whatever is asked for here.
+	...[
+		String.raw`\b(?:anyone|anybody|everyone|whoever) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger|the word|the words|those words)\b`,
+		String.raw`\bwhoever says (?:it|this|that|the word|the words|those words)\b`,
+		String.raw`\bno matter who says (?:it|this|that|the word|the words|those words)\b`,
+		String.raw`\b${OPT_SUBJ} works for (?:anyone|anybody|everyone)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "everyone" }) })),
+	...[
+		String.raw`\byour owner (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "owner" }) })),
+	...[
+		String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "lovers" }) })),
+	...[
+		String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
+		String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
+		String.raw`\bonly (?:from|in) my voice\b`,
+		String.raw`\bonly (?:when|if) i say (?:it|this|that|the word|the words|those words)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "hypnotist" }) })),
+];
+
+function lifespanOption(m: RegExpExecArray): TriggerOption | null {
+	const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
+	const ms = UNIT_MS[m[2][0]];
+	if (!amount || !ms) return null;
+	return { kind: "lifespan", ms: Math.round(amount * ms) };
+}
+
+/** The pure half of option parsing, exported for the suite. */
+export function parseTriggerOption(content: string): TriggerOption | null {
+	const text = content
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!text) return null;
+	for (const { pattern, option } of OPTION_PATTERNS) {
+		const match = pattern.exec(text);
+		if (match) return option(match);
+	}
+	return null;
+}
+
+export type TriggerControl =
+	| { kind: "start"; phrase: string }
+	| { kind: "commit" }
+	| { kind: "cancel" }
+	| { kind: "option"; option: TriggerOption }
+	| null;
 
 /** The pure half of trigger-control parsing: text in, intent out. Split from the handler
  * so the phrase capture and name-stripping — the fiddly part — can be tested without a
@@ -1535,6 +1643,8 @@ export function parseTriggerControl(content: string): TriggerControl {
 	if (!text || isSelfReferential(text)) return null;
 	if (TRIGGER_CANCEL.some((p) => p.test(text))) return { kind: "cancel" };
 	if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
+	const option = parseTriggerOption(content);
+	if (option) return { kind: "option", option };
 	for (const pattern of TRIGGER_START) {
 		const match = pattern.exec(text);
 		if (match) return { kind: "start", phrase: cleanPhrase(match[1]) };
@@ -1557,6 +1667,15 @@ function handleTriggerControl(sender: number, content: string): boolean {
 			cancelRecording();
 			tellPlayer("Whatever was being set aside comes apart again.");
 		}
+		return true;
+	}
+	if (parsed.kind === "option") {
+		// Only meaningful mid-recording. Outside one the line falls through untouched — and it
+		// is deliberately NOT re-read as a start phrase, or "only when I say it" would begin
+		// recording a trigger called "it".
+		const message = applyRecordingOption(parsed.option);
+		if (message === null) return false;
+		tellPlayer(message);
 		return true;
 	}
 	if (parsed.kind === "commit") {
@@ -1632,6 +1751,7 @@ function fireTrigger(trigger: Trigger): void {
 		log(`trigger "${trigger.phrase}" is a ghost at strength ${strength} — no actions`);
 		announce("trigger-ghost");
 		noteTriggerFired(trigger);
+		markSpent(trigger, false);
 		return;
 	}
 	// Gate every action NOW (permission, strength), but defer its APPLICATION into a paced step
@@ -1740,6 +1860,10 @@ function fireTrigger(trigger: Trigger): void {
 		// orphan and takes it off.
 		saveForReconnect();
 	}
+	// One-shot: used up by this firing, whether or not anything landed — "fires once" is about
+	// being said, not about succeeding. If it is holding her it stays (spent) until it lets go;
+	// undoTrigger removes it then. After noteTriggerFired, which has already saved.
+	markSpent(trigger, holding > 0);
 	drainTriggerSteps(trigger, steps);
 }
 
@@ -1783,6 +1907,8 @@ function undoTrigger(trigger: Trigger): void {
 	// the next reload, restoring something that had already let go.
 	saveForReconnect();
 	log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
+	// A used-up one-shot was only being kept so this could run.
+	forgetIfSpent(trigger);
 }
 
 /** Is this trigger's grip currently on the subject? Read by `/hypno forgettrigger`, which
@@ -1823,7 +1949,7 @@ export function describeTriggerList(fullRequested: boolean): string[] {
 	return all.map(
 		(t, i) =>
 			`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
-			`(by ${t.installedByName}, ${describeStrength(t)})` +
+			`(by ${t.installedByName}, ${describeStrength(t)}${describeOptions(t) ? `; ${describeOptions(t)}` : ""})` +
 			`${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
 	);
 }

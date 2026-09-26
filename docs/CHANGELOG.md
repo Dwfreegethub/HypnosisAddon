@@ -20,6 +20,54 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.87.0) — trigger options: one-shot, expiry, lifespan ceiling, whole words, per-trigger scope
+
+Build 1 of the *Trigger Overhaul* in `design.md` (DW's outside spec, `job.md`, reconciled against the
+settled design the same day). The record gains `key` (back-filled from `phrase`, and now what
+`saveTrigger`/`forgetTrigger` match on) and five optional fields: `scope`, `expiresAt`, `oneShot`,
+`spent`, `strict`. Absent is exactly the old behaviour, so nothing needed migrating: `normalise`
+back-fills `key` and deletes any invalid option value, per the `skillHonour` rule.
+
+**Why not the spec's timers.** The spec asked for a runtime timer per trigger, re-armed by a sweep
+on load. Strength has been derived from timestamps since v0.60.0 because there is no moment the
+add-on is guaranteed to be running, and expiry follows the same pattern: `isExpired()` is checked on
+read, and an expired trigger reads as strength 0, so the existing prune (which already spares
+anything holding the subject) handles it with no second path.
+
+**One-shot does not delete on fire.** The spec said to delete immediately after firing. That
+strands the effects of a trigger that is still holding her, the bug fixed twice before. So firing
+sets `spent` (it can never fire again) and the record is removed by `undoTrigger` when it lets go,
+by the prune once nothing holds it, or at once when it held nothing. `markSpent` runs whether or not
+any action landed: "once" is about being said, not about succeeding. It sits after
+`noteTriggerFired`.
+
+**Scope** resolves *Trigger Storage* item 2 as option 2: `effectiveScope()` is the narrower of the
+installer's ask and her global setting. `TRIGGER_SCOPE_KEYS` in `storage.ts` duplicates the order
+of `TRIGGER_SCOPES` so `normalise` can validate without a circular import. The new suite asserts
+the two agree.
+
+**Spoken options** (`OPTION_PATTERNS`, `voice.ts`) are matched on a light normalisation that keeps
+digits, because `normalize()` strips them ("lasts 2 hours" arrives as "lasts hours"). Every pattern
+is anchored on the trigger ("this trigger", "it", "the word") or on who says it, never on a bare
+time or a bare "once". A line that is not an option while recording is *recorded as a suggestion*,
+so "for the next hour you cannot move" must stay a suggestion. They are checked before
+`TRIGGER_START`, whose `when (i say|you hear) (.+)` would otherwise read "only when I say it exactly"
+as a new trigger called "it exactly". An option heard with no recording open falls through
+untouched.
+
+**Whole words.** `phraseMatches()` pads both sides with spaces, which is a correct word boundary
+because both strings are already normalised to single-space-separated words. The planting overlap
+check is unchanged (raw containment). It is stricter than strict matching needs, which errs toward
+refusing a plant rather than allowing one that double-fires.
+
+**The lifespan ceiling** (`triggerLifespanMinutes`, 0 = none) applies at commit only, and to every
+trigger planted while it is set, whether or not the installer asked for a lifespan. The installer is
+told whenever her settings changed what he asked for (ceiling, scope, forced whole words). Rule 5:
+the trigger works, just not as asked, and he cannot see her settings screen.
+
+`test/trigger-options.mjs`, 99 checks. Verified by mutation: disabling each mechanism in turn turned
+2–5 of its own checks red. Live steps: *Needs Testing* item 19.
+
 ### Fixed 2026-09-25 (v0.86.1) — ECHS took BC's `/bot` from every player
 
 Bella reported it twice, on 0.84.1 (#223446 and #254192): with ECHS loaded, `/bot` to a room's own

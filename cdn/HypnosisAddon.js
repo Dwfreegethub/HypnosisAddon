@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.86.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.87.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3349,6 +3349,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const i = ATTEMPT_LIMITS.indexOf(current);
     return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
   }
+  var TRIGGER_SCOPE_KEYS = [
+    "hypnotist",
+    "owner",
+    "lovers",
+    "whitelist",
+    "dominants",
+    "notblack",
+    "everyone"
+  ];
   function defaultFeatures() {
     return {
       hypnoEnabled: false,
@@ -3369,6 +3378,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // Off by default — OOC asides pass even while silenced. See the interface note.
       blockOOC: false,
       selfTrigger: false,
+      strictTriggerMatch: false,
       triggerControl: false,
       suppressClothing: false,
       suppressBondage: false,
@@ -3393,6 +3403,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       triggers: [],
       triggerScope: "hypnotist",
       triggerDurationMinutes: 5,
+      triggerLifespanMinutes: 0,
       maxAttempts: DEFAULT_MAX_ATTEMPTS,
       // OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
       // whenever it was last touched, so shipping this switched on would decay months of
@@ -3425,6 +3436,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     s.triggerScope ?? (s.triggerScope = "hypnotist");
     if (typeof s.triggerDurationMinutes !== "number") s.triggerDurationMinutes = 5;
     if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
+    if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
     if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
     if (s.skillHonour !== void 0 && !SKILL_HONOUR_RUNGS.some((r) => r.key === s.skillHonour)) {
       delete s.skillHonour;
@@ -3437,6 +3449,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (typeof t.plantedChemical !== "boolean") t.plantedChemical = false;
         if (typeof t.reinforcedAt !== "number") t.reinforcedAt = t.installedAt ?? Date.now();
         if (typeof t.firings !== "number") t.firings = 0;
+        if (typeof t.key !== "string" || !t.key) t.key = t.phrase;
+        if (t.scope !== void 0 && !TRIGGER_SCOPE_KEYS.includes(t.scope)) delete t.scope;
+        if (t.expiresAt !== void 0 && !(typeof t.expiresAt === "number" && t.expiresAt > 0)) delete t.expiresAt;
+        if (typeof t.oneShot !== "boolean") delete t.oneShot;
+        if (typeof t.spent !== "boolean") delete t.spent;
+        if (typeof t.strict !== "boolean") delete t.strict;
       }
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
@@ -3722,14 +3740,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function saveTrigger(trigger) {
     const settings = loadSettings();
-    settings.triggers = settings.triggers.filter((t) => t.phrase !== trigger.phrase);
+    if (!trigger.key) trigger.key = trigger.phrase;
+    settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key);
     settings.triggers.push(trigger);
     saveSettings();
   }
-  function forgetTrigger(phrase) {
+  function forgetTrigger(key) {
     const settings = loadSettings();
     const before = settings.triggers.length;
-    settings.triggers = settings.triggers.filter((t) => t.phrase !== phrase);
+    settings.triggers = settings.triggers.filter((t) => t.key !== key);
     saveSettings();
     return before - settings.triggers.length;
   }
@@ -3804,6 +3823,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function setMaxAttempts(limit) {
     const value = ATTEMPT_LIMITS.includes(limit) ? limit : DEFAULT_MAX_ATTEMPTS;
     loadSettings().maxAttempts = value;
+    saveSettings();
+    return value;
+  }
+  var TRIGGER_LIFESPANS = [
+    { minutes: 0, label: "No limit" },
+    { minutes: 15, label: "15 minutes" },
+    { minutes: 30, label: "30 minutes" },
+    { minutes: 60, label: "1 hour" },
+    { minutes: 120, label: "2 hours" },
+    { minutes: 360, label: "6 hours" },
+    { minutes: 1440, label: "1 day" }
+  ];
+  function getTriggerLifespan() {
+    return loadSettings().triggerLifespanMinutes;
+  }
+  function setTriggerLifespan(minutes) {
+    const value = TRIGGER_LIFESPANS.some((l) => l.minutes === minutes) ? minutes : 0;
+    loadSettings().triggerLifespanMinutes = value;
     saveSettings();
     return value;
   }
@@ -4053,6 +4090,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var TRIGGER_GHOST_THRESHOLD = 10;
   function triggerStrength(t) {
     if (t.plantedDepth <= 0) return 0;
+    if (isExpired(t)) return 0;
     const perDay = decayPerDayFor(t);
     if (perDay <= 0) return t.plantedDepth;
     const creditFraction = Math.min((t.firings ?? 0) * FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION);
@@ -4087,17 +4125,65 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function pruneFadedTriggers(isHolding) {
     const all = listTriggers();
-    const dead = all.filter((t) => triggerStrength(t) <= 0 && !isHolding(t));
+    const dead = all.filter((t) => (t.spent || triggerStrength(t) <= 0) && !isHolding(t));
     if (!dead.length) return 0;
     for (const t of dead) {
-      log(`trigger "${t.phrase}" has faded away entirely (planted ${t.plantedDepth}, by ${t.installedByName})`);
-      forgetTrigger(t.phrase);
+      const why = t.spent ? "was used up" : isExpired(t) ? "has expired" : "has faded away entirely";
+      log(`trigger "${t.phrase}" ${why} (planted ${t.plantedDepth}, by ${t.installedByName})`);
+      forgetTrigger(t.key);
     }
     return dead.length;
+  }
+  function isExpired(t, now = Date.now()) {
+    return typeof t.expiresAt === "number" && now >= t.expiresAt;
+  }
+  function triggerCanFire(t) {
+    return !t.spent && !isExpired(t);
+  }
+  function markSpent(t, holding) {
+    if (!t.oneShot) return;
+    t.spent = true;
+    if (holding) {
+      updateTriggers();
+      log(`one-shot trigger "${t.phrase}" is spent; kept until it lets go`);
+      return;
+    }
+    forgetTrigger(t.key);
+    log(`one-shot trigger "${t.phrase}" is spent and gone`);
+  }
+  function forgetIfSpent(t) {
+    if (!t.spent) return;
+    forgetTrigger(t.key);
+    log(`one-shot trigger "${t.phrase}" let go and is gone`);
+  }
+  function phraseMatches(t, normalisedText) {
+    if (!t.phrase) return false;
+    if (!(t.strict || getFeatures().strictTriggerMatch)) return normalisedText.includes(t.phrase);
+    return ` ${normalisedText} `.includes(` ${t.phrase} `);
+  }
+  function describeSpan(ms) {
+    const minutes = Math.max(1, Math.round(ms / 6e4));
+    if (minutes < 120) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 48) return `${hours} hours`;
+    return `${Math.round(hours / 24)} days`;
+  }
+  function describeOptions(t) {
+    const parts = [];
+    if (t.spent) parts.push("used up, letting go");
+    else if (t.oneShot) parts.push("works once");
+    if (typeof t.expiresAt === "number") {
+      const left = t.expiresAt - Date.now();
+      parts.push(left > 0 ? `ends in ${describeSpan(left)}` : "expired");
+    }
+    if (t.strict) parts.push("whole words only");
+    if (t.scope) parts.push(`fired by: ${scopeLabel(effectiveScope(t))}`);
+    return parts.join(", ");
   }
   function describeStrength(t) {
     const now = triggerStrength(t);
     const label = tierLabel(tierOf(now));
+    if (isExpired(t)) return "expired";
     if (now <= 0) return "faded away";
     if (now < TRIGGER_GHOST_THRESHOLD) return `a vague pull only (${now})`;
     if (now >= t.plantedDepth) return `full strength (${now}, ${label})`;
@@ -4140,6 +4226,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`TESTING: aged ${chosen.length} trigger(s) by ${days} day(s)`);
     return { refusal: null, lines, aged: chosen.length };
   }
+  var MAX_REQUESTED_LIFESPAN_MS = 30 * 864e5;
   var recording = null;
   function isRecording() {
     return recording !== null;
@@ -4153,6 +4240,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
       recording = null;
     }
   });
+  function applyRecordingOption(option) {
+    if (!recording) return null;
+    let noted;
+    switch (option.kind) {
+      case "once":
+        recording.oneShot = option.value || void 0;
+        noted = option.value ? "it will work once, then be gone" : "it will work every time";
+        break;
+      case "lifespan":
+        if (option.ms <= 0) {
+          recording.lifespanMs = void 0;
+          noted = "no time limit of its own (decay still applies)";
+        } else {
+          recording.lifespanMs = Math.min(option.ms, MAX_REQUESTED_LIFESPAN_MS);
+          noted = `it will last ${describeSpan(recording.lifespanMs)}`;
+        }
+        break;
+      case "scope":
+        recording.scope = option.scope;
+        noted = `who can fire it: ${scopeLabel(option.scope)}`;
+        break;
+      case "strict":
+        recording.strict = option.value || void 0;
+        noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
+        break;
+    }
+    log(`trigger "${recording.phrase}" option: ${noted}`);
+    tellHypnotist(recording.hypnotistId, `[trigger] Noted for "${recording.phrase}": ${noted}.`);
+    return "The shape of it shifts, just slightly.";
+  }
   var COLLISION_REFUSAL_CAP = 4;
   var COLLISION_WINDOW_MS = 10 * 6e4;
   var collisionRefusalCount = 0;
@@ -4305,14 +4422,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
       plantedDepth: recording.plantedDepth,
       plantedChemical: recording.plantedChemical,
       reinforcedAt: Date.now(),
-      firings: 0
+      firings: 0,
+      key: recording.phrase
     };
+    if (recording.oneShot) trigger.oneShot = true;
+    if (recording.strict) trigger.strict = true;
+    if (recording.scope) trigger.scope = recording.scope;
+    const ceilingMs = getTriggerLifespan() * 6e4;
+    const asked = recording.lifespanMs;
+    const lifespan = ceilingMs > 0 ? Math.min(asked ?? Infinity, ceilingMs) : asked;
+    if (lifespan) trigger.expiresAt = trigger.installedAt + lifespan;
+    const notes = [];
+    if (ceilingMs > 0 && (asked === void 0 || asked > ceilingMs)) {
+      notes.push(`Her settings let a trigger live at most ${describeSpan(ceilingMs)}, so it ends then.`);
+    }
+    if (trigger.scope && scopeIsWider(trigger.scope, getTriggerScope())) {
+      notes.push(`Her settings only allow "${scopeLabel(getTriggerScope())}", so that is who can fire it.`);
+    }
+    if (getFeatures().strictTriggerMatch && !trigger.strict) {
+      notes.push("Her settings make every trigger fire on the whole words only.");
+    }
     saveTrigger(trigger);
     const count = trigger.actions.length;
-    log(`trigger committed: "${trigger.phrase}" (${count} actions) by ${trigger.installedByName}`);
+    const options = describeOptions(trigger);
+    log(`trigger committed: "${trigger.phrase}" (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
     tellHypnotist(
       trigger.installedBy,
-      `[trigger] SAVED "${trigger.phrase}" \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). Saying it will now fire them, in or out of trance.`
+      `[trigger] SAVED "${trigger.phrase}" \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` + (options ? `Options: ${options}. ` : "") + `Saying it will now fire them, in or out of trance.` + (notes.length ? ` ${notes.join(" ")}` : "")
     );
     recording = null;
     return displaced ? "Something already set aside in you comes loose \u2014 and something new settles into the space it leaves." : "It settles somewhere you won't think to look for it.";
@@ -4331,8 +4467,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       (c) => c?.MemberNumber === memberNumber
     );
   }
-  function speakerAllowedByScope(speaker) {
-    const scope = getTriggerScope();
+  function scopeLabel(scope) {
+    return TRIGGER_SCOPES.find((s) => s.key === scope)?.label ?? scope;
+  }
+  function scopeIsWider(a, b) {
+    return TRIGGER_SCOPE_KEYS.indexOf(a) > TRIGGER_SCOPE_KEYS.indexOf(b);
+  }
+  function effectiveScope(t) {
+    const global = getTriggerScope();
+    if (!t.scope) return global;
+    return scopeIsWider(t.scope, global) ? global : t.scope;
+  }
+  function speakerAllowedByScope(speaker, scope) {
     if (scope === "hypnotist") return false;
     if (speaker === Player?.MemberNumber) return false;
     const C = characterFor2(speaker);
@@ -4354,17 +4500,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function triggersFiredBy(speaker, normalisedText) {
     if (!normalisedText) return [];
-    const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+    const matching = listTriggers().filter((t) => triggerCanFire(t) && phraseMatches(t, normalisedText));
     if (speaker === Player?.MemberNumber) return getFeatures().selfTrigger ? matching : [];
-    const allowedByScope = speakerAllowedByScope(speaker);
-    return matching.filter((t) => t.installedBy === speaker || allowedByScope);
+    return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
   }
   function triggersReleasableBy(speaker, normalisedText) {
     if (!normalisedText) return [];
     const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
     if (speaker === Player?.MemberNumber) return matching;
-    const allowedByScope = speakerAllowedByScope(speaker);
-    return matching.filter((t) => t.installedBy === speaker || allowedByScope);
+    return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
   }
   function triggersArmed() {
     const features = getFeatures();
@@ -5424,11 +5568,111 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!isRecording()) return false;
     return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
+  var OPT_SUBJ = String.raw`(?:this trigger|that trigger|the trigger|this word|that word|this phrase|that phrase|it)`;
+  var OPT_YOU = String.raw`(?:you will|you ll|you)`;
+  var OPT_OBEY = String.raw`(?:obey|respond to|answer|react to)`;
+  var OPT_NUM = String.raw`(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety|half an?)`;
+  var OPT_UNIT = String.raw`(minutes?|mins?|hours?|hrs?|days?)`;
+  var NUMBER_WORDS = {
+    a: 1,
+    an: 1,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+    fifteen: 15,
+    twenty: 20,
+    thirty: 30,
+    "forty five": 45,
+    forty: 40,
+    fifty: 50,
+    sixty: 60,
+    ninety: 90,
+    "half a": 0.5,
+    "half an": 0.5
+  };
+  var UNIT_MS = { m: 6e4, h: 36e5, d: 864e5 };
+  var OPTION_PATTERNS = [
+    // Whole words only. First: the "only when I say it ..." family below would read these as
+    // "only me" if they came later.
+    ...[
+      String.raw`\bonly (?:when|if) (?:you hear |i say )?(?:it|the word|the words|the phrase|those words|that word|that phrase) (?:exactly|on its own|by itself|alone)\b`,
+      String.raw`\bonly the (?:exact|whole) (?:word|words|phrase)\b`,
+      String.raw`\b(?:exactly|precisely) as i say it\b`,
+      String.raw`\b(?:it|the word|the words|the phrase) (?:has|have|needs?) to be (?:said )?(?:exactly|on its own|by itself|whole)\b`,
+      String.raw`\bnot (?:as )?(?:a )?part of (?:another|other|a longer) words?\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "strict", value: true }) })),
+    // Works once / every time.
+    ...[
+      String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?works? (?:only )?(?:once|one time)\b`,
+      String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) (?:only )?(?:once|one time)\b`,
+      String.raw`\b(?:it is|it s|this is) (?:a )?one (?:time|shot|use)(?: only| trigger| thing)?\b`,
+      String.raw`\bonce and then (?:it is |it s |it will be )?(?:gone|done|forgotten)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: true }) })),
+    ...[
+      String.raw`\b${OPT_SUBJ} (?:will )?works? every (?:single )?time\b`,
+      String.raw`\b${OPT_YOU} ${OPT_OBEY} (?:it|this|that|this trigger|that trigger) every (?:single )?time\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: false }) })),
+    // Lifespan.
+    ...[
+      String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+      String.raw`\b${OPT_SUBJ} (?:will )?(?:fades?|wears? off|goes away|disappears?|ends?|expires?) (?:in|after) (?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+      String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) for (?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: lifespanOption })),
+    ...[
+      String.raw`\b${OPT_SUBJ} (?:will )?(?:lasts?|stays?|holds?) forever\b`,
+      String.raw`\b${OPT_SUBJ} (?:will )?never (?:fades?|wears? off|goes away|ends?|expires?)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "lifespan", ms: 0 }) })),
+    // Who may fire it. The subject's own setting still caps whatever is asked for here.
+    ...[
+      String.raw`\b(?:anyone|anybody|everyone|whoever) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger|the word|the words|those words)\b`,
+      String.raw`\bwhoever says (?:it|this|that|the word|the words|those words)\b`,
+      String.raw`\bno matter who says (?:it|this|that|the word|the words|those words)\b`,
+      String.raw`\b${OPT_SUBJ} works for (?:anyone|anybody|everyone)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "everyone" }) })),
+    ...[
+      String.raw`\byour owner (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "owner" }) })),
+    ...[
+      String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "lovers" }) })),
+    ...[
+      String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
+      String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
+      String.raw`\bonly (?:from|in) my voice\b`,
+      String.raw`\bonly (?:when|if) i say (?:it|this|that|the word|the words|those words)\b`
+    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "hypnotist" }) }))
+  ];
+  function lifespanOption(m) {
+    const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
+    const ms = UNIT_MS[m[2][0]];
+    if (!amount || !ms) return null;
+    return { kind: "lifespan", ms: Math.round(amount * ms) };
+  }
+  function parseTriggerOption(content) {
+    const text = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (!text) return null;
+    for (const { pattern, option } of OPTION_PATTERNS) {
+      const match = pattern.exec(text);
+      if (match) return option(match);
+    }
+    return null;
+  }
   function parseTriggerControl(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
     if (TRIGGER_CANCEL.some((p) => p.test(text))) return { kind: "cancel" };
     if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
+    const option = parseTriggerOption(content);
+    if (option) return { kind: "option", option };
     for (const pattern of TRIGGER_START) {
       const match = pattern.exec(text);
       if (match) return { kind: "start", phrase: cleanPhrase(match[1]) };
@@ -5444,6 +5688,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         cancelRecording();
         tellPlayer("Whatever was being set aside comes apart again.");
       }
+      return true;
+    }
+    if (parsed.kind === "option") {
+      const message = applyRecordingOption(parsed.option);
+      if (message === null) return false;
+      tellPlayer(message);
       return true;
     }
     if (parsed.kind === "commit") {
@@ -5486,6 +5736,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`trigger "${trigger.phrase}" is a ghost at strength ${strength} \u2014 no actions`);
       announce("trigger-ghost");
       noteTriggerFired(trigger);
+      markSpent(trigger, false);
       return;
     }
     const steps = [];
@@ -5556,6 +5807,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       scheduleAutoRelease(trigger);
       saveForReconnect();
     }
+    markSpent(trigger, holding > 0);
     drainTriggerSteps(trigger, steps);
   }
   function keyFor(suggestion, features) {
@@ -5583,6 +5835,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearActive(timerKey(trigger));
     saveForReconnect();
     log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
+    forgetIfSpent(trigger);
   }
   function isTriggerInEffect(trigger) {
     return isActive(timerKey(trigger));
@@ -5597,7 +5850,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!all.length) return ["no triggers planted"];
     const reveal = triggerPhrasesVisible(fullRequested);
     return all.map(
-      (t, i) => `${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} \u2192 ${t.actions.join(", ")}  (by ${t.installedByName}, ${describeStrength(t)})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`
+      (t, i) => `${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} \u2192 ${t.actions.join(", ")}  (by ${t.installedByName}, ${describeStrength(t)}${describeOptions(t) ? `; ${describeOptions(t)}` : ""})${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`
     );
   }
   function timerKey(trigger) {
@@ -6690,7 +6943,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function lastingLines() {
     const minutes = getTriggerDuration();
     const scope = getTriggerScope();
-    const scopeLabel = TRIGGER_SCOPES.find((sc) => sc.key === scope)?.label ?? scope;
+    const scopeLabel2 = TRIGGER_SCOPES.find((sc) => sc.key === scope)?.label ?? scope;
     return [
       head("Two ways to outlast a session"),
       body("A TRIGGER sleeps until someone says its word. A CARRIED suggestion"),
@@ -6704,6 +6957,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, remember trigger"`),
       dim("The subject never sees the phrase. With Awareness > Trigger setup"),
       dim("on, they see none of the exchange at all."),
+      gap(),
+      head('Shaping it \u2014 before "remember trigger"'),
+      body(`"Missy, this trigger works only once"`),
+      body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
+      body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
+      dim("Their own settings still cap how long it lasts and who may fire it."),
       gap(),
       head("Firing and releasing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
@@ -6735,7 +6994,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("being silenced, so the safeword stays reachable when speech does not."),
       gap(),
       head("Right now, on this character"),
-      body(`A fired trigger lasts ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel}.`),
+      body(`A fired trigger lasts ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel2}.`),
       dim("Both are on the Triggers tab of the settings screen.")
     ];
   }
@@ -7218,7 +7477,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "triggerControl", label: "Allow triggers to be planted in you" },
         { key: "carryForward", label: "Suggestions that outlive the trance" },
         { key: "selfTrigger", label: "You can fire your own triggers" },
-        { key: "showTriggerWords", label: "Show trigger words when you list them" }
+        { key: "showTriggerWords", label: "Show trigger words when you list them" },
+        { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
       ],
       extra: drawTriggerControls,
       // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
@@ -7570,6 +7830,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var TRIGGER_DECAY_LABEL_MAX = 500;
   var TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
   var TRIGGER_DECAY_WIDTH = 500;
+  var LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
+  var LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
+  var LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
+  var LIFESPAN_WIDTH = 380;
   var DURATION_ID = "HypnosisAddonTriggerDuration";
   var DURATION_LABEL_Y = 760;
   var DURATION_CENTRE_X = CONTENT_LEFT + 70;
@@ -7578,13 +7842,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DURATION_HEIGHT = 56;
   var DECAY_CAPTION_Y = 858;
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
   }
   function syncTabControls(tabName) {
     if (tabName !== "Triggers") {
       if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
+      if (document.getElementById(LIFESPAN_ID)) ElementRemove(LIFESPAN_ID);
       if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
       if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
     }
@@ -7612,6 +7877,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawTriggerControls() {
     const locked = settingsLocked();
     drawScopeControl(locked);
+    drawLifespanControl(locked);
     drawDurationControl(locked);
     drawTriggerDecayControl(locked);
   }
@@ -7672,8 +7938,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     element.disabled = locked;
     ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
   }
+  function drawLifespanControl(locked) {
+    drawLeftTextFit("Longest a new trigger lasts:", LIFESPAN_LABEL_X, SCOPE_LABEL_Y, LIFESPAN_WIDTH, locked ? "Gray" : "Black");
+    let element = document.getElementById(LIFESPAN_ID);
+    if (!element) {
+      element = ElementCreateDropdown(
+        LIFESPAN_ID,
+        TRIGGER_LIFESPANS.map((l) => l.label),
+        function() {
+          const saved = setTriggerLifespan(TRIGGER_LIFESPANS[this.selectedIndex]?.minutes ?? 0);
+          log(`trigger lifespan ceiling set to ${saved} min`);
+        }
+      );
+    }
+    const index = TRIGGER_LIFESPANS.findIndex((l) => l.minutes === getTriggerLifespan());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    ElementPosition(LIFESPAN_ID, LIFESPAN_CENTRE_X, SCOPE_CENTRE_Y, LIFESPAN_WIDTH, SCOPE_HEIGHT);
+  }
   function drawScopeControl(locked) {
-    drawLeftText("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, locked ? "Gray" : "Black");
+    drawLeftTextFit("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, SCOPE_WIDTH, locked ? "Gray" : "Black");
     let element = document.getElementById(SCOPE_ID);
     if (!element) {
       element = ElementCreateDropdown(
@@ -7823,7 +8107,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.86.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.87.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -8491,7 +8775,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (token === "all") {
           const held = all.filter(isTriggerInEffect);
           const free = all.filter((t) => !isTriggerInEffect(t));
-          free.forEach((t) => forgetTrigger(t.phrase));
+          free.forEach((t) => forgetTrigger(t.key));
           reply(
             held.length ? `forgot ${free.length} trigger(s). ${held.length} still holding you \u2014 /hypno safeword clears everything and always works.` : `forgot ${free.length} trigger(s)`
           );
@@ -8508,7 +8792,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           );
           return;
         }
-        const gone = forgetTrigger(all[index - 1].phrase);
+        const gone = forgetTrigger(all[index - 1].key);
         reply(gone ? `forgot trigger ${index}` : "nothing removed");
       }
     },
@@ -9395,7 +9679,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.86.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.87.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -9418,7 +9702,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.86.1"} loaded`;
+    el.textContent = `ECHS v${"0.87.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -9449,14 +9733,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.86.1"})`);
+  info(`script loaded (v${"0.87.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.86.1",
+      version: "0.87.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

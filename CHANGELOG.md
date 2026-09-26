@@ -12,6 +12,25 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.87.0 · 25 September 2026
+
+- **Hypnotists can shape a trigger while planting it.** Between naming the trigger word and saying
+  "remember trigger", the hypnotist can now say things like *"this trigger works only once"*,
+  *"it lasts 2 hours"*, *"anyone can use it"*, or *"only when you hear it exactly"*. The hypnotist
+  is told each one was noted.
+- **Triggers can work once.** A trigger set to work once is used up the moment it goes off, and
+  disappears as soon as whatever it did to you lets go.
+- **Triggers can have a time limit.** A trigger with a time limit ends when the limit runs out,
+  even while you are logged off. Fading over time works just as before, and whichever comes first
+  ends it.
+- **New on the Triggers tab: "Longest a new trigger lasts".** Choose anything from 15 minutes to a
+  day, or no limit (the default). Every trigger planted after that ends within your limit, whatever
+  the hypnotist asks for, and they are told. Triggers you already have are not shortened.
+- **New on the Triggers tab: "Triggers fire only on whole words".** With it ticked, a trigger such
+  as "sleepy" no longer goes off inside "sleepyhead".
+- **A hypnotist can ask for who may fire a trigger, but never beyond your own setting.** If they ask
+  for more than you allow, your setting wins and they are told.
+
 ## v0.86.1 · 25 September 2026
 
 - **`/bot` works again for room bots.** ECHS had taken over the game's `/bot` command, so

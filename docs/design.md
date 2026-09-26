@@ -40,7 +40,7 @@ features, then technical notes, then the plan and the open questions. Dated hist
 | **How an induction resolves** | [Induction Success Formula](#induction-success-formula-built--v0150) · [Session Flow](#session-flow--natural-language-built--v070v091) |
 | **How features are gated** | [Trust Percentage & Feature Thresholds](#trust-percentage--feature-thresholds) *(superseded)* · **[Trance Depth as the Feature Gate](#-design-change-trance-depth-as-the-feature-gate--phase-1-built-v0500)** |
 | **Safety and consent** | [Control & Reset](#control--reset) · [Hard Limits](#hard-limits) · [Meta-Consent Layer](#meta-consent-layer-ooc-vs-ic) · [Gamification](#gamification-fighting-off-suggestions) · [Clothing & Bondage Consent](#clothing--bondage-consent-interfaces) |
-| **The features themselves** | [Feature List](#feature-list) · [Triggers](#triggers) · [Carry-Forward](#carry-forward-detail--built-v0280v0290) · [Perception / Illusion](#perception--illusion-features-detail) · [Word-Level Control](#word-level-control-detail--approved-to-spec-2026-09-10) |
+| **The features themselves** | [Feature List](#feature-list) · [Triggers](#triggers) · [Trigger Overhaul](#trigger-overhaul--decided-2026-09-25-staged-across-six-builds) · [Carry-Forward](#carry-forward-detail--built-v0280v0290) · [Perception / Illusion](#perception--illusion-features-detail) · [Word-Level Control](#word-level-control-detail--approved-to-spec-2026-09-10) |
 | **Building it** | [Technical Architecture](#technical-architecture-notes) · [Prior Art](#prior-art-lscgs-hypnomodule) · [Development Stages](#development-stages) · [Player Settings](#player-settings) |
 | **What is broken** | [Known Bugs](#known-bugs) |
 | **What to test next** | [Needs Testing](#needs-testing) |
@@ -2140,7 +2140,7 @@ same four-call-site churn this whole exercise exists to avoid paying twice.
 optional fields that change no behaviour, and a fix to the deletion path. Everything else stays
 genuinely free because `normalise()` makes optional fields free.
 
-### ⚠ Item 2 is recorded two different ways — this needs DW
+### Item 2 was recorded two different ways — **resolved 2026-09-25: option 2**, see *Trigger Overhaul*
 
 *Trigger firing* (above) presents per-trigger scope as **option 2 of 2, explicitly "this needs DW"**.
 The earlier *Detail* section states it as settled: *"individual triggers can be set to a wider scope
@@ -2167,6 +2167,77 @@ Independent of new features:
 - **`describeTriggerList` indexes by array position**, and `/hypno forgettrigger <n>` uses that index.
   That is fine and should stay — an index is the right *display* key precisely because the phrase is
   hidden. It just must not be the *storage* key, which is item 1.
+
+---
+
+## Trigger Overhaul — decided 2026-09-25, staged across six builds
+
+> **Source.** DW brought an outside spec (`job.md`, *"ECHS Unified Trigger & Drop Overhaul"*) and
+> answered the questions it raised on 2026-09-25. About half of it was already built or already
+> decided differently; this section records only what was **decided**, including where DW reversed
+> an earlier call. The spec itself is not the authority: where it and this section disagree, this
+> section wins.
+
+### What the spec asked for that we are NOT doing, and why
+
+| Spec item | Why not |
+|---|---|
+| A runtime timer per trigger, re-armed by a "rehydration sweep" on load | Strength is derived from timestamps on read (v0.60.0) precisely because there is no moment the add-on is guaranteed to be running. Hard expiry is an `expiresAt` field checked on read, the same pattern. Offline time already counts. |
+| A synthetic trigger ID | The phrase-uniqueness decision (2026-09-16) makes the phrase the natural key, with `key` for phrase-less triggers. A second identity would bring back the deletion bug that decision fixed. |
+| "Tier 1" as the drop's landing depth | Depth tiers are named, and Drifting reaches almost nothing. See *Instant drop* below. |
+| Instant Purge of any trigger | A trigger holding you refuses removal (v0.32.0). Kept. |
+| Allow Stranger Triggers toggle | Parked by DW: planting is already gated by depth, trust and the trigger permission. |
+| A hypnotist-chosen HIDDEN flag per trigger | Replaced by the subject-side concealment below. The subject decides what they see, not the installer (rule 1). |
+
+### Decisions
+
+1. **Per-trigger scope, capped by the global setting.** Resolves *Trigger Storage* item 2 as option
+   2. The hypnotist may request a wider scope when planting; the subject's global setting is the
+   ceiling at fire time. Absent `scope` means "follow the global", which is today's behaviour.
+2. **Hard expiry sits alongside decay.** `expiresAt`, optional. A trigger ends at whichever comes
+   first: decay to zero or the expiry time. This is the *Ephemeral Triggers* idea in data form.
+3. **Lifespan ceiling — a subject setting.** Any newly planted trigger's expiry is clamped to it
+   (e.g. 15m / 30m / 1h / 2h / uncapped; uncapped is the default, so nothing changes for anyone who
+   does not touch it). Distinct from `triggerDurationMinutes`, which is how long a fired effect
+   *holds*, not how long the trigger *lives*.
+4. **One-shot vs unlimited.** A one-shot trigger deletes itself after its actions run and the
+   deletion is saved immediately. One line containing the phrase twice fires it once.
+5. **Strict matching.** Per-trigger match mode, plus a subject master toggle that forces
+   word-boundary matching for all their triggers. Substring stays the default. The planting overlap
+   checks (`triggers.ts`, the uniqueness section) must follow the mode actually used.
+6. **The phrase is concealed from the subject everywhere by default** — when planted, when said in
+   chat, and in the list. *Show trigger words when you list them* stays for players who want it.
+   In chat the phrase is replaced by **`...`** on the subject's own screen only.
+7. **`/echs triggers` becomes a summary**: how many, who installed each, and its level (strength).
+   **`/echs triggers <#>`** shows what that trigger does. You have to go out of your way to look,
+   and it still never shows the phrase unless the setting above is on.
+8. **Settings-screen inspector** with a per-trigger **Purge**, refused while that trigger is holding
+   the subject (the v0.32.0 rule; it points at the safeword).
+9. **Clear All refuses while any trigger is holding the subject or any session is running**, and
+   asks for confirmation when it is allowed. The subject clears the active state first (safeword or
+   release), then clears the list. `forgettrigger all` follows the same rule.
+10. **Instant drop — reverses the "no auto-drop" note in *Open Questions*.** A new subject setting,
+    **off by default**, with three positions: Disabled / One-time / Unlimited. The subject's position
+    is the ceiling on what the installer asks for; an unspecified install is one-time. When on, a
+    drop is allowed to the same people who may hypnotise the subject today. It **lands at the
+    trigger's current strength** (a trigger's strength is already its effective depth when it fires),
+    and **the person who spoke the phrase becomes the hypnotist** of the resulting trance. Drop
+    triggers decay like any other.
+11. **Delayed compulsions run on wall-clock time**, including while the subject is offline — the same
+    call DW made for effect clocks on 2026-09-22. Revisit if it plays badly.
+
+### Build order
+
+Each is a separate minor release (rule 9) with its own live test.
+
+| Build | Contents |
+|---|---|
+| 1 | **Built v0.87.0.** Record fields (`key`, `scope?`, `expiresAt?`, usage mode, match mode), hard expiry, lifespan ceiling, one-shot, strict matching, and the spoken options that set them. See `docs/CHANGELOG.md` for how, and *Needs Testing* item 19 |
+| 2 | `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation |
+| 3 | Chat concealment of the phrase (`...`). **Verify BC's chat display path in the local clone first** — this rewrites what the subject's screen shows for someone else's message |
+| 4 | Instant drop |
+| 5 | Spoken / mantra triggers — needs a new speech-compulsion permission; gag handling verified against BC's speech code first |
+| 6 | Delayed compulsions — dormant triggers armed by waking, elapsed time, or a room event (arrival or speech) |
 
 ---
 
@@ -3926,7 +3997,7 @@ and that an idle reset does not announce a trance nobody was in.
 - ~~**OOC "Genuine resistance" vs. the contested roll**~~ — **Settled.** AFK-block = hard block with flavor message. Active Fight + "Genuine resistance" = steep but possible — very heavy negative modifier, not an absolute wall. Since players can toggle "Genuine resistance" on and off, the setting is a difficulty dial, not a lock.
 - Trigger reinforcement — how often, how much decay per day (LSCG's logarithmic-every-10-minutes is a reasonable starting reference, not necessarily our final formula)
 - ~~Trigger word visibility~~ — **built v0.40.0.** Hidden by default, with *Show trigger words when you list them* on the Triggers tab. `/hypno triggers full` is a testing override that disappears when `TESTING_MODE` is flipped. The unbuilt *visibility levels* (blanked word / blur / blackout) are a separate, larger feature — see *Triggers*.
-- **Induction trigger (spoken word → attempt)** — a special trigger type that, when heard, initiates a trance *attempt* rather than instant trance: goes through the normal attempt flow, subject gets the option to fight by default. No LSCG-style auto-drop. To be decided: is this an opt-in trigger type players can configure, or a separate feature? Does the subject see the attempt coming or is it framed as a sudden pull?
+- **Induction trigger (spoken word → attempt)** — a special trigger type that, when heard, initiates a trance *attempt* rather than instant trance: goes through the normal attempt flow, subject gets the option to fight by default. No LSCG-style auto-drop. **Reversed 2026-09-25:** instant drop is an opt-in subject setting, off by default — see *Trigger Overhaul*, decision 10. To be decided: is this an opt-in trigger type players can configure, or a separate feature? Does the subject see the attempt coming or is it framed as a sudden pull?
 - ~~Induction script library~~ — **decided: both defaults and user-created.** Scripts speak in the hypnotist's own voice.
 - Clothing illusion interaction with BC's existing blindfold/sensory systems — deferred, revisit later
 - ~~Collateral effect range~~ — collateral effect pushed further into the future; not planned for near term
@@ -4437,9 +4508,39 @@ One character, fresh settings (`/hypno reset confirm`, or a new account). Open E
 3. **Re-run.** Apply any preset, then press **Setup**, go to the summary, click **Cancel**.
    *Expect:* the tabs, every setting exactly as the preset left it.
 
+### 19. Trigger options (v0.87.0) — **open, never run live**
+
+Two characters: a hypnotist H and a subject S with Triggers allowed, S in a Deep trance from H.
+`test/trigger-options.mjs` covers the logic; this is the part it cannot see — the real chat path, the
+settings screen and a reload.
+
+1. **Options while planting.** H: *"S, your trigger word is ember glow"*, *"S, you cannot move"*,
+   *"S, this trigger works only once"*, *"S, it lasts 2 hours"*, *"S, remember trigger"*.
+   *Expect:* H sees a `[trigger] Noted …` line for each option, then a SAVED line ending
+   `Options: works once, ends in 120 minutes`. S sees *"The shape of it shifts, just slightly."*
+   twice. *Failure looks like:* an option line recorded as a suggestion (H's SAVED line lists
+   extra actions), or no Noted line.
+2. **Once means once.** Wake S. H says *"ember glow"*. *Expect:* S is frozen. `/echs triggers` on S
+   shows it *used up, letting go*. H says it again: nothing. Release it (*"S, you are released from
+   ember glow"*). *Expect:* S can move, and `/echs triggers` no longer lists it. *Failure looks
+   like:* it fires twice, or it is still listed after release.
+3. **Reload while a one-shot holds.** Repeat 1–2 with a new word, and reload S's tab while frozen.
+   *Expect:* still frozen after the reload, listed as used up; releasing it removes it.
+4. **The ceiling.** On S's Triggers tab set *Longest a new trigger lasts* to **15 minutes**. Plant a
+   trigger with *"it lasts 2 hours"*. *Expect:* H's SAVED line says her settings let a trigger live at
+   most 15 minutes. Wait 15 minutes (or longer): `/echs triggers` no longer lists it, and saying the
+   word does nothing. *Failure looks like:* still firing after 15 minutes.
+5. **Whole words.** Tick *Triggers fire only on whole words* on S. Plant *"sleepy"*. H says
+   *"hey sleepyhead"*. *Expect:* nothing. H says *"so sleepy"*. *Expect:* it fires.
+6. **Scope ask, capped.** S's scope *Hypnotist only*. H plants with *"S, anyone can use it"*.
+   *Expect:* H told her settings only allow *Hypnotist only*. A third player saying the word fires
+   nothing.
+7. **Layout.** S's Triggers tab: the lifespan dropdown sits right of the scope dropdown, on the same
+   row, not overlapping it or its label, and both disappear on switching tabs.
+
 ---
 
-**Nine of nineteen topics confirmed; ten open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty topics confirmed; eleven open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 
