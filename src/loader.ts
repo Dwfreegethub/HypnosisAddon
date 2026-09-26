@@ -35,12 +35,22 @@ export const CDN_URL = "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@m
 /** The same file from GitHub directly, used only when the CDN copy fails to load. */
 export const FALLBACK_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
 
+/** The CDN address with a per-load timestamp, so the browser cannot answer from its cache. */
+export function cdnUrlForThisLoad(now: number = Date.now()): string {
+	return `${CDN_URL}?t=${now}`;
+}
+
 /** Loads the bundle from the CDN as a normal script tag. Resolves true if it ran, false if the
  * browser reported the load as failed (network error, blocked host, 404). */
 function loadFromCdn(): Promise<boolean> {
 	return new Promise((resolve) => {
 		const s = document.createElement("script");
-		s.src = CDN_URL;
+		// A fresh address every load (v0.91.1). jsDelivr sends `Cache-Control: max-age=604800`, so a
+		// browser may reuse its copy for a WEEK: the purge after each merge cleared jsDelivr's servers
+		// and not players' browsers, and "fetched fresh on every page load" (above) was not true. The
+		// timestamp defeats only the browser cache — jsDelivr ignores the query string and serves its
+		// own (purged) copy either way (checked 2026-09-26: the same `Age` for different `?t=`).
+		s.src = cdnUrlForThisLoad();
 		s.onload = () => resolve(true);
 		s.onerror = () => resolve(false);
 		(document.head || document.documentElement).appendChild(s);

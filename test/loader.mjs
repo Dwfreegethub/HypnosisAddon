@@ -63,7 +63,10 @@ const okText = (text) => async () => ({ ok: true, status: 200, text: async () =>
 // even though the CDN copy already ran.
 reset(); cdnOutcome = "load"; fetchImpl = okText("/* bundle */");
 check("CDN ok: outcome", await runLoader(), "cdn");
-check("CDN ok: one script tag, pointed at jsDelivr", scripts().map((s) => s.src), [CDN_URL]);
+check("CDN ok: one script tag, pointed at jsDelivr", scripts().map((s) => s.src.split("?")[0]), [CDN_URL]);
+// v0.91.1: jsDelivr tells browsers to keep the bundle for a week; a per-load timestamp stops a
+// refresh running last week's copy. Failure looks like: the bare URL, cacheable by the browser.
+check("CDN ok: the address carries a per-load timestamp", /\?t=\d{13}$/.test(scripts()[0]?.src ?? ""), true);
 check("CDN ok: GitHub never fetched", fetchCalls.length, 0);
 check("CDN ok: no failure notice", notices().length, 0);
 
