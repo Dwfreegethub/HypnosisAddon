@@ -8,8 +8,10 @@ import {
 	updateTriggers,
 	getTriggerDecayRate,
 	getTriggerScope,
+	getTriggerLifespan,
 	Trigger,
 	TriggerScope,
+	TRIGGER_SCOPE_KEYS,
 } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
@@ -225,6 +227,11 @@ export function triggerStrength(t: Trigger): number {
 	// DW hit). Planting now refuses below the ghost threshold, so a saved trigger should never be
 	// here — this keeps an older or edge-case zero-depth trigger honestly a ghost.
 	if (t.plantedDepth <= 0) return 0;
+	// A hard expiry ends it outright, whatever decay says: the two run side by side and the
+	// trigger ends at whichever comes first (design.md, "Trigger Overhaul", decision 2). Reading
+	// as zero strength means the prune below, and everything else that already understands a
+	// faded trigger, handles it with no second path.
+	if (isExpired(t)) return 0;
 	const perDay = decayPerDayFor(t);
 	if (perDay <= 0) return t.plantedDepth;
 	const creditFraction = Math.min((t.firings ?? 0) * FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION);
@@ -285,19 +292,88 @@ function decayPerDayFor(t: Trigger): number {
  * read after it lets go. */
 export function pruneFadedTriggers(isHolding: (t: Trigger) => boolean): number {
 	const all = listTriggers();
-	const dead = all.filter((t) => triggerStrength(t) <= 0 && !isHolding(t));
+	// A spent one-shot goes the same way and under the same rule: only once it has let go.
+	const dead = all.filter((t) => (t.spent || triggerStrength(t) <= 0) && !isHolding(t));
 	if (!dead.length) return 0;
 	for (const t of dead) {
-		log(`trigger "${t.phrase}" has faded away entirely (planted ${t.plantedDepth}, by ${t.installedByName})`);
-		forgetTrigger(t.phrase);
+		const why = t.spent ? "was used up" : isExpired(t) ? "has expired" : "has faded away entirely";
+		log(`trigger "${t.phrase}" ${why} (planted ${t.plantedDepth}, by ${t.installedByName})`);
+		forgetTrigger(t.key);
 	}
 	return dead.length;
+}
+
+/** Past its hard end. */
+export function isExpired(t: Trigger, now: number = Date.now()): boolean {
+	return typeof t.expiresAt === "number" && now >= t.expiresAt;
+}
+
+/** Can this trigger still go off? A spent one-shot and an expired trigger both linger in storage
+ * while they are still holding the subject (so they can still be released), but neither fires. */
+export function triggerCanFire(t: Trigger): boolean {
+	return !t.spent && !isExpired(t);
+}
+
+/** A one-shot has fired: it will not fire again. Deleted at once if it is holding nothing;
+ * otherwise it stays, spent, until it lets go — see `forgetIfSpent`. Deleting it while it holds
+ * would strand its effects with nothing left to release them. */
+export function markSpent(t: Trigger, holding: boolean): void {
+	if (!t.oneShot) return;
+	t.spent = true;
+	if (holding) {
+		updateTriggers();
+		log(`one-shot trigger "${t.phrase}" is spent; kept until it lets go`);
+		return;
+	}
+	forgetTrigger(t.key);
+	log(`one-shot trigger "${t.phrase}" is spent and gone`);
+}
+
+/** The other half of markSpent: a spent one-shot that has just let go is removed. */
+export function forgetIfSpent(t: Trigger): void {
+	if (!t.spent) return;
+	forgetTrigger(t.key);
+	log(`one-shot trigger "${t.phrase}" let go and is gone`);
+}
+
+/** Does this line fire this trigger? Phrase and line are both already normalised (lower case,
+ * words separated by single spaces), so a whole-word match is the phrase with a space or the
+ * end of the line on either side. */
+export function phraseMatches(t: Trigger, normalisedText: string): boolean {
+	if (!t.phrase) return false;
+	if (!(t.strict || getFeatures().strictTriggerMatch)) return normalisedText.includes(t.phrase);
+	return ` ${normalisedText} `.includes(` ${t.phrase} `);
+}
+
+/** "45 minutes", "2 hours", "3 days" — for a known, exact span. */
+export function describeSpan(ms: number): string {
+	const minutes = Math.max(1, Math.round(ms / 60_000));
+	if (minutes < 120) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+	const hours = Math.round(minutes / 60);
+	if (hours < 48) return `${hours} hours`;
+	return `${Math.round(hours / 24)} days`;
+}
+
+/** A trigger's options beyond its actions, in words, or "" for a plain trigger. Used by the list
+ * and the hypnotist's SAVED line. Never names the phrase. */
+export function describeOptions(t: Trigger): string {
+	const parts: string[] = [];
+	if (t.spent) parts.push("used up, letting go");
+	else if (t.oneShot) parts.push("works once");
+	if (typeof t.expiresAt === "number") {
+		const left = t.expiresAt - Date.now();
+		parts.push(left > 0 ? `ends in ${describeSpan(left)}` : "expired");
+	}
+	if (t.strict) parts.push("whole words only");
+	if (t.scope) parts.push(`fired by: ${scopeLabel(effectiveScope(t))}`);
+	return parts.join(", ");
 }
 
 /** Human wording for how a trigger is holding up. */
 export function describeStrength(t: Trigger): string {
 	const now = triggerStrength(t);
 	const label = tierLabel(tierOf(now));
+	if (isExpired(t)) return "expired";
 	if (now <= 0) return "faded away";
 	if (now < TRIGGER_GHOST_THRESHOLD) return `a vague pull only (${now})`;
 	if (now >= t.plantedDepth) return `full strength (${now}, ${label})`;
@@ -403,7 +479,24 @@ interface Recording {
 	 * drifted between the two. */
 	plantedDepth: number;
 	plantedChemical: boolean;
+	/** Options the installer spoke while recording. See TriggerOption. */
+	oneShot?: boolean;
+	lifespanMs?: number;
+	scope?: TriggerScope;
+	strict?: boolean;
 }
+
+/** One thing the installer can say about the trigger being recorded; parsed in voice.ts.
+ * `ms: 0` clears a lifespan asked for earlier ("it lasts forever"). */
+export type TriggerOption =
+	| { kind: "once"; value: boolean }
+	| { kind: "lifespan"; ms: number }
+	| { kind: "scope"; scope: TriggerScope }
+	| { kind: "strict"; value: boolean };
+
+/** Longest lifespan an installer may ask for. Past a month the ask means nothing next to decay,
+ * and an absurd number ("lasts 99999 days") should land somewhere sane rather than overflow. */
+const MAX_REQUESTED_LIFESPAN_MS = 30 * 86_400_000;
 
 let recording: Recording | null = null;
 
@@ -431,6 +524,40 @@ onTeardown(() => {
 export function describeRecording(): string {
 	if (!recording) return "not recording a trigger";
 	return `recording "${recording.phrase}" — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
+}
+
+/** Apply an option the installer spoke while recording. Returns the message for the SUBJECT, or
+ * null when nothing is being recorded (the caller then lets the line fall through). The installer
+ * is told exactly what was noted — rule 5, and they cannot see her screen. */
+export function applyRecordingOption(option: TriggerOption): string | null {
+	if (!recording) return null;
+	let noted: string;
+	switch (option.kind) {
+		case "once":
+			recording.oneShot = option.value || undefined;
+			noted = option.value ? "it will work once, then be gone" : "it will work every time";
+			break;
+		case "lifespan":
+			if (option.ms <= 0) {
+				recording.lifespanMs = undefined;
+				noted = "no time limit of its own (decay still applies)";
+			} else {
+				recording.lifespanMs = Math.min(option.ms, MAX_REQUESTED_LIFESPAN_MS);
+				noted = `it will last ${describeSpan(recording.lifespanMs)}`;
+			}
+			break;
+		case "scope":
+			recording.scope = option.scope;
+			noted = `who can fire it: ${scopeLabel(option.scope)}`;
+			break;
+		case "strict":
+			recording.strict = option.value || undefined;
+			noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
+			break;
+	}
+	log(`trigger "${recording.phrase}" option: ${noted}`);
+	tellHypnotist(recording.hypnotistId, `[trigger] Noted for "${recording.phrase}": ${noted}.`);
+	return "The shape of it shifts, just slightly.";
 }
 
 // --- Phrase uniqueness (design.md: "Trigger Phrase Uniqueness and Override") -----------
@@ -667,15 +794,40 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		plantedChemical: recording.plantedChemical,
 		reinforcedAt: Date.now(),
 		firings: 0,
+		key: recording.phrase,
 	};
+	if (recording.oneShot) trigger.oneShot = true;
+	if (recording.strict) trigger.strict = true;
+	if (recording.scope) trigger.scope = recording.scope;
+	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
+	// subject who caps triggers at an hour gets that on every trigger planted from now on.
+	const ceilingMs = getTriggerLifespan() * 60_000;
+	const asked = recording.lifespanMs;
+	const lifespan = ceilingMs > 0 ? Math.min(asked ?? Infinity, ceilingMs) : asked;
+	if (lifespan) trigger.expiresAt = trigger.installedAt + lifespan;
+	// Whatever her settings changed about what he asked for, told to him plainly. The trigger
+	// works, just not quite as asked, and he cannot see her settings screen to find out why.
+	const notes: string[] = [];
+	if (ceilingMs > 0 && (asked === undefined || asked > ceilingMs)) {
+		notes.push(`Her settings let a trigger live at most ${describeSpan(ceilingMs)}, so it ends then.`);
+	}
+	if (trigger.scope && scopeIsWider(trigger.scope, getTriggerScope())) {
+		notes.push(`Her settings only allow "${scopeLabel(getTriggerScope())}", so that is who can fire it.`);
+	}
+	if (getFeatures().strictTriggerMatch && !trigger.strict) {
+		notes.push("Her settings make every trigger fire on the whole words only.");
+	}
 	saveTrigger(trigger);
 	const count = trigger.actions.length;
-	log(`trigger committed: "${trigger.phrase}" (${count} actions) by ${trigger.installedByName}`);
+	const options = describeOptions(trigger);
+	log(`trigger committed: "${trigger.phrase}" (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
 	tellHypnotist(
 		trigger.installedBy,
 		`[trigger] SAVED "${trigger.phrase}" — ${count} action(s): ${trigger.actions.join(", ")}. ` +
 			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +
-			`Saying it will now fire them, in or out of trance.`,
+			(options ? `Options: ${options}. ` : "") +
+			`Saying it will now fire them, in or out of trance.` +
+			(notes.length ? ` ${notes.join(" ")}` : ""),
 	);
 	recording = null;
 	return displaced
@@ -716,8 +868,24 @@ function characterFor(memberNumber: number): any {
  * Follows the same order of tests as ServerChatRoomGetAllowItem: the owner is allowed at
  * every level and is checked before the blacklist, and "Dominant" means within 25
  * reputation points, both matching BC exactly rather than inventing our own reading. */
-function speakerAllowedByScope(speaker: number): boolean {
-	const scope = getTriggerScope();
+function scopeLabel(scope: TriggerScope): string {
+	return TRIGGER_SCOPES.find((s) => s.key === scope)?.label ?? scope;
+}
+
+/** Is `a` a wider scope than `b`? Wider = later in the tightest-first list. */
+function scopeIsWider(a: TriggerScope, b: TriggerScope): boolean {
+	return TRIGGER_SCOPE_KEYS.indexOf(a) > TRIGGER_SCOPE_KEYS.indexOf(b);
+}
+
+/** The scope a trigger actually fires under: the narrower of what its installer asked for and
+ * what the subject allows. The installer can narrow it; they can never widen it (rule 1). */
+export function effectiveScope(t: Trigger): TriggerScope {
+	const global = getTriggerScope();
+	if (!t.scope) return global;
+	return scopeIsWider(t.scope, global) ? global : t.scope;
+}
+
+function speakerAllowedByScope(speaker: number, scope: TriggerScope): boolean {
 	if (scope === "hypnotist") return false;
 	// The ladder is about OTHER PEOPLE. Running it against yourself produced answers nobody
 	// chose — "everyone" and "not blacklisted" trivially include you, and the dominants rung
@@ -745,13 +913,12 @@ function speakerAllowedByScope(speaker: number): boolean {
 
 export function triggersFiredBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
-	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+	const matching = listTriggers().filter((t) => triggerCanFire(t) && phraseMatches(t, normalisedText));
 	// Yourself is decided by one setting and nothing else — including the installedBy
 	// shortcut below, which would otherwise let a trigger you somehow planted in yourself
 	// fire regardless of the setting.
 	if (speaker === Player?.MemberNumber) return getFeatures().selfTrigger ? matching : [];
-	const allowedByScope = speakerAllowedByScope(speaker);
-	return matching.filter((t) => t.installedBy === speaker || allowedByScope);
+	return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
 }
 
 /** Triggers this speaker may RELEASE by name. Deliberately looser than firing: undoing can
@@ -763,8 +930,7 @@ export function triggersReleasableBy(speaker: number, normalisedText: string): T
 	if (!normalisedText) return [];
 	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
 	if (speaker === Player?.MemberNumber) return matching;
-	const allowedByScope = speakerAllowedByScope(speaker);
-	return matching.filter((t) => t.installedBy === speaker || allowedByScope);
+	return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
 }
 
 /** For the settings screen and /hypno triggers. */

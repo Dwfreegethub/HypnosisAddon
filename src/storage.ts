@@ -166,6 +166,11 @@ export interface TrustEntry {
 /** A planted trigger. Persistent — this is the first thing the add-on stores that outlives
  * a session, which is why the doc gates it on relationship trust alone. */
 export interface Trigger {
+	/** The trigger's identity, unique per subject: whatever fires it. For a phrase trigger it IS
+	 * the phrase. Stored rather than computed so that a trigger with no phrase (touch-fired,
+	 * delayed) can exist later without deletion and de-duplication each growing a branch —
+	 * design.md, "Trigger Storage". Back-filled from `phrase` in normalise. */
+	key: string;
 	/** Normalised phrase, matched against normalised chat. */
 	phrase: string;
 	/** Suggestion ids to run, in the order they were spoken. */
@@ -193,6 +198,23 @@ export interface Trigger {
 	/** Firings since the last full reinforcement. Passive reinforcement: each one buys back
 	 * some of the elapsed time, so use slows decay without ever resetting the clock. */
 	firings: number;
+	// --- per-trigger options, added v0.87.0 (design.md, "Trigger Overhaul"). All optional: ---
+	// --- absent is exactly the behaviour every trigger had before, so none needs migrating. ---
+	/** Who the INSTALLER asked to be able to fire it. Never wider than the subject's own global
+	 * scope — the narrower of the two applies at fire time. Absent = follow the global. */
+	scope?: TriggerScope;
+	/** Hard end, as wall-clock ms, independent of decay: the trigger ends at whichever comes
+	 * first. Set from what the installer asked for, clamped to the subject's lifespan ceiling.
+	 * Absent = no hard end. */
+	expiresAt?: number;
+	/** Fires once, then removes itself. */
+	oneShot?: boolean;
+	/** A one-shot that has fired. It fires no more, and is deleted the moment it stops holding
+	 * the subject — not before, or its effects would be left with nothing to release them. */
+	spent?: boolean;
+	/** Match the phrase only as whole words ("sleepy" does not fire on "sleepyhead"). The
+	 * subject's `strictTriggerMatch` forces this on for every trigger. */
+	strict?: boolean;
 }
 
 export type TriggerScope =
@@ -203,6 +225,19 @@ export type TriggerScope =
 	| "dominants"
 	| "notblack"
 	| "everyone";
+
+/** Every scope, tightest first — the same order as TRIGGER_SCOPES in triggers.ts, which carries
+ * the labels. Here so normalise can validate a stored per-trigger scope without importing
+ * triggers.ts, which imports this module. "Narrower" means earlier in this list. */
+export const TRIGGER_SCOPE_KEYS: TriggerScope[] = [
+	"hypnotist",
+	"owner",
+	"lovers",
+	"whitelist",
+	"dominants",
+	"notblack",
+	"everyone",
+];
 
 export interface FeatureToggles {
 	/** Master switch — see menu.ts's onToggle for the "turning this off suspends the
@@ -279,6 +314,10 @@ export interface FeatureToggles {
 	 * the speechRestriction permission and the tranceCannotSpeak default, since both silence
 	 * the same way. */
 	blockOOC: boolean;
+	/** Every trigger matches whole words only, whatever the installer chose — so a trigger
+	 * cannot go off in the middle of an ordinary word. Off by default: substring matching is
+	 * what every trigger did before v0.87.0. */
+	strictTriggerMatch: boolean;
 	/** Whether YOU may fire triggers planted in you, by saying the phrase yourself.
 	 *
 	 * Its own setting rather than a rung on the scope ladder, because the ladder answers
@@ -387,6 +426,11 @@ interface HypnoAddonSettings {
 	/** Minutes a fired trigger's effects last before releasing themselves. 0 means no
 	 * limit — they stay until released by name or by the safeword. */
 	triggerDurationMinutes: number;
+	/** The longest a newly planted trigger may LIVE, in minutes; 0 = no ceiling. One of
+	 * TRIGGER_LIFESPANS. Different from triggerDurationMinutes, which is how long a FIRED
+	 * trigger's effects hold. Applies at planting only: lowering it does not shorten triggers
+	 * already in place. */
+	triggerLifespanMinutes: number;
 	/** How many induction attempts one hypnotist gets before a cooldown. One of
 	 * ATTEMPT_LIMITS; anything else is normalised back to the default on load. */
 	maxAttempts: number;
@@ -463,6 +507,7 @@ function defaultFeatures(): FeatureToggles {
 		// Off by default — OOC asides pass even while silenced. See the interface note.
 		blockOOC: false,
 		selfTrigger: false,
+		strictTriggerMatch: false,
 		triggerControl: false,
 		suppressClothing: false,
 		suppressBondage: false,
@@ -488,6 +533,7 @@ function defaultSettings(): HypnoAddonSettings {
 		triggers: [],
 		triggerScope: "hypnotist",
 		triggerDurationMinutes: 5,
+		triggerLifespanMinutes: 0,
 		maxAttempts: DEFAULT_MAX_ATTEMPTS,
 		// OFF by default, deliberately. Every existing entry carries a `lastUpdated` from
 		// whenever it was last touched, so shipping this switched on would decay months of
@@ -541,6 +587,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// on would have eaten stored trust, and there is no equivalent loss here — one fewer try
 	// per cooldown is a pace change, and it is the pace that was decided.
 	if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
+	if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
 	if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
 	// An invalid rung is DELETED, not defaulted, so the code default keeps governing it — a
 	// stored "trusted" would freeze today's default into that install forever.
@@ -561,6 +608,15 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			// fades until the subject opts in — but when they do, the clock must be honest.
 			if (typeof t.reinforcedAt !== "number") t.reinforcedAt = t.installedAt ?? Date.now();
 			if (typeof t.firings !== "number") t.firings = 0;
+			// v0.87.0. Every trigger before it was a phrase trigger, so its key is its phrase.
+			if (typeof t.key !== "string" || !t.key) t.key = t.phrase;
+			// Invalid optional values are DELETED, so the absent default governs — the
+			// skillHonour rule.
+			if (t.scope !== undefined && !TRIGGER_SCOPE_KEYS.includes(t.scope)) delete t.scope;
+			if (t.expiresAt !== undefined && !(typeof t.expiresAt === "number" && t.expiresAt > 0)) delete t.expiresAt;
+			if (typeof t.oneShot !== "boolean") delete t.oneShot;
+			if (typeof t.spent !== "boolean") delete t.spent;
+			if (typeof t.strict !== "boolean") delete t.strict;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the
@@ -968,7 +1024,8 @@ export function listTriggers(): Trigger[] {
 	return loadSettings().triggers;
 }
 
-/** Store a trigger, replacing any existing one with the SAME PHRASE. A phrase is unique per
+/** Store a trigger, replacing any existing one with the SAME KEY (for a phrase trigger, the
+ * same phrase). A phrase is unique per
  * subject (the uniqueness decision in design.md), so at most one record can hold a given word.
  * De-dupe is on the phrase alone — NOT phrase+installer, which is what used to let two people
  * coexist on one word: an override by a different hypnotist must replace the record, not sit
@@ -976,16 +1033,19 @@ export function listTriggers(): Trigger[] {
  * trigger reaches here, it has been. */
 export function saveTrigger(trigger: Trigger): void {
 	const settings = loadSettings();
-	settings.triggers = settings.triggers.filter((t) => t.phrase !== trigger.phrase);
+	// A record built without a key is a phrase trigger; say so here too, not only in normalise,
+	// or a key-less save would match every other key-less record and delete them all.
+	if (!trigger.key) trigger.key = trigger.phrase;
+	settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key);
 	settings.triggers.push(trigger);
 	saveSettings();
 }
 
-/** Remove by phrase. Returns how many went. */
-export function forgetTrigger(phrase: string): number {
+/** Remove by key. Returns how many went. */
+export function forgetTrigger(key: string): number {
 	const settings = loadSettings();
 	const before = settings.triggers.length;
-	settings.triggers = settings.triggers.filter((t) => t.phrase !== phrase);
+	settings.triggers = settings.triggers.filter((t) => t.key !== key);
 	saveSettings();
 	return before - settings.triggers.length;
 }
@@ -1104,6 +1164,29 @@ export function skillCount(): number {
 export function setMaxAttempts(limit: number): number {
 	const value = ATTEMPT_LIMITS.includes(limit) ? limit : DEFAULT_MAX_ATTEMPTS;
 	loadSettings().maxAttempts = value;
+	saveSettings();
+	return value;
+}
+
+/** The lifespan ceiling's choices. Named by minutes, stored by minutes; 0 is "no ceiling" and
+ * the default, so nobody who leaves it alone sees any change. */
+export const TRIGGER_LIFESPANS: { minutes: number; label: string }[] = [
+	{ minutes: 0, label: "No limit" },
+	{ minutes: 15, label: "15 minutes" },
+	{ minutes: 30, label: "30 minutes" },
+	{ minutes: 60, label: "1 hour" },
+	{ minutes: 120, label: "2 hours" },
+	{ minutes: 360, label: "6 hours" },
+	{ minutes: 1440, label: "1 day" },
+];
+
+export function getTriggerLifespan(): number {
+	return loadSettings().triggerLifespanMinutes;
+}
+
+export function setTriggerLifespan(minutes: number): number {
+	const value = TRIGGER_LIFESPANS.some((l) => l.minutes === minutes) ? minutes : 0;
+	loadSettings().triggerLifespanMinutes = value;
 	saveSettings();
 	return value;
 }
