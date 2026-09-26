@@ -3,9 +3,15 @@
 # Installed loaders fetch cdn/HypnosisAddon.js from jsDelivr following main. jsDelivr caches a
 # branch URL for up to 12 hours by its own documentation, so without this a release could take
 # half a day to reach testers, and two testers in one room could be on different builds for all
-# of it. The purge endpoint is jsDelivr's documented one; it was NOT reachable from the workspace
-# this was written in, so the first run of this job is its first real test. A failed purge fails
-# the job, visibly, on the Actions tab; the cost of a failure is lag, never a broken install.
+# of it. A failed purge fails the job, visibly, on the Actions tab; the cost of a failure is lag,
+# never a broken install.
+#
+# VERIFIED, NOT ASSUMED (2026-09-26). v0.91.3's purge reported success and jsDelivr went on serving
+# v0.91.2 for over ten minutes: the purge ran seconds after the push, and jsDelivr most likely
+# re-resolved `@main` before GitHub had moved the branch, caching the old commit again. A manual
+# re-run fixed it. So the job now purges, fetches what jsDelivr actually serves, compares the version
+# with package.json, and tries again — waiting between attempts — until they match, or FAILS saying
+# which version is still being served.
 name: Purge jsDelivr cache
 
 on:
@@ -14,14 +20,30 @@ on:
     paths: [cdn/HypnosisAddon.js]
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   purge:
     runs-on: ubuntu-latest
     steps:
-      - name: Purge the bundle the loader fetches
+      - uses: actions/checkout@v4
+
+      - name: Purge, then confirm jsDelivr serves this version
         run: |
-          curl -fsS --retry 3 --retry-delay 5 \
-            "https://purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js"
-          echo
+          want=$(node -p "require('./package.json').version")
+          url="https://cdn.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/cdn/HypnosisAddon.js"
+          for attempt in 1 2 3 4 5; do
+            # Give GitHub a moment to settle the branch before jsDelivr looks it up again.
+            sleep 20
+            curl -fsS --retry 3 --retry-delay 5 "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/cdn/HypnosisAddon.js" > /dev/null
+            sleep 10
+            got=$(curl -fsS "${url}?t=$(date +%s%N)" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | grep -m1 -F "$want" || true)
+            if [ "$got" = "$want" ] || [ "$got" = "v$want" ]; then
+              echo "jsDelivr serves v${want} (attempt ${attempt})."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: jsDelivr does not yet serve v${want}; purging again."
+          done
+          echo "::error::jsDelivr is still not serving v${want} after 5 purges. Re-run this workflow, or wait for its cache to expire."
+          exit 1
