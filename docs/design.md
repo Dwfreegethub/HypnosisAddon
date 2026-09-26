@@ -2238,7 +2238,7 @@ Each is a separate minor release (rule 9) with its own live test.
 | 3 | **Built v0.89.0** (`conceal.ts`). Chat concealment of the phrase (`...`), checked against R132 `ChatRoom.js`: a post-handler at 50 transforms the displayed `msg`, and the ungarbled copy in `metadata.OriginalMsg`. See *Needs Testing* item 21 |
 | 4 | **Built v0.90.0.** Instant drop: `DROP_ACTION` recorded by "you will drop into trance" (or on the start line itself), the subject's Off / One time / Unlimited ceiling, and `dropIntoTrance()` in `session.ts` behind the induction attempt's own gates. See *Needs Testing* item 22 |
 | 5 | **Built, shipped inside v0.90.0** (DW, 2026-09-25: no bump until the overhaul is finished). Spoken and mantra triggers: `say:<n>:<text>` actions, the new *Made to Speak* permission (Entranced), sent through BC's `ChatRoomSendChatMessage`. **One decision for DW to confirm:** a forced line goes through OUR trance silence (see below). See *Needs Testing* item 23 |
-| 6 | Delayed compulsions — dormant triggers armed by waking, elapsed time, or a room event (arrival or speech) |
+| 6 | **Built, shipped inside v0.90.0.** Delayed compulsions: phrase-less triggers (`fireOn` wake / arrive / speak, synthetic `key`) planted by a condition line. Wake arms on an ordinary wake by the installer and is a stored `dueAt`, polled every 5s; arrival from BC's `ServerEnter`; speech from any chat line. One-time by default, never while under, discarded by the safeword. See *Needs Testing* item 24 |
 
 **Versioning (DW, 2026-09-25):** Builds 5 and 6 ship inside v0.90.0, with no bump, until the
 overhaul is finished. This is a deliberate exception to rule 9. Their player-facing lines go under
@@ -4658,9 +4658,35 @@ the room actually receives, garbled or not.
 7. **Loop guard.** S ticks *You can fire your own triggers*; plant a line that says the trigger's
    own word. Fire it. *Expect:* said once, not forever.
 
+### 24. Delayed compulsions (Build 6, inside v0.90.0) — **open, never run live**
+
+H and S as before, plus R. `test/compulsion.mjs` drives the rules with a fake clock; the parts it
+cannot reach are BC's real `ServerEnter` message, the 5-second poller in a real tab, and a
+reload while a compulsion is armed.
+
+1. **After waking.** S under H. H: *"S, two minutes after you wake, you cannot move"*, then *"S,
+   remember trigger"*. *Expect:* H's SAVED line ends "It fires 2 minutes after they wake".
+   `/echs triggers 1`: "When: 2 minutes after you wake". H wakes S. S can move. `/echs triggers
+   1` now reads "— due in 2 minutes". About two minutes later S is frozen (within 5 seconds of due).
+   *Failure looks like:* frozen at once, never, or still listed as waiting after the wake.
+2. **Offline.** Repeat 1, then log S out right after the wake and back in after three minutes.
+   *Expect:* the freeze lands within seconds of arriving in a room.
+3. **Safeword clears it.** Plant another, wake, then `/echs safeword` before it is due. *Expect:*
+   nothing fires; `/echs triggers` does not list it.
+4. **Arrival.** R leaves. H, with S under: *"S, when R comes in, you cannot move"* (R's name),
+   remember, wake. R rejoins. *Expect:* "R entered." then S frozen. R leaving and rejoining again
+   does nothing (it was one-time).
+5. **"When I come back."** *"S, when I come back, you will say 'Welcome back.'"* (needs Made to
+   Speak). H leaves and rejoins after the wake. *Expect:* S says it.
+6. **Speech.** *"S, when R speaks, you cannot move"*, wake, R says anything. *Expect:* S frozen.
+7. **Never while under.** Plant an arrival compulsion, keep S under, have R rejoin. *Expect:*
+   nothing; after the wake, R rejoining fires it.
+8. **Old meaning kept.** S under. H: *"S, when you wake up you will feel refreshed"*. *Expect:* S
+   wakes, as this line always did; H is told nothing was set up as a compulsion.
+
 ---
 
-**Nine of twenty-four topics confirmed; fifteen open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty-five topics confirmed; sixteen open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

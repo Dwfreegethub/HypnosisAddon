@@ -24,7 +24,7 @@ import {
 	describeRelationship,
 } from "./trust";
 import { clearAllTimers, timerDeadline } from "./timers";
-import { runTeardown } from "./teardown";
+import { runTeardown, runWake, runTotalStop } from "./teardown";
 import {
 	tierOf,
 	tierLabel,
@@ -548,6 +548,10 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	// by carving exceptions into the one function that guarantees a clean exit.
 	const carried = carryThroughWake();
 	if (carried && !quiet) notify(carried);
+	// An ordinary end of a TRANCE (not of an attempt) arms delayed compulsions the hypnotist left
+	// for "after you wake" — triggers.ts. Last, so nothing above can clear what it arms; the arming
+	// is a stored due time, not a timer, so clearAllTimers could not have taken it anyway.
+	if (had) runWake(hypnotist);
 }
 
 // --- Subject side: the roll ----------------------------------------------------------
@@ -1403,6 +1407,8 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	// Same as endSession: abort any in-progress trigger recording. A safeword must leave nothing
 	// half-built, and the recording path records some lines before the session gate.
 	runTeardown();
+	// And nothing left waiting for a wake may go off after it (rule 2) — triggers.ts.
+	runTotalStop();
 	session = freshSession();
 	if (hypnotist != null) {
 		session.hypnotistId = hypnotist;

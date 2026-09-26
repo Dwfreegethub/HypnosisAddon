@@ -17,7 +17,7 @@ import {
 import { isSessionActiveWith } from "./session";
 import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
-import { onTeardown } from "./teardown";
+import { onTeardown, onWake, onTotalStop } from "./teardown";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
  *
@@ -485,6 +485,55 @@ interface Recording {
 	lifespanMs?: number;
 	scope?: TriggerScope;
 	strict?: boolean;
+	/** A delayed compulsion: fires on a condition rather than a phrase (Build 6). */
+	condition?: TriggerCondition;
+}
+
+/** What a delayed compulsion waits for (trigger overhaul Build 6). Parsed in voice.ts. */
+export interface TriggerCondition {
+	fireOn: "wake" | "arrive" | "speak";
+	/** wake: how long after. 0 = the moment they wake. */
+	delayMs?: number;
+	/** arrive/speak: who, as a normalised name, or "*" for anyone. */
+	watchName?: string;
+	/** arrive/speak: their member number, when known. */
+	watchMember?: number;
+}
+
+/** The longest "after you wake" an installer may ask for. */
+export const MAX_WAKE_DELAY_MS = 86_400_000;
+
+/** A condition in words, from the installer's side ("5 minutes after they wake"). */
+export function describeConditionFor(c: TriggerCondition, installerId: number, subject: "they" | "you"): string {
+	const verbWake = subject === "they" ? "they wake" : "you wake";
+	if (c.fireOn === "wake") return c.delayMs ? `${describeSpan(c.delayMs)} after ${verbWake}` : `the moment ${verbWake}`;
+	const who =
+		c.watchName === "*"
+			? "anyone"
+			: c.watchMember === installerId
+				? subject === "they" ? "you" : "the one who set it"
+				: (c.watchName ?? "someone");
+	return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
+}
+
+/** A stored trigger's condition in the SUBJECT's words, or null for a phrase trigger. Includes
+ * whether a wake compulsion is armed and how long is left. */
+export function describeCondition(t: Trigger): string | null {
+	if (!t.fireOn) return null;
+	const base = describeConditionFor(t as TriggerCondition, t.installedBy, "you");
+	if (t.fireOn === "wake" && t.dueAt) {
+		const left = t.dueAt - Date.now();
+		return left > 0 ? `${base} — due in ${describeSpan(left)}` : `${base} — due now`;
+	}
+	return base;
+}
+
+/** How the recording in progress is named in messages: its phrase, quoted, or its condition. */
+function recordingLabel(): string {
+	if (!recording) return "";
+	return recording.condition
+		? `the compulsion (${describeConditionFor(recording.condition, recording.hypnotistId, "they")})`
+		: `"${recording.phrase}"`;
 }
 
 /** One thing the installer can say about the trigger being recorded; parsed in voice.ts.
@@ -507,7 +556,7 @@ export function isRecording(): boolean {
 
 /** The phrase being recorded right now, if any — concealed in chat like a planted one. */
 export function recordingPhrase(): string | null {
-	return recording?.phrase ?? null;
+	return recording?.phrase || null;
 }
 
 export function cancelRecording(): void {
@@ -522,14 +571,86 @@ export function cancelRecording(): void {
 // having session.ts import this module, which would make the two circular (see teardown.ts).
 onTeardown(() => {
 	if (recording) {
-		log(`trance torn down mid-recording — abandoning "${recording.phrase}"`);
+		log(`trance torn down mid-recording — abandoning ${recordingLabel()}`);
 		recording = null;
 	}
 });
 
+// --- delayed compulsions: arming and matching (Build 6) ---------------------------------------
+//
+// "5 minutes after you wake" arms when a trance with its INSTALLER ends by an ordinary wake or
+// timeout: a due time is stored, and voice.ts's poller fires it when it comes round. A stored time,
+// not a timer, because timers die with the page and with every clearAllTimers(), and DW's rule is
+// that the clock keeps running while logged out (2026-09-25). Another hypnotist's trance does not
+// arm it — the compulsion belongs to the trance it was planted in and its installer's next ones.
+onWake((hypnotistId) => {
+	if (hypnotistId == null) return;
+	const now = Date.now();
+	let armed = 0;
+	for (const t of listTriggers()) {
+		if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
+		t.dueAt = now + (t.delayMs ?? 0);
+		armed++;
+	}
+	if (armed) {
+		updateTriggers();
+		log(`armed ${armed} wake compulsion(s) from ${hypnotistId}`);
+	}
+});
+
+// The safeword and the hard floor discard every wake compulsion, armed or waiting. Nothing that
+// was waiting for her to wake may go off minutes after she said stop (rule 2). Phrase, arrival and
+// speech triggers are left alone, exactly as the safeword has always left planted triggers.
+onTotalStop(() => {
+	const wake = listTriggers().filter((t) => t.fireOn === "wake");
+	for (const t of wake) forgetTrigger(t.key);
+	if (wake.length) log(`total stop discarded ${wake.length} wake compulsion(s)`);
+});
+
+/** Wake compulsions whose time has come. */
+export function dueCompulsions(now: number = Date.now()): Trigger[] {
+	return listTriggers().filter((t) => t.fireOn === "wake" && !!t.dueAt && t.dueAt <= now && triggerCanFire(t));
+}
+
+function nameKey(s: unknown): string {
+	return String(s ?? "")
+		.toLowerCase()
+		.replace(/[^a-z]+/g, " ")
+		.trim();
+}
+
+/** Arrival or speech compulsions this member sets off. Never the subject themself. */
+export function compulsionsFor(event: "arrive" | "speak", member: number): Trigger[] {
+	if (member === Player?.MemberNumber) return [];
+	const C = characterFor(member);
+	const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
+	return listTriggers().filter((t) => {
+		if (t.fireOn !== event || !triggerCanFire(t)) return false;
+		if (t.watchName === "*") return true;
+		if (t.watchMember === member) return true;
+		return !!t.watchName && names.includes(t.watchName);
+	});
+}
+
+/** A watched name as said ("rei", "i", "anyone") resolved against the room at planting. */
+export function resolveWatch(said: string, installerId: number): { watchName: string; watchMember?: number } | null {
+	const word = nameKey(said);
+	if (!word) return null;
+	if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
+	if (word === "i" || word === "me") {
+		return { watchName: nameKey(characterFor(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+	}
+	// Pronouns name nobody we can watch for.
+	if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
+	const inRoom = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+		(c: any) => c?.MemberNumber !== Player?.MemberNumber && (nameKey(c?.Name) === word || nameKey(c?.Nickname) === word),
+	);
+	return inRoom ? { watchName: word, watchMember: inRoom.MemberNumber } : { watchName: word };
+}
+
 export function describeRecording(): string {
 	if (!recording) return "not recording a trigger";
-	return `recording "${recording.phrase}" — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
+	return `recording ${recordingLabel()} — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
 }
 
 /** Apply an option the installer spoke while recording. Returns the message for the SUBJECT, or
@@ -563,8 +684,8 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 			noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
 			break;
 	}
-	log(`trigger "${recording.phrase}" option: ${noted}`);
-	tellHypnotist(recording.hypnotistId, `[trigger] Noted for "${recording.phrase}": ${noted}.`);
+	log(`trigger ${recordingLabel()} option: ${noted}`);
+	tellHypnotist(recording.hypnotistId, `[trigger] Noted for ${recordingLabel()}: ${noted}.`);
 	return "The shape of it shifts, just slightly.";
 }
 
@@ -656,16 +777,25 @@ function phraseAvailability(sender: number, phrase: string, isHolding: (t: Trigg
  * renamed without re-recording. */
 export function renameRecording(sender: number, phrase: string, isHolding: (t: Trigger) => boolean = () => false): void {
 	if (!recording) return;
+	// A delayed compulsion has no word to rename. Refused rather than silently converted, which
+	// would turn "5 minutes after you wake" into a phrase trigger without saying so.
+	if (recording.condition) {
+		tellHypnotist(
+			recording.hypnotistId,
+			`[trigger] You are setting up ${recordingLabel()} — say "remember trigger" to keep it, or "forget the trigger", before starting another.`,
+		);
+		return;
+	}
 	if (phrase.length < MIN_PHRASE_LENGTH) {
 		tellHypnotist(
 			recording.hypnotistId,
-			`[trigger] "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters. Kept "${recording.phrase}".`,
+			`[trigger] "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters. Kept ${recordingLabel()}.`,
 		);
 		return;
 	}
 	const refusal = phraseAvailability(sender, phrase, isHolding);
 	if (refusal) {
-		tellHypnotist(recording.hypnotistId, `${refusal} Kept "${recording.phrase}".`);
+		tellHypnotist(recording.hypnotistId, `${refusal} Kept ${recordingLabel()}.`);
 		return;
 	}
 	const old = recording.phrase;
@@ -680,8 +810,13 @@ export function beginRecording(
 	hypnotistName: string,
 	phrase: string,
 	isHolding: (t: Trigger) => boolean = () => false,
+	condition?: TriggerCondition,
 ): string {
 	const refuse = (why: string): string => { tellHypnotist(hypnotistId, why); return ""; };
+	// A delayed compulsion (Build 6) passes every gate below except the two about a WORD: it has
+	// none, so neither the length floor nor phrase uniqueness applies. Depth, permission and the
+	// ghost floor apply in full — it outlives the session exactly as a phrase trigger does.
+	if (condition) phrase = "";
 	// Refusals say plainly what's wrong rather than staying in fiction. A blocked trigger
 	// is almost always a SETUP problem — an unchecked box, not enough trust — and
 	// atmospheric text for that just leaves you guessing, which is exactly what happened
@@ -704,7 +839,7 @@ export function beginRecording(
 				"Take them deeper first; arousal does not count toward this one.",
 		);
 	}
-	if (phrase.length < MIN_PHRASE_LENGTH) {
+	if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
 	}
 	// "Chemically seeded" means exactly: it would NOT have been permitted on earned depth
@@ -729,7 +864,7 @@ export function beginRecording(
 	}
 	// Uniqueness last, once we know the plant is otherwise allowed. Refusal wording is
 	// disclosure-safe (see phraseAvailability); null means proceed, override included.
-	const unavailable = phraseAvailability(hypnotistId, phrase, isHolding);
+	const unavailable = condition ? null : phraseAvailability(hypnotistId, phrase, isHolding);
 	if (unavailable) {
 		log(`trigger plant refused: phrase "${phrase}" is unavailable`);
 		return refuse(unavailable);
@@ -741,11 +876,12 @@ export function beginRecording(
 		actions: [],
 		plantedDepth,
 		plantedChemical,
+		condition,
 	};
-	log(`recording trigger "${phrase}" for ${hypnotistName}`);
+	log(`recording ${recordingLabel()} for ${hypnotistName}`);
 	tellHypnotist(
 		hypnotistId,
-		`[trigger] RECORDING "${phrase}". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`,
+		`[trigger] RECORDING ${recordingLabel()}. Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`,
 	);
 	// The subject gets atmosphere with no phrase in it — see tellHypnotist.
 	return "Something is being set aside in you. You let it happen.";
@@ -816,10 +952,10 @@ export function recordAction(id: string): string | null {
 		return "Nothing more will fit.";
 	}
 	recording.actions.push(id);
-	log(`trigger "${recording.phrase}" now has ${recording.actions.length} action(s)`);
+	log(`trigger ${recordingLabel()} now has ${recording.actions.length} action(s)`);
 	tellHypnotist(
 		recording.hypnotistId,
-		`[trigger] Recorded ${id} into "${recording.phrase}" (${recording.actions.length} so far).`,
+		`[trigger] Recorded ${id} into ${recordingLabel()} (${recording.actions.length} so far).`,
 	);
 	return "That settles into place, waiting.";
 }
@@ -828,14 +964,14 @@ export function recordAction(id: string): string | null {
 export function commitRecording(isHolding: (t: Trigger) => boolean = () => false): string {
 	if (!recording) return "";
 	if (!recording.actions.length) {
-		tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for "${recording.phrase}", so nothing was saved.`);
+		tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for ${recordingLabel()}, so nothing was saved.`);
 		recording = null;
 		return "Whatever it was, it comes to nothing.";
 	}
 	// Re-check uniqueness at commit: the window between starting and saving is real — another
 	// hypnotist could have planted a colliding phrase while this one narrated. On a collision
 	// now, HOLD the recording open so the recorded actions are not lost; he renames and commits.
-	const unavailable = phraseAvailability(recording.hypnotistId, recording.phrase, isHolding);
+	const unavailable = recording.condition ? null : phraseAvailability(recording.hypnotistId, recording.phrase, isHolding);
 	if (unavailable) {
 		tellHypnotist(
 			recording.hypnotistId,
@@ -846,7 +982,8 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	// A genuine displacement of SOMEONE ELSE'S trigger is a notable event for her — she loses
 	// whatever she reinforced into the old one. Her own re-plant is maintenance and gets the
 	// ordinary line; either way she is never told the word.
-	const displaced = listTriggers().some((t) => t.phrase === recording!.phrase && t.installedBy !== recording!.hypnotistId);
+	const displaced =
+		!recording.condition && listTriggers().some((t) => t.phrase === recording!.phrase && t.installedBy !== recording!.hypnotistId);
 	const trigger: Trigger = {
 		phrase: recording.phrase,
 		actions: recording.actions.slice(),
@@ -859,10 +996,26 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		firings: 0,
 		key: recording.phrase,
 	};
+	// A delayed compulsion: no word, so a key of its own (design.md "Trigger Storage": the key is
+	// what makes phrase-less triggers possible), and the condition copied across.
+	const condition = recording.condition;
+	if (condition) {
+		trigger.key = `${condition.fireOn}:${recording.hypnotistId}:${trigger.installedAt}`;
+		trigger.fireOn = condition.fireOn;
+		if (condition.fireOn === "wake") trigger.delayMs = condition.delayMs ?? 0;
+		if (condition.watchName !== undefined) trigger.watchName = condition.watchName;
+		if (condition.watchMember !== undefined) trigger.watchMember = condition.watchMember;
+	}
 	// A drop trigger is one-time unless its installer said "every time" AND she allows more than
 	// once (decision 10: unspecified means one-time, and her setting is the ceiling).
 	const isDrop = trigger.actions.includes(DROP_ACTION);
-	if (recording.oneShot === true || (isDrop && (recording.oneShot !== false || getDropMode() === "once"))) {
+	// A delayed compulsion is one-time by default too (spec: "defaults to ONE_SHOT"): "5 minutes
+	// after you wake, kneel" means the next time, not every time, unless the installer says so.
+	if (
+		recording.oneShot === true ||
+		(!!condition && recording.oneShot !== false) ||
+		(isDrop && (recording.oneShot !== false || getDropMode() === "once"))
+	) {
 		trigger.oneShot = true;
 	}
 	if (recording.strict) trigger.strict = true;
@@ -891,13 +1044,13 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	saveTrigger(trigger);
 	const count = trigger.actions.length;
 	const options = describeOptions(trigger);
-	log(`trigger committed: "${trigger.phrase}" (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
+	log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
 	tellHypnotist(
 		trigger.installedBy,
-		`[trigger] SAVED "${trigger.phrase}" — ${count} action(s): ${trigger.actions.join(", ")}. ` +
+		`[trigger] SAVED ${recordingLabel()} — ${count} action(s): ${trigger.actions.join(", ")}. ` +
 			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +
 			(options ? `Options: ${options}. ` : "") +
-			`Saying it will now fire them, in or out of trance.` +
+			(condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) +
 			(notes.length ? ` ${notes.join(" ")}` : ""),
 	);
 	recording = null;

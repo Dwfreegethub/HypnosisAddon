@@ -1667,6 +1667,30 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/teardown.ts
   var cleanups = /* @__PURE__ */ new Set();
+  var wakeListeners = /* @__PURE__ */ new Set();
+  var totalStopListeners = /* @__PURE__ */ new Set();
+  function onWake(listener) {
+    wakeListeners.add(listener);
+  }
+  function runWake(hypnotistId) {
+    for (const listener of wakeListeners) {
+      try {
+        listener(hypnotistId);
+      } catch {
+      }
+    }
+  }
+  function onTotalStop(listener) {
+    totalStopListeners.add(listener);
+  }
+  function runTotalStop() {
+    for (const listener of totalStopListeners) {
+      try {
+        listener();
+      } catch {
+      }
+    }
+  }
   function onTeardown(cleanup) {
     cleanups.add(cleanup);
   }
@@ -2688,6 +2712,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } else if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
     const carried = carryThroughWake();
     if (carried && !quiet) notify(carried);
+    if (had) runWake(hypnotist);
   }
   function chemicalFloor() {
     if (!arousalCounts()) return 0;
@@ -3125,6 +3150,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     releaseCarried("total stop");
     clearAllTimers();
     runTeardown();
+    runTotalStop();
     session = freshSession();
     if (hypnotist != null) {
       session.hypnotistId = hypnotist;
@@ -3393,6 +3419,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const i = ATTEMPT_LIMITS.indexOf(current);
     return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
   }
+  var TRIGGER_CONDITIONS = ["wake", "arrive", "speak"];
   var TRIGGER_SCOPE_KEYS = [
     "hypnotist",
     "owner",
@@ -3502,6 +3529,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (typeof t.oneShot !== "boolean") delete t.oneShot;
         if (typeof t.spent !== "boolean") delete t.spent;
         if (typeof t.strict !== "boolean") delete t.strict;
+        if (t.fireOn !== void 0 && !TRIGGER_CONDITIONS.includes(t.fireOn)) delete t.fireOn;
+        if (t.delayMs !== void 0 && !(typeof t.delayMs === "number" && t.delayMs >= 0)) delete t.delayMs;
+        if (t.dueAt !== void 0 && !(typeof t.dueAt === "number" && t.dueAt > 0)) delete t.dueAt;
+        if (t.watchName !== void 0 && typeof t.watchName !== "string") delete t.watchName;
+        if (t.watchMember !== void 0 && typeof t.watchMember !== "number") delete t.watchMember;
       }
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
@@ -4295,23 +4327,96 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`TESTING: aged ${chosen.length} trigger(s) by ${days} day(s)`);
     return { refusal: null, lines, aged: chosen.length };
   }
+  var MAX_WAKE_DELAY_MS = 864e5;
+  function describeConditionFor(c, installerId, subject) {
+    const verbWake = subject === "they" ? "they wake" : "you wake";
+    if (c.fireOn === "wake") return c.delayMs ? `${describeSpan(c.delayMs)} after ${verbWake}` : `the moment ${verbWake}`;
+    const who = c.watchName === "*" ? "anyone" : c.watchMember === installerId ? subject === "they" ? "you" : "the one who set it" : c.watchName ?? "someone";
+    return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
+  }
+  function describeCondition(t) {
+    if (!t.fireOn) return null;
+    const base = describeConditionFor(t, t.installedBy, "you");
+    if (t.fireOn === "wake" && t.dueAt) {
+      const left = t.dueAt - Date.now();
+      return left > 0 ? `${base} \u2014 due in ${describeSpan(left)}` : `${base} \u2014 due now`;
+    }
+    return base;
+  }
+  function recordingLabel() {
+    if (!recording) return "";
+    return recording.condition ? `the compulsion (${describeConditionFor(recording.condition, recording.hypnotistId, "they")})` : `"${recording.phrase}"`;
+  }
   var MAX_REQUESTED_LIFESPAN_MS = 30 * 864e5;
   var recording = null;
   function isRecording() {
     return recording !== null;
   }
   function recordingPhrase() {
-    return recording?.phrase ?? null;
+    return recording?.phrase || null;
   }
   function cancelRecording() {
     recording = null;
   }
   onTeardown(() => {
     if (recording) {
-      log(`trance torn down mid-recording \u2014 abandoning "${recording.phrase}"`);
+      log(`trance torn down mid-recording \u2014 abandoning ${recordingLabel()}`);
       recording = null;
     }
   });
+  onWake((hypnotistId) => {
+    if (hypnotistId == null) return;
+    const now = Date.now();
+    let armed = 0;
+    for (const t of listTriggers()) {
+      if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
+      t.dueAt = now + (t.delayMs ?? 0);
+      armed++;
+    }
+    if (armed) {
+      updateTriggers();
+      log(`armed ${armed} wake compulsion(s) from ${hypnotistId}`);
+    }
+  });
+  onTotalStop(() => {
+    const wake = listTriggers().filter((t) => t.fireOn === "wake");
+    for (const t of wake) forgetTrigger(t.key);
+    if (wake.length) log(`total stop discarded ${wake.length} wake compulsion(s)`);
+  });
+  function dueCompulsions(now = Date.now()) {
+    return listTriggers().filter((t) => t.fireOn === "wake" && !!t.dueAt && t.dueAt <= now && triggerCanFire(t));
+  }
+  function nameKey(s) {
+    return String(s ?? "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+  }
+  function compulsionsFor(event, member) {
+    if (member === Player?.MemberNumber) return [];
+    const C = characterFor2(member);
+    const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
+    return listTriggers().filter((t) => {
+      if (t.fireOn !== event || !triggerCanFire(t)) return false;
+      if (t.watchName === "*") return true;
+      if (t.watchMember === member) return true;
+      return !!t.watchName && names.includes(t.watchName);
+    });
+  }
+  function resolveWatch(said, installerId) {
+    const word = nameKey(said);
+    if (!word) return null;
+    if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
+    if (word === "i" || word === "me") {
+      return { watchName: nameKey(characterFor2(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+    }
+    if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
+    const inRoom = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+      (c) => c?.MemberNumber !== Player?.MemberNumber && (nameKey(c?.Name) === word || nameKey(c?.Nickname) === word)
+    );
+    return inRoom ? { watchName: word, watchMember: inRoom.MemberNumber } : { watchName: word };
+  }
+  function describeRecording() {
+    if (!recording) return "not recording a trigger";
+    return `recording ${recordingLabel()} \u2014 ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
+  }
   function applyRecordingOption(option) {
     if (!recording) return null;
     let noted;
@@ -4338,8 +4443,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
         break;
     }
-    log(`trigger "${recording.phrase}" option: ${noted}`);
-    tellHypnotist(recording.hypnotistId, `[trigger] Noted for "${recording.phrase}": ${noted}.`);
+    log(`trigger ${recordingLabel()} option: ${noted}`);
+    tellHypnotist(recording.hypnotistId, `[trigger] Noted for ${recordingLabel()}: ${noted}.`);
     return "The shape of it shifts, just slightly.";
   }
   var COLLISION_REFUSAL_CAP = 4;
@@ -4385,16 +4490,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function renameRecording(sender, phrase, isHolding = () => false) {
     if (!recording) return;
+    if (recording.condition) {
+      tellHypnotist(
+        recording.hypnotistId,
+        `[trigger] You are setting up ${recordingLabel()} \u2014 say "remember trigger" to keep it, or "forget the trigger", before starting another.`
+      );
+      return;
+    }
     if (phrase.length < MIN_PHRASE_LENGTH) {
       tellHypnotist(
         recording.hypnotistId,
-        `[trigger] "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters. Kept "${recording.phrase}".`
+        `[trigger] "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters. Kept ${recordingLabel()}.`
       );
       return;
     }
     const refusal = phraseAvailability(sender, phrase, isHolding);
     if (refusal) {
-      tellHypnotist(recording.hypnotistId, `${refusal} Kept "${recording.phrase}".`);
+      tellHypnotist(recording.hypnotistId, `${refusal} Kept ${recordingLabel()}.`);
       return;
     }
     const old = recording.phrase;
@@ -4402,11 +4514,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trigger recording renamed "${old}" -> "${phrase}"`);
     tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}" \u2014 ${recording.actions.length} suggestion(s) kept.`);
   }
-  function beginRecording(hypnotistId, hypnotistName, phrase, isHolding = () => false) {
+  function beginRecording(hypnotistId, hypnotistName, phrase, isHolding = () => false, condition) {
     const refuse2 = (why) => {
       tellHypnotist(hypnotistId, why);
       return "";
     };
+    if (condition) phrase = "";
     const features = getFeatures();
     if (!features.hypnoEnabled) {
       log("trigger plant refused: hypnoEnabled off");
@@ -4423,7 +4536,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         `[trigger] Refused \u2014 planting a trigger ${refusal}. Take them deeper first; arousal does not count toward this one.`
       );
     }
-    if (phrase.length < MIN_PHRASE_LENGTH) {
+    if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
       return refuse2(`[trigger] Refused \u2014 "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
     }
     const plantedChemical = !depthAllows("triggerControl", currentDepthEarned(), currentDepthEarned());
@@ -4434,7 +4547,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         `[trigger] Refused \u2014 at this depth a trigger is too faint to ever fire (it would be a ghost). Take them deeper first.`
       );
     }
-    const unavailable = phraseAvailability(hypnotistId, phrase, isHolding);
+    const unavailable = condition ? null : phraseAvailability(hypnotistId, phrase, isHolding);
     if (unavailable) {
       log(`trigger plant refused: phrase "${phrase}" is unavailable`);
       return refuse2(unavailable);
@@ -4445,12 +4558,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       phrase,
       actions: [],
       plantedDepth,
-      plantedChemical
+      plantedChemical,
+      condition
     };
-    log(`recording trigger "${phrase}" for ${hypnotistName}`);
+    log(`recording ${recordingLabel()} for ${hypnotistName}`);
     tellHypnotist(
       hypnotistId,
-      `[trigger] RECORDING "${phrase}". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`
+      `[trigger] RECORDING ${recordingLabel()}. Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`
     );
     return "Something is being set aside in you. You let it happen.";
   }
@@ -4501,21 +4615,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return "Nothing more will fit.";
     }
     recording.actions.push(id);
-    log(`trigger "${recording.phrase}" now has ${recording.actions.length} action(s)`);
+    log(`trigger ${recordingLabel()} now has ${recording.actions.length} action(s)`);
     tellHypnotist(
       recording.hypnotistId,
-      `[trigger] Recorded ${id} into "${recording.phrase}" (${recording.actions.length} so far).`
+      `[trigger] Recorded ${id} into ${recordingLabel()} (${recording.actions.length} so far).`
     );
     return "That settles into place, waiting.";
   }
   function commitRecording(isHolding = () => false) {
     if (!recording) return "";
     if (!recording.actions.length) {
-      tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for "${recording.phrase}", so nothing was saved.`);
+      tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for ${recordingLabel()}, so nothing was saved.`);
       recording = null;
       return "Whatever it was, it comes to nothing.";
     }
-    const unavailable = phraseAvailability(recording.hypnotistId, recording.phrase, isHolding);
+    const unavailable = recording.condition ? null : phraseAvailability(recording.hypnotistId, recording.phrase, isHolding);
     if (unavailable) {
       tellHypnotist(
         recording.hypnotistId,
@@ -4523,7 +4637,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
       return "";
     }
-    const displaced = listTriggers().some((t) => t.phrase === recording.phrase && t.installedBy !== recording.hypnotistId);
+    const displaced = !recording.condition && listTriggers().some((t) => t.phrase === recording.phrase && t.installedBy !== recording.hypnotistId);
     const trigger = {
       phrase: recording.phrase,
       actions: recording.actions.slice(),
@@ -4536,8 +4650,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       firings: 0,
       key: recording.phrase
     };
+    const condition = recording.condition;
+    if (condition) {
+      trigger.key = `${condition.fireOn}:${recording.hypnotistId}:${trigger.installedAt}`;
+      trigger.fireOn = condition.fireOn;
+      if (condition.fireOn === "wake") trigger.delayMs = condition.delayMs ?? 0;
+      if (condition.watchName !== void 0) trigger.watchName = condition.watchName;
+      if (condition.watchMember !== void 0) trigger.watchMember = condition.watchMember;
+    }
     const isDrop = trigger.actions.includes(DROP_ACTION);
-    if (recording.oneShot === true || isDrop && (recording.oneShot !== false || getDropMode() === "once")) {
+    if (recording.oneShot === true || !!condition && recording.oneShot !== false || isDrop && (recording.oneShot !== false || getDropMode() === "once")) {
       trigger.oneShot = true;
     }
     if (recording.strict) trigger.strict = true;
@@ -4562,10 +4684,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveTrigger(trigger);
     const count = trigger.actions.length;
     const options = describeOptions(trigger);
-    log(`trigger committed: "${trigger.phrase}" (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
+    log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
     tellHypnotist(
       trigger.installedBy,
-      `[trigger] SAVED "${trigger.phrase}" \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` + (options ? `Options: ${options}. ` : "") + `Saying it will now fire them, in or out of trance.` + (notes.length ? ` ${notes.join(" ")}` : "")
+      `[trigger] SAVED ${recordingLabel()} \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` + (options ? `Options: ${options}. ` : "") + (condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) + (notes.length ? ` ${notes.join(" ")}` : "")
     );
     recording = null;
     return displaced ? "Something already set aside in you comes loose \u2014 and something new settles into the space it leaves." : "It settles somewhere you won't think to look for it.";
@@ -5684,6 +5806,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isTriggerSetupLine(sender, content) {
     if (!getFeatures().suppressTriggerSetup) return false;
     if (!isSessionActiveWith(sender)) return false;
+    if (personCondition(content) && mentionsAnyName(content, playerOwnNames())) return true;
     const line = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender)).text;
     if (line === null) return false;
     if (parseTriggerControl(line)) return true;
@@ -5813,6 +5936,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!text || NOT_WORDS.test(text)) return null;
     return { text, times: Math.max(1, Math.min(5, times)) };
   }
+  var COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
+  var WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|open your eyes|come out of (?:it|trance|this))|waking(?: up)?)`;
+  var COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
+  var COND_WAKE_NOW = new RegExp(String.raw`\b${COND_LEAD} ${WAKE_VERB}\b`);
+  var COND_ARRIVE = new RegExp(
+    String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`
+  );
+  var COND_SPEAK = new RegExp(
+    String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`
+  );
+  function personCondition(content) {
+    const c = parseCondition(content);
+    return !!c && c.fireOn !== "wake";
+  }
+  function parseCondition(content) {
+    const text = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const after = (m2) => text.slice(m2.index + m2[0].length).replace(/^\s*(?:(?:and|then|so)\s+)*/, "").trim();
+    let m = COND_WAKE_DELAY.exec(text);
+    if (m) {
+      const option = lifespanOption(m);
+      if (option?.kind !== "lifespan" || option.ms <= 0) return null;
+      return { fireOn: "wake", delayMs: option.ms, rest: after(m) };
+    }
+    m = COND_WAKE_NOW.exec(text);
+    if (m) return { fireOn: "wake", delayMs: 0, rest: after(m) };
+    m = COND_ARRIVE.exec(text);
+    if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
+    m = COND_SPEAK.exec(text);
+    if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
+    return null;
+  }
   function parseTriggerControl(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
@@ -5820,6 +5974,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
     const option = parseTriggerOption(content);
     if (option) return { kind: "option", option };
+    const condition = parseCondition(content);
+    if (condition) return { kind: "condition", condition };
     for (const pattern of TRIGGER_START) {
       const match = pattern.exec(text);
       if (!match) continue;
@@ -5848,6 +6004,55 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
+  var rereadingRest = false;
+  function handleConditionStart(sender, content, parsed) {
+    if (isRecording()) {
+      tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
+      return true;
+    }
+    let condition;
+    if (parsed.fireOn === "wake") {
+      condition = { fireOn: "wake", delayMs: Math.min(parsed.delayMs, MAX_WAKE_DELAY_MS) };
+    } else {
+      const watch = resolveWatch(parsed.who, sender);
+      if (!watch) return false;
+      condition = { fireOn: parsed.fireOn, ...watch };
+    }
+    const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
+    const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
+    if (!isRecording()) return true;
+    if (!parsed.rest) {
+      if (line) tellPlayer(line);
+      return true;
+    }
+    const before = describeRecording();
+    const say = SAY_NORM.test(parsed.rest) ? parseSayClause(content) : null;
+    if (say) {
+      const sayLine = recordAction(sayActionId(say.text, say.times));
+      if (line) tellPlayer(line);
+      if (sayLine) tellPlayer(sayLine);
+      return true;
+    }
+    if (TRIGGER_DROP.some((p) => p.test(parsed.rest))) {
+      const dropLine = recordAction(DROP_ACTION);
+      if (line) tellPlayer(line);
+      if (dropLine) tellPlayer(dropLine);
+      return true;
+    }
+    rereadingRest = true;
+    try {
+      handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
+    } finally {
+      rereadingRest = false;
+    }
+    if (describeRecording() === before) {
+      cancelRecording();
+      tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
+      return false;
+    }
+    if (line) tellPlayer(line);
+    return true;
+  }
   function handleTriggerControl(sender, content) {
     const parsed = parseTriggerControl(content);
     if (!parsed) return false;
@@ -5865,6 +6070,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer(message);
       return true;
     }
+    if (parsed.kind === "condition") return handleConditionStart(sender, content, parsed.condition);
     if (parsed.kind === "say") {
       if (!isRecording()) return false;
       const line = recordAction(sayActionId(parsed.text, parsed.times));
@@ -5906,7 +6112,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!steps.length) return;
     steps[0]();
     if (steps.length === 1) return;
-    const key = `trigger-drain:${trigger.installedBy}:${trigger.phrase}`;
+    const key = `trigger-drain:${trigger.installedBy}:${trigger.key}`;
     let i = 1;
     const tick = () => {
       steps[i++]();
@@ -5972,6 +6178,47 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     log(`spoke for the subject: ${text}`);
+  }
+  function fireEventCompulsions(event, member) {
+    if (isHypnotized()) return;
+    const due = compulsionsFor(event, member);
+    for (const t of due) {
+      log(`compulsion (${event}) set off by ${member}`);
+      fireTrigger(t, t.installedBy);
+    }
+  }
+  function noteArrival(member) {
+    try {
+      fireEventCompulsions("arrive", member);
+    } catch (err) {
+      warn("arrival compulsion failed:", err);
+    }
+  }
+  var COMPULSION_POLL_MS = 5e3;
+  var compulsionPoll = null;
+  function checkDueCompulsions(now = Date.now()) {
+    if (isHypnotized()) return 0;
+    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return 0;
+    const due = dueCompulsions(now);
+    for (const t of due) {
+      if (!t.oneShot) {
+        t.dueAt = void 0;
+        updateTriggers();
+      }
+      log(`compulsion due: ${describeCondition(t)}`);
+      fireTrigger(t, t.installedBy);
+    }
+    return due.length;
+  }
+  function installCompulsions() {
+    if (compulsionPoll) return;
+    compulsionPoll = setInterval(() => {
+      try {
+        checkDueCompulsions();
+      } catch (err) {
+        warn("compulsion check failed:", err);
+      }
+    }, COMPULSION_POLL_MS);
   }
   function fireTrigger(trigger, speaker) {
     if (!triggersArmed()) {
@@ -6115,7 +6362,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const reveal = triggerPhrasesVisible(fullRequested);
     return [
       `You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
-      ...all.map((t, i) => `${i + 1}. ${reveal ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`)
+      ...all.map((t, i) => `${i + 1}. ${reveal && t.phrase ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`)
     ];
   }
   function describeTriggerDetail(index, fullRequested) {
@@ -6127,7 +6374,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const lines = [
       `Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
       `Strength now: ${describeStrength(t)}.`,
-      triggerPhrasesVisible(fullRequested) ? `Word: "${t.phrase}".` : "Word: hidden. Show trigger words, on the Triggers tab, reveals it.",
+      t.fireOn ? `When: ${describeCondition(t)}.` : triggerPhrasesVisible(fullRequested) ? `Word: "${t.phrase}".` : "Word: hidden. Show trigger words, on the Triggers tab, reveals it.",
       `What it does: ${t.actions.map(describeAction).join("; ")}.`
     ];
     const options = describeOptions(t);
@@ -6169,7 +6416,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return null;
   }
   function timerKey(trigger) {
-    return `trigger:${trigger.installedBy}:${trigger.phrase}`;
+    return `trigger:${trigger.installedBy}:${trigger.key}`;
   }
   function scheduleAutoRelease(trigger) {
     const minutes = getTriggerDuration();
@@ -6229,6 +6476,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const text = normalize(content);
     if (!text) return false;
     if (isForcedEcho(sender, content)) return false;
+    if (rereadingRest) return false;
+    fireEventCompulsions("speak", sender);
     const matched = triggersFiredBy(sender, text);
     if (!matched.length) return false;
     for (const trigger of matched) {
@@ -6711,6 +6960,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function handleSpokenLine(sender, content) {
+    if (!rereadingRest && personCondition(content) && handleTriggerControl(sender, content)) return;
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
     const line = scope.text;
     if (line !== null) {
@@ -7282,6 +7532,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
       body(`"Missy, you will say 'I obey' three times"   \u2190 words, aloud`),
       dim("Words need Made to Speak on; a gag still garbles them."),
+      gap(),
+      head("Compulsions \u2014 waiting for something, not a word"),
+      body(`"Missy, five minutes after you wake, you will kneel"`),
+      body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
+      dim('Then "remember trigger". Once, unless you say it works every time;'),
+      dim("never while they are under. Their safeword clears the after-waking ones."),
       dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
       head("Firing and releasing one"),
@@ -7931,7 +8187,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const top = plantedRowTop(slot);
       const holding = isTriggerInEffect(t);
       drawLeftTextFit(
-        `${start + slot + 1}. ${reveal ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`,
+        `${start + slot + 1}. ${reveal && t.phrase ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`,
         CONTENT_LEFT,
         top + PLANTED_ROW_HEIGHT / 2,
         PLANTED_TEXT_MAX,
@@ -10426,6 +10682,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           }
         }
         const result = next(args);
+        if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
+          noteArrival(data.Sender);
+        }
         if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter) {
           try {
             handleSpokenLine(data.Sender, inCharacter);
@@ -10493,6 +10752,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
   safely("trigger word concealment", installConcealment);
+  safely("delayed compulsions", installCompulsions);
   safely("self-touch hook", () => installSelfTouch(modApi));
   safely("orgasm denial hooks", () => installDenial(modApi));
   safely("follow-leash hook", () => installFollow(modApi));

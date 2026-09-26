@@ -12,7 +12,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, listTriggers, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, listTriggers, updateTriggers, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -23,6 +23,7 @@ import {
 	currentHypnotistId,
 	saveForReconnect,
 	isSessionLive,
+	isHypnotized,
 	dropIntoTrance,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
@@ -79,6 +80,13 @@ import {
 	DROP_ACTION,
 	sayActionId,
 	parseSayAction,
+	TriggerCondition,
+	MAX_WAKE_DELAY_MS,
+	resolveWatch,
+	describeRecording,
+	compulsionsFor,
+	dueCompulsions,
+	describeCondition,
 } from "./triggers";
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
@@ -1537,6 +1545,8 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	// Scoped the same way handleSpokenLine is, and for the same reason: this decides whether
 	// to HIDE the line from the subject, so reading another subject's clause here would hide a
 	// line that was never part of our setup at all.
+	// A person-watching compulsion is read whole, as handleSpokenLine reads it.
+	if (personCondition(content) && mentionsAnyName(content, playerOwnNames())) return true;
 	const line = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender)).text;
 	if (line === null) return false;
 	if (parseTriggerControl(line)) return true;
@@ -1678,7 +1688,63 @@ export function parseSayClause(raw: string): { text: string; times: number } | n
 	return { text, times: Math.max(1, Math.min(5, times)) };
 }
 
+// Delayed compulsions (trigger overhaul Build 6): a start line that names a CONDITION instead of a
+// word. "Missy, five minutes after you wake, you will kneel" · "when Rei comes in, you will kneel"
+// · "when I speak, you will say 'yes'". Matched on the digit-keeping normalisation the options use,
+// since "5 minutes" must survive. Checked before TRIGGER_START, whose "when you hear (.+)" would
+// otherwise read "when you hear Rei's voice" as a trigger word.
+const COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
+const WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|open your eyes|come out of (?:it|trance|this))|waking(?: up)?)`;
+const COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
+const COND_WAKE_NOW = new RegExp(String.raw`\b${COND_LEAD} ${WAKE_VERB}\b`);
+const COND_ARRIVE = new RegExp(
+	String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`,
+);
+const COND_SPEAK = new RegExp(
+	String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`,
+);
+
+/** What a condition line asks for, before the name is resolved against the room. `rest` is what
+ * follows the clause ("you will kneel"), lower-cased; "" when the line ends at the clause. */
+export type ParsedCondition =
+	| { fireOn: "wake"; delayMs: number; rest: string }
+	| { fireOn: "arrive" | "speak"; who: string; rest: string };
+
+/** Does this line plant a compulsion that watches a person (arrival or speech)? */
+function personCondition(content: string): boolean {
+	const c = parseCondition(content);
+	return !!c && c.fireOn !== "wake";
+}
+
+/** The pure half, exported for the suite. */
+export function parseCondition(content: string): ParsedCondition | null {
+	const text = content
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	const after = (m: RegExpExecArray) =>
+		text
+			.slice(m.index + m[0].length)
+			.replace(/^\s*(?:(?:and|then|so)\s+)*/, "")
+			.trim();
+	let m = COND_WAKE_DELAY.exec(text);
+	if (m) {
+		const option = lifespanOption(m);
+		if (option?.kind !== "lifespan" || option.ms <= 0) return null;
+		return { fireOn: "wake", delayMs: option.ms, rest: after(m) };
+	}
+	m = COND_WAKE_NOW.exec(text);
+	if (m) return { fireOn: "wake", delayMs: 0, rest: after(m) };
+	m = COND_ARRIVE.exec(text);
+	if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
+	m = COND_SPEAK.exec(text);
+	if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
+	return null;
+}
+
 export type TriggerControl =
+	| { kind: "condition"; condition: ParsedCondition }
 	| { kind: "say"; text: string; times: number }
 	/** `drop` when the start line carried its own drop clause ("when you hear X, you will drop
 	 * into trance"): the phrase is X, and the drop is recorded straight away. */
@@ -1699,6 +1765,8 @@ export function parseTriggerControl(content: string): TriggerControl {
 	if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
 	const option = parseTriggerOption(content);
 	if (option) return { kind: "option", option };
+	const condition = parseCondition(content);
+	if (condition) return { kind: "condition", condition };
 	for (const pattern of TRIGGER_START) {
 		const match = pattern.exec(text);
 		if (!match) continue;
@@ -1733,6 +1801,70 @@ export function parseTriggerControl(content: string): TriggerControl {
 	return null;
 }
 
+/** True while the rest of a condition line is being re-read as a suggestion to record. Firing is
+ * skipped for that pass: the words after "when Rei comes in," are an instruction being planted,
+ * not something said to the room that should set anything off. */
+let rereadingRest = false;
+
+/** "five minutes after you wake, you will kneel": begin recording a delayed compulsion, then
+ * record what follows the clause through the ordinary paths, exactly as if said on its own line.
+ *
+ * A clause with nothing recordable after it ("when you wake up you will feel refreshed") is NOT a
+ * compulsion: the recording is dropped and the line falls through, so it does what it always did.
+ * That keeps the old meaning of such lines — including waking her, since they contain "wake". A
+ * clause alone on its line ("when Rei comes in,") stays open for the lines that follow. */
+function handleConditionStart(sender: number, content: string, parsed: ParsedCondition): boolean {
+	if (isRecording()) {
+		tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
+		return true;
+	}
+	let condition: TriggerCondition;
+	if (parsed.fireOn === "wake") {
+		condition = { fireOn: "wake", delayMs: Math.min(parsed.delayMs, MAX_WAKE_DELAY_MS) };
+	} else {
+		const watch = resolveWatch(parsed.who, sender);
+		if (!watch) return false; // "when she comes in" names nobody we can watch for
+		condition = { fireOn: parsed.fireOn, ...watch };
+	}
+	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
+	const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
+	if (!isRecording()) return true; // refused, and the refusal already went to the hypnotist
+	if (!parsed.rest) {
+		if (line) tellPlayer(line);
+		return true;
+	}
+	const before = describeRecording();
+	// Words to say come from the RAW line — they are spoken back verbatim.
+	const say = SAY_NORM.test(parsed.rest) ? parseSayClause(content) : null;
+	if (say) {
+		const sayLine = recordAction(sayActionId(say.text, say.times));
+		if (line) tellPlayer(line);
+		if (sayLine) tellPlayer(sayLine);
+		return true;
+	}
+	if (TRIGGER_DROP.some((p) => p.test(parsed.rest))) {
+		const dropLine = recordAction(DROP_ACTION);
+		if (line) tellPlayer(line);
+		if (dropLine) tellPlayer(dropLine);
+		return true;
+	}
+	// Anything else: re-read with her name on the front, through every ordinary path, which records
+	// rather than performs while a recording is open.
+	rereadingRest = true;
+	try {
+		handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
+	} finally {
+		rereadingRest = false;
+	}
+	if (describeRecording() === before) {
+		cancelRecording();
+		tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
+		return false;
+	}
+	if (line) tellPlayer(line);
+	return true;
+}
+
 /** Handle "your trigger word is X" / "remember trigger" / "forget the trigger".
  * Returns true if the line was one of these. */
 function handleTriggerControl(sender: number, content: string): boolean {
@@ -1759,6 +1891,7 @@ function handleTriggerControl(sender: number, content: string): boolean {
 		tellPlayer(message);
 		return true;
 	}
+	if (parsed.kind === "condition") return handleConditionStart(sender, content, parsed.condition);
 	if (parsed.kind === "say") {
 		// Only mid-recording. Outside one, "you will say ..." is not a thing this add-on does live —
 		// and falling through lets the line be read as whatever else it might be.
@@ -1823,7 +1956,7 @@ function drainTriggerSteps(trigger: Trigger, steps: (() => void)[]): void {
 	if (!steps.length) return;
 	steps[0]();
 	if (steps.length === 1) return;
-	const key = `trigger-drain:${trigger.installedBy}:${trigger.phrase}`;
+	const key = `trigger-drain:${trigger.installedBy}:${trigger.key}`;
 	let i = 1;
 	const tick = () => {
 		steps[i++]();
@@ -1920,6 +2053,68 @@ function speakForSubject(text: string): void {
 		return;
 	}
 	log(`spoke for the subject: ${text}`);
+}
+
+// --- delayed compulsions: firing (Build 6) ---------------------------------------------------------
+//
+// A compulsion is post-hypnotic by definition: none fires while she is under. It fires AS ITS
+// INSTALLER — they set the condition, so it is their trigger going off, whoever walked in or spoke.
+// Scope is not asked (nobody said anything to fire it); every action still re-checks its own
+// permission and the trigger's strength in fireTrigger, as every trigger does.
+
+/** Arrival or speech: fire whatever this member's arrival or voice was waiting for. */
+function fireEventCompulsions(event: "arrive" | "speak", member: number): void {
+	if (isHypnotized()) return;
+	const due = compulsionsFor(event, member);
+	for (const t of due) {
+		log(`compulsion (${event}) set off by ${member}`);
+		fireTrigger(t, t.installedBy);
+	}
+}
+
+/** Someone entered the room — main.ts, from BC's "ServerEnter" action message (R132: sent with
+ * the arriving member as Sender, after ChatRoomSyncMemberJoin has put them in the room). */
+export function noteArrival(member: number): void {
+	try {
+		fireEventCompulsions("arrive", member);
+	} catch (err) {
+		warn("arrival compulsion failed:", err);
+	}
+}
+
+const COMPULSION_POLL_MS = 5_000;
+let compulsionPoll: ReturnType<typeof setInterval> | null = null;
+
+/** Wake compulsions whose time has come, fired. Waits while she is under (a new trance started
+ * first) and while she is not in a room — due is "at or after", and the clock never stops. */
+export function checkDueCompulsions(now: number = Date.now()): number {
+	if (isHypnotized()) return 0;
+	if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return 0;
+	const due = dueCompulsions(now);
+	for (const t of due) {
+		// An every-time compulsion goes back to waiting for the next wake; a one-time one is used
+		// up by fireTrigger (markSpent). Cleared first so a throw below cannot fire it twice.
+		if (!t.oneShot) {
+			t.dueAt = undefined;
+			updateTriggers();
+		}
+		log(`compulsion due: ${describeCondition(t)}`);
+		fireTrigger(t, t.installedBy);
+	}
+	return due.length;
+}
+
+/** Started once at load (main.ts). Its own interval, NOT timers.ts: every trance end calls
+ * clearAllTimers(), and this has to outlive all of them. */
+export function installCompulsions(): void {
+	if (compulsionPoll) return;
+	compulsionPoll = setInterval(() => {
+		try {
+			checkDueCompulsions();
+		} catch (err) {
+			warn("compulsion check failed:", err);
+		}
+	}, COMPULSION_POLL_MS);
 }
 
 function fireTrigger(trigger: Trigger, speaker: number): void {
@@ -2166,7 +2361,7 @@ export function describeTriggerList(fullRequested: boolean): string[] {
 	const reveal = triggerPhrasesVisible(fullRequested);
 	return [
 		`You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
-		...all.map((t, i) => `${i + 1}. ${reveal ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`),
+		...all.map((t, i) => `${i + 1}. ${reveal && t.phrase ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`),
 	];
 }
 
@@ -2181,7 +2376,9 @@ export function describeTriggerDetail(index: number, fullRequested: boolean): st
 	const lines = [
 		`Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
 		`Strength now: ${describeStrength(t)}.`,
-		triggerPhrasesVisible(fullRequested)
+		t.fireOn
+			? `When: ${describeCondition(t)}.`
+			: triggerPhrasesVisible(fullRequested)
 			? `Word: "${t.phrase}".`
 			: "Word: hidden. Show trigger words, on the Triggers tab, reveals it.",
 		`What it does: ${t.actions.map(describeAction).join("; ")}.`,
@@ -2246,10 +2443,10 @@ export function clearAllRefusal(): string | null {
 	return null;
 }
 
-/** Keyed by installer AND phrase — two people can plant the same word, and one wearing
+/** Keyed by installer AND key (the phrase, for a phrase trigger) — two people can plant the same word, and one wearing
  * off must not cancel the other's. */
 function timerKey(trigger: Trigger): string {
-	return `trigger:${trigger.installedBy}:${trigger.phrase}`;
+	return `trigger:${trigger.installedBy}:${trigger.key}`;
 }
 
 /** Let a fired trigger wear off on its own. Re-firing restarts the clock rather than
@@ -2329,6 +2526,10 @@ function handleTriggerFiring(sender: number, content: string): boolean {
 	if (!text) return false;
 	// A line a trigger made us say never fires our own triggers — see FORCED_ECHOES.
 	if (isForcedEcho(sender, content)) return false;
+	// Nor does the rest of a compulsion being planted — see handleConditionStart.
+	if (rereadingRest) return false;
+	// Someone speaking may be what a compulsion is waiting for.
+	fireEventCompulsions("speak", sender);
 	const matched = triggersFiredBy(sender, text);
 	if (!matched.length) return false;
 	// Don't double-fire while the installer already has us under and is speaking
@@ -3021,6 +3222,13 @@ export function handleSpokenLine(sender: number, content: string): void {
 	//
 	// It only ever differs from `content` when the line named SOMEONE ELSE IN THE ROOM in
 	// vocative position, so a one-subject scene sees byte-identical behaviour.
+	// A compulsion that watches a PERSON names them — "Missy, when Rei comes in, kneel" — and the
+	// addressee scoping below would read that "Rei" as a second person being spoken to and cut the
+	// line at "Missy, when". The name in a condition clause is who to watch, not who is addressed,
+	// so such a line is taken whole, still behind the same trance-and-name gate handleTriggerControl
+	// applies to everything it plants.
+	if (!rereadingRest && personCondition(content) && handleTriggerControl(sender, content)) return;
+
 	const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
 	const line = scope.text;
 
