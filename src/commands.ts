@@ -1,7 +1,7 @@
 import { log, isTestingMode, isDebugFlagOn, setDebugFlag, isDebugLogging } from "./log";
 import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { describeMatch, isTriggerInEffect, describeTriggerList } from "./voice";
+import { describeMatch, isTriggerInEffect, describeTriggerList, describeTriggerDetail, clearAllRefusal } from "./voice";
 import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
 import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
 import {
@@ -12,6 +12,7 @@ import {
 	describeStorage,
 	listTriggers,
 	forgetTrigger,
+	forgetAllTriggers,
 	forgetTrust,
 	listTrustRaw,
 	exportSettings,
@@ -671,31 +672,37 @@ const COMMANDS: HypnoCommand[] = [
 		// appears in the testing room and is gone outside it, so the screen never documents an
 		// argument that would ignore you.
 		get args() {
-			return isTestingMode() ? "[full]" : "";
+			return isTestingMode() ? "[number] [full]" : "[number]";
 		},
-		Description: "List the triggers planted in you, and which are currently holding you",
+		Description: "List the triggers planted in you; add a number to see what one does",
 		Action: (args: string) => {
-			const all = listTriggers();
-			if (!all.length) {
-				reply("no triggers planted");
+			// Two levels (v0.88.0): the list says how many, who and how strong; a number shows
+			// what that one does. Whether the WORD shows is decided in voice.ts — the player's
+			// "Show trigger words" setting, or `full` in the testing room. You can always see
+			// that a trigger exists and, one step further, what it does; nothing happens to you
+			// unseen. Only the word itself is optional.
+			const words = args.trim().toLowerCase().split(/\s+/).filter(Boolean);
+			const full = isTestingMode() && words.includes("full");
+			const number = words.find((w) => w !== "full");
+			if (number !== undefined) {
+				describeTriggerDetail(Number(number), full).forEach(reply);
 				return;
 			}
-			// Whether the phrases show is decided in voice.ts — the player's own "Show
-			// trigger words" setting, or `full` while we are still the only ones running
-			// this. You always see that a trigger exists, who planted it and what it does,
-			// so nothing is ever happening to you unseen; only the word itself is optional.
-			describeTriggerList(isTestingMode() && firstWord(args).toLowerCase() === "full").forEach(reply);
-			reply(
-				"Remove one with /hypno forgettrigger <number>, or all of them with 'all' — " +
-					"but not while it is holding you. /hypno safeword is the way out of that.",
-			);
+			const lines = describeTriggerList(full);
+			lines.forEach(reply);
+			if (lines.length > 1) {
+				reply(
+					"See what one does with /hypno triggers <number>. Remove one with /hypno forgettrigger <number> " +
+						"(not while it is holding you; /hypno safeword is the way out of that).",
+				);
+			}
 		},
 	},
 	{
 		Tag: "forgettrigger",
 		group: "Data",
 		args: "<number|all>",
-		Description: "Remove a planted trigger by its number from /hypno triggers, or all",
+		Description: "Remove a planted trigger by its number from /hypno triggers, or all (asks first)",
 		Action: (args: string) => {
 			const token = args.trim().toLowerCase();
 			if (!token) {
@@ -713,16 +720,27 @@ const COMMANDS: HypnoCommand[] = [
 			// rather than saying so. The safeword exists for that and is meant to be said
 			// out loud, so this refuses and points at it.
 			const all = listTriggers();
-			if (token === "all") {
-				const held = all.filter(isTriggerInEffect);
-				const free = all.filter((t) => !isTriggerInEffect(t));
-				free.forEach((t) => forgetTrigger(t.key));
-				reply(
-					held.length
-						? `forgot ${free.length} trigger(s). ${held.length} still holding you — ` +
-								`/hypno safeword clears everything and always works.`
-						: `forgot ${free.length} trigger(s)`,
-				);
+			// ALL: refused while a trigger or a session has hold of you, and asks first (DW,
+			// 2026-09-25). It used to quietly keep the held ones and delete the rest; now you
+			// clear what is holding you, then clear the list, and say so twice.
+			if (token === "all" || token === "all confirm") {
+				if (!all.length) {
+					reply("no triggers planted");
+					return;
+				}
+				const refusal = clearAllRefusal();
+				if (refusal) {
+					reply(refusal);
+					return;
+				}
+				if (token === "all") {
+					reply(
+						`This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. ` +
+							"Type /hypno forgettrigger all confirm to do it.",
+					);
+					return;
+				}
+				reply(`forgot ${forgetAllTriggers()} trigger(s)`);
 				return;
 			}
 			const index = Number(token);

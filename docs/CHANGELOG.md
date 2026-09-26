@@ -20,6 +20,45 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-09-25 (v0.88.0) — the trigger inspector: summary, detail, Planted tab, Clear All rules
+
+Build 2 of the *Trigger Overhaul* (decisions 7–9 in `design.md`).
+
+**Two levels of looking, DW's call.** `/hypno triggers` used to print every trigger with its
+action ids. It now prints how many, who planted each (name and member number), and the strength
+line. `/hypno triggers <n>` prints the rest: the actions in words, options, and whether it is
+holding. This is concealment by effort, not secrecy: the rule that nothing happens to the subject
+that they *cannot* see still holds, one step further in. The phrase follows *Show trigger words* at
+both levels, and `full` still works in the testing room.
+
+**Actions in words.** `describeAction()` renders a suggestion as its first help example ("you
+cannot move"). That text is test-checked to match its own suggestion, so it cannot describe
+something the trigger does not do. Body-part and compel ids get their own wording.
+
+**One rule, two surfaces.** `clearAllRefusal()` (`voice.ts`) is what both `forgettrigger all` and
+the settings screen's Clear All ask, so they refuse on the same terms: a live session in any phase
+(`isSessionLive`, the settings lock's definition), or any trigger holding. The old
+`forgettrigger all` kept the held ones and deleted the rest. It now refuses outright, per DW:
+clear what holds you first. Both ask once: the command wants `all confirm`, and the button arms for
+5 seconds, as Reset does. The warning names triggers "you cannot see", ahead of Build 3.
+
+**The Planted tab** is a render tab with its own click handler, and that handler consumes
+**every** click. A self-drawing tab that returned false would fall through to the Stats tab's
+inline handling, whose Export/Import/Reset buttons sit at those coordinates. `menu-layout.mjs`
+clicks there to check. Purge and Clear All are deliberately **not** under the settings lock:
+`forgettrigger` has always been "never gated", and what protects a scene is the refusal while a
+trigger holds, which applies in full. Detail view uses the same summary and detail functions as
+chat (`triggerSummary`, `describeTriggerDetail`), so the two cannot drift.
+
+**Also:** the `menu-layout` check "Triggers: all four still show" had been passing by accident
+since v0.87.0 added a fifth checkbox. Four fit, and the fifth is reached by scrolling. The check
+now says so and asserts the scroll bar.
+
+`test/trigger-inspector.mjs`, 49 checks; 19 new in `menu-layout.mjs`; `triggers.mjs` updated for
+the two-level list. Verified by mutation: dropping the session refusal, the holding refusal, Purge's
+holding check, the arm step, or the command's confirm each turned its own checks red. So did
+putting actions back in the summary. Live steps: *Needs Testing* item 20.
+
 ### Added 2026-09-25 (v0.87.0) — trigger options: one-shot, expiry, lifespan ceiling, whole words, per-trigger scope
 
 Build 1 of the *Trigger Overhaul* in `design.md` (DW's outside spec, `job.md`, reconciled against the

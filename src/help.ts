@@ -266,7 +266,7 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, that trigger holds" — said while under with the one who`),
 		body("planted it — resets the clock. Firing it only slows the fade."),
 		dim("A trigger opened to arousal (above) fades fast whatever the rate."),
-		dim("/hypno triggers lists each one's strength and the tier it still reaches."),
+		dim("/hypno triggers lists each one's strength; add its number to see what it does."),
 		gap(),
 		head("Carrying a suggestion past waking"),
 		body(`"Missy, you cannot tell what you are wearing"`),

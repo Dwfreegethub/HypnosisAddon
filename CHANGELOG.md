@@ -12,6 +12,21 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.88.0 · 25 September 2026
+
+- **`/echs triggers` is a short summary now.** It says how many triggers you have, who planted
+  each one and how strong it still is. It no longer says what they do.
+- **To see what a trigger does, add its number:** `/echs triggers 2`. You have to go out of your
+  way to look. The trigger word stays hidden unless you have ticked *Show trigger words*.
+- **New settings tab: Planted.** It lists your triggers. **Details** shows what one does, and
+  **Purge** removes it. A trigger that is holding you cannot be purged. Use the safeword, or wait
+  for it to let go.
+- **Clear All, on the Planted tab, removes every trigger at once,** including any you cannot see.
+  It asks you to click twice. It will not run while a trigger is holding you or a hypnosis session
+  is running, so clear that first.
+- **`/echs forgettrigger all` follows the same rules.** It warns you first, and only removes
+  everything when you type `/echs forgettrigger all confirm`.
+
 ## v0.87.0 · 25 September 2026
 
 - **Hypnotists can shape a trigger while planting it.** Between naming the trigger word and saying

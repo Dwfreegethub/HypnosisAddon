@@ -148,10 +148,10 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 | `effects.ts` | The Emoticon-item technique for injecting BC effects (`Freeze`, `BlockWardrobe`, `DenialMode`) |
 | `recovery.ts` | Surviving a disconnect; clearing orphaned effects on every load |
 | `remote.ts` | The hypnotist's panel, hooked onto the subject's Information Sheet |
-| `menu.ts` | The subject's settings screen — six tabs: Permissions, Trance Defaults, Awareness, Triggers, Depth, Stats |
+| `menu.ts` | The subject's settings screen — seven tabs: Permissions, Trance Defaults, Awareness, Triggers, Planted, Depth, and Stats behind Advanced |
 | `panel.ts` | Shared canvas chrome for the settings and help screens: tab geometry, borders, `CONTENT_LEFT` |
 | `help.ts` | The help screen, generated *from* the pattern library and command table so it cannot fall behind them |
-| `commands.ts` | Every `/hypno` subcommand, plus `/bot` |
+| `commands.ts` | Every `/hypno` subcommand, registered as `/hypno` and `/echs` (no top-level `/bot` since v0.86.1) |
 | `messaging.ts` | The hidden channel — our `HypnoMsg` tag over BC's `Type:"Hidden"` chat messages |
 | `notify.ts` | Where text goes: private to the subject, or emoted so the room can see it. **Leaf** |
 | `timers.ts` | Keyed timer registry. **Leaf — imports nothing at all** |
@@ -2233,7 +2233,7 @@ Each is a separate minor release (rule 9) with its own live test.
 | Build | Contents |
 |---|---|
 | 1 | **Built v0.87.0.** Record fields (`key`, `scope?`, `expiresAt?`, usage mode, match mode), hard expiry, lifespan ceiling, one-shot, strict matching, and the spoken options that set them. See `docs/CHANGELOG.md` for how, and *Needs Testing* item 19 |
-| 2 | `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation |
+| 2 | **Built v0.88.0.** `/echs triggers` summary and `<#>` detail; settings inspector with Purge; Clear All rules and confirmation. The inspector is its own tab, **Planted**. See *Needs Testing* item 20 |
 | 3 | Chat concealment of the phrase (`...`). **Verify BC's chat display path in the local clone first** — this rewrites what the subject's screen shows for someone else's message |
 | 4 | Instant drop |
 | 5 | Spoken / mantra triggers — needs a new speech-compulsion permission; gag handling verified against BC's speech code first |
@@ -4538,9 +4538,37 @@ settings screen and a reload.
 7. **Layout.** S's Triggers tab: the lifespan dropdown sits right of the scope dropdown, on the same
    row, not overlapping it or its label, and both disappear on switching tabs.
 
+### 20. The trigger inspector (v0.88.0) — **open, never run live**
+
+Two characters, H and S as in item 19, with S's *Show trigger words* **off**. H plants two triggers
+in S (any suggestion each; make one "you cannot move").
+
+1. **The list.** S: `/echs triggers`. *Expect:* "You have 2 triggers planted:" and one line each,
+   giving H's name and member number and a strength such as *full strength (60, Deep)*. No words and
+   no actions. *Failure looks like:* a phrase or a suggestion name in the list.
+2. **The detail.** S: `/echs triggers 1`. *Expect:* who planted it, strength, "Word: hidden …",
+   and "What it does: you cannot move" (or the other suggestion in words). `/echs triggers 7`
+   answers "no trigger 7 — you have 2."
+3. **The Planted tab.** Open ECHS settings → **Planted**. *Expect:* the same two lines, each with
+   *Details* and *Purge*, and *Clear All* below. *Details* shows the detail text and a *Back*
+   button. Nothing overlaps; the tab list on the left still fits.
+4. **Purge refused while held.** Close settings. H says the "you cannot move" trigger. Open
+   **Planted**: that row reads **HOLDING YOU NOW** in red and its button says *Holding*. Click it.
+   *Expect:* a chat line saying it cannot be removed while it holds you. The row is still there.
+   *Clear All* is greyed with the reason beside it; clicking it gives the same reason.
+5. **Clear All refused in a session.** Safeword, so nothing holds. H hypnotises S again. *Expect:*
+   *Clear All* greyed, the note says a session is running. `/echs forgettrigger all` in chat
+   refuses the same way.
+6. **Clear All asks first.** Safeword again. Click *Clear All* once. *Expect:* it turns to
+   *Confirm?*, the note turns red, nothing is removed. Wait 5 seconds: back to *Clear All*. Click
+   twice quickly. *Expect:* "Removed 2 trigger(s)." and the tab says none are planted.
+7. **The chat version.** Plant one more. `/echs forgettrigger all` → a warning naming
+   `/echs forgettrigger all confirm`, nothing removed. Then the confirm → removed.
+8. **Purge a free one.** Plant one; on **Planted** click *Purge*. *Expect:* "Trigger 1 removed."
+
 ---
 
-**Nine of twenty topics confirmed; eleven open, above.** Next bugs or regressions go in Known Bugs.
+**Nine of twenty-one topics confirmed; twelve open, above.** Next bugs or regressions go in Known Bugs.
 
 ---
 

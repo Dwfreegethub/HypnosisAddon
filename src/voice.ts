@@ -21,6 +21,7 @@ import {
 	leaveWalkingTrance,
 	currentHypnotistId,
 	saveForReconnect,
+	isSessionLive,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
@@ -1938,20 +1939,93 @@ export function triggerPhrasesVisible(fullRequested: boolean): boolean {
 /** The trigger list as the player sees it. Lives here rather than in commands.ts so the
  * suite can exercise the visibility rule without standing up the whole command layer —
  * this stopped being a formatting loop the moment it grew a decision. */
+//
+// TWO LEVELS, v0.88.0 (DW, 2026-09-25): the plain list says how many there are, who planted each
+// and how strong it is, and nothing about what it does. What a trigger does is one more
+// deliberate step, `/echs triggers <number>`, so a subject has to go out of their way to look.
+// It is never hidden outright: nothing may be happening to the subject that they CANNOT see.
+// The phrase follows the Show-trigger-words setting at both levels.
 export function describeTriggerList(fullRequested: boolean): string[] {
-	// Sweep the dead ones first, so the list never shows something that no longer works.
-	// Reading the list is the natural moment for it — there is no tick we are guaranteed to
-	// be present for, and a trigger currently holding the subject is spared until it lets go.
-	pruneFadedTriggers(isTriggerInEffect);
-	const all = listTriggers();
+	const all = sweptTriggers();
 	if (!all.length) return ["no triggers planted"];
 	const reveal = triggerPhrasesVisible(fullRequested);
-	return all.map(
-		(t, i) =>
-			`${i + 1}. ${reveal ? `"${t.phrase}"` : "(phrase hidden)"} → ${t.actions.join(", ")}  ` +
-			`(by ${t.installedByName}, ${describeStrength(t)}${describeOptions(t) ? `; ${describeOptions(t)}` : ""})` +
-			`${isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : ""}`,
+	return [
+		`You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
+		...all.map((t, i) => `${i + 1}. ${reveal ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`),
+	];
+}
+
+/** One trigger in full: what it does, its options, and its state. `index` is 1-based, as the
+ * list numbers them. Returns a single refusal line for a bad number. */
+export function describeTriggerDetail(index: number, fullRequested: boolean): string[] {
+	const all = sweptTriggers();
+	if (!Number.isInteger(index) || index < 1 || index > all.length) {
+		return [all.length ? `no trigger ${index} — you have ${all.length}.` : "no triggers planted"];
+	}
+	const t = all[index - 1];
+	const lines = [
+		`Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
+		`Strength now: ${describeStrength(t)}.`,
+		triggerPhrasesVisible(fullRequested)
+			? `Word: "${t.phrase}".`
+			: "Word: hidden. Show trigger words, on the Triggers tab, reveals it.",
+		`What it does: ${t.actions.map(describeAction).join("; ")}.`,
+	];
+	const options = describeOptions(t);
+	if (options) lines.push(`Also: ${options}.`);
+	if (isTriggerInEffect(t)) lines.push("It is holding you right now.");
+	return lines;
+}
+
+/** The summary line for one trigger — shared by the chat list and the settings screen, so the
+ * two cannot drift. No phrase and no actions: see describeTriggerList. */
+export function triggerSummary(t: Trigger): string {
+	return (
+		`by ${t.installedByName} (#${t.installedBy}), ${describeStrength(t)}` +
+		(t.spent ? ", used up" : "") +
+		(isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : "")
 	);
+}
+
+/** The list after sweeping out the dead. Reading the list is the natural moment for it — there
+ * is no tick we are guaranteed to be present for, and a trigger holding the subject is spared
+ * until it lets go. */
+export function sweptTriggers(): Trigger[] {
+	pruneFadedTriggers(isTriggerInEffect);
+	return listTriggers();
+}
+
+/** A stored action id in words, for the detail view. A suggestion reads as its first help
+ * example ("you cannot move"), which is by construction a phrase that means it. */
+export function describeAction(id: string): string {
+	if (id.startsWith("touch:")) {
+		const word = id.slice("touch:".length);
+		return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
+	}
+	if (id === "act:vague") return "you touch yourself somewhere";
+	if (id === "act:genital") return "you touch yourself between your legs";
+	if (id.startsWith("act:")) {
+		const [, activity, word] = id.split(":");
+		return `you ${activity.toLowerCase()} your ${word ?? "body"}`;
+	}
+	return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
+}
+
+/** Why "forget every trigger" may not run now, or null if it may (DW, 2026-09-25: not while a
+ * trigger or a session has hold of you; clear that first). Shared by /echs forgettrigger all and
+ * the settings screen's Clear All, so the two refuse on the same terms. */
+export function clearAllRefusal(): string | null {
+	if (isSessionLive()) {
+		return "A hypnosis session is running on you. End it first (/echs safeword always works), then clear your triggers.";
+	}
+	const held = listTriggers().filter(isTriggerInEffect).length;
+	if (held) {
+		return (
+			`${held === 1 ? "A trigger is" : `${held} triggers are`} holding you right now. ` +
+			"Let go of it first (wait, be released, or /echs safeword), then clear your triggers."
+		);
+	}
+	return null;
 }
 
 /** Keyed by installer AND phrase — two people can plant the same word, and one wearing
