@@ -423,7 +423,7 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "fight",
 		group: "Session",
-		Description: "Resist a hypnosis attempt — lowers their roll. Under: fight going deeper, and maybe back up",
+		Description: "Resist a hypnosis attempt — lowers their roll. Under: push back up, and fight going deeper",
 		Action: () => answerPrompt("fight"),
 	},
 	{

@@ -33,16 +33,16 @@ The pattern library below is strictly for triggering **effects**, not for buildi
 
 ## Going Deeper Mid-Trance
 
-Once she is under with you, you can take her one depth further at a time:
+Once she is under with you, you can take her deeper:
 
 | Say | |
 |---|---|
-| *"Missy, sink deeper"* · *"go deeper"* · *"drop deeper"* · *"fall deeper"* · *"sleep deeper"* · *"relax deeper"* · *"let go deeper"* · *"deeper and deeper"* · *"drift deeper into trance"* | One depth further, if it takes |
+| *"Missy, sink deeper"* · *"go deeper"* · *"drop deeper"* · *"fall deeper"* · *"sleep deeper"* · *"relax deeper"* · *"let go deeper"* · *"deeper and deeper"* · *"drift deeper into trance"* | Deeper, if it takes |
 
 * **Her name is needed**, as for every suggestion, and she has to be under with you.
-* **It is a roll.** Her trust in you, your skill, how long she has been under (more after a few minutes), and her answer at the induction prompt (Agree helps, Fight hurts) all count, and each step down is harder than the last: Entranced is harder than Yielding, Deep harder again, Blank hardest. If she has given you her trust (*"I trust you, Eri"*), it always takes.
-* **A near miss is half a step.** A roll that just misses still sinks her a little: usually not enough to reach the next depth, but two of those make a full step.
-* **She can fight it.** If she chose Fight at the prompt, or types `/echs fight` while under, every deepening is harder, and one that misses outright may bring her **up** a depth instead (and from Drifting, awake). The shallower she is, the better her chance; your skill, and to a lesser extent her trust in you, hold her down. Even a push back that falls just short brings her up a little, and two of those make a full depth. You are told when she comes up.
+* **It is a roll.** Her trust in you, your skill, her arousal, how long she has been under (more after a few minutes), her practice at going along, and her answer at the induction prompt (Agree helps, Fight hurts) all count. The deeper she already is, the harder it gets. If she has given you her trust (*"I trust you, Eri"*), it always takes.
+* **How far it goes shrinks as she sinks.** Shallow, one success can take her a whole depth or more; already deep, it only nudges her. If she trusts you well (past 60, or you own her), each success goes a little further. A miss does nothing.
+* **She can fight it.** If she chose Fight at the prompt, or types `/echs fight` while under, every deepening is harder, and one that misses may bring her **up** instead (and past the surface, awake). Typing `/echs fight` while under is also a push of its own. She gets at most one push a minute. The shallower she is and the more practised, the better her chance; your skill, her trust in you and her arousal hold her down. You are told when she comes up, and the room sees it when she comes up a whole depth.
 * **Pace:** at least a minute between tries, **and** a suggestion of yours that actually landed in between. Too soon, and you are told it is still settling.
 * **Her limit:** her Depth tab says how deep *"sink deeper"* may take her. It stops at **Entranced** unless she opens it further; she can also turn it off. You are told when she is as deep as she lets herself go.
 * **You see bands, never her exact depth:** *"It takes. They are deeply under."* or *"It does not take hold this time."* The room may see her sag or breathe slower, if she lets the room see her reactions.

@@ -20,6 +20,41 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-27 (v0.97.0) — the induction overhaul: depth from trust, auto-stance, toy mode
+
+DW: "Right now I think the Roll makes to much of a difference." The whole reasoning, the worked
+tables and every decision DW made are in `trust.md` at the repo root (§10 the first review, §11
+the second, §12 the final spec); `design.md` carries the result under *Induction Success Formula*
+and *Trance Depth During a Session*. Built on `feat/induction-overhaul`, not main, until DW has
+run it live.
+
+- **Depth no longer comes from the roll.** `depth = chance − roll` spread a landing evenly from 0 to
+  the chance, so one roll decided both whether and how deep. Now `resolveDepths()` sums trust × 0.5,
+  the relationship depth floor × 0.5, honoured skill × 0.2, arousal × 0.15 and the stance (Agree +20,
+  Fight −20), adds one 2d10 − 11 and floors it at max(relationship floor, trust × 0.5) unless she
+  fights; earned is the same without skill and arousal. Agree is +20, not the proposal's +15, because
+  at +15 earned Deep stayed owner-only (§11c: 1% at trust 90). A landing at 0 or less slips away and
+  counts as a miss.
+- **Access**: arousal now adds a quarter of the meter (`effectiveAccess`), replacing the floor capped
+  at 30. Experience weight 0.25 → 0.2.
+- **Deepening**: chance and steps per §12; no half steps (DW: "Do we still need half steps or can the
+  random rolls cover that"), base 40 to keep the pace. A hit can now move her within her ceiling tier.
+  +0.5 subject experience per hit (`noteDeepenSuccess`).
+- **Fighting**: softened bases and three drop bands, so no cliff at 40. Also rolls on her own
+  `/hypno fight` mid-trance, one push a minute whatever sets it off (`lastStruggleAt`). A failed push
+  is told to her alone, so the stance stays hidden. voice.ts reports through
+  `registerStruggleReporter`, since session.ts cannot import it.
+- **Auto-stance, away, toy mode**: four settings (sparse, validated on load) and `src/away.ts`.
+  `answerWithoutAsking()` in the attempt handler decides before the box; toy mode skips the cooldown
+  gate only. `answerPrompt` now also changes her answer during the window.
+- **Deliberate changes to settled rules, flagged:** experience no longer adds depth; roleplay no
+  longer adds depth; the v0.96 half steps are gone; toy mode writes EARNED depth (her own consent,
+  not a chemical, so rule 4 is not in play, but it is a new way to plant triggers).
+- Tests: `test/induction.mjs` (new, 58 checks; three mutations — Agree +15, the away refusal off,
+  slipping off — each caught), `test/deepen.mjs` rewritten (88), `test/menu-layout.mjs` +4, and four
+  suites whose "a random of 0 always lands" setup no longer held (a random of 0 is also the lowest
+  spread) given enough trust to land.
+
 ### Changed 2026-09-26 (v0.96.2) — her half step up, fighting
 
 DW: "Lets give the subject a chance to move 10 points as well. I want a sub fighting to stand a

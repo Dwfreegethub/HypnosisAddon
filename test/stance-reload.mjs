@@ -46,6 +46,8 @@ one.storage.setFeature("tranceCannotMove", false);
 one.session.installSession();
 one.messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: HYP, Dictionary: [{ message: { type: "session-attempt", hypnotistName: "Eri" } }] });
 one.session.answerPrompt("fight");
+// An owner, so a Fight lands even at the lowest 2d10 spread (v0.97.0: a landing at 0 slips away).
+one.storage.setRelationshipOverride(HYP, "owner");
 Math.random = () => 0;
 const roll = pending.filter((t) => t.live && t.ms === 60_000).pop();
 roll.live = false;

@@ -15,10 +15,13 @@ import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
 	getSkillHonour, skillValue, addSkill, getDeepestTier,
+	getDefaultStance, getAwayStance, getToyMode, getToyScope, TOY_SCOPES, DEFAULT_STANCES, AWAY_STANCES,
 } from "./storage";
+import { isAway, idleMinutes } from "./away";
 import {
 	noteInductionSuccess,
 	noteInductionAttempt,
+	noteDeepenSuccess,
 	accessFor,
 	relationshipWith,
 	describeRelationship,
@@ -132,15 +135,15 @@ const TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 60_000);
  * across a session's three. DW's settled call; meant to become a player setting. */
 const RESISTANCE_FLOOR = 5;
 const CHANCE_CEILING = 95;
-/** How hard subject experience pulls the roll, in either direction. At experience 100 this
- * is ±25 — the same magnitude as the choice modifier, which is probably too strong once
- * hypnotist skill exists to compete with it. Tune against real play. */
-const EXPERIENCE_WEIGHT = 0.25;
-/** How far arousal alone can carry someone with zero relationship trust — the design doc's
- * "Stranger ceiling". Meant to be a player setting; a constant until the settings screen
- * grows a control that isn't a checkbox. At 30, a fully aroused stranger reaches the same
- * access as roughly an hour of conversation, and no further. */
+/** How hard subject experience pulls the landing chance, in either direction: ±20 at
+ * experience 100. Was 0.25 until the v0.97.0 overhaul (trust.md §12, DW 2026-09-27). */
+const EXPERIENCE_WEIGHT = 0.2;
+/** The most of a claimed skill a stranger is believed on the capped and floored rungs. Until
+ * v0.97.0 this was also the cap on the arousal floor; arousal now adds a quarter of itself to
+ * access instead (AROUSAL_ACCESS_WEIGHT). */
 const STRANGER_CEILING = 30;
+/** Arousal's share of access: a quarter of the BC meter, so +25 at the top (v0.97.0). */
+const AROUSAL_ACCESS_WEIGHT = 0.25;
 /** Skill the local player earns as a hypnotist, per roll and per success. Deliberately the same
  * numbers as the subject's own experience pool (ATTEMPT_EXPERIENCE / INDUCTION_EXPERIENCE in
  * trust.ts): practice is one skill whichever chair you are in. */
@@ -184,11 +187,8 @@ const PRESENCE_POLL_MS = 3_000;
 
 /** Depth a relationship guarantees on a successful, unfought induction.
  *
- * SETTLED 2026-08-31, and the reason the floors had to move here from the access number:
- * "a lover always reaches arousal" cannot be said with a trust floor at all. Depth is
- * `chance - roll`, so the deepest anyone lands is `chance` itself — and a lover at floor 30
- * choosing Ignore has chance 30, which is below the Entranced 40 that arousal sits at. Their
- * ceiling was under the tier; they would never have reached it, not merely unreliably.
+ * SETTLED 2026-08-31: "a lover always reaches arousal" cannot be said with a trust floor alone.
+ * Since v0.97.0 half of it is also in the depth itself (DEPTH_RELATION_WEIGHT), fought or not.
  *
  * Fight forfeits the floor entirely, which is what keeps Fight worth choosing. */
 const RELATION_DEPTH_FLOOR: Record<string, number> = {
@@ -196,6 +196,28 @@ const RELATION_DEPTH_FLOOR: Record<string, number> = {
 	lover: 40, // Entranced — arousal, always
 	owner: 60, // Deep — the illusion and triggers, always; Blank still has to be earned
 };
+
+// --- How deep a landed induction goes (v0.97.0, trust.md §12, DW 2026-09-27) ---------------
+//
+// DW: "Right now I think the Roll makes to much of a difference." Depth used to be `chance - roll`,
+// spread evenly from 0 to the chance, so one roll decided both whether it landed and how deep. Now
+// the roll only decides whether it lands; depth is worked out from trust, the relationship, skill,
+// arousal and her stance, with a small 2d10 spread (-9 to +9, mostly within 4).
+//
+// Earned depth is the same sum and the SAME 2d10 without skill and arousal (rule 4), and never
+// more than full. Her trust gift adds nothing here: it counts as Agree, and Agree's bonus is hers.
+/** Her stance's part of the depth. Agree +20 is what lets long trust reach earned Deep without a
+ * relationship (trust.md §11c); Fight -20 is the price of resisting and still going under. */
+const STANCE_DEPTH: Record<SessionChoice, number> = { agree: 20, ignore: 0, fight: -20 };
+const DEPTH_TRUST_WEIGHT = 0.5;
+const DEPTH_RELATION_WEIGHT = 0.5;
+const DEPTH_SKILL_WEIGHT = 0.2;
+/** Up to +15 at a full meter. Full depth only. */
+const DEPTH_AROUSAL_WEIGHT = 0.15;
+/** Trust holds her at least half its value deep, unless she fights. */
+const TRUST_DEPTH_FLOOR_WEIGHT = 0.5;
+/** The deepest an induction lands. Deepening can still go further, to her ceiling. */
+const LANDED_DEPTH_MAX = 95;
 
 // --- The RP reward -------------------------------------------------------------------
 //
@@ -209,9 +231,8 @@ const RELATION_DEPTH_FLOOR: Record<string, number> = {
 // arousal floor: it moves this roll and is then gone, so it can never be farmed into stored
 // trust or into anything persistent.
 //
-// It also raises the depth CEILING for free, since depth is `chance - roll`. Roleplaying the
-// induction properly gets you in more often AND gets you deeper when you do, which is the
-// right shape for a reward — no separate mechanic needed.
+// Until v0.97.0 it also made the trance deeper, since depth was `chance - roll`. Depth no longer
+// comes from the roll (see STANCE_DEPTH), so roleplay now helps it land and nothing more.
 /** Per line that counts. */
 const RP_BONUS_PER_LINE = 5;
 /** Ceiling. Meaningful against Agree's +25, never decisive against a clamp of 95. */
@@ -248,6 +269,9 @@ interface SubjectSession {
 	 * from the hypnotist has landed since. DW: 60 seconds AND at least one command between them. */
 	lastDeepenAt: number;
 	landedSinceDeepen: boolean;
+	/** When she last struggled, fighting (v0.97.0): at most one struggle roll a minute, whether a
+	 * missed deepening or her own /hypno fight set it off. */
+	lastStruggleAt: number;
 	/** Who the pending prompt names, and when it lapses. Held here rather than in the
 	 * prompt box so the on-screen panel and the chat fallback read one source of truth —
 	 * the box is a second way to answer the same prompt, not a second prompt. */
@@ -278,6 +302,7 @@ function freshSession(): SubjectSession {
 		hypnotizedAt: 0,
 		lastDeepenAt: 0,
 		landedSinceDeepen: true,
+		lastStruggleAt: 0,
 		promptName: "",
 		promptExpiresAt: 0,
 		rpLines: 0,
@@ -576,11 +601,14 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
  * own arousal handler). A player who turned the meter off gets no floor at all — their
  * setting, respected.
  *
- * IMPORTANT, per the doc: this floor is for SESSION-ONLY effects. It must never reach
- * persistent triggers or anything that writes lasting state, no matter how high the
- * ceiling goes. Today its only consumer is the induction roll, which is session-only by
- * definition — check this comment before wiring it anywhere else. */
-function chemicalFloor(): number {
+ * IMPORTANT, per the doc: arousal is for SESSION-ONLY effects. It must never reach
+ * persistent triggers or anything that writes lasting state. Its consumers are the landing
+ * chance, full depth (never earned), deepening and surfacing — check this comment before
+ * wiring it anywhere else.
+ *
+ * v0.97.0: the level itself, 0-100, rather than a floor capped at 30. Each consumer takes its
+ * own share of it (trust.md §12). */
+export function arousalLevel(): number {
 	// The player's chemical scope decides whether arousal counts at all. Drugs are unbuilt, so
 	// "Drugs only" and "Neither" currently mean the same thing — kept as four options anyway,
 	// so that a saved preference does not need migrating the day drugs land.
@@ -589,21 +617,17 @@ function chemicalFloor(): number {
 	const active = settings?.Active === "Hybrid" || settings?.Active === "Automatic";
 	if (!active) return 0;
 	const progress = typeof settings?.Progress === "number" ? settings.Progress : 0;
-	return Math.max(0, Math.min(STRANGER_CEILING, progress));
+	return Math.max(0, Math.min(100, progress));
 }
 
-/** Effective access for a threshold check: `max(relationshipTrust, chemicalFloor)`.
+/** Effective access for the landing chance: `max(relationshipTrust, trustGift) + arousal / 4`.
  *
- * A FLOOR, not a multiplier — deliberately, and the doc spells out why: a multiplier on
- * zero trust is still zero, so it would give a stranger nothing, which is the one case the
- * mechanic exists to serve. As a floor it also lets an established relationship push a
- * little past where trust alone would sit. */
+ * v0.97.0 (trust.md §12): arousal ADDS a quarter of itself rather than being a floor under the
+ * rest, so it helps an established relationship as well as a stranger. The relationship half is
+ * category-aware — an owner lifts everything, a friend only session-scoped things — while the
+ * arousal half is session-only by construction, which is why it is applied here and nowhere else. */
 export function effectiveAccess(memberId: number): number {
-	// Three inputs, one max(): what they have earned, what a BC relationship confers, and
-	// what arousal is lending right now. The relationship half is category-aware — an owner
-	// lifts everything, a friend only session-scoped things — while the arousal half is
-	// session-only by construction, which is why it is applied here and nowhere else.
-	return Math.max(accessFor(memberId, "session"), chemicalFloor(), trustGiftFloor(memberId));
+	return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + arousalLevel() * AROUSAL_ACCESS_WEIGHT;
 }
 
 // --- "I trust you" (v0.94.0, DW 2026-09-26) ----------------------------------------------
@@ -616,11 +640,10 @@ export function effectiveAccess(memberId: number): number {
 // induction and the trance it leads to (retries after a miss included), and then it is gone,
 // however soon; if no induction comes within 5 minutes, it lapses unused.
 //
-// Where it reaches, and why here: it is added to effectiveAccess() beside the arousal floor and
-// NOT to the earned half (accessFor alone, which chanceBeforeInvariant reads for earnedOnly).
-// Full depth rises, so the Entranced-tier features (arousal) come within reach; earned depth
-// does not, so the Deep-tier features that outlive the trance or lie to her (triggers,
-// carry-forward, the illusion) still need trust she has really built. Nothing is stored: a
+// Where it reaches, and why here: it is in effectiveAccess(), so it helps the induction LAND, and
+// it makes deepening certain. Since v0.97.0 it adds nothing to depth itself: depth no longer comes
+// from the chance, and the gift's only part in it is that she goes along with it (Agree), which is
+// her own stance and so counts toward earned depth as well (trust.md §11a). Nothing is stored: a
 // gift is a moment, and a reload forgets it.
 //
 // It is her own client, reading her own words (rule 1). The safeword clears it (rule 2).
@@ -720,18 +743,31 @@ export function noticeTrustLine(text: string, whisperTo?: number): string | null
 		: 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
 }
 
-/** The roll, resolved twice: once with everything, once with only what was earned.
- *
- * Both use the SAME roll, so the two depths differ by exactly the chemical contribution and
- * `depthEarned` can never exceed `depth`. Computing a second roll would let a subject be
- * deeper in the earned sense than in reality, which is nonsense. */
-function resolveDepths(hypnotistId: number, choice: SessionChoice, roll: number): { full: number; earned: number } {
-	const full = inductionChance(hypnotistId, choice);
-	const earned = inductionChance(hypnotistId, choice, true);
-	const floor = choice === "fight" ? 0 : RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
-	const at = (chance: number) => Math.min(100, Math.max(0, Math.round(Math.max(chance - roll, floor))));
-	const fullDepth = at(full);
-	return { full: fullDepth, earned: Math.min(fullDepth, at(earned)) };
+/** The two depth sums before the 2d10, and the floor under both. Exported for /hypno chance and
+ * the tests. */
+export function depthBases(hypnotistId: number, choice: SessionChoice): { full: number; earned: number; floor: number } {
+	const trust = trustWith(hypnotistId);
+	const relation = RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
+	const earned = trust * DEPTH_TRUST_WEIGHT + relation * DEPTH_RELATION_WEIGHT + STANCE_DEPTH[choice];
+	const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + arousalLevel() * DEPTH_AROUSAL_WEIGHT;
+	const floor = choice === "fight" ? 0 : Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT);
+	return { full, earned, floor };
+}
+
+/** 2d10 - 11: -9 to +9, piled up in the middle. */
+function depthSpread(): number {
+	const d10 = () => 1 + Math.floor(Math.random() * 10);
+	return d10() + d10() - 11;
+}
+
+/** Where a landed induction puts her, full and earned, from ONE spread so earned never passes
+ * full. A full depth of 0 or less means it slipped away: the caller treats that as a miss. */
+function resolveDepths(hypnotistId: number, choice: SessionChoice): { full: number; earned: number } {
+	const b = depthBases(hypnotistId, choice);
+	const spread = depthSpread();
+	const at = (base: number) => Math.min(LANDED_DEPTH_MAX, Math.max(b.floor, Math.round(base + spread)));
+	const full = at(b.full);
+	return { full, earned: Math.max(0, Math.min(full, at(b.earned))) };
 }
 
 /** Hypnotist skill's contribution to the roll.
@@ -929,33 +965,45 @@ export function noteInductionLine(sender: number, content: string): void {
  * needing to run an induction and infer them from the outcome. */
 export function describeChances(memberId: number): string[] {
 	const trust = trustWith(memberId);
-	const floor = chemicalFloor();
+	const arousal = arousalLevel();
 	const access = effectiveAccess(memberId);
 	const exp = experienceValue();
 	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, maxAttempts()));
+	/** Where a landing would put her, lowest to highest spread, full and earned. */
+	const landsAt = (choice: SessionChoice): string => {
+		const b = depthBases(memberId, choice);
+		const at = (base: number, spread: number) => Math.min(LANDED_DEPTH_MAX, Math.max(b.floor, Math.round(base + spread)));
+		const lo = at(b.full, -9), hi = at(b.full, 9);
+		const elo = Math.min(lo, at(b.earned, -9)), ehi = Math.min(hi, at(b.earned, 9));
+		if (hi <= 0) return "it would always slip away";
+		return `lands ${Math.max(0, lo)}–${hi} (earned ${Math.max(0, elo)}–${ehi})${lo <= 0 ? ", or slips away" : ""}`;
+	};
 	return [
-		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} ` +
-			`→ access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
+		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)} (+${(arousal * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) ` +
+			`→ access ${access.toFixed(1)}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
 		...(session.phase === "Hypnotized" && session.hypnotistId === memberId
 			? (() => {
-					const at = TIER_ORDER.indexOf(tierOf(session.depth));
-					const next = TIER_ORDER[at + 1];
 					const stance = session.choice ?? "ignore";
+					const ceiling = TIER_ORDER.indexOf(getDeepestTier() as DepthTier);
+					const room = getDeepestTier() !== "never" && session.depth < ceilingDepth(ceiling);
+					const [, lo, hi] = deepenStep(session.depth);
+					const bonus = accessFor(memberId, "session") > DEEPEN_TRUST_SYNERGY_AT ? DEEPEN_TRUST_SYNERGY : 0;
 					return [
 						`  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` +
-							(next
-								? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more`
-								: "you are as deep as it goes"),
+							(room
+								? `${deepenChance(memberId).toFixed(0)}%, ${lo + bonus}–${hi + bonus} deeper if it takes`
+								: "you are as deep as you let yourself go"),
 						...(stance === "fight"
 							? [
-									`  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}` +
-										`, a half step up within ${DEEPEN_HALF_BAND} more`,
+									`  fighting back up: ${surfaceChance(memberId).toFixed(0)}%, ${surfaceDrop(session.depth).join("–")} up if you win` +
+										(session.depth <= surfaceDrop(session.depth)[1] ? " (that could wake you)" : ""),
 								]
 							: []),
 					];
 				})()
 			: []),
+		...describeStanceSettings(memberId),
 		...(trustGiftFloor(memberId) > 0
 			? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`]
 			: []),
@@ -981,7 +1029,7 @@ export function describeChances(memberId: number): string[] {
 			: []),
 		...(["agree", "ignore", "fight"] as SessionChoice[]).map((choice) => {
 			const c = inductionChance(memberId, choice);
-			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${maxAttempts()}`;
+			return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${maxAttempts()}; ${landsAt(choice)}`;
 		}),
 	];
 }
@@ -1011,22 +1059,16 @@ function runInductionRoll(): void {
 	noteInductionAttempt();
 	const detail = `chance=${chance.toFixed(1)} roll=${roll.toFixed(1)} choice=${choice} trust=${trustWith(session.hypnotistId).toFixed(1)} exp=${experienceValue().toFixed(1)}`;
 
-	if (roll < chance) {
-		session.phase = "Hypnotized";
-		// Depth falls out of the same roll: a comfortable success goes deep, a squeaker
-		// leaves a shallow trance the subject can pull themselves out of.
-		const depths = resolveDepths(session.hypnotistId, choice, roll);
-		session.depth = depths.full;
-		session.depthEarned = depths.earned;
-		setCurrentDepths(depths.full, depths.earned);
-		session.hypnotizedAt = Date.now();
-		sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-		sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
-		applyTranceState();
-		// Keep asking. Presence was true a microsecond ago, at the gate above — but the
-		// trance now runs for up to thirty minutes, and the question "is anyone still here"
-		// has to be asked for all of it, not once at the start.
-		startPresenceWatch();
+	// Depth no longer falls out of the roll (v0.97.0): the roll says whether it lands, and
+	// resolveDepths() says how deep, from trust, relationship, skill, arousal and her stance.
+	const depths = roll < chance ? resolveDepths(session.hypnotistId, choice) : null;
+	// It landed at nothing: fighting, or barely trusting them, it slips away. Told as a miss (rule
+	// 5), and it counts as one, so the hypnotist cannot tell it from an ordinary miss.
+	const slipped = depths !== null && depths.full <= 0;
+	if (slipped) notify("For a moment it nearly takes you, and then it slips away.");
+
+	if (depths && !slipped) {
+		enterTrance(depths.full, depths.earned);
 		// The accelerator, and the practice. Both halves only on success.
 		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
 		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
@@ -1034,7 +1076,7 @@ function runInductionRoll(): void {
 		// above is the subject's alone. Here rather than in applyTranceState so a reconnect,
 		// which reuses that path, does not re-announce the drop.
 		announceTranceEnter();
-		log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
+		log(`induction SUCCEEDED: ${detail} depth=${session.depth}/${session.depthEarned}`);
 	} else if (session.attempts >= maxAttempts()) {
 		session.phase = "CooldownRequired";
 		session.cooldownUntil = Date.now() + COOLDOWN_MS;
@@ -1045,15 +1087,104 @@ function runInductionRoll(): void {
 		// all in between. Same pool as an ordinary miss on purpose, so onlookers cannot tell
 		// a spent last attempt from a first one and count the hypnotist's tries.
 		announceInductionMiss();
-		log(`induction FAILED (final): ${detail}`);
+		log(`induction FAILED (final): ${detail}${slipped ? " (landed, slipped away)" : ""}`);
 	} else {
 		session.phase = "AttemptFailed";
 		session.progress = chance;
-		notify(inductionMissLine());
+		if (!slipped) notify(inductionMissLine());
 		announceInductionMiss();
-		log(`induction failed: ${detail} attempt=${session.attempts}`);
+		log(`induction failed: ${detail} attempt=${session.attempts}${slipped ? " (landed, slipped away)" : ""}`);
 	}
 	pushUpdate();
+}
+
+/** Put her under at these depths, with everything a trance starts with. The induction, toy mode
+ * and nothing else: a trigger drop and a forced test trance have their own copies. */
+function enterTrance(full: number, earned: number): void {
+	session.phase = "Hypnotized";
+	session.depth = full;
+	session.depthEarned = Math.min(full, earned);
+	setCurrentDepths(session.depth, session.depthEarned);
+	session.hypnotizedAt = Date.now();
+	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
+	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+	applyTranceState();
+	// Keep asking. Presence was checked at the gate — but the trance now runs for up to thirty
+	// minutes, and the question "is anyone still here" has to be asked for all of it.
+	startPresenceWatch();
+}
+
+// --- Answering without being asked (v0.97.0, trust.md §12, DW 2026-09-27) -----------------------
+//
+// Two settings answer an induction before the box would appear. Toy mode, for the people she has
+// chosen, skips the roll and lands at her ceiling. Auto-stance answers the box as Agree, Ignore or
+// Fight. The hypnotist is never told which, or that either is set, beyond the prompt not appearing.
+// Neither is used while she is away unless her "When I'm away" setting keeps it.
+const RELATION_RANK: Record<string, number> = { none: 0, friend: 1, lover: 2, owner: 3 };
+const TOY_SCOPE_RANK: Record<string, number> = { anyone: 0, friend: 1, lover: 2, owner: 3 };
+
+type Answer =
+	| { kind: "ask" }
+	| { kind: "toy" }
+	| { kind: "stance"; stance: SessionChoice; wasAway: boolean }
+	| { kind: "away" };
+
+/** Does toy mode apply to this person? Her setting, and the relationship BC reports. */
+export function toyModeFor(memberId: number): boolean {
+	return getToyMode() && (RELATION_RANK[relationshipWith(memberId)] ?? 0) >= (TOY_SCOPE_RANK[getToyScope()] ?? 3);
+}
+
+function answerWithoutAsking(memberId: number): Answer {
+	const toy = toyModeFor(memberId);
+	const stance = getDefaultStance();
+	if (!toy && stance === "prompt") return { kind: "ask" };
+	if (isAway()) {
+		const rule = getAwayStance();
+		if (rule === "refuse") return { kind: "away" };
+		if (rule === "ignore") return { kind: "stance", stance: "ignore", wasAway: true };
+	}
+	if (toy) return { kind: "toy" };
+	return { kind: "stance", stance: stance as SessionChoice, wasAway: false };
+}
+
+/** Toy mode: no box, no roll, no attempt limit. She lands at her "sink deeper" ceiling, full and
+ * earned alike (DW: "Player accepts the risk"). Set to "Never deeper", there is no ceiling to snap
+ * to, so it lands as a sure Agree would, without the roll. Not counted as practice or trust:
+ * nothing was attempted, the same as a trigger drop. */
+function toyInduction(who: string): void {
+	session.choice = "agree";
+	const key = getDeepestTier();
+	let full: number, earned: number;
+	if (key === "never") {
+		const d = resolveDepths(session.hypnotistId!, "agree");
+		full = Math.max(1, d.full);
+		earned = Math.max(0, d.earned);
+	} else {
+		full = earned = Math.min(LANDED_DEPTH_MAX, ceilingDepth(TIER_ORDER.indexOf(key as DepthTier)));
+	}
+	enterTrance(full, earned);
+	notify(`${who} reaches for you, and you are theirs at once. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
+	announceTranceEnter();
+	pushUpdate();
+	persistState();
+	log(`toy mode: ${who} [${session.hypnotistId}] put us under at ${session.depth}/${session.depthEarned}`);
+}
+
+/** /hypno chance lines for the settings that answer without asking. */
+function describeStanceSettings(memberId: number): string[] {
+	const label = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
+	const lines: string[] = [];
+	if (getToyMode()) {
+		lines.push(
+			`  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} — ` +
+				(toyModeFor(memberId) ? "they would put you straight under, no roll" : "not for them"),
+		);
+	}
+	if (getDefaultStance() !== "prompt") lines.push(`  your auto-answer: ${label(DEFAULT_STANCES, getDefaultStance())}`);
+	if (getToyMode() || getDefaultStance() !== "prompt") {
+		lines.push(`  when you are away: ${label(AWAY_STANCES, getAwayStance())} (${isAway() ? "you count as away now" : `idle ${idleMinutes()} min of 10`})`);
+	}
+	return lines;
 }
 
 /** Return the subject to Idle when the cooldown runs out, and push one last view.
@@ -1186,90 +1317,141 @@ export function dropIntoTrance(hypnotistId: number, full: number, earned: number
 // This CHANGES a settled rule, with DW's say-so: design.md had depth "fixed at entry; to go deeper,
 // wake and re-induce". Now the hypnotist can take her one tier deeper mid-trance. Fractionation
 // (wake and re-induce) stays planned beside it. DW's decisions:
-//  - One tier per success, to the next tier's floor, never past HER "deepest I go" setting
-//    (storage.getDeepestTier, default Entranced). A per-hypnotist ceiling is on the todo list.
+//  - Never past HER "deepest I go" setting (storage.getDeepestTier, default Entranced). A
+//    per-hypnotist ceiling is on the todo list. How far a success goes is v0.97.0's, below.
 //  - FULL depth only. Earned depth does not move, so the Deep-tier features that outlive the
 //    trance or lie to her (triggers, carry-forward, the illusion) still need depth earned by trust.
-//  - The chance: her trust in them (the same access the induction reads) + their honoured skill
-//    + time in trance (2 per minute, up to 20) + her induction choice (Agree +25 / Fight -25),
-//    minus the tier being entered (Yielding 0, Entranced 10, Deep 20, Blank 30); 10-95.
-//  - Her trust gift, spent on this trance, makes it certain.
+//  - The chance is v0.97.0's, below. Her trust gift, spent on this trance, makes it certain.
 //  - 60 seconds between tries AND a suggestion from them that landed in between.
 //  - The hypnotist sees bands only, never the tier (the existing rule).
 const DEEPEN_COOLDOWN_MS = 60_000;
 const DEEPEN_TIME_PER_MINUTE = 2;
 const DEEPEN_TIME_MAX = 20;
-const DEEPEN_TIER_PENALTY: Record<DepthTier, number> = { drifting: 0, yielding: 0, entranced: 10, deep: 20, blank: 30 };
 const DEEPEN_MIN = 10;
 const DEEPEN_MAX = 95;
 const TIER_ORDER: DepthTier[] = ["drifting", "yielding", "entranced", "deep", "blank"];
 
+// --- The v0.97.0 overhaul of deepening and fighting (trust.md §12, DW 2026-09-27) ---------------
+//
+// The chance: 40 + her trust in them x0.3 + their skill x0.25 + arousal x0.15 + her stance (Agree
+// +20, Fight -25) + time under + her experience x0.15 when she goes along, less a third of how deep
+// she already is. A hit takes her 15-25 deeper below 40, 10-15 at 40-69 and 5-10 from 70, and 5
+// more if she trusts them past 60 (DW: "diminishing returns near maximum"). No half steps now, in
+// either direction: DW, "Do we still need half steps or can the random rolls cover that", and the
+// base went from 30 to 40 to keep the pace.
+//
+// "Trust" here is accessFor(): what she has built with them, with the relationship's floor under it.
+const DEEPEN_BASE = 40;
+const DEEPEN_TRUST_WEIGHT = 0.3;
+const DEEPEN_SKILL_WEIGHT = 0.25;
+const DEEPEN_AROUSAL_WEIGHT = 0.15;
+const DEEPEN_EXPERIENCE_WEIGHT = 0.15;
+const DEEPEN_DEPTH_WEIGHT = 0.3;
+const STANCE_DEEPEN: Record<SessionChoice, number> = { agree: 20, ignore: 0, fight: -25 };
+/** [below this depth, least, most] for a hit. */
+const DEEPEN_STEPS: [number, number, number][] = [
+	[40, 15, 25],
+	[70, 10, 15],
+	[Infinity, 5, 10],
+];
+const DEEPEN_TRUST_SYNERGY_AT = 60;
+const DEEPEN_TRUST_SYNERGY = 5;
+
 export type DeepenOutcome =
 	| { kind: "deeper"; band: string }
-	/** A near miss: half a step, usually still inside the same tier (v0.96.0). */
-	| { kind: "half"; band: string; crossed: boolean }
 	| { kind: "failed" }
-	/** She was fighting, it missed outright, and she came up a tier (v0.96.0). */
-	| { kind: "surfaced"; band: string }
-	/** Her near miss while fighting: up 10 (v0.96.2). */
-	| { kind: "half-up"; band: string; crossed: boolean }
-	/** ...from Drifting, which wakes her. The session has already ended. */
+	/** She was fighting, it missed, and she came up. `crossed` when that took her up a tier. */
+	| { kind: "surfaced"; band: string; crossed: boolean }
+	/** ...all the way, which wakes her. The session has already ended. */
 	| { kind: "woke" }
 	| { kind: "ceiling" }
 	| { kind: "never" }
 	| { kind: "cooldown"; seconds: number }
 	| { kind: "needs-command" };
 
+/** A struggle she started herself with /hypno fight mid-trance: the three ways a deepening's
+ * struggle can end, plus holding (she lost) and resting (the minute has not passed). */
+export type StruggleOutcome =
+	| { kind: "surfaced"; band: string; crossed: boolean }
+	| { kind: "woke" }
+	| { kind: "held" }
+	| { kind: "resting"; seconds: number };
+
+/** voice.ts tells the hypnotist and the room about a struggle she starts herself, the same way it
+ * tells them about one a deepening set off. session.ts cannot import voice.ts, so it registers. */
+let struggleReporter: ((hypnotistId: number, outcome: StruggleOutcome) => void) | null = null;
+export function registerStruggleReporter(fn: (hypnotistId: number, outcome: StruggleOutcome) => void): void {
+	struggleReporter = fn;
+}
+
 /** A suggestion from the hypnotist landed: the next deepening may be tried. voice.ts calls this. */
 export function noteSuggestionLanded(sender: number): void {
 	if (session.phase === "Hypnotized" && session.hypnotistId === sender) session.landedSinceDeepen = true;
 }
 
-/** The chance a deepening into `target` succeeds right now, 10-95. Exported for the tests and for
- * /hypno chance. */
-export function deepenChance(hypnotistId: number, target: DepthTier): number {
+/** The chance a deepening succeeds right now, 10-95, or 100 on her spent trust gift. Exported for
+ * the tests and for /hypno chance. */
+export function deepenChance(hypnotistId: number): number {
 	if (trustGiftFloor(hypnotistId) > 0 && trustGift?.spentOn === session) return 100;
 	const minutes = session.hypnotizedAt ? (Date.now() - session.hypnotizedAt) / 60_000 : 0;
+	const stance = session.choice ?? "ignore";
 	const raw =
-		effectiveAccess(hypnotistId) +
-		currentSkillTerms(false).additive +
+		DEEPEN_BASE +
+		accessFor(hypnotistId, "session") * DEEPEN_TRUST_WEIGHT +
+		session.honouredSkill * DEEPEN_SKILL_WEIGHT +
+		arousalLevel() * DEEPEN_AROUSAL_WEIGHT +
+		STANCE_DEEPEN[stance] +
 		Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) +
-		CHOICE_MODIFIER[session.choice ?? "ignore"] -
-		DEEPEN_TIER_PENALTY[target];
+		(stance === "agree" ? experienceValue() * DEEPEN_EXPERIENCE_WEIGHT : 0) -
+		session.depth * DEEPEN_DEPTH_WEIGHT;
 	return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
 }
 
-/** One "sink deeper" from `sender`. The caller has checked that they are her hypnotist and that
- * the line named her. Returns what happened; voice.ts does the telling. */
-// --- Half steps and fighting back up (v0.96.0, DW 2026-09-26) -----------------------------
-//
-// DW: "the deeper you already are the less chance you have of fighting upwards ... the tist
-// experience and to a lesser extent your trust has an effect ... Maybe there can be half jumps so
-// the tist can get you slightly deeper but not enough to make a difference."
-//  - A full step is one tier's width (20), no longer "to the next tier's floor", so a half step
-//    already taken still counts. A roll that misses by less than DEEPEN_HALF_BAND is a half step
-//    (10): usually no new tier, but two of them make one.
-//  - Fighting is chosen mid-trance with /hypno fight (and undone with agree / ignore), as well as
-//    at the prompt. When she is fighting and a deepening misses outright, she may come up one
-//    tier: likelier the shallower she is, less likely the more skilled the hypnotist and, to a
-//    lesser extent, the more she trusts them. From Drifting, coming up is waking.
-const DEEPEN_STEP = 20;
-const DEEPEN_HALF_STEP = 10;
-const DEEPEN_HALF_BAND = 20;
-const SURFACE_BASE: Record<DepthTier, number> = { drifting: 45, yielding: 35, entranced: 25, deep: 15, blank: 8 };
-/** Their honoured skill (0-100) takes up to 20 off; her access (0-100) up to 10. */
-const SURFACE_SKILL_WEIGHT = 0.2;
-const SURFACE_TRUST_WEIGHT = 0.1;
-const SURFACE_MIN = 3;
-const SURFACE_MAX = 60;
+/** The step band a hit uses at this depth. Exported for /hypno chance. */
+export function deepenStep(depth: number): [number, number, number] {
+	return DEEPEN_STEPS.find(([below]) => depth < below) ?? DEEPEN_STEPS[DEEPEN_STEPS.length - 1];
+}
 
-/** Her chance, fighting, of coming up a tier when a deepening misses outright. */
+/** A whole number from lo to hi, both included. */
+function between(lo: number, hi: number): number {
+	return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+// Fighting back up. Likelier the shallower she is and the more practised she is at it; less likely
+// the more skilled the hypnotist, the more she trusts them, and the more aroused she is. DW chose the
+// softened bases (55/40/28/18/10) so a fighting sub still stands a chance at Deep, and a middle band
+// for 40-59 so there is no cliff at 40. It rolls when a deepening misses while she fights, or when
+// she types /hypno fight mid-trance; at most once a minute either way.
+const SURFACE_BASE: Record<DepthTier, number> = { drifting: 55, yielding: 40, entranced: 28, deep: 18, blank: 10 };
+const SURFACE_EXPERIENCE_WEIGHT = 0.35;
+const SURFACE_SKILL_WEIGHT = 0.25;
+const SURFACE_TRUST_WEIGHT = 0.15;
+const SURFACE_AROUSAL_WEIGHT = 0.2;
+const SURFACE_MIN = 3;
+const SURFACE_MAX = 75;
+/** [below this depth, least, most] she comes up on a win. */
+const SURFACE_DROPS: [number, number, number][] = [
+	[40, 20, 30],
+	[60, 10, 15],
+	[Infinity, 5, 10],
+];
+const STRUGGLE_COOLDOWN_MS = 60_000;
+
+/** Her chance, fighting, of coming up. */
 export function surfaceChance(hypnotistId: number): number {
 	const raw =
-		SURFACE_BASE[tierOf(session.depth)] -
+		SURFACE_BASE[tierOf(session.depth)] +
+		experienceValue() * SURFACE_EXPERIENCE_WEIGHT -
 		session.honouredSkill * SURFACE_SKILL_WEIGHT -
-		effectiveAccess(hypnotistId) * SURFACE_TRUST_WEIGHT;
+		accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT -
+		arousalLevel() * SURFACE_AROUSAL_WEIGHT;
 	return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
+}
+
+/** How far a win brings her up from this depth, [least, most]. Exported for /hypno chance. */
+export function surfaceDrop(depth: number): [number, number] {
+	const [, lo, hi] = SURFACE_DROPS.find(([below]) => depth < below) ?? SURFACE_DROPS[SURFACE_DROPS.length - 1];
+	return [lo, hi];
 }
 
 /** The deepest depth her ceiling allows: the last point inside her ceiling tier. */
@@ -1278,7 +1460,38 @@ function ceilingDepth(ceiling: number): number {
 	return next ? tierMinimum(next) - 1 : 100;
 }
 
-/** She changes her stance mid-trance (/hypno fight, agree, ignore). Private, as at the prompt. */
+/** Move her to a new full depth, keeping earned at or under it, and tell the hypnotist's view. */
+function moveTo(depth: number): void {
+	session.depth = Math.max(0, Math.min(100, Math.round(depth)));
+	// Earned never exceeds full, and deepening never raises it (v0.95.0).
+	session.depthEarned = Math.min(session.depthEarned, session.depth);
+	setCurrentDepths(session.depth, session.depthEarned);
+	pushUpdate();
+	persistState();
+}
+
+/** One struggle roll, fighting, unless the last one is still inside its minute. */
+function struggle(hypnotistId: number): StruggleOutcome {
+	const wait = session.lastStruggleAt + STRUGGLE_COOLDOWN_MS - Date.now();
+	if (session.lastStruggleAt && wait > 0) return { kind: "resting", seconds: Math.ceil(wait / 1000) };
+	session.lastStruggleAt = Date.now();
+	const chance = surfaceChance(hypnotistId);
+	const roll = Math.random() * 100;
+	log(`fighting: surface chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
+	if (roll >= chance) return { kind: "held" };
+	const before = tierOf(session.depth);
+	const [lo, hi] = surfaceDrop(session.depth);
+	const to = session.depth - between(lo, hi);
+	if (to <= 0) {
+		endSession("you fought your way up and out");
+		return { kind: "woke" };
+	}
+	moveTo(to);
+	return { kind: "surfaced", band: depthBand(session.depth), crossed: tierOf(session.depth) !== before };
+}
+
+/** She changes her stance mid-trance (/hypno fight, agree, ignore). Private, as at the prompt.
+ * Choosing to fight also struggles, at most once a minute (v0.97.0). */
 function setTranceStance(choice: SessionChoice): void {
 	session.choice = choice;
 	notify(
@@ -1289,66 +1502,42 @@ function setTranceStance(choice: SessionChoice): void {
 				: "You stop pushing either way.",
 	);
 	persistState();
+	if (choice !== "fight" || session.hypnotistId == null) return;
+	const hypnotist = session.hypnotistId;
+	const outcome = struggle(hypnotist);
+	// Holding and resting change nothing the hypnotist could see, and telling them would give away
+	// that she is fighting, which the stance never does by itself. Only she hears those.
+	if (outcome.kind === "resting") notify(`You are still gathering yourself from the last push. Try again in ${outcome.seconds}s.`);
+	else if (outcome.kind === "held") notify("You push against it, and it holds you where you are.");
+	else struggleReporter?.(hypnotist, outcome);
 }
 
+/** One "sink deeper" from `sender`. The caller has checked that they are her hypnotist and that
+ * the line named her. Returns what happened; voice.ts does the telling. */
 export function tryDeepen(sender: number): DeepenOutcome {
 	const ceilingKey = getDeepestTier();
 	if (ceilingKey === "never") return { kind: "never" };
-	const now = tierOf(session.depth);
-	const ceiling = TIER_ORDER.indexOf(ceilingKey as DepthTier);
-	const at = TIER_ORDER.indexOf(now);
-	if (at >= ceiling || at >= TIER_ORDER.length - 1) return { kind: "ceiling" };
+	const cap = ceilingDepth(TIER_ORDER.indexOf(ceilingKey as DepthTier));
+	if (session.depth >= cap) return { kind: "ceiling" };
 	const wait = session.lastDeepenAt + DEEPEN_COOLDOWN_MS - Date.now();
 	if (session.lastDeepenAt && wait > 0) return { kind: "cooldown", seconds: Math.ceil(wait / 1000) };
 	if (!session.landedSinceDeepen) return { kind: "needs-command" };
-	const target = TIER_ORDER[at + 1];
-	const chance = deepenChance(sender, target);
+	const chance = deepenChance(sender);
 	const roll = Math.random() * 100;
 	session.lastDeepenAt = Date.now();
 	session.landedSinceDeepen = false;
-	log(`deepen ${now} → ${target}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
-	const cap = ceilingDepth(ceiling);
-	const moveTo = (depth: number): void => {
-		session.depth = Math.max(0, Math.min(100, Math.round(depth)));
-		// Earned never exceeds full, and deepening never raises it (v0.95.0).
-		session.depthEarned = Math.min(session.depthEarned, session.depth);
-		setCurrentDepths(session.depth, session.depthEarned);
-		pushUpdate();
-		persistState();
-	};
+	log(`deepen from ${session.depth}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
 	if (roll < chance) {
-		// At least the next tier's floor, so a full step always crosses a tier.
-		moveTo(Math.min(cap, Math.max(session.depth + DEEPEN_STEP, tierMinimum(target))));
+		const [, lo, hi] = deepenStep(session.depth);
+		const bonus = accessFor(sender, "session") > DEEPEN_TRUST_SYNERGY_AT ? DEEPEN_TRUST_SYNERGY : 0;
+		moveTo(Math.min(cap, session.depth + between(lo, hi) + bonus));
+		noteDeepenSuccess();
 		return { kind: "deeper", band: depthBand(session.depth) };
 	}
-	if (roll < chance + DEEPEN_HALF_BAND) {
-		moveTo(Math.min(cap, session.depth + DEEPEN_HALF_STEP));
-		return { kind: "half", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
-	}
 	if (session.choice !== "fight") return { kind: "failed" };
-	const surface = surfaceChance(sender);
-	const pushBack = Math.random() * 100;
-	log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
-	if (pushBack >= surface) {
-		// Her near miss (v0.96.2, DW: "give the subject a chance to move 10 points as well. I want a
-		// sub fighting to stand a chance"): the mirror of the hypnotist's half step. Up 10, usually
-		// the same tier; two make one. From the top of Drifting there is nowhere left, so she wakes.
-		if (pushBack >= surface + DEEPEN_HALF_BAND) return { kind: "failed" };
-		if (session.depth - DEEPEN_HALF_STEP <= 0) {
-			endSession("you fought your way up and out");
-			return { kind: "woke" };
-		}
-		moveTo(session.depth - DEEPEN_HALF_STEP);
-		return { kind: "half-up", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
-	}
-	if (at === 0) {
-		endSession("you fought your way up and out");
-		return { kind: "woke" };
-	}
-	// Up one tier, to the middle of it.
-	const up = TIER_ORDER[at - 1];
-	moveTo(tierMinimum(up) + DEEPEN_STEP / 2);
-	return { kind: "surfaced", band: depthBand(session.depth) };
+	const fought = struggle(sender);
+	// Holding, or a push still inside its minute: to the hypnotist it simply did not take.
+	return fought.kind === "held" || fought.kind === "resting" ? { kind: "failed" } : fought;
 }
 
 function findCharacterName(memberId: number): string {
@@ -1610,6 +1799,13 @@ export function answerPrompt(raw: string): void {
 	// "sink deeper" rolls against, and fighting can bring her back up.
 	if (session.phase === "Hypnotized") {
 		setTranceStance(choice);
+		return;
+	}
+	// Mid-window: her mind changes before the roll. Mostly for auto-stance (v0.97.0), which answers
+	// before she has seen anything; private, as the first answer was.
+	if (session.phase === "InductionInProgress") {
+		session.choice = choice;
+		notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
 		return;
 	}
 	if (session.phase !== "AttemptMade") {
@@ -2023,7 +2219,19 @@ export function installSession(): void {
 			log(`refused session-attempt from ${sender} — not on our roster`);
 			return;
 		}
-		if (session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
+		const who = String(message.hypnotistName ?? `#${sender}`);
+		// Toy mode and auto-stance answer without asking her (v0.97.0), so first: is she here?
+		const answer = answerWithoutAsking(sender);
+		if (answer.kind === "away") {
+			refuse(sender, "They're away from the keyboard.");
+			// Told for when she is back: someone tried, and her setting turned them away. If she
+			// forgot she was marked away, this is how she finds out (declared-skill-proposal §6).
+			notify(`${who} tried to hypnotize you while you were away. Your setting turned them away.`);
+			log(`refused session-attempt from ${sender} — away for ${idleMinutes()} min`);
+			return;
+		}
+		// Toy mode has no attempt limit and no cooldown (DW). Everything else still applies.
+		if (answer.kind !== "toy" && session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
 			refuse(sender, "Not yet — try again later.");
 			return;
 		}
@@ -2042,14 +2250,26 @@ export function installSession(): void {
 		// Honour the claim HERE, once, against trust as it stands at the attempt — the rung and
 		// the relationship are the subject's, and the far side never learns the result.
 		session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
+		session.promptName = who;
+		if (answer.kind === "toy") {
+			toyInduction(who);
+			return;
+		}
 		pushUpdate();
-		const who = String(message.hypnotistName ?? `#${sender}`);
 		// She said she trusts them (v0.94.0): no box, it goes ahead as Agree.
 		if (trustGiftWaiting(sender)) {
 			spendTrustGift();
-			session.promptName = who;
 			session.choice = "agree";
 			notify(`${who} reaches for you, and you let them. You told them you trust them.`);
+			beginInductionWindow();
+			return;
+		}
+		if (answer.kind === "stance") {
+			session.choice = answer.stance;
+			notify(
+				`${who} reaches for you, and you ${answer.stance === "agree" ? "go along with it" : answer.stance === "fight" ? "brace against it" : "neither help nor resist"}` +
+					`, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/hypno agree, ignore or fight changes it for this one.)`,
+			);
 			beginInductionWindow();
 			return;
 		}

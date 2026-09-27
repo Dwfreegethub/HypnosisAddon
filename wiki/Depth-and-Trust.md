@@ -41,9 +41,11 @@ You don't need a spreadsheet to play. Your receptivity to a hypnotist comes down
    * **Friends:** Get a slight head start in the door.
    * **Lovers:** Start with enough baseline depth to reach physical suggestions and arousal control.
    * **Owners:** Automatically have enough baseline access to reach everything you've permitted.
-3. **Arousal (The Heat of the Moment):** Being worked up lowers your natural resistance, giving strangers a temporary way in. However, arousal has a strict built-in ceiling (defaulting to **Yielding**). A stranger can leverage arousal to make you freeze or kneel, but arousal alone can *never* leave triggers behind or alter your perception.
+3. **Arousal (The Heat of the Moment):** Being worked up lowers your natural resistance. A full arousal meter adds a quarter of itself to the landing chance, and up to 15 points to how deep you go. But arousal alone can *never* leave triggers behind or alter your perception: it never counts toward earned depth.
 
-**Going deeper once under.** The induction sets where you start. After that, a hypnotist can say *"Missy, sink deeper"* to take you one depth further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Your Depth tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never reaches the earned-only features. See [What to Say](What-to-Say#going-deeper-mid-trance).
+**How deep an induction lands.** The roll only decides whether it lands. How deep comes from your trust, your relationship (a lover holds you at Entranced, an owner at Deep), their skill, your arousal, and your answer: Agree takes you 20 deeper, Fight 20 shallower and lets you land below those floors, give or take a few points either way. A landing at nothing slips away and counts as a miss. `/echs chance <name>` shows where each answer would land.
+
+**Going deeper once under.** The induction sets where you start. After that, a hypnotist can say *"Missy, sink deeper"* to take you further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Shallow, one success goes a long way; already deep, only a little. Your Depth tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never reaches the earned-only features. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
 Want to see exactly where you and a partner stand? Type:
 ```text

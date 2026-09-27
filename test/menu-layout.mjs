@@ -178,6 +178,37 @@ for (let guard = 0; guard < 30; guard++) {
 	clickAt(attempt.left + attempt.width / 2, attempt.top + attempt.height / 2);
 }
 
+// --- after it: auto-stance, being away, toy mode, and who toy mode is for (v0.97.0) ------------------
+// Failure: a button off screen or overlapping the one above, or a click that changes another setting.
+{
+	// Wheeled right to the end: the list is longer than the area now, so the last controls only
+	// come into view there.
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
+	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:", "Toy mode is for:"];
+	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
+	check("the four answer-for-me buttons are drawn at the bottom", found.map((b) => !!b), [true, true, true, true]);
+	check("  wholly in view", found.every((b) => b && inside(b, area)), true);
+	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
+	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getToyScope()];
+	const changed = found.map((b) => {
+		const before = read();
+		clickAt(b.left + b.width / 2, b.top + b.height / 2);
+		const after = read();
+		return after.map((v, i) => v !== before[i]);
+	});
+	check("  each changes its own setting and no other", changed, [
+		[true, false, false, false],
+		[false, true, false, false],
+		[false, false, true, false],
+		[false, false, false, true],
+	]);
+	storage.setDefaultStance("prompt");
+	storage.setAwayStance("refuse");
+	storage.setToyMode(false);
+	storage.setToyScope("lover");
+}
+
 // --- the up arrow and the wheel --------------------------------------------------------------
 {
 	const firstBefore = rowLabels()[0].text;

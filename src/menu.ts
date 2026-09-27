@@ -45,6 +45,20 @@ import {
 	nextDeepestTier,
 	getChemicalReach,
 	setChemicalReach,
+	DEFAULT_STANCES,
+	getDefaultStance,
+	setDefaultStance,
+	nextDefaultStance,
+	AWAY_STANCES,
+	getAwayStance,
+	setAwayStance,
+	nextAwayStance,
+	TOY_SCOPES,
+	getToyMode,
+	setToyMode,
+	getToyScope,
+	setToyScope,
+	nextToyScope,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -166,7 +180,7 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
-		scrollExtra: { height: attemptControlHeight, draw: drawAttemptControl, click: clickAttemptControl },
+		scrollExtra: { height: permissionsExtraHeight, draw: drawPermissionsExtra, click: clickPermissionsExtra },
 	},
 	{
 		name: "Trance Defaults",
@@ -566,6 +580,100 @@ function drawAttemptControl(top: number, width: number): void {
 	);
 }
 
+// --- Permissions tab: answering without being asked (v0.97.0, trust.md §12) ---------------------
+// Four more click-to-cycle controls after the attempt limit, the same shape: a button, and what the
+// current choice MEANS written under it. They answer the same question the tab does, how far
+// someone else may go with you.
+interface CycleControl {
+	label: () => string;
+	caption: () => string;
+	tooltip: string;
+	cycle: () => void;
+}
+const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
+
+const PERMISSION_CYCLES: CycleControl[] = [
+	{
+		label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
+		caption: () =>
+			getDefaultStance() === "prompt"
+				? "You choose Agree, Ignore or Fight each time."
+				: `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
+		tooltip: "Answer the induction box for you, every time",
+		cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance())),
+	},
+	{
+		label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
+		caption: () =>
+			getAwayStance() === "refuse"
+				? "After 10 minutes with no input, the answer above and toy mode turn them away."
+				: getAwayStance() === "ignore"
+					? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off."
+					: "Being away changes nothing: the answer above and toy mode still apply.",
+		tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
+		cycle: () => setAwayStance(nextAwayStance(getAwayStance())),
+	},
+	{
+		label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
+		caption: () =>
+			getToyMode()
+				? "No roll: they put you straight under to your \"sink deeper\" limit, triggers included."
+				: "Every induction rolls as usual.",
+		tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+		cycle: () => setToyMode(!getToyMode()),
+	},
+	{
+		label: () => `Toy mode is for: ${labelOf(TOY_SCOPES, getToyScope())}`,
+		caption: () => (getToyScope() === "anyone" ? "Anyone in the room, strangers too." : "Read from your BC relationships."),
+		tooltip: "Who toy mode applies to",
+		cycle: () => setToyScope(nextToyScope(getToyScope())),
+	},
+];
+
+const CYCLE_GAP = 16;
+
+function permissionsExtraHeight(): number {
+	return attemptControlHeight() + PERMISSION_CYCLES.length * (CYCLE_GAP + attemptControlHeight());
+}
+
+function cycleTop(top: number, i: number): number {
+	return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
+}
+
+function drawPermissionsExtra(top: number, width: number): void {
+	drawAttemptControl(top, width);
+	const locked = settingsLocked();
+	PERMISSION_CYCLES.forEach((c, i) => {
+		const at = cycleTop(top, i);
+		DrawButton(
+			BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
+			!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
+			locked,
+		);
+		drawLeftTextWrap(
+			c.caption(),
+			BOX_LEFT,
+			at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+			width,
+			ATTEMPT_CAPTION_HEIGHT,
+			locked ? "Gray" : "#555",
+		);
+	});
+}
+
+function clickPermissionsExtra(top: number): boolean {
+	if (clickAttemptControl(top)) return true;
+	for (let i = 0; i < PERMISSION_CYCLES.length; i++) {
+		if (!MouseIn(BOX_LEFT, cycleTop(top, i), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
+		// Consumed either way, as the attempt control is: a locked button must not cycle.
+		if (settingsLocked()) return true;
+		PERMISSION_CYCLES[i].cycle();
+		log(`setting now: ${PERMISSION_CYCLES[i].label()}`);
+		return true;
+	}
+	return false;
+}
+
 // --- Triggers tab: drop triggers ---------------------------------------------------------
 // Off / One time / Unlimited (v0.90.0, design.md "Trigger Overhaul", decision 10). The last item in
 // the Triggers list, scrolling with its rows, for the reason the attempt control is on the
@@ -748,8 +856,8 @@ function drawDepthGates(): void {
 	DrawButton(
 		DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`"Sink deeper" stops at: ${deepest}`, locked ? "#ddd" : "White", "",
-		"The deepest a hypnotist can talk you down mid-trance, one tier at a time. " +
-			"An induction still lands wherever its roll puts it. Never reaches the three above that say otherwise.",
+		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
+			"trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
 		locked,
 	);
 

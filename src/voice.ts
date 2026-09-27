@@ -30,6 +30,8 @@ import {
 	dropIntoTrance,
 	tryDeepen,
 	noteSuggestionLanded,
+	registerStruggleReporter,
+	StruggleOutcome,
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
@@ -2763,36 +2765,13 @@ function handleDeepening(sender: number, line: string): boolean {
 			announce("deepen");
 			tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
 			break;
-		case "half":
-			// Usually still the same tier: "slightly deeper but not enough to make a difference" (DW).
-			if (r.crossed) {
-				announce("deepen");
-				tellHypnotist(sender, `[deepen] Only just, but it is enough. They are ${r.band}.`);
-			} else {
-				tellPlayer(flavor("deepen-half"));
-				tellHypnotist(sender, "[deepen] It half takes. They sink a little, not yet enough to matter.");
-			}
-			break;
 		case "failed":
 			tellPlayer(flavor("deepen-failed"));
 			tellHypnotist(sender, "[deepen] It does not take hold this time.");
 			break;
 		case "surfaced":
-			announce("deepen-surface");
-			tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
-			break;
-		case "half-up":
-			if (r.crossed) {
-				announce("deepen-surface");
-				tellHypnotist(sender, `[deepen] It does not take, and they claw their way up. They are ${r.band}.`);
-			} else {
-				tellPlayer(flavor("deepen-half-up"));
-				tellHypnotist(sender, "[deepen] It does not take, and they claw back a little.");
-			}
-			break;
 		case "woke":
-			announce("deepen-woke");
-			tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
+			reportSurfacing(sender, r, "It does not take, and they");
 			break;
 		case "ceiling":
 			tellHypnotist(sender, "[deepen] They are already as deep as they let themselves go this way.");
@@ -2809,6 +2788,32 @@ function handleDeepening(sender: number, line: string): boolean {
 	}
 	return true;
 }
+
+/** She came up, fighting: from a missed deepening (`lead` "It does not take, and they") or from her
+ * own /hypno fight mid-trance (v0.97.0). A new tier is the room's to see; a smaller rise is hers,
+ * and the hypnotist is told either way, in bands. */
+function reportSurfacing(
+	sender: number,
+	r: { kind: "surfaced"; band: string; crossed: boolean } | { kind: "woke" },
+	lead: string,
+): void {
+	if (r.kind === "woke") {
+		announce("deepen-woke");
+		tellHypnotist(sender, `[deepen] ${lead} fight their way up and out of it. They are awake.`);
+		return;
+	}
+	if (r.crossed) {
+		announce("deepen-surface");
+		tellHypnotist(sender, `[deepen] ${lead} push back up. They are ${r.band}.`);
+	} else {
+		tellPlayer(flavor("deepen-rise"));
+		tellHypnotist(sender, `[deepen] ${lead} push back up a little.`);
+	}
+}
+
+registerStruggleReporter((hypnotistId: number, r: StruggleOutcome) => {
+	if (r.kind === "surfaced" || r.kind === "woke") reportSurfacing(hypnotistId, r, "They");
+});
 
 function handleTriggerFiring(sender: number, content: string): boolean {
 	const text = normalize(content);

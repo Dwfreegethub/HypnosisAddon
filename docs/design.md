@@ -431,6 +431,19 @@ A skilled hypnotist needs less time to build trust; their suggestions land more 
 
 ## Induction Success Formula (**built** — v0.15.0)
 
+> **CHANGED v0.97.0 (DW, 2026-09-27; the whole decision record is `trust.md` §10–§12 at the repo
+> root).** The landing chance below still stands, with two changes: arousal now ADDS a quarter of
+> the BC meter to access instead of being a floor capped at 30, and experience weighs 0.2, not
+> 0.25. What changed is **depth**: it no longer falls out of the roll (`depth = chance − roll`,
+> described further down, is gone). The roll decides only whether it lands. Depth is then
+> `trust × 0.5 + relationship depth floor × 0.5 + honoured skill × 0.2 + arousal × 0.15 + stance`
+> (Agree +20, Ignore 0, Fight −20) plus 2d10 − 11, never under `max(relationship depth floor,
+> trust × 0.5)` unless she fights, capped at 95. Earned depth is the same sum and the same 2d10
+> without skill and arousal. A landing at 0 or less **slips away** and counts as a miss. So the
+> RP bonus no longer deepens a trance, and her trust gift only helps it land (and counts as
+> Agree). Auto-stance, the away rule and toy mode are in the *Trance Depth During a Session*
+> bullet below.
+
 **Superseded (v0.7.0–v0.14.0):** `score = trust + choiceModifier + random(0..20)`, success if `score ≥ 50`. Replaced by the chance-based roll below in v0.15.0 — kept here because the reason it had to go is the clearest statement of what the replacement is for.
 
 That has a flaw worth fixing before the trust engine lands. The random term is only 20 wide, so outcomes swing from impossible to certain across a 20-point trust window — the "probabilistic zone near the threshold" the doc calls for is almost nonexistent. Simulated: at trust 25 + Agree it is already **100%**, while trust 25 + Ignore is **0%**. A cliff, not a gradient.
@@ -982,6 +995,33 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     deeper you are you have less chance", skill counts more than trust. `/hypno chance` shows both.
     **v0.96.2:** her half step up. A push-back roll missing by under 20 still brings her up 10
     (DW: "I want a sub fighting to stand a chance"); to 0 or below, she wakes.
+  - **v0.97.0 (DW, 2026-09-27, `trust.md` §12): reworked, and the half steps are gone** (DW: "Do
+    we still need half steps or can the random rolls cover that"). Chance: 40 + access (trust
+    with the relationship floor) × 0.3 + honoured skill × 0.25 + arousal × 0.15 + stance (Agree
+    +20, Fight −25) + time (2 a minute, max 20) + experience × 0.15 on Agree − current depth ×
+    0.3, clamped 10-95; the gift still makes it certain. A hit: +15–25 below 40, +10–15 at 40–69,
+    +5–10 from 70, +5 more past trust 60, capped at the last point of her ceiling tier (so it can
+    now deepen within a tier). A miss does nothing. She gains +0.5 experience per hit.
+    **Fighting:** base 55 / 40 / 28 / 18 / 10 by tier + experience × 0.35 − skill × 0.25 −
+    access × 0.15 − arousal × 0.2, clamped 3-75. A win brings her up 20–30 below 40, 10–15 at
+    40–59, 5–10 from 60; to 0 or below, she wakes. It rolls when a deepening misses while she
+    fights, or when she types `/hypno fight` mid-trance; at most once a minute either way. The
+    room sees her come up only when it crosses a tier; a smaller rise is private, and the
+    hypnotist is told "a little". A push that holds, or one still inside its minute, is told to
+    her alone, so typing fight never tells the hypnotist she is fighting by itself.
+  - **v0.97.0: answering without the box.** Permissions tab. *When someone tries to hypnotize
+    me*: Ask me (default) / Agree / Ignore / Fight, never told to the hypnotist; she can change
+    it with `/hypno agree|ignore|fight` until the roll. *When I'm away*: Refuse (default) /
+    Ignore / Keep my answer, where away is 10 minutes without a key, click or touch in the tab
+    (`src/away.ts`). Refuse is the AFK backstop of `declared-skill-proposal.md` §6 for these
+    two settings only: the hypnotist is told "They're away from the keyboard" and she is told
+    who tried. The plain prompt's silence still proceeds as Ignore, unchanged. **Toy mode**:
+    off by default; for owner / lovers and up (default) / friends and up / anyone, by BC
+    relationship. No box, no roll, no attempt limit or cooldown; she lands at the last point of
+    her "sink deeper" ceiling tier (95 at most), **full and earned alike** (DW: "Player accepts
+    the risk"), so triggers can be planted when her ceiling is Deep or deeper. With the ceiling
+    at Never, it lands as a sure Agree would. Not counted as practice or trust. It follows the
+    away setting too (Ignore there means an ordinary Ignore induction, not toy mode).
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in
@@ -4848,9 +4888,33 @@ H and S as before. `test/deepen.mjs` covers the rules; only a live room shows th
 4. **Earned stays.** At Deep by deepening, H tries to plant a trigger. *Expect:* refused (earned).
 5. **Fighting (v0.96.0).** S under at Yielding: `/echs fight`, then `/echs chance H` shows both odds.
    H keeps deepening (a minute and a landed suggestion apart). *Expect:* misses sometimes bring S up
-   ("they push back up"); from Drifting, awake. A near miss is "It half takes".
+   ("they push back up"); from Drifting, awake. (v0.97.0 removed half steps; see item 29.)
 
-**Fifteen of twenty-nine topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
+### 29. The induction overhaul (v0.97.0) — **open, never run live**
+
+H and S as before. `test/induction.mjs` and `test/deepen.mjs` cover the rules; these are the parts
+only a live room shows. `/echs chance H` on S's side shows every number used.
+
+1. **Depth from trust, not the roll.** S at low trust with H, answering Agree several times over a
+   few sessions. *Expect:* depth within a few points of what `/echs chance H` said ("lands A–B"),
+   not spread from nothing to the chance.
+2. **It slips away.** S answers Fight to a stranger. *Expect:* when the roll lands, S sees "it
+   slips away" and H sees an ordinary miss.
+3. **Auto-stance.** S sets *When someone tries to hypnotize me* to Agree. H attempts. *Expect:* no
+   box; S told "as you set yourself to"; H sees only the window start. S types `/echs fight`
+   before the roll. *Expect:* "You brace against it after all."
+4. **Away.** S leaves the tab untouched for 10 minutes. H attempts. *Expect:* H told "They're away
+   from the keyboard", S sees who tried. Set *When I'm away* to Keep; repeat. *Expect:* goes ahead.
+5. **Toy mode.** S turns it on (default lovers and up) with a lover H. *Expect:* S straight under at
+   the top of her ceiling tier, no box; a stranger still gets the box.
+6. **Deepening and fighting.** From Yielding, "sink deeper" goes 15–25; from Deep, 5–10. S types
+   `/echs fight` under. *Expect:* an immediate push; typing it again within a minute says "still
+   gathering yourself", and H hears nothing either time the push fails.
+7. **The new buttons.** Scroll to the bottom of the Permissions tab. *Expect:* four buttons after
+   the attempt limit, each cycling, each with its caption readable, locked while a session is on
+   you if that lock is ticked.
+
+**Fifteen of thirty topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
 
