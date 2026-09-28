@@ -4893,7 +4893,14 @@ H and S as before. `test/deepen.mjs` covers the rules; only a live room shows th
    H keeps deepening (a minute and a landed suggestion apart). *Expect:* misses sometimes bring S up
    ("they push back up"); from Drifting, awake. (v0.97.0 removed half steps; see item 29.)
 
-### 29. The induction overhaul (v0.97.0) — **open, never run live**
+### 29. The induction overhaul (v0.97.0) — **mostly confirmed live, 2026-09-27**
+
+DW ran most of `TEST_PLAN_v0.97.md` (a local file, not in git) on the branch with Missy and Missys
+Helper, and judged it ready: "I think I have tested enough. This seems more stable and less random."
+It found the fractional depth (v0.97.1) and the unreported refusals (v0.96.3), both fixed. Merged
+to main as v0.97.4 (PR #74). **Not yet run live:** the *Toy mode is for* dropdown (v0.97.3), planting
+a trigger at earned Deep (the plan's step 1D), and the wrapping hover tips (v0.97.4). Step 7 below
+now means three buttons and the dropdown.
 
 H and S as before. `test/induction.mjs` and `test/deepen.mjs` cover the rules; these are the parts
 only a live room shows. `/echs chance H` on S's side shows every number used.

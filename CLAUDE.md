@@ -24,6 +24,8 @@ own design copy for. So it now points, and does not duplicate.
 | **Anything touching the induction roll, the AFK/prompt-timeout path, settings defaults, or extreme mode** | `docs/declared-skill-proposal.md` **first** — its decisions are settled and not all folded into `design.md` yet. §10 is the list of what is still open; §11 is what has *not* been verified |
 | Engineering record, BC API traps | `README.md` |
 | BC pose names, categories and the pose API | `docs/bc-pose-reference.md` (verified by DW, 2026-09-23) |
+| **The player wiki** | `wiki/` — mirrored to the GitHub wiki by `.github/workflows/sync-wiki.yml` on every push to main that touches it (edits made on the website are overwritten). Update it in the same PR as any player-visible change, alongside `src/help.ts` |
+| Why the induction works as it does (v0.97) | `trust.md` at the repo root, §12 is the final spec DW decided — **local and untracked**, not in git; `docs/design.md` and `docs/CHANGELOG.md` cite it |
 
 Settled decisions are recorded in `design.md`. Do not re-decide one without flagging that you are.
 
@@ -44,6 +46,23 @@ The reasoning for each is in the Orientation section; this is the checklist.
 11. **Testing affordances are gated by the room, not a build flag.** `isTestingMode()` in `src/log.ts` returns true only in the **Hypno Testing** room (case-insensitive), off everywhere else and when not in a room — so the shipped build is safe by default with no release flip to remember. The unit suites force it on via the `FORCE_TESTING` seed that `build-test.mjs` rewrites (`build.mjs` does not); keep that arrangement intact.
 12. **Do not restart either live bot in this workspace (BD or SSS) without explicit confirmation from DW.**
 13. **Every release gets a line in the root `CHANGELOG.md`, in the same PR as the bump.** It is for players: say what they will notice, in plain words, with no file names, function names or test counts. A new `## v<version> · <date>` heading at the top, newest first. The reasoning still goes in `docs/CHANGELOG.md`; the two are separate on purpose. A docs-only change with no bump reaches no player and needs no entry.
+
+## Working with DW
+
+- **Flow:** branch from `main`, bump, `npm run release`, both changelogs, PR, squash-merge, pull.
+  A large change may live on a `feat/` branch while DW tests it; the loader fetches from `main`, so
+  a branch never reaches players. A hotfix goes to `main` and is then merged into any open branch.
+  Docs-only and wiki-only changes need no bump.
+- **Live testing:** DW tests with the subject **Missy** and the hypnotist **Missys Helper**, in the
+  **Hypno Testing** room. Write test steps as exact commands DW can paste, and write every command
+  as `/echs …`, not `/hypno …` (both work; `/echs` is what players see).
+- **Local files that are not in git; leave them alone:** `job.md`, `NAMESPACE_COLLISION.MD`,
+  `trust.md`, `trust_edit.md`, `TEST_PLAN_v0.97.md`.
+- **GreeterBot** (`../GreeterBot`, not a git repo) holds the public *Erotic Chat Hypnosis* room: size
+  15 (`ROOM_LIMIT`, `src/connection.ts`), background `MainHall2` (Main Hall Gold), and a greeting
+  whispered to each arrival. The greeting, room name and description live in `src/secrets.ts`, which
+  also holds the bot's login: edit only the fields you need and never print the file. `run.ps1`
+  rebuilds and restarts it when its `node` process exits. Restart it only when DW says so.
 
 ## Build and test
 
