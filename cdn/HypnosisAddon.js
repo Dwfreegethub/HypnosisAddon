@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.97.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.97.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3916,6 +3916,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer(`${flavour} Attempt ${attempts} of ${max}. You can try again.`);
     }
   }
+  function reportRefusalToHypnotist(sender, message) {
+    const reason = typeof message.refusedReason === "string" ? message.refusedReason.trim() : "";
+    if (!reason) return;
+    const minutes = Math.ceil(Number(message.cooldownRemaining ?? 0) / 6e4);
+    const wait = /^Not yet/.test(reason) && minutes > 0 ? ` (about ${minutes} more minute${minutes === 1 ? "" : "s"})` : "";
+    tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${reason}${wait}`);
+  }
   function reportExpiryToHypnotist(sender, message) {
     if (message.refusedReason) return;
     if (message.ended !== "timeout" || message.phase !== "Idle") return;
@@ -4088,6 +4095,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
       reportMissToHypnotist(sender, message, prev);
       reportExpiryToHypnotist(sender, message);
+      reportRefusalToHypnotist(sender, message);
       views.set(sender, {
         phase: message.phase ?? "Idle",
         attempts: Number(message.attempts ?? 0),
@@ -10138,7 +10146,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -11850,7 +11858,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11873,7 +11881,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.97.1"} loaded`;
+    el.textContent = `ECHS v${"0.97.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11904,14 +11912,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.97.1"})`);
+  info(`script loaded (v${"0.97.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.97.1",
+      version: "0.97.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

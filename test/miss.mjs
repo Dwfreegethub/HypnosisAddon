@@ -239,7 +239,21 @@ check("  with the count", /attempt 2 of 2/i.test(local[0] ?? ""), true);
 // already in AttemptFailed would otherwise read as a fresh failed roll.
 session.safeword();
 update({ phase: "Idle", attempts: 0 });
-check("a refusal is not reported as a miss", update({ phase: "AttemptFailed", attempts: 1, maxAttempts: 2, refusedReason: "they have hypnosis turned off" }).length, 0);
+out = update({ phase: "AttemptFailed", attempts: 1, maxAttempts: 2, refusedReason: "they have hypnosis turned off" });
+check("a refusal is not reported as a miss", out.some((l) => /Attempt \d of|out of reach/.test(l)), false);
+check("  only as the refusal it is", out.length === 1 && /can't be hypnotized right now/.test(out[0]), true);
+
+// But it is said, as a refusal (v0.96.3, DW: induce did not notice she was already under or
+// cooling down). Failure: silence, the reason missing, or a status query's empty reason reported.
+session.safeword();
+update({ phase: "Idle", attempts: 0 });
+out = update({ phase: "Hypnotized", attempts: 0, maxAttempts: 2, refusedReason: "Already under." });
+check("a refusal reaches the hypnotist's log", out.length, 1);
+check("  naming them and the reason", /GameBot can't be hypnotized right now: Already under\./.test(out[0] ?? ""), true);
+out = update({ phase: "CooldownRequired", attempts: 0, maxAttempts: 2, cooldownRemaining: 7 * 60_000 - 5_000, refusedReason: "Not yet — try again later." });
+check("  a cooldown says how long", /Not yet — try again later\. \(about 7 more minutes\)/.test(out[0] ?? ""), true);
+check("  every time it is asked", update({ phase: "CooldownRequired", attempts: 0, maxAttempts: 2, refusedReason: "Not yet — try again later." }).length, 1);
+check("a status query's empty reason says nothing", update({ phase: "Idle", attempts: 0, refusedReason: "" }).length, 0);
 
 // Walking up to someone who was already in a cooldown from someone else's attempts is not
 // an attempt of ours, and a query answers with the phase they are in.

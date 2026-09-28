@@ -12,6 +12,10 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.97.2 · 27 September 2026
+
+- Includes v0.96.3's fix: you are told when an induction is turned away.
+
 ## v0.97.1 · 27 September 2026
 
 - **Depth shows as a whole number again.** A trance held up by your trust could show a depth like
@@ -34,6 +38,13 @@ report it and say which version your chat line shows.
 - **New: toy mode.** Off unless you turn it on. For the people you choose (lovers and up unless you
   change it), an induction puts you straight under to your *"sink deeper"* limit with no roll, and
   that includes triggers if your limit is Deep or deeper. The safeword always works.
+
+## v0.96.3 · 27 September 2026
+
+- **You are told when an induction is turned away.** If you try to hypnotize someone who is already
+  under, still in their wait after your last tries, or not open to hypnosis, your chat now says so
+  and why, with how long is left on a wait. Before, only their Information Sheet showed it, so
+  `/echs induce` looked as if it had worked.
 
 ## v0.96.2 · 26 September 2026
 

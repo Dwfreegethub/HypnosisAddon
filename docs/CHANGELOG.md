@@ -20,6 +20,11 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Merged 2026-09-27 (v0.97.2) — main's v0.96.3 into the overhaul branch
+
+`main` into `feat/induction-overhaul`: the refusal fix below (v0.96.3), with no change of its own.
+Its own number so a tester can tell from the startup line that the branch build has the fix.
+
 ### Fixed 2026-09-27 (v0.97.1) — the trust floor was not rounded
 
 DW, live test 1B: `/hypno gates` showed "Depth 31.34328358208955 full / 31.34328358208955". The
@@ -62,6 +67,20 @@ run it live.
   slipping off — each caught), `test/deepen.mjs` rewritten (88), `test/menu-layout.mjs` +4, and four
   suites whose "a random of 0 always lands" setup no longer held (a random of 0 is also the lowest
   spread) given enough trust to land.
+
+### Fixed 2026-09-27 (v0.96.3) — refusals were never said in the hypnotist's chat
+
+DW: "/hypno induce is not recognizing when Missy is already in session or if in a cooldown
+period." The subject's client did refuse ("Already under.", "Not yet — try again later.", and the
+other gates in the `session-attempt` and `session-continue` handlers), but `refuse()` only sends a
+`session-update` carrying `refusedReason`, and on the hypnotist's side that reached `views` and the
+Information Sheet's status line and nothing else. `/hypno induce` had already replied "Attempting
+an induction on Missy", so with the panel closed it looked accepted and then silent. Rule 5. Probably
+there since the command was added; never reported. `reportRefusalToHypnotist()` now tells the
+hypnotist every non-empty refusal (each one answers a request of theirs), with the minutes left on
+a cooldown; a status query's empty reason stays silent. `test/miss.mjs` +6 (52), four seen failing
+without the fix; `test/miss.mjs` and `test/expiry.mjs` each had a check that a refusal prints nothing,
+now that it prints only the refusal.
 
 ### Changed 2026-09-26 (v0.96.2) — her half step up, fighting
 
