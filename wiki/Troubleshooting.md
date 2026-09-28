@@ -50,7 +50,7 @@ Punctuation, capitalization, and standard contractions (*can't* vs. *cannot*) ar
 
 ## 4. A Suggestion Refused Due to Depth
 
-This is an intentional gate, not a bug. The suggestion requires a deeper trance tier than the subject currently occupies. How deep a hypnotist can take someone depends on familiarity, trust, and relationship status. See [Depth and Trust](Depth-and-Trust).
+This is an intentional gate, not a bug. The suggestion requires a deeper trance tier than the subject currently occupies. How deep a hypnotist can take someone depends on familiarity, trust, and relationship status. See [Depth and Trust](Depth-and-Trust) and [How an Induction Works](How-Inductions-Work).
 
 *If you want a specific effect to be accessible in lighter trances, adjust its tier under the **Depth** tab. Depth gates are personal comfort settings, not game difficulty locks.*
 
