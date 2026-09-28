@@ -233,7 +233,7 @@ function depthTrustLines(): HelpLine[] {
 		body("Agree, Ignore or Fight. They are never told which. After 10 minutes"),
 		body("with no key, click or touch you count as away, and your away"),
 		body("setting decides: turn them away (the default), Ignore, or keep it."),
-		body("Toy mode, for the people you choose (lovers and up by default), puts"),
+		body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
 		body('you straight under to your "sink deeper" limit: no roll, no tries.'),
 		dim("Toy mode reaches triggers too. The safeword always works."),
 		gap(),

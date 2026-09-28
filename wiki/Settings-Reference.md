@@ -39,8 +39,8 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 * **When someone tries to hypnotize me:** *Ask me · Agree · Ignore · Fight* (default: *Ask me*). Anything but *Ask me* answers every induction for you with no box; the hypnotist is never told which.
 * **When I'm away:** *Refuse · Ignore · Keep my answer* (default: *Refuse*). Away means 10 minutes with no key, click or touch. Applies to the answer above and to toy mode, never to *Ask me*.
 * **Toy mode:** *Off · On* (default: *Off*). No roll: an induction puts you straight under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
-* **Toy mode is for:** *My owner · Lovers and up · Friends and up · Anyone* (default: *Lovers and up*). Read from your BC relationships.
-* These four are at the bottom of the tab; scroll down to reach them.
+* **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and whitelist · Owner, Lovers, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, whitelist, blacklist and Dominant reputation, exactly as for triggers.
+* These are at the bottom of the tab; scroll down to reach them.
 * **Starter Set:** A one-click preset on fresh installs that enables five safe, session-only basics, reversible with a single click.
 
 *(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab).*

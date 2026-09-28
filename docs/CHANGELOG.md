@@ -20,6 +20,26 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-09-27 (v0.97.3) — toy mode's scope is the trigger-scope ladder, as a dropdown
+
+DW, after testing: "in the Toy mode is for box I would rather it use the same format as the one used
+on the triggers tab", and chose the same choices, not only a dropdown. The ladder moved from
+`speakerAllowedByScope()` in triggers.ts to `allowedByLadder()` in a new leaf, `src/ladder.ts`,
+because session.ts cannot import triggers.ts (triggers.ts imports session.ts). Triggers behave
+exactly as before (`test/scope.mjs` and `test/triggers.mjs` unchanged and passing). `TOY_SCOPES` is
+the ladder less "Hypnotist only", keyed by `TriggerScope`; default `lovers`. The v0.97.0 keys are
+converted on load (lover → lovers, friend → whitelist, the nearest rung, anyone → everyone); only
+branch testers ever saved them. `toyModeFor()` still reads `relationshipWith()` first so `/echs
+relate` works in the testing room.
+
+The control is a DOM `<select>` inside the Permissions tab's scroll area, which cannot clip it, so it
+is placed only while wholly in view and removed otherwise, through a new `hide` hook on
+`scrollExtra` for the frame where the whole band is scrolled out; also on tab change and exit.
+`test/menu-layout.mjs` (71) checks it is placed, saves, goes when scrolled away and on another tab.
+The scroll-away check first passed with `hide` disabled, because the frames drawn on the way up
+removed it early; it now scrolls in one jump and fails without `hide`. `test/induction.mjs` +4 (63)
+for the whitelist and blacklist; ignoring them fails 2.
+
 ### Merged 2026-09-27 (v0.97.2) — main's v0.96.3 into the overhaul branch
 
 `main` into `feat/induction-overhaul`: the refusal fix below (v0.96.3), with no change of its own.

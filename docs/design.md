@@ -1016,8 +1016,11 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     (`src/away.ts`). Refuse is the AFK backstop of `declared-skill-proposal.md` §6 for these
     two settings only: the hypnotist is told "They're away from the keyboard" and she is told
     who tried. The plain prompt's silence still proceeds as Ignore, unchanged. **Toy mode**:
-    off by default; for owner / lovers and up (default) / friends and up / anyone, by BC
-    relationship. No box, no roll, no attempt limit or cooldown; she lands at the last point of
+    off by default; for whom is the trigger-scope ladder less "Hypnotist only" (Owner only /
+    Owner and Lovers, the default / + whitelist / + Dominants / everyone except blacklist /
+    everyone), decided by `allowedByLadder()` in `src/ladder.ts`, shared with triggers since
+    v0.97.3 (DW: "use the same format as the one used on the triggers tab"); `/echs relate` still
+    stands in for owner and lover in the testing room. A dropdown, like the Triggers tab's. No box, no roll, no attempt limit or cooldown; she lands at the last point of
     her "sink deeper" ceiling tier (95 at most), **full and earned alike** (DW: "Player accepts
     the risk"), so triggers can be planted when her ceiling is Deep or deeper. With the ceiling
     at Never, it lands as a sure Agree would. Not counted as practice or trust. It follows the
@@ -4905,7 +4908,7 @@ only a live room shows. `/echs chance H` on S's side shows every number used.
    before the roll. *Expect:* "You brace against it after all."
 4. **Away.** S leaves the tab untouched for 10 minutes. H attempts. *Expect:* H told "They're away
    from the keyboard", S sees who tried. Set *When I'm away* to Keep; repeat. *Expect:* goes ahead.
-5. **Toy mode.** S turns it on (default lovers and up) with a lover H. *Expect:* S straight under at
+5. **Toy mode.** S turns it on (default Owner and Lovers) with a lover H. *Expect:* S straight under at
    the top of her ceiling tier, no box; a stranger still gets the box.
 6. **Deepening and fighting.** From Yielding, "sink deeper" goes 15–25; from Deep, 5–10. S types
    `/echs fight` under. *Expect:* an immediate push; typing it again within a minute says "still

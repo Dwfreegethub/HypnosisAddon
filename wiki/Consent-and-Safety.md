@@ -93,7 +93,7 @@ Getting worked up or highly aroused can lower your resistance: it helps an induc
 
 ### Answering ahead of time, and toy mode
 * **Your automatic answer** (Permissions tab) answers every induction as Agree, Ignore or Fight without the box. It is off (*Ask me*) unless you choose it.
-* **Toy mode** (off unless you turn it on) lets the people you choose put you straight under to your *"sink deeper"* limit with no roll. That is **your** consent, given ahead of time, so it counts as earned depth: if your limit is Deep or deeper, triggers can be planted. Choose who it is for carefully; the default is lovers and up.
+* **Toy mode** (off unless you turn it on) lets the people you choose put you straight under to your *"sink deeper"* limit with no roll. That is **your** consent, given ahead of time, so it counts as earned depth: if your limit is Deep or deeper, triggers can be planted. Choose who it is for carefully; the default is your owner and lovers.
 * **While you are away** (10 minutes with no key, click or touch), both are turned away by default, and the hypnotist is told you are away. You are told who tried when you come back.
 * The safeword and every exit below work exactly as always.
 

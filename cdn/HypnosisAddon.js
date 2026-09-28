@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.97.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.97.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1911,6 +1911,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log("away watch installed: 10 minutes without a key, click or touch counts as away");
   }
 
+  // src/ladder.ts
+  function characterFor(memberNumber) {
+    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+      (c) => c?.MemberNumber === memberNumber
+    );
+  }
+  function allowedByLadder(memberId, scope) {
+    if (scope === "hypnotist") return false;
+    if (memberId === Player?.MemberNumber) return false;
+    const C = characterFor(memberId);
+    if (!C) return false;
+    if (Player?.IsOwnedByCharacter?.(C)) return true;
+    if (scope === "everyone") return true;
+    if (Player?.HasOnBlacklist?.(C)) return false;
+    if (scope === "notblack") return true;
+    if (scope === "owner") return false;
+    if (C.IsLoverOfCharacter?.(Player)) return true;
+    if (scope === "lovers") return false;
+    if (Player?.HasOnWhitelist?.(C)) return true;
+    if (scope === "whitelist") return false;
+    try {
+      return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
+    } catch {
+      return false;
+    }
+  }
+
   // src/trust.ts
   var RATE_LIMIT_MS = 5 * 6e4;
   var DIRECTED_MULTIPLIER = 2;
@@ -1960,7 +1987,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },
     owner: { kind: "owner", floor: 65, reaches: ["session", "arousal", "deceptive", "persistent"] }
   };
-  function characterFor(memberId) {
+  function characterFor2(memberId) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberId
     );
@@ -1968,7 +1995,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function relationshipWith(memberId) {
     const override = getRelationshipOverride(memberId);
     if (override) return override;
-    const C = characterFor(memberId);
+    const C = characterFor2(memberId);
     try {
       if (C && Player?.IsOwnedByCharacter?.(C)) return "owner";
       if (C && C.IsLoverOfCharacter?.(Player)) return "lover";
@@ -3369,10 +3396,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     applyTranceState();
     startPresenceWatch();
   }
-  var RELATION_RANK = { none: 0, friend: 1, lover: 2, owner: 3 };
-  var TOY_SCOPE_RANK = { anyone: 0, friend: 1, lover: 2, owner: 3 };
   function toyModeFor(memberId) {
-    return getToyMode() && (RELATION_RANK[relationshipWith(memberId)] ?? 0) >= (TOY_SCOPE_RANK[getToyScope()] ?? 3);
+    if (!getToyMode()) return false;
+    const scope = getToyScope();
+    const relation = relationshipWith(memberId);
+    if (relation === "owner") return true;
+    if (relation === "lover" && scope !== "owner") return true;
+    return allowedByLadder(memberId, scope);
   }
   function answerWithoutAsking(memberId) {
     const toy = toyModeFor(memberId);
@@ -4253,6 +4283,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.defaultStance !== void 0 && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
     if (s.awayStance !== void 0 && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
     if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
+    if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
     if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
     if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
@@ -4661,12 +4692,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
   ];
   var DEFAULT_AWAY_STANCE = "refuse";
   var TOY_SCOPES = [
-    { key: "owner", label: "My owner" },
-    { key: "lover", label: "Lovers and up" },
-    { key: "friend", label: "Friends and up" },
-    { key: "anyone", label: "Anyone" }
+    { key: "owner", label: "Owner only" },
+    { key: "lovers", label: "Owner and Lovers" },
+    { key: "whitelist", label: "Owner, Lovers and whitelist" },
+    { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+    { key: "notblack", label: "Everyone, except blacklist" },
+    { key: "everyone", label: "Everyone, no exceptions" }
   ];
-  var DEFAULT_TOY_SCOPE = "lover";
+  var DEFAULT_TOY_SCOPE = "lovers";
+  var OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
   var cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
   function getDefaultStance() {
     return loadSettings().defaultStance ?? DEFAULT_DEFAULT_STANCE;
@@ -4701,9 +4735,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function setToyScope(key) {
     if (TOY_SCOPES.some((r) => r.key === key)) loadSettings().toyScope = key;
     saveSettings();
-  }
-  function nextToyScope(current) {
-    return cycle(TOY_SCOPES, current);
   }
   function setSkillHonour(rung) {
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
@@ -4980,7 +5011,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         sender,
         `[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`
       );
-      const who = characterFor2(sender)?.Name ?? `#${sender}`;
+      const who = characterFor3(sender)?.Name ?? `#${sender}`;
       tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
       result.lines.forEach(tellPlayer);
     });
@@ -5215,7 +5246,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function compulsionsFor(event, member) {
     if (member === Player?.MemberNumber) return [];
-    const C = characterFor2(member);
+    const C = characterFor3(member);
     const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
     return listTriggers().filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
@@ -5229,7 +5260,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!word) return null;
     if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
     if (word === "i" || word === "me") {
-      return { watchName: nameKey(characterFor2(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+      return { watchName: nameKey(characterFor3(installerId)?.Name) || "the hypnotist", watchMember: installerId };
     }
     if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
     const inRoom = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -5525,7 +5556,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
     { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
   ];
-  function characterFor2(memberNumber) {
+  function characterFor3(memberNumber) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberNumber
     );
@@ -5542,24 +5573,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return scopeIsWider(t.scope, global) ? global : t.scope;
   }
   function speakerAllowedByScope(speaker, scope) {
-    if (scope === "hypnotist") return false;
-    if (speaker === Player?.MemberNumber) return false;
-    const C = characterFor2(speaker);
-    if (!C) return false;
-    if (Player?.IsOwnedByCharacter?.(C)) return true;
-    if (scope === "everyone") return true;
-    if (Player?.HasOnBlacklist?.(C)) return false;
-    if (scope === "notblack") return true;
-    if (scope === "owner") return false;
-    if (C.IsLoverOfCharacter?.(Player)) return true;
-    if (scope === "lovers") return false;
-    if (Player?.HasOnWhitelist?.(C)) return true;
-    if (scope === "whitelist") return false;
-    try {
-      return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
-    } catch {
-      return false;
-    }
+    return allowedByLadder(speaker, scope);
   }
   function triggersFiredBy(speaker, normalisedText) {
     if (!normalisedText) return [];
@@ -8611,7 +8625,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("Agree, Ignore or Fight. They are never told which. After 10 minutes"),
       body("with no key, click or touch you count as away, and your away"),
       body("setting decides: turn them away (the default), Ignore, or keep it."),
-      body("Toy mode, for the people you choose (lovers and up by default), puts"),
+      body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
       body('you straight under to your "sink deeper" limit: no roll, no tries.'),
       dim("Toy mode reaches triggers too. The safeword always works."),
       gap(),
@@ -9174,7 +9188,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "undressControl", label: "Undressing" },
         { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
       ],
-      scrollExtra: { height: permissionsExtraHeight, draw: drawPermissionsExtra, click: clickPermissionsExtra }
+      scrollExtra: {
+        height: permissionsExtraHeight,
+        draw: drawPermissionsExtra,
+        click: clickPermissionsExtra,
+        hide: () => {
+          if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+        }
+      }
     },
     {
       name: "Trance Defaults",
@@ -9503,17 +9524,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
       caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
       tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
       cycle: () => setToyMode(!getToyMode())
-    },
-    {
-      label: () => `Toy mode is for: ${labelOf(TOY_SCOPES, getToyScope())}`,
-      caption: () => getToyScope() === "anyone" ? "Anyone in the room, strangers too." : "Read from your BC relationships.",
-      tooltip: "Who toy mode applies to",
-      cycle: () => setToyScope(nextToyScope(getToyScope()))
     }
   ];
   var CYCLE_GAP = 16;
+  var TOY_SCOPE_ID = "HypnosisAddonToyScope";
+  var TOY_SCOPE_LABEL_WIDTH = 250;
+  var TOY_SCOPE_WIDTH = 560;
   function permissionsExtraHeight() {
-    return attemptControlHeight() + PERMISSION_CYCLES.length * (CYCLE_GAP + attemptControlHeight());
+    return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+  }
+  function drawToyScopeControl(top, width, locked) {
+    drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
+    drawLeftTextWrap(
+      getToyScope() === "everyone" || getToyScope() === "notblack" ? "Anyone in the room, strangers too. Read from your BC relationships and lists." : "Read from your BC relationships and lists, the same as for triggers.",
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+    const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+    let element = document.getElementById(TOY_SCOPE_ID);
+    if (!inView) {
+      if (element) ElementRemove(TOY_SCOPE_ID);
+      return;
+    }
+    if (!element) {
+      element = ElementCreateDropdown(
+        TOY_SCOPE_ID,
+        TOY_SCOPES.map((s) => s.label),
+        function() {
+          setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
+          log(`toy mode is for: ${getToyScope()}`);
+        }
+      );
+    }
+    const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
+    ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
   }
   function cycleTop(top, i) {
     return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
@@ -9543,6 +9593,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         locked ? "Gray" : "#555"
       );
     });
+    drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
   }
   function clickPermissionsExtra(top) {
     if (clickAttemptControl(top)) return true;
@@ -9878,7 +9929,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DURATION_HEIGHT = 56;
   var DECAY_CAPTION_Y = 858;
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
   }
@@ -9890,6 +9941,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
     }
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+    if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
   }
   function drawDecayControl() {
     const locked = settingsLocked();
@@ -10146,7 +10198,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           drawWizard();
           return;
         }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
         DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
         DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
         if (!settingsLocked()) {
@@ -10194,6 +10246,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           if (extra) {
             const top = scrollExtraTop(tab);
             if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+            else extra.hide?.();
           }
         });
         rowsDrawnAt = Date.now();
@@ -11858,7 +11911,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.2"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.3"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11881,7 +11934,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.97.2"} loaded`;
+    el.textContent = `ECHS v${"0.97.3"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11912,14 +11965,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.97.2"})`);
+  info(`script loaded (v${"0.97.3"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.97.2",
+      version: "0.97.3",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

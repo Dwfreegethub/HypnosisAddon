@@ -15,6 +15,7 @@ import {
 	TRIGGER_SCOPE_KEYS,
 } from "./storage";
 import { isSessionActiveWith } from "./session";
+import { allowedByLadder } from "./ladder";
 import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { onTeardown, onWake, onTotalStop } from "./teardown";
@@ -1102,11 +1103,6 @@ function characterFor(memberNumber: number): any {
 	);
 }
 
-/** Does this speaker clear the subject's chosen scope?
- *
- * Follows the same order of tests as ServerChatRoomGetAllowItem: the owner is allowed at
- * every level and is checked before the blacklist, and "Dominant" means within 25
- * reputation points, both matching BC exactly rather than inventing our own reading. */
 function scopeLabel(scope: TriggerScope): string {
 	return TRIGGER_SCOPES.find((s) => s.key === scope)?.label ?? scope;
 }
@@ -1124,30 +1120,10 @@ export function effectiveScope(t: Trigger): TriggerScope {
 	return scopeIsWider(t.scope, global) ? global : t.scope;
 }
 
+/** Does this speaker clear the subject's chosen scope? The ladder itself is in ladder.ts, shared
+ * with toy mode since v0.97.3. */
 function speakerAllowedByScope(speaker: number, scope: TriggerScope): boolean {
-	if (scope === "hypnotist") return false;
-	// The ladder is about OTHER PEOPLE. Running it against yourself produced answers nobody
-	// chose — "everyone" and "not blacklisted" trivially include you, and the dominants rung
-	// asks whether your own reputation plus 25 beats your own reputation, which it always
-	// does — so three scopes silently allowed self-firing and four did not. Whether you may
-	// fire your own triggers is one explicit setting now; see triggersFiredBy.
-	if (speaker === Player?.MemberNumber) return false;
-	const C = characterFor(speaker);
-	if (!C) return false;
-	if (Player?.IsOwnedByCharacter?.(C)) return true;
-	if (scope === "everyone") return true;
-	if (Player?.HasOnBlacklist?.(C)) return false;
-	if (scope === "notblack") return true;
-	if (scope === "owner") return false;
-	if (C.IsLoverOfCharacter?.(Player)) return true;
-	if (scope === "lovers") return false;
-	if (Player?.HasOnWhitelist?.(C)) return true;
-	if (scope === "whitelist") return false;
-	try {
-		return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
-	} catch {
-		return false;
-	}
+	return allowedByLadder(speaker, scope);
 }
 
 export function triggersFiredBy(speaker: number, normalisedText: string): Trigger[] {

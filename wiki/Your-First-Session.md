@@ -75,7 +75,7 @@ If the attempt succeeds, your client enters a trance state. The roll only decide
 ### Answering Ahead of Time
 On the Permissions tab you can answer every induction before it happens: **Agree**, **Ignore** or **Fight**, with no box. The hypnotist is never told which. If you are away from the keyboard (10 minutes with no key, click or touch), your *When I'm away* setting decides: turn them away (the default), treat it as Ignore, or keep your answer.
 
-**Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (lovers and up by default), an induction puts you straight under to your *"sink deeper"* limit, with no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
+**Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (your owner and lovers by default, or wider, the same choices as trigger scope), an induction puts you straight under to your *"sink deeper"* limit, with no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
 
 ### Step 3: Receiving Suggestions
 When a spoken suggestion passes all checks, your client applies the effect and displays a private notification in brackets. If a suggestion is blocked, the *hypnotist* receives private diagnostic feedback explaining which gate stopped it, preventing scene confusion.

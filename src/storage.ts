@@ -644,6 +644,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.defaultStance !== undefined && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
 	if (s.awayStance !== undefined && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
 	if (s.toyMode !== undefined && typeof s.toyMode !== "boolean") delete s.toyMode;
+	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
@@ -1237,14 +1238,22 @@ export const AWAY_STANCES: { key: string; label: string }[] = [
 	{ key: "keep", label: "Keep my answer" },
 ];
 export const DEFAULT_AWAY_STANCE = "refuse";
-/** Who toy mode is for, lowest relationship that qualifies. */
-export const TOY_SCOPES: { key: string; label: string }[] = [
-	{ key: "owner", label: "My owner" },
-	{ key: "lover", label: "Lovers and up" },
-	{ key: "friend", label: "Friends and up" },
-	{ key: "anyone", label: "Anyone" },
+/** Who toy mode is for (v0.97.3): the Triggers tab's ladder, tightest first, without its
+ * "Hypnotist only" rung, which means nothing here. Keys are TriggerScope keys, decided by
+ * allowedByLadder() in ladder.ts, so BC's whitelist, blacklist and Dominant reputation count here
+ * exactly as they do for triggers (DW: "use the same format as the one used on the triggers tab"). */
+export const TOY_SCOPES: { key: TriggerScope; label: string }[] = [
+	{ key: "owner", label: "Owner only" },
+	{ key: "lovers", label: "Owner and Lovers" },
+	{ key: "whitelist", label: "Owner, Lovers and whitelist" },
+	{ key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+	{ key: "notblack", label: "Everyone, except blacklist" },
+	{ key: "everyone", label: "Everyone, no exceptions" },
 ];
-export const DEFAULT_TOY_SCOPE = "lover";
+export const DEFAULT_TOY_SCOPE: TriggerScope = "lovers";
+/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends had no rung on the
+ * ladder; the whitelist is the nearest. */
+const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
 
 const cycle = (list: { key: string }[], current: string): string =>
 	list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
@@ -1276,16 +1285,14 @@ export function setToyMode(on: boolean): void {
 	loadSettings().toyMode = on;
 	saveSettings();
 }
-export function getToyScope(): string {
-	return loadSettings().toyScope ?? DEFAULT_TOY_SCOPE;
+export function getToyScope(): TriggerScope {
+	return (loadSettings().toyScope as TriggerScope | undefined) ?? DEFAULT_TOY_SCOPE;
 }
 export function setToyScope(key: string): void {
 	if (TOY_SCOPES.some((r) => r.key === key)) loadSettings().toyScope = key;
 	saveSettings();
 }
-export function nextToyScope(current: string): string {
-	return cycle(TOY_SCOPES, current);
-}
+
 
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;

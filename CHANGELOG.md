@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.97.3 · 27 September 2026
+
+- **"Toy mode is for" now uses the same choices as trigger scope on the Triggers tab**, from a
+  dropdown: owner only, owner and lovers (the default), and wider through your whitelist, Dominants,
+  everyone except your blacklist, or everyone. If you had chosen "Friends and up", it becomes the
+  whitelist choice.
+
 ## v0.97.2 · 27 September 2026
 
 - Includes v0.96.3's fix: you are told when an induction is turned away.

@@ -8,7 +8,13 @@
 // "when I'm away" rule, and toy mode. Every block states what failure looks like.
 const HYP = 246108, REI = 999;
 
-globalThis.Player = { MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 } };
+// BC's own whitelist and blacklist, which toy mode reads as trigger scope does (v0.97.3).
+let whitelist = [], blacklist = [];
+globalThis.Player = {
+	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 },
+	HasOnWhitelist: (C) => whitelist.includes(C.MemberNumber),
+	HasOnBlacklist: (C) => blacklist.includes(C.MemberNumber),
+};
 globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "Eri" }, { MemberNumber: REI, Name: "Rei" }];
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; }, removeItem(k) { delete this._d[k]; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
@@ -216,7 +222,7 @@ check("any input and she is back", away.isAway(), false);
 reset();
 storage.setToyMode(true);
 attempt();
-check("toy mode is for lovers and up by default: a stranger gets the box", boxUp(), true);
+check("toy mode is for Owner and Lovers by default: a stranger gets the box", boxUp(), true);
 reset({ relation: "lover" });
 attempt();
 check("a lover: straight under, no box", [phase(), boxUp()], ["Hypnotized", false]);
@@ -250,11 +256,30 @@ storage.setToyScope("owner");
 reset({ relation: "lover" });
 attempt();
 check("for my owner only: a lover gets the box", boxUp(), true);
-storage.setToyScope("anyone");
+// The Triggers tab's ladder (v0.97.3). Failure: BC's whitelist or blacklist ignored.
+storage.setToyScope("whitelist");
 reset();
 attempt(REI);
-check("for anyone: a stranger too", phase(), "Hypnotized");
-check("/hypno chance says so", session.describeChances(REI).some((l) => /toy mode: on for anyone — they would put you straight under/.test(l)), true);
+check("Owner, Lovers and whitelist: a stranger not on it gets the box", boxUp(), true);
+whitelist = [REI];
+reset();
+attempt(REI);
+check("  on her whitelist: straight under", phase(), "Hypnotized");
+whitelist = [];
+storage.setToyScope("notblack");
+blacklist = [REI];
+reset();
+attempt(REI);
+check("everyone except blacklist: blacklisted gets the box", boxUp(), true);
+blacklist = [];
+reset();
+attempt(REI);
+check("  anyone else: straight under", phase(), "Hypnotized");
+storage.setToyScope("everyone");
+reset();
+attempt(REI);
+check("everyone, no exceptions: a stranger too", phase(), "Hypnotized");
+check("/hypno chance says so", session.describeChances(REI).some((l) => /toy mode: on for everyone, no exceptions — they would put you straight under/.test(l)), true);
 reset();
 clock += 10 * 60_000;
 attempt(REI);
@@ -268,7 +293,7 @@ attempt(REI);
 session.safeword();
 check("the safeword ends a toy-mode trance", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
 storage.setToyMode(false);
-storage.setToyScope("lover");
+storage.setToyScope("lovers");
 
 console.log(`induction: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

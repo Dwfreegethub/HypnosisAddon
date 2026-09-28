@@ -50,8 +50,10 @@ const elements = {};
 globalThis.document = { getElementById: (id) => elements[id] ?? null };
 globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false });
 globalThis.ElementCreateInput = (id) => (elements[id] = { value: "", disabled: false, addEventListener() {}, setAttribute() {} });
-globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false, addEventListener() {}, setAttribute() {} });
-globalThis.ElementPosition = () => {};
+globalThis.ElementCreateDropdown = (id, _options, onChange) => (elements[id] = { selectedIndex: 0, disabled: false, onChange, addEventListener() {}, setAttribute() {} });
+/** Where each DOM control was last put, centre and size, in canvas coordinates. */
+const placed = {};
+globalThis.ElementPosition = (id, x, y, w, h) => { placed[id] = { x, y, w, h }; };
 globalThis.ElementNumberInputWheel = () => {};
 globalThis.ElementRemove = (id) => { delete elements[id]; };
 let screen = null;
@@ -179,15 +181,18 @@ for (let guard = 0; guard < 30; guard++) {
 }
 
 // --- after it: auto-stance, being away, toy mode, and who toy mode is for (v0.97.0) ------------------
-// Failure: a button off screen or overlapping the one above, or a click that changes another setting.
+// "Toy mode is for" is a dropdown with the Triggers tab's choices since v0.97.3.
+// Failure: a button off screen or overlapping the one above, a click that changes another setting,
+// or the dropdown missing, out of view, not saving, or left behind when the list scrolls or the tab
+// changes.
 {
 	// Wheeled right to the end: the list is longer than the area now, so the last controls only
 	// come into view there.
 	MouseX = area.left + 200; MouseY = area.top + 100;
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
-	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:", "Toy mode is for:"];
+	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:"];
 	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
-	check("the four answer-for-me buttons are drawn at the bottom", found.map((b) => !!b), [true, true, true, true]);
+	check("the three answer-for-me buttons are drawn at the bottom", found.map((b) => !!b), [true, true, true]);
 	check("  wholly in view", found.every((b) => b && inside(b, area)), true);
 	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
 	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getToyScope()];
@@ -201,12 +206,28 @@ for (let guard = 0; guard < 30; guard++) {
 		[true, false, false, false],
 		[false, true, false, false],
 		[false, false, true, false],
-		[false, false, false, true],
 	]);
+	const toy = elements.HypnosisAddonToyScope;
+	const at = placed.HypnosisAddonToyScope;
+	check("who toy mode is for is a dropdown", !!toy, true);
+	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, area)), true);
+	check("  under the toy mode button, in view", !!at && at.y - at.h / 2 >= found[2].top + found[2].height && at.y + at.h / 2 <= area.top + area.height, true);
+	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
+	toy.selectedIndex = 5;
+	toy.onChange.call(toy);
+	check("  choosing saves it", storage.getToyScope(), "everyone");
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	// In one jump, with no frame drawn on the way: the frames between would each remove it for being
+	// part-hidden, and the case under test is the list drawn with the whole band out of view.
+	for (let i = 0; i < 40; i++) wheel(-100);
+	frame();
+	check("  scrolled away, it is removed rather than left floating", !!elements.HypnosisAddonToyScope, false);
+	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
+	check("  and back when it is in view again", !!elements.HypnosisAddonToyScope, true);
 	storage.setDefaultStance("prompt");
 	storage.setAwayStance("refuse");
 	storage.setToyMode(false);
-	storage.setToyScope("lover");
+	storage.setToyScope("lovers");
 }
 
 // --- the up arrow and the wheel --------------------------------------------------------------
@@ -229,6 +250,7 @@ for (let guard = 0; guard < 30; guard++) {
 
 // --- tabs that fit, and the tab with DOM controls under its rows -----------------------------
 openTab(2); frame(); // Awareness: four rows
+check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScope, false);
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
 openTab(1); frame(); // Trance Defaults: seven rows, once two columns

@@ -58,7 +58,6 @@ import {
 	setToyMode,
 	getToyScope,
 	setToyScope,
-	nextToyScope,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -152,6 +151,9 @@ interface Tab {
 		height: () => number;
 		draw: (top: number, width: number) => void;
 		click: (top: number) => boolean;
+		/** Called instead of draw while it is scrolled wholly out of view, for a control that owns
+		 * a DOM element, which the scroll area's clip cannot hide. */
+		hide?: () => void;
 	};
 	/** Where the rows' scroll area ends, for a tab with fixed controls under it. Default: the
 	 * panel floor. */
@@ -180,7 +182,14 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
-		scrollExtra: { height: permissionsExtraHeight, draw: drawPermissionsExtra, click: clickPermissionsExtra },
+		scrollExtra: {
+			height: permissionsExtraHeight,
+			draw: drawPermissionsExtra,
+			click: clickPermissionsExtra,
+			hide: () => {
+				if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+			},
+		},
 	},
 	{
 		name: "Trance Defaults",
@@ -622,18 +631,56 @@ const PERMISSION_CYCLES: CycleControl[] = [
 		tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
 		cycle: () => setToyMode(!getToyMode()),
 	},
-	{
-		label: () => `Toy mode is for: ${labelOf(TOY_SCOPES, getToyScope())}`,
-		caption: () => (getToyScope() === "anyone" ? "Anyone in the room, strangers too." : "Read from your BC relationships."),
-		tooltip: "Who toy mode applies to",
-		cycle: () => setToyScope(nextToyScope(getToyScope())),
-	},
 ];
 
 const CYCLE_GAP = 16;
 
+// "Toy mode is for" is a dropdown with the Triggers tab's choices (v0.97.3, DW: "use the same format
+// as the one used on the triggers tab"). A DOM <select> cannot be clipped by the scroll area the way
+// canvas drawing is, so it is shown only while it is wholly in view and removed otherwise, and on
+// every tab change and exit like the Triggers tab's own (syncTabControls, removeScopeControl).
+const TOY_SCOPE_ID = "HypnosisAddonToyScope";
+const TOY_SCOPE_LABEL_WIDTH = 250;
+const TOY_SCOPE_WIDTH = 560;
+
 function permissionsExtraHeight(): number {
-	return attemptControlHeight() + PERMISSION_CYCLES.length * (CYCLE_GAP + attemptControlHeight());
+	return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+}
+
+function drawToyScopeControl(top: number, width: number, locked: boolean): void {
+	drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
+	drawLeftTextWrap(
+		getToyScope() === "everyone" || getToyScope() === "notblack"
+			? "Anyone in the room, strangers too. Read from your BC relationships and lists."
+			: "Read from your BC relationships and lists, the same as for triggers.",
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+	let element = document.getElementById(TOY_SCOPE_ID) as HTMLSelectElement | null;
+	if (!inView) {
+		if (element) ElementRemove(TOY_SCOPE_ID);
+		return;
+	}
+	if (!element) {
+		element = ElementCreateDropdown(
+			TOY_SCOPE_ID,
+			TOY_SCOPES.map((s) => s.label),
+			function () {
+				setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
+				log(`toy mode is for: ${getToyScope()}`);
+			},
+		);
+	}
+	// Re-synced every frame, like the Triggers tab's: an import or a reset changes it underneath us.
+	const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
+	ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
 }
 
 function cycleTop(top: number, i: number): number {
@@ -659,6 +706,7 @@ function drawPermissionsExtra(top: number, width: number): void {
 			locked ? "Gray" : "#555",
 		);
 	});
+	drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
 }
 
 function clickPermissionsExtra(top: number): boolean {
@@ -1071,7 +1119,7 @@ const DECAY_CAPTION_Y = 858;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 }
@@ -1089,6 +1137,7 @@ function syncTabControls(tabName: string): void {
 		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+	if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
 }
 
 /** How fast trust fades without contact.
@@ -1529,6 +1578,7 @@ export function installMenu(): void {
 				if (extra) {
 					const top = scrollExtraTop(tab);
 					if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+					else extra.hide?.();
 				}
 			});
 			rowsDrawnAt = Date.now();

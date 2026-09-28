@@ -18,6 +18,7 @@ import {
 	getDefaultStance, getAwayStance, getToyMode, getToyScope, TOY_SCOPES, DEFAULT_STANCES, AWAY_STANCES,
 } from "./storage";
 import { isAway, idleMinutes } from "./away";
+import { allowedByLadder } from "./ladder";
 import {
 	noteInductionSuccess,
 	noteInductionAttempt,
@@ -1122,8 +1123,6 @@ function enterTrance(full: number, earned: number): void {
 // chosen, skips the roll and lands at her ceiling. Auto-stance answers the box as Agree, Ignore or
 // Fight. The hypnotist is never told which, or that either is set, beyond the prompt not appearing.
 // Neither is used while she is away unless her "When I'm away" setting keeps it.
-const RELATION_RANK: Record<string, number> = { none: 0, friend: 1, lover: 2, owner: 3 };
-const TOY_SCOPE_RANK: Record<string, number> = { anyone: 0, friend: 1, lover: 2, owner: 3 };
 
 type Answer =
 	| { kind: "ask" }
@@ -1131,9 +1130,18 @@ type Answer =
 	| { kind: "stance"; stance: SessionChoice; wasAway: boolean }
 	| { kind: "away" };
 
-/** Does toy mode apply to this person? Her setting, and the relationship BC reports. */
+/** Does toy mode apply to this person? Her setting, on the Triggers tab's ladder (v0.97.3).
+ *
+ * The owner and lover checks go through relationshipWith() first, so `/echs relate` can stand in
+ * for a real BC relationship in the testing room, as it does for the trust floors. Everything
+ * else (whitelist, blacklist, Dominant) is BC's own, in allowedByLadder(). */
 export function toyModeFor(memberId: number): boolean {
-	return getToyMode() && (RELATION_RANK[relationshipWith(memberId)] ?? 0) >= (TOY_SCOPE_RANK[getToyScope()] ?? 3);
+	if (!getToyMode()) return false;
+	const scope = getToyScope();
+	const relation = relationshipWith(memberId);
+	if (relation === "owner") return true;
+	if (relation === "lover" && scope !== "owner") return true;
+	return allowedByLadder(memberId, scope);
 }
 
 function answerWithoutAsking(memberId: number): Answer {
