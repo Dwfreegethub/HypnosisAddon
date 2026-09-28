@@ -12,6 +12,11 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.97.4 · 27 September 2026
+
+- **The yellow pop-up help on the settings screen is readable again.** Longer ones used to shrink to
+  fit on one line; they now wrap onto several lines at a normal size.
+
 ## v0.97.3 · 27 September 2026
 
 - **"Toy mode is for" now uses the same choices as trigger scope on the Triggers tab**, from a

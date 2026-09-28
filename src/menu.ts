@@ -115,6 +115,8 @@ import {
 	mouseInScroll,
 	TAB_LEFT,
 	TAB_WIDTH,
+	tipButton,
+	flushTip,
 } from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -380,7 +382,7 @@ function plantedRowTop(slot: number): number {
 }
 
 function drawPurgeButton(left: number, top: number, height: number, holding: boolean): void {
-	DrawButton(
+	tipButton(
 		left,
 		top,
 		PLANTED_BUTTON_WIDTH,
@@ -415,12 +417,12 @@ function drawPlanted(): void {
 			PLANTED_TEXT_MAX,
 			holding ? "#a00000" : "Black",
 		);
-		DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+		tipButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
 		drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
 	});
 	if (pages > 1) {
-		DrawButton(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", plantedPage === 0);
-		DrawButton(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", plantedPage >= pages - 1);
+		tipButton(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", plantedPage === 0);
+		tipButton(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", plantedPage >= pages - 1);
 		drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT / 2, "Gray");
 	}
 	drawClearAll(all.length);
@@ -432,7 +434,7 @@ function drawClearAll(count: number): void {
 	if (!count) return;
 	const refusal = clearAllRefusal();
 	const armed = !refusal && Date.now() < clearAllArmedUntil;
-	DrawButton(
+	tipButton(
 		CONTENT_LEFT,
 		CLEAR_ALL_TOP,
 		CLEAR_ALL_WIDTH,
@@ -462,7 +464,7 @@ function drawPlantedDetail(holding: boolean): void {
 		drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
 		y += 70;
 	}
-	DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+	tipButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
 	drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
 }
 
@@ -563,7 +565,7 @@ function attemptControlHeight(): number {
 
 function drawAttemptControl(top: number, width: number): void {
 	const locked = settingsLocked();
-	DrawButton(
+	tipButton(
 		BOX_LEFT,
 		top,
 		ATTEMPT_BUTTON_WIDTH,
@@ -692,7 +694,7 @@ function drawPermissionsExtra(top: number, width: number): void {
 	const locked = settingsLocked();
 	PERMISSION_CYCLES.forEach((c, i) => {
 		const at = cycleTop(top, i);
-		DrawButton(
+		tipButton(
 			BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
 			!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
 			locked,
@@ -737,7 +739,7 @@ function dropCaption(): string {
 function drawDropControl(top: number, width: number): void {
 	const locked = settingsLocked();
 	const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-	DrawButton(
+	tipButton(
 		BOX_LEFT,
 		top,
 		ATTEMPT_BUTTON_WIDTH,
@@ -837,7 +839,7 @@ function drawDepthGates(): void {
 			DEPTH_LABEL_MAX,
 			granted ? "Black" : "Gray",
 		);
-		DrawButton(
+		tipButton(
 			DEPTH_TIER_LEFT,
 			top,
 			DEPTH_TIER_WIDTH,
@@ -854,7 +856,7 @@ function drawDepthGates(): void {
 		if (gate.earnedOnly) {
 			const toggleable = isChemicalToggleable(gate.key);
 			const open = toggleable && getChemicalReach(gate.key);
-			DrawButton(
+			tipButton(
 				CHEM_TOGGLE_LEFT,
 				top,
 				CHEM_TOGGLE_WIDTH,
@@ -873,8 +875,8 @@ function drawDepthGates(): void {
 	});
 
 	if (depthPageCount() > 1) {
-		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
-		DrawButton(
+		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
+		tipButton(
 			PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "",
 			depthPage >= depthPageCount() - 1,
 		);
@@ -882,18 +884,18 @@ function drawDepthGates(): void {
 	}
 
 	const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-	DrawButton(
+	tipButton(
 		SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`Chemicals count: ${scope}`, locked ? "#ddd" : "White", "",
 		"What may push you deeper besides trust. Never applies to the three above that say otherwise.",
 		locked,
 	);
-	DrawButton(
+	tipButton(
 		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
 	);
 	const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-	DrawButton(
+	tipButton(
 		SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`A hypnotist's skill: ${honour}`, locked ? "#ddd" : "White", "",
 		"How much of another hypnotist's own practice is allowed to help them put you under. " +
@@ -901,7 +903,7 @@ function drawDepthGates(): void {
 		locked,
 	);
 	const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-	DrawButton(
+	tipButton(
 		DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`"Sink deeper" stops at: ${deepest}`, locked ? "#ddd" : "White", "",
 		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
@@ -1046,7 +1048,7 @@ function drawDataButtons(): void {
 	DATA_BUTTONS.forEach((name, i) => {
 		const isReset = name === "Reset";
 		const locked = name === "Import" && importLocked;
-		DrawButton(
+		tipButton(
 			dataButtonLeft(i),
 			DATA_BUTTON_TOP,
 			DATA_BUTTON_WIDTH,
@@ -1329,8 +1331,8 @@ function drawStats(): void {
 	});
 
 	if (pages > 1) {
-		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
-		DrawButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
+		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
+		tipButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
 		drawLeftText(
 			`${statPage + 1} / ${pages}  ·  ${rows.length} people`,
 			PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 24,
@@ -1480,6 +1482,92 @@ export async function openHelpScreen(): Promise<boolean> {
 	}
 }
 
+/** One frame of the settings screen. Buttons queue their hover tip; run() draws it last. */
+function runSettings(): void {
+	rowsDrawnAt = 0;
+	if (isHelpOpen()) {
+		// DOM controls belong to the settings screen and would float over the help
+		// text, which is canvas — they have to go before help draws over them.
+		removeScopeControl();
+		drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
+		return;
+	}
+	// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
+	// because it changes consent settings and those are locked while a trance is on you.
+	if (shouldShowWizard() && !settingsLocked()) {
+		removeScopeControl();
+		tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+		drawWizard();
+		return;
+	}
+	// The version rides the title rather than getting a line of its own: it is the one
+	// place a player already looks when something is not behaving, and DrawText here is
+	// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
+	// chat banner and the corner watermark, so all three cannot disagree.
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+	tipButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
+	if (!settingsLocked()) {
+		tipButton(SETUP_LEFT, HELP_TOP, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
+	}
+
+	const tabs = visibleTabs();
+	if (activeTab >= tabs.length) activeTab = 0;
+	drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
+	tipButton(
+		TAB_LEFT,
+		advancedButtonTop(),
+		TAB_WIDTH,
+		ADVANCED_BUTTON_HEIGHT,
+		showAdvanced ? "Hide advanced" : "Advanced \u25B8",
+		"White",
+		"",
+		showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
+	);
+
+	const tab = tabs[activeTab];
+	const locked = settingsLocked();
+	// Fitted, not just drawn: these run long, and the panel edge is not a hint the
+	// canvas takes on its own.
+	drawLeftTextFit(
+		locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
+		BOX_LEFT,
+		BLURB_Y,
+		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+		"Gray",
+	);
+
+	syncTabControls(tab.name);
+
+	if (tab.render) {
+		tab.render();
+		return;
+	}
+	const features = getFeatures();
+	const rows = tab.rows ?? [];
+	const contentWidth = scrollContentWidth(rowScroll);
+	layoutRows(tab);
+	drawScrollArea(rowScroll, () => {
+		rows.forEach((row, i) => {
+			const top = rowTop(i);
+			if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+			// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
+			// Width, which overlaps the box for anything but very short text. Draw the
+			// label ourselves, left-aligned and clear of the box.
+			DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+			drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+		});
+		const extra = tab.scrollExtra;
+		if (extra) {
+			const top = scrollExtraTop(tab);
+			if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+			else extra.hide?.();
+		}
+	});
+	rowsDrawnAt = Date.now();
+	tab.extra?.();
+}
+
 export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
 		Identifier: EXTENSION_ID,
@@ -1500,89 +1588,13 @@ export function installMenu(): void {
 			removeScopeControl();
 			closeHelp();
 		},
+		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
 		run: () => {
-			rowsDrawnAt = 0;
-			if (isHelpOpen()) {
-				// DOM controls belong to the settings screen and would float over the help
-				// text, which is canvas — they have to go before help draws over them.
-				removeScopeControl();
-				drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
-				return;
+			try {
+				runSettings();
+			} finally {
+				flushTip();
 			}
-			// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
-			// because it changes consent settings and those are locked while a trance is on you.
-			if (shouldShowWizard() && !settingsLocked()) {
-				removeScopeControl();
-				DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-				drawWizard();
-				return;
-			}
-			// The version rides the title rather than getting a line of its own: it is the one
-			// place a player already looks when something is not behaving, and DrawText here is
-			// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
-			// chat banner and the corner watermark, so all three cannot disagree.
-			DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
-			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
-			if (!settingsLocked()) {
-				DrawButton(SETUP_LEFT, HELP_TOP, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
-			}
-
-			const tabs = visibleTabs();
-			if (activeTab >= tabs.length) activeTab = 0;
-			drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
-			DrawButton(
-				TAB_LEFT,
-				advancedButtonTop(),
-				TAB_WIDTH,
-				ADVANCED_BUTTON_HEIGHT,
-				showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-				"White",
-				"",
-				showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
-			);
-
-			const tab = tabs[activeTab];
-			const locked = settingsLocked();
-			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
-			// canvas takes on its own.
-			drawLeftTextFit(
-				locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-				BOX_LEFT,
-				BLURB_Y,
-				PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-				"Gray",
-			);
-
-			syncTabControls(tab.name);
-
-			if (tab.render) {
-				tab.render();
-				return;
-			}
-			const features = getFeatures();
-			const rows = tab.rows ?? [];
-			const contentWidth = scrollContentWidth(rowScroll);
-			layoutRows(tab);
-			drawScrollArea(rowScroll, () => {
-				rows.forEach((row, i) => {
-					const top = rowTop(i);
-					if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-					// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
-					// Width, which overlaps the box for anything but very short text. Draw the
-					// label ourselves, left-aligned and clear of the box.
-					DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-					drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
-				});
-				const extra = tab.scrollExtra;
-				if (extra) {
-					const top = scrollExtraTop(tab);
-					if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
-					else extra.hide?.();
-				}
-			});
-			rowsDrawnAt = Date.now();
-			tab.extra?.();
 		},
 		click: () => {
 			if (shouldShowWizard() && !settingsLocked()) {

@@ -19,7 +19,8 @@ let pendingRect = null;
 const boxes = [];      // DrawCheckbox
 const buttons = [];    // DrawButton
 const texts = [];      // our own fillText (drawLeftTextFit / drawLeftTextWrap)
-const reset = () => { boxes.length = 0; buttons.length = 0; texts.length = 0; };
+const rects = [];      // fillRect: the hover tip's box
+const reset = () => { boxes.length = 0; buttons.length = 0; texts.length = 0; rects.length = 0; };
 
 const wheelListeners = new Set();
 globalThis.MainCanvas = {
@@ -29,7 +30,8 @@ globalThis.MainCanvas = {
 	get font() { return `${curSize}px arial`; },
 	// Roughly Arial's average advance; every assertion is relative to the same measure.
 	measureText(t) { return { width: t.length * curSize * 0.5 }; },
-	set textAlign(_v) {}, set textBaseline(_v) {}, set fillStyle(_v) {},
+	set textAlign(_v) {}, set textBaseline(_v) {}, set fillStyle(_v) {}, set lineWidth(_v) {}, set strokeStyle(_v) {},
+	fillRect(l, t, w, h) { rects.push({ left: l, top: t, width: w, height: h, clip }); }, strokeRect() {},
 	fillText(text, x, y) { texts.push({ text, left: x, width: text.length * curSize * 0.5, top: y - curSize / 2, height: curSize, clip }); },
 	canvas: {
 		addEventListener(type, fn) { if (type === "wheel") wheelListeners.add(fn); },
@@ -37,6 +39,7 @@ globalThis.MainCanvas = {
 	},
 };
 globalThis.MainCanvasWidth = 2000;
+globalThis.MainCanvasHeight = 1000;
 globalThis.CommonGetFont = (size) => `${size}px arial`;
 globalThis.DrawCheckbox = (left, top, width, height, _t, checked, disabled) => boxes.push({ left, top, width, height, checked, disabled, clip });
 globalThis.DrawButton = (left, top, width, height, label, _c, _i, hover) => buttons.push({ left, top, width, height, label, hover, clip });
@@ -224,6 +227,22 @@ for (let guard = 0; guard < 30; guard++) {
 	check("  scrolled away, it is removed rather than left floating", !!elements.HypnosisAddonToyScope, false);
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
 	check("  and back when it is in view again", !!elements.HypnosisAddonToyScope, true);
+	// The hover tip (v0.97.4, DW: "The pop up text is very small"). BC's own box fits a tip on one
+	// line, shrinking it. Failure: a tip drawn at a smaller size to fit, on one squeezed line, cut
+	// by the scroll clip, or under text drawn after it.
+	const away = buttons.find((b) => b.label.startsWith("When I'm away:"));
+	MouseX = away.left + 40; MouseY = away.top + away.height / 2;
+	frame();
+	const tipBox = rects.at(-1);
+	const tipLines = texts.filter((t) => tipBox && inside(t, tipBox));
+	check("a long hover tip gets a box of its own", !!tipBox && tipBox.clip === null, true);
+	check("  wrapped onto more than one line", tipLines.length > 1, true);
+	check("  at a readable size, every line", tipLines.every((t) => t.height >= 26), true);
+	check("  drawn last, over everything", texts.slice(-tipLines.length).every((t) => tipLines.includes(t)), true);
+	check("  and BC's own one-line tip not drawn under it", buttons.find((b) => b.label.startsWith("When I'm away:")).hover, "");
+	MouseX = 5; MouseY = 5;
+	frame();
+	check("  gone when the pointer leaves", rects.some((r) => r.width === 450), false);
 	storage.setDefaultStance("prompt");
 	storage.setAwayStance("refuse");
 	storage.setToyMode(false);

@@ -20,6 +20,18 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-27 (v0.97.4) — hover tips on the settings screen wrap instead of shrinking
+
+DW: "The pop up text is very small on some of the helps that you just added." BC's
+`DrawButtonHover` (Drawing.js, R132) is a fixed 450 x 65 box and `DrawTextFit`s the tip onto one
+line, so the v0.97.0 Permissions tips and the longer Depth-tab ones shrank to a few pixels. The
+settings screen's buttons now go through `tipButton()` in panel.ts, which draws the button with no
+BC tip and queues ours; `flushTip()` draws it at the end of the frame (run() wraps the old body,
+now `runSettings()`, in try/finally), 450 wide, 26px, wrapped onto as many lines as it needs,
+over everything and outside the scroll clip. Placed beside the button as BC places its own.
+`test/menu-layout.mjs` +6 (77); with BC's one-line tip restored, 4 fail. Help, wizard, prompt and
+remote screens still use BC's box; their tips are short.
+
 ### Changed 2026-09-27 (v0.97.3) — toy mode's scope is the trigger-scope ladder, as a dropdown
 
 DW, after testing: "in the Toy mode is for box I would rather it use the same format as the one used

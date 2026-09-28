@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.97.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.97.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -8438,6 +8438,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  var TIP_WIDTH = 450;
+  var TIP_FONT = 26;
+  var TIP_PAD = 12;
+  var pendingTip = null;
+  function tipButton(left, top, width, height, label, color, image, tip, disabled = false) {
+    DrawButton(left, top, width, height, label, color, image, "", disabled);
+    if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
+  }
+  function flushTip() {
+    const t = pendingTip;
+    pendingTip = null;
+    if (!t) return;
+    MainCanvas.save();
+    MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
+    const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
+    const pitch = Math.round(TIP_FONT * 1.2);
+    const height = lines.length * pitch + 2 * TIP_PAD;
+    let left = MouseX > 1e3 ? t.left - TIP_WIDTH - 25 : t.left + t.width + 25;
+    left = Math.max(0, Math.min(left, MainCanvasWidth - TIP_WIDTH));
+    const top = Math.max(0, Math.min(t.top + (t.height - height) / 2, MainCanvasHeight - height));
+    MainCanvas.fillStyle = "#FFFF88";
+    MainCanvas.fillRect(left, top, TIP_WIDTH, height);
+    MainCanvas.lineWidth = 2;
+    MainCanvas.strokeStyle = "black";
+    MainCanvas.strokeRect(left, top, TIP_WIDTH, height);
+    MainCanvas.textAlign = "left";
+    MainCanvas.textBaseline = "middle";
+    MainCanvas.fillStyle = "black";
+    lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
+    MainCanvas.restore();
+  }
 
   // src/help.ts
   var open = false;
@@ -9333,7 +9364,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return PLANTED_ROW_TOP + slot * PLANTED_ROW_STEP;
   }
   function drawPurgeButton(left, top, height, holding) {
-    DrawButton(
+    tipButton(
       left,
       top,
       PLANTED_BUTTON_WIDTH,
@@ -9367,12 +9398,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         PLANTED_TEXT_MAX,
         holding ? "#a00000" : "Black"
       );
-      DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+      tipButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
       drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
     });
     if (pages > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", plantedPage === 0);
-      DrawButton(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", plantedPage >= pages - 1);
+      tipButton(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", plantedPage === 0);
+      tipButton(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", plantedPage >= pages - 1);
       drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT2 / 2, "Gray");
     }
     drawClearAll(all.length);
@@ -9381,7 +9412,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!count) return;
     const refusal = clearAllRefusal();
     const armed = !refusal && Date.now() < clearAllArmedUntil;
-    DrawButton(
+    tipButton(
       CONTENT_LEFT,
       CLEAR_ALL_TOP,
       CLEAR_ALL_WIDTH,
@@ -9407,7 +9438,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
       y += 70;
     }
-    DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+    tipButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
     drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
   }
   function purgePlanted(index) {
@@ -9483,7 +9514,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawAttemptControl(top, width) {
     const locked = settingsLocked();
-    DrawButton(
+    tipButton(
       BOX_LEFT,
       top,
       ATTEMPT_BUTTON_WIDTH,
@@ -9573,7 +9604,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const locked = settingsLocked();
     PERMISSION_CYCLES.forEach((c, i) => {
       const at = cycleTop(top, i);
-      DrawButton(
+      tipButton(
         BOX_LEFT,
         at,
         ATTEMPT_BUTTON_WIDTH + 200,
@@ -9615,7 +9646,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawDropControl(top, width) {
     const locked = settingsLocked();
     const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-    DrawButton(
+    tipButton(
       BOX_LEFT,
       top,
       ATTEMPT_BUTTON_WIDTH,
@@ -9689,7 +9720,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         DEPTH_LABEL_MAX,
         granted ? "Black" : "Gray"
       );
-      DrawButton(
+      tipButton(
         DEPTH_TIER_LEFT,
         top,
         DEPTH_TIER_WIDTH,
@@ -9703,7 +9734,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (gate.earnedOnly) {
         const toggleable = isChemicalToggleable(gate.key);
         const open2 = toggleable && getChemicalReach(gate.key);
-        DrawButton(
+        tipButton(
           CHEM_TOGGLE_LEFT,
           top,
           CHEM_TOGGLE_WIDTH,
@@ -9717,8 +9748,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     });
     if (depthPageCount() > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", depthPage === 0);
-      DrawButton(
+      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", depthPage === 0);
+      tipButton(
         PAGE_NEXT_LEFT2,
         PAGE_BUTTON_TOP2,
         PAGE_BUTTON_WIDTH2,
@@ -9732,7 +9763,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawLeftText(`page ${depthPage + 1} of ${depthPageCount()}`, PAGE_NEXT_LEFT2 + 130, PAGE_BUTTON_TOP2 + 30, "Gray");
     }
     const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-    DrawButton(
+    tipButton(
       SCOPE_BUTTON_LEFT,
       SCOPE_BUTTON_TOP,
       SCOPE_BUTTON_WIDTH,
@@ -9743,7 +9774,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "What may push you deeper besides trust. Never applies to the three above that say otherwise.",
       locked
     );
-    DrawButton(
+    tipButton(
       DEFAULTS_BUTTON_LEFT,
       SCOPE_BUTTON_TOP,
       DEFAULTS_BUTTON_WIDTH,
@@ -9755,7 +9786,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked
     );
     const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-    DrawButton(
+    tipButton(
       SCOPE_BUTTON_LEFT,
       HONOUR_BUTTON_TOP,
       HONOUR_BUTTON_WIDTH,
@@ -9767,7 +9798,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked
     );
     const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-    DrawButton(
+    tipButton(
       DEEPEST_BUTTON_LEFT,
       HONOUR_BUTTON_TOP,
       DEEPEST_BUTTON_WIDTH,
@@ -9886,7 +9917,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DATA_BUTTONS.forEach((name, i) => {
       const isReset = name === "Reset";
       const locked = name === "Import" && importLocked;
-      DrawButton(
+      tipButton(
         dataButtonLeft(i),
         DATA_BUTTON_TOP,
         DATA_BUTTON_WIDTH,
@@ -10087,8 +10118,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
     });
     if (pages > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", statPage === 0);
-      DrawButton(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", statPage >= pages - 1);
+      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", statPage === 0);
+      tipButton(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", statPage >= pages - 1);
       drawLeftText(
         `${statPage + 1} / ${pages}  \xB7  ${rows.length} people`,
         PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 24,
@@ -10165,6 +10196,73 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return false;
     }
   }
+  function runSettings() {
+    rowsDrawnAt = 0;
+    if (isHelpOpen()) {
+      removeScopeControl();
+      drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
+      return;
+    }
+    if (shouldShowWizard() && !settingsLocked()) {
+      removeScopeControl();
+      tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+      drawWizard();
+      return;
+    }
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+    tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
+    if (!settingsLocked()) {
+      tipButton(SETUP_LEFT, HELP_TOP2, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
+    }
+    const tabs = visibleTabs();
+    if (activeTab2 >= tabs.length) activeTab2 = 0;
+    drawTabsAndPanel(tabs.map((t) => t.name), activeTab2);
+    tipButton(
+      TAB_LEFT,
+      advancedButtonTop(),
+      TAB_WIDTH,
+      ADVANCED_BUTTON_HEIGHT,
+      showAdvanced ? "Hide advanced" : "Advanced \u25B8",
+      "White",
+      "",
+      showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
+    );
+    const tab = tabs[activeTab2];
+    const locked = settingsLocked();
+    drawLeftTextFit(
+      locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
+      BOX_LEFT,
+      BLURB_Y,
+      PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+      "Gray"
+    );
+    syncTabControls(tab.name);
+    if (tab.render) {
+      tab.render();
+      return;
+    }
+    const features = getFeatures();
+    const rows = tab.rows ?? [];
+    const contentWidth = scrollContentWidth(rowScroll);
+    layoutRows(tab);
+    drawScrollArea(rowScroll, () => {
+      rows.forEach((row, i) => {
+        const top = rowTop(i);
+        if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+        DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+        drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+      });
+      const extra = tab.scrollExtra;
+      if (extra) {
+        const top = scrollExtraTop(tab);
+        if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+        else extra.hide?.();
+      }
+    });
+    rowsDrawnAt = Date.now();
+    tab.extra?.();
+  }
   function installMenu() {
     PreferenceRegisterExtensionSetting({
       Identifier: EXTENSION_ID,
@@ -10185,72 +10283,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
         removeScopeControl();
         closeHelp();
       },
+      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
       run: () => {
-        rowsDrawnAt = 0;
-        if (isHelpOpen()) {
-          removeScopeControl();
-          drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
-          return;
+        try {
+          runSettings();
+        } finally {
+          flushTip();
         }
-        if (shouldShowWizard() && !settingsLocked()) {
-          removeScopeControl();
-          DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-          drawWizard();
-          return;
-        }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
-        DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-        DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
-        if (!settingsLocked()) {
-          DrawButton(SETUP_LEFT, HELP_TOP2, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
-        }
-        const tabs = visibleTabs();
-        if (activeTab2 >= tabs.length) activeTab2 = 0;
-        drawTabsAndPanel(tabs.map((t) => t.name), activeTab2);
-        DrawButton(
-          TAB_LEFT,
-          advancedButtonTop(),
-          TAB_WIDTH,
-          ADVANCED_BUTTON_HEIGHT,
-          showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-          "White",
-          "",
-          showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
-        );
-        const tab = tabs[activeTab2];
-        const locked = settingsLocked();
-        drawLeftTextFit(
-          locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-          BOX_LEFT,
-          BLURB_Y,
-          PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-          "Gray"
-        );
-        syncTabControls(tab.name);
-        if (tab.render) {
-          tab.render();
-          return;
-        }
-        const features = getFeatures();
-        const rows = tab.rows ?? [];
-        const contentWidth = scrollContentWidth(rowScroll);
-        layoutRows(tab);
-        drawScrollArea(rowScroll, () => {
-          rows.forEach((row, i) => {
-            const top = rowTop(i);
-            if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-            DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-            drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
-          });
-          const extra = tab.scrollExtra;
-          if (extra) {
-            const top = scrollExtraTop(tab);
-            if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
-            else extra.hide?.();
-          }
-        });
-        rowsDrawnAt = Date.now();
-        tab.extra?.();
       },
       click: () => {
         if (shouldShowWizard() && !settingsLocked()) {
@@ -11911,7 +11950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.4"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11934,7 +11973,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.97.3"} loaded`;
+    el.textContent = `ECHS v${"0.97.4"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11965,14 +12004,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.97.3"})`);
+  info(`script loaded (v${"0.97.4"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.97.3",
+      version: "0.97.4",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
