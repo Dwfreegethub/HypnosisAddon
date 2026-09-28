@@ -20,6 +20,20 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-27 (v0.96.3) — refusals were never said in the hypnotist's chat
+
+DW: "/hypno induce is not recognizing when Missy is already in session or if in a cooldown
+period." The subject's client did refuse ("Already under.", "Not yet — try again later.", and the
+other gates in the `session-attempt` and `session-continue` handlers), but `refuse()` only sends a
+`session-update` carrying `refusedReason`, and on the hypnotist's side that reached `views` and the
+Information Sheet's status line and nothing else. `/hypno induce` had already replied "Attempting
+an induction on Missy", so with the panel closed it looked accepted and then silent. Rule 5. Probably
+there since the command was added; never reported. `reportRefusalToHypnotist()` now tells the
+hypnotist every non-empty refusal (each one answers a request of theirs), with the minutes left on
+a cooldown; a status query's empty reason stays silent. `test/miss.mjs` +6 (52), four seen failing
+without the fix; `test/miss.mjs` and `test/expiry.mjs` each had a check that a refusal prints nothing,
+now that it prints only the refusal.
+
 ### Changed 2026-09-26 (v0.96.2) — her half step up, fighting
 
 DW: "Lets give the subject a chance to move 10 points as well. I want a sub fighting to stand a

@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.96.3 · 27 September 2026
+
+- **You are told when an induction is turned away.** If you try to hypnotize someone who is already
+  under, still in their wait after your last tries, or not open to hypnosis, your chat now says so
+  and why, with how long is left on a wait. Before, only their Information Sheet showed it, so
+  `/echs induce` looked as if it had worked.
+
 ## v0.96.2 · 26 September 2026
 
 - **A fighting subject stands more of a chance.** When a *"sink deeper"* misses and you are

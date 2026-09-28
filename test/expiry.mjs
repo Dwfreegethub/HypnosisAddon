@@ -215,7 +215,8 @@ check("  nor how deep they were", /deep|light|under\b/i.test((out[0] ?? "").repl
 check("a later re-query says nothing", update({ phase: "Idle" }).length, 0);
 update({ phase: "Hypnotized", depthBand: "deeply under" });
 check("any other ending says nothing here", update({ phase: "Idle" }).length, 0);
-check("a refusal never reads as a timeout", update({ phase: "Idle", ended: "timeout", refusedReason: "no" }).length, 0);
+// A refusal is said (v0.96.3), but as a refusal, never as the time limit.
+check("a refusal never reads as a timeout", update({ phase: "Idle", ended: "timeout", refusedReason: "no" }).some((l) => /limit|has ended/.test(l)), false);
 check("a marker on a live phase is ignored", update({ phase: "Hypnotized", ended: "timeout" }).length, 0);
 
 // --- 5. run out while logged out -----------------------------------------------------------------

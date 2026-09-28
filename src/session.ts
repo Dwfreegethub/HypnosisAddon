@@ -1901,6 +1901,24 @@ function reportMissToHypnotist(sender: number, message: Record<string, any>, pre
  *
  * Fires once: the subject's client sets the marker only on the update that ends the trance,
  * and every later update (a re-query, a refusal) carries none. A refusal never counts. */
+/** Tell the hypnotist, in their own chat log, that the subject's client turned their request down.
+ *
+ * DW, 2026-09-27: "/hypno induce is not recognizing when Missy is already in session or in a
+ * cooldown period." It was: her client refused ("Already under.", "Not yet — try again later.")
+ * and the refusal reached only the Information Sheet panel. The command had already said
+ * "Attempting an induction on Missy", so with the panel closed the request looked like it had
+ * gone through and then nothing happened. Rule 5.
+ *
+ * Every refusal answers something this hypnotist sent (an attempt, a retry, a test trance), so each
+ * one is said. The empty reason is a status query's "nothing running with you", not a refusal. */
+function reportRefusalToHypnotist(sender: number, message: Record<string, any>): void {
+	const reason = typeof message.refusedReason === "string" ? message.refusedReason.trim() : "";
+	if (!reason) return;
+	const minutes = Math.ceil(Number(message.cooldownRemaining ?? 0) / 60_000);
+	const wait = /^Not yet/.test(reason) && minutes > 0 ? ` (about ${minutes} more minute${minutes === 1 ? "" : "s"})` : "";
+	tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${reason}${wait}`);
+}
+
 function reportExpiryToHypnotist(sender: number, message: Record<string, any>): void {
 	if (message.refusedReason) return;
 	if (message.ended !== "timeout" || message.phase !== "Idle") return;
@@ -2149,6 +2167,7 @@ export function installSession(): void {
 		if (message.phase === "Hypnotized" && prev?.phase !== "Hypnotized") addSkill(SKILL_SUCCESS_CREDIT);
 		reportMissToHypnotist(sender, message, prev);
 		reportExpiryToHypnotist(sender, message);
+		reportRefusalToHypnotist(sender, message);
 		views.set(sender, {
 			phase: (message.phase as SessionPhase) ?? "Idle",
 			attempts: Number(message.attempts ?? 0),
