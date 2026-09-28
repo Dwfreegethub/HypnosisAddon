@@ -34,19 +34,24 @@ Depth is measured on a scale from 0 to 100, divided into five recognizable tiers
 
 ## How You Reach Depth (The Simple Version)
 
-You don't need a spreadsheet to play. Your receptivity to a hypnotist comes down to three natural factors:
+Since v0.97, **how deep you go depends on who the hypnotist is to you**, not on luck. The roll decides whether an induction takes; once it does, you land at about the same depth every time with the same person. The full explanation, with worked examples, is on **[How an Induction Works](How-Inductions-Work)**.
 
-1. **Familiarity & Trust:** Spending time together, talking in room chat, and participating in successful sessions builds a local trust score on your machine.
-2. **Relationships:** Established Bondage Club relationships give your partner an immediate natural baseline:
-   * **Friends:** Get a slight head start in the door.
-   * **Lovers:** Start with enough baseline depth to reach physical suggestions and arousal control.
-   * **Owners:** Automatically have enough baseline access to reach everything you've permitted.
-3. **Arousal (The Heat of the Moment):** Being worked up lowers your natural resistance. A full arousal meter adds a quarter of itself to the landing chance, and up to 15 points to how deep you go. But arousal alone can *never* leave triggers behind or alter your perception: it never counts toward earned depth.
+1. **Familiarity & Trust:** Talking in room chat and going under together builds a trust score for that person, kept on your own machine. It is the biggest part of both the chance and the depth: you land at least **half your trust** deep, unless you fight.
+2. **Relationships:** Your Bondage Club relationships give a head start:
+   * **Friends:** count as trust of at least 15 for the chance.
+   * **Lovers:** count as trust of at least 30, and you land at least **Entranced**.
+   * **Owners:** count as trust of at least 65, and you land at least **Deep**.
+3. **Your Answer:** Agree takes you about 20 deeper, Fight about 20 shallower and removes those floors. Fighting can make an induction slip away altogether, and while under it can bring you **up**.
+4. **Arousal (The Heat of the Moment):** Being worked up helps an induction take and takes you a little deeper, but only for now. Arousal *never* counts toward earned depth, so it can never leave triggers behind or alter your perception.
 
-**How deep an induction lands.** The roll only decides whether it lands. How deep comes from your trust, your relationship (a lover holds you at Entranced, an owner at Deep), their skill, your arousal, and your answer: Agree takes you 20 deeper, Fight 20 shallower and lets you land below those floors, give or take a few points either way. A landing at nothing slips away and counts as a miss. `/echs chance <name>` shows where each answer would land.
+**Going deeper once under.** A hypnotist can say *"Missy, sink deeper"* to take you further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Shallow, one success goes a long way; already deep, only a little. Your Depth tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never raises earned depth. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
-**Going deeper once under.** The induction sets where you start. After that, a hypnotist can say *"Missy, sink deeper"* to take you further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Shallow, one success goes a long way; already deep, only a little. Your Depth tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never reaches the earned-only features. See [What to Say](What-to-Say#going-deeper-mid-trance).
+**Answering for yourself, and toy mode.** You can answer every induction ahead of time, choose what happens while you are away from the keyboard, and let the people you choose put you straight under with no roll. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
 Want to see exactly where you and a partner stand? Type:
+
 ```text
 /echs chance <name>
+```
+
+It shows your chance and where you would land for each answer, and, while you are under with them, the odds of going deeper or fighting up.

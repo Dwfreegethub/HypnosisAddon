@@ -15,6 +15,8 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 **Nothing is turned on until you enable it. `/echs safeword` (and legacy `/hypno safeword`) always works.**
 
+> **New in v0.97: inductions reworked.** How deep you go now comes from how well you know the hypnotist, not from a lucky roll, so the same person lands you at about the same depth every time. You can also answer inductions ahead of time, choose what happens while you are away, turn on toy mode for the people you choose, and fight your way up out of a trance. Read **[How an Induction Works](How-Inductions-Work)**.
+
 ---
 
 ## Start Here
@@ -36,6 +38,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name; sight dimmed, darkened or taken, by BC's own blindness. |
 | **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, compulsions that wait for a moment, and suggestions that survive waking. |
 | **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
+| **[How an Induction Works](How-Inductions-Work)** | **New in v0.97.** What decides whether it takes and how deep, going deeper, fighting up, answering ahead of time and toy mode. |
 | **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |
 
 ---

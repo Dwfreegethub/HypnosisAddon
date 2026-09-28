@@ -108,7 +108,7 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 * **Per-Feature Tier Assignments:** Move any individual feature up or down the depth tiers (*Drifting, Yielding, Entranced, Deep, Blank*). Tier gates are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
 * **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
-* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, one depth at a time (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
+* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 * **Reset Depth Gates:** Restores all tier thresholds to standard defaults.
 
 ---
