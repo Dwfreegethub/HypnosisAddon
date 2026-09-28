@@ -44,6 +44,9 @@ const INDUCTION_INTERACTIONS = 5;
 const ATTEMPT_EXPERIENCE = 0.25;
 /** Additional, on success only. */
 const INDUCTION_EXPERIENCE = 1;
+/** Per "sink deeper" that takes (v0.97.0, trust.md §12). The 60 s gap and the landed-suggestion
+ * rule are what stop it being farmed. */
+const DEEPEN_EXPERIENCE = 0.5;
 
 /** memberNumber → when we last counted an interaction with them. In-memory only: a reload
  * costing someone one window is a rounding error, and persisting it would mean writing to
@@ -86,6 +89,12 @@ export function noteInductionSuccess(hypnotistId: number, hypnotistName: string)
 		`induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${entry.memberName} → ` +
 			`trust ${trustWith(hypnotistId).toFixed(1)}; experience → ${exp.toFixed(1)}`,
 	);
+}
+
+/** Called when a deepening takes her further under. */
+export function noteDeepenSuccess(): void {
+	const exp = addExperience(DEEPEN_EXPERIENCE);
+	log(`deepening experience +${DEEPEN_EXPERIENCE} → ${exp.toFixed(1)}`);
 }
 
 export interface TrustStatRow {

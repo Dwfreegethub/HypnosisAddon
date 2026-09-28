@@ -9,6 +9,7 @@ import { installIllusion } from "./illusion";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine, noticeTrustLine } from "./session";
+import { installAwayWatch } from "./away";
 import { installSuppression, installHearingFilter, hearsLine, markUnheard } from "./suppression";
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
@@ -280,6 +281,7 @@ safely("screen-fade hook", () => {
 // Before the command and remote registrations — both call into the session module, so its
 // hidden-message handlers need to already be listening.
 safely("session state machine", installSession);
+safely("away watch", installAwayWatch);
 safely("trigger status channel", installTriggers);
 
 // Registers into BC's own message-handler chain at a priority chosen so arousal still

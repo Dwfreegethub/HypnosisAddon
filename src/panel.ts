@@ -455,3 +455,55 @@ export function clickScrollBar(a: ScrollArea): boolean {
 	}
 	return true;
 }
+
+// --- Hover tips -------------------------------------------------------------------------------
+// BC's own hover box (DrawButtonHover) is a fixed 450 by 65 and fits the text on ONE line, so a
+// sentence-long tip shrinks until it cannot be read (DW, v0.97.4: "The pop up text is very small").
+// tipButton draws the button with no BC tip and queues ours, which wraps onto as many lines as it
+// needs at a readable size. It is drawn by flushTip at the end of the frame, over everything
+// else and outside any scroll clip, rather than under whatever is drawn after the button.
+const TIP_WIDTH = 450;
+const TIP_FONT = 26;
+const TIP_PAD = 12;
+let pendingTip: { left: number; top: number; width: number; height: number; text: string } | null = null;
+
+/** DrawButton, with our wrapping hover tip in place of BC's one-line one. */
+export function tipButton(
+	left: number,
+	top: number,
+	width: number,
+	height: number,
+	label: string,
+	color: string,
+	image: string,
+	tip: string,
+	disabled = false,
+): void {
+	DrawButton(left, top, width, height, label, color, image, "", disabled);
+	if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
+}
+
+/** Draws the tip queued this frame, if any; placed as BC places its own, beside the button. */
+export function flushTip(): void {
+	const t = pendingTip;
+	pendingTip = null;
+	if (!t) return;
+	MainCanvas.save();
+	MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
+	const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
+	const pitch = Math.round(TIP_FONT * 1.2);
+	const height = lines.length * pitch + 2 * TIP_PAD;
+	let left = MouseX > 1000 ? t.left - TIP_WIDTH - 25 : t.left + t.width + 25;
+	left = Math.max(0, Math.min(left, MainCanvasWidth - TIP_WIDTH));
+	const top = Math.max(0, Math.min(t.top + (t.height - height) / 2, MainCanvasHeight - height));
+	MainCanvas.fillStyle = "#FFFF88";
+	MainCanvas.fillRect(left, top, TIP_WIDTH, height);
+	MainCanvas.lineWidth = 2;
+	MainCanvas.strokeStyle = "black";
+	MainCanvas.strokeRect(left, top, TIP_WIDTH, height);
+	MainCanvas.textAlign = "left";
+	MainCanvas.textBaseline = "middle";
+	MainCanvas.fillStyle = "black";
+	lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
+	MainCanvas.restore();
+}

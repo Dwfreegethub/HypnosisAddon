@@ -1,10 +1,12 @@
-// "Sink deeper", v0.95.0 (DW, 2026-09-26, from job.md).
+// "Sink deeper", v0.95.0 (DW, 2026-09-26, from job.md), as reworked by v0.97.0 (trust.md §12).
 //
-// The hypnotist takes her one tier deeper mid-trance. DW's decisions: one tier per success, never
-// past HER "deepest I go" setting (default Entranced); FULL depth only, so earned depth and the
-// Deep-tier features it gates do not move; the chance is her trust + their skill + time in trance
-// + her induction choice - the tier being entered, 10-95; her spent trust gift makes it certain;
-// 60 seconds AND a landed suggestion between tries; the hypnotist sees bands, never the tier.
+// The hypnotist takes her deeper mid-trance, never past HER "deepest I go" setting (default
+// Entranced); FULL depth only, so earned depth and the Deep-tier features it gates do not move; her
+// spent trust gift makes it certain; 60 seconds AND a landed suggestion between tries; the
+// hypnotist sees bands, never the tier. v0.97.0: the chance is 40 + trust x0.3 + skill x0.25 +
+// arousal x0.15 + stance + time + experience x0.15 on Agree - depth x0.3, 10-95; a hit is 15-25
+// below 40, 10-15 at 40-69, 5-10 from 70, +5 past trust 60; no half steps. Fighting, she may come
+// up 20-30 / 10-15 / 5-10, from a missed deepening or her own /hypno fight, once a minute.
 // Every block states what failure looks like.
 const HYP = 246108, REI = 999;
 globalThis.Player = { MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 } };
@@ -47,7 +49,8 @@ storage.setFeature("tranceCannotMove", false);
 const say = (line, who = HYP) => { toHyp = []; room = []; said = []; voice.handleSpokenLine(who, line); };
 const tier = () => depth.tierOf(depth.currentDepth());
 const lastHyp = () => toHyp.join(" | ");
-const reset = () => { session.safeword(); timers.clearAllTimers(); storage.forgetAllTriggers(); clock += 20 * 60_000; storage.setRelationshipOverride(HYP, null); };
+// Trust back to 0 too: a landed induction adds some, and every term below reads it (v0.97.0).
+const reset = () => { session.safeword(); timers.clearAllTimers(); storage.forgetAllTriggers(); clock += 20 * 60_000; storage.setRelationshipOverride(HYP, null); storage.setTrustValue(HYP, "Eri", 0); };
 const under = (d = 25) => session.forceTrance(HYP, d, d);
 const later = (s = 61) => { clock += s * 1000; };
 
@@ -74,40 +77,67 @@ for (const [line, want] of [
 	["Missy, kneel", false],
 ]) check(`"${line}"`, voice.isDeepeningLine(line), want);
 
-// --- a success: one tier, full depth only, bands to the hypnotist ------------------------------------
-// Failure: more than one tier, earned depth moving, or the tier name leaking to the hypnotist.
+
+const seq = (...v) => { let i = 0; Math.random = () => v[Math.min(i++, v.length - 1)]; };
+const expCount = () => storage.experienceValue();
+
+// --- a success: full depth only, bands to the hypnotist ------------------------------------------------
+// A random of 0 hits, and takes the least of the step. Failure: the step outside 15-25 below 40,
+// earned depth moving, no experience for her, or the tier name leaking to the hypnotist.
 reset();
+storage.setExperienceValue(0);
 under(25); // Yielding
 Math.random = () => 0;
 say("Missy, sink deeper");
-check("Yielding → Entranced", tier(), "entranced");
-check("  a full step is a tier's width: 25 → 45", depth.currentDepth(), 45);
+check("a hit below 40 is at least 15: 25 → 40", depth.currentDepth(), 40);
+check("  Yielding → Entranced", tier(), "entranced");
 check("  earned depth untouched", depth.currentDepthEarned(), 25);
+check("  she gains experience from it", expCount() > 0, true);
 check("  the hypnotist is told, in a band", /\[deepen\] It takes\. They are deeply under\./.test(lastHyp()), true);
 check("  never the tier name", /entranced/i.test(lastHyp()), false);
 check("  she feels it", said.length > 0, true);
 check("  the room sees a tell", room.length, 1);
+reset();
+under(25);
+seq(0, 0.99); // hits, and takes the most of the step
+say("Missy, sink deeper");
+check("  and at most 25: 25 → 50", depth.currentDepth(), 50);
 
 // --- the pace: 60 seconds AND a suggestion that landed -----------------------------------------------
 // Failure: back-to-back deepening, or the command rule not enforced.
+reset();
 storage.setDeepestTier("blank");
+under(25);
+Math.random = () => 0;
 say("Missy, sink deeper");
-check("straight away: still settling", [tier(), /still settling/.test(lastHyp())], ["entranced", true]);
+say("Missy, sink deeper");
+check("straight away: still settling", [depth.currentDepth(), /still settling/.test(lastHyp())], [40, true]);
 later();
 say("Missy, sink deeper");
-check("a minute on, but no command since: refused", [tier(), /suggestion to follow first/.test(lastHyp())], ["entranced", true]);
+check("a minute on, but no command since: refused", [depth.currentDepth(), /suggestion to follow first/.test(lastHyp())], [40, true]);
 say("Missy, you cannot move");
 say("Missy, sink deeper");
-check("after a landed command: Deep", tier(), "deep");
+check("after a landed command: 10-15 at 40-69, so 40 → 50", depth.currentDepth(), 50);
 check("  earned still 25: the Deep-tier features stay shut", [depth.currentDepthEarned(), depth.depthAllows("triggerControl")], [25, false]);
-later();
-say("Missy, you cannot move");
+reset();
+storage.setDeepestTier("blank");
+under(75);
+seq(0, 0.99);
 say("Missy, sink deeper");
-check("and on to Blank", tier(), "blank");
-later();
-say("Missy, you cannot move");
+check("from 70 a hit is 5-10: 75 → 85", depth.currentDepth(), 85);
+reset();
+storage.setDeepestTier("blank");
+under(100);
 say("Missy, sink deeper");
-check("Blank is the bottom", [tier(), /as deep as they let themselves go/.test(lastHyp())], ["blank", true]);
+check("Blank's bottom is the bottom", [depth.currentDepth(), /as deep as they let themselves go/.test(lastHyp())], [100, true]);
+
+// Trusted past 60 (an owner's 65), a hit goes 5 further. Failure: no bonus, or one for a stranger.
+reset();
+storage.setRelationshipOverride(HYP, "owner");
+under(25);
+Math.random = () => 0;
+say("Missy, sink deeper");
+check("an owner's hit: 15 + 5, 25 → 45", depth.currentDepth(), 45);
 
 // A refused command does not count. Failure: a refusal opens the next deepening.
 reset();
@@ -125,9 +155,14 @@ storage.setFeature("postureControl", true);
 // Failure: deepened past what she allowed.
 reset();
 storage.setDeepestTier("entranced");
-under(45); // already Entranced
+under(50);
+seq(0, 0.99); // 50 + 15 would be 65
 say("Missy, sink deeper");
-check("at her ceiling: not deeper, and said", [tier(), /as deep as they let themselves go/.test(lastHyp())], ["entranced", true]);
+check("inside her ceiling tier, a hit stops at its last point: 50 → 59", [depth.currentDepth(), tier()], [59, "entranced"]);
+later();
+say("Missy, you cannot move");
+say("Missy, sink deeper");
+check("at her ceiling: not deeper, and said", [depth.currentDepth(), /as deep as they let themselves go/.test(lastHyp())], [59, true]);
 storage.setDeepestTier("never");
 reset();
 under(5);
@@ -136,52 +171,70 @@ check("'Never deeper': refused, and said", [tier(), /do not let themselves be ta
 
 storage.setDeepestTier("entranced");
 
-// --- a miss ----------------------------------------------------------------------------------------------
-// Failure: a miss that still deepens, or says nothing.
+// --- a miss, and no half steps (v0.97.0) ---------------------------------------------------------------
+// Failure: a miss that still deepens, a near miss that moves her, or saying nothing.
 reset();
-under(25);
-Math.random = () => 0.99;
+under(25); // a stranger at 25: 40 - 7.5 = 32.5%
+seq(0.4); // misses by 7.5, which used to be a half step
 say("Missy, sink deeper");
-check("a miss: same tier, hypnotist told", [tier(), /does not take hold/.test(lastHyp())], ["yielding", true]);
+check("a near miss: nothing now", [depth.currentDepth(), /does not take hold/.test(lastHyp())], [25, true]);
 check("  nothing for the room", room.length, 0);
 
 // --- the chance ------------------------------------------------------------------------------------------
-// Owner: access 65. Failure: a term missing, the tier penalty wrong, or the clamp off.
+// Owner: trust 65. Failure: a term missing or mis-weighted, or the clamps off.
+reset();
+storage.setExperienceValue(0);
+storage.setRelationshipOverride(HYP, "owner");
+under(25);
+check("owner at 25, no time: 40 + 19.5 - 7.5 = 52", session.deepenChance(HYP), 52);
+later(5 * 60);
+check("five minutes under: +10", session.deepenChance(HYP), 62);
+later(30 * 60);
+check("  capped at +20", session.deepenChance(HYP), 72);
+reset();
+storage.setRelationshipOverride(HYP, "owner");
+under(85);
+check("owner at 85: 40 + 19.5 - 25.5 = 34", session.deepenChance(HYP), 34);
+storage.setRelationshipOverride(HYP, null);
+check("a stranger at 85: 14.5", session.deepenChance(HYP), 14.5);
+reset();
+under(100);
+check("  and at 100, the 10 floor", session.deepenChance(HYP), 10);
+// Her stance: Agree +20, Fight -25. Fighting also struggles, so hold her there (a random of 0.99).
 reset();
 storage.setRelationshipOverride(HYP, "owner");
 under(25);
-check("owner, no time, entering Yielding", session.deepenChance(HYP, "yielding"), 65);
-check("  Entranced -10", session.deepenChance(HYP, "entranced"), 55);
-check("  Deep -20", session.deepenChance(HYP, "deep"), 45);
-check("  Blank -30", session.deepenChance(HYP, "blank"), 35);
-later(5 * 60);
-check("five minutes under: +10", session.deepenChance(HYP, "blank"), 45);
-later(30 * 60);
-check("  capped at +20", session.deepenChance(HYP, "blank"), 55);
-storage.setRelationshipOverride(HYP, null);
-check("a stranger entering Blank: the 10 floor", session.deepenChance(HYP, "blank"), 10);
-
-// Her induction choice counts: Agree +25, Fight -25. Through a real induction, so the choice is hers.
-const induce = (choice) => {
-	reset();
-	storage.setRelationshipOverride(HYP, "owner");
-	messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: HYP, Dictionary: [{ message: { type: "session-attempt", hypnotistName: "Eri" } }] });
-	session.answerPrompt(choice);
-	Math.random = () => 0;
-	for (let i = pending.length - 1; i >= 0; i--) if (pending[i].live && pending[i].ms === 60_000) { pending[i].live = false; pending[i].fn(); break; }
-	return session.deepenChance(HYP, "blank");
-};
-check("Agree at induction: +25", induce("agree"), 60);
-check("Fight at induction: -25", induce("fight"), 10);
-check("Ignore: neither", induce("ignore"), 35);
+session.answerPrompt("agree");
+check("going along: +20", session.deepenChance(HYP), 72);
+Math.random = () => 0.99;
+session.answerPrompt("fight");
+check("fighting: -25", session.deepenChance(HYP), 27);
+session.answerPrompt("ignore");
+check("neither", session.deepenChance(HYP), 52);
+// Her experience helps only when she goes along. Failure: it helps Ignore or Fight too.
+storage.setExperienceValue(40);
+check("experience 40, ignoring: nothing", session.deepenChance(HYP), 52);
+session.answerPrompt("agree");
+check("  going along: +6", session.deepenChance(HYP), 78);
+storage.setExperienceValue(0);
+// Arousal. Failure: arousal ignored, or counted with the meter off.
+session.answerPrompt("ignore");
+Player.ArousalSettings.Progress = 100;
+check("a full meter: +15", session.deepenChance(HYP), 67);
+Player.ArousalSettings.Active = "Manual";
+check("  the meter off: nothing", session.deepenChance(HYP), 52);
+Player.ArousalSettings.Active = "Hybrid";
+Player.ArousalSettings.Progress = 0;
 
 // --- her trust gift makes it certain ----------------------------------------------------------------------
 reset();
+storage.setRelationshipOverride(HYP, "owner"); // so the induction lands even at the lowest spread
 session.giveTrust(HYP, "Eri");
 messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: HYP, Dictionary: [{ message: { type: "session-attempt", hypnotistName: "Eri" } }] });
 Math.random = () => 0;
 for (let i = pending.length - 1; i >= 0; i--) if (pending[i].live && pending[i].ms === 60_000) { pending[i].live = false; pending[i].fn(); break; }
-check("trust given: certain", session.deepenChance(HYP, "blank"), 100);
+check("trust given: under", session.isHypnotized(), true);
+check("  and deepening is certain", session.deepenChance(HYP), 100);
 
 // --- who, and when ----------------------------------------------------------------------------------------
 reset();
@@ -209,116 +262,123 @@ say("Missy, your trigger word is silver bell");
 say("Missy, sink deeper");
 check("while recording: not deepened, and told", [tier(), /instant drop/.test(lastHyp())], ["deep", true]);
 
-// --- half steps (v0.96.0) -----------------------------------------------------------------------------
-// A roll that misses by less than 20 sinks her 10: no new tier, but two of them make one.
-// Failure: a near miss treated as a miss, a half step that changes the tier, or halves that never add up.
-const seq = (...v) => { let i = 0; Math.random = () => v[Math.min(i++, v.length - 1)]; };
+// --- fighting back up, from a missed deepening -------------------------------------------------------------
+// Failure: fighting cannot be chosen mid-trance, a miss never surfaces her, the drop outside its
+// band, she surfaces without fighting, or coming up past the surface does not wake her.
 reset();
 storage.setDeepestTier("blank");
-storage.setRelationshipOverride(HYP, "owner");
-under(25); // owner, ignore, no time: into Entranced 55%
-seq(0.6); // 60: a near miss
-say("Missy, sink deeper");
-check("near miss: half a step, same tier", [depth.currentDepth(), tier()], [35, "yielding"]);
-check("  the hypnotist is told it half took", /half takes/.test(lastHyp()), true);
-check("  nothing for the room", room.length, 0);
-later();
-say("Missy, you cannot move");
-seq(0.6);
-say("Missy, sink deeper");
-check("a second half step crosses", [depth.currentDepth(), tier()], [45, "entranced"]);
-check("  and is told as a new depth", /Only just.*deeply under/.test(lastHyp()), true);
-later();
-say("Missy, you cannot move");
-seq(0.99);
-say("Missy, sink deeper");
-check("a clean miss: nothing", [depth.currentDepth(), /does not take hold/.test(lastHyp())], [45, true]);
-
-// --- fighting back up (v0.96.0) -------------------------------------------------------------------------
-// Failure: fighting cannot be chosen mid-trance, a miss never surfaces her, she surfaces without
-// fighting, or from Drifting she is not woken.
-reset();
-storage.setDeepestTier("blank");
-under(25); // a stranger: into Entranced 10% at best
+storage.setExperienceValue(0);
+under(25);
+Math.random = () => 0.99; // her first push, on choosing to fight, holds
 session.answerPrompt("fight");
 check("/hypno fight while under: she is fighting", /choice=fight/.test(session.describeSession()), true);
-check("  she is told, privately", said.some((s) => /start fighting/.test(s)) || /start fighting/.test(JSON.stringify(said)), true);
-check("  /hypno chance shows the odds", session.describeChances(HYP).some((l) => /fighting back up if it misses: \d+%/.test(l)), true);
-seq(0.99, 0); // misses outright, then the push back up lands
+check("  she is told, privately", said.some((s) => /start fighting/.test(s)), true);
+check("  /hypno chance shows the odds", session.describeChances(HYP).some((l) => /fighting back up: \d+%/.test(l)), true);
+later();
+seq(0.99, 0, 0); // the deepening misses, her push lands, and takes the least of 20-30
 say("Missy, sink deeper");
-check("fighting, a miss: up a tier", [tier(), depth.currentDepth()], ["drifting", 10]);
-check("  the hypnotist is told", /push back up/.test(lastHyp()), true);
+check("fighting, a miss: up 20, 25 → 5", [tier(), depth.currentDepth()], ["drifting", 5]);
+check("  the hypnotist is told", /push back up\. They are lightly under/.test(lastHyp()), true);
 check("  the room sees her stir", room.length, 1);
 later();
 say("Missy, you will not notice being undressed"); // a Drifting suggestion, so it lands
-seq(0.99, 0);
+seq(0.99, 0, 0);
 say("Missy, sink deeper");
-check("from Drifting, fighting up wakes her", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
+check("past the surface: she wakes", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
 check("  the hypnotist is told she is awake", /They are awake/.test(lastHyp()), true);
-// Her near miss (v0.96.2): a push back that misses by under 20 still brings her up 10.
-// Failure: no half step up, a half step that changes the tier, or one past the surface not waking her.
+// Inside a tier: private to her, and the hypnotist is told it was a little.
 reset();
 storage.setDeepestTier("blank");
-under(55); // Entranced; a stranger's surface chance there is 25 less a tenth of trust
+under(55);
+Math.random = () => 0.99;
 session.answerPrompt("fight");
-const sc = session.surfaceChance(HYP);
-seq(0.99, (sc + 10) / 100); // deepening misses outright; push back misses by 10
-say("Missy, sink deeper");
-check("fighting, a near miss: up 10, same tier", [depth.currentDepth(), tier()], [45, "entranced"]);
-check("  the hypnotist is told", /claw back a little/.test(lastHyp()), true);
-check("  private", room.length, 0);
 later();
-say("Missy, you will not notice being undressed");
-seq(0.99, (sc + 10) / 100);
+seq(0.99, 0, 0); // 40-59 drops 10-15
 say("Missy, sink deeper");
-check("a second one crosses up a tier", [depth.currentDepth(), tier()], [35, "yielding"]);
-check("  and is told as coming up", /claw their way up/.test(lastHyp()), true);
-later();
-say("Missy, you will not notice being undressed");
-seq(0.99, 0.99);
-say("Missy, sink deeper");
-check("a push back that misses by more: nothing", depth.currentDepth(), 35);
+check("40-59: up 10, 55 → 45, same tier", [depth.currentDepth(), tier()], [45, "entranced"]);
+check("  the hypnotist is told it was a little", /push back up a little/.test(lastHyp()), true);
+check("  the room sees nothing", room.length, 0);
+check("  she feels it", said.length > 0, true);
 reset();
-under(8);
+storage.setDeepestTier("blank");
+under(75);
+Math.random = () => 0.99;
 session.answerPrompt("fight");
-seq(0.99, (session.surfaceChance(HYP) + 10) / 100);
+later();
+seq(0.99, 0, 0.99); // 60 and deeper drops 5-10: the most
 say("Missy, sink deeper");
-check("near the surface, a half step up wakes her", session.isHypnotized(), false);
+check("60 and deeper: up at most 10, 75 → 65", depth.currentDepth(), 65);
+
+// --- fighting back up, on her own /hypno fight (v0.97.0) --------------------------------------------------
+// Failure: no struggle on choosing to fight, more than one a minute, or the hypnotist told she is
+// fighting when nothing moved.
+reset();
+storage.setDeepestTier("blank");
+under(55);
+toHyp = []; room = [];
+Math.random = () => 0;
+session.answerPrompt("fight");
+check("choosing to fight struggles at once: 55 → 45", depth.currentDepth(), 45);
+check("  the hypnotist is told she came up", /They push back up a little/.test(lastHyp()), true);
+toHyp = []; said = [];
+session.answerPrompt("fight");
+check("again straight away: resting, nothing moves", [depth.currentDepth(), said.some((s) => /still gathering yourself/.test(s))], [45, true]);
+check("  and the hypnotist hears nothing", toHyp.length, 0);
+seq(0.99, 0, 0);
+say("Missy, sink deeper");
+check("a missed deepening inside that minute does not struggle either", [depth.currentDepth(), /does not take hold/.test(lastHyp())], [45, true]);
+later();
+toHyp = []; said = [];
+Math.random = () => 0.99;
+session.answerPrompt("fight");
+check("a minute on, a push that fails: held, and only she hears it", [depth.currentDepth(), said.some((s) => /holds you where you are/.test(s)), toHyp.length], [45, true, 0]);
 
 // Not fighting: a clean miss never brings her up, whatever the second roll.
 reset();
 under(25);
 seq(0.99, 0);
 say("Missy, sink deeper");
-check("not fighting: a miss leaves her where she was", tier(), "yielding");
-// Deeper is harder to climb out of; trust in them holds her down a little.
+check("not fighting: a miss leaves her where she was", depth.currentDepth(), 25);
+
+// --- her chance of coming up ----------------------------------------------------------------------------------
+// base 55/40/28/18/10 + experience x0.35 - skill x0.25 - trust x0.15 - arousal x0.2, 3-75.
+// Failure: a term missing or mis-weighted, or the clamps off.
 reset();
+storage.setExperienceValue(0);
 under(25);
+Math.random = () => 0.99;
 session.answerPrompt("fight");
-const access = () => session.effectiveAccess(HYP);
-check("Yielding: 35 less a tenth of her trust", session.surfaceChance(HYP), 35 - access() * 0.1);
+check("Yielding, a stranger: 40", session.surfaceChance(HYP), 40);
 storage.setRelationshipOverride(HYP, "owner");
-check("  trusted like an owner: 28.5", session.surfaceChance(HYP), 35 - 65 * 0.1);
+check("  trusted like an owner: 40 - 9.75", session.surfaceChance(HYP), 30.25);
+storage.setExperienceValue(40);
+check("  and practised at it: + 14", session.surfaceChance(HYP), 44.25);
+storage.setExperienceValue(0);
+Player.ArousalSettings.Progress = 100;
+check("  and fully aroused: - 20", session.surfaceChance(HYP), 10.25);
+Player.ArousalSettings.Progress = 0;
 reset();
 storage.setRelationshipOverride(HYP, "owner");
 under(85);
 session.answerPrompt("fight");
 check("Blank, an owner: the 3 floor", session.surfaceChance(HYP), 3);
 storage.setRelationshipOverride(HYP, null);
+check("Blank, a stranger: 10", session.surfaceChance(HYP), 10);
 reset();
 under(5);
 session.answerPrompt("fight");
-check("Drifting: 45 less a tenth of her trust", session.surfaceChance(HYP), 45 - access() * 0.1);
-// Their skill takes it down. Honoured skill rides in on a real attempt.
+check("Drifting, a stranger: 55", session.surfaceChance(HYP), 55);
+// Their skill takes it down. Honoured skill rides in on a real attempt; an owner, so a Fight lands.
 reset();
 storage.setSkillHonour("capped");
+storage.setRelationshipOverride(HYP, "owner");
 messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: HYP, Dictionary: [{ message: { type: "session-attempt", hypnotistName: "Eri", skill: 100 } }] });
 session.answerPrompt("fight");
-seq(0);
+Math.random = () => 0;
 for (let i = pending.length - 1; i >= 0; i--) if (pending[i].live && pending[i].ms === 60_000) { pending[i].live = false; pending[i].fn(); break; }
-const skilled = session.surfaceChance(HYP);
-const SURFACE_NO_SKILL = () => Math.max(3, ({drifting:45,yielding:35,entranced:25,deep:15,blank:8})[tier()] - access() * 0.1);
-check("a skilled hypnotist: up to 20 harder to fight up", skilled < SURFACE_NO_SKILL() && skilled >= SURFACE_NO_SKILL() - 20, true);
+check("fighting an owner, it still lands: 30 - 20 + 6 - 9 = 7", depth.currentDepth(), 7);
+// The induction itself was practice for her (+1.25 experience), which helps her fight.
+check("a skilled hypnotist (30 honoured): 7.5 harder to fight up", session.surfaceChance(HYP), 55 + expCount() * 0.35 - 7.5 - 65 * 0.15);
 
 // --- the safeword --------------------------------------------------------------------------------------------
 session.safeword();

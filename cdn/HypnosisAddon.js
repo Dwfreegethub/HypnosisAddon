@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.96.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.97.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1613,17 +1613,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "You drift for a moment, and settle back where you were.",
       "The words wash over you without taking you any lower."
     ],
-    "deepen-half": [
-      "You sink, a little. Not far. Not yet.",
-      "Something in you gives a fraction further, and holds.",
-      "The words tug you down a little way before you settle."
-    ],
     "deepen-surface": [
       "You push against it, and for once the pull gives. You come up a little, clearer.",
       "You fight the words off and rise, a layer nearer the surface.",
       "Something in you refuses. You drift upward, a little more yourself."
     ],
-    "deepen-half-up": [
+    "deepen-rise": [
       "You push back, and rise a little. Not far, but it is yours.",
       "You fight the pull and gain a little ground toward the surface.",
       "Something in you digs in, and you come up a fraction."
@@ -1896,12 +1891,60 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return h * v / (100 - v);
   }
 
+  // src/away.ts
+  var AWAY_AFTER_MS = 10 * 6e4;
+  var lastActivity = Date.now();
+  function noteActivity() {
+    lastActivity = Date.now();
+  }
+  function isAway() {
+    return Date.now() - lastActivity >= AWAY_AFTER_MS;
+  }
+  function idleMinutes() {
+    return Math.floor((Date.now() - lastActivity) / 6e4);
+  }
+  function installAwayWatch() {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    for (const type of ["keydown", "mousedown", "touchstart"]) {
+      window.addEventListener(type, noteActivity, { capture: true, passive: true });
+    }
+    log("away watch installed: 10 minutes without a key, click or touch counts as away");
+  }
+
+  // src/ladder.ts
+  function characterFor(memberNumber) {
+    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+      (c) => c?.MemberNumber === memberNumber
+    );
+  }
+  function allowedByLadder(memberId, scope) {
+    if (scope === "hypnotist") return false;
+    if (memberId === Player?.MemberNumber) return false;
+    const C = characterFor(memberId);
+    if (!C) return false;
+    if (Player?.IsOwnedByCharacter?.(C)) return true;
+    if (scope === "everyone") return true;
+    if (Player?.HasOnBlacklist?.(C)) return false;
+    if (scope === "notblack") return true;
+    if (scope === "owner") return false;
+    if (C.IsLoverOfCharacter?.(Player)) return true;
+    if (scope === "lovers") return false;
+    if (Player?.HasOnWhitelist?.(C)) return true;
+    if (scope === "whitelist") return false;
+    try {
+      return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
+    } catch {
+      return false;
+    }
+  }
+
   // src/trust.ts
   var RATE_LIMIT_MS = 5 * 6e4;
   var DIRECTED_MULTIPLIER = 2;
   var INDUCTION_INTERACTIONS = 5;
   var ATTEMPT_EXPERIENCE = 0.25;
   var INDUCTION_EXPERIENCE = 1;
+  var DEEPEN_EXPERIENCE = 0.5;
   var lastCounted = /* @__PURE__ */ new Map();
   function noteConversation(sender, senderName, directed) {
     if (!sender || typeof Player?.MemberNumber !== "number" || sender === Player.MemberNumber) return;
@@ -1926,6 +1969,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       `induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${entry.memberName} \u2192 trust ${trustWith(hypnotistId).toFixed(1)}; experience \u2192 ${exp.toFixed(1)}`
     );
   }
+  function noteDeepenSuccess() {
+    const exp = addExperience(DEEPEN_EXPERIENCE);
+    log(`deepening experience +${DEEPEN_EXPERIENCE} \u2192 ${exp.toFixed(1)}`);
+  }
   function agoText(timestamp) {
     if (!timestamp) return "never";
     const mins = Math.floor((Date.now() - timestamp) / 6e4);
@@ -1940,7 +1987,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },
     owner: { kind: "owner", floor: 65, reaches: ["session", "arousal", "deceptive", "persistent"] }
   };
-  function characterFor(memberId) {
+  function characterFor2(memberId) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberId
     );
@@ -1948,7 +1995,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function relationshipWith(memberId) {
     const override = getRelationshipOverride(memberId);
     if (override) return override;
-    const C = characterFor(memberId);
+    const C = characterFor2(memberId);
     try {
       if (C && Player?.IsOwnedByCharacter?.(C)) return "owner";
       if (C && C.IsLoverOfCharacter?.(Player)) return "lover";
@@ -2897,8 +2944,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
   var RESISTANCE_FLOOR = 5;
   var CHANCE_CEILING = 95;
-  var EXPERIENCE_WEIGHT = 0.25;
+  var EXPERIENCE_WEIGHT = 0.2;
   var STRANGER_CEILING = 30;
+  var AROUSAL_ACCESS_WEIGHT = 0.25;
   var SKILL_ATTEMPT_CREDIT = 0.25;
   var SKILL_SUCCESS_CREDIT = 1;
   var SELF_WAKE_MAX_DEPTH = 40;
@@ -2913,6 +2961,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     owner: 60
     // Deep — the illusion and triggers, always; Blank still has to be earned
   };
+  var STANCE_DEPTH = { agree: 20, ignore: 0, fight: -20 };
+  var DEPTH_TRUST_WEIGHT = 0.5;
+  var DEPTH_RELATION_WEIGHT = 0.5;
+  var DEPTH_SKILL_WEIGHT = 0.2;
+  var DEPTH_AROUSAL_WEIGHT = 0.15;
+  var TRUST_DEPTH_FLOOR_WEIGHT = 0.5;
+  var LANDED_DEPTH_MAX = 95;
   var RP_BONUS_PER_LINE = 5;
   var RP_BONUS_CAP = 15;
   var RP_MIN_LENGTH = 15;
@@ -2929,6 +2984,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       hypnotizedAt: 0,
       lastDeepenAt: 0,
       landedSinceDeepen: true,
+      lastStruggleAt: 0,
       promptName: "",
       promptExpiresAt: 0,
       rpLines: 0,
@@ -3090,16 +3146,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (carried && !quiet) notify(carried);
     if (had) runWake(hypnotist);
   }
-  function chemicalFloor() {
+  function arousalLevel() {
     if (!arousalCounts()) return 0;
     const settings = Player?.ArousalSettings;
     const active2 = settings?.Active === "Hybrid" || settings?.Active === "Automatic";
     if (!active2) return 0;
     const progress = typeof settings?.Progress === "number" ? settings.Progress : 0;
-    return Math.max(0, Math.min(STRANGER_CEILING, progress));
+    return Math.max(0, Math.min(100, progress));
   }
   function effectiveAccess(memberId) {
-    return Math.max(accessFor(memberId, "session"), chemicalFloor(), trustGiftFloor(memberId));
+    return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + arousalLevel() * AROUSAL_ACCESS_WEIGHT;
   }
   var TRUST_GIFT_MS = 5 * 6e4;
   var TRUST_GIFT_FLOOR = 65;
@@ -3166,13 +3222,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!getFeatures().hypnoEnabled) return null;
     return named.length > 1 ? "That names more than one person here, so your trust went to no one. Say it with one name." : 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
   }
-  function resolveDepths(hypnotistId, choice, roll) {
-    const full = inductionChance(hypnotistId, choice);
-    const earned = inductionChance(hypnotistId, choice, true);
-    const floor = choice === "fight" ? 0 : RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
-    const at = (chance) => Math.min(100, Math.max(0, Math.round(Math.max(chance - roll, floor))));
-    const fullDepth = at(full);
-    return { full: fullDepth, earned: Math.min(fullDepth, at(earned)) };
+  function depthBases(hypnotistId, choice) {
+    const trust = trustWith(hypnotistId);
+    const relation = RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
+    const earned = trust * DEPTH_TRUST_WEIGHT + relation * DEPTH_RELATION_WEIGHT + STANCE_DEPTH[choice];
+    const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + arousalLevel() * DEPTH_AROUSAL_WEIGHT;
+    const floor = choice === "fight" ? 0 : Math.round(Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT));
+    return { full, earned, floor };
+  }
+  function depthSpread() {
+    const d10 = () => 1 + Math.floor(Math.random() * 10);
+    return d10() + d10() - 11;
+  }
+  function resolveDepths(hypnotistId, choice) {
+    const b = depthBases(hypnotistId, choice);
+    const spread = depthSpread();
+    const at = (base) => Math.min(LANDED_DEPTH_MAX, Math.max(b.floor, Math.round(base + spread)));
+    const full = at(b.full);
+    return { full, earned: Math.max(0, Math.min(full, at(b.earned))) };
   }
   var NO_SKILL = { additive: 0, fightFloor: 0 };
   var SKILL_ADDITIVE_WEIGHT = 0.35;
@@ -3236,24 +3303,35 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function describeChances(memberId) {
     const trust = trustWith(memberId);
-    const floor = chemicalFloor();
+    const arousal = arousalLevel();
     const access = effectiveAccess(memberId);
     const exp = experienceValue();
     const perSession = (c) => 100 * (1 - Math.pow(1 - c / 100, maxAttempts()));
+    const landsAt = (choice) => {
+      const b = depthBases(memberId, choice);
+      const at = (base, spread) => Math.min(LANDED_DEPTH_MAX, Math.max(b.floor, Math.round(base + spread)));
+      const lo = at(b.full, -9), hi = at(b.full, 9);
+      const elo = Math.min(lo, at(b.earned, -9)), ehi = Math.min(hi, at(b.earned, 9));
+      if (hi <= 0) return "it would always slip away";
+      return `lands ${Math.max(0, lo)}\u2013${hi} (earned ${Math.max(0, elo)}\u2013${ehi})${lo <= 0 ? ", or slips away" : ""}`;
+    };
     return [
-      `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal floor ${floor.toFixed(1)} \u2192 access ${access.toFixed(1)}${floor > trust ? " (arousal carrying it)" : ""}, experience ${exp.toFixed(1)}`,
+      `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)} (+${(arousal * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) \u2192 access ${access.toFixed(1)}, experience ${exp.toFixed(1)}`,
       `  ${describeRelationship(memberId)}`,
       ...session.phase === "Hypnotized" && session.hypnotistId === memberId ? (() => {
-        const at = TIER_ORDER.indexOf(tierOf(session.depth));
-        const next = TIER_ORDER[at + 1];
         const stance = session.choice ?? "ignore";
+        const ceiling = TIER_ORDER.indexOf(getDeepestTier());
+        const room = getDeepestTier() !== "never" && session.depth < ceilingDepth(ceiling);
+        const [, lo, hi] = deepenStep(session.depth);
+        const bonus = accessFor(memberId, "session") > DEEPEN_TRUST_SYNERGY_AT ? DEEPEN_TRUST_SYNERGY : 0;
         return [
-          `  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` + (next ? `into ${tierLabel(next)} ${deepenChance(memberId, next).toFixed(0)}%, a half step within ${DEEPEN_HALF_BAND} more` : "you are as deep as it goes"),
+          `  deepening now (you are ${stance === "fight" ? "fighting" : stance === "agree" ? "going along" : "neither helping nor resisting"}): ` + (room ? `${deepenChance(memberId).toFixed(0)}%, ${lo + bonus}\u2013${hi + bonus} deeper if it takes` : "you are as deep as you let yourself go"),
           ...stance === "fight" ? [
-            `  fighting back up if it misses: ${surfaceChance(memberId).toFixed(0)}%${at === 0 ? " (that would wake you)" : ""}, a half step up within ${DEEPEN_HALF_BAND} more`
+            `  fighting back up: ${surfaceChance(memberId).toFixed(0)}%, ${surfaceDrop(session.depth).join("\u2013")} up if you win` + (session.depth <= surfaceDrop(session.depth)[1] ? " (that could wake you)" : "")
           ] : []
         ];
       })() : [],
+      ...describeStanceSettings(memberId),
       ...trustGiftFloor(memberId) > 0 ? [`  your trust, given: counts as at least ${TRUST_GIFT_FLOOR} for ${trustGift?.spentOn ? "this induction" : "their next induction"}`] : [],
       // Skill only shows when this client honoured some — zero outside an attempt, zero on
       // rung Ignore, zero for a stranger on rung Trusted. It is the HONOURED value, the same
@@ -3264,7 +3342,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ...rpBonusFor(memberId) > 0 ? [`  roleplay bonus +${rpBonusFor(memberId)} (${session.rpLines} line(s) this window)`] : [],
       ...["agree", "ignore", "fight"].map((choice) => {
         const c = inductionChance(memberId, choice);
-        return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${maxAttempts()}`;
+        return `  ${choice.padEnd(6)} ${c.toFixed(1)}% per attempt, ${perSession(c).toFixed(0)}% across ${maxAttempts()}; ${landsAt(choice)}`;
       })
     ];
   }
@@ -3281,21 +3359,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.attempts += 1;
     noteInductionAttempt();
     const detail = `chance=${chance.toFixed(1)} roll=${roll.toFixed(1)} choice=${choice} trust=${trustWith(session.hypnotistId).toFixed(1)} exp=${experienceValue().toFixed(1)}`;
-    if (roll < chance) {
-      session.phase = "Hypnotized";
-      const depths = resolveDepths(session.hypnotistId, choice, roll);
-      session.depth = depths.full;
-      session.depthEarned = depths.earned;
-      setCurrentDepths(depths.full, depths.earned);
-      session.hypnotizedAt = Date.now();
-      sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-      sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
-      applyTranceState();
-      startPresenceWatch();
+    const depths = roll < chance ? resolveDepths(session.hypnotistId, choice) : null;
+    const slipped = depths !== null && depths.full <= 0;
+    if (slipped) notify("For a moment it nearly takes you, and then it slips away.");
+    if (depths && !slipped) {
+      enterTrance(depths.full, depths.earned);
       noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
       notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
       announceTranceEnter();
-      log(`induction SUCCEEDED: ${detail} depth=${session.depth}`);
+      log(`induction SUCCEEDED: ${detail} depth=${session.depth}/${session.depthEarned}`);
     } else if (session.attempts >= maxAttempts()) {
       session.phase = "CooldownRequired";
       session.cooldownUntil = Date.now() + COOLDOWN_MS;
@@ -3303,15 +3375,78 @@ One of mods you are using is using an old version of SDK. It will work for now b
       scheduleCooldownEnd();
       notify(inductionSpentLine());
       announceInductionMiss();
-      log(`induction FAILED (final): ${detail}`);
+      log(`induction FAILED (final): ${detail}${slipped ? " (landed, slipped away)" : ""}`);
     } else {
       session.phase = "AttemptFailed";
       session.progress = chance;
-      notify(inductionMissLine());
+      if (!slipped) notify(inductionMissLine());
       announceInductionMiss();
-      log(`induction failed: ${detail} attempt=${session.attempts}`);
+      log(`induction failed: ${detail} attempt=${session.attempts}${slipped ? " (landed, slipped away)" : ""}`);
     }
     pushUpdate();
+  }
+  function enterTrance(full, earned) {
+    session.phase = "Hypnotized";
+    session.depth = full;
+    session.depthEarned = Math.min(full, earned);
+    setCurrentDepths(session.depth, session.depthEarned);
+    session.hypnotizedAt = Date.now();
+    sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
+    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+    applyTranceState();
+    startPresenceWatch();
+  }
+  function toyModeFor(memberId) {
+    if (!getToyMode()) return false;
+    const scope = getToyScope();
+    const relation = relationshipWith(memberId);
+    if (relation === "owner") return true;
+    if (relation === "lover" && scope !== "owner") return true;
+    return allowedByLadder(memberId, scope);
+  }
+  function answerWithoutAsking(memberId) {
+    const toy = toyModeFor(memberId);
+    const stance = getDefaultStance();
+    if (!toy && stance === "prompt") return { kind: "ask" };
+    if (isAway()) {
+      const rule = getAwayStance();
+      if (rule === "refuse") return { kind: "away" };
+      if (rule === "ignore") return { kind: "stance", stance: "ignore", wasAway: true };
+    }
+    if (toy) return { kind: "toy" };
+    return { kind: "stance", stance, wasAway: false };
+  }
+  function toyInduction(who) {
+    session.choice = "agree";
+    const key = getDeepestTier();
+    let full, earned;
+    if (key === "never") {
+      const d = resolveDepths(session.hypnotistId, "agree");
+      full = Math.max(1, d.full);
+      earned = Math.max(0, d.earned);
+    } else {
+      full = earned = Math.min(LANDED_DEPTH_MAX, ceilingDepth(TIER_ORDER.indexOf(key)));
+    }
+    enterTrance(full, earned);
+    notify(`${who} reaches for you, and you are theirs at once. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
+    announceTranceEnter();
+    pushUpdate();
+    persistState();
+    log(`toy mode: ${who} [${session.hypnotistId}] put us under at ${session.depth}/${session.depthEarned}`);
+  }
+  function describeStanceSettings(memberId) {
+    const label = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+    const lines = [];
+    if (getToyMode()) {
+      lines.push(
+        `  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} \u2014 ` + (toyModeFor(memberId) ? "they would put you straight under, no roll" : "not for them")
+      );
+    }
+    if (getDefaultStance() !== "prompt") lines.push(`  your auto-answer: ${label(DEFAULT_STANCES, getDefaultStance())}`);
+    if (getToyMode() || getDefaultStance() !== "prompt") {
+      lines.push(`  when you are away: ${label(AWAY_STANCES, getAwayStance())} (${isAway() ? "you count as away now" : `idle ${idleMinutes()} min of 10`})`);
+    }
+    return lines;
   }
   function scheduleCooldownEnd() {
     if (cooldownTimer) clearTimeout(cooldownTimer);
@@ -3383,34 +3518,92 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DEEPEN_COOLDOWN_MS = 6e4;
   var DEEPEN_TIME_PER_MINUTE = 2;
   var DEEPEN_TIME_MAX = 20;
-  var DEEPEN_TIER_PENALTY = { drifting: 0, yielding: 0, entranced: 10, deep: 20, blank: 30 };
   var DEEPEN_MIN = 10;
   var DEEPEN_MAX = 95;
   var TIER_ORDER = ["drifting", "yielding", "entranced", "deep", "blank"];
+  var DEEPEN_BASE = 40;
+  var DEEPEN_TRUST_WEIGHT = 0.3;
+  var DEEPEN_SKILL_WEIGHT = 0.25;
+  var DEEPEN_AROUSAL_WEIGHT = 0.15;
+  var DEEPEN_EXPERIENCE_WEIGHT = 0.15;
+  var DEEPEN_DEPTH_WEIGHT = 0.3;
+  var STANCE_DEEPEN = { agree: 20, ignore: 0, fight: -25 };
+  var DEEPEN_STEPS = [
+    [40, 15, 25],
+    [70, 10, 15],
+    [Infinity, 5, 10]
+  ];
+  var DEEPEN_TRUST_SYNERGY_AT = 60;
+  var DEEPEN_TRUST_SYNERGY = 5;
+  var struggleReporter = null;
+  function registerStruggleReporter(fn) {
+    struggleReporter = fn;
+  }
   function noteSuggestionLanded(sender) {
     if (session.phase === "Hypnotized" && session.hypnotistId === sender) session.landedSinceDeepen = true;
   }
-  function deepenChance(hypnotistId, target) {
+  function deepenChance(hypnotistId) {
     if (trustGiftFloor(hypnotistId) > 0 && trustGift?.spentOn === session) return 100;
     const minutes = session.hypnotizedAt ? (Date.now() - session.hypnotizedAt) / 6e4 : 0;
-    const raw = effectiveAccess(hypnotistId) + currentSkillTerms(false).additive + Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) + CHOICE_MODIFIER[session.choice ?? "ignore"] - DEEPEN_TIER_PENALTY[target];
+    const stance = session.choice ?? "ignore";
+    const raw = DEEPEN_BASE + accessFor(hypnotistId, "session") * DEEPEN_TRUST_WEIGHT + session.honouredSkill * DEEPEN_SKILL_WEIGHT + arousalLevel() * DEEPEN_AROUSAL_WEIGHT + STANCE_DEEPEN[stance] + Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) + (stance === "agree" ? experienceValue() * DEEPEN_EXPERIENCE_WEIGHT : 0) - session.depth * DEEPEN_DEPTH_WEIGHT;
     return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
   }
-  var DEEPEN_STEP = 20;
-  var DEEPEN_HALF_STEP = 10;
-  var DEEPEN_HALF_BAND = 20;
-  var SURFACE_BASE = { drifting: 45, yielding: 35, entranced: 25, deep: 15, blank: 8 };
-  var SURFACE_SKILL_WEIGHT = 0.2;
-  var SURFACE_TRUST_WEIGHT = 0.1;
+  function deepenStep(depth) {
+    return DEEPEN_STEPS.find(([below]) => depth < below) ?? DEEPEN_STEPS[DEEPEN_STEPS.length - 1];
+  }
+  function between(lo, hi) {
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+  var SURFACE_BASE = { drifting: 55, yielding: 40, entranced: 28, deep: 18, blank: 10 };
+  var SURFACE_EXPERIENCE_WEIGHT = 0.35;
+  var SURFACE_SKILL_WEIGHT = 0.25;
+  var SURFACE_TRUST_WEIGHT = 0.15;
+  var SURFACE_AROUSAL_WEIGHT = 0.2;
   var SURFACE_MIN = 3;
-  var SURFACE_MAX = 60;
+  var SURFACE_MAX = 75;
+  var SURFACE_DROPS = [
+    [40, 20, 30],
+    [60, 10, 15],
+    [Infinity, 5, 10]
+  ];
+  var STRUGGLE_COOLDOWN_MS = 6e4;
   function surfaceChance(hypnotistId) {
-    const raw = SURFACE_BASE[tierOf(session.depth)] - session.honouredSkill * SURFACE_SKILL_WEIGHT - effectiveAccess(hypnotistId) * SURFACE_TRUST_WEIGHT;
+    const raw = SURFACE_BASE[tierOf(session.depth)] + experienceValue() * SURFACE_EXPERIENCE_WEIGHT - session.honouredSkill * SURFACE_SKILL_WEIGHT - accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT - arousalLevel() * SURFACE_AROUSAL_WEIGHT;
     return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
+  }
+  function surfaceDrop(depth) {
+    const [, lo, hi] = SURFACE_DROPS.find(([below]) => depth < below) ?? SURFACE_DROPS[SURFACE_DROPS.length - 1];
+    return [lo, hi];
   }
   function ceilingDepth(ceiling) {
     const next = TIER_ORDER[ceiling + 1];
     return next ? tierMinimum(next) - 1 : 100;
+  }
+  function moveTo(depth) {
+    session.depth = Math.max(0, Math.min(100, Math.round(depth)));
+    session.depthEarned = Math.min(session.depthEarned, session.depth);
+    setCurrentDepths(session.depth, session.depthEarned);
+    pushUpdate();
+    persistState();
+  }
+  function struggle(hypnotistId) {
+    const wait = session.lastStruggleAt + STRUGGLE_COOLDOWN_MS - Date.now();
+    if (session.lastStruggleAt && wait > 0) return { kind: "resting", seconds: Math.ceil(wait / 1e3) };
+    session.lastStruggleAt = Date.now();
+    const chance = surfaceChance(hypnotistId);
+    const roll = Math.random() * 100;
+    log(`fighting: surface chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
+    if (roll >= chance) return { kind: "held" };
+    const before = tierOf(session.depth);
+    const [lo, hi] = surfaceDrop(session.depth);
+    const to = session.depth - between(lo, hi);
+    if (to <= 0) {
+      endSession("you fought your way up and out");
+      return { kind: "woke" };
+    }
+    moveTo(to);
+    return { kind: "surfaced", band: depthBand(session.depth), crossed: tierOf(session.depth) !== before };
   }
   function setTranceStance(choice) {
     session.choice = choice;
@@ -3418,59 +3611,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
       choice === "fight" ? "You start fighting it. Somewhere under the calm, you push back." : choice === "agree" ? "You stop resisting and let it take you." : "You stop pushing either way."
     );
     persistState();
+    if (choice !== "fight" || session.hypnotistId == null) return;
+    const hypnotist = session.hypnotistId;
+    const outcome = struggle(hypnotist);
+    if (outcome.kind === "resting") notify(`You are still gathering yourself from the last push. Try again in ${outcome.seconds}s.`);
+    else if (outcome.kind === "held") notify("You push against it, and it holds you where you are.");
+    else struggleReporter?.(hypnotist, outcome);
   }
   function tryDeepen(sender) {
     const ceilingKey = getDeepestTier();
     if (ceilingKey === "never") return { kind: "never" };
-    const now = tierOf(session.depth);
-    const ceiling = TIER_ORDER.indexOf(ceilingKey);
-    const at = TIER_ORDER.indexOf(now);
-    if (at >= ceiling || at >= TIER_ORDER.length - 1) return { kind: "ceiling" };
+    const cap = ceilingDepth(TIER_ORDER.indexOf(ceilingKey));
+    if (session.depth >= cap) return { kind: "ceiling" };
     const wait = session.lastDeepenAt + DEEPEN_COOLDOWN_MS - Date.now();
     if (session.lastDeepenAt && wait > 0) return { kind: "cooldown", seconds: Math.ceil(wait / 1e3) };
     if (!session.landedSinceDeepen) return { kind: "needs-command" };
-    const target = TIER_ORDER[at + 1];
-    const chance = deepenChance(sender, target);
+    const chance = deepenChance(sender);
     const roll = Math.random() * 100;
     session.lastDeepenAt = Date.now();
     session.landedSinceDeepen = false;
-    log(`deepen ${now} \u2192 ${target}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
-    const cap = ceilingDepth(ceiling);
-    const moveTo = (depth) => {
-      session.depth = Math.max(0, Math.min(100, Math.round(depth)));
-      session.depthEarned = Math.min(session.depthEarned, session.depth);
-      setCurrentDepths(session.depth, session.depthEarned);
-      pushUpdate();
-      persistState();
-    };
+    log(`deepen from ${session.depth}: chance ${chance.toFixed(1)}, roll ${roll.toFixed(1)}`);
     if (roll < chance) {
-      moveTo(Math.min(cap, Math.max(session.depth + DEEPEN_STEP, tierMinimum(target))));
+      const [, lo, hi] = deepenStep(session.depth);
+      const bonus = accessFor(sender, "session") > DEEPEN_TRUST_SYNERGY_AT ? DEEPEN_TRUST_SYNERGY : 0;
+      moveTo(Math.min(cap, session.depth + between(lo, hi) + bonus));
+      noteDeepenSuccess();
       return { kind: "deeper", band: depthBand(session.depth) };
     }
-    if (roll < chance + DEEPEN_HALF_BAND) {
-      moveTo(Math.min(cap, session.depth + DEEPEN_HALF_STEP));
-      return { kind: "half", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
-    }
     if (session.choice !== "fight") return { kind: "failed" };
-    const surface = surfaceChance(sender);
-    const pushBack = Math.random() * 100;
-    log(`fighting: surface chance ${surface.toFixed(1)}, roll ${pushBack.toFixed(1)}`);
-    if (pushBack >= surface) {
-      if (pushBack >= surface + DEEPEN_HALF_BAND) return { kind: "failed" };
-      if (session.depth - DEEPEN_HALF_STEP <= 0) {
-        endSession("you fought your way up and out");
-        return { kind: "woke" };
-      }
-      moveTo(session.depth - DEEPEN_HALF_STEP);
-      return { kind: "half-up", band: depthBand(session.depth), crossed: tierOf(session.depth) !== now };
-    }
-    if (at === 0) {
-      endSession("you fought your way up and out");
-      return { kind: "woke" };
-    }
-    const up = TIER_ORDER[at - 1];
-    moveTo(tierMinimum(up) + DEEPEN_STEP / 2);
-    return { kind: "surfaced", band: depthBand(session.depth) };
+    const fought = struggle(sender);
+    return fought.kind === "held" || fought.kind === "resting" ? { kind: "failed" } : fought;
   }
   function findCharacterName(memberId) {
     const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -3632,6 +3802,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (session.phase === "Hypnotized") {
       setTranceStance(choice);
+      return;
+    }
+    if (session.phase === "InductionInProgress") {
+      session.choice = choice;
+      notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
       return;
     }
     if (session.phase !== "AttemptMade") {
@@ -3858,7 +4033,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log(`refused session-attempt from ${sender} \u2014 not on our roster`);
         return;
       }
-      if (session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
+      const who = String(message.hypnotistName ?? `#${sender}`);
+      const answer = answerWithoutAsking(sender);
+      if (answer.kind === "away") {
+        refuse(sender, "They're away from the keyboard.");
+        notify(`${who} tried to hypnotize you while you were away. Your setting turned them away.`);
+        log(`refused session-attempt from ${sender} \u2014 away for ${idleMinutes()} min`);
+        return;
+      }
+      if (answer.kind !== "toy" && session.cooldownUntil > Date.now() && session.hypnotistId === sender) {
         refuse(sender, "Not yet \u2014 try again later.");
         return;
       }
@@ -3875,13 +4058,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
       session.hypnotistId = sender;
       session.phase = "AttemptMade";
       session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
+      session.promptName = who;
+      if (answer.kind === "toy") {
+        toyInduction(who);
+        return;
+      }
       pushUpdate();
-      const who = String(message.hypnotistName ?? `#${sender}`);
       if (trustGiftWaiting(sender)) {
         spendTrustGift();
-        session.promptName = who;
         session.choice = "agree";
         notify(`${who} reaches for you, and you let them. You told them you trust them.`);
+        beginInductionWindow();
+        return;
+      }
+      if (answer.kind === "stance") {
+        session.choice = answer.stance;
+        notify(
+          `${who} reaches for you, and you ${answer.stance === "agree" ? "go along with it" : answer.stance === "fight" ? "brace against it" : "neither help nor resist"}, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/hypno agree, ignore or fight changes it for this one.)`
+        );
         beginInductionWindow();
         return;
       }
@@ -4086,6 +4280,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       delete s.skillHonour;
     }
     if (s.deepestTier !== void 0 && !DEEPEST_TIERS.some((r) => r.key === s.deepestTier)) delete s.deepestTier;
+    if (s.defaultStance !== void 0 && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
+    if (s.awayStance !== void 0 && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
+    if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
+    if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
+    if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
     if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
     if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
     if (Array.isArray(s.triggers)) {
@@ -4479,6 +4678,64 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
     return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
   }
+  var DEFAULT_STANCES = [
+    { key: "prompt", label: "Ask me" },
+    { key: "agree", label: "Agree" },
+    { key: "ignore", label: "Ignore" },
+    { key: "fight", label: "Fight" }
+  ];
+  var DEFAULT_DEFAULT_STANCE = "prompt";
+  var AWAY_STANCES = [
+    { key: "refuse", label: "Refuse" },
+    { key: "ignore", label: "Ignore" },
+    { key: "keep", label: "Keep my answer" }
+  ];
+  var DEFAULT_AWAY_STANCE = "refuse";
+  var TOY_SCOPES = [
+    { key: "owner", label: "Owner only" },
+    { key: "lovers", label: "Owner and Lovers" },
+    { key: "whitelist", label: "Owner, Lovers and whitelist" },
+    { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+    { key: "notblack", label: "Everyone, except blacklist" },
+    { key: "everyone", label: "Everyone, no exceptions" }
+  ];
+  var DEFAULT_TOY_SCOPE = "lovers";
+  var OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+  var cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+  function getDefaultStance() {
+    return loadSettings().defaultStance ?? DEFAULT_DEFAULT_STANCE;
+  }
+  function setDefaultStance(key) {
+    if (DEFAULT_STANCES.some((r) => r.key === key)) loadSettings().defaultStance = key;
+    saveSettings();
+  }
+  function nextDefaultStance(current) {
+    return cycle(DEFAULT_STANCES, current);
+  }
+  function getAwayStance() {
+    return loadSettings().awayStance ?? DEFAULT_AWAY_STANCE;
+  }
+  function setAwayStance(key) {
+    if (AWAY_STANCES.some((r) => r.key === key)) loadSettings().awayStance = key;
+    saveSettings();
+  }
+  function nextAwayStance(current) {
+    return cycle(AWAY_STANCES, current);
+  }
+  function getToyMode() {
+    return loadSettings().toyMode === true;
+  }
+  function setToyMode(on) {
+    loadSettings().toyMode = on;
+    saveSettings();
+  }
+  function getToyScope() {
+    return loadSettings().toyScope ?? DEFAULT_TOY_SCOPE;
+  }
+  function setToyScope(key) {
+    if (TOY_SCOPES.some((r) => r.key === key)) loadSettings().toyScope = key;
+    saveSettings();
+  }
   function setSkillHonour(rung) {
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
     saveSettings();
@@ -4754,7 +5011,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         sender,
         `[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`
       );
-      const who = characterFor2(sender)?.Name ?? `#${sender}`;
+      const who = characterFor3(sender)?.Name ?? `#${sender}`;
       tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
       result.lines.forEach(tellPlayer);
     });
@@ -4989,7 +5246,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function compulsionsFor(event, member) {
     if (member === Player?.MemberNumber) return [];
-    const C = characterFor2(member);
+    const C = characterFor3(member);
     const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
     return listTriggers().filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
@@ -5003,7 +5260,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!word) return null;
     if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
     if (word === "i" || word === "me") {
-      return { watchName: nameKey(characterFor2(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+      return { watchName: nameKey(characterFor3(installerId)?.Name) || "the hypnotist", watchMember: installerId };
     }
     if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
     const inRoom = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -5299,7 +5556,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
     { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
   ];
-  function characterFor2(memberNumber) {
+  function characterFor3(memberNumber) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberNumber
     );
@@ -5316,24 +5573,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return scopeIsWider(t.scope, global) ? global : t.scope;
   }
   function speakerAllowedByScope(speaker, scope) {
-    if (scope === "hypnotist") return false;
-    if (speaker === Player?.MemberNumber) return false;
-    const C = characterFor2(speaker);
-    if (!C) return false;
-    if (Player?.IsOwnedByCharacter?.(C)) return true;
-    if (scope === "everyone") return true;
-    if (Player?.HasOnBlacklist?.(C)) return false;
-    if (scope === "notblack") return true;
-    if (scope === "owner") return false;
-    if (C.IsLoverOfCharacter?.(Player)) return true;
-    if (scope === "lovers") return false;
-    if (Player?.HasOnWhitelist?.(C)) return true;
-    if (scope === "whitelist") return false;
-    try {
-      return ReputationCharacterGet(C, "Dominant") + 25 >= ReputationCharacterGet(Player, "Dominant");
-    } catch {
-      return false;
-    }
+    return allowedByLadder(speaker, scope);
   }
   function triggersFiredBy(speaker, normalisedText) {
     if (!normalisedText) return [];
@@ -7255,35 +7495,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
         announce("deepen");
         tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
         break;
-      case "half":
-        if (r.crossed) {
-          announce("deepen");
-          tellHypnotist(sender, `[deepen] Only just, but it is enough. They are ${r.band}.`);
-        } else {
-          tellPlayer(flavor("deepen-half"));
-          tellHypnotist(sender, "[deepen] It half takes. They sink a little, not yet enough to matter.");
-        }
-        break;
       case "failed":
         tellPlayer(flavor("deepen-failed"));
         tellHypnotist(sender, "[deepen] It does not take hold this time.");
         break;
       case "surfaced":
-        announce("deepen-surface");
-        tellHypnotist(sender, `[deepen] It does not take, and they push back up. They are ${r.band}.`);
-        break;
-      case "half-up":
-        if (r.crossed) {
-          announce("deepen-surface");
-          tellHypnotist(sender, `[deepen] It does not take, and they claw their way up. They are ${r.band}.`);
-        } else {
-          tellPlayer(flavor("deepen-half-up"));
-          tellHypnotist(sender, "[deepen] It does not take, and they claw back a little.");
-        }
-        break;
       case "woke":
-        announce("deepen-woke");
-        tellHypnotist(sender, "[deepen] It does not take, and they fight their way up and out of it. They are awake.");
+        reportSurfacing(sender, r, "It does not take, and they");
         break;
       case "ceiling":
         tellHypnotist(sender, "[deepen] They are already as deep as they let themselves go this way.");
@@ -7300,6 +7518,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  function reportSurfacing(sender, r, lead) {
+    if (r.kind === "woke") {
+      announce("deepen-woke");
+      tellHypnotist(sender, `[deepen] ${lead} fight their way up and out of it. They are awake.`);
+      return;
+    }
+    if (r.crossed) {
+      announce("deepen-surface");
+      tellHypnotist(sender, `[deepen] ${lead} push back up. They are ${r.band}.`);
+    } else {
+      tellPlayer(flavor("deepen-rise"));
+      tellHypnotist(sender, `[deepen] ${lead} push back up a little.`);
+    }
+  }
+  registerStruggleReporter((hypnotistId, r) => {
+    if (r.kind === "surfaced" || r.kind === "woke") reportSurfacing(hypnotistId, r, "They");
+  });
   function handleTriggerFiring(sender, content) {
     const text = normalize(content);
     if (!text) return false;
@@ -8203,6 +8438,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  var TIP_WIDTH = 450;
+  var TIP_FONT = 26;
+  var TIP_PAD = 12;
+  var pendingTip = null;
+  function tipButton(left, top, width, height, label, color, image, tip, disabled = false) {
+    DrawButton(left, top, width, height, label, color, image, "", disabled);
+    if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
+  }
+  function flushTip() {
+    const t = pendingTip;
+    pendingTip = null;
+    if (!t) return;
+    MainCanvas.save();
+    MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
+    const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
+    const pitch = Math.round(TIP_FONT * 1.2);
+    const height = lines.length * pitch + 2 * TIP_PAD;
+    let left = MouseX > 1e3 ? t.left - TIP_WIDTH - 25 : t.left + t.width + 25;
+    left = Math.max(0, Math.min(left, MainCanvasWidth - TIP_WIDTH));
+    const top = Math.max(0, Math.min(t.top + (t.height - height) / 2, MainCanvasHeight - height));
+    MainCanvas.fillStyle = "#FFFF88";
+    MainCanvas.fillRect(left, top, TIP_WIDTH, height);
+    MainCanvas.lineWidth = 2;
+    MainCanvas.strokeStyle = "black";
+    MainCanvas.strokeRect(left, top, TIP_WIDTH, height);
+    MainCanvas.textAlign = "left";
+    MainCanvas.textBaseline = "middle";
+    MainCanvas.fillStyle = "black";
+    lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
+    MainCanvas.restore();
+  }
 
   // src/help.ts
   var open = false;
@@ -8372,11 +8638,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("relationship floor is what decay can never take."),
       gap(),
       head("The roll, when they attempt"),
-      body("Chance = access + your choice (Agree +25 / Fight -25) + experience"),
-      body("+ their honoured skill, clamped to 5-95 \u2014 never certain either way."),
+      body("Chance = access + a quarter of your arousal + your choice (Agree +25"),
+      body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
       body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
       body("your setting, on the Permissions tab."),
       dim("/hypno chance <name> shows the real numbers for each choice."),
+      gap(),
+      head("How deep it lands"),
+      body("The roll only says whether it lands. How deep comes from your trust"),
+      body("in them, your relationship, their skill, your arousal and your"),
+      body("answer (Agree +20, Fight -20), give or take a few points. Trust and a"),
+      body("relationship hold you at least that deep, unless you fight. If it"),
+      body("lands at nothing, it slips away, and counts as a miss."),
+      gap(),
+      head("Answering without the box"),
+      body("On the Permissions tab you can answer every induction ahead of time:"),
+      body("Agree, Ignore or Fight. They are never told which. After 10 minutes"),
+      body("with no key, click or touch you count as away, and your away"),
+      body("setting decides: turn them away (the default), Ignore, or keep it."),
+      body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
+      body('you straight under to your "sink deeper" limit: no roll, no tries.'),
+      dim("Toy mode reaches triggers too. The safeword always works."),
       gap(),
       head("Their skill, and whether you believe it"),
       body("Practised hypnotists are better at it. Their client tells yours how"),
@@ -8388,18 +8670,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("Going deeper, mid-trance"),
       body('"Missy, sink deeper" (go / drop / fall / sleep / relax deeper,'),
-      body('"deeper and deeper") takes you one depth further, if it takes.'),
-      body("Your trust, their skill, how long you have been under and your"),
-      body("answer at the prompt all count; the deeper the step, the harder."),
-      body("A minute apart, with a suggestion that landed in between. A near"),
-      body("miss still sinks you half a step; two of those make a full one."),
+      body('"deeper and deeper") takes you deeper, if it takes: a long way'),
+      body("when you are shallow, only a little when you are already deep."),
+      body("Your trust, their skill, arousal, how long you have been under and"),
+      body("your answer all count; the deeper you are, the harder."),
+      body("A minute apart, with a suggestion that landed in between."),
       gap(),
       head("Fighting it, once under"),
       body("/hypno fight while under means you resist from then on (/hypno agree"),
-      body("or ignore to stop). A deepening that misses outright may then bring"),
-      body("you up a depth, and from Drifting, awake. The shallower you are, the"),
-      body("better your chance; their skill, and your trust in them, hold you down."),
-      body("Falling just short still brings you up a little; two make a full step."),
+      body("or ignore to stop), and you push back at once. A deepening that"),
+      body("misses may bring you up too, and past the surface, awake. At most one"),
+      body("push a minute. The shallower you are, and the more practised, the"),
+      body("better; their skill, your trust and your arousal hold you down."),
       dim("/hypno chance <name> shows both odds while you are under with them."),
       gap(),
       dim('Your Depth tab says how far: "Sink deeper" stops at Entranced unless'),
@@ -8937,7 +9219,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "undressControl", label: "Undressing" },
         { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
       ],
-      scrollExtra: { height: attemptControlHeight, draw: drawAttemptControl, click: clickAttemptControl }
+      scrollExtra: {
+        height: permissionsExtraHeight,
+        draw: drawPermissionsExtra,
+        click: clickPermissionsExtra,
+        hide: () => {
+          if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+        }
+      }
     },
     {
       name: "Trance Defaults",
@@ -9075,7 +9364,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return PLANTED_ROW_TOP + slot * PLANTED_ROW_STEP;
   }
   function drawPurgeButton(left, top, height, holding) {
-    DrawButton(
+    tipButton(
       left,
       top,
       PLANTED_BUTTON_WIDTH,
@@ -9109,12 +9398,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         PLANTED_TEXT_MAX,
         holding ? "#a00000" : "Black"
       );
-      DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+      tipButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
       drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
     });
     if (pages > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", plantedPage === 0);
-      DrawButton(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", plantedPage >= pages - 1);
+      tipButton(PAGE_PREV_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", plantedPage === 0);
+      tipButton(PAGE_NEXT_LEFT2, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", plantedPage >= pages - 1);
       drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT2 / 2, "Gray");
     }
     drawClearAll(all.length);
@@ -9123,7 +9412,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!count) return;
     const refusal = clearAllRefusal();
     const armed = !refusal && Date.now() < clearAllArmedUntil;
-    DrawButton(
+    tipButton(
       CONTENT_LEFT,
       CLEAR_ALL_TOP,
       CLEAR_ALL_WIDTH,
@@ -9149,7 +9438,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
       y += 70;
     }
-    DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+    tipButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
     drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
   }
   function purgePlanted(index) {
@@ -9225,7 +9514,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawAttemptControl(top, width) {
     const locked = settingsLocked();
-    DrawButton(
+    tipButton(
       BOX_LEFT,
       top,
       ATTEMPT_BUTTON_WIDTH,
@@ -9247,6 +9536,107 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked ? "Gray" : "#555"
     );
   }
+  var labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+  var PERMISSION_CYCLES = [
+    {
+      label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
+      caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
+      tooltip: "Answer the induction box for you, every time",
+      cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance()))
+    },
+    {
+      label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
+      caption: () => getAwayStance() === "refuse" ? "After 10 minutes with no input, the answer above and toy mode turn them away." : getAwayStance() === "ignore" ? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off." : "Being away changes nothing: the answer above and toy mode still apply.",
+      tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
+      cycle: () => setAwayStance(nextAwayStance(getAwayStance()))
+    },
+    {
+      label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
+      caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
+      tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+      cycle: () => setToyMode(!getToyMode())
+    }
+  ];
+  var CYCLE_GAP = 16;
+  var TOY_SCOPE_ID = "HypnosisAddonToyScope";
+  var TOY_SCOPE_LABEL_WIDTH = 250;
+  var TOY_SCOPE_WIDTH = 560;
+  function permissionsExtraHeight() {
+    return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+  }
+  function drawToyScopeControl(top, width, locked) {
+    drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
+    drawLeftTextWrap(
+      getToyScope() === "everyone" || getToyScope() === "notblack" ? "Anyone in the room, strangers too. Read from your BC relationships and lists." : "Read from your BC relationships and lists, the same as for triggers.",
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+    const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+    let element = document.getElementById(TOY_SCOPE_ID);
+    if (!inView) {
+      if (element) ElementRemove(TOY_SCOPE_ID);
+      return;
+    }
+    if (!element) {
+      element = ElementCreateDropdown(
+        TOY_SCOPE_ID,
+        TOY_SCOPES.map((s) => s.label),
+        function() {
+          setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
+          log(`toy mode is for: ${getToyScope()}`);
+        }
+      );
+    }
+    const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
+    ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+  }
+  function cycleTop(top, i) {
+    return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
+  }
+  function drawPermissionsExtra(top, width) {
+    drawAttemptControl(top, width);
+    const locked = settingsLocked();
+    PERMISSION_CYCLES.forEach((c, i) => {
+      const at = cycleTop(top, i);
+      tipButton(
+        BOX_LEFT,
+        at,
+        ATTEMPT_BUTTON_WIDTH + 200,
+        ATTEMPT_BUTTON_HEIGHT,
+        c.label(),
+        locked ? "#ddd" : "White",
+        "",
+        !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
+        locked
+      );
+      drawLeftTextWrap(
+        c.caption(),
+        BOX_LEFT,
+        at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+        width,
+        ATTEMPT_CAPTION_HEIGHT,
+        locked ? "Gray" : "#555"
+      );
+    });
+    drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
+  }
+  function clickPermissionsExtra(top) {
+    if (clickAttemptControl(top)) return true;
+    for (let i = 0; i < PERMISSION_CYCLES.length; i++) {
+      if (!MouseIn(BOX_LEFT, cycleTop(top, i), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
+      if (settingsLocked()) return true;
+      PERMISSION_CYCLES[i].cycle();
+      log(`setting now: ${PERMISSION_CYCLES[i].label()}`);
+      return true;
+    }
+    return false;
+  }
   function dropCaption() {
     const mode = getDropMode();
     if (mode === "off") return "A trigger cannot drop you straight into trance.";
@@ -9256,7 +9646,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawDropControl(top, width) {
     const locked = settingsLocked();
     const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-    DrawButton(
+    tipButton(
       BOX_LEFT,
       top,
       ATTEMPT_BUTTON_WIDTH,
@@ -9330,7 +9720,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         DEPTH_LABEL_MAX,
         granted ? "Black" : "Gray"
       );
-      DrawButton(
+      tipButton(
         DEPTH_TIER_LEFT,
         top,
         DEPTH_TIER_WIDTH,
@@ -9344,7 +9734,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (gate.earnedOnly) {
         const toggleable = isChemicalToggleable(gate.key);
         const open2 = toggleable && getChemicalReach(gate.key);
-        DrawButton(
+        tipButton(
           CHEM_TOGGLE_LEFT,
           top,
           CHEM_TOGGLE_WIDTH,
@@ -9358,8 +9748,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     });
     if (depthPageCount() > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", depthPage === 0);
-      DrawButton(
+      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", depthPage === 0);
+      tipButton(
         PAGE_NEXT_LEFT2,
         PAGE_BUTTON_TOP2,
         PAGE_BUTTON_WIDTH2,
@@ -9373,7 +9763,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawLeftText(`page ${depthPage + 1} of ${depthPageCount()}`, PAGE_NEXT_LEFT2 + 130, PAGE_BUTTON_TOP2 + 30, "Gray");
     }
     const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-    DrawButton(
+    tipButton(
       SCOPE_BUTTON_LEFT,
       SCOPE_BUTTON_TOP,
       SCOPE_BUTTON_WIDTH,
@@ -9384,7 +9774,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "What may push you deeper besides trust. Never applies to the three above that say otherwise.",
       locked
     );
-    DrawButton(
+    tipButton(
       DEFAULTS_BUTTON_LEFT,
       SCOPE_BUTTON_TOP,
       DEFAULTS_BUTTON_WIDTH,
@@ -9396,7 +9786,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked
     );
     const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-    DrawButton(
+    tipButton(
       SCOPE_BUTTON_LEFT,
       HONOUR_BUTTON_TOP,
       HONOUR_BUTTON_WIDTH,
@@ -9408,7 +9798,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked
     );
     const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-    DrawButton(
+    tipButton(
       DEEPEST_BUTTON_LEFT,
       HONOUR_BUTTON_TOP,
       DEEPEST_BUTTON_WIDTH,
@@ -9416,7 +9806,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       `"Sink deeper" stops at: ${deepest}`,
       locked ? "#ddd" : "White",
       "",
-      "The deepest a hypnotist can talk you down mid-trance, one tier at a time. An induction still lands wherever its roll puts it. Never reaches the three above that say otherwise.",
+      "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
       locked
     );
     const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
@@ -9527,7 +9917,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DATA_BUTTONS.forEach((name, i) => {
       const isReset = name === "Reset";
       const locked = name === "Import" && importLocked;
-      DrawButton(
+      tipButton(
         dataButtonLeft(i),
         DATA_BUTTON_TOP,
         DATA_BUTTON_WIDTH,
@@ -9570,7 +9960,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DURATION_HEIGHT = 56;
   var DECAY_CAPTION_Y = 858;
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
   }
@@ -9582,6 +9972,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
     }
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+    if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
   }
   function drawDecayControl() {
     const locked = settingsLocked();
@@ -9727,8 +10118,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
     });
     if (pages > 1) {
-      DrawButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", statPage === 0);
-      DrawButton(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", statPage >= pages - 1);
+      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", statPage === 0);
+      tipButton(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", statPage >= pages - 1);
       drawLeftText(
         `${statPage + 1} / ${pages}  \xB7  ${rows.length} people`,
         PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 24,
@@ -9805,6 +10196,73 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return false;
     }
   }
+  function runSettings() {
+    rowsDrawnAt = 0;
+    if (isHelpOpen()) {
+      removeScopeControl();
+      drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
+      return;
+    }
+    if (shouldShowWizard() && !settingsLocked()) {
+      removeScopeControl();
+      tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+      drawWizard();
+      return;
+    }
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+    tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
+    if (!settingsLocked()) {
+      tipButton(SETUP_LEFT, HELP_TOP2, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
+    }
+    const tabs = visibleTabs();
+    if (activeTab2 >= tabs.length) activeTab2 = 0;
+    drawTabsAndPanel(tabs.map((t) => t.name), activeTab2);
+    tipButton(
+      TAB_LEFT,
+      advancedButtonTop(),
+      TAB_WIDTH,
+      ADVANCED_BUTTON_HEIGHT,
+      showAdvanced ? "Hide advanced" : "Advanced \u25B8",
+      "White",
+      "",
+      showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
+    );
+    const tab = tabs[activeTab2];
+    const locked = settingsLocked();
+    drawLeftTextFit(
+      locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
+      BOX_LEFT,
+      BLURB_Y,
+      PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+      "Gray"
+    );
+    syncTabControls(tab.name);
+    if (tab.render) {
+      tab.render();
+      return;
+    }
+    const features = getFeatures();
+    const rows = tab.rows ?? [];
+    const contentWidth = scrollContentWidth(rowScroll);
+    layoutRows(tab);
+    drawScrollArea(rowScroll, () => {
+      rows.forEach((row, i) => {
+        const top = rowTop(i);
+        if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+        DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+        drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+      });
+      const extra = tab.scrollExtra;
+      if (extra) {
+        const top = scrollExtraTop(tab);
+        if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+        else extra.hide?.();
+      }
+    });
+    rowsDrawnAt = Date.now();
+    tab.extra?.();
+  }
   function installMenu() {
     PreferenceRegisterExtensionSetting({
       Identifier: EXTENSION_ID,
@@ -9825,71 +10283,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
         removeScopeControl();
         closeHelp();
       },
+      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
       run: () => {
-        rowsDrawnAt = 0;
-        if (isHelpOpen()) {
-          removeScopeControl();
-          drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
-          return;
+        try {
+          runSettings();
+        } finally {
+          flushTip();
         }
-        if (shouldShowWizard() && !settingsLocked()) {
-          removeScopeControl();
-          DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-          drawWizard();
-          return;
-        }
-        DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.96.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
-        DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-        DrawButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
-        if (!settingsLocked()) {
-          DrawButton(SETUP_LEFT, HELP_TOP2, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
-        }
-        const tabs = visibleTabs();
-        if (activeTab2 >= tabs.length) activeTab2 = 0;
-        drawTabsAndPanel(tabs.map((t) => t.name), activeTab2);
-        DrawButton(
-          TAB_LEFT,
-          advancedButtonTop(),
-          TAB_WIDTH,
-          ADVANCED_BUTTON_HEIGHT,
-          showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-          "White",
-          "",
-          showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
-        );
-        const tab = tabs[activeTab2];
-        const locked = settingsLocked();
-        drawLeftTextFit(
-          locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-          BOX_LEFT,
-          BLURB_Y,
-          PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-          "Gray"
-        );
-        syncTabControls(tab.name);
-        if (tab.render) {
-          tab.render();
-          return;
-        }
-        const features = getFeatures();
-        const rows = tab.rows ?? [];
-        const contentWidth = scrollContentWidth(rowScroll);
-        layoutRows(tab);
-        drawScrollArea(rowScroll, () => {
-          rows.forEach((row, i) => {
-            const top = rowTop(i);
-            if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-            DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-            drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
-          });
-          const extra = tab.scrollExtra;
-          if (extra) {
-            const top = scrollExtraTop(tab);
-            if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
-          }
-        });
-        rowsDrawnAt = Date.now();
-        tab.extra?.();
       },
       click: () => {
         if (shouldShowWizard() && !settingsLocked()) {
@@ -10246,7 +10646,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     {
       Tag: "fight",
       group: "Session",
-      Description: "Resist a hypnosis attempt \u2014 lowers their roll. Under: fight going deeper, and maybe back up",
+      Description: "Resist a hypnosis attempt \u2014 lowers their roll. Under: push back up, and fight going deeper",
       Action: () => answerPrompt("fight")
     },
     {
@@ -11550,7 +11950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.96.3"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.4"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11573,7 +11973,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.96.3"} loaded`;
+    el.textContent = `ECHS v${"0.97.4"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -11604,14 +12004,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.96.3"})`);
+  info(`script loaded (v${"0.97.4"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.96.3",
+      version: "0.97.4",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -11724,6 +12124,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
   });
   safely("session state machine", installSession);
+  safely("away watch", installAwayWatch);
   safely("trigger status channel", installTriggers);
   safely("message suppression", installSuppression);
   safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));

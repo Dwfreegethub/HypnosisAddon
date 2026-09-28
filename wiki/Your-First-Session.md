@@ -54,9 +54,9 @@ This is especially helpful if your wardrobe or another UI screen is open when th
 
 ### Fighting It Once You Are Under
 Your choice at the prompt lasts the whole trance, and you can change it while under: `/echs fight`, `/echs agree` or `/echs ignore`. It matters when the hypnotist tries to take you deeper (*"sink deeper"*):
-* **Fighting** makes each deepening harder, and one that misses outright may bring you **up** a depth instead. From Drifting, that wakes you.
-* Even a push back that falls just short brings you up a little; two of those make a full depth.
-* The shallower you are, the better your chance of fighting up. Their skill, and to a lesser extent your trust in them, make it harder.
+* **Fighting** makes each deepening harder, and one that misses may bring you **up** instead. Far enough, and that wakes you.
+* Typing `/echs fight` while under is a push of its own, straight away. You get at most one push a minute, whatever sets it off.
+* The shallower you are and the more practised, the better your chance of fighting up, and the further a win takes you. Their skill, your trust in them and your arousal make it harder.
 * `/echs chance <name>` shows both odds while you are under with them. The hypnotist is never told which you chose, though they see you come up.
 
 ### Giving Your Trust Ahead of Time
@@ -64,13 +64,18 @@ If you already know you want to go under for someone, say so in the room: *"I tr
 
 * **Their name is needed.** A bare *"I trust you"* said to the room goes to no one, and you are told how to say it.
 * **For the next 5 minutes,** if Eri starts an induction on you, the prompt does not appear. It goes ahead as **Agree**.
-* **Your trust in them counts as at least 65** for that induction and the trance it leads to, so it is more likely to land and to go deeper. It reaches ordinary suggestions and arousal. It does **not** reach triggers, suggestions that outlive the trance, or the clothing illusion, which still need trust you have really built.
+* **Your trust in them counts as at least 65** for that induction and the trance it leads to, so it is more likely to land. It reaches ordinary suggestions and arousal. It does **not** reach triggers, suggestions that outlive the trance, or the clothing illusion, which still need trust you have really built.
 * **It is used up by that one induction**, however long the trance lasts. The next time, you are asked again. If Eri does not try within 5 minutes, it lapses.
 * Said while Eri's prompt is already on your screen, it answers it as Agree.
 * Your safeword clears it. Nothing about it is saved: a reload forgets it.
 
 ### Step 2: Going Under
-If the attempt succeeds, your client enters a trance state. The resulting depth tier depends on the roll margin: a narrow success leaves you in a light, shallow trance, while a decisive success sends you deeper.
+If the attempt succeeds, your client enters a trance state. The roll only decides *whether* it lands. How deep you go comes from your trust in them, your BC relationship, their skill, your arousal and your answer (Agree takes you deeper, Fight keeps you shallow), give or take a few points. Trust and a relationship hold you at least so deep, unless you fight. If it would land at nothing, it slips away and counts as a miss.
+
+### Answering Ahead of Time
+On the Permissions tab you can answer every induction before it happens: **Agree**, **Ignore** or **Fight**, with no box. The hypnotist is never told which. If you are away from the keyboard (10 minutes with no key, click or touch), your *When I'm away* setting decides: turn them away (the default), treat it as Ignore, or keep your answer.
+
+**Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (your owner and lovers by default, or wider, the same choices as trigger scope), an induction puts you straight under to your *"sink deeper"* limit, with no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
 
 ### Step 3: Receiving Suggestions
 When a spoken suggestion passes all checks, your client applies the effect and displays a private notification in brackets. If a suggestion is blocked, the *hypnotist* receives private diagnostic feedback explaining which gate stopped it, preventing scene confusion.

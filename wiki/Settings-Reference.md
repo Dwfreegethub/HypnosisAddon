@@ -36,6 +36,11 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 
 *Additional Permissions Controls:*
 * **Induction Attempt Limit:** Choose between 2 or 3 attempts before triggering a 10-minute cooldown (default: 2).
+* **When someone tries to hypnotize me:** *Ask me · Agree · Ignore · Fight* (default: *Ask me*). Anything but *Ask me* answers every induction for you with no box; the hypnotist is never told which.
+* **When I'm away:** *Refuse · Ignore · Keep my answer* (default: *Refuse*). Away means 10 minutes with no key, click or touch. Applies to the answer above and to toy mode, never to *Ask me*.
+* **Toy mode:** *Off · On* (default: *Off*). No roll: an induction puts you straight under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
+* **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and whitelist · Owner, Lovers, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, whitelist, blacklist and Dominant reputation, exactly as for triggers.
+* These are at the bottom of the tab; scroll down to reach them.
 * **Starter Set:** A one-click preset on fresh installs that enables five safe, session-only basics, reversible with a single click.
 
 *(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab).*
@@ -103,7 +108,7 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 * **Per-Feature Tier Assignments:** Move any individual feature up or down the depth tiers (*Drifting, Yielding, Entranced, Deep, Blank*). Tier gates are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
 * **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
-* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, one depth at a time (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. It limits only *"sink deeper"*: an induction still lands wherever its roll puts it. See [What to Say](What-to-Say#going-deeper-mid-trance).
+* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, one depth at a time (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 * **Reset Depth Gates:** Restores all tier thresholds to standard defaults.
 
 ---

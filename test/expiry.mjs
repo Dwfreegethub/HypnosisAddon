@@ -148,6 +148,9 @@ check("  and guess no pronoun for them", hypnotistLines.filter((l) => /\b(her|hi
 // Math.random at 0 makes the roll 0, under even Fight's 5% floor: always a success.
 const induceAndExpire = (choice) => {
 	session.safeword();
+	// Since v0.97.0 a landing at depth 0 slips away, and a stranger's Fight always would. An owner
+	// lands even fighting at the lowest spread (60 x 0.5 - 20 - 9 = 1).
+	storage.setRelationshipOverride(HYP, "owner");
 	incoming(HYP, { type: "session-attempt", hypnotistName: "GameBot" });
 	session.answerPrompt(choice);
 	pending.filter((t) => t.live && !t.every && t.ms === 60_000).forEach((t) => { t.live = false; t.fn(); });

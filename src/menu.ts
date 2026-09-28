@@ -45,6 +45,19 @@ import {
 	nextDeepestTier,
 	getChemicalReach,
 	setChemicalReach,
+	DEFAULT_STANCES,
+	getDefaultStance,
+	setDefaultStance,
+	nextDefaultStance,
+	AWAY_STANCES,
+	getAwayStance,
+	setAwayStance,
+	nextAwayStance,
+	TOY_SCOPES,
+	getToyMode,
+	setToyMode,
+	getToyScope,
+	setToyScope,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -102,6 +115,8 @@ import {
 	mouseInScroll,
 	TAB_LEFT,
 	TAB_WIDTH,
+	tipButton,
+	flushTip,
 } from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -138,6 +153,9 @@ interface Tab {
 		height: () => number;
 		draw: (top: number, width: number) => void;
 		click: (top: number) => boolean;
+		/** Called instead of draw while it is scrolled wholly out of view, for a control that owns
+		 * a DOM element, which the scroll area's clip cannot hide. */
+		hide?: () => void;
 	};
 	/** Where the rows' scroll area ends, for a tab with fixed controls under it. Default: the
 	 * panel floor. */
@@ -166,7 +184,14 @@ const TABS: Tab[] = [
 			{ key: "undressControl", label: "Undressing" },
 			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
-		scrollExtra: { height: attemptControlHeight, draw: drawAttemptControl, click: clickAttemptControl },
+		scrollExtra: {
+			height: permissionsExtraHeight,
+			draw: drawPermissionsExtra,
+			click: clickPermissionsExtra,
+			hide: () => {
+				if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+			},
+		},
 	},
 	{
 		name: "Trance Defaults",
@@ -357,7 +382,7 @@ function plantedRowTop(slot: number): number {
 }
 
 function drawPurgeButton(left: number, top: number, height: number, holding: boolean): void {
-	DrawButton(
+	tipButton(
 		left,
 		top,
 		PLANTED_BUTTON_WIDTH,
@@ -392,12 +417,12 @@ function drawPlanted(): void {
 			PLANTED_TEXT_MAX,
 			holding ? "#a00000" : "Black",
 		);
-		DrawButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
+		tipButton(PLANTED_DETAILS_LEFT, top, PLANTED_BUTTON_WIDTH, PLANTED_ROW_HEIGHT, "Details", "White", "", "What it does");
 		drawPurgeButton(PLANTED_PURGE_LEFT, top, PLANTED_ROW_HEIGHT, holding);
 	});
 	if (pages > 1) {
-		DrawButton(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", plantedPage === 0);
-		DrawButton(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", plantedPage >= pages - 1);
+		tipButton(PAGE_PREV_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", plantedPage === 0);
+		tipButton(PAGE_NEXT_LEFT, PLANTED_PAGE_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", plantedPage >= pages - 1);
 		drawLeftText(`${plantedPage + 1} / ${pages}`, PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 20, PLANTED_PAGE_TOP + PAGE_BUTTON_HEIGHT / 2, "Gray");
 	}
 	drawClearAll(all.length);
@@ -409,7 +434,7 @@ function drawClearAll(count: number): void {
 	if (!count) return;
 	const refusal = clearAllRefusal();
 	const armed = !refusal && Date.now() < clearAllArmedUntil;
-	DrawButton(
+	tipButton(
 		CONTENT_LEFT,
 		CLEAR_ALL_TOP,
 		CLEAR_ALL_WIDTH,
@@ -439,7 +464,7 @@ function drawPlantedDetail(holding: boolean): void {
 		drawLeftTextWrap(line, CONTENT_LEFT, y, PANEL_WIDTH - 120, 64, "Black");
 		y += 70;
 	}
-	DrawButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
+	tipButton(CONTENT_LEFT, CLEAR_ALL_TOP, PLANTED_BUTTON_WIDTH, CLEAR_ALL_HEIGHT, "Back", "White", "", "Back to the list");
 	drawPurgeButton(DETAIL_PURGE_LEFT, CLEAR_ALL_TOP, CLEAR_ALL_HEIGHT, holding);
 }
 
@@ -540,7 +565,7 @@ function attemptControlHeight(): number {
 
 function drawAttemptControl(top: number, width: number): void {
 	const locked = settingsLocked();
-	DrawButton(
+	tipButton(
 		BOX_LEFT,
 		top,
 		ATTEMPT_BUTTON_WIDTH,
@@ -566,6 +591,139 @@ function drawAttemptControl(top: number, width: number): void {
 	);
 }
 
+// --- Permissions tab: answering without being asked (v0.97.0, trust.md §12) ---------------------
+// Four more click-to-cycle controls after the attempt limit, the same shape: a button, and what the
+// current choice MEANS written under it. They answer the same question the tab does, how far
+// someone else may go with you.
+interface CycleControl {
+	label: () => string;
+	caption: () => string;
+	tooltip: string;
+	cycle: () => void;
+}
+const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
+
+const PERMISSION_CYCLES: CycleControl[] = [
+	{
+		label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
+		caption: () =>
+			getDefaultStance() === "prompt"
+				? "You choose Agree, Ignore or Fight each time."
+				: `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
+		tooltip: "Answer the induction box for you, every time",
+		cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance())),
+	},
+	{
+		label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
+		caption: () =>
+			getAwayStance() === "refuse"
+				? "After 10 minutes with no input, the answer above and toy mode turn them away."
+				: getAwayStance() === "ignore"
+					? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off."
+					: "Being away changes nothing: the answer above and toy mode still apply.",
+		tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
+		cycle: () => setAwayStance(nextAwayStance(getAwayStance())),
+	},
+	{
+		label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
+		caption: () =>
+			getToyMode()
+				? "No roll: they put you straight under to your \"sink deeper\" limit, triggers included."
+				: "Every induction rolls as usual.",
+		tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+		cycle: () => setToyMode(!getToyMode()),
+	},
+];
+
+const CYCLE_GAP = 16;
+
+// "Toy mode is for" is a dropdown with the Triggers tab's choices (v0.97.3, DW: "use the same format
+// as the one used on the triggers tab"). A DOM <select> cannot be clipped by the scroll area the way
+// canvas drawing is, so it is shown only while it is wholly in view and removed otherwise, and on
+// every tab change and exit like the Triggers tab's own (syncTabControls, removeScopeControl).
+const TOY_SCOPE_ID = "HypnosisAddonToyScope";
+const TOY_SCOPE_LABEL_WIDTH = 250;
+const TOY_SCOPE_WIDTH = 560;
+
+function permissionsExtraHeight(): number {
+	return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+}
+
+function drawToyScopeControl(top: number, width: number, locked: boolean): void {
+	drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
+	drawLeftTextWrap(
+		getToyScope() === "everyone" || getToyScope() === "notblack"
+			? "Anyone in the room, strangers too. Read from your BC relationships and lists."
+			: "Read from your BC relationships and lists, the same as for triggers.",
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+	let element = document.getElementById(TOY_SCOPE_ID) as HTMLSelectElement | null;
+	if (!inView) {
+		if (element) ElementRemove(TOY_SCOPE_ID);
+		return;
+	}
+	if (!element) {
+		element = ElementCreateDropdown(
+			TOY_SCOPE_ID,
+			TOY_SCOPES.map((s) => s.label),
+			function () {
+				setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
+				log(`toy mode is for: ${getToyScope()}`);
+			},
+		);
+	}
+	// Re-synced every frame, like the Triggers tab's: an import or a reset changes it underneath us.
+	const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
+	ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
+
+function cycleTop(top: number, i: number): number {
+	return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
+}
+
+function drawPermissionsExtra(top: number, width: number): void {
+	drawAttemptControl(top, width);
+	const locked = settingsLocked();
+	PERMISSION_CYCLES.forEach((c, i) => {
+		const at = cycleTop(top, i);
+		tipButton(
+			BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
+			!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
+			locked,
+		);
+		drawLeftTextWrap(
+			c.caption(),
+			BOX_LEFT,
+			at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+			width,
+			ATTEMPT_CAPTION_HEIGHT,
+			locked ? "Gray" : "#555",
+		);
+	});
+	drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
+}
+
+function clickPermissionsExtra(top: number): boolean {
+	if (clickAttemptControl(top)) return true;
+	for (let i = 0; i < PERMISSION_CYCLES.length; i++) {
+		if (!MouseIn(BOX_LEFT, cycleTop(top, i), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
+		// Consumed either way, as the attempt control is: a locked button must not cycle.
+		if (settingsLocked()) return true;
+		PERMISSION_CYCLES[i].cycle();
+		log(`setting now: ${PERMISSION_CYCLES[i].label()}`);
+		return true;
+	}
+	return false;
+}
+
 // --- Triggers tab: drop triggers ---------------------------------------------------------
 // Off / One time / Unlimited (v0.90.0, design.md "Trigger Overhaul", decision 10). The last item in
 // the Triggers list, scrolling with its rows, for the reason the attempt control is on the
@@ -581,7 +739,7 @@ function dropCaption(): string {
 function drawDropControl(top: number, width: number): void {
 	const locked = settingsLocked();
 	const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-	DrawButton(
+	tipButton(
 		BOX_LEFT,
 		top,
 		ATTEMPT_BUTTON_WIDTH,
@@ -681,7 +839,7 @@ function drawDepthGates(): void {
 			DEPTH_LABEL_MAX,
 			granted ? "Black" : "Gray",
 		);
-		DrawButton(
+		tipButton(
 			DEPTH_TIER_LEFT,
 			top,
 			DEPTH_TIER_WIDTH,
@@ -698,7 +856,7 @@ function drawDepthGates(): void {
 		if (gate.earnedOnly) {
 			const toggleable = isChemicalToggleable(gate.key);
 			const open = toggleable && getChemicalReach(gate.key);
-			DrawButton(
+			tipButton(
 				CHEM_TOGGLE_LEFT,
 				top,
 				CHEM_TOGGLE_WIDTH,
@@ -717,8 +875,8 @@ function drawDepthGates(): void {
 	});
 
 	if (depthPageCount() > 1) {
-		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
-		DrawButton(
+		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
+		tipButton(
 			PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "",
 			depthPage >= depthPageCount() - 1,
 		);
@@ -726,18 +884,18 @@ function drawDepthGates(): void {
 	}
 
 	const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-	DrawButton(
+	tipButton(
 		SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`Chemicals count: ${scope}`, locked ? "#ddd" : "White", "",
 		"What may push you deeper besides trust. Never applies to the three above that say otherwise.",
 		locked,
 	);
-	DrawButton(
+	tipButton(
 		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
 	);
 	const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-	DrawButton(
+	tipButton(
 		SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`A hypnotist's skill: ${honour}`, locked ? "#ddd" : "White", "",
 		"How much of another hypnotist's own practice is allowed to help them put you under. " +
@@ -745,11 +903,11 @@ function drawDepthGates(): void {
 		locked,
 	);
 	const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-	DrawButton(
+	tipButton(
 		DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
 		`"Sink deeper" stops at: ${deepest}`, locked ? "#ddd" : "White", "",
-		"The deepest a hypnotist can talk you down mid-trance, one tier at a time. " +
-			"An induction still lands wherever its roll puts it. Never reaches the three above that say otherwise.",
+		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
+			"trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
 		locked,
 	);
 
@@ -890,7 +1048,7 @@ function drawDataButtons(): void {
 	DATA_BUTTONS.forEach((name, i) => {
 		const isReset = name === "Reset";
 		const locked = name === "Import" && importLocked;
-		DrawButton(
+		tipButton(
 			dataButtonLeft(i),
 			DATA_BUTTON_TOP,
 			DATA_BUTTON_WIDTH,
@@ -963,7 +1121,7 @@ const DECAY_CAPTION_Y = 858;
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 }
@@ -981,6 +1139,7 @@ function syncTabControls(tabName: string): void {
 		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+	if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
 }
 
 /** How fast trust fades without contact.
@@ -1172,8 +1331,8 @@ function drawStats(): void {
 	});
 
 	if (pages > 1) {
-		DrawButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
-		DrawButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
+		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
+		tipButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
 		drawLeftText(
 			`${statPage + 1} / ${pages}  ·  ${rows.length} people`,
 			PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 24,
@@ -1323,6 +1482,92 @@ export async function openHelpScreen(): Promise<boolean> {
 	}
 }
 
+/** One frame of the settings screen. Buttons queue their hover tip; run() draws it last. */
+function runSettings(): void {
+	rowsDrawnAt = 0;
+	if (isHelpOpen()) {
+		// DOM controls belong to the settings screen and would float over the help
+		// text, which is canvas — they have to go before help draws over them.
+		removeScopeControl();
+		drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
+		return;
+	}
+	// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
+	// because it changes consent settings and those are locked while a trance is on you.
+	if (shouldShowWizard() && !settingsLocked()) {
+		removeScopeControl();
+		tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+		drawWizard();
+		return;
+	}
+	// The version rides the title rather than getting a line of its own: it is the one
+	// place a player already looks when something is not behaving, and DrawText here is
+	// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
+	// chat banner and the corner watermark, so all three cannot disagree.
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
+	tipButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
+	if (!settingsLocked()) {
+		tipButton(SETUP_LEFT, HELP_TOP, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
+	}
+
+	const tabs = visibleTabs();
+	if (activeTab >= tabs.length) activeTab = 0;
+	drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
+	tipButton(
+		TAB_LEFT,
+		advancedButtonTop(),
+		TAB_WIDTH,
+		ADVANCED_BUTTON_HEIGHT,
+		showAdvanced ? "Hide advanced" : "Advanced \u25B8",
+		"White",
+		"",
+		showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
+	);
+
+	const tab = tabs[activeTab];
+	const locked = settingsLocked();
+	// Fitted, not just drawn: these run long, and the panel edge is not a hint the
+	// canvas takes on its own.
+	drawLeftTextFit(
+		locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
+		BOX_LEFT,
+		BLURB_Y,
+		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+		"Gray",
+	);
+
+	syncTabControls(tab.name);
+
+	if (tab.render) {
+		tab.render();
+		return;
+	}
+	const features = getFeatures();
+	const rows = tab.rows ?? [];
+	const contentWidth = scrollContentWidth(rowScroll);
+	layoutRows(tab);
+	drawScrollArea(rowScroll, () => {
+		rows.forEach((row, i) => {
+			const top = rowTop(i);
+			if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+			// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
+			// Width, which overlaps the box for anything but very short text. Draw the
+			// label ourselves, left-aligned and clear of the box.
+			DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+			drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+		});
+		const extra = tab.scrollExtra;
+		if (extra) {
+			const top = scrollExtraTop(tab);
+			if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
+			else extra.hide?.();
+		}
+	});
+	rowsDrawnAt = Date.now();
+	tab.extra?.();
+}
+
 export function installMenu(): void {
 	PreferenceRegisterExtensionSetting({
 		Identifier: EXTENSION_ID,
@@ -1343,88 +1588,13 @@ export function installMenu(): void {
 			removeScopeControl();
 			closeHelp();
 		},
+		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
 		run: () => {
-			rowsDrawnAt = 0;
-			if (isHelpOpen()) {
-				// DOM controls belong to the settings screen and would float over the help
-				// text, which is canvas — they have to go before help draws over them.
-				removeScopeControl();
-				drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
-				return;
+			try {
+				runSettings();
+			} finally {
+				flushTip();
 			}
-			// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
-			// because it changes consent settings and those are locked while a trance is on you.
-			if (shouldShowWizard() && !settingsLocked()) {
-				removeScopeControl();
-				DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-				drawWizard();
-				return;
-			}
-			// The version rides the title rather than getting a line of its own: it is the one
-			// place a player already looks when something is not behaving, and DrawText here is
-			// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
-			// chat banner and the corner watermark, so all three cannot disagree.
-			DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
-			DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
-			DrawButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
-			if (!settingsLocked()) {
-				DrawButton(SETUP_LEFT, HELP_TOP, SETUP_WIDTH, HELP_SIZE, "Setup", "White", "", "Run the setup again");
-			}
-
-			const tabs = visibleTabs();
-			if (activeTab >= tabs.length) activeTab = 0;
-			drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
-			DrawButton(
-				TAB_LEFT,
-				advancedButtonTop(),
-				TAB_WIDTH,
-				ADVANCED_BUTTON_HEIGHT,
-				showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-				"White",
-				"",
-				showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
-			);
-
-			const tab = tabs[activeTab];
-			const locked = settingsLocked();
-			// Fitted, not just drawn: these run long, and the panel edge is not a hint the
-			// canvas takes on its own.
-			drawLeftTextFit(
-				locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-				BOX_LEFT,
-				BLURB_Y,
-				PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-				"Gray",
-			);
-
-			syncTabControls(tab.name);
-
-			if (tab.render) {
-				tab.render();
-				return;
-			}
-			const features = getFeatures();
-			const rows = tab.rows ?? [];
-			const contentWidth = scrollContentWidth(rowScroll);
-			layoutRows(tab);
-			drawScrollArea(rowScroll, () => {
-				rows.forEach((row, i) => {
-					const top = rowTop(i);
-					if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-					// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
-					// Width, which overlaps the box for anything but very short text. Draw the
-					// label ourselves, left-aligned and clear of the box.
-					DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-					drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
-				});
-				const extra = tab.scrollExtra;
-				if (extra) {
-					const top = scrollExtraTop(tab);
-					if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
-				}
-			});
-			rowsDrawnAt = Date.now();
-			tab.extra?.();
 		},
 		click: () => {
 			if (shouldShowWizard() && !settingsLocked()) {

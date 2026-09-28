@@ -495,6 +495,12 @@ interface HypnoAddonSettings {
 	/** The deepest a spoken "sink deeper" may take her (v0.95.0), one of DEEPEST_TIERS. Absent means
 	 * "never chose" and resolves to DEFAULT_DEEPEST in code, the same sparse pattern as skillHonour. */
 	deepestTier?: string;
+	/** Auto-stance, away rule, toy mode and who toy mode is for (v0.97.0). All sparse: absent means
+	 * "never chose" and resolves to the DEFAULT_ in code, the same pattern as deepestTier. */
+	defaultStance?: string;
+	awayStance?: string;
+	toyMode?: boolean;
+	toyScope?: string;
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
 	 * dismissed. Sparse, so a fresh install is "new" with nothing stored. */
 	starterState?: string;
@@ -635,6 +641,11 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 		delete s.skillHonour;
 	}
 	if (s.deepestTier !== undefined && !DEEPEST_TIERS.some((r) => r.key === s.deepestTier)) delete s.deepestTier;
+	if (s.defaultStance !== undefined && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
+	if (s.awayStance !== undefined && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
+	if (s.toyMode !== undefined && typeof s.toyMode !== "boolean") delete s.toyMode;
+	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
+	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
 	// Triggers planted before v0.60.0 have no strength history. Planting has always required
@@ -1206,6 +1217,82 @@ export function nextDeepestTier(current: string): string {
 	const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
 	return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
 }
+
+// --- Auto-stance, being away, and toy mode (v0.97.0, trust.md §12, DW 2026-09-27) ------------
+//
+// Auto-stance answers the induction box for her: Agree, Ignore or Fight without being asked, and
+// the hypnotist is never told which. "When I'm away" says what happens to that answer, and to toy
+// mode, after ten minutes with no input from her: refused outright (the AFK backstop in
+// declared-skill-proposal.md §6), treated as Ignore, or kept. Toy mode skips the roll altogether
+// for the people she chooses: it lands at her "sink deeper" ceiling, full and earned alike.
+export const DEFAULT_STANCES: { key: string; label: string }[] = [
+	{ key: "prompt", label: "Ask me" },
+	{ key: "agree", label: "Agree" },
+	{ key: "ignore", label: "Ignore" },
+	{ key: "fight", label: "Fight" },
+];
+export const DEFAULT_DEFAULT_STANCE = "prompt";
+export const AWAY_STANCES: { key: string; label: string }[] = [
+	{ key: "refuse", label: "Refuse" },
+	{ key: "ignore", label: "Ignore" },
+	{ key: "keep", label: "Keep my answer" },
+];
+export const DEFAULT_AWAY_STANCE = "refuse";
+/** Who toy mode is for (v0.97.3): the Triggers tab's ladder, tightest first, without its
+ * "Hypnotist only" rung, which means nothing here. Keys are TriggerScope keys, decided by
+ * allowedByLadder() in ladder.ts, so BC's whitelist, blacklist and Dominant reputation count here
+ * exactly as they do for triggers (DW: "use the same format as the one used on the triggers tab"). */
+export const TOY_SCOPES: { key: TriggerScope; label: string }[] = [
+	{ key: "owner", label: "Owner only" },
+	{ key: "lovers", label: "Owner and Lovers" },
+	{ key: "whitelist", label: "Owner, Lovers and whitelist" },
+	{ key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+	{ key: "notblack", label: "Everyone, except blacklist" },
+	{ key: "everyone", label: "Everyone, no exceptions" },
+];
+export const DEFAULT_TOY_SCOPE: TriggerScope = "lovers";
+/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends had no rung on the
+ * ladder; the whitelist is the nearest. */
+const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+
+const cycle = (list: { key: string }[], current: string): string =>
+	list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+
+export function getDefaultStance(): string {
+	return loadSettings().defaultStance ?? DEFAULT_DEFAULT_STANCE;
+}
+export function setDefaultStance(key: string): void {
+	if (DEFAULT_STANCES.some((r) => r.key === key)) loadSettings().defaultStance = key;
+	saveSettings();
+}
+export function nextDefaultStance(current: string): string {
+	return cycle(DEFAULT_STANCES, current);
+}
+export function getAwayStance(): string {
+	return loadSettings().awayStance ?? DEFAULT_AWAY_STANCE;
+}
+export function setAwayStance(key: string): void {
+	if (AWAY_STANCES.some((r) => r.key === key)) loadSettings().awayStance = key;
+	saveSettings();
+}
+export function nextAwayStance(current: string): string {
+	return cycle(AWAY_STANCES, current);
+}
+export function getToyMode(): boolean {
+	return loadSettings().toyMode === true;
+}
+export function setToyMode(on: boolean): void {
+	loadSettings().toyMode = on;
+	saveSettings();
+}
+export function getToyScope(): TriggerScope {
+	return (loadSettings().toyScope as TriggerScope | undefined) ?? DEFAULT_TOY_SCOPE;
+}
+export function setToyScope(key: string): void {
+	if (TOY_SCOPES.some((r) => r.key === key)) loadSettings().toyScope = key;
+	saveSettings();
+}
+
 
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;

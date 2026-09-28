@@ -700,6 +700,12 @@ None of these are touched by anything in this proposal.
 
 ### The AFK backstop — DW, settled in shape; details proposed
 
+> **Partly built v0.97.0**, for the two settings that answer without asking (auto-stance and toy
+> mode): after 10 minutes without a key, click or touch, their default is to refuse, with the
+> honest "They're away from the keyboard" and a note to her on return. The plain prompt's silence
+> still proceeds as Ignore; the rest of this section is still open for that path. See design.md,
+> *Trance Depth During a Session*.
+
 **The gap.** `design.md` describes an **AFK-block** and an OOC **"Genuine resistance"** setting and
 puts them in the absolute column — consent statements the fiction has no business overruling, the
 ones skill must never beat. **Neither exists in code.** The only absolute refusal implemented is

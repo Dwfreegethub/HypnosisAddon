@@ -19,7 +19,8 @@ let pendingRect = null;
 const boxes = [];      // DrawCheckbox
 const buttons = [];    // DrawButton
 const texts = [];      // our own fillText (drawLeftTextFit / drawLeftTextWrap)
-const reset = () => { boxes.length = 0; buttons.length = 0; texts.length = 0; };
+const rects = [];      // fillRect: the hover tip's box
+const reset = () => { boxes.length = 0; buttons.length = 0; texts.length = 0; rects.length = 0; };
 
 const wheelListeners = new Set();
 globalThis.MainCanvas = {
@@ -29,7 +30,8 @@ globalThis.MainCanvas = {
 	get font() { return `${curSize}px arial`; },
 	// Roughly Arial's average advance; every assertion is relative to the same measure.
 	measureText(t) { return { width: t.length * curSize * 0.5 }; },
-	set textAlign(_v) {}, set textBaseline(_v) {}, set fillStyle(_v) {},
+	set textAlign(_v) {}, set textBaseline(_v) {}, set fillStyle(_v) {}, set lineWidth(_v) {}, set strokeStyle(_v) {},
+	fillRect(l, t, w, h) { rects.push({ left: l, top: t, width: w, height: h, clip }); }, strokeRect() {},
 	fillText(text, x, y) { texts.push({ text, left: x, width: text.length * curSize * 0.5, top: y - curSize / 2, height: curSize, clip }); },
 	canvas: {
 		addEventListener(type, fn) { if (type === "wheel") wheelListeners.add(fn); },
@@ -37,6 +39,7 @@ globalThis.MainCanvas = {
 	},
 };
 globalThis.MainCanvasWidth = 2000;
+globalThis.MainCanvasHeight = 1000;
 globalThis.CommonGetFont = (size) => `${size}px arial`;
 globalThis.DrawCheckbox = (left, top, width, height, _t, checked, disabled) => boxes.push({ left, top, width, height, checked, disabled, clip });
 globalThis.DrawButton = (left, top, width, height, label, _c, _i, hover) => buttons.push({ left, top, width, height, label, hover, clip });
@@ -50,8 +53,10 @@ const elements = {};
 globalThis.document = { getElementById: (id) => elements[id] ?? null };
 globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false });
 globalThis.ElementCreateInput = (id) => (elements[id] = { value: "", disabled: false, addEventListener() {}, setAttribute() {} });
-globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false, addEventListener() {}, setAttribute() {} });
-globalThis.ElementPosition = () => {};
+globalThis.ElementCreateDropdown = (id, _options, onChange) => (elements[id] = { selectedIndex: 0, disabled: false, onChange, addEventListener() {}, setAttribute() {} });
+/** Where each DOM control was last put, centre and size, in canvas coordinates. */
+const placed = {};
+globalThis.ElementPosition = (id, x, y, w, h) => { placed[id] = { x, y, w, h }; };
 globalThis.ElementNumberInputWheel = () => {};
 globalThis.ElementRemove = (id) => { delete elements[id]; };
 let screen = null;
@@ -178,6 +183,72 @@ for (let guard = 0; guard < 30; guard++) {
 	clickAt(attempt.left + attempt.width / 2, attempt.top + attempt.height / 2);
 }
 
+// --- after it: auto-stance, being away, toy mode, and who toy mode is for (v0.97.0) ------------------
+// "Toy mode is for" is a dropdown with the Triggers tab's choices since v0.97.3.
+// Failure: a button off screen or overlapping the one above, a click that changes another setting,
+// or the dropdown missing, out of view, not saving, or left behind when the list scrolls or the tab
+// changes.
+{
+	// Wheeled right to the end: the list is longer than the area now, so the last controls only
+	// come into view there.
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
+	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:"];
+	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
+	check("the three answer-for-me buttons are drawn at the bottom", found.map((b) => !!b), [true, true, true]);
+	check("  wholly in view", found.every((b) => b && inside(b, area)), true);
+	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
+	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getToyScope()];
+	const changed = found.map((b) => {
+		const before = read();
+		clickAt(b.left + b.width / 2, b.top + b.height / 2);
+		const after = read();
+		return after.map((v, i) => v !== before[i]);
+	});
+	check("  each changes its own setting and no other", changed, [
+		[true, false, false, false],
+		[false, true, false, false],
+		[false, false, true, false],
+	]);
+	const toy = elements.HypnosisAddonToyScope;
+	const at = placed.HypnosisAddonToyScope;
+	check("who toy mode is for is a dropdown", !!toy, true);
+	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, area)), true);
+	check("  under the toy mode button, in view", !!at && at.y - at.h / 2 >= found[2].top + found[2].height && at.y + at.h / 2 <= area.top + area.height, true);
+	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
+	toy.selectedIndex = 5;
+	toy.onChange.call(toy);
+	check("  choosing saves it", storage.getToyScope(), "everyone");
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	// In one jump, with no frame drawn on the way: the frames between would each remove it for being
+	// part-hidden, and the case under test is the list drawn with the whole band out of view.
+	for (let i = 0; i < 40; i++) wheel(-100);
+	frame();
+	check("  scrolled away, it is removed rather than left floating", !!elements.HypnosisAddonToyScope, false);
+	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
+	check("  and back when it is in view again", !!elements.HypnosisAddonToyScope, true);
+	// The hover tip (v0.97.4, DW: "The pop up text is very small"). BC's own box fits a tip on one
+	// line, shrinking it. Failure: a tip drawn at a smaller size to fit, on one squeezed line, cut
+	// by the scroll clip, or under text drawn after it.
+	const away = buttons.find((b) => b.label.startsWith("When I'm away:"));
+	MouseX = away.left + 40; MouseY = away.top + away.height / 2;
+	frame();
+	const tipBox = rects.at(-1);
+	const tipLines = texts.filter((t) => tipBox && inside(t, tipBox));
+	check("a long hover tip gets a box of its own", !!tipBox && tipBox.clip === null, true);
+	check("  wrapped onto more than one line", tipLines.length > 1, true);
+	check("  at a readable size, every line", tipLines.every((t) => t.height >= 26), true);
+	check("  drawn last, over everything", texts.slice(-tipLines.length).every((t) => tipLines.includes(t)), true);
+	check("  and BC's own one-line tip not drawn under it", buttons.find((b) => b.label.startsWith("When I'm away:")).hover, "");
+	MouseX = 5; MouseY = 5;
+	frame();
+	check("  gone when the pointer leaves", rects.some((r) => r.width === 450), false);
+	storage.setDefaultStance("prompt");
+	storage.setAwayStance("refuse");
+	storage.setToyMode(false);
+	storage.setToyScope("lovers");
+}
+
 // --- the up arrow and the wheel --------------------------------------------------------------
 {
 	const firstBefore = rowLabels()[0].text;
@@ -198,6 +269,7 @@ for (let guard = 0; guard < 30; guard++) {
 
 // --- tabs that fit, and the tab with DOM controls under its rows -----------------------------
 openTab(2); frame(); // Awareness: four rows
+check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScope, false);
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
 openTab(1); frame(); // Trance Defaults: seven rows, once two columns

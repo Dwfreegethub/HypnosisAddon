@@ -126,6 +126,9 @@ const LANDS = () => { Math.random = () => 0; };   // 0 is below any clamped chan
 const MISSES = () => { Math.random = () => 0.99; }; // 99 is above the 95 ceiling: always fails
 
 storage.setFeature("hypnoEnabled", true);
+// Since v0.97.0 a landing can slip away at depth 0, and a random of 0 is also the lowest 2d10
+// spread (-9). Trust 30 puts even that at depth 15, so LANDS really does land.
+storage.setTrustValue(HYP, "GameBot", 30);
 storage.setMaxAttempts(2);
 
 // --- the control: this roll really does land -------------------------------------------------

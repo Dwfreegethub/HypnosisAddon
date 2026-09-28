@@ -216,9 +216,9 @@ check("  not to ours", storage.getMaxAttempts(), 3);
 // it would have quoted odds across three tries to someone who allows two.
 storage.setMaxAttempts(2);
 session.safeword();
-check("the diagnostic spans two", session.describeChances(HYP).some((l) => /across 2$/.test(l)), true);
+check("the diagnostic spans two", session.describeChances(HYP).some((l) => /across 2;/.test(l)), true);
 storage.setMaxAttempts(3);
-check("  and three when three", session.describeChances(HYP).some((l) => /across 3$/.test(l)), true);
+check("  and three when three", session.describeChances(HYP).some((l) => /across 3;/.test(l)), true);
 
 // --- what "Lock settings while a session is on you" actually covers -------------------------
 // The lock reads isSessionLive(), and until v0.65.1 it read isHypnotized() — so the whole
@@ -239,7 +239,9 @@ check("  so is the roleplay window", session.isSessionLive(), true);
 runRoll();
 check("  so is a miss with tries left", session.isSessionLive(), true);
 
-// Under. The one phase the old reading did cover, and it must not have regressed.
+// Under. The one phase the old reading did cover, and it must not have regressed. Trust 30 so the
+// lowest 2d10 spread (a random of 0) still lands above 0 rather than slipping away (v0.97.0).
+storage.setTrustValue(HYP, "GameBot", 30);
 Math.random = () => 0;
 retry();
 runRoll();

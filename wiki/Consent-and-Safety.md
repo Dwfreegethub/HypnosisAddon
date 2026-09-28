@@ -85,11 +85,17 @@ These features default to requiring a **Deep** trance earned through genuine **E
 
 ## 5. What Arousal Can (and Can't) Do
 
-Getting worked up or highly aroused can lower your resistance and open doors, but only up to a hard ceiling (defaulting to the **Yielding** tier).
+Getting worked up or highly aroused can lower your resistance: it helps an induction land and takes you somewhat deeper, but only in the moment.
 
-* By default, arousal alone is only enough for a partner to reach basic, session-only commands (like freezing or kneeling).
+* Arousal counts toward how deep you are right now, never toward earned depth.
 * Arousal **never** unlocks Deep-tier features, triggers, clothing illusions, or carry-forward effects.
 * A decision made in the heat of the moment cannot leave lasting effects behind once you have cooled down.
+
+### Answering ahead of time, and toy mode
+* **Your automatic answer** (Permissions tab) answers every induction as Agree, Ignore or Fight without the box. It is off (*Ask me*) unless you choose it.
+* **Toy mode** (off unless you turn it on) lets the people you choose put you straight under to your *"sink deeper"* limit with no roll. That is **your** consent, given ahead of time, so it counts as earned depth: if your limit is Deep or deeper, triggers can be planted. Choose who it is for carefully; the default is your owner and lovers.
+* **While you are away** (10 minutes with no key, click or touch), both are turned away by default, and the hypnotist is told you are away. You are told who tried when you come back.
+* The safeword and every exit below work exactly as always.
 
 ---
 

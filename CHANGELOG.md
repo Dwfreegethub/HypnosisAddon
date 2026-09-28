@@ -12,6 +12,45 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.97.4 · 27 September 2026
+
+- **The yellow pop-up help on the settings screen is readable again.** Longer ones used to shrink to
+  fit on one line; they now wrap onto several lines at a normal size.
+
+## v0.97.3 · 27 September 2026
+
+- **"Toy mode is for" now uses the same choices as trigger scope on the Triggers tab**, from a
+  dropdown: owner only, owner and lovers (the default), and wider through your whitelist, Dominants,
+  everyone except your blacklist, or everyone. If you had chosen "Friends and up", it becomes the
+  whitelist choice.
+
+## v0.97.2 · 27 September 2026
+
+- Includes v0.96.3's fix: you are told when an induction is turned away.
+
+## v0.97.1 · 27 September 2026
+
+- **Depth shows as a whole number again.** A trance held up by your trust could show a depth like
+  31.34328358208955. It now rounds.
+
+## v0.97.0 · 27 September 2026
+
+- **How deep you go no longer depends on luck.** The roll now only decides whether an induction
+  lands. How deep comes from your trust in the hypnotist, your relationship, their skill, your
+  arousal and your answer: Agree takes you deeper, Fight keeps you shallow. Long trust and going
+  along with it can now reach Deep without an owner. `/echs chance <name>` shows where each answer
+  would land. If an induction would land at nothing, it slips away and counts as a miss.
+- **"Sink deeper" goes a long way when you are shallow, and only a little when you are deep.** No
+  more half steps.
+- **Fighting back up is fairer at every depth.** Typing `/echs fight` while under now pushes back at
+  once. You get one push a minute.
+- **New: answer ahead of time.** At the bottom of the Permissions tab you can answer every induction
+  as Agree, Ignore or Fight without the box. If you are away from the keyboard for 10 minutes, it
+  turns them away unless you choose otherwise.
+- **New: toy mode.** Off unless you turn it on. For the people you choose (lovers and up unless you
+  change it), an induction puts you straight under to your *"sink deeper"* limit with no roll, and
+  that includes triggers if your limit is Deep or deeper. The safeword always works.
+
 ## v0.96.3 · 27 September 2026
 
 - **You are told when an induction is turned away.** If you try to hypnotize someone who is already

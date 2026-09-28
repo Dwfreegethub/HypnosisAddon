@@ -20,6 +20,86 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-27 (v0.97.4) — hover tips on the settings screen wrap instead of shrinking
+
+DW: "The pop up text is very small on some of the helps that you just added." BC's
+`DrawButtonHover` (Drawing.js, R132) is a fixed 450 x 65 box and `DrawTextFit`s the tip onto one
+line, so the v0.97.0 Permissions tips and the longer Depth-tab ones shrank to a few pixels. The
+settings screen's buttons now go through `tipButton()` in panel.ts, which draws the button with no
+BC tip and queues ours; `flushTip()` draws it at the end of the frame (run() wraps the old body,
+now `runSettings()`, in try/finally), 450 wide, 26px, wrapped onto as many lines as it needs,
+over everything and outside the scroll clip. Placed beside the button as BC places its own.
+`test/menu-layout.mjs` +6 (77); with BC's one-line tip restored, 4 fail. Help, wizard, prompt and
+remote screens still use BC's box; their tips are short.
+
+### Changed 2026-09-27 (v0.97.3) — toy mode's scope is the trigger-scope ladder, as a dropdown
+
+DW, after testing: "in the Toy mode is for box I would rather it use the same format as the one used
+on the triggers tab", and chose the same choices, not only a dropdown. The ladder moved from
+`speakerAllowedByScope()` in triggers.ts to `allowedByLadder()` in a new leaf, `src/ladder.ts`,
+because session.ts cannot import triggers.ts (triggers.ts imports session.ts). Triggers behave
+exactly as before (`test/scope.mjs` and `test/triggers.mjs` unchanged and passing). `TOY_SCOPES` is
+the ladder less "Hypnotist only", keyed by `TriggerScope`; default `lovers`. The v0.97.0 keys are
+converted on load (lover → lovers, friend → whitelist, the nearest rung, anyone → everyone); only
+branch testers ever saved them. `toyModeFor()` still reads `relationshipWith()` first so `/echs
+relate` works in the testing room.
+
+The control is a DOM `<select>` inside the Permissions tab's scroll area, which cannot clip it, so it
+is placed only while wholly in view and removed otherwise, through a new `hide` hook on
+`scrollExtra` for the frame where the whole band is scrolled out; also on tab change and exit.
+`test/menu-layout.mjs` (71) checks it is placed, saves, goes when scrolled away and on another tab.
+The scroll-away check first passed with `hide` disabled, because the frames drawn on the way up
+removed it early; it now scrolls in one jump and fails without `hide`. `test/induction.mjs` +4 (63)
+for the whitelist and blacklist; ignoring them fails 2.
+
+### Merged 2026-09-27 (v0.97.2) — main's v0.96.3 into the overhaul branch
+
+`main` into `feat/induction-overhaul`: the refusal fix below (v0.96.3), with no change of its own.
+Its own number so a tester can tell from the startup line that the branch build has the fix.
+
+### Fixed 2026-09-27 (v0.97.1) — the trust floor was not rounded
+
+DW, live test 1B: `/hypno gates` showed "Depth 31.34328358208955 full / 31.34328358208955". The
+spread was rounded in `resolveDepths()` but the floor under it, `trust × 0.5`, was not, and trust is
+rarely a whole number (62.7 by then: each landed induction in 1A added some). When the floor won, it
+became the depth as it stood. `depthBases()` now rounds the floor, which also fixes the "lands A–B"
+line in `/hypno chance`. `test/induction.mjs` +1 (59), seen failing without the fix.
+
+### Changed 2026-09-27 (v0.97.0) — the induction overhaul: depth from trust, auto-stance, toy mode
+
+DW: "Right now I think the Roll makes to much of a difference." The whole reasoning, the worked
+tables and every decision DW made are in `trust.md` at the repo root (§10 the first review, §11
+the second, §12 the final spec); `design.md` carries the result under *Induction Success Formula*
+and *Trance Depth During a Session*. Built on `feat/induction-overhaul`, not main, until DW has
+run it live.
+
+- **Depth no longer comes from the roll.** `depth = chance − roll` spread a landing evenly from 0 to
+  the chance, so one roll decided both whether and how deep. Now `resolveDepths()` sums trust × 0.5,
+  the relationship depth floor × 0.5, honoured skill × 0.2, arousal × 0.15 and the stance (Agree +20,
+  Fight −20), adds one 2d10 − 11 and floors it at max(relationship floor, trust × 0.5) unless she
+  fights; earned is the same without skill and arousal. Agree is +20, not the proposal's +15, because
+  at +15 earned Deep stayed owner-only (§11c: 1% at trust 90). A landing at 0 or less slips away and
+  counts as a miss.
+- **Access**: arousal now adds a quarter of the meter (`effectiveAccess`), replacing the floor capped
+  at 30. Experience weight 0.25 → 0.2.
+- **Deepening**: chance and steps per §12; no half steps (DW: "Do we still need half steps or can the
+  random rolls cover that"), base 40 to keep the pace. A hit can now move her within her ceiling tier.
+  +0.5 subject experience per hit (`noteDeepenSuccess`).
+- **Fighting**: softened bases and three drop bands, so no cliff at 40. Also rolls on her own
+  `/hypno fight` mid-trance, one push a minute whatever sets it off (`lastStruggleAt`). A failed push
+  is told to her alone, so the stance stays hidden. voice.ts reports through
+  `registerStruggleReporter`, since session.ts cannot import it.
+- **Auto-stance, away, toy mode**: four settings (sparse, validated on load) and `src/away.ts`.
+  `answerWithoutAsking()` in the attempt handler decides before the box; toy mode skips the cooldown
+  gate only. `answerPrompt` now also changes her answer during the window.
+- **Deliberate changes to settled rules, flagged:** experience no longer adds depth; roleplay no
+  longer adds depth; the v0.96 half steps are gone; toy mode writes EARNED depth (her own consent,
+  not a chemical, so rule 4 is not in play, but it is a new way to plant triggers).
+- Tests: `test/induction.mjs` (new, 58 checks; three mutations — Agree +15, the away refusal off,
+  slipping off — each caught), `test/deepen.mjs` rewritten (88), `test/menu-layout.mjs` +4, and four
+  suites whose "a random of 0 always lands" setup no longer held (a random of 0 is also the lowest
+  spread) given enough trust to land.
+
 ### Fixed 2026-09-27 (v0.96.3) — refusals were never said in the hypnotist's chat
 
 DW: "/hypno induce is not recognizing when Missy is already in session or if in a cooldown
