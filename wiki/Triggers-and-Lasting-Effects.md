@@ -63,12 +63,23 @@ A drop follows the same rules as an ordinary hypnosis attempt. It does not work 
 
 ### Words to Say
 
-A trigger can make the subject say something aloud:
+**This is the only way to make the subject speak.** There is no command that makes them say something on the spot; you plant the words in a trigger, and they are said when the trigger fires.
 
-* *"Missy, you will say 'I obey'"*, or *"Missy, you will say 'good girls obey' three times"* for a mantra (up to five times).
-* On the same line as the word: *"Missy, when you hear ember glow, you will say 'I obey'"*.
+**You need:** the subject's **Made to Speak** permission ticked (Permissions tab, off by default), and the subject under deeply enough to plant a trigger (**Deep** on earned depth by default; the words themselves need **Entranced**).
 
-When it fires, the subject says exactly those words in the room, a second or two apart for a mantra. This needs the **Made to Speak** permission. It is off by default and needs an **Entranced** trance to plant.
+**Planting it, in one line:**
+
+> *"Missy, when you hear ember glow, you will say 'I obey'"*
+
+**Or step by step:**
+
+> *"Missy, your trigger word is ember glow"*  
+> *"Missy, you will say 'good girls obey' three times"*  
+> *"Missy, remember trigger"*
+
+Put the words in quotes. *"three times"* makes it a mantra (up to five times).
+
+**Firing it:** say *"ember glow"* in the room. The subject says exactly those words aloud, a second or two apart for a mantra.
 
 * A gag still garbles the words, and an owner's speech rules still stop them. The subject is told when that happens.
 * A trigger can speak for the subject even while the trance keeps them from speaking on their own.
