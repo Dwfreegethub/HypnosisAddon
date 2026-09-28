@@ -750,7 +750,9 @@ export function depthBases(hypnotistId: number, choice: SessionChoice): { full: 
 	const relation = RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
 	const earned = trust * DEPTH_TRUST_WEIGHT + relation * DEPTH_RELATION_WEIGHT + STANCE_DEPTH[choice];
 	const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + arousalLevel() * DEPTH_AROUSAL_WEIGHT;
-	const floor = choice === "fight" ? 0 : Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT);
+	// Rounded: trust is rarely a whole number, and an unrounded floor became the depth itself
+	// ("Depth 31.34328358208955", DW 2026-09-27, v0.97.1).
+	const floor = choice === "fight" ? 0 : Math.round(Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT));
 	return { full, earned, floor };
 }
 

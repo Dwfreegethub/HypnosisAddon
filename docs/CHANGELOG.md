@@ -20,6 +20,14 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-27 (v0.97.1) — the trust floor was not rounded
+
+DW, live test 1B: `/hypno gates` showed "Depth 31.34328358208955 full / 31.34328358208955". The
+spread was rounded in `resolveDepths()` but the floor under it, `trust × 0.5`, was not, and trust is
+rarely a whole number (62.7 by then: each landed induction in 1A added some). When the floor won, it
+became the depth as it stood. `depthBases()` now rounds the floor, which also fixes the "lands A–B"
+line in `/hypno chance`. `test/induction.mjs` +1 (59), seen failing without the fix.
+
 ### Changed 2026-09-27 (v0.97.0) — the induction overhaul: depth from trust, auto-stance, toy mode
 
 DW: "Right now I think the Roll makes to much of a difference." The whole reasoning, the worked

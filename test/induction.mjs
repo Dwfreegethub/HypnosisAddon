@@ -107,6 +107,10 @@ induce("agree", HIGHEST, { trust: 50 });
 check("  the highest: 45 + 9 = 54", depth.currentDepth(), 54);
 induce("ignore", LOWEST, { trust: 50 });
 check("Ignore at the lowest spread is held up by trust: floor 25", depth.currentDepth(), 25);
+// v0.97.1: the trust floor is rounded. Trust is rarely whole (62.7 here, half of it 31.35), and the
+// floor used to become the depth unrounded. Failure: a fractional depth.
+induce("ignore", LOWEST, { trust: 62.7 });
+check("the trust floor is a whole number: 62.7 x 0.5 → 31", [depth.currentDepth(), depth.currentDepthEarned()], [31, 31]);
 induce("agree", LOWEST, { relation: "owner" });
 check("an owner never lands under 60", depth.currentDepth(), 60);
 reset({ trust: 50 });

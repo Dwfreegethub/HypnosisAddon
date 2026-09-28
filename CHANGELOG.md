@@ -12,6 +12,11 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.97.1 · 27 September 2026
+
+- **Depth shows as a whole number again.** A trance held up by your trust could show a depth like
+  31.34328358208955. It now rounds.
+
 ## v0.97.0 · 27 September 2026
 
 - **How deep you go no longer depends on luck.** The roll now only decides whether an induction
