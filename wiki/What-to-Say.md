@@ -108,6 +108,22 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 This blocks regular public room chat. It cannot touch slash commands, so emergency releases remain available. **Out-of-character (OOC) text enclosed in parentheses passes through by default** — a silenced player can always type *"(brb)"*. OOC speech is only suppressed if the subject explicitly toggled **Silence OOC too** under their Trance Defaults tab.
 
+#### Making Them Say Words — Made to Speak · planted as a trigger
+
+**There is no "say this now" command.** Making the subject speak is done with a **trigger**: you plant the words, and they say them aloud in the room every time the trigger word is spoken afterwards. It needs the **Made to Speak** permission (off by default) and, like every trigger, a trance deep enough to plant one (**Deep** on earned depth by default).
+
+In one line:
+
+> *"Missy, when you hear ember glow, you will say 'I obey'"*
+
+Or step by step:
+
+> *"Missy, your trigger word is ember glow"*  
+> *"Missy, you will say 'I obey' three times"*  
+> *"Missy, remember trigger"*
+
+Now anyone allowed to use it saying *"ember glow"* in the room makes Missy say *"I obey"* (three times, a second or two apart, in the second example; up to five). The words go in quotes. See [Words to Say](Triggers-and-Lasting-Effects#words-to-say) for the details and limits.
+
 ---
 
 ### Hearing — Hearing · Entranced
