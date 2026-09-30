@@ -12,7 +12,7 @@ report it and say which version your chat line shows.
 
 ---
 
-## v0.98.1 · 29 September 2026
+## v0.98.2 · 29 September 2026
 
 - **How deep each feature needs you to be is now a number from 0 to 99**, set on the Depth tab.
   Type it in, or use the -5 and +5 buttons; the tier it falls in is shown beside it, like
@@ -27,6 +27,7 @@ report it and say which version your chat line shows.
   their member number after it: *Rei (#123456)*. Someone briefly out of view no longer turns into a
   bare number.
 - Scrolling the mouse wheel over a number box on the settings screen now moves it by one, not two.
+- Clearing a number box and clicking away puts back the number you last saved, not an older one.
 
 ## v0.97.4 · 27 September 2026
 

@@ -20,6 +20,13 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-29 (v0.98.2) — an emptied number box restores the latest saved value
+
+R132's `ElementNumberInputBlur` puts `defaultValue` back when a number box is left empty, and
+`defaultValue` was only ever the value the box was created with. So on the Depth tab, typing 45 and
+later clearing the box saved the old number again; the trigger-duration box had the same fault. The
+per-frame resync now sets `defaultValue` along with `value`. Found while writing `script_test.md`.
+
 ### Fixed 2026-09-29 (v0.98.1) — number boxes step once per wheel notch; no hover tips on -5/+5
 
 Found in DW's first test of v0.98.0, which never reached players, so the root CHANGELOG folds both

@@ -964,7 +964,9 @@ function drawDepthInput(key: keyof FeatureToggles, top: number, need: number, lo
 		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's to every number
 		// box, and a second one stepped two at a time.
 	}
-	if (document.activeElement !== element) element.value = String(need);
+	// defaultValue too: BC's blur handler puts defaultValue back when the box is left empty, and
+	// without this it would restore the number the box was CREATED with, not the one saved since.
+	if (document.activeElement !== element) element.value = element.defaultValue = String(need);
 	element.disabled = locked;
 	ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
 }
@@ -1310,7 +1312,7 @@ function drawDurationControl(locked: boolean): void {
 		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's, and a second
 		// one stepped two at a time.
 	}
-	if (document.activeElement !== element) element.value = String(getTriggerDuration());
+	if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
 	element.disabled = locked;
 	ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
 }

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.98.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.98.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -9885,7 +9885,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (event.key === "Enter") this.blur();
       });
     }
-    if (document.activeElement !== element) element.value = String(need);
+    if (document.activeElement !== element) element.value = element.defaultValue = String(need);
     element.disabled = locked;
     ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
   }
@@ -10136,7 +10136,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log(`trigger duration set to ${saved} min`);
       });
     }
-    if (document.activeElement !== element) element.value = String(getTriggerDuration());
+    if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
     element.disabled = locked;
     ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
   }
@@ -10294,7 +10294,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12040,7 +12040,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.1"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.2"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12063,7 +12063,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.98.1"} loaded`;
+    el.textContent = `ECHS v${"0.98.2"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12094,14 +12094,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.98.1"})`);
+  info(`script loaded (v${"0.98.2"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.98.1",
+      version: "0.98.2",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
