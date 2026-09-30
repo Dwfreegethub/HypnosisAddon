@@ -20,6 +20,15 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-29 (v0.98.3) — hover tips no longer go under DOM controls
+
+DW: the page-3 "earned only" tip on the Depth tab did not draw over the number boxes. New in v0.98.0:
+the boxes are DOM inputs, and the canvas cannot paint over a DOM element, so any tip placed across
+one sat beneath it. The Triggers/Stats dropdowns had the same exposure. `flushTip()` now returns the
+rect it drew, and `clearTipOverlap()` (panel.ts) sets `visibility: hidden` on every control the
+settings screen owns while it overlaps that rect, comparing in screen space because the canvas is
+scaled. Hidden rather than removed, so a half-typed box keeps its text.
+
 ### Fixed 2026-09-29 (v0.98.2) — an emptied number box restores the latest saved value
 
 R132's `ElementNumberInputBlur` puts `defaultValue` back when a number box is left empty, and

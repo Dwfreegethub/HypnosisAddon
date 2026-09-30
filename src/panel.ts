@@ -483,11 +483,16 @@ export function tipButton(
 	if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
 }
 
-/** Draws the tip queued this frame, if any; placed as BC places its own, beside the button. */
-export function flushTip(): void {
+/** Where the tip drawn this frame is, in canvas coordinates, or null when none is showing. */
+export type TipRect = { left: number; top: number; width: number; height: number };
+
+/** Draws the tip queued this frame, if any; placed as BC places its own, beside the button.
+ * Returns where it went, so a screen with DOM controls can get them out of its way: the canvas
+ * cannot draw over a DOM element, so a tip would otherwise sit underneath one. */
+export function flushTip(): TipRect | null {
 	const t = pendingTip;
 	pendingTip = null;
-	if (!t) return;
+	if (!t) return null;
 	MainCanvas.save();
 	MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
 	const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
@@ -506,4 +511,30 @@ export function flushTip(): void {
 	MainCanvas.fillStyle = "black";
 	lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
 	MainCanvas.restore();
+	return { left, top, width: TIP_WIDTH, height };
+}
+
+/** Hide these DOM controls while they overlap the tip, and show them again once it has gone.
+ * `visibility`, not removal: the screens re-sync their controls every frame, and hiding keeps
+ * whatever is half-typed in a box. Rects are compared on screen, since the canvas is scaled. */
+export function clearTipOverlap(tip: TipRect | null, ids: string[]): void {
+	let scaleX = 0, scaleY = 0, originX = 0, originY = 0;
+	if (tip) {
+		const c = MainCanvas.canvas.getBoundingClientRect();
+		scaleX = c.width / MainCanvasWidth;
+		scaleY = c.height / MainCanvasHeight;
+		originX = c.left;
+		originY = c.top;
+	}
+	for (const id of ids) {
+		const el = document.getElementById(id);
+		if (!el) continue;
+		let covered = false;
+		if (tip) {
+			const r = el.getBoundingClientRect();
+			const l = originX + tip.left * scaleX, t = originY + tip.top * scaleY;
+			covered = r.left < l + tip.width * scaleX && r.right > l && r.top < t + tip.height * scaleY && r.bottom > t;
+		}
+		el.style.visibility = covered ? "hidden" : "";
+	}
 }

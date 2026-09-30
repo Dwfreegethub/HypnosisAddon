@@ -120,6 +120,7 @@ import {
 	TAB_WIDTH,
 	tipButton,
 	flushTip,
+	clearTipOverlap,
 } from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -1180,6 +1181,11 @@ const DURATION_HEIGHT = 56;
 /** Under the decay dropdown, which ends at 830, and clear of the panel floor at 902. */
 const DECAY_CAPTION_Y = 858;
 
+/** Every DOM control this screen can own. */
+function ownedControlIds(): string[] {
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+}
+
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
 	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
@@ -1662,12 +1668,14 @@ export function installMenu(): void {
 			removeScopeControl();
 			closeHelp();
 		},
-		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
+		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top — and
+		// any DOM control under it steps aside, since canvas cannot draw over one (DW: the page-3
+		// "earned only" tip went under the v0.98.0 number boxes).
 		run: () => {
 			try {
 				runSettings();
 			} finally {
-				flushTip();
+				clearTipOverlap(flushTip(), ownedControlIds());
 			}
 		},
 		click: () => {

@@ -56,8 +56,19 @@ The reasoning for each is in the Orientation section; this is the checklist.
 - **Live testing:** DW tests with the subject **Missy** and the hypnotist **Missys Helper**, in the
   **Hypno Testing** room. Write test steps as exact commands DW can paste, and write every command
   as `/echs …`, not `/hypno …` (both work; `/echs` is what players see).
-- **Local files that are not in git; leave them alone:** `job.md`, `NAMESPACE_COLLISION.MD`,
-  `trust.md`, `trust_edit.md`, `TEST_PLAN_v0.97.md`.
+- **Every build DW is to test comes with `script_test.md`** at the repo root, rewritten for that
+  build (DW asked for this on 2026-09-29, after the v0.98.2 script). What it contains:
+  - numbered steps with checkboxes, grouped by feature;
+  - each step gives **Do** (the exact command, chat line or click, and who does it), **Expect** (the
+    exact reply text or what appears on screen) and **Fail if** (what a broken build looks like);
+  - a setup section first: load the local build and confirm the version on the startup chat line,
+    back up with `/echs export`, and grant the permissions the tests need;
+  - a clean-up section last: `/echs import` the backup, then switch back to the normal script.
+
+  Take the expected text from the source, not from memory.
+- **Job briefs** are `job.md`, `job2.md`, … in the repo root: DW's specs, local and untracked.
+- **Local files that are not in git; leave them alone:** `job*.md`, `script_test.md`,
+  `NAMESPACE_COLLISION.MD`, `trust.md`, `trust_edit.md`, `TEST_PLAN_v0.97.md`.
 - **GreeterBot** (`../GreeterBot`, not a git repo) holds the public *Erotic Chat Hypnosis* room: size
   15 (`ROOM_LIMIT`, `src/connection.ts`), background `MainHall2` (Main Hall Gold), and a greeting
   whispered to each arrival. The greeting, room name and description live in `src/secrets.ts`, which

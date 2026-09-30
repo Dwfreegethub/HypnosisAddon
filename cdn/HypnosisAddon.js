@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.98.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.98.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -8473,7 +8473,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function flushTip() {
     const t = pendingTip;
     pendingTip = null;
-    if (!t) return;
+    if (!t) return null;
     MainCanvas.save();
     MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
     const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
@@ -8492,6 +8492,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillStyle = "black";
     lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
     MainCanvas.restore();
+    return { left, top, width: TIP_WIDTH, height };
+  }
+  function clearTipOverlap(tip, ids2) {
+    let scaleX = 0, scaleY = 0, originX = 0, originY = 0;
+    if (tip) {
+      const c = MainCanvas.canvas.getBoundingClientRect();
+      scaleX = c.width / MainCanvasWidth;
+      scaleY = c.height / MainCanvasHeight;
+      originX = c.left;
+      originY = c.top;
+    }
+    for (const id of ids2) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      let covered = false;
+      if (tip) {
+        const r = el.getBoundingClientRect();
+        const l = originX + tip.left * scaleX, t = originY + tip.top * scaleY;
+        covered = r.left < l + tip.width * scaleX && r.right > l && r.top < t + tip.height * scaleY && r.bottom > t;
+      }
+      el.style.visibility = covered ? "hidden" : "";
+    }
   }
 
   // src/help.ts
@@ -10041,6 +10063,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DURATION_WIDTH = 140;
   var DURATION_HEIGHT = 56;
   var DECAY_CAPTION_Y = 858;
+  function ownedControlIds() {
+    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+  }
   function removeScopeControl() {
     for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
@@ -10294,7 +10319,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -10373,12 +10398,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         removeScopeControl();
         closeHelp();
       },
-      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
+      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top — and
+      // any DOM control under it steps aside, since canvas cannot draw over one (DW: the page-3
+      // "earned only" tip went under the v0.98.0 number boxes).
       run: () => {
         try {
           runSettings();
         } finally {
-          flushTip();
+          clearTipOverlap(flushTip(), ownedControlIds());
         }
       },
       click: () => {
@@ -12040,7 +12067,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.2"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.3"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12063,7 +12090,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.98.2"} loaded`;
+    el.textContent = `ECHS v${"0.98.3"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12094,14 +12121,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.98.2"})`);
+  info(`script loaded (v${"0.98.3"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.98.2",
+      version: "0.98.3",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
