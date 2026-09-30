@@ -852,14 +852,12 @@ function drawDepthGates(): void {
 		const need = requiredDepth(gate.key);
 		const stepColor = locked ? "#ddd" : granted ? "White" : "#eee";
 		tipButton(
-			DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "",
-			locked ? "Locked until this session ends" : "Reachable in a lighter trance",
+			DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "", "",
 			locked || need <= 0,
 		);
 		drawDepthInput(gate.key, top, need, locked);
 		tipButton(
-			DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "",
-			locked ? "Locked until this session ends" : "Needs a deeper trance",
+			DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "", "",
 			locked || need >= MAX_GATE_DEPTH,
 		);
 		drawLeftTextFit(
@@ -963,7 +961,8 @@ function drawDepthInput(key: keyof FeatureToggles, top: number, need: number, lo
 		element.addEventListener("keydown", function (this: HTMLInputElement, event: KeyboardEvent) {
 			if (event.key === "Enter") this.blur();
 		});
-		element.addEventListener("wheel", ElementNumberInputWheel as any);
+		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's to every number
+		// box, and a second one stepped two at a time.
 	}
 	if (document.activeElement !== element) element.value = String(need);
 	element.disabled = locked;
@@ -1308,7 +1307,8 @@ function drawDurationControl(locked: boolean): void {
 			this.value = String(saved);
 			log(`trigger duration set to ${saved} min`);
 		});
-		element.addEventListener("wheel", ElementNumberInputWheel as any);
+		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's, and a second
+		// one stepped two at a time.
 	}
 	if (document.activeElement !== element) element.value = String(getTriggerDuration());
 	element.disabled = locked;

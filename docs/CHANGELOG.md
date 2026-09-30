@@ -20,6 +20,19 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-09-29 (v0.98.1) — number boxes step once per wheel notch; no hover tips on -5/+5
+
+Found in DW's first test of v0.98.0, which never reached players, so the root CHANGELOG folds both
+into one v0.98.1 entry. R132's `ElementCreateInput` already attaches `ElementNumberInputWheel` to
+every `type: "number"` box, so our own second listener stepped the Depth boxes, and the older
+trigger-duration box, two at a time. Both extra listeners removed. DW asked for no hover text on
+-5/+5 ("I dont think we need to tell people what a +5 button does").
+
+DW also reported that v0.98.0 "zeroed out" the depths. Traced, and it was not a loss: every gate
+was stored as "drifting", which is what the wizard's Easy answer and the Extreme preset write
+(applySetup), and Drifting's floor is 0. A simulated 0.97.4 profile with every gate "yielding"
+loads as 20 on every row. Extreme's depth gates move to 20 in job2's wizard overhaul.
+
 ### Changed 2026-09-29 (v0.98.0) — numeric depth gates, a read-only banner, trust shown by nickname
 
 From DW's brief (`job.md`, local and untracked). Three parts, one PR on `feat/numeric-depth`.
