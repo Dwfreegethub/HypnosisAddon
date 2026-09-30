@@ -32,7 +32,7 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
 | **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
-| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active trance. |
+| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active session. Locked, the screen still opens so you can read every setting, with a yellow *Read-only* banner across the top; nothing on it can be changed until the session ends. |
 
 *Additional Permissions Controls:*
 * **Induction Attempt Limit:** Choose between 2 or 3 attempts before triggering a 10-minute cooldown (default: 2).
@@ -105,11 +105,11 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 
 ## 6. Depth Tab
 
-* **Per-Feature Tier Assignments:** Move any individual feature up or down the depth tiers (*Drifting, Yielding, Entranced, Deep, Blank*). Tier gates are personal comfort settings, not rigid game limits.
+* **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
 * **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
 * **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
-* **Reset Depth Gates:** Restores all tier thresholds to standard defaults.
+* **Reset to defaults:** Puts every feature back to its standard depth.
 
 ---
 
@@ -117,7 +117,7 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 
 Accessible via the **Advanced** toggle below the tabs:
 
-* **Trust & Experience Records:** Read-only breakdown of per-person interaction counts and your personal subject experience pool.
+* **Trust & Experience Records:** Read-only breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*.
 * **Trust Decay Rate:** Configures how fast earned familiarity fades over prolonged periods without contact (*Off* by default).
 * **Relationship Baselines:** Displays active baseline access granted by native BC Friends, Lovers, or Owners.
 

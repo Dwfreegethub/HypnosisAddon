@@ -473,11 +473,11 @@ interface HypnoAddonSettings {
 	 * someone has built with you, a trigger is a thing left inside you, and wanting one to
 	 * persist says nothing about the other. */
 	triggerDecayRate: DecayRate;
-	/** Per-feature depth requirements, as tier NAMES, and ONLY where the player has changed
-	 * one. The defaults live in depth.ts, so retuning them moves everyone who has not made a
+	/** Per-feature depth requirements, as NUMBERS 0-99 (tier names before v0.98.0, migrated on
+	 * load), and ONLY where the player has changed one. The defaults live in depth.ts, so retuning them moves everyone who has not made a
 	 * choice — the same principle as the decay rates. A stored copy of every default would
 	 * freeze the design at whatever it was the day somebody first opened the screen. */
-	depthGates: Record<string, string>;
+	depthGates: Record<string, number>;
 	/** Which earned-only features the subject has chosen to let CHEMICAL depth reach — the
 	 * per-feature toggle decided 2026-09-08. Sparse and true-only: a key present with `true`
 	 * means "arousal may take me here"; absence means the earned-only default. Only the two
@@ -682,6 +682,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// someone has taken or waved off the starter offer or finished the wizard.
 	if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
 	if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
+	migrateDepthGates(s.depthGates);
 	if (!s.chemicalReach || typeof s.chemicalReach !== "object") s.chemicalReach = {};
 	if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
 	if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
@@ -773,11 +774,31 @@ export function getTrust(memberId: number): TrustEntry | undefined {
 }
 
 /** Trust with this person as a 0-100 value, derived from their interaction count. */
-/** A player's depth override for one feature, or "" if they have not set one. Returns a
- * loose string rather than the DepthTier type so storage.ts stays a leaf that depth.ts can
- * import without the two depending on each other. */
-export function getDepthOverride(key: string): any {
-	return loadSettings().depthGates[key] ?? "";
+/** The floor of each tier, for turning a pre-v0.98.0 saved tier name into its number. Spelt out
+ * here rather than imported from depth.ts so storage.ts stays a leaf that depth.ts can import;
+ * test/depth.mjs checks the two agree. */
+export const LEGACY_GATE_TIERS: Record<string, number> = { drifting: 0, yielding: 20, entranced: 40, deep: 60, blank: 80 };
+
+/** Depth gates became numbers in v0.98.0. A stored tier name becomes that tier's floor, so every
+ * choice a player made means exactly what it did before; a number is rounded into 0-99; anything
+ * else is deleted so the default governs, the skillHonour rule. */
+export function migrateDepthGates(gates: Record<string, unknown>): void {
+	for (const [key, value] of Object.entries(gates)) {
+		const n =
+			typeof value === "string" && value in LEGACY_GATE_TIERS
+				? LEGACY_GATE_TIERS[value]
+				: typeof value === "number" && Number.isFinite(value)
+					? Math.min(99, Math.max(0, Math.round(value)))
+					: null;
+		if (n === null) delete gates[key];
+		else gates[key] = n;
+	}
+}
+
+/** A player's depth override for one feature, or undefined if they have not set one. */
+export function getDepthOverride(key: string): number | undefined {
+	const value = loadSettings().depthGates[key];
+	return typeof value === "number" ? value : undefined;
 }
 
 /** Whether the subject has opened this feature to chemical depth. True-only + sparse: setting
@@ -793,9 +814,12 @@ export function setChemicalReach(key: string, allowed: boolean): void {
 	saveSettings();
 }
 
-export function setDepthOverride(key: string, tier: string): void {
-	loadSettings().depthGates[key] = tier;
+/** Returns what was saved, after rounding and clamping to 0-99. */
+export function setDepthOverride(key: string, depth: number): number {
+	const n = Number.isFinite(depth) ? Math.min(99, Math.max(0, Math.round(depth))) : 0;
+	loadSettings().depthGates[key] = n;
 	saveSettings();
+	return n;
 }
 
 export function clearDepthOverrides(): void {
@@ -863,6 +887,12 @@ export function trustWith(memberId: number): number {
 	return valueFromCount(applyDecay(getTrust(memberId)), H_TRUST);
 }
 
+/** A name worth storing against a trust entry: not empty, and not the bare "#123456" older code
+ * wrote when the character could not be found — storing that over a real name lost it. */
+function isRealName(name: string): boolean {
+	return !!name && !/^#\d+$/.test(name);
+}
+
 /** Add (or with a negative delta, remove) interactions. The only way trust moves —
  * conversation, the induction accelerator and decay all come through here. */
 export function addInteractions(memberId: number, memberName: string, delta: number): TrustEntry {
@@ -873,7 +903,7 @@ export function addInteractions(memberId: number, memberName: string, delta: num
 		settings.trust.push(entry);
 	}
 	entry.interactions = Math.max(0, entry.interactions + delta);
-	if (memberName) entry.memberName = memberName;
+	if (isRealName(memberName)) entry.memberName = memberName;
 	entry.lastUpdated = Date.now();
 	saveSettings();
 	return entry;
@@ -889,7 +919,7 @@ export function setTrustValue(memberId: number, memberName: string, value: numbe
 		settings.trust.push(entry);
 	}
 	entry.interactions = countFromValue(value, H_TRUST);
-	entry.memberName = memberName;
+	if (isRealName(memberName)) entry.memberName = memberName;
 	entry.lastUpdated = Date.now();
 	saveSettings();
 	return entry;

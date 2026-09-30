@@ -29,7 +29,7 @@ import {
 	DecayRate,
 	RelationKind,
 } from "./storage";
-import { describeTrust, describeRelationship, relationshipWith, accessFor } from "./trust";
+import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
 import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
 import { describeCarry, releaseCarried } from "./carry";
@@ -53,7 +53,7 @@ import {
 	DEPTH_GATES,
 	tierOf,
 	tierLabel,
-	requiredTier,
+	depthLabel,
 	requiredDepth,
 	depthAllows,
 	setCurrentDepths,
@@ -541,7 +541,7 @@ const COMMANDS: HypnoCommand[] = [
 			if (!target) return;
 			const entry = setTrustValue(target.id, target.name, value);
 			reply(
-				`trust with ${entry.memberName} → ${trustWith(target.id).toFixed(1)} ` +
+				`trust with ${trustEntryLabel(entry)} → ${trustWith(target.id).toFixed(1)} ` +
 					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
 		},
@@ -1020,7 +1020,7 @@ const COMMANDS: HypnoCommand[] = [
 			if (!target) return;
 			const entry = addInteractions(target.id, target.name, delta);
 			reply(
-				`trust with ${entry.memberName} → ${trustWith(target.id).toFixed(1)} ` +
+				`trust with ${trustEntryLabel(entry)} → ${trustWith(target.id).toFixed(1)} ` +
 					`(${entry.interactions.toFixed(1)} interactions)`,
 			);
 		},
@@ -1053,7 +1053,7 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			forgetTrust(entry.memberId);
-			reply(`Forgot ${entry.memberName} [${entry.memberId}] — ${entry.interactions.toFixed(1)} interactions gone.`);
+			reply(`Forgot ${trustEntryLabel(entry)} — ${entry.interactions.toFixed(1)} interactions gone.`);
 		},
 	},
 	{
@@ -1221,8 +1221,8 @@ const COMMANDS: HypnoCommand[] = [
 				// problems with different fixes and look identical from outside.
 				const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
 				reply(
-					`  ${verdict.padEnd(16)} ${gate.label} — needs ${tierLabel(requiredTier(gate.key))} ` +
-						`(${requiredDepth(gate.key)})${gate.earnedOnly ? ", earned only" : ""}`,
+					`  ${verdict.padEnd(16)} ${gate.label} — needs ${depthLabel(requiredDepth(gate.key))}` +
+						`${gate.earnedOnly ? ", earned only" : ""}`,
 				);
 			}
 		},

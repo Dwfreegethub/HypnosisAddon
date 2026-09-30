@@ -3,7 +3,7 @@ import { commandHelp } from "./commands";
 import { getTriggerDuration, getTriggerScope, getMaxAttempts } from "./storage";
 import { TRIGGER_SCOPES, TRIGGER_TRUST_THRESHOLD } from "./triggers";
 import { CARRY_TRUST_THRESHOLD } from "./carry";
-import { DEPTH_GATES, DEPTH_TIERS, tierLabel } from "./depth";
+import { DEPTH_GATES, DEPTH_TIERS, tierLabel, tierOf } from "./depth";
 import { isTestingMode } from "./log";
 import {
 	TITLE_Y,
@@ -155,7 +155,7 @@ function depthLadder(): HelpLine[] {
 	lines.push(head("What each depth reaches"));
 	let anyEarned = false;
 	for (const t of DEPTH_TIERS) {
-		const here = DEPTH_GATES.filter((g) => g.tier === t.key);
+		const here = DEPTH_GATES.filter((g) => tierOf(g.depth) === t.key);
 		if (!here.length) continue;
 		const names = here
 			.map((g) => {
@@ -168,8 +168,8 @@ function depthLadder(): HelpLine[] {
 	if (anyEarned) {
 		lines.push(dim("* earned depth only — arousal cannot reach these by default (below)."));
 	}
-	lines.push(dim("Deeper is a consent setting, not a difficulty: the Depth tab moves"));
-	lines.push(dim("any of these up or down for yourself."));
+	lines.push(dim("These are the defaults. Deeper is a consent setting, not a difficulty:"));
+	lines.push(dim("the Depth tab sets any of them to a number from 0 to 99 for yourself."));
 	return lines;
 }
 

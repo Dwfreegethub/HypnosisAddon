@@ -23,7 +23,7 @@ import {
 	getStarterState,
 	setStarterState,
 } from "./storage";
-import { DEPTH_GATES } from "./depth";
+import { DEPTH_GATES, tierMinimum } from "./depth";
 import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap } from "./panel";
 
 // --- the feature universe this screen manages ------------------------------------------------
@@ -80,8 +80,8 @@ export function applySetup(cfg: SetupConfig): void {
 	if (cfg.access === "earned") {
 		clearDepthOverrides();
 	} else {
-		const tier = cfg.access === "easy" ? "drifting" : "deep";
-		for (const gate of DEPTH_GATES) setDepthOverride(gate.key, tier);
+		const depth = cfg.access === "easy" ? tierMinimum("drifting") : tierMinimum("deep");
+		for (const gate of DEPTH_GATES) setDepthOverride(gate.key, depth);
 	}
 
 	setChemicalScope(cfg.arousalShortcut ? "arousal" : "neither");

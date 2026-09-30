@@ -20,7 +20,48 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Fixed 2026-09-27 (v0.97.4) — hover tips on the settings screen wrap instead of shrinking
+### Changed 2026-09-29 (v0.98.0) — numeric depth gates, a read-only banner, trust shown by nickname
+
+From DW's brief (`job.md`, local and untracked). Three parts, one PR on `feat/numeric-depth`.
+
+**Depth gates are numbers 0-99.** `DepthGate.tier` became `DepthGate.depth` (defaults unchanged:
+each is its old tier's floor), `requiredDepth()` reads the override or the default, and
+`requiredTier()` is now derived from it via `tierOf()`. `depthGates` in storage holds numbers;
+`migrateDepthGates()` in `normalise()` turns a saved tier name into its floor (drifting 0, yielding
+20, entranced 40, deep 60, blank 80), rounds and clamps numbers into 0-99, and deletes anything else
+so the default governs (the skillHonour rule). It runs on load and on import. The floors are spelt out
+in storage.ts (`LEGACY_GATE_TIERS`) so storage stays a leaf; `test/depth.mjs` checks they match
+`DEPTH_TIERS`. 99, not 100, is the ceiling a gate may ask for: 99 is still inside Blank, so every
+gate stays reachable. The brief's "never: 100" mapping is not built — DW chose to convert only the
+feature gates (the "Sink deeper stops at" ceiling keeps its named rungs, including *Never deeper*).
+The earned-only split is untouched: `depthAllows()` still picks earned or full depth per feature
+before comparing.
+
+The Depth tab's click-to-cycle button became -5 / a number box / +5 plus the tier in brackets.
+The box is a DOM input per visible row (`HypnosisAddonDepth-<key>`), made for the page showing and
+removed on page change, tab change and every exit (`removeDepthInputs()`, called from
+`syncTabControls` and `removeScopeControl`). It commits on blur or Enter, not per keystroke — the
+trigger-duration box's rule — and re-checks `settingsLocked()` in the blur handler, because a box
+focused before a session began can blur after. Refusals and `/echs gates` now say
+`needs 60 [Deep], at 45 [Entranced]` (`depthLabel()`); "at" floors rather than rounds, so 39.6 reads
+39 [Yielding] and is not shown as if it met a 40 gate.
+
+**Read-only settings.** Already true since v0.65.1: the screen opens while locked, every control is
+disabled and every click handler consumes without acting. What the brief found missing was that it
+did not *look* locked — only the grey blurb line changed. It is now a yellow banner across the blurb
+band. DW decided no on-screen safeword button: `/echs safeword` stays the way out, and the banner
+says so.
+
+**Trust names.** Entries already stored a name, but the account name, and two callers passed a
+`#123456` fallback when the character was not on the roster — which `addInteractions` then wrote over
+the real name, so a known partner could turn into a number. Now `displayNameOf()` (trust.ts) prefers
+the nickname (read off the character, not BC's `CharacterNickname`, which returns a GGTS stand-in in
+the asylum); callers pass "" when nobody is found; `isRealName()` in storage refuses to store "" or a
+bare `#n`. Display goes through `trustEntryLabel()`: the live name if they are in the room, else the
+stored one, as `Name (#123456)`, used by the Stats tab, `/echs logtrust`, `forgettrust` and the trust
+log lines. New suite `test/trust-names.mjs` (12).
+
+ — hover tips on the settings screen wrap instead of shrinking
 
 DW: "The pop up text is very small on some of the helps that you just added." BC's
 `DrawButtonHover` (Drawing.js, R132) is a fixed 450 x 65 box and `DrawTextFit`s the tip onto one

@@ -186,7 +186,7 @@ session.safeword();
 session.forceTrance(HYP, 10, 10); // Drifting; compelActivity needs Yielding
 say("Missy, touch your breasts.");
 check("too shallow: refused for depth", runCalls.length, 0);
-check("  named as a depth refusal", /needs Yielding/.test(lastReport()), true);
+check("  named as a depth refusal", /needs 20 \[Yielding\]/.test(lastReport()), true);
 
 // --- recordable into a trigger, then fired (the bug DW hit, v0.72.4) ------------------------
 // A compelled command was PERFORMED instead of joining the trigger being recorded. It must be
@@ -221,7 +221,7 @@ check("firing the trigger performs the activity for real", lastRun(), { activity
 session.safeword();
 storage.forgetAllTriggers();
 storage.setTriggerDecayRate("never"); // strength == planted depth, no decay to reason about
-storage.setDepthOverride("triggerControl", "drifting"); // so we can deliberately plant shallow
+storage.setDepthOverride("triggerControl", 0); // so we can deliberately plant shallow
 
 session.forceTrance(HYP, 15, 15);
 say("Missy, your trigger word is weakone.");
@@ -241,7 +241,7 @@ session.safeword();
 reset();
 say("strongone");
 check("a deep-enough trigger DOES fire its compel", lastRun(), { activity: "Caress", group: "ItemBreast" });
-storage.setDepthOverride("triggerControl", "deep");
+storage.setDepthOverride("triggerControl", 60);
 storage.forgetAllTriggers();
 
 session.safeword();

@@ -12,6 +12,20 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.98.0 · 29 September 2026
+
+- **How deep each feature needs you to be is now a number from 0 to 99**, set on the Depth tab.
+  Type it in, or use the -5 and +5 buttons; the tier it falls in is shown beside it, like
+  *45 [Entranced]*. Any depths you had already chosen carry over exactly: Yielding becomes 20,
+  Entranced 40, Deep 60, Blank 80.
+- When a hypnotist is told something is too deep for you, they now see both numbers, like
+  *needs 60 [Deep], at 45 [Entranced]*.
+- **Locked settings are easier to read.** While a session locks your settings, the screen shows a
+  yellow *Read-only* banner across the top. You can still look through every tab; nothing changes.
+- **The trust list shows people by the name they go by**, their nickname if they have one, with
+  their member number after it: *Rei (#123456)*. Someone briefly out of view no longer turns into a
+  bare number.
+
 ## v0.97.4 · 27 September 2026
 
 - **The yellow pop-up help on the settings screen is readable again.** Longer ones used to shrink to

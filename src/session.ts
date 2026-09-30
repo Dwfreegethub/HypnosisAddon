@@ -23,6 +23,7 @@ import {
 	noteInductionSuccess,
 	noteInductionAttempt,
 	noteDeepenSuccess,
+	trustNameFor,
 	accessFor,
 	relationshipWith,
 	describeRelationship,
@@ -1073,7 +1074,7 @@ function runInductionRoll(): void {
 	if (depths && !slipped) {
 		enterTrance(depths.full, depths.earned);
 		// The accelerator, and the practice. Both halves only on success.
-		noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
+		noteInductionSuccess(session.hypnotistId, trustNameFor(session.hypnotistId));
 		notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
 		// The room's cue that it landed — the only signal the hypnotist gets, since the line
 		// above is the subject's alone. Here rather than in applyTranceState so a reconnect,

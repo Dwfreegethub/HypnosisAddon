@@ -248,7 +248,7 @@ session.forceTrance(HYP, 10, 10);
 reset();
 say("Missy, kiss Rei.");
 check("too shallow: refused for depth", runCalls.length, 0);
-check("  named as a depth refusal", /needs Yielding/.test(lastReport()), true);
+check("  named as a depth refusal", /needs 20 \[Yielding\]/.test(lastReport()), true);
 
 // --- no session, no command ---------------------------------------------------------------
 session.safeword();

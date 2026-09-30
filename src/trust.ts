@@ -68,7 +68,7 @@ export function noteConversation(sender: number, senderName: string, directed: b
 	const gain = directed ? DIRECTED_MULTIPLIER : 1;
 	const entry = addInteractions(sender, senderName, gain);
 	log(
-		`trust +${gain} with ${entry.memberName} (${directed ? "directed" : "ambient"}) → ` +
+		`trust +${gain} with ${trustEntryLabel(entry)} (${directed ? "directed" : "ambient"}) → ` +
 			`${entry.interactions.toFixed(1)} interactions = ${valueFromCount(entry.interactions, H_TRUST).toFixed(1)}`,
 	);
 }
@@ -86,7 +86,7 @@ export function noteInductionSuccess(hypnotistId: number, hypnotistName: string)
 	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS);
 	const exp = addExperience(INDUCTION_EXPERIENCE);
 	log(
-		`induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${entry.memberName} → ` +
+		`induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${trustEntryLabel(entry)} → ` +
 			`trust ${trustWith(hypnotistId).toFixed(1)}; experience → ${exp.toFixed(1)}`,
 	);
 }
@@ -164,6 +164,28 @@ function characterFor(memberId: number): any {
 	);
 }
 
+/** The name a player goes by: their nickname, else their account name, else "" when there is no
+ * character to read. Read straight off the character rather than through BC's CharacterNickname,
+ * which returns a GGTS stand-in inside the asylum — a name worth showing, not storing. */
+export function displayNameOf(C: any): string {
+	const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
+	return nick || (typeof C?.Name === "string" ? C.Name : "");
+}
+
+/** The name to store against a trust entry for someone in the room, or "" if they are not here.
+ * "" leaves an existing stored name alone (addInteractions keeps it); the old `#123456` fallback
+ * overwrote a real name with a bare number whenever the character could not be found. */
+export function trustNameFor(memberId: number): string {
+	return displayNameOf(characterFor(memberId));
+}
+
+/** How a trust entry is shown (v0.98.0, job.md): the name they go by now if they are in the room,
+ * else the one stored when trust last moved, with the member number after it — "Rei (#123456)". */
+export function trustEntryLabel(t: { memberId: number; memberName?: string }): string {
+	const name = trustNameFor(t.memberId) || t.memberName || "";
+	return name && !/^#\d+$/.test(name) ? `${name} (#${t.memberId})` : `#${t.memberId}`;
+}
+
 /** What BC says this person is to us — or what `/hypno relate` has been told to pretend.
  *
  * Highest wins: an owner who is also on the friend list is an owner. Friend is checked off
@@ -212,7 +234,7 @@ export function trustStatRows(): TrustStatRow[] {
 		.slice()
 		.sort((a, b) => b.interactions - a.interactions)
 		.map((t) => ({
-			name: `${t.memberName} [${t.memberId}]`,
+			name: trustEntryLabel(t),
 			trust: trustWith(t.memberId).toFixed(1),
 			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastUpdated)}`,
 		}));
@@ -242,7 +264,7 @@ export function describeTrust(): string[] {
 				const self = typeof Player?.MemberNumber === "number" && t.memberId === Player.MemberNumber;
 				const hidden = self ? "  <- YOU (hidden, purged on next load)" : t.interactions <= 0 ? "  <- worn out (hidden)" : "";
 				return (
-					`${t.memberName} [${t.memberId}]: trust ${trustWith(t.memberId).toFixed(1)} ` +
+					`${trustEntryLabel(t)}: trust ${trustWith(t.memberId).toFixed(1)} ` +
 					`(${t.interactions.toFixed(1)} interactions)${hidden}`
 				);
 			}),
