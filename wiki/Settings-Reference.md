@@ -22,7 +22,7 @@ What others may do to you. Everything here is off until you turn it on.
 | Setting | What It Allows |
 |---|---|
 | **Hypnosis Enabled** | The master toggle and absolute floor. Disabling this shuts down the add-on, immediately breaks active trances, and purges all effects (identical to the safeword). Re-enabling it later restores your toggles without reapplying old effects. |
-| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active session. Locked, the screen still opens so you can read every setting, with a yellow *Read-only* banner across the top; nothing on it can be changed until the session ends. |
+| **Lock settings while a session is on you** | Toggles whether this settings menu is locked during an active session. Locked, the screen still opens so you can read every setting, with a yellow *Read-only* banner across the top; nothing on it can be changed until the session ends. |
 
 **Below them, in groups (scroll for the rest):**
 
@@ -85,11 +85,11 @@ Defines baseline states that engage automatically when an induction succeeds, be
 |---|---|---|
 | **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. |
 | **Cannot Speak** | On | The trance silences standard room speech automatically. |
-| **Silence OOC Too** | Off | By default, single-parentheses OOC text `(like this)` passes through muted speech. Enabling this suppresses OOC chat while silenced. |
+| **Silence OOC too (text in parentheses)** | Off | By default, single-parentheses OOC text `(like this)` passes through muted speech. Enabling this suppresses OOC chat while silenced. |
 | **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
-| **Release on Disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
+| **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
 
 ---
 
@@ -108,14 +108,14 @@ Controls perceptual filtering — what your character can be hypnotically made n
 
 Manages long-term suggestions and conditioned words:
 
-* **Allow Triggers to Be Planted:** Master permission for storing trigger words in your client.
-* **Suggestions That Outlive Trance (Carry-Forward):** Allows post-hypnotic suggestions to remain active after waking.
-* **Self-Triggering:** Permits you to trigger your own planted words (off by default).
-* **Show Trigger Words:** Shows your trigger words in the trigger list and in chat. Off by default: your words appear as "..." in chat and are left out of the list, for blind trigger play.
-* **Triggers Fire Only on Whole Words:** A trigger no longer fires inside a longer word (*"sleepy"* stops firing on *"sleepyhead"*). Off by default.
-* **Trigger Duration:** Sets how long a triggered state persists before releasing (or until manually dispelled).
-* **Trigger Decay Rate:** Configures how quickly dormant planted triggers naturally fade over time (*Never · Very Slowly · Slowly · Typical · Fast · Very Fast*; default: *Never*).
-* **Trigger Scope:** A permission ladder governing who can fire your triggers (*Hypnotist Only* up to *Anyone*). A hypnotist can ask for less for one trigger, never more.
+* **Allow triggers to be planted in you:** Master permission for storing trigger words in your client.
+* **Suggestions that outlive the trance** (carry-forward): Allows post-hypnotic suggestions to remain active after waking.
+* **You can fire your own triggers:** Permits you to set off your own planted words by saying them (off by default).
+* **Show trigger words when you list them:** Shows your trigger words in the trigger list and in chat. Off by default: your words appear as "..." in chat and are left out of the list, for blind trigger play.
+* **Triggers fire only on whole words:** A trigger no longer fires inside a longer word (*"sleepy"* stops firing on *"sleepyhead"*). Off by default.
+* **Minutes a fired trigger lasts (0 = until released):** How long a fired trigger's effects hold before letting go by themselves (default: 5). 0 means they stay until released by name or by the safeword.
+* **Triggers fade without reinforcement:** How quickly planted triggers fade when not kept up (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*). The line under it says roughly how long that means.
+* **Who else can fire triggers planted in you:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
 * **Longest a New Trigger Lasts:** Gives every trigger planted from now on a time limit (*No limit · 15 minutes · 30 minutes · 1 hour · 2 hours · 6 hours · 1 day*; default: *No limit*). Triggers you already have are not shortened.
 * **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). Scroll down the tab to reach it. See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
 
@@ -129,15 +129,16 @@ Lists the triggers planted in you, six to a page: who planted each one and how s
 * **Purge:** Removes that trigger. Refused while the trigger is holding you (the button reads *Holding*).
 * **Clear All:** Removes every trigger, including any you cannot see. Refused while a trigger is holding you or a session is running, with the reason shown beside it; otherwise it asks you to click twice.
 
-Purge and Clear All are not affected by the setting lock: removing something planted in you is always available.
+Purge and Clear All are not affected by the session lock: removing something planted in you stays available during a scene. The one exception is the **Extreme lock** you can choose in setup, which blocks both until it ends (see [The Extreme lock](#the-extreme-lock)).
 
 ---
 
 ## 7. Depth Tab
 
 * **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
-* **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
-* **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
+* **earned only / arousal ok** (on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): click to let arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
+* **Chemicals count:** What may push you deeper besides trust (*Arousal + drugs · Arousal only · Drugs only · Neither*; default: *Arousal only*). Drugs are not built yet, so today *Drugs only* and *Neither* both mean arousal does not count. It never reaches the three earned-only rows unless you open them above.
+* **A hypnotist's skill:** How much of a hypnotist's own practice may help them put you under (*Ignore it · Only from people I trust · Honour, capped · Full from people I trust, capped otherwise*; default: *Full from people I trust, capped otherwise*). Their skill is shown to you as a feeling, never a number, and never reaches the three earned-only rows.
 * **"Sink deeper" stops at:** moved to the **Inductions** tab in v0.100.0.
 * **Reset to defaults:** Puts every feature back to its standard depth.
 
@@ -148,8 +149,8 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 Accessible via the **Advanced** toggle below the tabs:
 
 * **Trust & Experience Records:** Read-only breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*.
-* **Trust Decay Rate:** Configures how fast earned familiarity fades over prolonged periods without contact (*Off* by default).
-* **Relationship Baselines:** Displays active baseline access granted by native BC Friends, Lovers, or Owners.
+* **Trust fades when you don't see someone:** How fast trust fades without contact (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*).
+* **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#10-data--backup).
 
 ---
 

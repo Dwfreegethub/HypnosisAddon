@@ -195,8 +195,11 @@ Awareness hides the **chat messages** about what is done to you. It does not cha
 | Say | Needs |
 |---|---|
 | *"you will not notice being undressed"* · *"you will not notice when I strip you"* | Clothing Changes · **Drifting** |
+| *"you notice being undressed again"* · *"clothing changes register again"* | — *release* |
 | *"you will not notice the ropes"* · *"you do not notice being tied"* | Bondage Changes · **Drifting** |
+| *"you notice the ropes again"* | — *release* |
 | *"you will ignore my touches"* | Touches / Activities · **Drifting** |
+| *"you notice my touches again"* · *"you register my touch"* | — *release* |
 | *"you notice nothing"* · *"you are unaware"* | Enables all three simultaneously |
 | *“you notice everything again”* · *“you can notice again”* | — *releases all three, plus clothing illusions* |
 
