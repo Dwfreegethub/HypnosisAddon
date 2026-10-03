@@ -1038,7 +1038,9 @@ function removeDepthInputs(keep: string[] = []): void {
 }
 
 function clickDepthGates(): boolean {
-	if (settingsLocked()) return true; // consume, so a locked screen cannot be edited by touch
+	// Paging first, and NOT under the lock: turning a page only reads, the same reason the scroll
+	// bar works while locked. It used to sit below the lock check, so a locked player could see
+	// page 1 and nothing else (Veronica's feedback, 2026-09-19; fixed v0.100.2).
 	if (depthPageCount() > 1) {
 		if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
 			depthPage = Math.max(0, depthPage - 1);
@@ -1049,6 +1051,7 @@ function clickDepthGates(): boolean {
 			return true;
 		}
 	}
+	if (settingsLocked()) return true; // consume, so a locked screen cannot be edited by touch
 	if (MouseIn(SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
 		const next: ChemicalScope = nextScope(getChemicalScope());
 		setChemicalScope(next);

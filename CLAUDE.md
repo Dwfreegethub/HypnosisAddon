@@ -71,7 +71,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
 
   Take the expected text from the source, not from memory.
 - **Job briefs** are `job.md`, `job2.md`, … in the repo root: DW's specs, local and untracked.
-- **Local files that are not in git; leave them alone:** `job*.md`, `script_test*.md` (older builds' scripts keep a version suffix),
+- **Local files that are not in git; leave them alone:** `job*.md`, `script_test*.md` (older builds' scripts keep a version suffix), `feedback_review.md` (the GreeterBot feedback, checked against the code — keep it current),
   `NAMESPACE_COLLISION.MD`, `trust.md`, `trust_edit.md`, `TEST_PLAN_v0.97.md`.
 - **GreeterBot** (`../GreeterBot`, not a git repo) holds the public *Erotic Chat Hypnosis* room: size
   15 (`ROOM_LIMIT`, `src/connection.ts`), background `MainHall2` (Main Hall Gold), and a greeting
