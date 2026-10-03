@@ -1,101 +1,136 @@
-// First-run setup: quick presets, or a few questions.
+// First-run setup: one-click templates, or five questions (v0.99.0, job2.md).
 //
 // Replaces the tabbed settings screen while the subject has not yet been set up (starterState
-// "new", i.e. a fresh install or a reset) and whenever they ask to run it again. Nothing here
-// LOCKS anything — it only fills settings the player can then edit, exactly as design.md's
-// wizard note requires. Everything it sets is reachable and reversible on the ordinary tabs.
+// "new", i.e. a fresh install or a reset) and whenever they ask to run it again. Every page has a
+// Cancel that leaves without changing anything. The templates and the questions fill settings the
+// player can then edit on the ordinary tabs — except Extreme, which, once its warning is confirmed,
+// starts the progressive lock (extreme.ts) and is the only thing here that locks anything.
 //
-// The apply core (applySetup / the presets) is pure with respect to storage, so the test suite
-// drives it without a canvas. Only the drawing and click routing touch BC globals.
+// The apply core (applySetup / the templates / the answers) is pure with respect to storage, so the
+// test suite drives it without a canvas. Only the drawing and click routing touch BC globals.
 
 import {
 	FeatureToggles,
+	TriggerScope,
+	DropMode,
+	DecayRate,
 	setFeature,
-	getFeatures,
 	setDepthOverride,
 	clearDepthOverrides,
 	setChemicalScope,
-	setSkillHonour,
+	resetSkillHonour,
 	setDeepestTier,
 	DEFAULT_DEEPEST,
 	setTriggerDecayRate,
 	setChemicalReach,
 	getStarterState,
 	setStarterState,
+	setDefaultStance,
+	setAwayStance,
+	DEFAULT_AWAY_STANCE,
+	setToyMode,
+	setToyScope,
+	DEFAULT_TOY_SCOPE,
+	setTriggerScope,
+	setDropMode,
+	setTriggerLifespan,
 } from "./storage";
-import { DEPTH_GATES, tierMinimum } from "./depth";
+import { DEPTH_GATES } from "./depth";
+import { EXTREME_WARNING, startExtremeTrial } from "./extreme";
+import { tellPlayer } from "./notify";
 import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap } from "./panel";
 
-// --- the feature universe this screen manages ------------------------------------------------
-// Deliberately NOT the trance defaults (they ship on) nor lockedWhileHypnotized (never auto-on,
-// it removes an exit). Just the subject permissions.
-const GROUP_FEATURES: Record<string, (keyof FeatureToggles)[]> = {
-	movement: ["movementRestriction", "speechRestriction", "postureControl", "clothingRestriction"],
-	undress: ["undressControl", "selfTouchControl"],
-	arousal: ["arousalControl"],
-	compel: ["compelActivity"],
-	perception: ["suppressClothing", "suppressBondage", "suppressActivities", "illusionControl"],
-	lasting: ["triggerControl", "carryForward"],
-};
-// Touching OTHER people is its own consent (v0.84.0) and no wizard question grants it — only
-// Extreme, which is "everything on". Listed here so every other answer turns it off.
-const ALL_FEATURES: (keyof FeatureToggles)[] = [
-	"hypnoEnabled",
-	...Object.values(GROUP_FEATURES).flat(),
+// --- what a setup writes ------------------------------------------------------------------------
+/** The permissions and grants a setup decides. Each is set ON if the setup lists it, otherwise OFF
+ * (job2.md §5.2: "anything not listed is OFF"). The player's own preferences — showing trigger
+ * words, firing their own, whole-word matching, release on disconnect, OOC silence, the room seeing
+ * reactions, hiding trigger setup — are not a setup's business and are left alone. */
+const MANAGED_FEATURES: (keyof FeatureToggles)[] = [
+	"movementRestriction",
+	"clothingRestriction",
+	"postureControl",
+	"followControl",
+	"speechRestriction",
+	"selfTouchControl",
+	"compelActivity",
 	"compelTouchOthers",
-	// Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
 	"forcedSpeech",
-	// Hearing only one voice and sight (v0.93.0): the same.
 	"hearingControl",
 	"sightControl",
+	"arousalControl",
+	"illusionControl",
+	"undressControl",
+	"triggerControl",
+	"carryForward",
+	"suppressClothing",
+	"suppressBondage",
+	"suppressActivities",
+	"lockedWhileHypnotized",
 ];
 
-export type Access = "easy" | "earned" | "deep";
+type TranceKey = "tranceCannotMove" | "tranceCannotSpeak" | "tranceScreenFade" | "tranceClothingFreeze";
+/** The factory trance defaults. Every setup puts these back, then applies its own overrides. */
+const TRANCE_DEFAULTS: Record<TranceKey, boolean> = {
+	tranceCannotMove: true,
+	tranceCannotSpeak: true,
+	tranceScreenFade: true,
+	tranceClothingFreeze: false,
+};
 
 export interface SetupConfig {
-	/** Which permission features to turn ON; everything else in ALL_FEATURES goes off. */
+	hypnoEnabled: boolean;
+	/** MANAGED_FEATURES to turn on; the rest of that list goes off. */
 	features: (keyof FeatureToggles)[];
-	/** How deep someone must be to reach them. "earned" clears overrides (the defaults). */
-	access: Access;
-	/** May arousal stand in for trust on the shallow things. */
-	arousalShortcut: boolean;
-	/** How much of a hypnotist's claimed skill to honour. */
-	honour: "ignore" | "trusted" | "capped";
-	/** Do planted triggers fade without reinforcement. */
-	triggersFade: boolean;
-	/** Open the earned-only illusion and triggers to arousal (the fast-decay tradeoff). Extreme
-	 * only — the wizard never turns this on for you. */
+	/** Overrides on the factory trance defaults. */
+	trance?: Partial<Record<TranceKey, boolean>>;
+	/** Every depth gate set to this. Absent: the defaults (no overrides stored). */
+	allDepths?: number;
+	/** "Sink deeper" stops at — a DEEPEST_TIERS key. */
+	deepest: string;
+	/** Auto-answer — a DEFAULT_STANCES key. */
+	stance: string;
+	away?: string;
+	toyMode?: boolean;
+	toyScope?: TriggerScope;
+	triggerScope?: TriggerScope;
+	drop?: DropMode;
+	triggerDecay?: DecayRate;
+	/** Let arousal reach the illusion and planting triggers (the earned-only shortcut). */
 	openChemical?: boolean;
-	/** How deep "sink deeper" may take her (v0.95.0). Absent = the default, Entranced. */
-	deepest?: string;
 }
 
-/** Write a whole configuration to storage. The one place presets and the wizard converge, so
- * they can never mean different things. Sets `starterState` done at the end — this IS the setup. */
+/** Write a whole configuration to storage. The one place templates and the questions converge, so
+ * they can never mean different things. Sets `starterState` done at the end — this IS the setup.
+ * Anything a setup does not name goes back to its default (job2.md §5.3). */
 export function applySetup(cfg: SetupConfig): void {
 	const on = new Set(cfg.features);
-	if (on.size > 0) on.add("hypnoEnabled"); // any permission implies the master switch
-	for (const key of ALL_FEATURES) setFeature(key, on.has(key));
-
-	if (cfg.access === "earned") {
-		clearDepthOverrides();
-	} else {
-		const depth = cfg.access === "easy" ? tierMinimum("drifting") : tierMinimum("deep");
-		for (const gate of DEPTH_GATES) setDepthOverride(gate.key, depth);
+	setFeature("hypnoEnabled", cfg.hypnoEnabled);
+	for (const key of MANAGED_FEATURES) setFeature(key, on.has(key));
+	for (const [key, value] of Object.entries({ ...TRANCE_DEFAULTS, ...(cfg.trance ?? {}) })) {
+		setFeature(key as TranceKey, value);
 	}
 
-	setChemicalScope(cfg.arousalShortcut ? "arousal" : "neither");
-	setSkillHonour(cfg.honour);
-	setTriggerDecayRate(cfg.triggersFade ? "typical" : "never");
-	// The earned-only shortcut is off unless a preset (Extreme) explicitly opens it.
+	if (cfg.allDepths === undefined) clearDepthOverrides();
+	else for (const gate of DEPTH_GATES) setDepthOverride(gate.key, cfg.allDepths);
+
+	setChemicalScope("arousal");
 	setChemicalReach("illusionControl", !!cfg.openChemical);
 	setChemicalReach("triggerControl", !!cfg.openChemical);
-	setDeepestTier(cfg.deepest ?? DEFAULT_DEEPEST);
+	resetSkillHonour();
+	setDeepestTier(cfg.deepest);
+	setDefaultStance(cfg.stance);
+	setAwayStance(cfg.away ?? DEFAULT_AWAY_STANCE);
+	setToyMode(!!cfg.toyMode);
+	setToyScope(cfg.toyScope ?? DEFAULT_TOY_SCOPE);
+	setTriggerScope(cfg.triggerScope ?? "hypnotist");
+	setDropMode(cfg.drop ?? "off");
+	setTriggerLifespan(0);
+	setTriggerDecayRate(cfg.triggerDecay ?? "never");
 
 	setStarterState("done");
 }
 
-// --- the four presets ------------------------------------------------------------------------
+// --- the four templates (job2.md §2, §5) ---------------------------------------------------------
 export interface Preset {
 	key: string;
 	name: string;
@@ -107,57 +142,87 @@ export const PRESETS: Preset[] = [
 		key: "hypnotist",
 		name: "Hypnotist only",
 		blurb: "You drive, you are not a subject. Nobody can hypnotize you; you can still hypnotize others.",
-		config: { features: [], access: "earned", arousalShortcut: false, honour: "ignore", triggersFade: false },
+		config: { hypnoEnabled: false, features: [], deepest: DEFAULT_DEEPEST, stance: "fight" },
 	},
 	{
 		key: "light",
 		name: "Light / safe",
-		blurb: "The five session-only basics — hypnosis, movement, speech, posture, wardrobe — easy to reach.",
+		blurb: "Poses and being held still, nothing more. A trance never silences you, and you are always asked first.",
 		config: {
-			features: GROUP_FEATURES.movement,
-			access: "earned",
-			arousalShortcut: true,
-			honour: "trusted",
-			triggersFade: false,
+			hypnoEnabled: true,
+			features: ["movementRestriction", "postureControl"],
+			trance: { tranceCannotSpeak: false },
+			deepest: "yielding",
+			stance: "prompt",
 		},
 	},
 	{
 		key: "balanced",
 		name: "Balanced",
-		blurb: "Most session things — adds undressing, touch, arousal and the awareness tricks — earned at a normal depth. Nothing that outlives the session.",
+		blurb: "Movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you. You are always asked first.",
 		config: {
+			hypnoEnabled: true,
 			features: [
-				...GROUP_FEATURES.movement,
-				...GROUP_FEATURES.undress,
-				...GROUP_FEATURES.arousal,
-				"suppressClothing",
-				"suppressBondage",
-				"suppressActivities",
+				"movementRestriction",
+				"postureControl",
+				"speechRestriction",
+				"selfTouchControl",
+				"arousalControl",
+				"undressControl",
+				"clothingRestriction",
+				"triggerControl",
 			],
-			access: "earned",
-			arousalShortcut: true,
-			honour: "trusted",
-			triggersFade: false,
+			deepest: "entranced",
+			stance: "prompt",
+			triggerScope: "whitelist",
 		},
 	},
 	{
 		key: "extreme",
 		name: "Extreme",
-		blurb: "Everything on — triggers, carry-forward and the illusion included — at the easiest access, arousal allowed to reach them. Complete trust.",
+		blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
 		config: {
-			features: [...Object.values(GROUP_FEATURES).flat(), "compelTouchOthers"],
-			access: "easy",
-			arousalShortcut: true,
-			// The highest rung the settings cycle offers today. Rung 4 ("Skill can beat my
-			// resistance") waits on dual fatigue; a later build can raise Extreme to it.
-			honour: "capped",
-			triggersFade: false,
-			openChemical: true,
+			hypnoEnabled: true,
+			features: [
+				"movementRestriction",
+				"postureControl",
+				"speechRestriction",
+				"selfTouchControl",
+				"arousalControl",
+				"undressControl",
+				"clothingRestriction",
+				"followControl",
+				"compelActivity",
+				"compelTouchOthers",
+				"forcedSpeech",
+				"hearingControl",
+				"sightControl",
+				"illusionControl",
+				"suppressClothing",
+				"suppressBondage",
+				"suppressActivities",
+				"triggerControl",
+				"carryForward",
+				"lockedWhileHypnotized",
+			],
+			allDepths: 20,
 			deepest: "blank",
+			openChemical: true,
+			stance: "agree",
+			toyMode: true,
+			toyScope: "whitelist",
+			drop: "unlimited",
+			away: "keep",
+			triggerScope: "notblack",
+			// DW, 2026-09-29: kept on purpose. The default is "never", so Extreme's triggers DO fade,
+			// slowly, unless reinforced (job2.md §5.5).
+			triggerDecay: "veryslow",
 		},
 	},
 ];
 
+/** Apply a template's settings. Extreme's LOCK is not started here — only by confirming its
+ * warning (confirmExtreme), so applying the settings and committing to the lock stay separate. */
 export function applyPreset(key: string): boolean {
 	const preset = PRESETS.find((p) => p.key === key);
 	if (!preset) return false;
@@ -165,7 +230,13 @@ export function applyPreset(key: string): boolean {
 	return true;
 }
 
-// --- the wizard's five questions -------------------------------------------------------------
+/** The Extreme warning's Confirm: the settings, then the first-week lock. Returns what to tell her. */
+export function confirmExtreme(now: number = Date.now()): string {
+	applyPreset("extreme");
+	return startExtremeTrial(now);
+}
+
+// --- the five questions (job2.md §3, §5.3) -------------------------------------------------------
 interface WizardOption {
 	value: string;
 	label: string;
@@ -173,83 +244,105 @@ interface WizardOption {
 interface WizardQuestion {
 	key: string;
 	title: string;
-	multi: boolean;
 	options: WizardOption[];
 }
-const QUESTIONS: WizardQuestion[] = [
+export const QUESTIONS: WizardQuestion[] = [
 	{
-		key: "groups",
-		title: "What may others do to you? (tick any)",
-		multi: true,
+		key: "role",
+		title: "What role do you plan to take in hypnosis scenes?",
 		options: [
-			{ value: "movement", label: "Hold you still, quiet, kneeling; block the wardrobe" },
-			{ value: "undress", label: "Undress you, and stop you touching yourself" },
-			{ value: "arousal", label: "Set your arousal, force or deny an orgasm" },
-			{ value: "compel", label: "Make you perform actions — touch yourself on command" },
-			{ value: "perception", label: "Make you not notice things, or misread your own clothes" },
-			{ value: "lasting", label: "Plant triggers and suggestions that outlive the trance" },
+			{ value: "hypnotist", label: "Hypnotist only — nobody hypnotizes me" },
+			{ value: "subject", label: "Subject, or both" },
 		],
 	},
 	{
-		key: "access",
-		title: "How easily should they reach those?",
-		multi: false,
+		key: "induction",
+		title: "How do you want to handle incoming trance attempts?",
 		options: [
-			{ value: "easy", label: "Easy — even a shallow trance is enough" },
-			{ value: "earned", label: "Earned — the deeper things need a deeper trance (recommended)" },
-			{ value: "deep", label: "Only deep — hardest to reach, nothing casual" },
+			{ value: "ask", label: "Always ask me first" },
+			{ value: "trusted", label: "Go under at once for my owner and lovers (toy mode); ask anyone else" },
+			{ value: "submit", label: "Complete submission: agree to everyone, toy mode on" },
 		],
 	},
 	{
-		key: "arousal",
-		title: "Can arousal stand in for trust on the shallow things?",
-		multi: false,
+		key: "physical",
+		title: "What physical commands are you comfortable allowing?",
 		options: [
-			{ value: "yes", label: "Yes — being worked up can open the shallow, session-only effects" },
-			{ value: "no", label: "No — only trust ever counts" },
+			{ value: "basics", label: "Poses and being held still only" },
+			{ value: "standard", label: "Standard play: also silence, self-touch, undressing, orgasm control" },
+			{ value: "deep", label: "Deep vulnerability: also touching others, following, acting on command" },
 		],
 	},
 	{
-		key: "honour",
-		title: "How much do you trust a hypnotist's claim to be skilled?",
-		multi: false,
+		key: "senses",
+		title: "Do you want hypnotists to change what you see, hear and notice?",
 		options: [
-			{ value: "ignore", label: "Not at all — their practice never helps against me" },
-			{ value: "trusted", label: "Only from people I already know (recommended)" },
-			{ value: "capped", label: "From anyone, up to a point" },
+			{ value: "none", label: "No — normal chat and sight (the trance veil still shows)" },
+			{ value: "veil", label: "The trance veil, and the clothing illusion" },
+			{ value: "full", label: "Full: blindness, hearing one voice, not noticing clothing, bondage or touch" },
 		],
 	},
 	{
-		key: "decay",
-		title: "Should planted triggers fade if they are not kept up?",
-		multi: false,
+		key: "triggers",
+		title: "How should triggers and lasting suggestions work?",
 		options: [
-			{ value: "yes", label: "Yes — they weaken over time without reinforcement" },
-			{ value: "no", label: "No — a trigger stays until it is removed" },
+			{ value: "none", label: "None — nothing outlives the trance" },
+			{ value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+			{ value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" },
 		],
 	},
 ];
 
-/** Build a SetupConfig from the collected wizard answers. */
-function wizardConfig(answers: Record<string, string | Set<string>>): SetupConfig {
-	const groups = (answers.groups as Set<string>) ?? new Set<string>();
+/** Build a SetupConfig from the answers. "Hypnotist only" is the template itself. */
+export function wizardConfig(answers: Record<string, string>): SetupConfig {
+	if (answers.role === "hypnotist") return PRESETS[0].config;
 	const features: (keyof FeatureToggles)[] = [];
-	for (const g of groups) features.push(...(GROUP_FEATURES[g] ?? []));
-	return {
-		features,
-		access: (answers.access as Access) ?? "earned",
-		arousalShortcut: (answers.arousal ?? "yes") === "yes",
-		honour: (answers.honour as SetupConfig["honour"]) ?? "trusted",
-		triggersFade: (answers.decay ?? "no") === "yes",
-	};
+	const cfg: SetupConfig = { hypnoEnabled: true, features, deepest: DEFAULT_DEEPEST, stance: "prompt" };
+
+	if (answers.induction === "trusted") {
+		cfg.toyMode = true;
+		cfg.toyScope = "lovers";
+	} else if (answers.induction === "submit") {
+		cfg.stance = "agree";
+		cfg.toyMode = true;
+		cfg.toyScope = "lovers";
+		cfg.away = "keep";
+	}
+
+	features.push("movementRestriction", "postureControl");
+	cfg.deepest = "yielding";
+	if (answers.physical === "standard" || answers.physical === "deep") {
+		features.push("speechRestriction", "selfTouchControl", "undressControl", "arousalControl");
+		cfg.deepest = "entranced";
+	}
+	if (answers.physical === "deep") {
+		features.push("compelActivity", "compelTouchOthers", "followControl");
+		cfg.deepest = "deep";
+	}
+
+	if (answers.senses === "veil" || answers.senses === "full") features.push("illusionControl");
+	if (answers.senses === "full") {
+		features.push("sightControl", "hearingControl", "suppressClothing", "suppressBondage", "suppressActivities");
+	}
+
+	if (answers.triggers === "standard") {
+		features.push("triggerControl");
+		cfg.triggerScope = "whitelist";
+	} else if (answers.triggers === "deep") {
+		features.push("triggerControl", "forcedSpeech", "carryForward");
+		cfg.triggerScope = "notblack";
+		cfg.drop = "unlimited";
+	}
+	return cfg;
 }
 
-// --- screen state ----------------------------------------------------------------------------
-// stage: "welcome" | 0..QUESTIONS.length-1 | "summary". `forced` re-runs it from the settings
-// screen even after setup is done.
+// --- screen state --------------------------------------------------------------------------------
+// stage: "welcome" | "extreme" (its warning) | 0..QUESTIONS.length-1 | "summary". `forced` re-runs
+// it from the settings screen even after setup is done.
+type Stage = "welcome" | "extreme" | "summary" | number;
 let forced = false;
-let stage: "welcome" | "summary" | number = "welcome";
-const answers: Record<string, string | Set<string>> = {};
+let stage: Stage = "welcome";
+const answers: Record<string, string> = {};
 
 export function shouldShowWizard(): boolean {
 	return forced || getStarterState() === "new";
@@ -262,24 +355,20 @@ export function startWizard(): void {
 function finish(): void {
 	forced = false;
 	stage = "welcome";
+	for (const k of Object.keys(answers)) delete answers[k];
 }
 
-/** Leave the wizard from any page without applying anything. The answers so far are thrown
- * away and no setting is touched — the same outcome as the welcome page's Skip, reachable from
- * every question and the summary, where before the only ways out were Apply or leaving the
- * screen (which kept the half-answered wizard waiting for next time).
+/** Leave the wizard from any page without applying anything (job2.md §1).
  *
- * On a first run this marks setup done, as Skip does: otherwise shouldShowWizard() would still
- * be true and "cancel" would land straight back on the welcome page, which is not an exit. The
- * Setup button on the settings screen runs it again. On a re-run the settings are exactly as
- * they were before it started. */
+ * On a first run this marks setup done, as Skip does: otherwise shouldShowWizard() would still be
+ * true and Cancel would land straight back on the welcome page, which is not an exit. The Setup
+ * button on the settings screen runs it again. On a re-run the settings are exactly as they were. */
 export function cancelWizard(): void {
-	for (const k of Object.keys(answers)) delete answers[k];
 	if (getStarterState() === "new") setStarterState("done");
 	finish();
 }
 
-// --- geometry --------------------------------------------------------------------------------
+// --- geometry ------------------------------------------------------------------------------------
 const WZ_LEFT = 260;
 const WZ_WIDTH = 1480;
 const WZ_TOP = PANEL_TOP;
@@ -292,17 +381,28 @@ const OPT_GAP = 14;
 const OPT_WIDTH = WZ_WIDTH - 80;
 const NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
 const NAV_HEIGHT = 56;
-const NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - 200;
+const NAV_FORWARD_WIDTH = 200;
+const NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - NAV_FORWARD_WIDTH;
+/** Extreme's Confirm is wider: its label is a commitment and must be read whole. */
+const CONFIRM_WIDTH = 340;
+const CONFIRM_LEFT = WZ_LEFT + WZ_WIDTH - 40 - CONFIRM_WIDTH;
 // Cancel sits beside the forward button rather than at the far left, where Back already is, so
 // the one-way-out button is never where a player reaches for "previous question".
-const NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - 200;
+const NAV_CANCEL_WIDTH = 200;
+const NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - NAV_CANCEL_WIDTH;
+const CONFIRM_CANCEL_LEFT = CONFIRM_LEFT - 20 - NAV_CANCEL_WIDTH;
+const PRESET_ROW = 90;
+const PRESET_TOP = WZ_TOP + 150;
+const PRESET_BUTTON_WIDTH = 360;
+const PRESET_BUTTON_HEIGHT = 64;
+const QUESTIONS_BUTTON_WIDTH = 500;
+const SKIP_BUTTON_WIDTH = 300;
 
 function optionTop(i: number): number {
 	return OPT_TOP + i * (OPT_HEIGHT + OPT_GAP);
 }
-function selected(q: WizardQuestion, value: string): boolean {
-	const a = answers[q.key];
-	return q.multi ? a instanceof Set && a.has(value) : a === value;
+function bottomRowTop(): number {
+	return PRESET_TOP + PRESETS.length * PRESET_ROW + 14;
 }
 
 export function drawWizard(): void {
@@ -311,19 +411,20 @@ export function drawWizard(): void {
 	DrawEmptyRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "Black", 3);
 
 	if (stage === "welcome") return drawWelcome();
+	if (stage === "extreme") return drawExtremeWarning();
 	if (stage === "summary") return drawSummary();
 
 	const q = QUESTIONS[stage];
 	drawLeftText(q.title, CONTENT_X, WZ_TOP + 70, "Black");
-	drawLeftText(q.multi ? "Tick any that apply." : "Choose one.", CONTENT_X, WZ_TOP + 110, "Gray");
+	drawLeftText("Choose one.", CONTENT_X, WZ_TOP + 110, "Gray");
 	q.options.forEach((opt, i) => {
-		const on = selected(q, opt.value);
-		DrawButton(CONTENT_X, optionTop(i), OPT_WIDTH, OPT_HEIGHT, `${on ? "✓  " : ""}${opt.label}`,
-			on ? "#dfe9df" : "White", "", "");
+		const on = answers[q.key] === opt.value;
+		DrawButton(CONTENT_X, optionTop(i), OPT_WIDTH, OPT_HEIGHT, `${on ? "✓  " : ""}${opt.label}`, on ? "#dfe9df" : "White", "", "");
 	});
-	drawNav(typeof stage === "number" && stage > 0, "Next");
+	// Next waits for an answer: a question with nothing chosen has no honest default.
+	drawNav(stage > 0, "Next", !answers[q.key]);
 	// Centred in the nav bar, clear of the Back button on the left and Next on the right.
-	DrawText(`${(stage as number) + 1} of ${QUESTIONS.length}`, WZ_LEFT + WZ_WIDTH / 2, NAV_TOP + NAV_HEIGHT / 2, "Gray");
+	DrawText(`${stage + 1} of ${QUESTIONS.length}`, WZ_LEFT + WZ_WIDTH / 2, NAV_TOP + NAV_HEIGHT / 2, "Gray");
 }
 
 function drawWelcome(): void {
@@ -331,102 +432,126 @@ function drawWelcome(): void {
 	drawLeftTextFit("Pick a starting point, or answer a few questions. You can change any of it afterward.",
 		CONTENT_X, WZ_TOP + 104, CONTENT_MAX, "Gray");
 	PRESETS.forEach((p, i) => {
-		const top = WZ_TOP + 150 + i * 90;
-		DrawButton(CONTENT_X, top, 360, 64, p.name, "White", "", "");
+		const top = PRESET_TOP + i * PRESET_ROW;
+		DrawButton(CONTENT_X, top, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT, p.name, p.key === "extreme" ? "#ffe0e0" : "White", "", "");
 		// Wrapped, not shrunk-then-clipped: see drawLeftTextWrap. 84 of the row's 90 so two
 		// neighbouring blurbs never touch.
 		drawLeftTextWrap(p.blurb, CONTENT_X + 384, top + 32, CONTENT_MAX - 400, 84, "#333");
 	});
-	const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
-	DrawButton(CONTENT_X, bottom, 500, 60, "Answer a few questions instead", "#e8e8ff", "", "");
-	DrawButton(CONTENT_X + 520, bottom, 300, 60, "Skip — I'll set it up myself", "White", "", "");
+	const bottom = bottomRowTop();
+	DrawButton(CONTENT_X, bottom, QUESTIONS_BUTTON_WIDTH, 60, "Answer a few questions instead", "#e8e8ff", "", "");
+	DrawButton(CONTENT_X + QUESTIONS_BUTTON_WIDTH + 20, bottom, SKIP_BUTTON_WIDTH, 60, "Skip — I'll set it up myself", "White", "", "");
+	drawNav(false, null);
+}
+
+function drawExtremeWarning(): void {
+	drawLeftText("Extreme — please read before you confirm", CONTENT_X, WZ_TOP + 70, "#a00000");
+	let y = WZ_TOP + 140;
+	for (const paragraph of EXTREME_WARNING) {
+		drawLeftTextWrap(paragraph, CONTENT_X, y, CONTENT_MAX, 100, "#222");
+		y += 120;
+	}
+	DrawButton(CONFIRM_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "");
+	DrawButton(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT, "Confirm 1-week lock", "#ffb3b3", "", "");
 }
 
 function drawSummary(): void {
 	const cfg = wizardConfig(answers);
 	drawLeftText("Ready to apply", CONTENT_X, WZ_TOP + 70, "Black");
-	const lines = describeConfig(cfg);
-	lines.forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
+	describeConfig(cfg).forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
 	drawNav(true, "Apply");
 }
 
-function describeConfig(cfg: SetupConfig): string[] {
-	const groupNames: Record<string, string> = {
-		movement: "movement & speech", undress: "undressing & touch", arousal: "arousal",
-		perception: "perception tricks", compel: "made to act", lasting: "lasting triggers",
-	};
-	const chosen = Object.keys(GROUP_FEATURES).filter((g) =>
-		GROUP_FEATURES[g].every((k) => cfg.features.includes(k)));
+/** The summary page's lines: what the answers will set, in words. Exported for the suite. */
+export function describeConfig(cfg: SetupConfig): string[] {
+	if (!cfg.hypnoEnabled) {
+		return [
+			"Hypnosis off: nobody can hypnotize you. You can still hypnotize others.",
+			"You can change every one of these on the tabs afterward.",
+		];
+	}
+	const has = (k: keyof FeatureToggles) => cfg.features.includes(k);
+	const allowed = [
+		"poses and being held still",
+		has("speechRestriction") && "silence, self-touch, undressing and orgasm control",
+		has("compelActivity") && "touching others, following, acting on command",
+		has("illusionControl") && "the clothing illusion",
+		has("sightControl") && "sight, hearing and not noticing things",
+		has("triggerControl") && (has("carryForward") ? "triggers, drops, made to speak and lasting suggestions" : "triggers"),
+	].filter(Boolean);
+	const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers and whitelist";
 	return [
-		`Allowed: ${chosen.length ? chosen.map((g) => groupNames[g]).join(", ") : "nothing — hypnosis stays off"}.`,
-		`Reached: ${cfg.access === "easy" ? "easily, even shallow" : cfg.access === "deep" ? "only when deeply under" : "earned, deeper things need a deeper trance"}.`,
-		`Arousal as a shortcut: ${cfg.arousalShortcut ? "yes" : "no"}.`,
-		`A hypnotist's skill: ${cfg.honour === "ignore" ? "ignored" : cfg.honour === "trusted" ? "from people you trust" : "from anyone, capped"}.`,
-		`Triggers: ${cfg.triggersFade ? "fade over time" : "stay until removed"}.`,
+		`Allowed: ${allowed.join("; ")}.`,
+		`When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}` +
+			`${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
+		`"Sink deeper" stops at: ${cfg.deepest[0].toUpperCase()}${cfg.deepest.slice(1)}.`,
+		has("triggerControl") ? `Triggers can be set off by ${whoTriggers}.` : "No triggers: nothing outlives the trance.",
 		"You can change every one of these on the tabs afterward.",
 	];
 }
 
-function drawNav(showBack: boolean, forward: string): void {
+/** Back (optional), Cancel (always) and the forward button (when there is one). */
+function drawNav(showBack: boolean, forward: string | null, forwardDisabled = false): void {
 	if (showBack) DrawButton(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT, "Back", "White", "", "");
-	DrawButton(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
-	DrawButton(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
+	DrawButton(NAV_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
+	if (forward) {
+		DrawButton(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT, forward, forwardDisabled ? "#eee" : "#dfe9df", "", "", forwardDisabled);
+	}
 }
 
-// --- clicks ----------------------------------------------------------------------------------
+// --- clicks --------------------------------------------------------------------------------------
 /** Returns true when the click was ours (it always is while the wizard is up — it owns the
  * whole screen). */
 export function clickWizard(): boolean {
-	if (stage === "welcome") return clickWelcome();
-	if (navCancelHit()) {
+	if (stage === "extreme") return clickExtremeWarning();
+	if (MouseIn(NAV_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT)) {
 		cancelWizard();
 		return true;
 	}
+	if (stage === "welcome") return clickWelcome();
 	if (stage === "summary") {
 		if (navForwardHit()) {
 			applySetup(wizardConfig(answers));
 			finish();
 		} else if (navBackHit()) {
-			stage = QUESTIONS.length - 1;
+			stage = answers.role === "hypnotist" ? 0 : QUESTIONS.length - 1;
 		}
 		return true;
 	}
-	const q = QUESTIONS[stage as number];
+	const q = QUESTIONS[stage];
 	for (let i = 0; i < q.options.length; i++) {
 		if (MouseIn(CONTENT_X, optionTop(i), OPT_WIDTH, OPT_HEIGHT)) {
-			toggleAnswer(q, q.options[i].value);
+			answers[q.key] = q.options[i].value;
 			return true;
 		}
 	}
-	if (navForwardHit()) {
-		stage = (stage as number) + 1 >= QUESTIONS.length ? "summary" : (stage as number) + 1;
-	} else if (navBackHit() && (stage as number) > 0) {
-		stage = (stage as number) - 1;
+	if (navForwardHit() && answers[q.key]) {
+		// "Hypnotist only" needs nothing more: straight to the summary.
+		const last = stage + 1 >= QUESTIONS.length || (q.key === "role" && answers.role === "hypnotist");
+		stage = last ? "summary" : stage + 1;
+	} else if (navBackHit() && stage > 0) {
+		stage = stage - 1;
 	}
 	return true;
 }
 
-function toggleAnswer(q: WizardQuestion, value: string): void {
-	if (!q.multi) {
-		answers[q.key] = value;
-		return;
-	}
-	const cur = answers[q.key] instanceof Set ? (answers[q.key] as Set<string>) : new Set<string>();
-	cur.has(value) ? cur.delete(value) : cur.add(value);
-	answers[q.key] = cur;
-}
-
 function clickWelcome(): boolean {
-	PRESETS.forEach((p, i) => {
-		if (MouseIn(CONTENT_X, WZ_TOP + 150 + i * 90, 360, 64)) {
-			applyPreset(p.key);
-			finish();
+	for (let i = 0; i < PRESETS.length; i++) {
+		if (!MouseIn(CONTENT_X, PRESET_TOP + i * PRESET_ROW, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT)) continue;
+		const key = PRESETS[i].key;
+		// Extreme asks first; the other three apply on one click (DW, job2.md §5.5).
+		if (key === "extreme") {
+			stage = "extreme";
+			return true;
 		}
-	});
-	const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
-	if (MouseIn(CONTENT_X, bottom, 500, 60)) {
+		applyPreset(key);
+		finish();
+		return true;
+	}
+	const bottom = bottomRowTop();
+	if (MouseIn(CONTENT_X, bottom, QUESTIONS_BUTTON_WIDTH, 60)) {
 		stage = 0;
-	} else if (MouseIn(CONTENT_X + 520, bottom, 300, 60)) {
+	} else if (MouseIn(CONTENT_X + QUESTIONS_BUTTON_WIDTH + 20, bottom, SKIP_BUTTON_WIDTH, 60)) {
 		// Skip — set nothing, but stop the wizard from reappearing.
 		setStarterState("done");
 		finish();
@@ -434,11 +559,18 @@ function clickWelcome(): boolean {
 	return true;
 }
 
-function navForwardHit(): boolean {
-	return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+function clickExtremeWarning(): boolean {
+	if (MouseIn(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT)) {
+		tellPlayer(confirmExtreme());
+		finish();
+	} else if (MouseIn(CONFIRM_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT)) {
+		cancelWizard();
+	}
+	return true;
 }
-function navCancelHit(): boolean {
-	return MouseIn(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+
+function navForwardHit(): boolean {
+	return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT);
 }
 function navBackHit(): boolean {
 	return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);

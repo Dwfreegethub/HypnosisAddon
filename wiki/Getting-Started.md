@@ -48,13 +48,13 @@ These appear **once per install** to let you know the script is alive and runnin
 To configure your permissions or run the setup wizard, open your native menu:
 * Navigate to **Preferences → Extensions → ECHS Hypnosis**.
 
-Here, you can choose one of four starting presets:
-* **Hypnotist only** — you want to guide or induce others without being hypnotized yourself.
-* **Light / safe** — gentle, shallow, and easily reversible effects only.
-* **Balanced** — a solid middle ground for structured play.
-* **Extreme** — everything turned on, with lower resistance thresholds.
+Here, you can choose one of four starting templates, each applied with one click:
+* **Hypnotist only** — you hypnotize others; nobody can hypnotize you.
+* **Light / safe** — poses and being held still, nothing more. A trance never silences you, and you are always asked first.
+* **Balanced** — movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you.
+* **Extreme** — everything on, easy to reach, no questions asked. It **locks your settings read-only for a week** (see [Settings Reference](Settings-Reference#8-setup-wizard)) and asks you to confirm first.
 
-Alternatively, you can step through five short questions to select exactly which feature categories others are allowed to touch and how much trust they need to reach them. You can re-run the wizard or adjust individual sliders manually anytime outside of an active trance.
+Or answer five short questions instead (your role, how attempts are handled, what physical commands you allow, your senses, and triggers). Every page has a **Cancel** button that changes nothing. You can re-run setup or change any setting by hand afterward, outside an active session.
 
 ### Initiating Hypnosis via Profiles
 Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 

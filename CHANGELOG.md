@@ -12,6 +12,23 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.99.0 · 2 October 2026
+
+- **A new setup.** The four templates have been redone and each applies with one click:
+  - **Hypnotist only:** nobody can hypnotize you.
+  - **Light / safe:** poses and being held still, and a trance never silences you.
+  - **Balanced:** adds speech, touch, undressing, arousal, the wardrobe lock, and triggers from
+    people close to you.
+  - **Extreme.**
+- **Five new setup questions** instead of the old ones: your role, how attempts are handled, what
+  physical commands you allow, your senses, and triggers.
+- **Every page of setup has a Cancel button** that changes nothing.
+- **Extreme now asks first, and locks your settings.** After you confirm, your settings are
+  read-only for a week, then 30 days at a time if you choose. `/echs safeword` always ends a trance,
+  and `/echs reset confirm` unlocks early but erases your trust, triggers and stats too.
+- Choosing Extreme before this update does not lock anything; only choosing it in the new setup
+  does.
+
 ## v0.98.4 · 2 October 2026
 
 - **How deep each feature needs you to be is now a number from 0 to 99**, set on the Depth tab.

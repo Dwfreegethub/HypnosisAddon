@@ -42,7 +42,7 @@ Permissions are configured **per feature**:
 * Arousal control and forced climaxes
 * Undressing
 * Commanded activities (acting on command)
-* Touching someone else on command (its own tick, off by default; of the setup presets only Extreme turns it on)
+* Touching someone else on command (its own tick, off by default; in setup, only Extreme and the strongest physical answer turn it on)
 * Sensory modulation and awareness suppression
 * False reflections (clothing illusions)
 * Storing and firing trigger words
@@ -105,7 +105,15 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 
 ### Emergency Safewords & Disabling
 * **`/echs safeword` (or `/hypno safeword`):** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. It also discards any compulsion that was waiting for you to wake, so nothing goes off minutes after you said stop. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
-* **Unticking "Hypnosis Enabled":** Completely shuts down the add-on from your native extension menu.
+* **Unticking "Hypnosis Enabled":** Completely shuts down the add-on from your native extension menu — except while the **Extreme lock** is on (below).
+
+### The one lock you can choose: Extreme
+Choosing the **Extreme** setup template, and confirming its warning, makes your settings read-only for 7 days, then 30 days at a time if you choose to renew. It is never permanent, and it is the only thing that can stop you unticking Hypnosis Enabled or removing a planted trigger. While it is on:
+* **`/echs safeword` still works**, exactly as above.
+* **`/echs reset confirm`** ends the lock early, but erases all your trust, triggers and stats along with your settings.
+* You can switch ECHS off entirely in your userscript manager (Tampermonkey, or whatever loaded it).
+
+See [Settings Reference](Settings-Reference#the-extreme-lock).
 
 ### Waking Up & Natural Releases
 * **`/echs wake` (or `/hypno wake`):** Lets you pull yourself out of a light trance. A deep trance will refuse and let you know you're too far under.

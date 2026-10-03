@@ -21,6 +21,7 @@ export * as undress from "../src/undress";
 export * as menu from "../src/menu";
 export * as panel from "../src/panel";
 export * as wizard from "../src/wizard";
+export * as extreme from "../src/extreme";
 export * as effects from "../src/effects";
 export * as recovery from "../src/recovery";
 export * as welcome from "../src/welcome";

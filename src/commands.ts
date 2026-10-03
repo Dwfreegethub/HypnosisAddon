@@ -48,6 +48,7 @@ import {
 	getSessionView,
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
+import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import {
 	DEPTH_GATES,
@@ -299,7 +300,14 @@ export function installCommands(): void {
 		Tag,
 		Description:
 			"Erotic Chat Hypnosis Suite — session control, diagnostics and test commands",
-		Action: () => {
+		// An unknown subcommand reaches here with its words as `args` (R132 CommandExecute stops the
+		// chain at the first unmatched word). That is where the undocumented `exit_extreme` lives,
+		// on purpose: a registered subcommand would be listed by BC's own /help (DW: keep it hidden).
+		Action: (args: string) => {
+			if ((args ?? "").trim().toLowerCase() === "exit_extreme") {
+				reply(exitExtreme());
+				return;
+			}
 			for (const line of menuLines()) reply(line);
 		},
 		// Fold the argument hint into the Description BC renders, so its own help screen
@@ -602,6 +610,10 @@ const COMMANDS: HypnoCommand[] = [
 				reply(`usage: /hypno decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
 				return;
 			}
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			setDecayRate(token as DecayRate);
 			reply(`trust decay set to ${token}`);
 		},
@@ -638,7 +650,7 @@ const COMMANDS: HypnoCommand[] = [
 			// The same lock as the Data tab's Import button. Without it this is the way round the
 			// lock, and the button's own clipboard-failure line points straight at it.
 			if (settingsLocked()) {
-				reply(IMPORT_LOCKED_MESSAGE);
+				reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
 				return;
 			}
 			const result = importSettings(args);
@@ -688,6 +700,10 @@ const COMMANDS: HypnoCommand[] = [
 			const rate = DECAY_RATES.find((r) => r.key === token);
 			if (!rate) {
 				reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+				return;
+			}
+			if (extremeLocked()) {
+				reply(extremeRefusal());
 				return;
 			}
 			setTriggerDecayRate(rate.key);
@@ -741,6 +757,12 @@ const COMMANDS: HypnoCommand[] = [
 			const token = args.trim().toLowerCase();
 			if (!token) {
 				reply("usage: /hypno forgettrigger <number|all>  (see /hypno triggers)");
+				return;
+			}
+			// The one exception to "always available": the Extreme lock covers removing triggers too
+			// (DW, job2.md §5.4). The safeword still ends anything holding you.
+			if (extremeLocked()) {
+				reply(extremeRefusal());
 				return;
 			}
 			// Always available, never gated: the subject can always take back something

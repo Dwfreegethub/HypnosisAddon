@@ -501,6 +501,13 @@ interface HypnoAddonSettings {
 	awayStance?: string;
 	toyMode?: boolean;
 	toyScope?: string;
+	/** The Extreme progressive lock (v0.99.0, job2.md §4): settings are read-only until this
+	 * wall-clock time, and stay read-only after it until the player answers the renewal prompt.
+	 * Absent = no lock. Only ever written by confirming the new wizard's Extreme warning: builds
+	 * before v0.99.0 never recorded which preset was chosen, so nobody is locked by upgrading. */
+	extremeLockUntil?: number;
+	/** Which period is running: the first-week "trial", or a 30-day "month". */
+	extremeLockStage?: "trial" | "month";
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
 	 * dismissed. Sparse, so a fresh install is "new" with nothing stored. */
 	starterState?: string;
@@ -646,6 +653,12 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.toyMode !== undefined && typeof s.toyMode !== "boolean") delete s.toyMode;
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+	// A lock with no valid end is no lock: dropped, never invented.
+	if (s.extremeLockUntil !== undefined && !(typeof s.extremeLockUntil === "number" && s.extremeLockUntil > 0)) {
+		delete s.extremeLockUntil;
+	}
+	if (s.extremeLockUntil === undefined) delete s.extremeLockStage;
+	else if (s.extremeLockStage !== "trial" && s.extremeLockStage !== "month") s.extremeLockStage = "trial";
 	if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
 	if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
 	// Triggers planted before v0.60.0 have no strength history. Planting has always required
@@ -1323,6 +1336,42 @@ export function setToyScope(key: string): void {
 	saveSettings();
 }
 
+
+/** Back to the code default, stored as absence (the sparse rule), for the wizard's templates. */
+export function resetSkillHonour(): void {
+	delete loadSettings().skillHonour;
+	saveSettings();
+}
+
+// --- The Extreme progressive lock (v0.99.0, job2.md §4 and §5) ---------------------------------
+export const EXTREME_TRIAL_DAYS = 7;
+export const EXTREME_MONTH_DAYS = 30;
+
+export interface ExtremeLock {
+	until: number;
+	stage: "trial" | "month";
+}
+
+/** The lock, if one is set — running, or run out and waiting for the player's answer. */
+export function getExtremeLock(): ExtremeLock | null {
+	const s = loadSettings();
+	return typeof s.extremeLockUntil === "number" ? { until: s.extremeLockUntil, stage: s.extremeLockStage ?? "trial" } : null;
+}
+
+export function startExtremeLock(stage: "trial" | "month", now: number = Date.now()): ExtremeLock {
+	const s = loadSettings();
+	s.extremeLockUntil = now + (stage === "trial" ? EXTREME_TRIAL_DAYS : EXTREME_MONTH_DAYS) * 86_400_000;
+	s.extremeLockStage = stage;
+	saveSettings();
+	return { until: s.extremeLockUntil, stage };
+}
+
+export function clearExtremeLock(): void {
+	const s = loadSettings();
+	delete s.extremeLockUntil;
+	delete s.extremeLockStage;
+	saveSettings();
+}
 
 export function setSkillHonour(rung: string): void {
 	if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;

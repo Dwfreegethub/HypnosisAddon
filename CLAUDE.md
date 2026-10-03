@@ -34,7 +34,11 @@ Settled decisions are recorded in `design.md`. Do not re-decide one without flag
 The reasoning for each is in the Orientation section; this is the checklist.
 
 1. **Subject-authoritative.** Every cross-player action is a request; the subject's client alone decides, from its own settings. Never trust the hypnotist's client for permissions, depth, session state, or whether a suggestion matched.
-2. **The safeword always works.** `/hypno safeword` clears everything from any state. No feature, trigger or lock may reach it. Unticking *Hypnosis Enabled* is the same floor and shares the same teardown (`hardFloorStop()`).
+2. **The safeword always works.** `/hypno safeword` clears everything from any state. No feature, trigger or lock may reach it. Unticking *Hypnosis Enabled* is the same floor and shares the same teardown (`hardFloorStop()`). **One exception, DW's decision (2026-09-29, job2.md §5.4), from v0.99.0:**
+   - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All and `/echs forgettrigger` are refused.
+   - The player chooses that lock in setup, after a warning.
+   - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
+   - Never mention `exit_extreme` in help, the wiki or changelogs.
 3. **Never write `Player.Appearance` for the illusion.** It is server-synced and corruptible. The illusion is a shadow character on the subject's own screen.
 4. **Chemical depth never writes anything permanent nor lies to the subject about their own state.** That is the `earnedOnly` split in `depth.ts`.
 5. **A silent success is indistinguishable from a silent failure.** Anything that refuses, or runs without landing, says so.
@@ -67,7 +71,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
 
   Take the expected text from the source, not from memory.
 - **Job briefs** are `job.md`, `job2.md`, … in the repo root: DW's specs, local and untracked.
-- **Local files that are not in git; leave them alone:** `job*.md`, `script_test.md`,
+- **Local files that are not in git; leave them alone:** `job*.md`, `script_test*.md` (older builds' scripts keep a version suffix),
   `NAMESPACE_COLLISION.MD`, `trust.md`, `trust_edit.md`, `TEST_PLAN_v0.97.md`.
 - **GreeterBot** (`../GreeterBot`, not a git repo) holds the public *Erotic Chat Hypnosis* room: size
   15 (`ROOM_LIMIT`, `src/connection.ts`), background `MainHall2` (Main Hall Gold), and a greeting

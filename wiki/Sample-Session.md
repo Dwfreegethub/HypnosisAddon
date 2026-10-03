@@ -20,7 +20,7 @@ Missy installs the script, reloads Bondage Club, and sees this startup notice in
 [Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Open settings to configure.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 
-She clicks the **spiral icon on her player profile card** (or navigates to **Preferences → Extensions → ECHS Hypnosis**) to run the wizard. She picks the **Balanced** preset, which enables *Hypnosis Enabled* along with basic session restrictions. She then navigates to the **Triggers** tab and manually ticks **Allow triggers to be planted in you**, as she wants to test trigger mechanics.
+She clicks the **spiral icon on her player profile card** (or navigates to **Preferences → Extensions → ECHS Hypnosis**) to run the wizard. She picks the **Balanced** template, which turns on *Hypnosis Enabled*, the basic session restrictions, and **Allow triggers to be planted in you** — so she can test triggers straight away.
 
 Elena does not need any permissions switched on to act as a hypnotist—her own settings govern only what can be done to *her* avatar.
 

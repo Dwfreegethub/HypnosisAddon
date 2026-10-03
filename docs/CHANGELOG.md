@@ -20,6 +20,46 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-10-02 (v0.99.0) — setup wizard overhaul and the Extreme progressive lock
+
+From `job2.md` (local, untracked); every decision is in its §5. Built on `feat/wizard-overhaul`, which
+branches from `feat/numeric-depth` (job 1) because Extreme's "every gate at 20" needs numeric gates.
+
+**Templates and questions (wizard.ts).**
+- `applySetup()` now writes one full `SetupConfig`:
+  - the master switch;
+  - every grant in `MANAGED_FEATURES` (on if listed, otherwise off);
+  - the factory trance defaults plus overrides (Light turns Cannot Speak off);
+  - depth gates, either all at one number or cleared;
+  - "sink deeper", auto-answer, away, toy mode and scope, trigger scope, drop mode and decay;
+  - skill honour back to its default (stored as absence);
+  - trigger lifespan back to 0, and chemical reach.
+- The player's own preferences (trigger words, self-trigger, whole-word, release on disconnect, OOC,
+  room reactions, trigger-setup hiding) are deliberately not touched.
+- The old questions (access, arousal, honour, decay) are gone; `wizardConfig()` maps the five new
+  ones (job2.md §5.3).
+- Next is disabled until a question is answered. Cancel is on the welcome page too.
+- "Hypnotist only" on Q1 goes straight to the summary.
+
+**The lock (extreme.ts, storage).**
+- New sparse fields `extremeLockUntil` / `extremeLockStage`. Only `confirmExtreme()` writes them;
+  `applyPreset("extreme")` alone does not, so settings and commitment stay separate.
+- DW asked that nobody who picked the old Extreme be locked. No build before this one recorded which
+  preset was chosen, so absence of the field is the old state, and `test/wizard.mjs` imports a
+  0.98-era Extreme profile to prove it.
+- `settingsLocked()` (menu.ts) is now session lock OR Extreme lock, so everything already gated on it
+  (checkboxes including Hypnosis Enabled, Depth boxes, dropdowns, Setup, Import) is covered.
+- Purge, Clear All (`clearAllRefusal`), `/echs forgettrigger`, `/echs triggerdecay` and `/echs decay`
+  refuse while it holds.
+- A run-out period shows a renewal screen in place of the tabs, and settings stay read-only until it
+  is answered; unlocking keeps every setting.
+- The safeword and reset are untouched; reset clears the fields with everything else.
+- This is the recorded exception to CLAUDE.md rule 2 (DW, 2026-09-29).
+
+**Tests.**
+- `test/wizard.mjs` rewritten (108).
+- New `test/extreme.mjs` (40).
+
 ### Fixed 2026-10-02 (v0.98.4) — the hover-tip fix no longer throws without a real canvas
 
 `clearTipOverlap()` (v0.98.3) called `MainCanvas.canvas.getBoundingClientRect()` unguarded. The
