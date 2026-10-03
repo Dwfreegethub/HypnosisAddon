@@ -20,6 +20,27 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-10-02 (v0.100.3) — a whisper to the subject needs no name
+
+Claire's feedback, 2026-09-28: "would be nice if you whisper to someone you dont have to use their
+name for each command given." DW: "Any whisper not in an (OOC) should be reviewed for commands."
+
+`asAddressed()` (voice.ts) puts her name on the front of an in-character whisper that lacks it, and
+main.ts uses that line for `isTriggerSetupLine`, `handleSpokenLine` and the one-voice hearing filter.
+So every downstream name gate treats the whisper as said to her without each learning about
+whispers: suggestions, triggers, wake, sink deeper, body parts and commanded touch. "Whispered to
+me" means a whisper whose sender is not us; BC delivers a whisper only to its target and echoes it
+to its sender, which is how R132 ChatRoom.js reads the target too.
+
+What deliberately did not change:
+- Trust counting and the induction's roleplay count still see the original line.
+- OOC is stripped first, so a wholly-parenthesised whisper never reaches matching.
+- The hearing filter's "only your name" mode now lets whispers to her through, since a whisper is
+  said to her.
+
+New suite `test/whisper.mjs` (10). A nameless line said aloud is still ignored; a whisper still needs
+the session and the permission.
+
 ### Fixed 2026-10-02 (v0.100.2) — the Depth tab's pages turn while settings are locked
 
 Veronica's feedback of 2026-09-19, which v0.98 was believed to have answered: "While in trance with

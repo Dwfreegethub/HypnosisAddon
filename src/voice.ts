@@ -1286,6 +1286,23 @@ export function playerOwnNames(): string[] {
 	return [Player?.Name, Player?.Nickname].filter(Boolean) as string[];
 }
 
+/** A whisper to her is addressed to her by definition, so it needs no name (v0.100.3, Claire's
+ * feedback 2026-09-28: "if you whisper to someone you dont have to use their name for each command
+ * given"). Returns the in-character line with her name put on the front when it has none, so every
+ * name gate after this (suggestions, triggers, wake, sink deeper, body parts, commanded touch, the
+ * one-voice hearing filter) treats it as said to her, without each learning about whispers.
+ *
+ * `whisperedToMe` is a whisper from someone else: BC delivers a whisper only to its target and
+ * echoes it to its sender, so a whisper we receive whose sender is not us was sent to us (R132
+ * ChatRoom.js reads the target the same way). OOC is already gone by this point: a whisper entirely
+ * in (parentheses) never gets here. */
+export function asAddressed(inCharacter: string, whisperedToMe: boolean): string {
+	if (!whisperedToMe) return inCharacter;
+	const names = playerOwnNames();
+	if (!names.length || mentionsAnyName(inCharacter, names)) return inCharacter;
+	return `${names[0]}, ${inCharacter}`;
+}
+
 // --- Addressee scoping ---------------------------------------------------------------
 // The name gate above answers "is my name anywhere in this line". That was enough while a
 // hypnotist only ever worked on one person, and wrong the moment they worked on two: for
