@@ -329,6 +329,28 @@ openTab(1); frame();
 openTab(6); frame();
 check("Depth no longer draws the sink deeper button", buttons.some((b) => /Sink deeper/.test(b.label)), false);
 check("  the skill button stays on Depth (DW)", buttons.some((b) => b.label.startsWith("A hypnotist's skill:")), true);
+// v0.100.2 (Veronica, 09-19): a locked player can still turn the Depth pages; paging only reads.
+// Failure: Next does nothing while locked (the v0.100.1 bug), or a locked click changes a depth.
+{
+	const firstGate = () => texts.find((t) => t.top > 260 && t.top < 320 && t.left < panel.CONTENT_LEFT + 100)?.text;
+	storage.startExtremeLock("trial");
+	frame();
+	const page1 = firstGate();
+	const next = buttons.find((b) => b.label === "Next");
+	clickAt(next.left + 5, next.top + 5); frame();
+	check("locked: Next still turns the Depth page", firstGate() !== page1, true);
+	const prev = buttons.find((b) => b.label === "Prev");
+	clickAt(prev.left + 5, prev.top + 5); frame();
+	check("  and Prev turns it back", firstGate(), page1);
+	const minus = buttons.find((b) => b.label === "-5");
+	const before = storage.getDepthOverride("suppressBondage");
+	clickAt(minus.left + 5, minus.top + 5); frame();
+	const plus = buttons.find((b) => b.label === "+5");
+	clickAt(plus.left + 5, plus.top + 5); frame();
+	check("  but -5 / +5 still change nothing while locked", storage.getDepthOverride("suppressBondage"), before);
+	storage.clearExtremeLock();
+	frame();
+}
 
 // --- tabs that fit, and the tab with DOM controls under its rows -----------------------------
 openTab(3); frame(); // Awareness: four rows

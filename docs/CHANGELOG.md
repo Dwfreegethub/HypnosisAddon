@@ -20,6 +20,17 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-02 (v0.100.2) — the Depth tab's pages turn while settings are locked
+
+Veronica's feedback of 2026-09-19, which v0.98 was believed to have answered: "While in trance with
+locked settings, in the depth menu, it would be nice to still be able to change pages."
+`clickDepthGates()` returned on its first line, `if (settingsLocked()) return true`, before the
+Prev/Next checks, so a locked player saw page 1 only. That applied under the session lock and the
+Extreme lock alike. Found by the feedback review on 2026-10-02 (`feedback_review.md`); reproduced
+by driving the real screen before fixing. Paging now runs first. Turning a page only reads, the
+reason the scroll bar already works while locked. `test/menu-layout.mjs` +3 (92); the paging check
+fails on v0.100.1.
+
 ### Fixed 2026-10-02 (v0.100.1) — the wizard's forward button looks clickable when it is
 
 DW: "the next button always looks like it inactive even after you select an item." The forward

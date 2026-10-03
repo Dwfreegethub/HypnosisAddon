@@ -12,6 +12,11 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.2 · 2 October 2026
+
+- While your settings are locked, you can now turn the pages of the Depth tab to read every
+  feature's depth. Before, only the first page could be seen.
+
 ## v0.100.1 · 2 October 2026
 
 - In setup, the **Next** and **Apply** buttons now turn white once you have picked an answer, like
