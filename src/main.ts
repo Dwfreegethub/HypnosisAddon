@@ -25,6 +25,7 @@ import {
 	unstutter,
 	noteArrival,
 	installCompulsions,
+	asAddressed,
 } from "./voice";
 import { noteConversation, displayNameOf } from "./trust";
 import { getFeatures } from "./storage";
@@ -104,6 +105,11 @@ safely("ChatRoomMessage hook", () => {
 			// The sender's arousal stutter is undone first, so "M-Missy, k-kneel" is read as
 			// the words that were typed; see unstutter() for why that is exact.
 			const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
+			// A whisper to her needs no name (v0.100.3): read it as if it began with her name. Only for
+			// matching commands; trust and the induction's roleplay count still see the line as said.
+			const whisperedToMe =
+				data?.Type === "Whisper" && typeof Player?.MemberNumber === "number" && data.Sender !== Player.MemberNumber;
+			const commandLine = inCharacter ? asAddressed(inCharacter, whisperedToMe) : null;
 
 			// Hearing only one voice (v0.93.0): a line she cannot hear is marked for the display
 			// filter (suppression.ts, which keeps only its OOC text) and is not read below at all.
@@ -111,7 +117,7 @@ safely("ChatRoomMessage hook", () => {
 			// trust and the induction's roleplay count.
 			const heard =
 				(data?.Type !== "Chat" && data?.Type !== "Whisper") ||
-				hearsLine(data.Sender, !!inCharacter && mentionsAnyName(inCharacter, playerOwnNames()));
+				hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
 			if (!heard) markUnheard(data);
 
 			// Trigger setup, hidden from the subject when they've asked for that. The line
@@ -119,8 +125,8 @@ safely("ChatRoomMessage hook", () => {
 			// here and then don't call next(), rather than suppressing it wholesale.
 			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
 				try {
-					if (isTriggerSetupLine(data.Sender, inCharacter)) {
-						handleSpokenLine(data.Sender, inCharacter);
+					if (isTriggerSetupLine(data.Sender, commandLine!)) {
+						handleSpokenLine(data.Sender, commandLine!);
 						log("hid trigger setup line from the subject");
 						return undefined;
 					}
@@ -163,7 +169,7 @@ safely("ChatRoomMessage hook", () => {
 
 			if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
 				try {
-					handleSpokenLine(data.Sender, inCharacter);
+					handleSpokenLine(data.Sender, commandLine!);
 				} catch (err) {
 					warn("suggestion parsing failed:", err);
 				}

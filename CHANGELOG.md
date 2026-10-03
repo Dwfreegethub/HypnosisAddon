@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.3 · 2 October 2026
+
+- **Whispers don't need the subject's name any more.** Whisper *"kneel"* to someone you have under
+  and it works like *"Missy, kneel"*. Lines said out loud still need the name, so ordinary room
+  chat stays harmless, and anything in (parentheses) is still out of character and never a command.
+
 ## v0.100.2 · 2 October 2026
 
 - While your settings are locked, you can now turn the pages of the Depth tab to read every

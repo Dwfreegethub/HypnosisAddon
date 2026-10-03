@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.100.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.100.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6615,6 +6615,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function playerOwnNames() {
     return [Player?.Name, Player?.Nickname].filter(Boolean);
   }
+  function asAddressed(inCharacter, whisperedToMe) {
+    if (!whisperedToMe) return inCharacter;
+    const names = playerOwnNames();
+    if (!names.length || mentionsAnyName(inCharacter, names)) return inCharacter;
+    return `${names[0]}, ${inCharacter}`;
+  }
   var VOCATIVE_FILLER = /* @__PURE__ */ new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
   var CLAUSE_SPLIT = /[,;.!?:\n\r]+|\band\b|\bthen\b/i;
   var OBJECT_MARKERS = /* @__PURE__ */ new Set([
@@ -8641,13 +8647,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("   until it asks. The panel says within 3 seconds whether they do."),
       body("2. Wait out the induction window \u2014 that time is for roleplay, and"),
       body("   roleplaying it well improves the roll."),
-      body("3. Then just talk. Use their NAME, or nothing lands."),
+      body("3. Then just talk. Use their NAME, or whisper to them, or nothing lands."),
       gap(),
       head("Why nothing happened"),
       body("Every suggestion is gated, and the checks run in this order:"),
       body("  1. their permission for that feature is on"),
       body("  2. a live trance with YOU specifically"),
-      body("  3. their name is somewhere in the line"),
+      body("  3. their name is in the line, or you whispered it to them"),
       body("  4. they are deep enough \u2014 the deeper the effect, the deeper the"),
       body("     trance it needs (see Depth & Trust)"),
       dim("/hypno match <phrase> reports whether the words matched; a refused"),
@@ -8671,7 +8677,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function vocabularyLines() {
     const lines = [
       body("Generated from the pattern library, so it can never fall behind the"),
-      body("code. Say any of these WITH the subject's name. Releases are dim."),
+      body("code. Say these WITH the subject's name, or whisper them. Releases dim."),
       dim("Each gate shows the permission it needs and, where it matters, the"),
       dim("least depth \u2014 so a line can match perfectly and still wait for a"),
       dim("deeper trance. Contractions and punctuation are ignored."),
@@ -10516,7 +10522,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.2"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.3"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10585,7 +10591,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.2"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.3"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12381,7 +12387,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.100.2"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.100.3"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12404,7 +12410,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.100.2"} loaded`;
+    el.textContent = `ECHS v${"0.100.3"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12435,14 +12441,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.100.2"})`);
+  info(`script loaded (v${"0.100.3"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.100.2",
+      version: "0.100.3",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -12464,12 +12470,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         log("ChatRoomMessage", data);
         const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
-        const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!inCharacter && mentionsAnyName(inCharacter, playerOwnNames()));
+        const whisperedToMe = data?.Type === "Whisper" && typeof Player?.MemberNumber === "number" && data.Sender !== Player.MemberNumber;
+        const commandLine = inCharacter ? asAddressed(inCharacter, whisperedToMe) : null;
+        const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
         if (!heard) markUnheard(data);
         if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
           try {
-            if (isTriggerSetupLine(data.Sender, inCharacter)) {
-              handleSpokenLine(data.Sender, inCharacter);
+            if (isTriggerSetupLine(data.Sender, commandLine)) {
+              handleSpokenLine(data.Sender, commandLine);
               log("hid trigger setup line from the subject");
               return void 0;
             }
@@ -12491,7 +12499,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
           try {
-            handleSpokenLine(data.Sender, inCharacter);
+            handleSpokenLine(data.Sender, commandLine);
           } catch (err) {
             warn("suggestion parsing failed:", err);
           }

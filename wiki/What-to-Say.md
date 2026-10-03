@@ -11,7 +11,7 @@ For a worked example of these phrases used in a live scene, see [A Sample Sessio
 
 ## The Three Rules
 
-**1. Say their name.** Every suggestion requires the subject's name (or recognized nickname) somewhere in the sentence. Without it, the client ignores the line completely — this keeps ordinary conversation completely inert.
+**1. Say their name, or whisper.** Every suggestion said out loud needs the subject's name (or recognized nickname) somewhere in the sentence. Without it, the client ignores the line completely — this keeps ordinary conversation completely inert. **A whisper to them needs no name** (since v0.100.3): a whisper is already addressed to them, so *"kneel"* whispered works like *"Missy, kneel"*. Text in (parentheses) is still out of character and never a command.
 
 **2. Contractions and punctuation do not matter.** *"You can't move"*, *"you cannot move"*, and *"Missy — you CAN'T move!"* are evaluated identically by the parser.
 
@@ -39,7 +39,7 @@ Once she is under with you, you can take her deeper:
 |---|---|
 | *"Missy, sink deeper"* · *"go deeper"* · *"drop deeper"* · *"fall deeper"* · *"sleep deeper"* · *"relax deeper"* · *"let go deeper"* · *"deeper and deeper"* · *"drift deeper into trance"* | Deeper, if it takes |
 
-* **Her name is needed**, as for every suggestion, and she has to be under with you.
+* **Her name is needed** (or whisper it to her), as for every suggestion, and she has to be under with you.
 * **It is a roll.** Her trust in you, your skill, her arousal, how long she has been under (more after a few minutes), her practice at going along, and her answer at the induction prompt (Agree helps, Fight hurts) all count. The deeper she already is, the harder it gets. If she has given you her trust (*"I trust you, Eri"*), it always takes.
 * **How far it goes shrinks as she sinks.** Shallow, one success can take her a whole depth or more; already deep, it only nudges her. If she trusts you well (past 60, or you own her), each success goes a little further. A miss does nothing.
 * **She can fight it.** If she chose Fight at the prompt, or types `/echs fight` while under, every deepening is harder, and one that misses may bring her **up** instead (and past the surface, awake). Typing `/echs fight` while under is also a push of its own. She gets at most one push a minute. The shallower she is and the more practised, the better her chance; your skill, her trust in you and her arousal hold her down. You are told when she comes up, and the room sees it when she comes up a whole depth.
@@ -131,7 +131,7 @@ Now anyone allowed to use it saying *"ember glow"* in the room makes Missy say *
 | Say | What she hears |
 |---|---|
 | *"you hear only my voice"* · *"you will only hear me"* · *"my voice is the only one you can hear"* | Everything **you** say, named or not. Nobody else. |
-| *"you only hear what is said to you"* · *"you only hear your name"* | Only lines that use **her name**, from anyone. |
+| *"you only hear what is said to you"* · *"you only hear your name"* | Only lines that use **her name**, and whispers to her, from anyone. |
 | *"you can hear everyone again"* · *"your hearing comes back"* | — *release* |
 
 **What she still gets:** everything she can *see* — emotes, activities, items going on, people coming and going — and her own lines. **Out-of-character text in (parentheses) always gets through**, in chat or whispers, from anyone: a friend can still ask *"(are you ok?)"*. Everything else said in the room is hidden, and now and then (at most once a minute) she is told that other voices are there and don't matter.

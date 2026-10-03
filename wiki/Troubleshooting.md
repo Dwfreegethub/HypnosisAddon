@@ -28,7 +28,7 @@ Suggestions must pass a strict sequence of checks. If a spoken command produces 
 
 1. **Is the permission enabled?** Type `/echs session` (or `/hypno session`) to verify which categories are granted.
 2. **Is there an active trance with that specific hypnotist?** Suggestions are bound to the specific partner who conducted the induction, not just any general trance state.
-3. **Did the speaker include the subject's name?** Every targeted suggestion requires addressing the subject by name. Type `/echs match <phrase>` to test if the name gate passed.
+3. **Did the speaker include the subject's name?** Every suggestion said out loud must address the subject by name; a whisper to the subject needs no name. Type `/echs match <phrase>` to test if the name gate passed.
 4. **Is the subject deep enough in trance?** Type `/echs gates` to review depth thresholds. A phrase can match the dictionary perfectly but still fail if the trance is not deep enough.
 
 **The hypnotist receives private chat feedback indicating which gate blocked the command.** If the hypnotist received no feedback at all, the phrasing failed to match the parser dictionary entirely.
@@ -41,7 +41,7 @@ Suggestions must pass a strict sequence of checks. If a spoken command produces 
 
 Punctuation, capitalization, and standard contractions (*can't* vs. *cannot*) are normalized automatically. If a line failed to match, check for these common causes:
 
-* **Missing Name:** The line must include the subject's character name.
+* **Missing Name:** A line said out loud must include the subject's character name. (Whispered to them, it doesn't need it.)
 * **First-Person Confusions ("I" or "We"):** Lines starting with *"I"* or *"we"* without a subsequent *"you"* are discarded intentionally so descriptive emotes like *"I kneel beside you"* do not force the subject to kneel.
 * **Parentheses:** Any text enclosed in single parentheses `(like this)` is treated as OOC dialogue and discarded before the parser evaluates the message.
 * **Unrecognized Phrasing:** The parser matches specific structures. Check the in-game **What to Say** tab (generated directly from the engine) or [What to Say](What-to-Say) on the wiki for valid sentence patterns.
