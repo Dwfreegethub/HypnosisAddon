@@ -62,7 +62,7 @@ storage.setFeature("carryForward", true);
 storage.setTrustValue(HYP, "GameBot", 90);
 depth.setCurrentDepths(30, 30); // Yielding, well short of the Deep this needs
 const low = carry.carryThese(HYP, "GameBot", carry.lastApplied());
-check("refused above the tier's floor", /needs Deep/.test(low.refusal ?? ""), true);
+check("refused above the tier's floor", /needs 60 \[Deep\]/.test(low.refusal ?? ""), true);
 check("  nothing held", carry.carriedIds(), []);
 
 // Deep enough overall, but only because of arousal. The two-depth rule exists for this.

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.97.4. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.98.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1955,7 +1955,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const gain = directed ? DIRECTED_MULTIPLIER : 1;
     const entry = addInteractions(sender, senderName, gain);
     log(
-      `trust +${gain} with ${entry.memberName} (${directed ? "directed" : "ambient"}) \u2192 ${entry.interactions.toFixed(1)} interactions = ${valueFromCount(entry.interactions, H_TRUST).toFixed(1)}`
+      `trust +${gain} with ${trustEntryLabel(entry)} (${directed ? "directed" : "ambient"}) \u2192 ${entry.interactions.toFixed(1)} interactions = ${valueFromCount(entry.interactions, H_TRUST).toFixed(1)}`
     );
   }
   function noteInductionAttempt() {
@@ -1966,7 +1966,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS);
     const exp = addExperience(INDUCTION_EXPERIENCE);
     log(
-      `induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${entry.memberName} \u2192 trust ${trustWith(hypnotistId).toFixed(1)}; experience \u2192 ${exp.toFixed(1)}`
+      `induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${trustEntryLabel(entry)} \u2192 trust ${trustWith(hypnotistId).toFixed(1)}; experience \u2192 ${exp.toFixed(1)}`
     );
   }
   function noteDeepenSuccess() {
@@ -1991,6 +1991,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberId
     );
+  }
+  function displayNameOf(C) {
+    const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
+    return nick || (typeof C?.Name === "string" ? C.Name : "");
+  }
+  function trustNameFor(memberId) {
+    return displayNameOf(characterFor2(memberId));
+  }
+  function trustEntryLabel(t) {
+    const name = trustNameFor(t.memberId) || t.memberName || "";
+    return name && !/^#\d+$/.test(name) ? `${name} (#${t.memberId})` : `#${t.memberId}`;
   }
   function relationshipWith(memberId) {
     const override = getRelationshipOverride(memberId);
@@ -2021,7 +2032,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function trustStatRows() {
     return listTrust().slice().sort((a, b) => b.interactions - a.interactions).map((t) => ({
-      name: `${t.memberName} [${t.memberId}]`,
+      name: trustEntryLabel(t),
       trust: trustWith(t.memberId).toFixed(1),
       detail: `${t.interactions.toFixed(1)} interactions \xB7 ${agoText(t.lastUpdated)}`
     }));
@@ -2035,7 +2046,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ...all.slice().sort((a, b) => b.interactions - a.interactions).map((t) => {
         const self = typeof Player?.MemberNumber === "number" && t.memberId === Player.MemberNumber;
         const hidden = self ? "  <- YOU (hidden, purged on next load)" : t.interactions <= 0 ? "  <- worn out (hidden)" : "";
-        return `${t.memberName} [${t.memberId}]: trust ${trustWith(t.memberId).toFixed(1)} (${t.interactions.toFixed(1)} interactions)${hidden}`;
+        return `${trustEntryLabel(t)}: trust ${trustWith(t.memberId).toFixed(1)} (${t.interactions.toFixed(1)} interactions)${hidden}`;
       })
     ];
   }
@@ -2140,9 +2151,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function tierLabel(tier) {
     return DEPTH_TIERS.find((t) => t.key === tier)?.label ?? String(tier);
   }
-  function nextTier(tier) {
-    const at = DEPTH_TIERS.findIndex((t) => t.key === tier);
-    return DEPTH_TIERS[(at + 1) % DEPTH_TIERS.length].key;
+  var MAX_GATE_DEPTH = 99;
+  function depthLabel(depth) {
+    return `${depth} [${tierLabel(tierOf(depth))}]`;
+  }
+  function clampGateDepth(value) {
+    const n = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+    if (!Number.isFinite(n)) return null;
+    return Math.min(MAX_GATE_DEPTH, Math.max(0, Math.round(n)));
   }
   var CHEMICAL_SCOPES = [
     { key: "both", label: "Arousal + drugs" },
@@ -2180,28 +2196,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   var DEPTH_GATES = [
     // Mood: noticing less is the shallowest thing hypnosis does.
-    { key: "suppressClothing", label: "Not noticing clothing changes", tier: "drifting", earnedOnly: false },
-    { key: "suppressBondage", label: "Not noticing bondage changes", tier: "drifting", earnedOnly: false },
-    { key: "suppressActivities", label: "Not noticing touches", tier: "drifting", earnedOnly: false },
+    { key: "suppressClothing", label: "Not noticing clothing changes", depth: 0, earnedOnly: false },
+    { key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
+    { key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
     // Behavioural, session-only.
-    { key: "movementRestriction", label: "Cannot move", tier: "yielding", earnedOnly: false },
-    { key: "speechRestriction", label: "Cannot speak", tier: "yielding", earnedOnly: false },
-    { key: "postureControl", label: "Posture Control", tier: "yielding", earnedOnly: false },
-    { key: "clothingRestriction", label: "Cannot reach the wardrobe", tier: "yielding", earnedOnly: false },
-    { key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
-    { key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
+    { key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
+    { key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
+    { key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
+    { key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
+    { key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
+    { key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
     // Deeper, still session-only.
-    { key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
+    { key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
     // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
-    { key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
-    { key: "hearingControl", label: "Hears only one voice", tier: "entranced", earnedOnly: false },
-    { key: "sightControl", label: "Sight", tier: "entranced", earnedOnly: false },
-    { key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
-    { key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
+    { key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
+    { key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
+    { key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
+    { key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
+    { key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
     // The earned-only three: two outlive the session, one lies to the subject.
-    { key: "illusionControl", label: "Clothing illusion", tier: "deep", earnedOnly: true },
-    { key: "triggerControl", label: "Planting triggers", tier: "deep", earnedOnly: true },
-    { key: "carryForward", label: "Suggestions that outlive the trance", tier: "deep", earnedOnly: true }
+    { key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
+    { key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
+    { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
   ];
   function gateFor(key) {
     return DEPTH_GATES.find((g) => g.key === key);
@@ -2221,16 +2237,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
   }
-  function requiredTier(key) {
+  function requiredDepth(key) {
     try {
       const override = getDepthOverride(key);
-      if (override && DEPTH_TIERS.some((t) => t.key === override)) return override;
+      if (typeof override === "number") return clampGateDepth(override) ?? 0;
     } catch {
     }
-    return gateFor(key)?.tier ?? "drifting";
-  }
-  function requiredDepth(key) {
-    return tierMinimum(requiredTier(key));
+    return gateFor(key)?.depth ?? 0;
   }
   function depthAllows(key, full = currentDepth(), earned = currentDepthEarned()) {
     const gate = gateFor(key);
@@ -2240,10 +2253,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function depthRefusal(key, full = currentDepth(), earned = currentDepthEarned()) {
     if (depthAllows(key, full, earned)) return null;
-    const need = requiredTier(key);
     const earnedGate = effectiveEarnedOnly(key);
-    const have = earnedGate ? earned : full;
-    return `needs ${tierLabel(need)} (${requiredDepth(key)}), at ${have.toFixed(0)}${earnedGate ? " earned \u2014 arousal does not count toward this one" : ""}`;
+    const have = Math.floor(earnedGate ? earned : full);
+    return `needs ${depthLabel(requiredDepth(key))}, at ${depthLabel(have)}${earnedGate ? " earned \u2014 arousal does not count toward this one" : ""}`;
   }
 
   // src/illusion.ts
@@ -3364,7 +3376,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (slipped) notify("For a moment it nearly takes you, and then it slips away.");
     if (depths && !slipped) {
       enterTrance(depths.full, depths.earned);
-      noteInductionSuccess(session.hypnotistId, findCharacterName(session.hypnotistId));
+      noteInductionSuccess(session.hypnotistId, trustNameFor(session.hypnotistId));
       notify(`You slip under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
       announceTranceEnter();
       log(`induction SUCCEEDED: ${detail} depth=${session.depth}/${session.depthEarned}`);
@@ -3905,9 +3917,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     endSession("they woke you");
     return true;
   }
-  function currentTier() {
-    return tierOf(session.phase === "Hypnotized" ? session.depth : 0);
-  }
   function currentHypnotistId() {
     return session.phase === "Idle" ? null : session.hypnotistId;
   }
@@ -4308,6 +4317,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
     if (!s.depthGates || typeof s.depthGates !== "object") s.depthGates = {};
+    migrateDepthGates(s.depthGates);
     if (!s.chemicalReach || typeof s.chemicalReach !== "object") s.chemicalReach = {};
     if (typeof s.chemicalScope !== "string") s.chemicalScope = "arousal";
     if (!s.relationshipOverride || typeof s.relationshipOverride !== "object") s.relationshipOverride = {};
@@ -4369,8 +4379,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function getTrust(memberId) {
     return loadSettings().trust.find((t) => t.memberId === memberId);
   }
+  var LEGACY_GATE_TIERS = { drifting: 0, yielding: 20, entranced: 40, deep: 60, blank: 80 };
+  function migrateDepthGates(gates) {
+    for (const [key, value] of Object.entries(gates)) {
+      const n = typeof value === "string" && value in LEGACY_GATE_TIERS ? LEGACY_GATE_TIERS[value] : typeof value === "number" && Number.isFinite(value) ? Math.min(99, Math.max(0, Math.round(value))) : null;
+      if (n === null) delete gates[key];
+      else gates[key] = n;
+    }
+  }
   function getDepthOverride(key) {
-    return loadSettings().depthGates[key] ?? "";
+    const value = loadSettings().depthGates[key];
+    return typeof value === "number" ? value : void 0;
   }
   function getChemicalReach(key) {
     return loadSettings().chemicalReach[key] === true;
@@ -4381,9 +4400,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else delete reach[key];
     saveSettings();
   }
-  function setDepthOverride(key, tier) {
-    loadSettings().depthGates[key] = tier;
+  function setDepthOverride(key, depth) {
+    const n = Number.isFinite(depth) ? Math.min(99, Math.max(0, Math.round(depth))) : 0;
+    loadSettings().depthGates[key] = n;
     saveSettings();
+    return n;
   }
   function clearDepthOverrides() {
     const settings = loadSettings();
@@ -4429,6 +4450,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function trustWith(memberId) {
     return valueFromCount(applyDecay(getTrust(memberId)), H_TRUST);
   }
+  function isRealName(name) {
+    return !!name && !/^#\d+$/.test(name);
+  }
   function addInteractions(memberId, memberName, delta) {
     const settings = loadSettings();
     let entry = settings.trust.find((t) => t.memberId === memberId);
@@ -4437,7 +4461,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       settings.trust.push(entry);
     }
     entry.interactions = Math.max(0, entry.interactions + delta);
-    if (memberName) entry.memberName = memberName;
+    if (isRealName(memberName)) entry.memberName = memberName;
     entry.lastUpdated = Date.now();
     saveSettings();
     return entry;
@@ -4450,7 +4474,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       settings.trust.push(entry);
     }
     entry.interactions = countFromValue(value, H_TRUST);
-    entry.memberName = memberName;
+    if (isRealName(memberName)) entry.memberName = memberName;
     entry.lastUpdated = Date.now();
     saveSettings();
     return entry;
@@ -8449,7 +8473,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function flushTip() {
     const t = pendingTip;
     pendingTip = null;
-    if (!t) return;
+    if (!t) return null;
     MainCanvas.save();
     MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(TIP_FONT) : `${TIP_FONT}px arial`;
     const lines = wrapToWidth(t.text, TIP_WIDTH - 2 * TIP_PAD);
@@ -8468,6 +8492,30 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillStyle = "black";
     lines.forEach((line, i) => MainCanvas.fillText(line, left + TIP_PAD, top + TIP_PAD + pitch / 2 + i * pitch));
     MainCanvas.restore();
+    return { left, top, width: TIP_WIDTH, height };
+  }
+  function clearTipOverlap(tip, ids2) {
+    const canvasEl = typeof MainCanvas !== "undefined" ? MainCanvas?.canvas : void 0;
+    if (typeof canvasEl?.getBoundingClientRect !== "function") return;
+    let scaleX = 0, scaleY = 0, originX = 0, originY = 0;
+    if (tip) {
+      const c = canvasEl.getBoundingClientRect();
+      scaleX = c.width / MainCanvasWidth;
+      scaleY = c.height / MainCanvasHeight;
+      originX = c.left;
+      originY = c.top;
+    }
+    for (const id of ids2) {
+      const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+      if (!el || typeof el.getBoundingClientRect !== "function" || !el.style) continue;
+      let covered = false;
+      if (tip) {
+        const r = el.getBoundingClientRect();
+        const l = originX + tip.left * scaleX, t = originY + tip.top * scaleY;
+        covered = r.left < l + tip.width * scaleX && r.right > l && r.top < t + tip.height * scaleY && r.bottom > t;
+      }
+      el.style.visibility = covered ? "hidden" : "";
+    }
   }
 
   // src/help.ts
@@ -8581,7 +8629,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(head("What each depth reaches"));
     let anyEarned = false;
     for (const t of DEPTH_TIERS) {
-      const here = DEPTH_GATES.filter((g) => g.tier === t.key);
+      const here = DEPTH_GATES.filter((g) => tierOf(g.depth) === t.key);
       if (!here.length) continue;
       const names = here.map((g) => {
         if (g.earnedOnly) anyEarned = true;
@@ -8592,8 +8640,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (anyEarned) {
       lines.push(dim("* earned depth only \u2014 arousal cannot reach these by default (below)."));
     }
-    lines.push(dim("Deeper is a consent setting, not a difficulty: the Depth tab moves"));
-    lines.push(dim("any of these up or down for yourself."));
+    lines.push(dim("These are the defaults. Deeper is a consent setting, not a difficulty:"));
+    lines.push(dim("the Depth tab sets any of them to a number from 0 to 99 for yourself."));
     return lines;
   }
   function depthTrustLines() {
@@ -8880,8 +8928,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (cfg.access === "earned") {
       clearDepthOverrides();
     } else {
-      const tier = cfg.access === "easy" ? "drifting" : "deep";
-      for (const gate of DEPTH_GATES) setDepthOverride(gate.key, tier);
+      const depth = cfg.access === "easy" ? tierMinimum("drifting") : tierMinimum("deep");
+      for (const gate of DEPTH_GATES) setDepthOverride(gate.key, depth);
     }
     setChemicalScope(cfg.arousalShortcut ? "arousal" : "neither");
     setSkillHonour(cfg.honour);
@@ -9684,11 +9732,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DEPTH_ROW_TOP = 270;
   var DEPTH_ROW_HEIGHT = 52;
   var DEPTH_ROWS_PER_PAGE = 7;
-  var DEPTH_TIER_LEFT = BOX_LEFT + 890;
-  var DEPTH_LABEL_MAX = 890 - 40;
-  var DEPTH_TIER_WIDTH = 210;
+  var DEPTH_CTRL_LEFT = BOX_LEFT + 600;
+  var DEPTH_LABEL_MAX = 600 - 30;
+  var DEPTH_STEP_WIDTH = 64;
+  var DEPTH_STEP = 5;
+  var DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
+  var DEPTH_INPUT_WIDTH = 96;
+  var DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
+  var DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
+  var DEPTH_TIER_TEXT_MAX = 240;
   var DEPTH_BUTTON_HEIGHT = 44;
-  var CHEM_TOGGLE_LEFT = DEPTH_TIER_LEFT + DEPTH_TIER_WIDTH + 12;
+  var CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
+  var DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
+  var DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
   var CHEM_TOGGLE_WIDTH = 136;
   var SCOPE_BUTTON_LEFT = BOX_LEFT;
   var SCOPE_BUTTON_TOP = 740;
@@ -9710,6 +9766,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawDepthGates() {
     const locked = settingsLocked();
     const features = getFeatures();
+    removeDepthInputs(visibleGates().map((g) => DEPTH_INPUT_PREFIX + g.key));
     visibleGates().forEach((gate, i) => {
       const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
       const granted = !!features[gate.key];
@@ -9720,16 +9777,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
         DEPTH_LABEL_MAX,
         granted ? "Black" : "Gray"
       );
+      const need = requiredDepth(gate.key);
+      const stepColor = locked ? "#ddd" : granted ? "White" : "#eee";
       tipButton(
-        DEPTH_TIER_LEFT,
+        DEPTH_CTRL_LEFT,
         top,
-        DEPTH_TIER_WIDTH,
+        DEPTH_STEP_WIDTH,
         DEPTH_BUTTON_HEIGHT,
-        tierLabel(requiredTier(gate.key)),
-        locked ? "#ddd" : granted ? "White" : "#eee",
+        `-${DEPTH_STEP}`,
+        stepColor,
         "",
-        locked ? "Locked until this session ends" : "Click to require a deeper trance",
-        locked
+        "",
+        locked || need <= 0
+      );
+      drawDepthInput(gate.key, top, need, locked);
+      tipButton(
+        DEPTH_PLUS_LEFT,
+        top,
+        DEPTH_STEP_WIDTH,
+        DEPTH_BUTTON_HEIGHT,
+        `+${DEPTH_STEP}`,
+        stepColor,
+        "",
+        "",
+        locked || need >= MAX_GATE_DEPTH
+      );
+      drawLeftTextFit(
+        `[${tierLabel(tierOf(need))}]`,
+        DEPTH_TIER_TEXT_LEFT,
+        top + 30,
+        DEPTH_TIER_TEXT_MAX,
+        granted ? "Black" : "Gray"
       );
       if (gate.earnedOnly) {
         const toggleable = isChemicalToggleable(gate.key);
@@ -9782,7 +9860,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Reset to defaults",
       locked ? "#ddd" : "White",
       "",
-      "Forget every tier you have changed",
+      "Forget every depth you have changed",
       locked
     );
     const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
@@ -9809,8 +9887,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
       locked
     );
-    const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
+    const here = isHypnotized() ? `You are ${depthLabel(Math.floor(currentDepth()))} right now.` : "You are not under.";
     drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
+  }
+  function drawDepthInput(key, top, need, locked) {
+    const id = DEPTH_INPUT_PREFIX + key;
+    let element = document.getElementById(id);
+    if (!element) {
+      element = ElementCreateInput(id, "number", String(need), 2);
+      element.min = "0";
+      element.max = String(MAX_GATE_DEPTH);
+      element.inputMode = "numeric";
+      element.addEventListener("blur", function(event) {
+        if (settingsLocked()) return;
+        ElementNumberInputBlur.call(this, event);
+        const saved = setDepthOverride(key, Number(this.value));
+        this.value = String(saved);
+        log(`${key} now needs ${saved}`);
+      });
+      element.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") this.blur();
+      });
+    }
+    if (document.activeElement !== element) element.value = element.defaultValue = String(need);
+    element.disabled = locked;
+    ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
+  }
+  function removeDepthInputs(keep = []) {
+    for (const id of DEPTH_INPUT_IDS) {
+      if (!keep.includes(id) && document.getElementById(id)) ElementRemove(id);
+    }
   }
   function clickDepthGates() {
     if (settingsLocked()) return true;
@@ -9850,10 +9956,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const gates = visibleGates();
     for (let i = 0; i < gates.length; i++) {
       const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
-      if (MouseIn(DEPTH_TIER_LEFT, top, DEPTH_TIER_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-        const next = nextTier(requiredTier(gates[i].key));
-        setDepthOverride(gates[i].key, next);
-        log(`${gates[i].key} now needs ${next}`);
+      const step = MouseIn(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? -DEPTH_STEP : MouseIn(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? DEPTH_STEP : 0;
+      if (step) {
+        const saved = setDepthOverride(gates[i].key, requiredDepth(gates[i].key) + step);
+        log(`${gates[i].key} now needs ${saved}`);
         return true;
       }
       if (MouseIn(CHEM_TOGGLE_LEFT, top, CHEM_TOGGLE_WIDTH, DEPTH_BUTTON_HEIGHT) && isChemicalToggleable(gates[i].key)) {
@@ -9959,10 +10065,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DURATION_WIDTH = 140;
   var DURATION_HEIGHT = 56;
   var DECAY_CAPTION_Y = 858;
+  function ownedControlIds() {
+    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+  }
   function removeScopeControl() {
     for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
+    removeDepthInputs();
   }
   function syncTabControls(tabName) {
     if (tabName !== "Triggers") {
@@ -9973,6 +10083,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
     if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+    if (tabName !== "Depth") removeDepthInputs();
   }
   function drawDecayControl() {
     const locked = settingsLocked();
@@ -10051,9 +10162,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         this.value = String(saved);
         log(`trigger duration set to ${saved} min`);
       });
-      element.addEventListener("wheel", ElementNumberInputWheel);
     }
-    if (document.activeElement !== element) element.value = String(getTriggerDuration());
+    if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
     element.disabled = locked;
     ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
   }
@@ -10172,6 +10282,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } catch {
     }
   }
+  var LOCK_BANNER_BACK = "#ffe3a3";
+  var LOCK_BANNER_TEXT = "#5c3d00";
   function settingsLocked() {
     return getFeatures().lockedWhileHypnotized && isSessionLive();
   }
@@ -10209,7 +10321,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.97.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -10230,13 +10342,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     const tab = tabs[activeTab2];
     const locked = settingsLocked();
-    drawLeftTextFit(
-      locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-      BOX_LEFT,
-      BLURB_Y,
-      PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-      "Gray"
-    );
+    if (locked) {
+      DrawRect(BOX_LEFT - 20, BLURB_Y - 24, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT, 48, LOCK_BANNER_BACK);
+      drawLeftTextFit(
+        "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
+        BOX_LEFT,
+        BLURB_Y,
+        PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+        LOCK_BANNER_TEXT
+      );
+    } else {
+      drawLeftTextFit(tab.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
+    }
     syncTabControls(tab.name);
     if (tab.render) {
       tab.render();
@@ -10283,12 +10400,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         removeScopeControl();
         closeHelp();
       },
-      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
+      // Every path ends in flushTip, so the hover tip a button queued is drawn last, on top — and
+      // any DOM control under it steps aside, since canvas cannot draw over one (DW: the page-3
+      // "earned only" tip went under the v0.98.0 number boxes).
       run: () => {
         try {
           runSettings();
         } finally {
-          flushTip();
+          clearTipOverlap(flushTip(), ownedControlIds());
         }
       },
       click: () => {
@@ -10756,7 +10875,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (!target) return;
         const entry = setTrustValue(target.id, target.name, value);
         reply(
-          `trust with ${entry.memberName} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
+          `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
         );
       }
     },
@@ -11182,7 +11301,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (!target) return;
         const entry = addInteractions(target.id, target.name, delta);
         reply(
-          `trust with ${entry.memberName} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
+          `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
         );
       }
     },
@@ -11211,7 +11330,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         forgetTrust(entry.memberId);
-        reply(`Forgot ${entry.memberName} [${entry.memberId}] \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
+        reply(`Forgot ${trustEntryLabel(entry)} \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
       }
     },
     {
@@ -11352,7 +11471,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           const deep = depthAllows(gate.key, full, earned);
           const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
           reply(
-            `  ${verdict.padEnd(16)} ${gate.label} \u2014 needs ${tierLabel(requiredTier(gate.key))} (${requiredDepth(gate.key)})${gate.earnedOnly ? ", earned only" : ""}`
+            `  ${verdict.padEnd(16)} ${gate.label} \u2014 needs ${depthLabel(requiredDepth(gate.key))}${gate.earnedOnly ? ", earned only" : ""}`
           );
         }
       }
@@ -11950,7 +12069,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.97.4"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.4"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -11973,7 +12092,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.97.4"} loaded`;
+    el.textContent = `ECHS v${"0.98.4"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12004,14 +12123,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.97.4"})`);
+  info(`script loaded (v${"0.98.4"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.97.4",
+      version: "0.98.4",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -12072,7 +12191,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           try {
             const sender = ChatRoomCharacter?.find((c) => c?.MemberNumber === data.Sender);
             const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
-            noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
+            noteConversation(data.Sender, displayNameOf(sender), directed);
           } catch (err) {
             warn("trust accrual failed:", err);
           }

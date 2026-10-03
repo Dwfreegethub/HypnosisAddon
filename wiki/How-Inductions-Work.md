@@ -80,7 +80,7 @@ With no skill, no practice, no arousal and nothing said during the box. Depth is
 | **An owner** | 20 | 90% · lands 60–69 (Deep) | 65% · lands 60 (Deep) | 40% · lands 11–29 |
 | **Someone you trust a lot** | 80 | 95% · lands 51–69 | 80% · lands 40–49 | 55% · lands 11–29 |
 
-The tiers are Drifting 0–19, Yielding 20–39, Entranced 40–59, Deep 60–79, Blank 80–100, unless you have moved them in your Depth tab.
+The tiers are Drifting 0–19, Yielding 20–39, Entranced 40–59, Deep 60–79, Blank 80–100. How deep each feature needs you to be is a number you can set in your Depth tab.
 
 ---
 

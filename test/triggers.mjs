@@ -80,7 +80,7 @@ storage.setFeature("triggerControl", true);
 storage.setTrustValue(HYP, "GameBot", 90);
 depth.setCurrentDepths(30, 30); // Yielding — nowhere near the Deep that planting needs
 triggers.beginRecording(HYP, "GameBot", "sleepy");
-check("refused above the tier's floor", /needs Deep/.test(lastToHypnotist()), true);
+check("refused above the tier's floor", /needs 60 \[Deep\]/.test(lastToHypnotist()), true);
 check("  nothing recorded", triggers.isRecording(), false);
 check("  and high trust does not buy it", /trust/.test(lastToHypnotist()), false);
 

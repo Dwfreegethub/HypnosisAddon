@@ -20,7 +20,87 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Fixed 2026-09-27 (v0.97.4) — hover tips on the settings screen wrap instead of shrinking
+### Fixed 2026-10-02 (v0.98.4) — the hover-tip fix no longer throws without a real canvas
+
+`clearTipOverlap()` (v0.98.3) called `MainCanvas.canvas.getBoundingClientRect()` unguarded. The
+settings screen's stand-in canvas in `test/menu-layout.mjs` has no such method, so the suite threw
+inside run()'s `finally` and exited non-zero before printing a result. It went unnoticed because
+the three known CRLF loader failures already make `npm test` exit non-zero on DW's machine, and the
+result was read by grepping for FAIL lines, which a crash does not print. Now guarded (no rect, no
+comparison), and suites are checked by exit code, one by one. No player-visible change, so the
+root CHANGELOG keeps a single entry under the new number.
+
+### Fixed 2026-09-29 (v0.98.3) — hover tips no longer go under DOM controls
+
+DW: the page-3 "earned only" tip on the Depth tab did not draw over the number boxes. New in v0.98.0:
+the boxes are DOM inputs, and the canvas cannot paint over a DOM element, so any tip placed across
+one sat beneath it. The Triggers/Stats dropdowns had the same exposure. `flushTip()` now returns the
+rect it drew, and `clearTipOverlap()` (panel.ts) sets `visibility: hidden` on every control the
+settings screen owns while it overlaps that rect, comparing in screen space because the canvas is
+scaled. Hidden rather than removed, so a half-typed box keeps its text.
+
+### Fixed 2026-09-29 (v0.98.2) — an emptied number box restores the latest saved value
+
+R132's `ElementNumberInputBlur` puts `defaultValue` back when a number box is left empty, and
+`defaultValue` was only ever the value the box was created with. So on the Depth tab, typing 45 and
+later clearing the box saved the old number again; the trigger-duration box had the same fault. The
+per-frame resync now sets `defaultValue` along with `value`. Found while writing `script_test.md`.
+
+### Fixed 2026-09-29 (v0.98.1) — number boxes step once per wheel notch; no hover tips on -5/+5
+
+Found in DW's first test of v0.98.0, which never reached players, so the root CHANGELOG folds both
+into one v0.98.1 entry. R132's `ElementCreateInput` already attaches `ElementNumberInputWheel` to
+every `type: "number"` box, so our own second listener stepped the Depth boxes, and the older
+trigger-duration box, two at a time. Both extra listeners removed. DW asked for no hover text on
+-5/+5 ("I dont think we need to tell people what a +5 button does").
+
+DW also reported that v0.98.0 "zeroed out" the depths. Traced, and it was not a loss: every gate
+was stored as "drifting", which is what the wizard's Easy answer and the Extreme preset write
+(applySetup), and Drifting's floor is 0. A simulated 0.97.4 profile with every gate "yielding"
+loads as 20 on every row. Extreme's depth gates move to 20 in job2's wizard overhaul.
+
+### Changed 2026-09-29 (v0.98.0) — numeric depth gates, a read-only banner, trust shown by nickname
+
+From DW's brief (`job.md`, local and untracked). Three parts, one PR on `feat/numeric-depth`.
+
+**Depth gates are numbers 0-99.** `DepthGate.tier` became `DepthGate.depth` (defaults unchanged:
+each is its old tier's floor), `requiredDepth()` reads the override or the default, and
+`requiredTier()` is now derived from it via `tierOf()`. `depthGates` in storage holds numbers;
+`migrateDepthGates()` in `normalise()` turns a saved tier name into its floor (drifting 0, yielding
+20, entranced 40, deep 60, blank 80), rounds and clamps numbers into 0-99, and deletes anything else
+so the default governs (the skillHonour rule). It runs on load and on import. The floors are spelt out
+in storage.ts (`LEGACY_GATE_TIERS`) so storage stays a leaf; `test/depth.mjs` checks they match
+`DEPTH_TIERS`. 99, not 100, is the ceiling a gate may ask for: 99 is still inside Blank, so every
+gate stays reachable. The brief's "never: 100" mapping is not built — DW chose to convert only the
+feature gates (the "Sink deeper stops at" ceiling keeps its named rungs, including *Never deeper*).
+The earned-only split is untouched: `depthAllows()` still picks earned or full depth per feature
+before comparing.
+
+The Depth tab's click-to-cycle button became -5 / a number box / +5 plus the tier in brackets.
+The box is a DOM input per visible row (`HypnosisAddonDepth-<key>`), made for the page showing and
+removed on page change, tab change and every exit (`removeDepthInputs()`, called from
+`syncTabControls` and `removeScopeControl`). It commits on blur or Enter, not per keystroke — the
+trigger-duration box's rule — and re-checks `settingsLocked()` in the blur handler, because a box
+focused before a session began can blur after. Refusals and `/echs gates` now say
+`needs 60 [Deep], at 45 [Entranced]` (`depthLabel()`); "at" floors rather than rounds, so 39.6 reads
+39 [Yielding] and is not shown as if it met a 40 gate.
+
+**Read-only settings.** Already true since v0.65.1: the screen opens while locked, every control is
+disabled and every click handler consumes without acting. What the brief found missing was that it
+did not *look* locked — only the grey blurb line changed. It is now a yellow banner across the blurb
+band. DW decided no on-screen safeword button: `/echs safeword` stays the way out, and the banner
+says so.
+
+**Trust names.** Entries already stored a name, but the account name, and two callers passed a
+`#123456` fallback when the character was not on the roster — which `addInteractions` then wrote over
+the real name, so a known partner could turn into a number. Now `displayNameOf()` (trust.ts) prefers
+the nickname (read off the character, not BC's `CharacterNickname`, which returns a GGTS stand-in in
+the asylum); callers pass "" when nobody is found; `isRealName()` in storage refuses to store "" or a
+bare `#n`. Display goes through `trustEntryLabel()`: the live name if they are in the room, else the
+stored one, as `Name (#123456)`, used by the Stats tab, `/echs logtrust`, `forgettrust` and the trust
+log lines. New suite `test/trust-names.mjs` (12).
+
+ — hover tips on the settings screen wrap instead of shrinking
 
 DW: "The pop up text is very small on some of the helps that you just added." BC's
 `DrawButtonHover` (Drawing.js, R132) is a fixed 450 x 65 box and `DrawTextFit`s the tip onto one

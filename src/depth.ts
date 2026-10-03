@@ -36,10 +36,20 @@ export function tierLabel(tier: DepthTier): string {
 	return DEPTH_TIERS.find((t) => t.key === tier)?.label ?? String(tier);
 }
 
-/** Next tier round the loop, for the settings screen's click-to-cycle control. */
-export function nextTier(tier: DepthTier): DepthTier {
-	const at = DEPTH_TIERS.findIndex((t) => t.key === tier);
-	return DEPTH_TIERS[(at + 1) % DEPTH_TIERS.length].key;
+/** The highest depth a gate may ask for (v0.98.0). 99 is the last point inside Blank, so every
+ * gate stays reachable by someone taken all the way down. */
+export const MAX_GATE_DEPTH = 99;
+
+/** A depth as the player reads it: the number, with the tier it falls in — "45 [Entranced]". */
+export function depthLabel(depth: number): string {
+	return `${depth} [${tierLabel(tierOf(depth))}]`;
+}
+
+/** A gate threshold made whole and in range, or null when there is nothing numeric to keep. */
+export function clampGateDepth(value: unknown): number | null {
+	const n = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+	if (!Number.isFinite(n)) return null;
+	return Math.min(MAX_GATE_DEPTH, Math.max(0, Math.round(n)));
 }
 
 /** What may contribute to the chemical half of depth.
@@ -132,7 +142,8 @@ export function currentDepthEarned(): number {
 export interface DepthGate {
 	key: keyof FeatureToggles;
 	label: string;
-	tier: DepthTier;
+	/** The default threshold, 0-99. Written as a tier's floor so the defaults still read as tiers. */
+	depth: number;
 	earnedOnly: boolean;
 }
 
@@ -141,28 +152,28 @@ export interface DepthGate {
  * the same principle as the decay rates and the trigger scope. */
 export const DEPTH_GATES: DepthGate[] = [
 	// Mood: noticing less is the shallowest thing hypnosis does.
-	{ key: "suppressClothing", label: "Not noticing clothing changes", tier: "drifting", earnedOnly: false },
-	{ key: "suppressBondage", label: "Not noticing bondage changes", tier: "drifting", earnedOnly: false },
-	{ key: "suppressActivities", label: "Not noticing touches", tier: "drifting", earnedOnly: false },
+	{ key: "suppressClothing", label: "Not noticing clothing changes", depth: 0, earnedOnly: false },
+	{ key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
+	{ key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
 	// Behavioural, session-only.
-	{ key: "movementRestriction", label: "Cannot move", tier: "yielding", earnedOnly: false },
-	{ key: "speechRestriction", label: "Cannot speak", tier: "yielding", earnedOnly: false },
-	{ key: "postureControl", label: "Posture Control", tier: "yielding", earnedOnly: false },
-	{ key: "clothingRestriction", label: "Cannot reach the wardrobe", tier: "yielding", earnedOnly: false },
-	{ key: "selfTouchControl", label: "Cannot touch yourself", tier: "yielding", earnedOnly: false },
-	{ key: "compelActivity", label: "Made to act (on yourself or others)", tier: "yielding", earnedOnly: false },
+	{ key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
+	{ key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
+	{ key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
+	{ key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
+	{ key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
+	{ key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
 	// Deeper, still session-only.
-	{ key: "followControl", label: "Follow / leash", tier: "entranced", earnedOnly: false },
+	{ key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
 	// Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
-	{ key: "forcedSpeech", label: "Made to speak", tier: "entranced", earnedOnly: false },
-	{ key: "hearingControl", label: "Hears only one voice", tier: "entranced", earnedOnly: false },
-	{ key: "sightControl", label: "Sight", tier: "entranced", earnedOnly: false },
-	{ key: "undressControl", label: "Undressing", tier: "entranced", earnedOnly: false },
-	{ key: "arousalControl", label: "Arousal & orgasm", tier: "entranced", earnedOnly: false },
+	{ key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
+	{ key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
+	{ key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
+	{ key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
+	{ key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
 	// The earned-only three: two outlive the session, one lies to the subject.
-	{ key: "illusionControl", label: "Clothing illusion", tier: "deep", earnedOnly: true },
-	{ key: "triggerControl", label: "Planting triggers", tier: "deep", earnedOnly: true },
-	{ key: "carryForward", label: "Suggestions that outlive the trance", tier: "deep", earnedOnly: true },
+	{ key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
+	{ key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
+	{ key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true },
 ];
 
 export function gateFor(key: keyof FeatureToggles): DepthGate | undefined {
@@ -195,9 +206,9 @@ export function effectiveEarnedOnly(key: keyof FeatureToggles): boolean {
 	}
 }
 
-/** The tier this feature currently needs — the player's choice if they made one, otherwise
- * the default above. */
-export function requiredTier(key: keyof FeatureToggles): DepthTier {
+/** The depth this feature currently needs, 0-99 — the player's choice if they made one,
+ * otherwise the default above. Numbers since v0.98.0; storage migrates the old tier names on load. */
+export function requiredDepth(key: keyof FeatureToggles): number {
 	// A preference we cannot read is a preference not set. Reading settings needs a logged-in
 	// Player, and this is called from the help screen, which the pattern suite exercises with
 	// no BC globals at all — `Player?.x` throws outright when Player was never declared, as
@@ -205,15 +216,16 @@ export function requiredTier(key: keyof FeatureToggles): DepthTier {
 	// caller wants.
 	try {
 		const override = getDepthOverride(key);
-		if (override && DEPTH_TIERS.some((t) => t.key === override)) return override;
+		if (typeof override === "number") return clampGateDepth(override) ?? 0;
 	} catch {
 		/* not logged in, or no storage — use the default below */
 	}
-	return gateFor(key)?.tier ?? "drifting";
+	return gateFor(key)?.depth ?? 0;
 }
 
-export function requiredDepth(key: keyof FeatureToggles): number {
-	return tierMinimum(requiredTier(key));
+/** The tier the required depth falls in, for anything that talks in tiers. */
+export function requiredTier(key: keyof FeatureToggles): DepthTier {
+	return tierOf(requiredDepth(key));
 }
 
 /** Is this feature reachable at these depths?
@@ -244,11 +256,10 @@ export function depthRefusal(
 	earned: number = currentDepthEarned(),
 ): string | null {
 	if (depthAllows(key, full, earned)) return null;
-	const need = requiredTier(key);
 	const earnedGate = effectiveEarnedOnly(key);
-	const have = earnedGate ? earned : full;
+	const have = Math.floor(earnedGate ? earned : full);
 	return (
-		`needs ${tierLabel(need)} (${requiredDepth(key)}), at ${have.toFixed(0)}` +
+		`needs ${depthLabel(requiredDepth(key))}, at ${depthLabel(have)}` +
 		`${earnedGate ? " earned — arousal does not count toward this one" : ""}`
 	);
 }

@@ -39,7 +39,7 @@ wizard.applyPreset("light");
 check("light turns hypnosis on", on("hypnoEnabled"), true);
 check("  the four session basics on", ["movementRestriction", "speechRestriction", "postureControl", "clothingRestriction"].every(on), true);
 check("  nothing intimate or lasting", ["undressControl", "arousalControl", "illusionControl", "triggerControl", "carryForward"].some(on), false);
-check("  depths at their defaults (no overrides)", storage.getDepthOverride("triggerControl"), "");
+check("  depths at their defaults (no overrides)", storage.getDepthOverride("triggerControl"), undefined);
 check("  skill honoured from trusted people", storage.getSkillHonour(), "trusted");
 check("  triggers do not fade", storage.getTriggerDecayRate(), "never");
 
@@ -56,7 +56,7 @@ check("  arousal may reach nothing earned-only", [storage.getChemicalReach("illu
 reset();
 wizard.applyPreset("extreme");
 check("extreme turns everything on", ["illusionControl", "triggerControl", "carryForward", "arousalControl", "undressControl"].every(on), true);
-check("  easiest access — every gate at Drifting", storage.getDepthOverride("triggerControl"), "drifting");
+check("  easiest access — every gate at Drifting", storage.getDepthOverride("triggerControl"), 0);
 check("  arousal opened to the illusion and triggers", [storage.getChemicalReach("illusionControl"), storage.getChemicalReach("triggerControl")], [true, true]);
 check("  skill honoured up to the cap (rung 4 waits on fatigue)", storage.getSkillHonour(), "capped");
 
@@ -72,7 +72,7 @@ wizard.applySetup({
 check("custom: chosen features on", ["movementRestriction", "speechRestriction", "arousalControl"].every(on), true);
 check("  unchosen off", on("undressControl"), false);
 check("  hypnosis implied by any choice", on("hypnoEnabled"), true);
-check("  'deep' raised every gate", storage.getDepthOverride("movementRestriction"), "deep");
+check("  'deep' raised every gate", storage.getDepthOverride("movementRestriction"), 60);
 check("  arousal shortcut off -> chemical scope neither", storage.getChemicalScope(), "neither");
 check("  skill ignored", storage.getSkillHonour(), "ignore");
 check("  triggers fade -> typical", storage.getTriggerDecayRate(), "typical");
@@ -198,7 +198,7 @@ check("no features -> hypnosis stays off", on("hypnoEnabled"), false);
 	click("Only deep — hardest to reach, nothing casual");
 	click("Cancel");
 	check("re-run cancel: permissions unchanged", JSON.stringify(storage.getFeatures()), before);
-	check("re-run cancel: no depth override written", storage.getDepthOverride("movementRestriction"), "");
+	check("re-run cancel: no depth override written", storage.getDepthOverride("movementRestriction"), undefined);
 	check("re-run cancel: setup state left alone", storage.getStarterState(), "applied");
 	check("re-run cancel: the wizard closes", wizard.shouldShowWizard(), false);
 

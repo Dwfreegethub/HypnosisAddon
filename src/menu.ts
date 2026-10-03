@@ -73,13 +73,16 @@ import {
 	isTriggerInEffect,
 	clearAllRefusal,
 } from "./voice";
-import { isHypnotized, isSessionLive, currentTier, hardFloorStop } from "./session";
+import { isHypnotized, isSessionLive, hardFloorStop } from "./session";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
-	requiredTier,
+	requiredDepth,
 	tierLabel,
-	nextTier,
+	tierOf,
+	depthLabel,
+	currentDepth,
+	MAX_GATE_DEPTH,
 	nextScope,
 	ChemicalScope,
 	isChemicalToggleable,
@@ -117,6 +120,7 @@ import {
 	TAB_WIDTH,
 	tipButton,
 	flushTip,
+	clearTipOverlap,
 } from "./panel";
 
 // Registered via BC's real extension-settings screen (Screens/Character/Preference/
@@ -780,24 +784,30 @@ function clickAttemptControl(top: number): boolean {
 }
 
 // --- Depth tab ------------------------------------------------------------------------
-// Click-to-cycle rather than thirteen dropdowns: DOM controls have to be created, positioned
-// in canvas coordinates and explicitly removed, and thirteen of them layered over a screen
-// that also pages would be a maintenance problem out of all proportion to a five-value
-// choice. A button that advances one step reads fine for an ordered scale.
+// Each gate is a number 0-99 since v0.98.0 (job.md): a typed box between -5 and +5 steps, with the
+// tier it falls in beside it. The box is a DOM input, so it is made only for the rows on the page
+// showing and removed with the tab's other DOM controls (syncTabControls, removeScopeControl) —
+// the cost that kept this tab on click-to-cycle buttons while the choice had only five values.
 const DEPTH_ROW_TOP = 270;
 const DEPTH_ROW_HEIGHT = 52;
 const DEPTH_ROWS_PER_PAGE = 7;
-const DEPTH_TIER_LEFT = BOX_LEFT + 890;
-/** Room for the gate name before it reaches the tier button. The earned-only rows carry a
- * earned-only rows now carry a right-hand toggle rather than a label suffix, so the label has
- * the full column, but page 2 of the Depth tab is entirely earned-only rows and a couple of the
- * names are long, so the cap still earns its keep. */
-const DEPTH_LABEL_MAX = 890 - 40;
-const DEPTH_TIER_WIDTH = 210;
+/** Where a row's controls start: -5, the number box, +5, then the tier name. */
+const DEPTH_CTRL_LEFT = BOX_LEFT + 600;
+/** Room for the gate name before it reaches the -5 button. Fitted, so a long name shrinks. */
+const DEPTH_LABEL_MAX = 600 - 30;
+const DEPTH_STEP_WIDTH = 64;
+const DEPTH_STEP = 5;
+const DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
+const DEPTH_INPUT_WIDTH = 96;
+const DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
+const DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
+const DEPTH_TIER_TEXT_MAX = 240;
 const DEPTH_BUTTON_HEIGHT = 44;
-/** The per-row "arousal may reach this" control, on the earned-only rows only. Sits just
- * right of the (now narrower) tier button and ends a hair inside the panel edge. */
-const CHEM_TOGGLE_LEFT = DEPTH_TIER_LEFT + DEPTH_TIER_WIDTH + 12;
+/** The per-row "arousal may reach this" control, on the earned-only rows only. Ends a hair
+ * inside the panel edge, where it sat before the numbers came. */
+const CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
+const DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
+const DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
 const CHEM_TOGGLE_WIDTH = 136;
 const SCOPE_BUTTON_LEFT = BOX_LEFT;
 const SCOPE_BUTTON_TOP = 740;
@@ -827,6 +837,7 @@ function visibleGates(): typeof DEPTH_GATES {
 function drawDepthGates(): void {
 	const locked = settingsLocked();
 	const features = getFeatures();
+	removeDepthInputs(visibleGates().map((g) => DEPTH_INPUT_PREFIX + g.key));
 	visibleGates().forEach((gate, i) => {
 		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
 		// A feature whose permission is off can never happen whatever the tier says, and
@@ -839,16 +850,23 @@ function drawDepthGates(): void {
 			DEPTH_LABEL_MAX,
 			granted ? "Black" : "Gray",
 		);
+		const need = requiredDepth(gate.key);
+		const stepColor = locked ? "#ddd" : granted ? "White" : "#eee";
 		tipButton(
-			DEPTH_TIER_LEFT,
-			top,
-			DEPTH_TIER_WIDTH,
-			DEPTH_BUTTON_HEIGHT,
-			tierLabel(requiredTier(gate.key)),
-			locked ? "#ddd" : granted ? "White" : "#eee",
-			"",
-			locked ? "Locked until this session ends" : "Click to require a deeper trance",
-			locked,
+			DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "", "",
+			locked || need <= 0,
+		);
+		drawDepthInput(gate.key, top, need, locked);
+		tipButton(
+			DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "", "",
+			locked || need >= MAX_GATE_DEPTH,
+		);
+		drawLeftTextFit(
+			`[${tierLabel(tierOf(need))}]`,
+			DEPTH_TIER_TEXT_LEFT,
+			top + 30,
+			DEPTH_TIER_TEXT_MAX,
+			granted ? "Black" : "Gray",
 		);
 		// The earned-only rows carry a second control: whether arousal may reach the feature at
 		// all. Two of the three are the subject's to open (illusion, triggers); carry-forward is
@@ -892,7 +910,7 @@ function drawDepthGates(): void {
 	);
 	tipButton(
 		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
-		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every tier you have changed", locked,
+		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every depth you have changed", locked,
 	);
 	const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
 	tipButton(
@@ -917,8 +935,48 @@ function drawDepthGates(): void {
 	// which is exactly where the generic tab renderer puts the blurb, so the two printed on top
 	// of each other and neither could be read. This row is the only band on the tab with space
 	// to spare, and the status belongs with the summary controls anyway.
-	const here = isHypnotized() ? `You are ${tierLabel(currentTier())} right now.` : "You are not under.";
+	const here = isHypnotized() ? `You are ${depthLabel(Math.floor(currentDepth()))} right now.` : "You are not under.";
 	drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
+}
+
+/** One row's number box. Commits on blur or Enter, not per keystroke, so typing "45" never saves
+ * 4 on the way — the trigger-duration box's rule. Re-synced from storage whenever it is not being
+ * typed in, because a step button, an import or a reset changes the number underneath it. */
+function drawDepthInput(key: keyof FeatureToggles, top: number, need: number, locked: boolean): void {
+	const id = DEPTH_INPUT_PREFIX + key;
+	let element = document.getElementById(id) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(id, "number", String(need), 2);
+		element.min = "0";
+		element.max = String(MAX_GATE_DEPTH);
+		element.inputMode = "numeric";
+		element.addEventListener("blur", function (this: HTMLInputElement, event: Event) {
+			// The lock is checked again here, not only through `disabled`: a box focused before the
+			// session started can still blur after it has.
+			if (settingsLocked()) return;
+			ElementNumberInputBlur.call(this, event);
+			const saved = setDepthOverride(key, Number(this.value));
+			this.value = String(saved);
+			log(`${key} now needs ${saved}`);
+		});
+		element.addEventListener("keydown", function (this: HTMLInputElement, event: KeyboardEvent) {
+			if (event.key === "Enter") this.blur();
+		});
+		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's to every number
+		// box, and a second one stepped two at a time.
+	}
+	// defaultValue too: BC's blur handler puts defaultValue back when the box is left empty, and
+	// without this it would restore the number the box was CREATED with, not the one saved since.
+	if (document.activeElement !== element) element.value = element.defaultValue = String(need);
+	element.disabled = locked;
+	ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
+}
+
+/** Take away the number boxes of rows not on the page showing — all of them, off this tab. */
+function removeDepthInputs(keep: string[] = []): void {
+	for (const id of DEPTH_INPUT_IDS) {
+		if (!keep.includes(id) && document.getElementById(id)) ElementRemove(id);
+	}
 }
 
 function clickDepthGates(): boolean {
@@ -959,10 +1017,14 @@ function clickDepthGates(): boolean {
 	const gates = visibleGates();
 	for (let i = 0; i < gates.length; i++) {
 		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
-		if (MouseIn(DEPTH_TIER_LEFT, top, DEPTH_TIER_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-			const next = nextTier(requiredTier(gates[i].key));
-			setDepthOverride(gates[i].key, next);
-			log(`${gates[i].key} now needs ${next}`);
+		const step = MouseIn(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT)
+			? -DEPTH_STEP
+			: MouseIn(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT)
+				? DEPTH_STEP
+				: 0;
+		if (step) {
+			const saved = setDepthOverride(gates[i].key, requiredDepth(gates[i].key) + step);
+			log(`${gates[i].key} now needs ${saved}`);
 			return true;
 		}
 		if (MouseIn(CHEM_TOGGLE_LEFT, top, CHEM_TOGGLE_WIDTH, DEPTH_BUTTON_HEIGHT) && isChemicalToggleable(gates[i].key)) {
@@ -1119,11 +1181,17 @@ const DURATION_HEIGHT = 56;
 /** Under the decay dropdown, which ends at 830, and clear of the panel floor at 902. */
 const DECAY_CAPTION_Y = 858;
 
+/** Every DOM control this screen can own. */
+function ownedControlIds(): string[] {
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+}
+
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
 	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
+	removeDepthInputs();
 }
 
 /** DOM controls are real elements over the canvas, so each one has to be taken away the
@@ -1140,6 +1208,7 @@ function syncTabControls(tabName: string): void {
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
 	if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+	if (tabName !== "Depth") removeDepthInputs();
 }
 
 /** How fast trust fades without contact.
@@ -1246,9 +1315,10 @@ function drawDurationControl(locked: boolean): void {
 			this.value = String(saved);
 			log(`trigger duration set to ${saved} min`);
 		});
-		element.addEventListener("wheel", ElementNumberInputWheel as any);
+		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's, and a second
+		// one stepped two at a time.
 	}
-	if (document.activeElement !== element) element.value = String(getTriggerDuration());
+	if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
 	element.disabled = locked;
 	ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
 }
@@ -1430,6 +1500,9 @@ function detachWheel(): void {
  * Tabs stay clickable and the exit button still works — the screen is readable while
  * locked, just not editable. `/hypno safeword` remains the way out in every case, and
  * being a chat command it's untouched by any of this. */
+const LOCK_BANNER_BACK = "#ffe3a3";
+const LOCK_BANNER_TEXT = "#5c3d00";
+
 export function settingsLocked(): boolean {
 	return getFeatures().lockedWhileHypnotized && isSessionLive();
 }
@@ -1529,13 +1602,20 @@ function runSettings(): void {
 	const locked = settingsLocked();
 	// Fitted, not just drawn: these run long, and the panel edge is not a hint the
 	// canvas takes on its own.
-	drawLeftTextFit(
-		locked ? "Locked while someone is working on you, until the session ends. /hypno safeword always works." : tab.blurb,
-		BOX_LEFT,
-		BLURB_Y,
-		PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
-		"Gray",
-	);
+	if (locked) {
+		// A banner rather than the grey blurb line it replaces (v0.98.0, job.md): greyed controls
+		// alone read as a broken screen, not a locked one.
+		DrawRect(BOX_LEFT - 20, BLURB_Y - 24, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT, 48, LOCK_BANNER_BACK);
+		drawLeftTextFit(
+			"Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
+			BOX_LEFT,
+			BLURB_Y,
+			PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
+			LOCK_BANNER_TEXT,
+		);
+	} else {
+		drawLeftTextFit(tab.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
+	}
 
 	syncTabControls(tab.name);
 
@@ -1588,12 +1668,14 @@ export function installMenu(): void {
 			removeScopeControl();
 			closeHelp();
 		},
-		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top.
+		// Every path ends in flushTip, so the hover tip a button queued is drawn last, on top — and
+		// any DOM control under it steps aside, since canvas cannot draw over one (DW: the page-3
+		// "earned only" tip went under the v0.98.0 number boxes).
 		run: () => {
 			try {
 				runSettings();
 			} finally {
-				flushTip();
+				clearTipOverlap(flushTip(), ownedControlIds());
 			}
 		},
 		click: () => {

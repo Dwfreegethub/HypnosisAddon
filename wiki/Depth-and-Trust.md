@@ -18,7 +18,7 @@ Both must pass every time. Giving someone permission to undress you doesn't mean
 
 Depth is measured on a scale from 0 to 100, divided into five recognizable tiers. 
 
-*Remember: All tier thresholds and feature assignments are completely customizable in your **Depth** tab. Moving a command to a deeper tier is a comfort setting, not a skill challenge.*
+*Remember: every feature's depth is yours to set in your **Depth** tab, as any number from 0 to 99 — the table below shows the defaults, each at the bottom of its tier. Asking for more depth is a comfort setting, not a skill challenge.*
 
 | Tier | Default Range | What It Feels Like | Default Features Unlocked |
 |---|---|---|---|

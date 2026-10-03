@@ -53,7 +53,9 @@ check("  and the illusion", depth.depthAllows("illusionControl", 80, 80), true);
 
 // A refusal says which of the two it failed, because those are different problems with
 // different answers — one is "go deeper", the other is "arousal will not do it".
-check("refusal names the tier", /needs Deep/.test(depth.depthRefusal("triggerControl", 20, 20) ?? ""), true);
+// v0.98.0: both the number and the tier, for what is needed and for where she is.
+check("refusal names number and tier", /^needs 60 \[Deep\], at 20 \[Yielding\]/.test(depth.depthRefusal("triggerControl", 20, 20) ?? ""), true);
+check("  and rounds where she is down, not up", /at 39 \[Yielding\]/.test(depth.depthRefusal("followControl", 39.6, 39.6) ?? ""), true);
 check("  and names the earned rule", /arousal does not count/.test(depth.depthRefusal("triggerControl", 80, 20) ?? ""), true);
 check("  session refusals do not", /arousal does not count/.test(depth.depthRefusal("movementRestriction", 10, 10) ?? ""), false);
 check("no refusal when it is reachable", depth.depthRefusal("movementRestriction", 30, 30), null);
@@ -78,17 +80,59 @@ check("  and otherwise kept", depth.currentDepthEarned(), 40);
 
 // --- player overrides -------------------------------------------------------------------------
 // Only differences are stored, so retuning a default moves everyone who has not chosen.
-check("default before any choice", depth.requiredTier("movementRestriction"), "yielding");
-storage.setDepthOverride("movementRestriction", "blank");
-check("an override is honoured", depth.requiredTier("movementRestriction"), "blank");
-check("  and raises the bar", depth.depthAllows("movementRestriction", 60, 60), false);
+check("default before any choice", depth.requiredDepth("movementRestriction"), 20);
+check("  read as a tier", depth.requiredTier("movementRestriction"), "yielding");
+storage.setDepthOverride("movementRestriction", 45);
+check("a number is honoured", depth.requiredDepth("movementRestriction"), 45);
+check("  and names its tier", depth.requiredTier("movementRestriction"), "entranced");
+check("  44 is one short", depth.depthAllows("movementRestriction", 44, 44), false);
+check("  45 is enough", depth.depthAllows("movementRestriction", 45, 45), true);
 storage.clearDepthOverrides();
-check("resetting restores the default", depth.requiredTier("movementRestriction"), "yielding");
+check("resetting restores the default", depth.requiredDepth("movementRestriction"), 20);
 
-// Junk in storage falls back rather than throwing — a settings file is not a trusted input.
-storage.setDepthOverride("movementRestriction", "somethingelse");
-check("an unknown tier is ignored", depth.requiredTier("movementRestriction"), "yielding");
+// Out-of-range and fractional input is made whole and kept inside 0-99, never refused.
+check("setting 150 saves 99", storage.setDepthOverride("movementRestriction", 150), 99);
+check("setting -3 saves 0", storage.setDepthOverride("movementRestriction", -3), 0);
+check("setting 44.6 saves 45", storage.setDepthOverride("movementRestriction", 44.6), 45);
+check("NaN saves 0 rather than junk", storage.setDepthOverride("movementRestriction", NaN), 0);
 storage.clearDepthOverrides();
+
+// The label the settings screen and every refusal share.
+check("label", depth.depthLabel(45), "45 [Entranced]");
+check("label at a floor", depth.depthLabel(80), "80 [Blank]");
+
+// --- migrating saved tier names (v0.98.0) ------------------------------------------------------
+// Failure: a player who set a gate before numbers came loses the choice, or gets a different one.
+{
+	const lz = (await import("lz-string")).default;
+	const blob = {
+		version: "0.97.4", trust: [], experience: 0, features: { hypnoEnabled: true }, chemicalScope: "arousal",
+		relationshipOverride: {},
+		depthGates: { movementRestriction: "blank", undressControl: "drifting", triggerControl: "yielding",
+			followControl: "entranced", sightControl: "deep", forcedSpeech: "somethingelse", hearingControl: 250 },
+	};
+	storage.importSettings(lz.compressToBase64(JSON.stringify(blob)));
+	check("blank becomes 80", depth.requiredDepth("movementRestriction"), 80);
+	check("drifting becomes 0", depth.requiredDepth("undressControl"), 0);
+	check("yielding becomes 20", depth.requiredDepth("triggerControl"), 20);
+	check("entranced becomes 40", depth.requiredDepth("followControl"), 40);
+	check("deep becomes 60", depth.requiredDepth("sightControl"), 60);
+	check("an unknown name is dropped, so the default governs", depth.requiredDepth("forcedSpeech"), 40);
+	check("a number out of range is clamped", depth.requiredDepth("hearingControl"), 99);
+	check(
+		"what is stored is numbers, and nothing for the dropped one",
+		["movementRestriction", "undressControl", "triggerControl", "followControl", "sightControl", "forcedSpeech", "hearingControl"]
+			.map((k) => typeof storage.getDepthOverride(k)),
+		["number", "number", "number", "number", "number", "undefined", "number"],
+	);
+	storage.clearDepthOverrides();
+}
+// storage.ts spells the tier floors out to stay a leaf; they must match depth.ts's.
+check(
+	"storage's legacy floors match the tiers",
+	depth.DEPTH_TIERS.map((t) => storage.LEGACY_GATE_TIERS[t.key]),
+	depth.DEPTH_TIERS.map((t) => t.min),
+);
 
 // --- the chemical scope --------------------------------------------------------------------
 check("arousal counts by default", depth.arousalCounts(), true);
@@ -101,7 +145,6 @@ check("  both includes it", depth.arousalCounts(), true);
 storage.setChemicalScope("arousal");
 
 // Cycling is what the settings screen does; it must come back round rather than dead-end.
-check("tiers cycle", depth.nextTier("blank"), "drifting");
 check("scopes cycle", depth.nextScope("none"), "both");
 
 console.log(`depth: ${pass}/${pass + fail} passed`);

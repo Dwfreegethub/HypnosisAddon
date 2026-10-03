@@ -78,7 +78,7 @@ check("  bondage named too", /bondage \(not permitted\)/.test(lastReport()), tru
 // --- per-category depth: raise clothing to Deep, go under at Yielding ------------------------
 reset();
 for (const k of ["suppressClothing", "suppressBondage", "suppressActivities"]) storage.setFeature(k, true);
-storage.setDepthOverride("suppressClothing", "deep");
+storage.setDepthOverride("suppressClothing", 60);
 session.safeword();
 check("under at Yielding", session.forceTrance(HYP, 30, 30), null);
 toHypnotist.length = 0;
@@ -86,7 +86,7 @@ voice.handleSpokenLine(HYP, "Missy, you notice nothing.");
 check("the line is not refused outright — touches and bondage are reachable", suppression.isSuppressed("activity"), true);
 check("  bondage too", suppression.isSuppressed("bondage"), true);
 check("  but clothing, raised to Deep, is NOT applied at Yielding", suppression.isSuppressed("clothing"), false);
-check("  and the report says why", /clothing \(needs Deep/.test(lastReport()), true);
+check("  and the report says why", /clothing \(needs 60 \[Deep\]/.test(lastReport()), true);
 storage.clearDepthOverrides();
 
 // --- the per-category lines reach exactly one category -----------------------------------

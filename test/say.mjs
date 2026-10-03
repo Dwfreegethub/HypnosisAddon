@@ -108,7 +108,7 @@ triggers.beginRecording(HYP, "GameBot", "ember glow"); // planting itself needs 
 depth.setCurrentDepths(30, 30); // then Yielding; Made to Speak needs Entranced
 toHyp = [];
 triggers.recordAction(triggers.sayActionId("I obey", 1));
-check("too shallow: refused", /making them speak needs Entranced/.test(lastToHyp()), true);
+check("too shallow: refused", /making them speak needs 40 \[Entranced\]/.test(lastToHyp()), true);
 triggers.cancelRecording();
 reset();
 

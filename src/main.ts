@@ -26,7 +26,7 @@ import {
 	noteArrival,
 	installCompulsions,
 } from "./voice";
-import { noteConversation } from "./trust";
+import { noteConversation, displayNameOf } from "./trust";
 import { getFeatures } from "./storage";
 import { setRoomVoice, installRoomLineGuard, tellPlayer } from "./notify";
 import { startStartupBanner, showLoadedToast } from "./welcome";
@@ -183,7 +183,7 @@ safely("ChatRoomMessage hook", () => {
 					// A whisper is aimed at us by definition; otherwise it counts as directed
 					// if they used our name. Same check the suggestion name-gate uses.
 					const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
-					noteConversation(data.Sender, sender?.Name ?? `#${data.Sender}`, directed);
+					noteConversation(data.Sender, displayNameOf(sender), directed);
 				} catch (err) {
 					warn("trust accrual failed:", err);
 				}
