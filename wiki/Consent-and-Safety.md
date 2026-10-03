@@ -1,7 +1,7 @@
 # Consent and Safety
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Balancing player agency with immersion is an ongoing process. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Balancing player agency with immersion is an ongoing process.
 
 ---
 
@@ -104,7 +104,7 @@ Getting worked up or highly aroused can lower your resistance: it helps an induc
 These exits cannot be disabled, locked, or overridden by any hypnotic command, trigger, or setting:
 
 ### Emergency Safewords & Disabling
-* **`/echs safeword` (or `/hypno safeword`):** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. It also discards any compulsion that was waiting for you to wake, so nothing goes off minutes after you said stop. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
+* **`/echs safeword`:** The absolute baseline floor. Instantly breaks trance and purges every active effect, from any state. It also discards any compulsion that was waiting for you to wake, so nothing goes off minutes after you said stop. Because Bondage Club processes slash commands before speech-restriction hooks can touch them, **the safeword works 100% of the time, even when your character is completely silenced.**
 * **Unticking "Hypnosis Enabled":** Completely shuts down the add-on from your native extension menu — except while the **Extreme lock** is on (below).
 
 ### The one lock you can choose: Extreme
@@ -116,7 +116,7 @@ Choosing the **Extreme** setup template, and confirming its warning, makes your 
 See [Settings Reference](Settings-Reference#the-extreme-lock).
 
 ### Waking Up & Natural Releases
-* **`/echs wake` (or `/hypno wake`):** Lets you pull yourself out of a light trance. A deep trance will refuse and let you know you're too far under.
+* **`/echs wake`:** Lets you pull yourself out of a light trance. A deep trance will refuse and let you know you're too far under.
 * **Hypnotist Wake Commands:** The hypnotist's **Wake Up** button or spoken wake phrases (*"wake up"*, *"you are awake"*, *"come back to me"*) require no permission checks and work instantly.
 * **Targeted Trigger Release:** A line like *"Missy, you are released from sleepy time"* clears that specific trigger's hold, even outside of trance.
 
@@ -126,7 +126,7 @@ See [Settings Reference](Settings-Reference#the-extreme-lock).
 * **Induction Window:** An unanswered induction prompt closes on its own after the countdown expires.
 
 ### One Deliberate Refusal
-* `/echs forgettrigger` (or `/hypno forgettrigger`), and **Purge** on the Planted tab, **will refuse to delete a trigger while that trigger is actively holding you.** Deleting a trigger while you are under its direct influence is blocked to preserve scene tension—use `/echs safeword` instead for an immediate, clean break.
+* `/echs forgettrigger`, and **Purge** on the Planted tab, **will refuse to delete a trigger while that trigger is actively holding you.** Deleting a trigger while you are under its direct influence is blocked to preserve scene tension—use `/echs safeword` instead for an immediate, clean break.
 * **Clear All** (and `/echs forgettrigger all`) will not run while any trigger is holding you or a session is running. Clear that first, then clear the list. It asks you to confirm before it removes anything.
 
 ---
@@ -142,6 +142,6 @@ See [Settings Reference](Settings-Reference#the-extreme-lock).
 
 ## 8. Out of Character (OOC) Protection
 
-Anything enclosed in single parentheses `(like this)` is ignored by the parser before any suggestion or trigger check happens. 
+Anything enclosed in parentheses `(like this)` — or doubled `((like this))` — is ignored by the parser before any suggestion or trigger check happens. 
 
 Typing `(brb)` or `(checking scene consent)` will never fire an effect, advance trust, or trigger a hypnotic response. ECHS strictly respects Bondage Club's native OOC formatting.

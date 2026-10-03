@@ -1,17 +1,17 @@
 # Commands
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Command syntax, debug outputs, and diagnostic helpers are evolving. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Command syntax, debug outputs, and diagnostic helpers are evolving.
 
 ---
 
 Most features are **spoken**, not typed — see [What to Say](What-to-Say). These slash commands are the utility exceptions for managing sessions, inspecting client states, and handling emergency exits.
 
-* `/echs` (or `/hypno`) on its own prints a short in-game command menu, starting with how to begin: `/echs induce <name>`.
-* `/echs help` (or `/hypno help`) opens the built-in guide.
-* `/echs commands` (or `/hypno commands`) lists every registered command.
+* `/echs` on its own prints a short in-game command menu, starting with how to begin: `/echs induce <name>`.
+* `/echs help` opens the built-in guide.
+* `/echs commands` lists every registered command.
 
-**`/echs` is the primary prefix, and `/hypno` remains fully supported.** Both prefixes point to the exact same handlers throughout the add-on. You can use whichever prefix you prefer; `/echs` is shown below as the standard.
+**Every command starts with `/echs`.**
 
 ---
 
@@ -44,7 +44,7 @@ You are told the attempt went out; what happens next is the other player's choic
 * `session` tells you what phase you are in and what permissions you have granted to the hypnotist.
 * `effects` tells you what restrictions and states are actually active *on* your character right now. After reconnecting or reloading, `effects` is the command to check.
 
-**`/echs safeword` (or `/hypno safeword`) is the baseline safety floor.** No feature, trigger, depth level, or lock can disable or override it. Because Bondage Club parses client slash commands before speech-restriction hooks ever see them, **the safeword works 100% of the time, even while your character is completely silenced.**
+**`/echs safeword` is the baseline safety floor.** No feature, trigger, depth level, or lock can disable or override it. Because Bondage Club parses client slash commands before speech-restriction hooks ever see them, **the safeword works 100% of the time, even while your character is completely silenced.**
 
 ---
 

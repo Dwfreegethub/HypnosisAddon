@@ -4,7 +4,7 @@ What the subject can perceive, narrowed by suggestion. **Hearing and sight are b
 
 ## Hearing only one voice
 
-Needs the **Hearing** permission (Permissions tab, off by default) and an **Entranced** trance.
+Needs the **Hearing** permission (Permissions tab, off by default) and an **Entranced** trance (40 by default; you can change it on the Depth tab).
 
 | The hypnotist says | What she hears |
 |---|---|
@@ -30,7 +30,7 @@ Bondage Club's own deafness cannot do this: at any level it only garbles speech,
 
 ## Sight
 
-Needs the **Sight** permission (Permissions tab, off by default) and an **Entranced** trance.
+Needs the **Sight** permission (Permissions tab, off by default) and an **Entranced** trance (40 by default; you can change it on the Depth tab).
 
 | The hypnotist says | What she sees |
 |---|---|

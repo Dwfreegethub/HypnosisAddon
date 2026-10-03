@@ -13,7 +13,7 @@ One player acts as hypnotist. They try an induction — the spiral icon on your 
 
 From there, suggestions work through ordinary chat and whispers — *"Missy, you cannot move"*, *"Missy, touch your breasts"* — and your own client checks every single line against your saved permissions in real-time. Suggestions can be set to outlive the trance, or planted as trigger words that fire whenever spoken.
 
-**Nothing is turned on until you enable it. `/echs safeword` (and legacy `/hypno safeword`) always works.**
+**Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 > **New in v0.98–v0.100:**
 > * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
@@ -57,7 +57,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | | |
 |---|---|
 | **[Settings Reference](Settings-Reference)** | Every preference tab and what each toggle actually does. |
-| **[Commands](Commands)** | Slash command reference (`/echs` and `/hypno`). |
+| **[Commands](Commands)** | Slash command reference (`/echs`). |
 | **[Troubleshooting](Troubleshooting)** | "Nothing happened" and how to sort out common snags. |
 
 ---

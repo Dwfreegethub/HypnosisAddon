@@ -89,8 +89,8 @@ It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**,
 ## Finding Help Later
 
 * Click the **`?`** button on the ECHS settings panel to open the built-in guide.
-* Type **`/echs help`** (or `/hypno help`) in chat to open the manual directly from your text box.
-* Type **`/echs`** (or `/hypno`) on its own to print a quick cheat sheet of commands in chat.
+* Type **`/echs help`** in chat to open the manual directly from your text box.
+* Type **`/echs`** on its own to print a quick cheat sheet of commands in chat.
 
 ---
 
