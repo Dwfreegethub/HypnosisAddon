@@ -20,6 +20,16 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-02 (v0.98.4) — the hover-tip fix no longer throws without a real canvas
+
+`clearTipOverlap()` (v0.98.3) called `MainCanvas.canvas.getBoundingClientRect()` unguarded. The
+settings screen's stand-in canvas in `test/menu-layout.mjs` has no such method, so the suite threw
+inside run()'s `finally` and exited non-zero before printing a result. It went unnoticed because
+the three known CRLF loader failures already make `npm test` exit non-zero on DW's machine, and the
+result was read by grepping for FAIL lines, which a crash does not print. Now guarded (no rect, no
+comparison), and suites are checked by exit code, one by one. No player-visible change, so the
+root CHANGELOG keeps a single entry under the new number.
+
 ### Fixed 2026-09-29 (v0.98.3) — hover tips no longer go under DOM controls
 
 DW: the page-3 "earned only" tip on the Depth tab did not draw over the number boxes. New in v0.98.0:

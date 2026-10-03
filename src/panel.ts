@@ -518,17 +518,22 @@ export function flushTip(): TipRect | null {
  * `visibility`, not removal: the screens re-sync their controls every frame, and hiding keeps
  * whatever is half-typed in a box. Rects are compared on screen, since the canvas is scaled. */
 export function clearTipOverlap(tip: TipRect | null, ids: string[]): void {
+	// Needs the canvas's on-screen rect. Without one (a stand-in canvas, or none yet) there is
+	// nothing to compare against, so leave every control as it is rather than throw: this runs in
+	// the settings screen's `finally`, and a throw there takes the whole frame down with it.
+	const canvasEl: any = typeof MainCanvas !== "undefined" ? MainCanvas?.canvas : undefined;
+	if (typeof canvasEl?.getBoundingClientRect !== "function") return;
 	let scaleX = 0, scaleY = 0, originX = 0, originY = 0;
 	if (tip) {
-		const c = MainCanvas.canvas.getBoundingClientRect();
+		const c = canvasEl.getBoundingClientRect();
 		scaleX = c.width / MainCanvasWidth;
 		scaleY = c.height / MainCanvasHeight;
 		originX = c.left;
 		originY = c.top;
 	}
 	for (const id of ids) {
-		const el = document.getElementById(id);
-		if (!el) continue;
+		const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+		if (!el || typeof el.getBoundingClientRect !== "function" || !el.style) continue;
 		let covered = false;
 		if (tip) {
 			const r = el.getBoundingClientRect();

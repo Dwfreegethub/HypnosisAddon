@@ -12,7 +12,7 @@ report it and say which version your chat line shows.
 
 ---
 
-## v0.98.3 · 29 September 2026
+## v0.98.4 · 2 October 2026
 
 - **How deep each feature needs you to be is now a number from 0 to 99**, set on the Depth tab.
   Type it in, or use the -5 and +5 buttons; the tier it falls in is shown beside it, like
