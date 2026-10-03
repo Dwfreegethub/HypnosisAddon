@@ -1,5 +1,5 @@
 import { log, warn } from "./log";
-import { hasOwnEffect } from "./effects";
+import { heldByUs } from "./effects";
 
 // "Take your dress off" — the design doc's Tier 1 *Remove clothes*, which it describes as a
 // "triggered compulsion to remove items — gradual, one piece at a time".
@@ -59,13 +59,13 @@ export function undressBlockedReason(): string | null {
 	//
 	// Refused either way; being frozen really should stop you undressing. What changes is that
 	// it says so. Same answer selftouch-frozen already gives for the same situation.
-	if (hasOwnEffect("Freeze")) return "frozen";
+	if (heldByUs("Freeze")) return "frozen";
 	// A locked outfit, an owner rule, or a chastity item. Deliberately NOT triggered by our
 	// OWN wardrobe block: if this hypnotist told her she cannot open her wardrobe and then
 	// told her to strip, the second instruction is theirs to give and theirs to contradict.
 	// Narrating somebody's actual locked outfit as hypnosis would be wrong and confusing —
 	// the same distinction the wardrobe-attempt message already draws in v0.34.0.
-	if (Player?.CanChangeOwnClothes?.() === false && !hasOwnEffect("BlockWardrobe")) {
+	if (Player?.CanChangeOwnClothes?.() === false && !heldByUs("BlockWardrobe")) {
 		return "locked";
 	}
 	return null;

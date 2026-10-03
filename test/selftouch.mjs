@@ -170,6 +170,24 @@ hook([other, Player, group("ItemBreast"), { Activity: { Name: "Caress" } }], nex
 check("another player's activity is untouched", ran > before, true);
 selftouch.clearSelfTouchBlocks();
 
+// --- v0.100.4 (Lexi, #259780): a Freeze ANOTHER add-on put on the shared Emoticon item ---------
+// She was bound with no session and got "Your hand doesn't move" on every self-activity. Our
+// allow-list patch lets anyone's Freeze survive on that item, and the block read the item.
+// Failure: the activity is blocked, anything is said, or the pose hold claims the freeze.
+session.safeword();
+storage.setFeature("hypnoEnabled", true);
+quiet();
+emoticon.Property.Effect = ["Freeze"]; // written by someone else, never through applyEffect
+check("another add-on's Freeze on the item: self-touch passes through", touchSelf(), true);
+check("  and nothing calls it hypnosis", local.length + sent.length, 0);
+check("  and the pose hold does not treat it as ours", effects.isHeldStill(), false);
+emoticon.Property.Effect = [];
+// Ours still blocks, exactly as before.
+effects.applyEffect("Freeze");
+quiet();
+check("our own Freeze still blocks self-touch", touchSelf(), false);
+effects.removeEffect("Freeze");
+
 session.safeword();
 console.log(`selftouch: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

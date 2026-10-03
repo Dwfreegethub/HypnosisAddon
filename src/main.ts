@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, hasOwnEffect } from "./effects";
+import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, heldByUs } from "./effects";
 import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -258,7 +258,7 @@ safely("wardrobe-block hook", () => {
 		"ChatRoomOpenWardrobeScreen",
 		10,
 		((args: [], next: (args: []) => any) => {
-			if (Player?.CanChangeOwnClothes?.() === false && hasOwnEffect("BlockWardrobe")) {
+			if (Player?.CanChangeOwnClothes?.() === false && heldByUs("BlockWardrobe")) {
 				announce("clothing-blocked-attempt");
 				return undefined;
 			}

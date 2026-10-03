@@ -109,6 +109,18 @@ check("  still unaware of clothing", suppression.isSuppressed("clothing"), true)
 check("  still numb", suppression.isNumb(), true);
 check("  still blocked from herself", selftouch.selfTouchSnapshot().groups, [["ItemBreast", "breasts"]]);
 
+// v0.100.4: the reconnect trap. After a reload our record is empty while the item still carries
+// the Freeze. The restore used to re-apply only what the item lacked, so the Freeze never got back
+// into our record, and everything that now reads only the record (the self-touch block, the pose
+// hold) would have let go. Failure: heldByUs is false after the resume.
+clearAll();
+restored = null;
+Player.Appearance[0].Property.Effect.push("Freeze"); // survived the reload on the item; record empty
+check("setup: the item carries it, our record does not", [effects.itemCarriesEffect("Freeze"), effects.heldByUs("Freeze")], [true, false]);
+saveTrance(30_000, { effects: ["Freeze"] });
+check("a resume with a saved Freeze", recovery.attemptRecovery(), "resumed");
+check("  re-adopts it into our own record", effects.heldByUs("Freeze"), true);
+
 // --- back inside the window, hypnotist absent ---------------------------------------------
 // DW's rule: someone who comes BACK inside the five minutes still counts, so this holds
 // rather than releasing — but it holds a clock, not the subject.

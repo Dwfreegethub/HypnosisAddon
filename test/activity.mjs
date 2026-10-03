@@ -49,7 +49,7 @@ globalThis.CharacterSetActivePose = () => {};
 const toHyp = [];
 globalThis.ServerSend = (_t, data) => { const m = data?.Dictionary?.[0]?.message; if (m?.type === "trigger-status") toHyp.push(m.text); };
 
-const { voice, storage, session, depth, effects } = await import("./harness-bundle.mjs");
+const { voice, storage, session, depth, effects, arousal } = await import("./harness-bundle.mjs");
 session.installSession();
 
 let pass = 0, fail = 0;
@@ -141,11 +141,22 @@ check("  and the hypnotist is nudged to be specific", /wander/.test(lastReport()
 storage.setFeature("arousalControl", true);
 
 reset(); orgasmStarts.length = 0;
-emoticon.Property.Effect = ["DenialMode"]; realItemEffects = []; CharacterLoadEffect(Player); // OURS
+emoticon.Property.Effect = []; realItemEffects = []; effects.applyEffect("DenialMode"); // OURS: through our own record (v0.100.4)
 Player.ArousalSettings.OrgasmTimer = 0;
 say("Missy, cum for me.");
 check("our denial is overridden — the orgasm lands", orgasmStarts.length, 1);
 check("  and our denial is put straight back afterward", emoticon.Property.Effect.includes("DenialMode"), true);
+arousal.setOrgasmDenied(false); // lifts the effect AND the in-memory "denied by us" flag
+
+// v0.100.4 (Lexi): another add-on's DenialMode on the shared Emoticon item is not ours to lift.
+// Failure: the orgasm lands, or the other add-on's effect is taken off the item.
+reset(); orgasmStarts.length = 0;
+emoticon.Property.Effect = ["DenialMode"]; realItemEffects = []; CharacterLoadEffect(Player);
+Player.ArousalSettings.OrgasmTimer = 0;
+say("Missy, cum for me.");
+check("another add-on's denial on the item is NOT lifted — no orgasm", orgasmStarts.length, 0);
+check("  and its effect is left on the item", emoticon.Property.Effect.includes("DenialMode"), true);
+emoticon.Property.Effect = []; CharacterLoadEffect(Player);
 
 reset(); orgasmStarts.length = 0;
 emoticon.Property.Effect = []; realItemEffects = ["DenialMode"]; CharacterLoadEffect(Player); // a real belt

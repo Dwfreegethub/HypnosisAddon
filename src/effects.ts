@@ -404,7 +404,7 @@ const HELD_NOTICE_GAP_MS = 30_000;
 
 /** Is our freeze holding her still? */
 export function isHeldStill(): boolean {
-	return hasOwnEffect("Freeze");
+	return heldByUs("Freeze");
 }
 
 function heldNotice(line: string): void {
@@ -630,6 +630,19 @@ export function itemCarriesEffect(effectName: string): boolean {
 // still carrying a Freeze we put on before, and recovery has to be able to see that.
 export function hasOwnEffect(effectName: string): boolean {
 	return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+}
+
+/** Did THIS client put this effect on — our own record only, never the item (v0.100.4)?
+ *
+ * The Emoticon item is shared ground. We patch its allow-list on every client, so any add-on that
+ * writes "Freeze" there keeps it, and hasOwnEffect above cannot tell that from ours. That is right
+ * for recovery, which must find a freeze we left before a reload, and wrong everywhere we NARRATE
+ * or ACT on "our" effect: Lexi (#259780, 2026-09-28) was bound with no session at all and got "Your
+ * hand doesn't move" on every self-activity. Anything that tells the player "this is hypnosis", or
+ * lifts or holds because of "our" freeze, asks this instead. Recovery re-adopts restored effects
+ * into the record (recovery.ts restoreLocalState), so a resumed trance still counts. */
+export function heldByUs(effectName: string): boolean {
+	return OWN_EFFECTS.has(effectName);
 }
 
 export function removeEffect(effectName: string, character: any = Player): boolean {
