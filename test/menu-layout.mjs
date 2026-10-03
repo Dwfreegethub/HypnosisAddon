@@ -97,20 +97,29 @@ const wheel = (deltaY) => { for (const fn of wheelListeners) fn({ deltaY }); };
 // blurb and the chrome are not clipped.
 const rowLabels = () => texts.filter((t) => t.clip);
 
-// --- Permissions: the layout ----------------------------------------------------------------
+// --- Permissions: fixed rows, headings, the list (v0.100.0, job3.md) ---------------------------
+// Hypnosis Enabled and the settings lock sit ABOVE the list, outside its clip, always in view; the
+// rest scroll under four group headings. Failure: a fixed row inside the clip, overlapping the
+// list or each other; a heading missing or out of order; anything in the list overlapping.
 frame();
-const area = boxes[0]?.clip;
-check("the rows are drawn under a clip", !!area, true);
-check("  every checkbox under the same clip", boxes.every((b) => b.clip === area), true);
+const fixedBoxes = () => boxes.filter((b) => !b.clip);
+const listBoxes = () => boxes.filter((b) => b.clip);
+const FIXED_LABELS = ["Hypnosis Enabled", "Lock settings while a session is on you"];
+const HEADINGS = ["Body", "Voice & senses", "Touch & arousal", "Mind"];
+check("two fixed checkboxes above the list", fixedBoxes().length, 2);
+check("  labelled, outside the clip", texts.filter((t) => !t.clip && FIXED_LABELS.includes(t.text)).map((t) => t.text), FIXED_LABELS);
+const area = listBoxes()[0]?.clip;
+check("the rest are drawn under a clip", !!area, true);
+check("  every list checkbox under the same clip", listBoxes().every((b) => b.clip === area), true);
+check("  the fixed rows sit above it, clear of it", fixedBoxes().every((b) => b.top + b.height <= area.top), true);
+check("  the fixed rows side by side, apart", fixedBoxes()[0].top === fixedBoxes()[1].top && !overlaps(fixedBoxes()[0], fixedBoxes()[1]), true);
 check("  the clip is inside the panel", inside(area, { left: panel.PANEL_LEFT, top: BODY_TOP - 10, width: panel.PANEL_WIDTH, height: panel.PANEL_HEIGHT }), true);
 check("  and stops 20px above its floor", area.top + area.height <= PANEL_BOTTOM - 20, true);
-check("one column: every checkbox at the same x", new Set(boxes.map((b) => b.left)).size, 1);
-check("a scroll bar is drawn (13 rows and the attempt control do not fit)", [!!up(), !!down()], [true, true]);
+check("a scroll bar is drawn (the list does not fit)", [!!up(), !!down()], [true, true]);
 check("  the bar is outside the clipped list", !overlaps(up(), area) && !overlaps(down(), area), true);
-check("the first row drawn is Hypnosis Enabled", rowLabels()[0]?.text, "Hypnosis Enabled");
-check("Self-Touch Control is on the first screen", rowLabels().some((t) => t.text === "Self-Touch Control"), true);
+check("the list starts with the Body heading", rowLabels()[0]?.text, "Body");
 {
-	const shown = [...boxes.map((b) => ({ name: "box", ...b })), ...rowLabels().map((t) => ({ name: t.text, ...t }))];
+	const shown = [...listBoxes().map((b) => ({ name: "box", ...b })), ...rowLabels().map((t) => ({ name: t.text, ...t }))];
 	const hits = [];
 	for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) if (overlaps(shown[i], shown[j])) hits.push(`${shown[i].name}@${shown[i].top} × ${shown[j].name}@${shown[j].top}`);
 	check("nothing drawn in the list overlaps", hits, []);
@@ -118,118 +127,185 @@ check("Self-Touch Control is on the first screen", rowLabels().some((t) => t.tex
 	check("nothing is drawn wholly outside the clip", shown.filter((r) => !overlaps(r, area)).map((r) => r.name), []);
 }
 
+// The whole list, read top to bottom by wheeling through it.
+const ORDER = [
+	"Body", "Movement Restriction", "Posture Control", "Follow / Leash", "Clothing Restriction", "Undressing",
+	"Voice & senses", "Speech Restriction", "Made to Speak (a trigger says words for you)",
+	"Hearing (hear only one voice, or only your name)", "Sight (dimmed, very dark, or blind)",
+	"Touch & arousal", "Self-Touch Control", "Made to Act (touch yourself on command)", "Made to Touch Others", "Arousal & Orgasm",
+	"Mind", "Clothing Illusion (you see old clothes)",
+];
+{
+	const seen = [];
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	for (let i = 0; i < 20; i++) wheel(-100);
+	for (let i = 0; i < 30; i++) {
+		frame();
+		for (const t of rowLabels()) if (!seen.includes(t.text)) seen.push(t.text);
+		wheel(100);
+	}
+	check("the list, in its groups and order", seen, ORDER);
+	check("the moved controls are not on Permissions any more",
+		seen.some((t) => /^Attempts before|^When someone tries|^Toy mode/.test(t)), false);
+	for (let i = 0; i < 30; i++) wheel(-100);
+	frame();
+}
+
 // --- a row half out of view is clickable only where it shows --------------------------------
 {
-	const cut = boxes.find((b) => b.top < area.top + area.height && b.top + b.height > area.top + area.height);
+	const cut = listBoxes().find((b) => b.top < area.top + area.height && b.top + b.height > area.top + area.height);
 	check("a row is cut by the bottom of the area on the first screen", !!cut, true);
 	const before = JSON.stringify(storage.getFeatures());
 	clickAt(cut.left + cut.width / 2, area.top + area.height + 5);
 	check("  a click on its clipped-off part does nothing", JSON.stringify(storage.getFeatures()), before);
 }
 
-// --- every row toggles where it is drawn, reached by the down arrow -------------------------
+// --- the fixed rows toggle where they are drawn -----------------------------------------------
+{
+	for (const [i, key] of [[0, "hypnoEnabled"], [1, "lockedWhileHypnotized"]]) {
+		frame();
+		const b = fixedBoxes()[i];
+		const before = storage.getFeatures()[key];
+		clickAt(b.left + b.width / 2, b.top + b.height / 2);
+		check(`fixed row ${key} toggles where it is drawn`, storage.getFeatures()[key], !before);
+		clickAt(b.left + b.width / 2, b.top + b.height / 2);
+	}
+}
+
+// --- every list row toggles where it is drawn, reached by the down arrow ----------------------
 const ROWS = [
-	["hypnoEnabled", "Hypnosis Enabled"], ["movementRestriction", "Movement Restriction"],
-	["clothingRestriction", "Clothing Restriction"], ["postureControl", "Posture Control"],
-	["followControl", "Follow / Leash"], ["speechRestriction", "Speech Restriction"],
+	["movementRestriction", "Movement Restriction"], ["postureControl", "Posture Control"],
+	["followControl", "Follow / Leash"], ["clothingRestriction", "Clothing Restriction"], ["undressControl", "Undressing"],
+	["speechRestriction", "Speech Restriction"], ["forcedSpeech", "Made to Speak (a trigger says words for you)"],
+	["hearingControl", "Hearing (hear only one voice, or only your name)"], ["sightControl", "Sight (dimmed, very dark, or blind)"],
 	["selfTouchControl", "Self-Touch Control"], ["compelActivity", "Made to Act (touch yourself on command)"],
-	["compelTouchOthers", "Made to Touch Others (needs Made to Act)"], ["arousalControl", "Arousal & Orgasm"],
-	["illusionControl", "Clothing Illusion (you see old clothes)"], ["undressControl", "Undressing"],
-	["lockedWhileHypnotized", "Lock settings while a session is on you"],
+	["arousalControl", "Arousal & Orgasm"], ["illusionControl", "Clothing Illusion (you see old clothes)"],
 ];
+/** The list checkbox drawn level with this label, if it is wholly in view. */
+const boxFor = (label) => {
+	const t = rowLabels().find((x) => x.text === label);
+	return t && listBoxes().find((b) => Math.abs(b.top + 26 - (t.top + t.height / 2)) < 2 && inside(b, area));
+};
 const initial = { ...storage.getFeatures() };
 const problems = [];
 let arrowClicks = 0;
-// Boxes and labels are drawn in pairs, in the same order.
-const fullyShown = (label) => boxes.find((b, k) => rowLabels()[k]?.text === label && inside(b, area));
 for (const [key, label] of ROWS) {
 	frame();
-	let box = fullyShown(label);
+	let box = boxFor(label);
 	for (let guard = 0; !box && guard < 30 && down(); guard++) {
 		clickAt(down().left + down().width / 2, down().top + down().height / 2);
 		arrowClicks++;
 		frame();
-		box = fullyShown(label);
+		box = boxFor(label);
 	}
 	if (!box) { problems.push(`${key} never came fully into view`); continue; }
 	clickAt(box.left + box.width / 2, box.top + box.height / 2);
-	const changed = ROWS.map(([k]) => k).filter((k) => storage.getFeatures()[k] !== initial[k]);
+	const changed = ROWS.map(([k]) => k).concat(["compelTouchOthers"]).filter((k) => storage.getFeatures()[k] !== initial[k]);
 	if (JSON.stringify(changed) !== JSON.stringify([key])) problems.push(`clicking ${label} changed [${changed}]`);
 	clickAt(box.left + box.width / 2, box.top + box.height / 2);
 }
-check("every checkbox toggles where it is drawn after scrolling", problems, []);
+check("every list checkbox toggles where it is drawn after scrolling", problems, []);
 check("  and the down arrow did the scrolling", arrowClicks > 0, true);
 
-// --- the attempt control, at the bottom -----------------------------------------------------
-// Down to the end: keep clicking the arrow until the list stops moving.
-frame();
-for (let guard = 0; guard < 30; guard++) {
-	const top = boxes[0].top;
-	clickAt(down().left + down().width / 2, down().top + down().height / 2);
-	frame();
-	if (boxes[0].top === top) break;
-}
+// --- Made to Touch Others: indented under Made to Act, inert while it is off ---------------------
+// Failure: drawn level with Made to Act, clickable while Made to Act is off, or still inert once on.
 {
-	const attempt = buttons.find((b) => b.label.startsWith("Attempts before they must wait"));
-	check("at the bottom, the attempt button is drawn", !!attempt, true);
-	check("  wholly in view", inside(attempt, area), true);
-	check("  below the last row", attempt.top >= Math.max(...boxes.map((b) => b.top + b.height)), true);
-	const caption = texts.filter((t) => /run out|ten minutes/.test(t.text));
-	check("  its caption is whole", caption.map((t) => t.text).join(" "), "When they run out, they cannot try you again for ten minutes.");
-	check("  and in view", caption.every((t) => inside(t, area)), true)
-	const before = storage.getMaxAttempts();
-	clickAt(attempt.left + attempt.width / 2, attempt.top + attempt.height / 2);
-	check("  the attempt button cycles where it is drawn", storage.getMaxAttempts() !== before, true);
-	clickAt(attempt.left + attempt.width / 2, attempt.top + attempt.height / 2);
+	storage.setFeature("compelActivity", false);
+	storage.setFeature("compelTouchOthers", false);
+	frame();
+	for (let guard = 0; guard < 30 && !boxFor("Made to Touch Others"); guard++) { clickAt(down().left + 5, down().top + 5); frame(); }
+	const others = boxFor("Made to Touch Others");
+	const act = boxFor("Made to Act (touch yourself on command)");
+	check("Touch Others is indented under Made to Act", !!others && !!act && others.left > act.left, true);
+	check("  greyed while Made to Act is off", others?.disabled, true);
+	clickAt(others.left + others.width / 2, others.top + others.height / 2);
+	check("  and a click does nothing", storage.getFeatures().compelTouchOthers, false);
+	storage.setFeature("compelActivity", true);
+	frame();
+	const live = boxFor("Made to Touch Others");
+	check("  live once Made to Act is on", live?.disabled, false);
+	clickAt(live.left + live.width / 2, live.top + live.height / 2);
+	check("  and then toggles", storage.getFeatures().compelTouchOthers, true);
+	storage.setFeature("compelTouchOthers", false);
+	storage.setFeature("compelActivity", false);
 }
 
-// --- after it: auto-stance, being away, toy mode, and who toy mode is for (v0.97.0) ------------------
-// "Toy mode is for" is a dropdown with the Triggers tab's choices since v0.97.3.
-// Failure: a button off screen or overlapping the one above, a click that changes another setting,
-// or the dropdown missing, out of view, not saving, or left behind when the list scrolls or the tab
-// changes.
+// --- the up arrow and the wheel --------------------------------------------------------------
 {
-	// Wheeled right to the end: the list is longer than the area now, so the last controls only
-	// come into view there.
+	frame();
+	const firstBefore = rowLabels()[0].text;
+	clickAt(up().left + up().width / 2, up().top + up().height / 2);
+	frame();
+	check("the up arrow moves the list back", rowLabels()[0].text !== firstBefore, true);
 	MouseX = area.left + 200; MouseY = area.top + 100;
+	for (let i = 0; i < 30; i++) { wheel(-100); frame(); }
+	check("the wheel scrolls to the top", rowLabels()[0].text, "Body");
+	const firstBox = listBoxes()[0].top;
+	wheel(100); frame();
+	check("one wheel notch is one row", listBoxes()[0].top, firstBox - 78);
+	MouseX = 100; MouseY = 500;
+	const top = listBoxes()[0].top;
+	wheel(100); frame();
+	check("the wheel does nothing with the pointer outside the list", listBoxes()[0].top, top);
+	MouseX = area.left + 200; MouseY = area.top + 100;
+	for (let i = 0; i < 30; i++) wheel(-100);
+}
+
+// --- Inductions (v0.100.0, job3.md §2A): attempts, answering for you, toy mode, sink deeper ------
+openTab(1); frame();
+{
+	// No checkboxes: the controls scroll in their own area, which has to be reached by the wheel.
+	const attempt0 = buttons.find((b) => b.label.startsWith("Attempts before they must wait"));
+	check("Inductions: the attempt control comes first", !!attempt0, true);
+	const iarea = attempt0.clip;
+	check("  under a clip inside the panel", !!iarea && inside(iarea, { left: panel.PANEL_LEFT, top: BODY_TOP - 10, width: panel.PANEL_WIDTH, height: panel.PANEL_HEIGHT }), true);
+	check("  no checkboxes on this tab", boxes.length, 0);
+	const caption = texts.filter((t) => /run out|ten minutes/.test(t.text));
+	check("  its caption is whole", caption.map((t) => t.text).join(" "), "When they run out, they cannot try you again for ten minutes.");
+	const before = storage.getMaxAttempts();
+	clickAt(attempt0.left + attempt0.width / 2, attempt0.top + attempt0.height / 2);
+	check("  the attempt button cycles where it is drawn", storage.getMaxAttempts() !== before, true);
+	clickAt(attempt0.left + attempt0.width / 2, attempt0.top + attempt0.height / 2);
+
+	MouseX = iarea.left + 200; MouseY = iarea.top + 100;
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
-	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:"];
+	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:", '"Sink deeper" stops at:'];
 	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
-	check("the three answer-for-me buttons are drawn at the bottom", found.map((b) => !!b), [true, true, true]);
-	check("  wholly in view", found.every((b) => b && inside(b, area)), true);
+	check("  the four cycle buttons are drawn, at the end", found.map((b) => !!b), [true, true, true, true]);
+	check("  wholly in view", found.every((b) => b && inside(b, iarea)), true);
 	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
-	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getToyScope()];
+	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getDeepestTier(), storage.getToyScope()];
 	const changed = found.map((b) => {
-		const before = read();
+		const was = read();
 		clickAt(b.left + b.width / 2, b.top + b.height / 2);
-		const after = read();
-		return after.map((v, i) => v !== before[i]);
+		return read().map((v, i) => v !== was[i]);
 	});
 	check("  each changes its own setting and no other", changed, [
-		[true, false, false, false],
-		[false, true, false, false],
-		[false, false, true, false],
+		[true, false, false, false, false],
+		[false, true, false, false, false],
+		[false, false, true, false, false],
+		[false, false, false, true, false],
 	]);
 	const toy = elements.HypnosisAddonToyScope;
 	const at = placed.HypnosisAddonToyScope;
 	check("who toy mode is for is a dropdown", !!toy, true);
-	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, area)), true);
-	check("  under the toy mode button, in view", !!at && at.y - at.h / 2 >= found[2].top + found[2].height && at.y + at.h / 2 <= area.top + area.height, true);
+	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, iarea)), true);
+	check("  between the toy mode and sink deeper buttons", !!at && at.y - at.h / 2 >= found[2].top + found[2].height && at.y + at.h / 2 <= found[3].top, true);
 	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
 	toy.selectedIndex = 5;
 	toy.onChange.call(toy);
 	check("  choosing saves it", storage.getToyScope(), "everyone");
-	MouseX = area.left + 200; MouseY = area.top + 100;
-	// In one jump, with no frame drawn on the way: the frames between would each remove it for being
-	// part-hidden, and the case under test is the list drawn with the whole band out of view.
+	// The tab is short, so at the top the dropdown may still be in view. The rule is that it exists
+	// exactly when its row is wholly inside the area (DOM cannot be clipped). Failure: present while
+	// its row is cut or hidden, or missing while its row is in view.
 	for (let i = 0; i < 40; i++) wheel(-100);
 	frame();
-	check("  scrolled away, it is removed rather than left floating", !!elements.HypnosisAddonToyScope, false);
+	const label = texts.find((t) => t.text === "Toy mode is for:");
+	const rowInView = !!label && label.top >= iarea.top && label.top + label.height <= iarea.top + iarea.height;
+	check("  at the top, present exactly when its row is in view", !!elements.HypnosisAddonToyScope, rowInView);
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
-	check("  and back when it is in view again", !!elements.HypnosisAddonToyScope, true);
-	// The hover tip (v0.97.4, DW: "The pop up text is very small"). BC's own box fits a tip on one
-	// line, shrinking it. Failure: a tip drawn at a smaller size to fit, on one squeezed line, cut
-	// by the scroll clip, or under text drawn after it.
+	check("  and present at the end, where it is in view", !!elements.HypnosisAddonToyScope, true);
+	// The hover tip (v0.97.4). Failure: shrunk onto one line, cut by the clip, or under other text.
 	const away = buttons.find((b) => b.label.startsWith("When I'm away:"));
 	MouseX = away.left + 40; MouseY = away.top + away.height / 2;
 	frame();
@@ -247,42 +323,29 @@ for (let guard = 0; guard < 30; guard++) {
 	storage.setAwayStance("refuse");
 	storage.setToyMode(false);
 	storage.setToyScope("lovers");
+	storage.setDeepestTier("entranced");
 }
-
-// --- the up arrow and the wheel --------------------------------------------------------------
-{
-	const firstBefore = rowLabels()[0].text;
-	clickAt(up().left + up().width / 2, up().top + up().height / 2);
-	frame();
-	check("the up arrow moves the list back", rowLabels()[0].text !== firstBefore, true);
-	// Wheel back to the top.
-	MouseX = area.left + 200; MouseY = area.top + 100;
-	for (let i = 0; i < 20; i++) { wheel(-100); frame(); }
-	check("the wheel scrolls to the top", rowLabels()[0].text, "Hypnosis Enabled");
-	wheel(100); frame();
-	check("one wheel notch is one row", boxes[0].top, area.top + 10 - 78);
-	MouseX = 100; MouseY = 500;
-	const top = boxes[0].top;
-	wheel(100); frame();
-	check("the wheel does nothing with the pointer outside the list", boxes[0].top, top);
-}
+// "Sink deeper" left the Depth tab. Failure: it is drawn in both places.
+openTab(6); frame();
+check("Depth no longer draws the sink deeper button", buttons.some((b) => /Sink deeper/.test(b.label)), false);
+check("  the skill button stays on Depth (DW)", buttons.some((b) => b.label.startsWith("A hypnotist's skill:")), true);
 
 // --- tabs that fit, and the tab with DOM controls under its rows -----------------------------
-openTab(2); frame(); // Awareness: four rows
+openTab(3); frame(); // Awareness: four rows
 check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScope, false);
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
-openTab(1); frame(); // Trance Defaults: seven rows, once two columns
+openTab(2); frame(); // Trance Defaults: seven rows, once two columns
 check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).size, 1);
 check("  and fits without scrolling", !!down(), false);
-openTab(3); frame(); // Triggers
+openTab(4); frame(); // Triggers
 check("Triggers' rows stop above its dropdowns at 630", boxes[0].clip.top + boxes[0].clip.height <= 630, true);
 // Five rows since v0.87.0 (whole-words matching): four fit above the dropdowns, and the list
 // scrolls to the fifth rather than running under them.
 check("  four fit wholly in view", boxes.filter((b) => inside(b, b.clip)).length, 4);
 check("  and a scroll bar reaches the fifth", !!down(), true);
 // v0.90.0: the drop-trigger control scrolls in after the rows, as the attempt control does on
-// Permissions. Failure: it cannot be reached, or clicking it does not cycle the setting.
+// Inductions. Failure: it cannot be reached, or clicking it does not cycle the setting.
 {
 	for (let i = 0; i < 10; i++) { const d = down(); if (d) clickAt(d.left + 5, d.top + 5); frame(); }
 	const drop = buttons.find((b) => /^Drop triggers: /.test(b.label));
@@ -295,7 +358,7 @@ check("  and a scroll bar reaches the fifth", !!down(), true);
 
 // --- Planted (v0.88.0): the trigger inspector -------------------------------------------------
 {
-	const plantedTab = 4;
+	const plantedTab = 5;
 	const t = (phrase, by) => ({ phrase, actions: ["movement-block"], installedBy: by, installedByName: `Hyp${by}`, installedAt: Date.now(), plantedDepth: 60, plantedChemical: false, reinforcedAt: Date.now(), firings: 0 });
 	storage.forgetAllTriggers();
 	openTab(plantedTab); frame();
@@ -355,7 +418,7 @@ openTab(0); frame();
 	wheel(100); wheel(100);
 	clickAt(panel.BACK_LEFT + 10, panel.BACK_TOP + 10); // help's own back button
 	frame();
-	check("a wheel turned over the help page does not scroll the list behind it", rowLabels()[0]?.text, "Hypnosis Enabled");
+	check("a wheel turned over the help page does not scroll the list behind it", rowLabels()[0]?.text, "Body");
 }
 
 screen.exit();

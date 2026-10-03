@@ -15,6 +15,15 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 **Nothing is turned on until you enable it. `/echs safeword` (and legacy `/hypno safeword`) always works.**
 
+> **New in v0.98–v0.100:**
+> * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
+> * **Read-only lock banner:** locked settings show a yellow Read-only banner.
+> * **Trust list names:** the trust list shows people by the name they go by.
+> * **New setup:** the setup wizard has new templates and questions, and Extreme now locks your settings for a week after you confirm.
+> * **New Inductions tab:** attempts, answering ahead of time, toy mode and "sink deeper" are on their own tab.
+>
+> See **[Settings Reference](Settings-Reference)**.
+
 > **New in v0.97: inductions reworked.** How deep you go now comes from how well you know the hypnotist, not from a lucky roll, so the same person lands you at about the same depth every time. You can also answer inductions ahead of time, choose what happens while you are away, turn on toy mode for the people you choose, and fight your way up out of a trance. Read **[How an Induction Works](How-Inductions-Work)**.
 
 ---

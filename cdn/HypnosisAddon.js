@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.99.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.100.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -8772,7 +8772,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("Chance = access + a quarter of your arousal + your choice (Agree +25"),
       body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
       body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
-      body("your setting, on the Permissions tab."),
+      body("your setting, on the Inductions tab."),
       dim("/hypno chance <name> shows the real numbers for each choice."),
       gap(),
       head("How deep it lands"),
@@ -8783,7 +8783,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("lands at nothing, it slips away, and counts as a miss."),
       gap(),
       head("Answering without the box"),
-      body("On the Permissions tab you can answer every induction ahead of time:"),
+      body("On the Inductions tab you can answer every induction ahead of time:"),
       body("Agree, Ignore or Fight. They are never told which. After 10 minutes"),
       body("with no key, click or touch you count as away, and your away"),
       body("setting decides: turn them away (the default), Ignore, or keep it."),
@@ -8815,7 +8815,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("better; their skill, your trust and your arousal hold you down."),
       dim("/hypno chance <name> shows both odds while you are under with them."),
       gap(),
-      dim('Your Depth tab says how far: "Sink deeper" stops at Entranced unless'),
+      dim('Your Inductions tab says how far: "Sink deeper" stops at Entranced unless'),
       dim("you open it. It never reaches the earned-only three."),
       gap(),
       head("Giving your trust"),
@@ -9418,32 +9418,50 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
 
   // src/menu.ts
+  function isHeading(item) {
+    return item.heading !== void 0;
+  }
   var TABS2 = [
     {
       name: "Permissions",
       blurb: "What others may do to you. All off by default. Triggers are persistent and outlive the session.",
-      rows: [
+      // v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
+      // rest grouped under headings. How inductions reach you moved to its own tab.
+      fixedRows: [
         { key: "hypnoEnabled", label: "Hypnosis Enabled" },
+        { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
+      ],
+      rows: [
+        { heading: "Body" },
         { key: "movementRestriction", label: "Movement Restriction" },
-        { key: "clothingRestriction", label: "Clothing Restriction" },
         { key: "postureControl", label: "Posture Control" },
         { key: "followControl", label: "Follow / Leash" },
+        { key: "clothingRestriction", label: "Clothing Restriction" },
+        { key: "undressControl", label: "Undressing" },
+        { heading: "Voice & senses" },
         { key: "speechRestriction", label: "Speech Restriction" },
-        { key: "selfTouchControl", label: "Self-Touch Control" },
-        { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
-        { key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
         { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
         { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
         { key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
+        { heading: "Touch & arousal" },
+        { key: "selfTouchControl", label: "Self-Touch Control" },
+        { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
+        { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
         { key: "arousalControl", label: "Arousal & Orgasm" },
-        { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
-        { key: "undressControl", label: "Undressing" },
-        { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
-      ],
+        { heading: "Mind" },
+        { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" }
+      ]
+    },
+    {
+      // v0.100.0 (job3.md §2A): how someone gets you under, out of the Permissions list where these
+      // sat at the bottom, three screens down. "Sink deeper" came from the Depth tab.
+      name: "Inductions",
+      blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
+      rows: [],
       scrollExtra: {
-        height: permissionsExtraHeight,
-        draw: drawPermissionsExtra,
-        click: clickPermissionsExtra,
+        height: inductionsHeight,
+        draw: drawInductions,
+        click: clickInductions,
         hide: () => {
           if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
         }
@@ -9783,8 +9801,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var TOY_SCOPE_ID = "HypnosisAddonToyScope";
   var TOY_SCOPE_LABEL_WIDTH = 250;
   var TOY_SCOPE_WIDTH = 560;
-  function permissionsExtraHeight() {
-    return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+  var DEEPEST_CONTROL = {
+    label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
+    caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
+    tooltip: "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
+    cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier()))
+  };
+  function inductionsHeight() {
+    return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
   }
   function drawToyScopeControl(top, width, locked) {
     drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
@@ -9821,7 +9845,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function cycleTop(top, i) {
     return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
   }
-  function drawPermissionsExtra(top, width) {
+  function drawInductions(top, width) {
     drawAttemptControl(top, width);
     const locked = settingsLocked();
     PERMISSION_CYCLES.forEach((c, i) => {
@@ -9847,14 +9871,40 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
     });
     drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
+    drawCycle(DEEPEST_CONTROL, cycleTop(top, PERMISSION_CYCLES.length + 1), width, locked);
   }
-  function clickPermissionsExtra(top) {
+  function drawCycle(c, at, width, locked) {
+    tipButton(
+      BOX_LEFT,
+      at,
+      ATTEMPT_BUTTON_WIDTH + 200,
+      ATTEMPT_BUTTON_HEIGHT,
+      c.label(),
+      locked ? "#ddd" : "White",
+      "",
+      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
+      locked
+    );
+    drawLeftTextWrap(
+      c.caption(),
+      BOX_LEFT,
+      at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+  }
+  function clickInductions(top) {
     if (clickAttemptControl(top)) return true;
-    for (let i = 0; i < PERMISSION_CYCLES.length; i++) {
-      if (!MouseIn(BOX_LEFT, cycleTop(top, i), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
+    const slots = [
+      ...PERMISSION_CYCLES.map((c, i) => [c, i]),
+      [DEEPEST_CONTROL, PERMISSION_CYCLES.length + 1]
+    ];
+    for (const [c, slot] of slots) {
+      if (!MouseIn(BOX_LEFT, cycleTop(top, slot), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
       if (settingsLocked()) return true;
-      PERMISSION_CYCLES[i].cycle();
-      log(`setting now: ${PERMISSION_CYCLES[i].label()}`);
+      c.cycle();
+      log(`setting now: ${c.label()}`);
       return true;
     }
     return false;
@@ -9927,8 +9977,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var DEFAULTS_BUTTON_WIDTH = 240;
   var HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
   var HONOUR_BUTTON_WIDTH = 720;
-  var DEEPEST_BUTTON_LEFT = SCOPE_BUTTON_LEFT + HONOUR_BUTTON_WIDTH + 20;
-  var DEEPEST_BUTTON_WIDTH = 440;
   var depthPage = 0;
   function depthPageCount() {
     return Math.max(1, Math.ceil(DEPTH_GATES.length / DEPTH_ROWS_PER_PAGE));
@@ -10049,18 +10097,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "How much of another hypnotist's own practice is allowed to help them put you under. Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
       locked
     );
-    const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-    tipButton(
-      DEEPEST_BUTTON_LEFT,
-      HONOUR_BUTTON_TOP,
-      DEEPEST_BUTTON_WIDTH,
-      DEPTH_BUTTON_HEIGHT,
-      `"Sink deeper" stops at: ${deepest}`,
-      locked ? "#ddd" : "White",
-      "",
-      "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
-      locked
-    );
     const here = isHypnotized() ? `You are ${depthLabel(Math.floor(currentDepth()))} right now.` : "You are not under.";
     drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
   }
@@ -10113,12 +10149,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
       clearDepthOverrides();
       notifyLocal("Depth requirements reset to their defaults.");
-      return true;
-    }
-    if (MouseIn(DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-      const next = nextDeepestTier(getDeepestTier());
-      setDeepestTier(next);
-      log(`deepest tier set to ${next}`);
       return true;
     }
     if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
@@ -10256,7 +10286,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
     }
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
-    if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+    if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
     if (tabName !== "Depth") removeDepthInputs();
   }
   function drawDecayControl() {
@@ -10414,6 +10444,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     drawDataButtons();
   }
   var ROWS_TOP = 270;
+  var HEADING_SPACING = 50;
+  var FIXED_BAND = 92;
+  var FIXED_COLUMN = 560;
+  var INDENT = 60;
   var ROWS_PAD = 10;
   var ROWS_FLOOR_GAP = 20;
   var rowScroll = {
@@ -10428,15 +10462,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var rowsDrawnAt = 0;
   var ROWS_ON_SCREEN_MS = 500;
   function layoutRows(tab) {
-    rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - ROWS_TOP;
-    rowScroll.content = ROWS_PAD + (tab.rows?.length ?? 0) * ROW_SPACING + (tab.scrollExtra?.height() ?? 0);
+    rowScroll.top = ROWS_TOP + (tab.fixedRows?.length ? FIXED_BAND : 0);
+    rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
+    rowScroll.content = ROWS_PAD + itemsHeight(tab.rows ?? [], (tab.rows ?? []).length) + (tab.scrollExtra?.height() ?? 0);
     clampScroll(rowScroll);
   }
-  function rowTop(index) {
-    return scrollY(rowScroll, ROWS_PAD + index * ROW_SPACING);
+  function itemsHeight(items, count) {
+    let h = 0;
+    for (let i = 0; i < count; i++) h += isHeading(items[i]) ? HEADING_SPACING : ROW_SPACING;
+    return h;
+  }
+  function rowTop(tab, index) {
+    return scrollY(rowScroll, ROWS_PAD + itemsHeight(tab.rows ?? [], index));
   }
   function scrollExtraTop(tab) {
-    return rowTop(tab.rows?.length ?? 0);
+    return rowTop(tab, tab.rows?.length ?? 0);
+  }
+  function fixedLeft(i) {
+    return BOX_LEFT + i * FIXED_COLUMN;
   }
   function onSettingsWheel(event) {
     if (Date.now() - rowsDrawnAt > ROWS_ON_SCREEN_MS) return;
@@ -10472,7 +10515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.99.0"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.0"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10541,7 +10584,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.99.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -10581,14 +10624,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const features = getFeatures();
     const rows = tab.rows ?? [];
-    const contentWidth = scrollContentWidth(rowScroll);
     layoutRows(tab);
+    const contentWidth = scrollContentWidth(rowScroll);
+    (tab.fixedRows ?? []).forEach((row, i) => {
+      const left = fixedLeft(i);
+      DrawCheckbox(left, ROWS_TOP, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+      drawLeftTextFit(row.label, left + BOX_SIZE + 20, ROWS_TOP + 26, FIXED_COLUMN - BOX_SIZE - 40, locked ? "Gray" : "Black");
+    });
     drawScrollArea(rowScroll, () => {
-      rows.forEach((row, i) => {
-        const top = rowTop(i);
+      rows.forEach((item, i) => {
+        const top = rowTop(tab, i);
+        if (isHeading(item)) {
+          if (scrollShows(rowScroll, top, HEADING_SPACING)) {
+            drawLeftTextFit(item.heading, BOX_LEFT, top + HEADING_SPACING / 2, contentWidth, "#555");
+          }
+          return;
+        }
         if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-        DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-        drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+        const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+        const inert = locked || !!item.needs && !features[item.needs];
+        DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item.key], inert);
+        drawLeftTextFit(item.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
       });
       const extra = tab.scrollExtra;
       if (extra) {
@@ -10682,6 +10738,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           layoutRows(tab);
           if (clickScrollBar(rowScroll)) return;
         }
+        const fixed = (tab.fixedRows ?? []).find((_, i) => MouseIn(fixedLeft(i), ROWS_TOP, BOX_SIZE, BOX_SIZE));
+        if (fixed) {
+          if (settingsLocked()) return;
+          const next = !getFeatures()[fixed.key];
+          setFeature(fixed.key, next);
+          onToggle(fixed.key, next);
+          log(`${fixed.key} set to ${next}`);
+          return;
+        }
         if (tab.clickExtra?.()) return;
         if (tabs[activeTab2].render) {
           if (MouseIn(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
@@ -10705,12 +10770,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (settingsLocked()) return;
         const features = getFeatures();
         const clickRows = tab.rows ?? [];
-        clickRows.forEach((row, i) => {
-          if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
-            const next = !features[row.key];
-            setFeature(row.key, next);
-            onToggle(row.key, next);
-            log(`${row.key} set to ${next}`);
+        clickRows.forEach((item, i) => {
+          if (isHeading(item)) return;
+          if (item.needs && !features[item.needs]) return;
+          const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+          if (MouseIn(left, rowTop(tab, i), BOX_SIZE, BOX_SIZE)) {
+            const next = !features[item.key];
+            setFeature(item.key, next);
+            onToggle(item.key, next);
+            log(`${item.key} set to ${next}`);
           }
         });
       },
@@ -12312,7 +12380,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.99.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.100.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12335,7 +12403,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.99.0"} loaded`;
+    el.textContent = `ECHS v${"0.100.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12366,14 +12434,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.99.0"})`);
+  info(`script loaded (v${"0.100.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.99.0",
+      version: "0.100.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior

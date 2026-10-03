@@ -138,13 +138,29 @@ import {
 interface Row {
 	key: keyof FeatureToggles;
 	label: string;
+	/** Drawn indented under the row it depends on, and greyed and inert while that one is off
+	 * (job3.md: Made to Touch Others under Made to Act). */
+	needs?: keyof FeatureToggles;
+}
+
+/** A group heading inside a checkbox list (job3.md §2B). Text only; it cannot be clicked. */
+interface Heading {
+	heading: string;
+}
+
+type ListItem = Row | Heading;
+
+function isHeading(item: ListItem): item is Heading {
+	return (item as Heading).heading !== undefined;
 }
 
 interface Tab {
 	name: string;
 	blurb: string;
-	/** Checkbox tabs. Omitted for a tab that draws itself. */
-	rows?: Row[];
+	/** Checkbox tabs, with optional group headings. Omitted for a tab that draws itself. */
+	rows?: ListItem[];
+	/** Checkboxes held above the scrolling list, always in view, side by side (job3.md §2C). */
+	fixedRows?: Row[];
 	/** Read-only tabs supply their own drawing instead of a row list. */
 	render?: () => void;
 	/** Drawn AFTER the rows, for a tab that has both checkboxes and other controls. */
@@ -171,28 +187,43 @@ const TABS: Tab[] = [
 	{
 		name: "Permissions",
 		blurb: "What others may do to you. All off by default. Triggers are persistent and outlive the session.",
-		rows: [
+		// v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
+		// rest grouped under headings. How inductions reach you moved to its own tab.
+		fixedRows: [
 			{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
+			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
+		],
+		rows: [
+			{ heading: "Body" },
 			{ key: "movementRestriction", label: "Movement Restriction" },
-			{ key: "clothingRestriction", label: "Clothing Restriction" },
 			{ key: "postureControl", label: "Posture Control" },
 			{ key: "followControl", label: "Follow / Leash" },
+			{ key: "clothingRestriction", label: "Clothing Restriction" },
+			{ key: "undressControl", label: "Undressing" },
+			{ heading: "Voice & senses" },
 			{ key: "speechRestriction", label: "Speech Restriction" },
-			{ key: "selfTouchControl", label: "Self-Touch Control" },
-			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
-			{ key: "compelTouchOthers", label: "Made to Touch Others (needs Made to Act)" },
 			{ key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
 			{ key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
 			{ key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
+			{ heading: "Touch & arousal" },
+			{ key: "selfTouchControl", label: "Self-Touch Control" },
+			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
+			{ key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
 			{ key: "arousalControl", label: "Arousal & Orgasm" },
+			{ heading: "Mind" },
 			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
-			{ key: "undressControl", label: "Undressing" },
-			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
 		],
+	},
+	{
+		// v0.100.0 (job3.md §2A): how someone gets you under, out of the Permissions list where these
+		// sat at the bottom, three screens down. "Sink deeper" came from the Depth tab.
+		name: "Inductions",
+		blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
+		rows: [],
 		scrollExtra: {
-			height: permissionsExtraHeight,
-			draw: drawPermissionsExtra,
-			click: clickPermissionsExtra,
+			height: inductionsHeight,
+			draw: drawInductions,
+			click: clickInductions,
 			hide: () => {
 				if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
 			},
@@ -651,8 +682,22 @@ const TOY_SCOPE_ID = "HypnosisAddonToyScope";
 const TOY_SCOPE_LABEL_WIDTH = 250;
 const TOY_SCOPE_WIDTH = 560;
 
-function permissionsExtraHeight(): number {
-	return attemptControlHeight() + (PERMISSION_CYCLES.length + 1) * (CYCLE_GAP + attemptControlHeight());
+/** "Sink deeper" stops at — moved from the Depth tab (job3.md), drawn after the toy mode dropdown. */
+const DEEPEST_CONTROL: CycleControl = {
+	label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
+	caption: () =>
+		getDeepestTier() === "never"
+			? "A hypnotist cannot talk you deeper once you are under."
+			: "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
+	tooltip:
+		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
+		"trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
+	cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier())),
+};
+
+/** Attempts, the three answer-for-me cycles, the toy mode dropdown, then "sink deeper". */
+function inductionsHeight(): number {
+	return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
 }
 
 function drawToyScopeControl(top: number, width: number, locked: boolean): void {
@@ -695,7 +740,7 @@ function cycleTop(top: number, i: number): number {
 	return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
 }
 
-function drawPermissionsExtra(top: number, width: number): void {
+function drawInductions(top: number, width: number): void {
 	drawAttemptControl(top, width);
 	const locked = settingsLocked();
 	PERMISSION_CYCLES.forEach((c, i) => {
@@ -715,16 +760,38 @@ function drawPermissionsExtra(top: number, width: number): void {
 		);
 	});
 	drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
+	drawCycle(DEEPEST_CONTROL, cycleTop(top, PERMISSION_CYCLES.length + 1), width, locked);
 }
 
-function clickPermissionsExtra(top: number): boolean {
+function drawCycle(c: CycleControl, at: number, width: number, locked: boolean): void {
+	tipButton(
+		BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
+		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
+		locked,
+	);
+	drawLeftTextWrap(
+		c.caption(),
+		BOX_LEFT,
+		at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+}
+
+function clickInductions(top: number): boolean {
 	if (clickAttemptControl(top)) return true;
-	for (let i = 0; i < PERMISSION_CYCLES.length; i++) {
-		if (!MouseIn(BOX_LEFT, cycleTop(top, i), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
+	// The three cycles, then (one slot further down, past the toy mode dropdown) "sink deeper".
+	const slots: [CycleControl, number][] = [
+		...PERMISSION_CYCLES.map((c, i): [CycleControl, number] => [c, i]),
+		[DEEPEST_CONTROL, PERMISSION_CYCLES.length + 1],
+	];
+	for (const [c, slot] of slots) {
+		if (!MouseIn(BOX_LEFT, cycleTop(top, slot), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
 		// Consumed either way, as the attempt control is: a locked button must not cycle.
 		if (settingsLocked()) return true;
-		PERMISSION_CYCLES[i].cycle();
-		log(`setting now: ${PERMISSION_CYCLES[i].label()}`);
+		c.cycle();
+		log(`setting now: ${c.label()}`);
 		return true;
 	}
 	return false;
@@ -822,9 +889,6 @@ const DEFAULTS_BUTTON_WIDTH = 240;
  * sentences ("Only from people I trust"). */
 const HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
 const HONOUR_BUTTON_WIDTH = 720;
-/** "Deepest I go" (v0.95.0): beside the honour button, in the free right half of that row. */
-const DEEPEST_BUTTON_LEFT = SCOPE_BUTTON_LEFT + HONOUR_BUTTON_WIDTH + 20;
-const DEEPEST_BUTTON_WIDTH = 440;
 let depthPage = 0;
 
 function depthPageCount(): number {
@@ -922,14 +986,6 @@ function drawDepthGates(): void {
 			"Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
 		locked,
 	);
-	const deepest = DEEPEST_TIERS.find((r) => r.key === getDeepestTier())?.label ?? "Entranced";
-	tipButton(
-		DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
-		`"Sink deeper" stops at: ${deepest}`, locked ? "#ddd" : "White", "",
-		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
-			"trust puts it; toy mode puts you straight here. Never reaches the three above that say otherwise.",
-		locked,
-	);
 
 	// Where they are RIGHT NOW, so the numbers above mean something while reading the list.
 	//
@@ -1002,12 +1058,6 @@ function clickDepthGates(): boolean {
 	if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
 		clearDepthOverrides();
 		notifyLocal("Depth requirements reset to their defaults.");
-		return true;
-	}
-	if (MouseIn(DEEPEST_BUTTON_LEFT, HONOUR_BUTTON_TOP, DEEPEST_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-		const next = nextDeepestTier(getDeepestTier());
-		setDeepestTier(next);
-		log(`deepest tier set to ${next}`);
 		return true;
 	}
 	if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
@@ -1209,7 +1259,7 @@ function syncTabControls(tabName: string): void {
 		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
-	if (tabName !== "Permissions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
 	if (tabName !== "Depth") removeDepthInputs();
 }
 
@@ -1424,6 +1474,14 @@ function drawStats(): void {
 // (panel.ts), so a list can grow without re-laying out the screen, and a label never has to
 // squeeze into half the panel.
 const ROWS_TOP = 270;
+/** A group heading's slot: shorter than a checkbox row. */
+const HEADING_SPACING = 50;
+/** The fixed rows' band above the list: one row of checkboxes, and a gap under it. */
+const FIXED_BAND = 92;
+/** Where the second fixed checkbox starts, so two fit side by side. */
+const FIXED_COLUMN = 560;
+/** How far a dependent row is indented under the row it needs. */
+const INDENT = 60;
 /** Space above the first row inside the area, so the first box does not touch its top. */
 const ROWS_PAD = 10;
 /** The area stops this far above the panel floor. */
@@ -1448,17 +1506,30 @@ let rowsDrawnAt = 0;
 const ROWS_ON_SCREEN_MS = 500;
 
 function layoutRows(tab: Tab): void {
-	rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - ROWS_TOP;
-	rowScroll.content = ROWS_PAD + (tab.rows?.length ?? 0) * ROW_SPACING + (tab.scrollExtra?.height() ?? 0);
+	rowScroll.top = ROWS_TOP + (tab.fixedRows?.length ? FIXED_BAND : 0);
+	rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
+	rowScroll.content = ROWS_PAD + itemsHeight(tab.rows ?? [], (tab.rows ?? []).length) + (tab.scrollExtra?.height() ?? 0);
 	clampScroll(rowScroll);
 }
 
-function rowTop(index: number): number {
-	return scrollY(rowScroll, ROWS_PAD + index * ROW_SPACING);
+function itemsHeight(items: ListItem[], count: number): number {
+	let h = 0;
+	for (let i = 0; i < count; i++) h += isHeading(items[i]) ? HEADING_SPACING : ROW_SPACING;
+	return h;
+}
+
+/** Screen y of the list's item `index` (a heading or a row), scroll applied. */
+function rowTop(tab: Tab, index: number): number {
+	return scrollY(rowScroll, ROWS_PAD + itemsHeight(tab.rows ?? [], index));
 }
 
 function scrollExtraTop(tab: Tab): number {
-	return rowTop(tab.rows?.length ?? 0);
+	return rowTop(tab, tab.rows?.length ?? 0);
+}
+
+/** The fixed rows' checkbox left edges. */
+function fixedLeft(i: number): number {
+	return BOX_LEFT + i * FIXED_COLUMN;
 }
 
 function onSettingsWheel(event: WheelEvent): void {
@@ -1682,17 +1753,32 @@ function runSettings(): void {
 	}
 	const features = getFeatures();
 	const rows = tab.rows ?? [];
-	const contentWidth = scrollContentWidth(rowScroll);
 	layoutRows(tab);
+	const contentWidth = scrollContentWidth(rowScroll);
+	// The fixed rows, above the list and outside its clip: always in view (job3.md §2C).
+	(tab.fixedRows ?? []).forEach((row, i) => {
+		const left = fixedLeft(i);
+		DrawCheckbox(left, ROWS_TOP, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+		drawLeftTextFit(row.label, left + BOX_SIZE + 20, ROWS_TOP + 26, FIXED_COLUMN - BOX_SIZE - 40, locked ? "Gray" : "Black");
+	});
 	drawScrollArea(rowScroll, () => {
-		rows.forEach((row, i) => {
-			const top = rowTop(i);
+		rows.forEach((item, i) => {
+			const top = rowTop(tab, i);
+			if (isHeading(item)) {
+				if (scrollShows(rowScroll, top, HEADING_SPACING)) {
+					drawLeftTextFit(item.heading, BOX_LEFT, top + HEADING_SPACING / 2, contentWidth, "#555");
+				}
+				return;
+			}
 			if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
+			const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+			// A dependent row is inert while the row it needs is off.
+			const inert = locked || (!!item.needs && !features[item.needs]);
 			// Empty label — DrawCheckbox centers its own at a fixed offset regardless of
 			// Width, which overlaps the box for anything but very short text. Draw the
 			// label ourselves, left-aligned and clear of the box.
-			DrawCheckbox(BOX_LEFT, top, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
-			drawLeftTextFit(row.label, BOX_LEFT + BOX_SIZE + 20, top + 26, contentWidth - BOX_SIZE - 20, locked ? "Gray" : "Black");
+			DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item.key], inert);
+			drawLeftTextFit(item.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
 		});
 		const extra = tab.scrollExtra;
 		if (extra) {
@@ -1791,6 +1877,16 @@ export function installMenu(): void {
 				layoutRows(tab);
 				if (clickScrollBar(rowScroll)) return;
 			}
+			// The fixed rows above the list.
+			const fixed = (tab.fixedRows ?? []).find((_, i) => MouseIn(fixedLeft(i), ROWS_TOP, BOX_SIZE, BOX_SIZE));
+			if (fixed) {
+				if (settingsLocked()) return;
+				const next = !getFeatures()[fixed.key];
+				setFeature(fixed.key, next);
+				onToggle(fixed.key, next);
+				log(`${fixed.key} set to ${next}`);
+				return;
+			}
 			// A self-drawing tab handles its own clicks first. Stats predates this and keeps
 			// its handling inline below; Depth uses the hook.
 			if (tab.clickExtra?.()) return;
@@ -1823,12 +1919,15 @@ export function installMenu(): void {
 			// coordinates, so without this a single click would toggle one row per tab.
 			const features = getFeatures();
 			const clickRows = tab.rows ?? [];
-			clickRows.forEach((row, i) => {
-				if (MouseIn(BOX_LEFT, rowTop(i), BOX_SIZE, BOX_SIZE)) {
-					const next = !features[row.key];
-					setFeature(row.key, next);
-					onToggle(row.key, next);
-					log(`${row.key} set to ${next}`);
+			clickRows.forEach((item, i) => {
+				if (isHeading(item)) return;
+				if (item.needs && !features[item.needs]) return; // inert while what it needs is off
+				const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+				if (MouseIn(left, rowTop(tab, i), BOX_SIZE, BOX_SIZE)) {
+					const next = !features[item.key];
+					setFeature(item.key, next);
+					onToggle(item.key, next);
+					log(`${item.key} set to ${next}`);
 				}
 			});
 		},

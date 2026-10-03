@@ -73,7 +73,7 @@ If you already know you want to go under for someone, say so in the room: *"I tr
 If the attempt succeeds, your client enters a trance state. The roll only decides *whether* it lands. How deep you go comes from your trust in them, your BC relationship, their skill, your arousal and your answer (Agree takes you deeper, Fight keeps you shallow), give or take a few points. Trust and a relationship hold you at least so deep, unless you fight. If it would land at nothing, it slips away and counts as a miss. The numbers, with examples, are on [How an Induction Works](How-Inductions-Work).
 
 ### Answering Ahead of Time
-On the Permissions tab you can answer every induction before it happens: **Agree**, **Ignore** or **Fight**, with no box. The hypnotist is never told which. If you are away from the keyboard (10 minutes with no key, click or touch), your *When I'm away* setting decides: turn them away (the default), treat it as Ignore, or keep your answer.
+On the Inductions tab you can answer every induction before it happens: **Agree**, **Ignore** or **Fight**, with no box. The hypnotist is never told which. If you are away from the keyboard (10 minutes with no key, click or touch), your *When I'm away* setting decides: turn them away (the default), treat it as Ignore, or keep your answer.
 
 **Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (your owner and lovers by default, or wider, the same choices as trigger scope), an induction puts you straight under to your *"sink deeper"* limit, with no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
 

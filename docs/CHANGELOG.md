@@ -20,6 +20,31 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-10-02 (v0.100.0) — Permissions reorganized; new Inductions tab
+
+From `job3.md` (local, untracked), decided with DW 2026-10-02. Layout only: no stored setting
+changed, so nothing migrates.
+
+**Permissions**
+- `Tab.fixedRows` holds Hypnosis Enabled and the settings lock above the scroll area, side by side
+  and outside its clip, so neither can be scrolled away. `rowScroll.top` is now set per tab in
+  `layoutRows()`.
+- `Tab.rows` takes `ListItem`s: rows or `{ heading }`. A heading takes a 50px slot, and
+  `rowTop(tab, i)` sums the heights, so drawing and clicking agree.
+- `Row.needs` draws Made to Touch Others indented under Made to Act, greyed and ignoring clicks while
+  Made to Act is off. Its value is not changed when Made to Act is unticked; it simply does nothing,
+  as before.
+
+**Inductions** (a scrollExtra-only tab)
+- The attempt control, the three answer-for-me cycles, the toy mode dropdown, and "Sink deeper"
+  (`DEEPEST_CONTROL`, removed from the Depth tab).
+- The toy dropdown is now owned by this tab in `syncTabControls`.
+- Help text and the wiki point at the new places. The wiki's Settings Reference gains section 2 and
+  renumbers the rest (the one inbound anchor was updated).
+
+**Tests:** `test/menu-layout.mjs` rewritten for the fixed rows, headings, indent and the Inductions
+tab (89).
+
 ### Added 2026-10-02 (v0.99.0) — setup wizard overhaul and the Extreme progressive lock
 
 From `job2.md` (local, untracked); every decision is in its §5. Built on `feat/wizard-overhaul`, which
