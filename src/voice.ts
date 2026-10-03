@@ -2,7 +2,7 @@ import { log, warn, isTestingMode } from "./log";
 import {
 	applyEffect,
 	removeEffect,
-	hasOwnEffect,
+	heldByUs,
 	setSuggestedPose,
 	clearSuggestedPose,
 	poseGroupOf,
@@ -275,7 +275,7 @@ function applyUndress(count: number): FlavorKey | void {
 	// Note it is NOT enough to skip undress()'s "frozen" line: our Freeze also makes BC's
 	// CanChangeOwnClothes() answer false, which the "locked" branch would then blame. Actually
 	// lifting the effect and re-reading is the only way to tell our freeze from a real lock.
-	const liftedOwnFreeze = hasOwnEffect("Freeze");
+	const liftedOwnFreeze = heldByUs("Freeze");
 	if (liftedOwnFreeze) {
 		removeEffect("Freeze");
 		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
@@ -2442,7 +2442,7 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 					log(`trigger "${trigger.phrase}": ${id} dropped mid-pace — compelActivity revoked`);
 					return;
 				}
-				if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+				if (Player?.HasEffect?.("Freeze") && !heldByUs("Freeze")) {
 					log(`trigger "${trigger.phrase}": ${id} dropped mid-pace — a real restraint has them frozen`);
 					return;
 				}
@@ -3335,9 +3335,9 @@ function handleActivityCommand(sender: number, content: string): boolean {
 	// is a hypnotic freeze WE applied, and a commanded touch is involuntary — the hypnotist is
 	// driving her hand — so it pierces our freeze exactly as it pierces the self-touch block.
 	// A REAL restraint that freezes her (a heavy item) is physical and still stops her:
-	// hasOwnEffect tells our freeze from a real one, and BC's ActivityAllowedForGroup filters
+	// heldByUs tells our freeze from a real one (v0.100.4: our record, not the shared item), and BC's ActivityAllowedForGroup filters
 	// real bondage/chastity regardless of this check.
-	if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+	if (Player?.HasEffect?.("Freeze") && !heldByUs("Freeze")) {
 		tellHypnotist(sender, "[command] Refused — a restraint has them frozen; they cannot move to.");
 		return true;
 	}
@@ -3372,7 +3372,7 @@ function repeatTouch(sender: number, times: number | undefined, touch: () => boo
 	let left = (times ?? 1) - 1;
 	if (left <= 0) return;
 	const tick = () => {
-		if (!isSessionActiveWith(sender) || !getFeatures().compelActivity || (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze"))) {
+		if (!isSessionActiveWith(sender) || !getFeatures().compelActivity || (Player?.HasEffect?.("Freeze") && !heldByUs("Freeze"))) {
 			log(`repeated touch stopped with ${left} to go — no longer allowed`);
 			return;
 		}
@@ -3568,7 +3568,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 		return true;
 	}
 	// Same rule as the self grammar: OUR freeze yields to a command, a real restraint does not.
-	if (Player?.HasEffect?.("Freeze") && !hasOwnEffect("Freeze")) {
+	if (Player?.HasEffect?.("Freeze") && !heldByUs("Freeze")) {
 		tellHypnotist(sender, "[command] Refused — a restraint has them frozen; they cannot move to.");
 		return true;
 	}

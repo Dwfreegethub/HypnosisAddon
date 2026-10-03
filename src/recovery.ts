@@ -8,7 +8,7 @@ import {
 	setScreenFade,
 	applyEffect,
 	removeEffect,
-	hasOwnEffect,
+	hasOwnEffect, heldByUs,
 	suggestedPose,
 	restoreSuggestedPose,
 	clearSuggestedPose,
@@ -207,7 +207,9 @@ export function snapshotLocalState(): Omit<
 		numb: isNumb(),
 		selfTouch: selfTouchSnapshot(),
 		illusion: illusionSnapshot(),
-		effects: OUR_EFFECTS.filter((e) => hasOwnEffect(e)),
+		// Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
+		// ours, so saving another add-on's Freeze would make it ours after a reload.
+		effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
 		pose: suggestedPose(),
 	};
 }
@@ -414,7 +416,11 @@ function restoreLocalState(saved: SavedSession): void {
 	// Re-assert our BC effects rather than trusting them to have survived. They ride on the
 	// Emoticon item and usually do come back, but a sync landing before the AllowEffect patch
 	// strips them — and applyEffect is idempotent, so asserting costs nothing when they did.
-	for (const e of saved.effects ?? []) if (!hasOwnEffect(e)) applyEffect(e);
+	// ALWAYS applied, not only when missing (v0.100.4): applyEffect is also what puts the effect
+	// back in our own record, and the code that narrates or acts on "our" freeze reads only that
+	// record now (effects.ts heldByUs). Skipping it because the item still showed the effect left
+	// a resumed trance's freeze out of the record.
+	for (const e of saved.effects ?? []) applyEffect(e);
 	// The follow compulsion is a leash effect plus in-memory scope state, and only the effect
 	// rides the appearance across a reload. Re-arm the compulsion so it feels continuous and so
 	// the session's teardown still knows to cut it — with no leader, since who was leading is

@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { applyEffect, hasOwnEffect, removeEffect, itemCarriesEffect } from "./effects";
+import { applyEffect, heldByUs, removeEffect, itemCarriesEffect } from "./effects";
 
 // Arousal and orgasm control.
 //
@@ -131,10 +131,12 @@ export function clearOrgasmDenial(): void {
  * denial.ts puts it back if it goes missing. */
 let deniedByUs = false;
 
-/** Is OUR denial on? The flag, or the carrier on its own: after a page reload the flag starts
- * false while a restored session's carrier still says denied, and that must keep holding. */
+/** Is OUR denial on? The flag, or our own effect record: after a page reload the flag starts false
+ * while a restored session's denial is re-adopted into the record (recovery.ts), and that must keep
+ * holding. Not the bare carrier (v0.100.4): another add-on's DenialMode on the shared Emoticon item
+ * is not ours to lift for a forced orgasm. */
 export function orgasmDeniedByUs(): boolean {
-	return deniedByUs || hasOwnEffect("DenialMode");
+	return deniedByUs || heldByUs("DenialMode");
 }
 
 /** Is our denial recorded in memory but missing from the carrier? denial.ts re-applies it. */

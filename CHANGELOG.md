@@ -12,6 +12,14 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.4 · 2 October 2026
+
+- **Being bound by something else no longer reads as hypnosis.** If another add-on or item froze
+  you, ECHS could block touching yourself and say *"Your hand doesn't move"*, even with no
+  hypnosis going on. Now only a freeze ECHS put on you itself does that. The same goes for poses
+  being held, the undress refusal, and the wardrobe message.
+- A trance resumed after a reconnect keeps holding you exactly as before.
+
 ## v0.100.3 · 2 October 2026
 
 - **Whispers don't need the subject's name any more.** Whisper *"kneel"* to someone you have under

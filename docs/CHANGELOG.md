@@ -20,6 +20,42 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-02 (v0.100.4) — only OUR effects are narrated or acted on as ours
+
+Lexi (#259780, 2026-09-28): bound with no session, every self-activity got "Your hand doesn't move.
+Nothing of yours does." `hasOwnEffect()` is true for our own record (OWN_EFFECTS) OR any matching
+effect on the Emoticon item. The item half exists for recovery (after a reload the record is empty).
+But we patch the Emoticon allow-list on every client, so any add-on's "Freeze" there survives, and
+the item cannot say whose it is. (Current LSCG was checked and does NOT write Freeze there; it only
+writes ForceKneel. The source on Lexi's character is still unknown.)
+
+**Changes:**
+- New `heldByUs()` reads only OWN_EFFECTS.
+- These callers that narrate or act on "ours" switched to it:
+  - the self-touch block;
+  - `isHeldStill` (the pose hold);
+  - undress's frozen/locked reasons;
+  - the wardrobe message;
+  - applyUndress's freeze lift, which could otherwise remove a foreign Freeze;
+  - the "a real restraint has them frozen" refusals;
+  - `orgasmDeniedByUs`.
+- Recovery's reconnect snapshot also saves only `heldByUs` effects.
+- The trap fixed alongside: `restoreLocalState` re-applied saved effects only `if (!hasOwnEffect(e))`.
+  The item usually still carried them after a reload, so the record was never refilled. It now always
+  calls `applyEffect` (idempotent), so a resumed trance's freeze is ours again.
+
+**Deliberately unchanged:** `hasOrphanedEffects` and the follow teardown still use `hasOwnEffect`,
+because never leaving someone stuck after a crash outweighs sparing a foreign effect at login.
+
+**Behaviour change:** during recovery's wait for the hypnotist (up to 5 min) self-touch is not
+blocked, because the trance is not restored yet.
+
+**Tests:**
+- selftouch +4: a foreign Freeze passes, says nothing and isn't held; ours still blocks. Three of
+  these fail on v0.100.3.
+- recovery +3: a resume re-adopts the Freeze.
+- undress and activity: their "ours" setups now go through `applyEffect`, plus a foreign case each.
+
 ### Changed 2026-10-02 (v0.100.3) — a whisper to the subject needs no name
 
 Claire's feedback, 2026-09-28: "would be nice if you whisper to someone you dont have to use their

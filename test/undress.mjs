@@ -34,7 +34,7 @@ const dress = (...groups) => {
 };
 const wearing = () => Player.Appearance.map((a) => a.Asset.Group.Name);
 
-const { undress, storage } = await import("./harness-bundle.mjs");
+const { undress, storage, effects } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -93,11 +93,19 @@ check("and once free it works again", undress.undress(1).removed, ["Cloth"]);
 // Still refused — being frozen genuinely should stop you undressing, the way selftouch-frozen
 // already says. What changed is that it is now true.
 dress("Cloth", "Panties");
-const freeze = { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: ["Freeze"] } };
+const freeze = { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } };
 Player.Appearance.push(freeze);
+// OURS means applied through applyEffect, which keeps our own record (v0.100.4).
+effects.applyEffect("Freeze");
 Player.CanChangeOwnClothes = () => false; // what BC does the moment IsRestrained() is true
 check("our own freeze reports itself", undress.undress(1).refusal, "frozen");
 check("  and takes nothing off", wearing().includes("Cloth"), true);
+effects.removeEffect("Freeze");
+// v0.100.4 (Lexi): a Freeze another add-on wrote onto the shared Emoticon item is NOT ours. It
+// reads as a real lock, not as hypnosis. Failure: "frozen" (the old item-based answer).
+freeze.Property.Effect = ["Freeze"];
+check("another add-on's Freeze on the item is not ours: a lock", undress.undress(1).refusal, "locked");
+freeze.Property.Effect = [];
 Player.Appearance = Player.Appearance.filter((a) => a !== freeze);
 check("someone else's lock is still a lock", undress.undress(1).refusal, "locked");
 Player.CanChangeOwnClothes = () => true;

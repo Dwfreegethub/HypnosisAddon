@@ -1,6 +1,6 @@
 import { log, warn } from "./log";
 import { announce, announceBodyPart } from "./flavor";
-import { hasOwnEffect } from "./effects";
+import { heldByUs } from "./effects";
 import { getFeatures } from "./storage";
 
 // Blocking the subject from touching THEMSELVES — either at all (while frozen) or on
@@ -189,7 +189,7 @@ export function installSelfTouch(modApi: any): void {
 					// switch, and narrating the restraint to the room as hypnosis. What a real
 					// restraint allows is BC's decision (ActivityAllowedForGroup), not ours — the
 					// same our-versus-real split voice.ts draws for commanded touch.
-					if (hasOwnEffect("Freeze")) {
+					if (heldByUs("Freeze")) {
 						announce("selftouch-frozen");
 						return undefined;
 					}
