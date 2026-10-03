@@ -7,8 +7,9 @@
 //                           manager reads this file's version line. Its @version tracks
 //                           package.json like everything else, so a manager shows the same number
 //                           as the startup chat line.
-//   cdn/HypnosisAddon.js    the add-on itself, which the loader fetches from jsDelivr (and from
-//                           GitHub directly if jsDelivr fails) on every page load.
+//   cdn/HypnosisAddon.js    the add-on itself, which the loader fetches from GitHub (and from
+//                           jsDelivr, at this release's tag, if GitHub fails) on every page load.
+//                           The tag is pushed by .github/workflows/purge-cdn.yml (v0.100.5).
 //
 //   npm run release      # build, then copy both from dist/ over the committed files
 //

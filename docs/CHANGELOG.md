@@ -20,6 +20,28 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-03 (v0.100.5) — the jsDelivr fallback is pinned to the release tag
+
+The "Purge jsDelivr cache" job failed on every release from v0.99.0 to v0.100.4: five purges a run,
+and jsDelivr kept serving v0.98.4 at `@main`. Its lookup of what `main` means had stuck, the same
+failure as v0.91.3 (2026-09-26). Players were unaffected while GitHub answered, since GitHub has been
+first since v0.92.1. But a player whose GitHub fetch failed would have dropped silently onto v0.98.4:
+an old copy loads fine, so nothing says anything is wrong.
+
+**Changes:**
+- The loader asks jsDelivr for `@v<version>`, its own release's tag (`CDN_TAG` in src/loader.ts).
+  A tag names one commit, so there is no branch lookup to go stale and nothing to purge.
+- purge-cdn.yml now creates that tag on the merge commit (`contents: write`), then checks jsDelivr
+  serves it. An existing tag is never moved: jsDelivr caches a tag for good.
+- The bookmark loader keeps `@main` (`CDN_MAIN_URL`). A bookmark is never updated, so a tag would
+  freeze its fallback on one release; a stale main is the lesser fault. The workflow still purges
+  `@main` for it, best effort, as a warning only.
+
+**Decided (DW, 2026-10-03):** this reverses the 2026-09-23 "follow main, not tags" decision for the
+loader. Its reason was a forgotten tag, and the workflow now pushes the tag itself. Lag: the fallback
+moves when the player's manager updates the loader (usually daily), not on the next refresh. That is
+acceptable for a fallback.
+
 ### Fixed 2026-10-02 (v0.100.4) — only OUR effects are narrated or acted on as ours
 
 Lexi (#259780, 2026-09-28): bound with no session, every self-activity got "Your hand doesn't move.

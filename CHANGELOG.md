@@ -12,6 +12,13 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.5 · 3 October 2026
+
+- **The backup download works again.** ECHS loads from GitHub, and if GitHub can't be reached it
+  falls back to a second site (jsDelivr). That backup had been stuck handing out v0.98.4 since
+  v0.99.0. It now asks for the exact version your loader is, so it can't fall behind like that.
+  Nothing changes if GitHub works for you, which is almost everyone.
+
 ## v0.100.4 · 2 October 2026
 
 - **Being bound by something else no longer reads as hypnosis.** If another add-on or item froze
