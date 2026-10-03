@@ -382,6 +382,8 @@ const OPT_WIDTH = WZ_WIDTH - 80;
 const NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
 const NAV_HEIGHT = 56;
 const NAV_FORWARD_WIDTH = 200;
+/** The forward button while a question has no answer yet. */
+const FORWARD_WAITING = "#b8b8b8";
 const NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - NAV_FORWARD_WIDTH;
 /** Extreme's Confirm is wider: its label is a commitment and must be read whole. */
 const CONFIRM_WIDTH = 340;
@@ -495,7 +497,10 @@ function drawNav(showBack: boolean, forward: string | null, forwardDisabled = fa
 	if (showBack) DrawButton(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT, "Back", "White", "", "");
 	DrawButton(NAV_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
 	if (forward) {
-		DrawButton(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT, forward, forwardDisabled ? "#eee" : "#dfe9df", "", "", forwardDisabled);
+		// White when it can be clicked, like every other live button (and BC turns it cyan on hover);
+		// a clearly darker grey while it waits for an answer. The old pale green read as disabled
+		// even when it was not (DW, v0.100.1). BC's Disabled flag only stops the hover highlight.
+		DrawButton(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT, forward, forwardDisabled ? FORWARD_WAITING : "White", "", "", forwardDisabled);
 	}
 }
 

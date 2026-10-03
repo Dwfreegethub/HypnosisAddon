@@ -20,6 +20,14 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-02 (v0.100.1) — the wizard's forward button looks clickable when it is
+
+DW: "the next button always looks like it inactive even after you select an item." The forward
+button was `#dfe9df` when live and `#eee` when waiting: two pale shades that read alike. In R132,
+`DrawButton`'s Disabled flag only suppresses the cyan hover; the fill colour is all a player sees.
+It is now "White" when live, like every other button, and `#b8b8b8` while waiting.
+`test/wizard.mjs` checks both colours (110).
+
 ### Changed 2026-10-02 (v0.100.0) — Permissions reorganized; new Inductions tab
 
 From `job3.md` (local, untracked), decided with DW 2026-10-02. Layout only: no stored setting

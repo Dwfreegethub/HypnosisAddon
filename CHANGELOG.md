@@ -12,6 +12,12 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.1 · 2 October 2026
+
+- In setup, the **Next** and **Apply** buttons now turn white once you have picked an answer, like
+  the other buttons, so it is obvious they are ready. Before an answer is picked, Next is a darker
+  grey.
+
 ## v0.100.0 · 2 October 2026
 
 - **A new Inductions tab.** How someone gets you under now has its own tab, right after
