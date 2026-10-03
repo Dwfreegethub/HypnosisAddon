@@ -52,7 +52,7 @@ Here, you can choose one of four starting templates, each applied with one click
 * **Hypnotist only** — you hypnotize others; nobody can hypnotize you.
 * **Light / safe** — poses and being held still, nothing more. A trance never silences you, and you are always asked first.
 * **Balanced** — movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you.
-* **Extreme** — everything on, easy to reach, no questions asked. It **locks your settings read-only for a week** (see [Settings Reference](Settings-Reference#8-setup-wizard)) and asks you to confirm first.
+* **Extreme** — everything on, easy to reach, no questions asked. It **locks your settings read-only for a week** (see [Settings Reference](Settings-Reference#9-setup-wizard)) and asks you to confirm first.
 
 Or answer five short questions instead (your role, how attempts are handled, what physical commands you allow, your senses, and triggers). Every page has a **Cancel** button that changes nothing. You can re-run setup or change any setting by hand afterward, outside an active session.
 

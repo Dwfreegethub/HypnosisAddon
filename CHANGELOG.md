@@ -12,6 +12,27 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.1 · 2 October 2026
+
+- In setup, the **Next** and **Apply** buttons now turn white once you have picked an answer, like
+  the other buttons, so it is obvious they are ready. Before an answer is picked, Next is a darker
+  grey.
+
+## v0.100.0 · 2 October 2026
+
+- **A new Inductions tab.** How someone gets you under now has its own tab, right after
+  Permissions. It holds:
+  - how many tries they get;
+  - your automatic answer;
+  - what happens while you're away;
+  - toy mode, and who it's for;
+  - how far "sink deeper" can take you, which moved here from the Depth tab.
+- **Permissions is easier to scan.**
+  - Hypnosis Enabled and the settings lock stay at the top, always in view.
+  - The rest are grouped under Body, Voice & senses, Touch & arousal, and Mind.
+  - Made to Touch Others sits under Made to Act, and is greyed until Made to Act is ticked.
+- Nothing you had set has changed; only where it's shown.
+
 ## v0.99.0 · 2 October 2026
 
 - **A new setup.** The four templates have been redone and each applies with one click:

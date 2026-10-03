@@ -91,7 +91,7 @@ A hypnotist can say *"Missy, sink deeper"* (or *go deeper*, *drop deeper* and so
 * It starts at 40%. **Trust**, **skill**, **arousal**, **your answer** (Agree +20, Fight −25) and **time under** (+2 a minute, up to +20) all help or hurt. So does your **practice** when you Agree. **The deeper you already are, the harder it gets.** It is never below 10% or above 95%, and it always takes if you gave them your trust.
 * **A success takes you 15–25 deeper** while you are below Entranced, 10–15 from Entranced, and 5–10 from Deep. It takes you 5 more if your trust in them is over 60, or they own you.
 * **At most once a minute**, and only after one of their suggestions has landed in between.
-* **Your limit:** your Depth tab's *"Sink deeper" stops at* (Entranced unless you change it, or *Never deeper*). It never raises earned depth.
+* **Your limit:** your Inductions tab's *"Sink deeper" stops at* (Entranced unless you change it, or *Never deeper*). It never raises earned depth.
 
 See [What to Say](What-to-Say#going-deeper-mid-trance) for the phrases.
 
@@ -130,7 +130,7 @@ The safeword always works, in every one of these.
 
 ## 8. Tries and waiting
 
-Each hypnotist gets **2 tries** in a row (you can make it 3 on the Permissions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**.
+Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**.
 
 ---
 

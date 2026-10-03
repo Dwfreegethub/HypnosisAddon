@@ -15,39 +15,69 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 
 ## 1. Permissions Tab
 
+What others may do to you. Everything here is off until you turn it on.
+
+**At the top, always in view:**
+
 | Setting | What It Allows |
 |---|---|
 | **Hypnosis Enabled** | The master toggle and absolute floor. Disabling this shuts down the add-on, immediately breaks active trances, and purges all effects (identical to the safeword). Re-enabling it later restores your toggles without reapplying old effects. |
+| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active session. Locked, the screen still opens so you can read every setting, with a yellow *Read-only* banner across the top; nothing on it can be changed until the session ends. |
+
+**Below them, in groups (scroll for the rest):**
+
+*Body*
+
+| Setting | What It Allows |
+|---|---|
 | **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you; nobody else can change your pose. Items can still be put on you. |
-| **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
 | **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the hypnotist's side across room transitions using Bondage Club's native leash system. Requires your native BC leashing permissions to be enabled. |
+| **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
+| **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
+
+*Voice & senses*
+
+| Setting | What It Allows |
+|---|---|
 | **Speech Restriction** | Allows verbal muting (*"you cannot speak"*). Affects standard room chat only; slash commands always bypass speech locks. |
-| **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
-| **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
-| **Made to Touch Others (needs Made to Act)** | Allows the hypnotist to aim those commands at someone else in the room (*"kiss Rei"*). Not needed for the hypnotist themselves (*"kiss me"*). Off by default. See [Commanded Activities](Commanded-Activities#touching-someone-else). |
 | **Made to Speak (a trigger says words for you)** | Allows a planted trigger to make you say words aloud in the room (*"you will say 'I obey'"*). A gag still garbles them. Off by default; of the setup templates only Extreme turns it on, as does the strongest trigger answer in the setup questions. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects#words-to-say). |
 | **Hearing (hear only one voice, or only your name)** | Allows *"you hear only my voice"* (you hear only that person) and *"you only hear what is said to you"* (only lines with your name). Everything else said in the room is hidden from you; emotes, activities and out-of-character text in (parentheses) still get through, and what you cannot hear cannot command you. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [What to Say](What-to-Say#hearing--hearing--entranced). |
 | **Sight (dimmed, very dark, or blind)** | Allows *"your vision is dimming"*, *"you can barely see"* and *"you cannot see"*. This is Bondage Club's own blindness, so your own BC settings cap it: with *Sensory Deprivation* on Light it never goes past very dark. Nobody else sees a change. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [Sensory Modulation](Sensory-Modulation#sight). |
-| **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
-| **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
-| **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
-| **Lock Settings While in Session** | Toggles whether this settings menu is locked during an active session. Locked, the screen still opens so you can read every setting, with a yellow *Read-only* banner across the top; nothing on it can be changed until the session ends. |
 
-*Additional Permissions Controls:*
-* **Induction Attempt Limit:** Choose between 2 or 3 attempts before triggering a 10-minute cooldown (default: 2).
+*Touch & arousal*
+
+| Setting | What It Allows |
+|---|---|
+| **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
+| **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
+| **Made to Touch Others** | Indented under Made to Act, and greyed until Made to Act is ticked. Allows the hypnotist to aim those commands at someone else in the room (*"kiss Rei"*). Not needed for the hypnotist themselves (*"kiss me"*). Off by default. See [Commanded Activities](Commanded-Activities#touching-someone-else). |
+| **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
+
+*Mind*
+
+| Setting | What It Allows |
+|---|---|
+| **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
+
+*(Note: How inductions reach you — attempts, answering ahead of time, toy mode and "sink deeper" — is on the **Inductions** tab. Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab.)*
+
+---
+
+## 2. Inductions Tab
+
+How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.
+
+* **Attempts before they must wait:** 2 or 3 attempts before a 10-minute cooldown (default: 2).
 * **When someone tries to hypnotize me:** *Ask me · Agree · Ignore · Fight* (default: *Ask me*). Anything but *Ask me* answers every induction for you with no box; the hypnotist is never told which.
 * **When I'm away:** *Refuse · Ignore · Keep my answer* (default: *Refuse*). Away means 10 minutes with no key, click or touch. Applies to the answer above and to toy mode, never to *Ask me*.
 * **Toy mode:** *Off · On* (default: *Off*). No roll: an induction puts you straight under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
 * **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and whitelist · Owner, Lovers, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, whitelist, blacklist and Dominant reputation, exactly as for triggers.
-* These are at the bottom of the tab; scroll down to reach them.
-* **Starter Set:** A one-click preset on fresh installs that enables five safe, session-only basics, reversible with a single click.
-
-*(Note: Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab).*
+* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
 ---
 
-## 2. Trance Defaults Tab
+## 3. Trance Defaults Tab
 
 Defines baseline states that engage automatically when an induction succeeds, before verbal suggestions are spoken.
 
@@ -63,7 +93,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 
 ---
 
-## 3. Awareness Tab
+## 4. Awareness Tab
 
 Controls perceptual filtering — what your character can be hypnotically made not to notice. These hide **chat messages** only. Your own screen still shows your real body; making it show your old clothes is the separate **Clothing Illusion** permission.
 
@@ -74,7 +104,7 @@ Controls perceptual filtering — what your character can be hypnotically made n
 
 ---
 
-## 4. Triggers Tab
+## 5. Triggers Tab
 
 Manages long-term suggestions and conditioned words:
 
@@ -91,7 +121,7 @@ Manages long-term suggestions and conditioned words:
 
 ---
 
-## 5. Planted Tab
+## 6. Planted Tab
 
 Lists the triggers planted in you, six to a page: who planted each one and how strong it still is.
 
@@ -103,17 +133,17 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 
 ---
 
-## 6. Depth Tab
+## 7. Depth Tab
 
 * **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
 * **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
-* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
+* **"Sink deeper" stops at:** moved to the **Inductions** tab in v0.100.0.
 * **Reset to defaults:** Puts every feature back to its standard depth.
 
 ---
 
-## 7. Stats & Advanced Tab
+## 8. Stats & Advanced Tab
 
 Accessible via the **Advanced** toggle below the tabs:
 
@@ -123,7 +153,7 @@ Accessible via the **Advanced** toggle below the tabs:
 
 ---
 
-## 8. Setup Wizard
+## 9. Setup Wizard
 
 On fresh installs or after running a reset, opening the settings menu launches the guided **Setup Wizard**. You can re-run it at any time from within the settings interface.
 
@@ -149,7 +179,7 @@ Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **C
 
 ---
 
-## 9. Data & Backup
+## 10. Data & Backup
 
 * `/echs export` (or `/hypno export`): Generates an encoded text backup of all current settings, thresholds, and trust records.
 * `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.

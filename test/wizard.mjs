@@ -218,7 +218,7 @@ check("questions never lock and never open arousal reach", [cond.openChemical, c
 	let buttons = [];
 	let target = null;
 	globalThis.DrawButton = (x, y, w, h, label, color, image, hover, disabled) =>
-		buttons.push({ x, y, w, h, label: String(label).replace(/^✓\s+/, ""), disabled: !!disabled });
+		buttons.push({ x, y, w, h, label: String(label).replace(/^✓\s+/, ""), color, disabled: !!disabled });
 	globalThis.MouseIn = (x, y, w, h) => !!target && target.x === x && target.y === y && target.w === w && target.h === h;
 	const draw = () => { buttons = []; wizard.drawWizard(); return buttons.map((b) => b.label); };
 	const click = (label) => {
@@ -277,6 +277,11 @@ check("questions never lock and never open arousal reach", [cond.openChemical, c
 	check("ui: Next is greyed with nothing chosen", buttons.find((b) => b.label === "Next")?.disabled, true);
 	click("Next");
 	check("ui: and does not move on", draw().includes(opt(0, "subject")), true);
+	// v0.100.1 (DW): Next must LOOK clickable once answered. Failure: the same pale colour either way.
+	const nextColor = () => { draw(); return buttons.find((b) => b.label === "Next")?.color; };
+	check("ui: Next is dark grey while waiting", nextColor(), "#b8b8b8");
+	click(opt(0, "subject"));
+	check("ui: Next turns white, like the other buttons, once answered", [nextColor(), buttons.find((b) => b.label === "Next")?.disabled], ["White", false]);
 
 	// Cancel is on every question and the summary, and from the summary still writes nothing.
 	const offered = [];
