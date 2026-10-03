@@ -89,6 +89,7 @@ import {
 } from "./depth";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import { shouldShowWizard, startWizard, drawWizard, clickWizard } from "./wizard";
+import { extremeLocked, extremeExpired, extremeBannerText, extremeRefusal, renewalPrompt, answerRenewal } from "./extreme";
 import {
 	TITLE_Y,
 	PANEL_LEFT,
@@ -392,10 +393,10 @@ function drawPurgeButton(left: number, top: number, height: number, holding: boo
 		PLANTED_BUTTON_WIDTH,
 		height,
 		holding ? "Holding" : "Purge",
-		holding ? "#ddd" : "#ffe0e0",
+		holding || extremeLocked() ? "#ddd" : "#ffe0e0",
 		"",
-		holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
-		holding,
+		extremeLocked() ? lockedTip() : holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+		holding || extremeLocked(),
 	);
 }
 
@@ -476,6 +477,7 @@ function drawPlantedDetail(holding: boolean): void {
 export function purgePlanted(index: number): string {
 	const t = sweptTriggers()[index - 1];
 	if (!t) return `There is no trigger ${index}.`;
+	if (extremeLocked()) return extremeRefusal();
 	if (isTriggerInEffect(t)) {
 		return (
 			`Trigger ${index} is holding you right now, so it can't be removed. ` +
@@ -579,7 +581,7 @@ function drawAttemptControl(top: number, width: number): void {
 		"",
 		// No tooltip while the pointer is outside the scroll area: the button may be half
 		// scrolled out, and BC would raise it from the clipped half.
-		!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
+		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "How many tries one hypnotist gets in a row",
 		locked,
 	);
 	// What the setting COSTS, under the control that sets it — the same shape as the trigger
@@ -700,7 +702,7 @@ function drawPermissionsExtra(top: number, width: number): void {
 		const at = cycleTop(top, i);
 		tipButton(
 			BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
-			!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
+			!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
 			locked,
 		);
 		drawLeftTextWrap(
@@ -751,7 +753,7 @@ function drawDropControl(top: number, width: number): void {
 		`Drop triggers: ${label}`,
 		locked ? "#ddd" : "White",
 		"",
-		!mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "Whether a trigger can put you straight under",
+		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "Whether a trigger can put you straight under",
 		locked,
 	);
 	drawLeftTextWrap(
@@ -1075,7 +1077,7 @@ export function clickDataButton(index: number): void {
 		// clipboard prompt for nothing, and said out loud because the button being grey is easy
 		// to miss (rule 5).
 		if (settingsLocked()) {
-			notifyLocal(IMPORT_LOCKED_MESSAGE);
+			notifyLocal(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
 			return;
 		}
 		navigator.clipboard?.readText().then(
@@ -1083,7 +1085,7 @@ export function clickDataButton(index: number): void {
 				// Again here: the clipboard read is async, and a session can start while the
 				// browser is still asking.
 				if (settingsLocked()) {
-					notifyLocal(IMPORT_LOCKED_MESSAGE);
+					notifyLocal(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
 					return;
 				}
 				const result = importSettings(text);
@@ -1118,7 +1120,7 @@ function drawDataButtons(): void {
 			isReset && armed ? "Confirm?" : name,
 			isReset ? (armed ? "#ffb3b3" : "#ffe0e0") : locked ? "#ddd" : "White",
 			"",
-			isReset ? "Erases everything — asks once first" : locked ? "Locked until this session ends" : `${name} via clipboard`,
+			isReset ? "Erases everything — asks once first" : locked ? lockedTip() : `${name} via clipboard`,
 			locked,
 		);
 	});
@@ -1504,7 +1506,54 @@ const LOCK_BANNER_BACK = "#ffe3a3";
 const LOCK_BANNER_TEXT = "#5c3d00";
 
 export function settingsLocked(): boolean {
-	return getFeatures().lockedWhileHypnotized && isSessionLive();
+	return (getFeatures().lockedWhileHypnotized && isSessionLive()) || extremeLocked();
+}
+
+/** The hover text on a locked control: which lock, and until when. */
+function lockedTip(): string {
+	return extremeLocked() ? extremeRefusal() : "Locked until this session ends";
+}
+
+// --- The Extreme renewal prompt (v0.99.0, job2.md §4B) -------------------------------------------
+// When a lock period has run out, opening the settings shows this instead of the tabs. The settings
+// stay read-only until one of the two is chosen; leaving with the exit icon just asks again next time.
+const RENEW_LEFT = PANEL_LEFT + 120;
+const RENEW_TOP = PANEL_TOP + 360;
+const RENEW_WIDTH = 520;
+const RENEW_HEIGHT = 80;
+const RENEW_GAP = 60;
+
+function drawRenewalPrompt(): void {
+	const p = renewalPrompt();
+	if (!p) return;
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
+	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
+	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
+	drawLeftTextWrap(p.title, PANEL_LEFT + 60, PANEL_TOP + 120, PANEL_WIDTH - 120, 120, "Black");
+	drawLeftTextWrap(
+		"Either way, nothing in your settings changes now. Renewing keeps them read-only; unlocking makes them editable again.",
+		PANEL_LEFT + 60, PANEL_TOP + 250, PANEL_WIDTH - 120, 90, "#555",
+	);
+	DrawButton(RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, p.unlock, "White", "", "");
+	DrawButton(RENEW_LEFT + RENEW_WIDTH + RENEW_GAP, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, p.renew, "#ffe0e0", "", "");
+}
+
+/** Exported for the suite. `renew` true is the right-hand button. */
+export function clickRenewal(renew: boolean): string {
+	const said = answerRenewal(renew);
+	notifyLocal(said);
+	return said;
+}
+
+function clickRenewalPrompt(): void {
+	if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
+		PreferenceSubscreenExtensionsClear();
+	} else if (MouseIn(RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT)) {
+		clickRenewal(false);
+	} else if (MouseIn(RENEW_LEFT + RENEW_WIDTH + RENEW_GAP, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT)) {
+		clickRenewal(true);
+	}
 }
 
 /** The Identifier this add-on registers under, used both to register the settings screen
@@ -1565,6 +1614,12 @@ function runSettings(): void {
 		drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
 		return;
 	}
+	// A run-out Extreme period owns the screen until it is answered (job2.md §4B).
+	if (extremeExpired()) {
+		removeScopeControl();
+		drawRenewalPrompt();
+		return;
+	}
 	// First-run (or re-run) setup owns the whole screen; it is never shown mid-session,
 	// because it changes consent settings and those are locked while a trance is on you.
 	if (shouldShowWizard() && !settingsLocked()) {
@@ -1607,7 +1662,9 @@ function runSettings(): void {
 		// alone read as a broken screen, not a locked one.
 		DrawRect(BOX_LEFT - 20, BLURB_Y - 24, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT, 48, LOCK_BANNER_BACK);
 		drawLeftTextFit(
-			"Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
+			extremeLocked()
+				? extremeBannerText()
+				: "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
 			BOX_LEFT,
 			BLURB_Y,
 			PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
@@ -1679,6 +1736,10 @@ export function installMenu(): void {
 			}
 		},
 		click: () => {
+			if (extremeExpired()) {
+				clickRenewalPrompt();
+				return;
+			}
 			if (shouldShowWizard() && !settingsLocked()) {
 				if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
 					PreferenceSubscreenExtensionsClear();

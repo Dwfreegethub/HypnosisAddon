@@ -26,9 +26,9 @@ Everything in these menus represents a **permission** (*"Do I allow this to be d
 | **Self-Touch Control** | Allows you to be blocked from touching yourself (*"you cannot touch yourself"*). |
 | **Made to Act (Touch Yourself on Command)** | Allows the hypnotist to command physical self-actions (*"touch your breasts"*). See [Commanded Activities](Commanded-Activities). |
 | **Made to Touch Others (needs Made to Act)** | Allows the hypnotist to aim those commands at someone else in the room (*"kiss Rei"*). Not needed for the hypnotist themselves (*"kiss me"*). Off by default. See [Commanded Activities](Commanded-Activities#touching-someone-else). |
-| **Made to Speak (a trigger says words for you)** | Allows a planted trigger to make you say words aloud in the room (*"you will say 'I obey'"*). A gag still garbles them. Off by default; of the setup presets only Extreme turns it on. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects#words-to-say). |
-| **Hearing (hear only one voice, or only your name)** | Allows *"you hear only my voice"* (you hear only that person) and *"you only hear what is said to you"* (only lines with your name). Everything else said in the room is hidden from you; emotes, activities and out-of-character text in (parentheses) still get through, and what you cannot hear cannot command you. Off by default; of the setup presets only Extreme turns it on. See [What to Say](What-to-Say#hearing--hearing--entranced). |
-| **Sight (dimmed, very dark, or blind)** | Allows *"your vision is dimming"*, *"you can barely see"* and *"you cannot see"*. This is Bondage Club's own blindness, so your own BC settings cap it: with *Sensory Deprivation* on Light it never goes past very dark. Nobody else sees a change. Off by default; of the setup presets only Extreme turns it on. See [Sensory Modulation](Sensory-Modulation#sight). |
+| **Made to Speak (a trigger says words for you)** | Allows a planted trigger to make you say words aloud in the room (*"you will say 'I obey'"*). A gag still garbles them. Off by default; of the setup templates only Extreme turns it on, as does the strongest trigger answer in the setup questions. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects#words-to-say). |
+| **Hearing (hear only one voice, or only your name)** | Allows *"you hear only my voice"* (you hear only that person) and *"you only hear what is said to you"* (only lines with your name). Everything else said in the room is hidden from you; emotes, activities and out-of-character text in (parentheses) still get through, and what you cannot hear cannot command you. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [What to Say](What-to-Say#hearing--hearing--entranced). |
+| **Sight (dimmed, very dark, or blind)** | Allows *"your vision is dimming"*, *"you can barely see"* and *"you cannot see"*. This is Bondage Club's own blindness, so your own BC settings cap it: with *Sensory Deprivation* on Light it never goes past very dark. Nobody else sees a change. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [Sensory Modulation](Sensory-Modulation#sight). |
 | **Arousal & Orgasm** | Allows arousal manipulation, orgasm denial, forced climaxes, and sexual numbness. |
 | **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
@@ -108,7 +108,7 @@ Purge and Clear All are not affected by the setting lock: removing something pla
 * **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
 * **Arousal Reach (Chemical Reach):** Choose whether clothing illusions and planted triggers can be unlocked via high arousal instead of earned trust. (Triggers planted via arousal fade rapidly. Carry-forward waking suggestions cannot be unlocked by arousal).
 * **Honouring Hypnotist Skill:** Dictates how much weight your client gives to an incoming hypnotist's experience rating (*Ignore Completely · Trusted Partners Only · Capped Value from Anyone*).
-* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup presets only Extreme sets Blank. An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
+* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 * **Reset to defaults:** Puts every feature back to its standard depth.
 
 ---
@@ -127,13 +127,25 @@ Accessible via the **Advanced** toggle below the tabs:
 
 On fresh installs or after running a reset, opening the settings menu launches the guided **Setup Wizard**. You can re-run it at any time from within the settings interface.
 
-The wizard provides four starting templates:
-* **Hypnotist Only**
-* **Light / Safe**
-* **Balanced**
-* **Extreme**
+Every page of the wizard has a **Cancel** button that closes it without changing anything. **Skip** on the first page does the same. It cannot be opened while your settings are locked.
 
-Alternatively, you can complete a short 5-question questionnaire to configure permissions automatically. Every question, and the summary at the end, has a **Cancel** button that closes the wizard without changing anything; on the first page, **Skip** does the same. The wizard cannot be launched during an active trance.
+**The four templates** apply with one click (Extreme asks first). Anything a template does not turn on is turned off. Your own preferences — showing trigger words, firing your own, whole-word matching, release on disconnect, silencing OOC, the room seeing your reactions — are left alone.
+
+| Template | What it turns on | Asked first? | "Sink deeper" stops at | Triggers |
+|---|---|---|---|---|
+| **Hypnotist Only** | Nothing — hypnosis is off, so nobody can hypnotize you | (auto-answer set to Fight, in case you turn hypnosis back on) | — | Off |
+| **Light / Safe** | Movement, Posture. A trance never silences you (Cannot Speak off) | Yes | Yielding | Off |
+| **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers and whitelist |
+| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal may reach triggers and the illusion. Toy mode for Owner, Lovers and whitelist; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
+
+**The five questions** cover your role (Hypnotist only, or Subject/both), how attempts are handled (always ask, toy mode for owner and lovers, or agree to all), what physical commands you allow, what can be done to your senses and awareness, and how triggers work. Your answer about physical commands also sets how far "sink deeper" can take you (Yielding, Entranced or Deep). The questions never lock anything.
+
+### The Extreme lock
+
+Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **Cancel**. Once confirmed:
+* For **7 days** your settings are **read-only**. You can still open every tab and read them, under a yellow banner showing the end date. You cannot change anything — including switching Hypnosis Enabled off, re-running setup, importing a backup, or removing planted triggers (Purge and Clear All).
+* When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
+* **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it). Export still works, so you can keep a backup.
 
 ---
 

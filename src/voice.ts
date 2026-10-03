@@ -61,6 +61,7 @@ import {
 	timerDeadline,
 } from "./timers";
 import { registerTriggerRecovery, SavedTrigger } from "./recovery";
+import { extremeLocked, extremeRefusal } from "./extreme";
 import {
 	isRecording,
 	cancelRecording,
@@ -2636,6 +2637,8 @@ export function describeAction(id: string): string {
  * trigger or a session has hold of you; clear that first). Shared by /echs forgettrigger all and
  * the settings screen's Clear All, so the two refuse on the same terms. */
 export function clearAllRefusal(): string | null {
+	// The Extreme lock covers removing triggers too (DW, job2.md §5.4).
+	if (extremeLocked()) return extremeRefusal();
 	if (isSessionLive()) {
 		return "A hypnosis session is running on you. End it first (/echs safeword always works), then clear your triggers.";
 	}

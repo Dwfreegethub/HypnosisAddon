@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.98.4. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.99.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -4294,6 +4294,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+    if (s.extremeLockUntil !== void 0 && !(typeof s.extremeLockUntil === "number" && s.extremeLockUntil > 0)) {
+      delete s.extremeLockUntil;
+    }
+    if (s.extremeLockUntil === void 0) delete s.extremeLockStage;
+    else if (s.extremeLockStage !== "trial" && s.extremeLockStage !== "month") s.extremeLockStage = "trial";
     if (!DECAY_RATES.some((r) => r.key === s.decayRate)) s.decayRate = "never";
     if (!DECAY_RATES.some((r) => r.key === s.triggerDecayRate)) s.triggerDecayRate = "never";
     if (Array.isArray(s.triggers)) {
@@ -4760,6 +4765,29 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (TOY_SCOPES.some((r) => r.key === key)) loadSettings().toyScope = key;
     saveSettings();
   }
+  function resetSkillHonour() {
+    delete loadSettings().skillHonour;
+    saveSettings();
+  }
+  var EXTREME_TRIAL_DAYS = 7;
+  var EXTREME_MONTH_DAYS = 30;
+  function getExtremeLock() {
+    const s = loadSettings();
+    return typeof s.extremeLockUntil === "number" ? { until: s.extremeLockUntil, stage: s.extremeLockStage ?? "trial" } : null;
+  }
+  function startExtremeLock(stage2, now = Date.now()) {
+    const s = loadSettings();
+    s.extremeLockUntil = now + (stage2 === "trial" ? EXTREME_TRIAL_DAYS : EXTREME_MONTH_DAYS) * 864e5;
+    s.extremeLockStage = stage2;
+    saveSettings();
+    return { until: s.extremeLockUntil, stage: stage2 };
+  }
+  function clearExtremeLock() {
+    const s = loadSettings();
+    delete s.extremeLockUntil;
+    delete s.extremeLockStage;
+    saveSettings();
+  }
   function setSkillHonour(rung) {
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
     saveSettings();
@@ -5012,6 +5040,60 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log(`undressed: ${removed.join(", ")}`);
     return { removed };
+  }
+
+  // src/extreme.ts
+  function extremeLocked() {
+    return getExtremeLock() !== null;
+  }
+  function extremeExpired(now = Date.now()) {
+    const lock = getExtremeLock();
+    return !!lock && now >= lock.until;
+  }
+  function dateText(ms) {
+    return new Date(ms).toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric" });
+  }
+  function extremeBannerText(now = Date.now()) {
+    const lock = getExtremeLock();
+    if (!lock) return "";
+    return now >= lock.until ? "Read-only: your Extreme lock period has ended. Choose what happens next to unlock. /echs safeword always ends a trance." : `Read-only: Extreme lock until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
+  }
+  function extremeRefusal(now = Date.now()) {
+    const lock = getExtremeLock();
+    if (!lock) return "";
+    return now >= lock.until ? "Locked by Extreme: open your ECHS settings to choose whether to renew or unlock." : `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
+  }
+  var EXTREME_WARNING = [
+    `Extreme locks your settings in read-only mode for ${EXTREME_TRIAL_DAYS} days. You will be able to view them, but not change them \u2014 that includes switching hypnosis off and removing planted triggers.`,
+    "/echs safeword always ends a trance, locked or not.",
+    "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
+    `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
+  ];
+  function renewalPrompt() {
+    const lock = getExtremeLock();
+    if (!lock) return null;
+    return lock.stage === "trial" ? { title: `Your ${EXTREME_TRIAL_DAYS}-day Extreme trial has ended. How was your experience?`, unlock: "Return to editable settings", renew: `Commit to ${EXTREME_MONTH_DAYS} days` } : { title: `Your ${EXTREME_MONTH_DAYS}-day Extreme lock has expired. Continue for another ${EXTREME_MONTH_DAYS} days?`, unlock: "Unlock and edit settings", renew: `Renew for ${EXTREME_MONTH_DAYS} days` };
+  }
+  function answerRenewal(renew, now = Date.now()) {
+    if (renew) {
+      const lock = startExtremeLock("month", now);
+      log(`Extreme lock renewed until ${new Date(lock.until).toISOString()}`);
+      return `Extreme renewed for ${EXTREME_MONTH_DAYS} days, until ${dateText(lock.until)}.`;
+    }
+    clearExtremeLock();
+    log("Extreme lock ended by the player at renewal");
+    return "Extreme lock ended. Your settings are editable again, and nothing in them has changed.";
+  }
+  function startExtremeTrial(now = Date.now()) {
+    const lock = startExtremeLock("trial", now);
+    log(`Extreme trial lock until ${new Date(lock.until).toISOString()}`);
+    return `Extreme applied. Your settings are read-only until ${dateText(lock.until)}.`;
+  }
+  function exitExtreme() {
+    if (!extremeLocked()) return "No Extreme lock is set.";
+    clearExtremeLock();
+    log("Extreme lock ended by /echs exit_extreme");
+    return "Extreme lock ended. Your settings are editable again; trust, triggers and stats are untouched.";
   }
 
   // src/triggers.ts
@@ -7423,6 +7505,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
   }
   function clearAllRefusal() {
+    if (extremeLocked()) return extremeRefusal();
     if (isSessionLive()) {
       return "A hypnosis session is running on you. End it first (/echs safeword always works), then clear your triggers.";
     }
@@ -8903,40 +8986,56 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
 
   // src/wizard.ts
-  var GROUP_FEATURES = {
-    movement: ["movementRestriction", "speechRestriction", "postureControl", "clothingRestriction"],
-    undress: ["undressControl", "selfTouchControl"],
-    arousal: ["arousalControl"],
-    compel: ["compelActivity"],
-    perception: ["suppressClothing", "suppressBondage", "suppressActivities", "illusionControl"],
-    lasting: ["triggerControl", "carryForward"]
-  };
-  var ALL_FEATURES = [
-    "hypnoEnabled",
-    ...Object.values(GROUP_FEATURES).flat(),
+  var MANAGED_FEATURES = [
+    "movementRestriction",
+    "clothingRestriction",
+    "postureControl",
+    "followControl",
+    "speechRestriction",
+    "selfTouchControl",
+    "compelActivity",
     "compelTouchOthers",
-    // Made to speak (v0.90.0) likewise: no wizard question grants it, only Extreme.
     "forcedSpeech",
-    // Hearing only one voice and sight (v0.93.0): the same.
     "hearingControl",
-    "sightControl"
+    "sightControl",
+    "arousalControl",
+    "illusionControl",
+    "undressControl",
+    "triggerControl",
+    "carryForward",
+    "suppressClothing",
+    "suppressBondage",
+    "suppressActivities",
+    "lockedWhileHypnotized"
   ];
+  var TRANCE_DEFAULTS = {
+    tranceCannotMove: true,
+    tranceCannotSpeak: true,
+    tranceScreenFade: true,
+    tranceClothingFreeze: false
+  };
   function applySetup(cfg) {
     const on = new Set(cfg.features);
-    if (on.size > 0) on.add("hypnoEnabled");
-    for (const key of ALL_FEATURES) setFeature(key, on.has(key));
-    if (cfg.access === "earned") {
-      clearDepthOverrides();
-    } else {
-      const depth = cfg.access === "easy" ? tierMinimum("drifting") : tierMinimum("deep");
-      for (const gate of DEPTH_GATES) setDepthOverride(gate.key, depth);
+    setFeature("hypnoEnabled", cfg.hypnoEnabled);
+    for (const key of MANAGED_FEATURES) setFeature(key, on.has(key));
+    for (const [key, value] of Object.entries({ ...TRANCE_DEFAULTS, ...cfg.trance ?? {} })) {
+      setFeature(key, value);
     }
-    setChemicalScope(cfg.arousalShortcut ? "arousal" : "neither");
-    setSkillHonour(cfg.honour);
-    setTriggerDecayRate(cfg.triggersFade ? "typical" : "never");
+    if (cfg.allDepths === void 0) clearDepthOverrides();
+    else for (const gate of DEPTH_GATES) setDepthOverride(gate.key, cfg.allDepths);
+    setChemicalScope("arousal");
     setChemicalReach("illusionControl", !!cfg.openChemical);
     setChemicalReach("triggerControl", !!cfg.openChemical);
-    setDeepestTier(cfg.deepest ?? DEFAULT_DEEPEST);
+    resetSkillHonour();
+    setDeepestTier(cfg.deepest);
+    setDefaultStance(cfg.stance);
+    setAwayStance(cfg.away ?? DEFAULT_AWAY_STANCE);
+    setToyMode(!!cfg.toyMode);
+    setToyScope(cfg.toyScope ?? DEFAULT_TOY_SCOPE);
+    setTriggerScope(cfg.triggerScope ?? "hypnotist");
+    setDropMode(cfg.drop ?? "off");
+    setTriggerLifespan(0);
+    setTriggerDecayRate(cfg.triggerDecay ?? "never");
     setStarterState("done");
   }
   var PRESETS = [
@@ -8944,53 +9043,81 @@ One of mods you are using is using an old version of SDK. It will work for now b
       key: "hypnotist",
       name: "Hypnotist only",
       blurb: "You drive, you are not a subject. Nobody can hypnotize you; you can still hypnotize others.",
-      config: { features: [], access: "earned", arousalShortcut: false, honour: "ignore", triggersFade: false }
+      config: { hypnoEnabled: false, features: [], deepest: DEFAULT_DEEPEST, stance: "fight" }
     },
     {
       key: "light",
       name: "Light / safe",
-      blurb: "The five session-only basics \u2014 hypnosis, movement, speech, posture, wardrobe \u2014 easy to reach.",
+      blurb: "Poses and being held still, nothing more. A trance never silences you, and you are always asked first.",
       config: {
-        features: GROUP_FEATURES.movement,
-        access: "earned",
-        arousalShortcut: true,
-        honour: "trusted",
-        triggersFade: false
+        hypnoEnabled: true,
+        features: ["movementRestriction", "postureControl"],
+        trance: { tranceCannotSpeak: false },
+        deepest: "yielding",
+        stance: "prompt"
       }
     },
     {
       key: "balanced",
       name: "Balanced",
-      blurb: "Most session things \u2014 adds undressing, touch, arousal and the awareness tricks \u2014 earned at a normal depth. Nothing that outlives the session.",
+      blurb: "Movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you. You are always asked first.",
       config: {
+        hypnoEnabled: true,
         features: [
-          ...GROUP_FEATURES.movement,
-          ...GROUP_FEATURES.undress,
-          ...GROUP_FEATURES.arousal,
-          "suppressClothing",
-          "suppressBondage",
-          "suppressActivities"
+          "movementRestriction",
+          "postureControl",
+          "speechRestriction",
+          "selfTouchControl",
+          "arousalControl",
+          "undressControl",
+          "clothingRestriction",
+          "triggerControl"
         ],
-        access: "earned",
-        arousalShortcut: true,
-        honour: "trusted",
-        triggersFade: false
+        deepest: "entranced",
+        stance: "prompt",
+        triggerScope: "whitelist"
       }
     },
     {
       key: "extreme",
       name: "Extreme",
-      blurb: "Everything on \u2014 triggers, carry-forward and the illusion included \u2014 at the easiest access, arousal allowed to reach them. Complete trust.",
+      blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
       config: {
-        features: [...Object.values(GROUP_FEATURES).flat(), "compelTouchOthers"],
-        access: "easy",
-        arousalShortcut: true,
-        // The highest rung the settings cycle offers today. Rung 4 ("Skill can beat my
-        // resistance") waits on dual fatigue; a later build can raise Extreme to it.
-        honour: "capped",
-        triggersFade: false,
+        hypnoEnabled: true,
+        features: [
+          "movementRestriction",
+          "postureControl",
+          "speechRestriction",
+          "selfTouchControl",
+          "arousalControl",
+          "undressControl",
+          "clothingRestriction",
+          "followControl",
+          "compelActivity",
+          "compelTouchOthers",
+          "forcedSpeech",
+          "hearingControl",
+          "sightControl",
+          "illusionControl",
+          "suppressClothing",
+          "suppressBondage",
+          "suppressActivities",
+          "triggerControl",
+          "carryForward",
+          "lockedWhileHypnotized"
+        ],
+        allDepths: 20,
+        deepest: "blank",
         openChemical: true,
-        deepest: "blank"
+        stance: "agree",
+        toyMode: true,
+        toyScope: "whitelist",
+        drop: "unlimited",
+        away: "keep",
+        triggerScope: "notblack",
+        // DW, 2026-09-29: kept on purpose. The default is "never", so Extreme's triggers DO fade,
+        // slowly, unless reinforced (job2.md §5.5).
+        triggerDecay: "veryslow"
       }
     }
   ];
@@ -9000,70 +9127,92 @@ One of mods you are using is using an old version of SDK. It will work for now b
     applySetup(preset.config);
     return true;
   }
+  function confirmExtreme(now = Date.now()) {
+    applyPreset("extreme");
+    return startExtremeTrial(now);
+  }
   var QUESTIONS = [
     {
-      key: "groups",
-      title: "What may others do to you? (tick any)",
-      multi: true,
+      key: "role",
+      title: "What role do you plan to take in hypnosis scenes?",
       options: [
-        { value: "movement", label: "Hold you still, quiet, kneeling; block the wardrobe" },
-        { value: "undress", label: "Undress you, and stop you touching yourself" },
-        { value: "arousal", label: "Set your arousal, force or deny an orgasm" },
-        { value: "compel", label: "Make you perform actions \u2014 touch yourself on command" },
-        { value: "perception", label: "Make you not notice things, or misread your own clothes" },
-        { value: "lasting", label: "Plant triggers and suggestions that outlive the trance" }
+        { value: "hypnotist", label: "Hypnotist only \u2014 nobody hypnotizes me" },
+        { value: "subject", label: "Subject, or both" }
       ]
     },
     {
-      key: "access",
-      title: "How easily should they reach those?",
-      multi: false,
+      key: "induction",
+      title: "How do you want to handle incoming trance attempts?",
       options: [
-        { value: "easy", label: "Easy \u2014 even a shallow trance is enough" },
-        { value: "earned", label: "Earned \u2014 the deeper things need a deeper trance (recommended)" },
-        { value: "deep", label: "Only deep \u2014 hardest to reach, nothing casual" }
+        { value: "ask", label: "Always ask me first" },
+        { value: "trusted", label: "Go under at once for my owner and lovers (toy mode); ask anyone else" },
+        { value: "submit", label: "Complete submission: agree to everyone, toy mode on" }
       ]
     },
     {
-      key: "arousal",
-      title: "Can arousal stand in for trust on the shallow things?",
-      multi: false,
+      key: "physical",
+      title: "What physical commands are you comfortable allowing?",
       options: [
-        { value: "yes", label: "Yes \u2014 being worked up can open the shallow, session-only effects" },
-        { value: "no", label: "No \u2014 only trust ever counts" }
+        { value: "basics", label: "Poses and being held still only" },
+        { value: "standard", label: "Standard play: also silence, self-touch, undressing, orgasm control" },
+        { value: "deep", label: "Deep vulnerability: also touching others, following, acting on command" }
       ]
     },
     {
-      key: "honour",
-      title: "How much do you trust a hypnotist's claim to be skilled?",
-      multi: false,
+      key: "senses",
+      title: "Do you want hypnotists to change what you see, hear and notice?",
       options: [
-        { value: "ignore", label: "Not at all \u2014 their practice never helps against me" },
-        { value: "trusted", label: "Only from people I already know (recommended)" },
-        { value: "capped", label: "From anyone, up to a point" }
+        { value: "none", label: "No \u2014 normal chat and sight (the trance veil still shows)" },
+        { value: "veil", label: "The trance veil, and the clothing illusion" },
+        { value: "full", label: "Full: blindness, hearing one voice, not noticing clothing, bondage or touch" }
       ]
     },
     {
-      key: "decay",
-      title: "Should planted triggers fade if they are not kept up?",
-      multi: false,
+      key: "triggers",
+      title: "How should triggers and lasting suggestions work?",
       options: [
-        { value: "yes", label: "Yes \u2014 they weaken over time without reinforcement" },
-        { value: "no", label: "No \u2014 a trigger stays until it is removed" }
+        { value: "none", label: "None \u2014 nothing outlives the trance" },
+        { value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+        { value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" }
       ]
     }
   ];
   function wizardConfig(answers2) {
-    const groups = answers2.groups ?? /* @__PURE__ */ new Set();
+    if (answers2.role === "hypnotist") return PRESETS[0].config;
     const features = [];
-    for (const g of groups) features.push(...GROUP_FEATURES[g] ?? []);
-    return {
-      features,
-      access: answers2.access ?? "earned",
-      arousalShortcut: (answers2.arousal ?? "yes") === "yes",
-      honour: answers2.honour ?? "trusted",
-      triggersFade: (answers2.decay ?? "no") === "yes"
-    };
+    const cfg = { hypnoEnabled: true, features, deepest: DEFAULT_DEEPEST, stance: "prompt" };
+    if (answers2.induction === "trusted") {
+      cfg.toyMode = true;
+      cfg.toyScope = "lovers";
+    } else if (answers2.induction === "submit") {
+      cfg.stance = "agree";
+      cfg.toyMode = true;
+      cfg.toyScope = "lovers";
+      cfg.away = "keep";
+    }
+    features.push("movementRestriction", "postureControl");
+    cfg.deepest = "yielding";
+    if (answers2.physical === "standard" || answers2.physical === "deep") {
+      features.push("speechRestriction", "selfTouchControl", "undressControl", "arousalControl");
+      cfg.deepest = "entranced";
+    }
+    if (answers2.physical === "deep") {
+      features.push("compelActivity", "compelTouchOthers", "followControl");
+      cfg.deepest = "deep";
+    }
+    if (answers2.senses === "veil" || answers2.senses === "full") features.push("illusionControl");
+    if (answers2.senses === "full") {
+      features.push("sightControl", "hearingControl", "suppressClothing", "suppressBondage", "suppressActivities");
+    }
+    if (answers2.triggers === "standard") {
+      features.push("triggerControl");
+      cfg.triggerScope = "whitelist";
+    } else if (answers2.triggers === "deep") {
+      features.push("triggerControl", "forcedSpeech", "carryForward");
+      cfg.triggerScope = "notblack";
+      cfg.drop = "unlimited";
+    }
+    return cfg;
   }
   var forced = false;
   var stage = "welcome";
@@ -9079,9 +9228,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function finish() {
     forced = false;
     stage = "welcome";
+    for (const k of Object.keys(answers)) delete answers[k];
   }
   function cancelWizard() {
-    for (const k of Object.keys(answers)) delete answers[k];
     if (getStarterState() === "new") setStarterState("done");
     finish();
   }
@@ -9097,38 +9246,40 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var OPT_WIDTH = WZ_WIDTH - 80;
   var NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
   var NAV_HEIGHT = 56;
-  var NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - 200;
-  var NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - 200;
+  var NAV_FORWARD_WIDTH = 200;
+  var NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - NAV_FORWARD_WIDTH;
+  var CONFIRM_WIDTH = 340;
+  var CONFIRM_LEFT = WZ_LEFT + WZ_WIDTH - 40 - CONFIRM_WIDTH;
+  var NAV_CANCEL_WIDTH = 200;
+  var NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - NAV_CANCEL_WIDTH;
+  var CONFIRM_CANCEL_LEFT = CONFIRM_LEFT - 20 - NAV_CANCEL_WIDTH;
+  var PRESET_ROW = 90;
+  var PRESET_TOP = WZ_TOP + 150;
+  var PRESET_BUTTON_WIDTH = 360;
+  var PRESET_BUTTON_HEIGHT = 64;
+  var QUESTIONS_BUTTON_WIDTH = 500;
+  var SKIP_BUTTON_WIDTH = 300;
   function optionTop(i) {
     return OPT_TOP + i * (OPT_HEIGHT + OPT_GAP);
   }
-  function selected(q, value) {
-    const a = answers[q.key];
-    return q.multi ? a instanceof Set && a.has(value) : a === value;
+  function bottomRowTop() {
+    return PRESET_TOP + PRESETS.length * PRESET_ROW + 14;
   }
   function drawWizard() {
     DrawText("Erotic Chat Hypnosis Suite (ECHS) \u2014 setup", MainCanvasWidth / 2, WZ_TOP - 40, "Black");
     DrawRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "White");
     DrawEmptyRect(WZ_LEFT, WZ_TOP, WZ_WIDTH, WZ_HEIGHT, "Black", 3);
     if (stage === "welcome") return drawWelcome();
+    if (stage === "extreme") return drawExtremeWarning();
     if (stage === "summary") return drawSummary();
     const q = QUESTIONS[stage];
     drawLeftText(q.title, CONTENT_X, WZ_TOP + 70, "Black");
-    drawLeftText(q.multi ? "Tick any that apply." : "Choose one.", CONTENT_X, WZ_TOP + 110, "Gray");
+    drawLeftText("Choose one.", CONTENT_X, WZ_TOP + 110, "Gray");
     q.options.forEach((opt, i) => {
-      const on = selected(q, opt.value);
-      DrawButton(
-        CONTENT_X,
-        optionTop(i),
-        OPT_WIDTH,
-        OPT_HEIGHT,
-        `${on ? "\u2713  " : ""}${opt.label}`,
-        on ? "#dfe9df" : "White",
-        "",
-        ""
-      );
+      const on = answers[q.key] === opt.value;
+      DrawButton(CONTENT_X, optionTop(i), OPT_WIDTH, OPT_HEIGHT, `${on ? "\u2713  " : ""}${opt.label}`, on ? "#dfe9df" : "White", "", "");
     });
-    drawNav(typeof stage === "number" && stage > 0, "Next");
+    drawNav(stage > 0, "Next", !answers[q.key]);
     DrawText(`${stage + 1} of ${QUESTIONS.length}`, WZ_LEFT + WZ_WIDTH / 2, NAV_TOP + NAV_HEIGHT / 2, "Gray");
   }
   function drawWelcome() {
@@ -9141,104 +9292,126 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "Gray"
     );
     PRESETS.forEach((p, i) => {
-      const top = WZ_TOP + 150 + i * 90;
-      DrawButton(CONTENT_X, top, 360, 64, p.name, "White", "", "");
+      const top = PRESET_TOP + i * PRESET_ROW;
+      DrawButton(CONTENT_X, top, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT, p.name, p.key === "extreme" ? "#ffe0e0" : "White", "", "");
       drawLeftTextWrap(p.blurb, CONTENT_X + 384, top + 32, CONTENT_MAX - 400, 84, "#333");
     });
-    const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
-    DrawButton(CONTENT_X, bottom, 500, 60, "Answer a few questions instead", "#e8e8ff", "", "");
-    DrawButton(CONTENT_X + 520, bottom, 300, 60, "Skip \u2014 I'll set it up myself", "White", "", "");
+    const bottom = bottomRowTop();
+    DrawButton(CONTENT_X, bottom, QUESTIONS_BUTTON_WIDTH, 60, "Answer a few questions instead", "#e8e8ff", "", "");
+    DrawButton(CONTENT_X + QUESTIONS_BUTTON_WIDTH + 20, bottom, SKIP_BUTTON_WIDTH, 60, "Skip \u2014 I'll set it up myself", "White", "", "");
+    drawNav(false, null);
+  }
+  function drawExtremeWarning() {
+    drawLeftText("Extreme \u2014 please read before you confirm", CONTENT_X, WZ_TOP + 70, "#a00000");
+    let y = WZ_TOP + 140;
+    for (const paragraph of EXTREME_WARNING) {
+      drawLeftTextWrap(paragraph, CONTENT_X, y, CONTENT_MAX, 100, "#222");
+      y += 120;
+    }
+    DrawButton(CONFIRM_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "");
+    DrawButton(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT, "Confirm 1-week lock", "#ffb3b3", "", "");
   }
   function drawSummary() {
     const cfg = wizardConfig(answers);
     drawLeftText("Ready to apply", CONTENT_X, WZ_TOP + 70, "Black");
-    const lines = describeConfig(cfg);
-    lines.forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
+    describeConfig(cfg).forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
     drawNav(true, "Apply");
   }
   function describeConfig(cfg) {
-    const groupNames = {
-      movement: "movement & speech",
-      undress: "undressing & touch",
-      arousal: "arousal",
-      perception: "perception tricks",
-      compel: "made to act",
-      lasting: "lasting triggers"
-    };
-    const chosen = Object.keys(GROUP_FEATURES).filter((g) => GROUP_FEATURES[g].every((k) => cfg.features.includes(k)));
+    if (!cfg.hypnoEnabled) {
+      return [
+        "Hypnosis off: nobody can hypnotize you. You can still hypnotize others.",
+        "You can change every one of these on the tabs afterward."
+      ];
+    }
+    const has = (k) => cfg.features.includes(k);
+    const allowed = [
+      "poses and being held still",
+      has("speechRestriction") && "silence, self-touch, undressing and orgasm control",
+      has("compelActivity") && "touching others, following, acting on command",
+      has("illusionControl") && "the clothing illusion",
+      has("sightControl") && "sight, hearing and not noticing things",
+      has("triggerControl") && (has("carryForward") ? "triggers, drops, made to speak and lasting suggestions" : "triggers")
+    ].filter(Boolean);
+    const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers and whitelist";
     return [
-      `Allowed: ${chosen.length ? chosen.map((g) => groupNames[g]).join(", ") : "nothing \u2014 hypnosis stays off"}.`,
-      `Reached: ${cfg.access === "easy" ? "easily, even shallow" : cfg.access === "deep" ? "only when deeply under" : "earned, deeper things need a deeper trance"}.`,
-      `Arousal as a shortcut: ${cfg.arousalShortcut ? "yes" : "no"}.`,
-      `A hypnotist's skill: ${cfg.honour === "ignore" ? "ignored" : cfg.honour === "trusted" ? "from people you trust" : "from anyone, capped"}.`,
-      `Triggers: ${cfg.triggersFade ? "fade over time" : "stay until removed"}.`,
+      `Allowed: ${allowed.join("; ")}.`,
+      `When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
+      `"Sink deeper" stops at: ${cfg.deepest[0].toUpperCase()}${cfg.deepest.slice(1)}.`,
+      has("triggerControl") ? `Triggers can be set off by ${whoTriggers}.` : "No triggers: nothing outlives the trance.",
       "You can change every one of these on the tabs afterward."
     ];
   }
-  function drawNav(showBack, forward) {
+  function drawNav(showBack, forward, forwardDisabled = false) {
     if (showBack) DrawButton(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT, "Back", "White", "", "");
-    DrawButton(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
-    DrawButton(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT, forward, "#dfe9df", "", "");
+    DrawButton(NAV_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "Leave setup without changing anything");
+    if (forward) {
+      DrawButton(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT, forward, forwardDisabled ? "#eee" : "#dfe9df", "", "", forwardDisabled);
+    }
   }
   function clickWizard() {
-    if (stage === "welcome") return clickWelcome();
-    if (navCancelHit()) {
+    if (stage === "extreme") return clickExtremeWarning();
+    if (MouseIn(NAV_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT)) {
       cancelWizard();
       return true;
     }
+    if (stage === "welcome") return clickWelcome();
     if (stage === "summary") {
       if (navForwardHit()) {
         applySetup(wizardConfig(answers));
         finish();
       } else if (navBackHit()) {
-        stage = QUESTIONS.length - 1;
+        stage = answers.role === "hypnotist" ? 0 : QUESTIONS.length - 1;
       }
       return true;
     }
     const q = QUESTIONS[stage];
     for (let i = 0; i < q.options.length; i++) {
       if (MouseIn(CONTENT_X, optionTop(i), OPT_WIDTH, OPT_HEIGHT)) {
-        toggleAnswer(q, q.options[i].value);
+        answers[q.key] = q.options[i].value;
         return true;
       }
     }
-    if (navForwardHit()) {
-      stage = stage + 1 >= QUESTIONS.length ? "summary" : stage + 1;
+    if (navForwardHit() && answers[q.key]) {
+      const last = stage + 1 >= QUESTIONS.length || q.key === "role" && answers.role === "hypnotist";
+      stage = last ? "summary" : stage + 1;
     } else if (navBackHit() && stage > 0) {
       stage = stage - 1;
     }
     return true;
   }
-  function toggleAnswer(q, value) {
-    if (!q.multi) {
-      answers[q.key] = value;
-      return;
-    }
-    const cur = answers[q.key] instanceof Set ? answers[q.key] : /* @__PURE__ */ new Set();
-    cur.has(value) ? cur.delete(value) : cur.add(value);
-    answers[q.key] = cur;
-  }
   function clickWelcome() {
-    PRESETS.forEach((p, i) => {
-      if (MouseIn(CONTENT_X, WZ_TOP + 150 + i * 90, 360, 64)) {
-        applyPreset(p.key);
-        finish();
+    for (let i = 0; i < PRESETS.length; i++) {
+      if (!MouseIn(CONTENT_X, PRESET_TOP + i * PRESET_ROW, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT)) continue;
+      const key = PRESETS[i].key;
+      if (key === "extreme") {
+        stage = "extreme";
+        return true;
       }
-    });
-    const bottom = WZ_TOP + 150 + PRESETS.length * 90 + 14;
-    if (MouseIn(CONTENT_X, bottom, 500, 60)) {
+      applyPreset(key);
+      finish();
+      return true;
+    }
+    const bottom = bottomRowTop();
+    if (MouseIn(CONTENT_X, bottom, QUESTIONS_BUTTON_WIDTH, 60)) {
       stage = 0;
-    } else if (MouseIn(CONTENT_X + 520, bottom, 300, 60)) {
+    } else if (MouseIn(CONTENT_X + QUESTIONS_BUTTON_WIDTH + 20, bottom, SKIP_BUTTON_WIDTH, 60)) {
       setStarterState("done");
       finish();
     }
     return true;
   }
-  function navForwardHit() {
-    return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+  function clickExtremeWarning() {
+    if (MouseIn(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT)) {
+      tellPlayer(confirmExtreme());
+      finish();
+    } else if (MouseIn(CONFIRM_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT)) {
+      cancelWizard();
+    }
+    return true;
   }
-  function navCancelHit() {
-    return MouseIn(NAV_CANCEL_LEFT, NAV_TOP, 200, NAV_HEIGHT);
+  function navForwardHit() {
+    return MouseIn(NAV_FORWARD_LEFT, NAV_TOP, NAV_FORWARD_WIDTH, NAV_HEIGHT);
   }
   function navBackHit() {
     return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);
@@ -9418,10 +9591,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       PLANTED_BUTTON_WIDTH,
       height,
       holding ? "Holding" : "Purge",
-      holding ? "#ddd" : "#ffe0e0",
+      holding || extremeLocked() ? "#ddd" : "#ffe0e0",
       "",
-      holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
-      holding
+      extremeLocked() ? lockedTip() : holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+      holding || extremeLocked()
     );
   }
   function drawPlanted() {
@@ -9492,6 +9665,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function purgePlanted(index) {
     const t = sweptTriggers()[index - 1];
     if (!t) return `There is no trigger ${index}.`;
+    if (extremeLocked()) return extremeRefusal();
     if (isTriggerInEffect(t)) {
       return `Trigger ${index} is holding you right now, so it can't be removed. Wait for it to wear off, have whoever set it release you, or use /hypno safeword.`;
     }
@@ -9572,7 +9746,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "",
       // No tooltip while the pointer is outside the scroll area: the button may be half
       // scrolled out, and BC would raise it from the clipped half.
-      !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "How many tries one hypnotist gets in a row",
+      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "How many tries one hypnotist gets in a row",
       locked
     );
     drawLeftTextWrap(
@@ -9660,7 +9834,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         c.label(),
         locked ? "#ddd" : "White",
         "",
-        !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : c.tooltip,
+        !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
         locked
       );
       drawLeftTextWrap(
@@ -9702,7 +9876,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       `Drop triggers: ${label}`,
       locked ? "#ddd" : "White",
       "",
-      !mouseInScroll(rowScroll) ? "" : locked ? "Locked until this session ends" : "Whether a trigger can put you straight under",
+      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "Whether a trigger can put you straight under",
       locked
     );
     drawLeftTextWrap(
@@ -9993,13 +10167,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (name === "Import") {
       if (settingsLocked()) {
-        notifyLocal(IMPORT_LOCKED_MESSAGE);
+        notifyLocal(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
         return;
       }
       navigator.clipboard?.readText().then(
         (text) => {
           if (settingsLocked()) {
-            notifyLocal(IMPORT_LOCKED_MESSAGE);
+            notifyLocal(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
             return;
           }
           const result = importSettings(text);
@@ -10031,7 +10205,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         isReset && armed ? "Confirm?" : name,
         isReset ? armed ? "#ffb3b3" : "#ffe0e0" : locked ? "#ddd" : "White",
         "",
-        isReset ? "Erases everything \u2014 asks once first" : locked ? "Locked until this session ends" : `${name} via clipboard`,
+        isReset ? "Erases everything \u2014 asks once first" : locked ? lockedTip() : `${name} via clipboard`,
         locked
       );
     });
@@ -10285,7 +10459,48 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var LOCK_BANNER_BACK = "#ffe3a3";
   var LOCK_BANNER_TEXT = "#5c3d00";
   function settingsLocked() {
-    return getFeatures().lockedWhileHypnotized && isSessionLive();
+    return getFeatures().lockedWhileHypnotized && isSessionLive() || extremeLocked();
+  }
+  function lockedTip() {
+    return extremeLocked() ? extremeRefusal() : "Locked until this session ends";
+  }
+  var RENEW_LEFT = PANEL_LEFT + 120;
+  var RENEW_TOP = PANEL_TOP + 360;
+  var RENEW_WIDTH = 520;
+  var RENEW_HEIGHT = 80;
+  var RENEW_GAP = 60;
+  function drawRenewalPrompt() {
+    const p = renewalPrompt();
+    if (!p) return;
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.99.0"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
+    DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
+    DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
+    drawLeftTextWrap(p.title, PANEL_LEFT + 60, PANEL_TOP + 120, PANEL_WIDTH - 120, 120, "Black");
+    drawLeftTextWrap(
+      "Either way, nothing in your settings changes now. Renewing keeps them read-only; unlocking makes them editable again.",
+      PANEL_LEFT + 60,
+      PANEL_TOP + 250,
+      PANEL_WIDTH - 120,
+      90,
+      "#555"
+    );
+    DrawButton(RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, p.unlock, "White", "", "");
+    DrawButton(RENEW_LEFT + RENEW_WIDTH + RENEW_GAP, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, p.renew, "#ffe0e0", "", "");
+  }
+  function clickRenewal(renew) {
+    const said = answerRenewal(renew);
+    notifyLocal(said);
+    return said;
+  }
+  function clickRenewalPrompt() {
+    if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
+      PreferenceSubscreenExtensionsClear();
+    } else if (MouseIn(RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT)) {
+      clickRenewal(false);
+    } else if (MouseIn(RENEW_LEFT + RENEW_WIDTH + RENEW_GAP, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT)) {
+      clickRenewal(true);
+    }
   }
   var EXTENSION_ID = "HypnosisAddon";
   var EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
@@ -10315,13 +10530,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
       return;
     }
+    if (extremeExpired()) {
+      removeScopeControl();
+      drawRenewalPrompt();
+      return;
+    }
     if (shouldShowWizard() && !settingsLocked()) {
       removeScopeControl();
       tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.98.4"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.99.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -10345,7 +10565,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (locked) {
       DrawRect(BOX_LEFT - 20, BLURB_Y - 24, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT, 48, LOCK_BANNER_BACK);
       drawLeftTextFit(
-        "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
+        extremeLocked() ? extremeBannerText() : "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
         BOX_LEFT,
         BLURB_Y,
         PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
@@ -10411,6 +10631,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       },
       click: () => {
+        if (extremeExpired()) {
+          clickRenewalPrompt();
+          return;
+        }
         if (shouldShowWizard() && !settingsLocked()) {
           if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
             PreferenceSubscreenExtensionsClear();
@@ -10687,7 +10911,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const hypnoCommand = (Tag) => ({
       Tag,
       Description: "Erotic Chat Hypnosis Suite \u2014 session control, diagnostics and test commands",
-      Action: () => {
+      // An unknown subcommand reaches here with its words as `args` (R132 CommandExecute stops the
+      // chain at the first unmatched word). That is where the undocumented `exit_extreme` lives,
+      // on purpose: a registered subcommand would be listed by BC's own /help (DW: keep it hidden).
+      Action: (args) => {
+        if ((args ?? "").trim().toLowerCase() === "exit_extreme") {
+          reply(exitExtreme());
+          return;
+        }
         for (const line of menuLines()) reply(line);
       },
       // Fold the argument hint into the Description BC renders, so its own help screen
@@ -10929,6 +11160,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply(`usage: /hypno decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
           return;
         }
+        if (extremeLocked()) {
+          reply(extremeRefusal());
+          return;
+        }
         setDecayRate(token);
         reply(`trust decay set to ${token}`);
       }
@@ -10963,7 +11198,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Replace all settings with a previously exported blob",
       Action: (args) => {
         if (settingsLocked()) {
-          reply(IMPORT_LOCKED_MESSAGE);
+          reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
           return;
         }
         const result = importSettings(args);
@@ -11011,6 +11246,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
           return;
         }
+        if (extremeLocked()) {
+          reply(extremeRefusal());
+          return;
+        }
         setTriggerDecayRate(rate.key);
         reply(`Planted triggers now fade: ${rate.label} \u2014 ${describeDecayPace(rate.key)}.`);
         reply(
@@ -11055,6 +11294,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const token = args.trim().toLowerCase();
         if (!token) {
           reply("usage: /hypno forgettrigger <number|all>  (see /hypno triggers)");
+          return;
+        }
+        if (extremeLocked()) {
+          reply(extremeRefusal());
           return;
         }
         const all = listTriggers();
@@ -12069,7 +12312,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.98.4"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.99.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12092,7 +12335,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.98.4"} loaded`;
+    el.textContent = `ECHS v${"0.99.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12123,14 +12366,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.98.4"})`);
+  info(`script loaded (v${"0.99.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.98.4",
+      version: "0.99.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
