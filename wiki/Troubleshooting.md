@@ -1,7 +1,7 @@
 # Troubleshooting
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. UI locations, diagnostic feedback, and known parser quirks are actively being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. UI locations, diagnostic feedback, and known parser quirks are actively being refined.
 
 ---
 
@@ -26,7 +26,7 @@ The userscript is not executing. A userscript with an incorrect `@match` pattern
 
 Suggestions must pass a strict sequence of checks. If a spoken command produces no reaction, check these four gates in order:
 
-1. **Is the permission enabled?** Type `/echs session` (or `/hypno session`) to verify which categories are granted.
+1. **Is the permission enabled?** Type `/echs session` to verify which categories are granted.
 2. **Is there an active trance with that specific hypnotist?** Suggestions are bound to the specific partner who conducted the induction, not just any general trance state.
 3. **Did the speaker include the subject's name?** Every suggestion said out loud must address the subject by name; a whisper to the subject needs no name. Type `/echs match <phrase>` to test if the name gate passed.
 4. **Is the subject deep enough in trance?** Type `/echs gates` to review depth thresholds. A phrase can match the dictionary perfectly but still fail if the trance is not deep enough.
@@ -43,7 +43,7 @@ Punctuation, capitalization, and standard contractions (*can't* vs. *cannot*) ar
 
 * **Missing Name:** A line said out loud must include the subject's character name. (Whispered to them, it doesn't need it.)
 * **First-Person Confusions ("I" or "We"):** Lines starting with *"I"* or *"we"* without a subsequent *"you"* are discarded intentionally so descriptive emotes like *"I kneel beside you"* do not force the subject to kneel.
-* **Parentheses:** Any text enclosed in single parentheses `(like this)` is treated as OOC dialogue and discarded before the parser evaluates the message.
+* **Parentheses:** Any text enclosed in parentheses, single `(like this)` or double `((like this))`, is treated as OOC dialogue and discarded before the parser evaluates the message.
 * **Unrecognized Phrasing:** The parser matches specific structures. Check the in-game **What to Say** tab (generated directly from the engine) or [What to Say](What-to-Say) on the wiki for valid sentence patterns.
 
 ---
@@ -60,9 +60,13 @@ This is an intentional gate, not a bug. The suggestion requires a deeper trance 
 
 If an effect or restriction persists unexpectedly, escalate in this order:
 
-1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes.
+1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes. If the hypnotist has left the room, the trance ends on its own 5 minutes after they went, unless they come back.
 2. **Release by Name:** The hypnotist who applied the effect can speak a targeted release phrase (e.g., *"Missy, you are released from sleepy time"*).
-3. **Use the Emergency Safeword:** Type `/echs safeword` (or `/hypno safeword`). This instantly breaks trances, releases every trigger that is holding you, discards compulsions waiting for you to wake, and purges all lingering effects from any state.
+3. **Use the Emergency Safeword:** Type `/echs safeword`. This instantly breaks trances, releases every trigger that is holding you, discards compulsions waiting for you to wake, and purges all lingering effects from any state.
+
+*Trying to move while held:* you see *"You try to shift, and your body does not answer."* It shows at most once every 30 seconds, so repeated tries don't flood your chat.
+
+*After a refresh or disconnect:* a trigger that was holding you comes back and finishes the time it had left. Time spent logged out counts, so one that would have ended while you were away has ended. To come back clear instead, tick **Release everything if you disconnect** on your Trance Defaults tab.
 
 *Note on `/echs forgettrigger`:* The command intentionally refuses to delete a trigger while that specific trigger is actively holding you. Use your safeword for an immediate clean break.
 
@@ -70,8 +74,8 @@ If an effect or restriction persists unexpectedly, escalate in this order:
 
 ## 6. I Have Been Silenced and Cannot Type
 
-* **Slash Commands Always Function:** Bondage Club processes client slash commands before speech-restriction hooks ever see them. **`/echs safeword` (or `/hypno safeword`) remains accessible 100% of the time, even while completely muted.**
-* **Out-of-Character (OOC) Chat:** Text wrapped in parentheses `(like this)` bypasses speech blocks by default, ensuring you are never cut off from OOC communication mid-scene. *(The only exception is if you manually enabled "Silence OOC Too" on your Trance Defaults tab).* Messages containing mixed in-character and OOC text are blocked entirely to prevent speech smuggling.
+* **Slash Commands Always Function:** Bondage Club processes client slash commands before speech-restriction hooks ever see them. **`/echs safeword` remains accessible 100% of the time, even while completely muted.**
+* **Out-of-Character (OOC) Chat:** Text wrapped in parentheses, `(like this)` or `((like this))`, bypasses speech blocks by default, ensuring you are never cut off from OOC communication mid-scene. *(The only exception is if you manually enabled "Silence OOC Too" on your Trance Defaults tab).* Messages containing mixed in-character and OOC text are blocked entirely to prevent speech smuggling.
 
 ---
 
@@ -85,7 +89,7 @@ The icon is intentionally visible for all players rather than hidden for non-use
 
 ## 8. My Trigger Stopped Working
 
-* **Natural Decay:** Type `/echs triggers` (or `/hypno triggers`) to review trigger strength. A trigger's remaining strength represents the depth tier it fires at. A decayed trigger will fire its shallow actions (like freezing) but fail to execute deeper actions.
+* **Natural Decay:** Type `/echs triggers` to review trigger strength. A trigger's remaining strength represents the depth tier it fires at. A decayed trigger will fire its shallow actions (like freezing) but fail to execute deeper actions.
 * **Revoked Permission:** Permissions are re-checked at the exact moment a trigger fires. If *Movement Restriction* was unticked after a trigger was planted, the movement portion of that trigger will fail to execute.
 * **Scope Restrictions:** If the trigger was planted by someone else and your scope is set to *Hypnotist only*, other players cannot fire it. Firing your own triggers is also disabled by default (*"You can fire your own triggers"* on the Triggers tab).
 * **Used Up or Timed Out:** A trigger set to work once is gone after it fires, and a trigger with a time limit stops at that time. Check with `/echs triggers <number>`.

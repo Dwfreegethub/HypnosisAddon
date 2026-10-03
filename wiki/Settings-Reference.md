@@ -1,7 +1,7 @@
 # Settings Reference
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Settings layouts, storage keys, and UI options are actively being polished. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Settings layouts, storage keys, and UI options are actively being polished.
 
 ---
 
@@ -9,7 +9,7 @@ Open settings via the **spiral icon on your player profile card**, or navigate t
 
 Everything in these menus represents a **permission** (*"Do I allow this to be done to me?"*) or a **depth threshold** (*"How deep must I be?"*). Ticking a toggle simply defines your boundaries — it never forces an effect on you on its own.
 
-*Note on Mid-Trance Editing:* By default, settings can be configured to lock during an active session (including during the induction window) to preserve immersion. If you ever need out, use your emergency safeword: `/echs safeword` (or `/hypno safeword`).
+*Note on Mid-Trance Editing:* By default, settings can be configured to lock during an active session (including during the induction window) to preserve immersion. If you ever need out, use your emergency safeword: `/echs safeword`.
 
 ---
 
@@ -85,7 +85,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 |---|---|---|
 | **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. |
 | **Cannot Speak** | On | The trance silences standard room speech automatically. |
-| **Silence OOC too (text in parentheses)** | Off | By default, single-parentheses OOC text `(like this)` passes through muted speech. Enabling this suppresses OOC chat while silenced. |
+| **Silence OOC too (text in parentheses)** | Off | By default, OOC text in parentheses, `(like this)` or `((like this))`, passes through muted speech. Enabling this suppresses OOC chat while silenced. |
 | **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
@@ -182,8 +182,8 @@ Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **C
 
 ## 10. Data & Backup
 
-* `/echs export` (or `/hypno export`): Generates an encoded text backup of all current settings, thresholds, and trust records.
-* `/echs import <blob>` (or `/hypno import <blob>`): Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.
-* `/echs reset confirm` (or `/hypno reset confirm`): Restores the add-on to factory defaults. If an active trance is running, it breaks the trance first before wiping storage.
+* `/echs export`: Generates an encoded text backup of all current settings, thresholds, and trust records.
+* `/echs import <blob>`: Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.
+* `/echs reset confirm`: Restores the add-on to factory defaults. If an active trance is running, it breaks the trance first before wiping storage.
 
 Settings are saved in Bondage Club's account extension storage with a local fallback keyed to your member number.

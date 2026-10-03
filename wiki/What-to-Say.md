@@ -13,11 +13,13 @@ For a worked example of these phrases used in a live scene, see [A Sample Sessio
 
 **1. Say their name, or whisper.** Every suggestion said out loud needs the subject's name (or recognized nickname) somewhere in the sentence. Without it, the client ignores the line completely — this keeps ordinary conversation completely inert. **A whisper to them needs no name** (since v0.100.3): a whisper is already addressed to them, so *"kneel"* whispered works like *"Missy, kneel"*. Text in (parentheses) is still out of character and never a command.
 
-**2. Contractions and punctuation do not matter.** *"You can't move"*, *"you cannot move"*, and *"Missy — you CAN'T move!"* are evaluated identically by the parser.
+**2. Contractions and punctuation do not matter.** *"You can't move"*, *"you cannot move"*, and *"Missy — you CAN'T move!"* are evaluated identically by the parser. A stutter from high arousal doesn't break a line either: *"M-Missy, y-you c-cannot move"* works like the plain version.
 
 **3. Talking about yourself is ignored.** Any line starting with "I" or "we" without a "you" never fires an effect. For example, *"I kneel beside you"* will never force anyone to kneel.
 
-**Not sure whether a phrase matches?** Running `/echs match <phrase>` (or `/hypno match <phrase>`) will test the sentence and report whether the wording and the name gate pass.
+**Several people in one line.** *"Missy, kneel. Ella, stand."* gives each of them only their own part. A comma, full stop, *"and"*, *"then"* or a new line separates the parts, so *"Missy kneel and Ella stand"* works too. Each subject's client works out which part names them, from the room's own list of who is there.
+
+**Not sure whether a phrase matches?** Running `/echs match <phrase>` will test the sentence and report whether the wording and the name gate pass.
 
 ---
 
@@ -73,7 +75,7 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 | Say | Needs |
 |---|---|
-| *"you cannot move"* · *"stay still"* · *"you are frozen"* · *"you will be frozen"* | Movement Restriction · **Yielding** — holds her in her pose and place (see below) |
+| *"you cannot move"* · *"stay still"* · *"you are frozen"* · *"you will be frozen"* · *"you'll be stuck"* | Movement Restriction · **Yielding** — holds her in her pose and place (see below) |
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding** |
 | *"kneel spread"* · *"spread your knees"* | Posture Control · **Yielding** |
 | *"spread your legs"* · *"stand with your legs apart"* | Posture Control · **Yielding** |
@@ -176,7 +178,8 @@ It ends with the trance, the release, or her safeword, and *"that will stay with
 | *"you are lightly aroused"* · *"you feel a little warm"* | Sets arousal to light |
 | *"you are very aroused"* · *"you are desperate"* · *"you need it badly"* | Sets arousal to high |
 | *"you are right on the edge"* · *"you are so close"* | Edges near the maximum |
-| *"you cannot come"* / *"you cannot cum"* | Enables orgasm denial |
+| *"you cannot come"* / *"you cannot cum"* · *"you must not cum"* · *"you are not permitted to cum"* · *"you're forbidden from cumming"* · *"don't you dare cum"* | Enables orgasm denial |
+| *"you cannot cum until I allow you to"* | Also a denial. Naming when it ends doesn't lift it; it holds until the hypnotist says *"you may cum now"* |
 | *"you may come now"* / *"you may cum now"* | Disables orgasm denial |
 | *"come for me"* / *"cum for me"* | Triggers forced climax |
 | *"you cannot feel my touch"* · *"you feel nothing when I touch you"* | Numbness |

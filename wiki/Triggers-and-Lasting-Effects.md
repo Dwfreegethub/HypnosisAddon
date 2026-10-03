@@ -1,7 +1,7 @@
 # Triggers and Lasting Effects
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Trigger buffers, decay balancing, and multi-action executions are actively being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
 
 ---
 
@@ -115,6 +115,7 @@ To fire a primed trigger, the speaker simply includes the phrase in room chat:
 * **Duration:** A fired trigger holds for the duration configured on the subject's Triggers tab, or until manually released.
 * **Inside longer words:** By default a trigger also fires inside a longer word (*"sleepy"* fires on *"sleepyhead"*). A trigger planted with *"only when you hear it exactly"* fires on the whole words only, and ticking **Triggers fire only on whole words** on your Triggers tab makes every trigger work that way.
 * **Once, or until a time:** A trigger set to work once is used up when it fires. If it is holding you, it stays listed as *used up* until it lets go, then disappears. A trigger with a time limit stops working when the time runs out, even if you were logged off.
+* **Surviving a refresh or disconnect:** A trigger that is holding you when you refresh, drop or log off comes back when you return and finishes the time it had left. Time spent away counts, so one that would have ended meanwhile has ended. **Release everything if you disconnect** (Trance Defaults tab) makes you come back clear instead.
 
 ---
 
@@ -200,7 +201,7 @@ A faded trigger does not switch off abruptly: **its current remaining strength d
 
 The list is in two steps, so seeing what a trigger does is something you choose to do:
 
-* `/echs triggers` (or `/hypno triggers`) says how many triggers you have, who planted each one (name and member number), and how strong it still is. It does not say what they do.
+* `/echs triggers` says how many triggers you have, who planted each one (name and member number), and how strong it still is. It does not say what they do.
 * `/echs triggers <number>` shows that one trigger in full: what it does, in plain words, any options such as *works once* or *ends in 2 hours*, the condition for a compulsion, and whether it is holding you now.
 
 The trigger word stays hidden in both unless you have ticked **Show trigger words**.
@@ -241,6 +242,6 @@ Physical self-actions can be stored in triggers (e.g., *"Missy, touch your breas
 If a trigger or lasting suggestion is holding your character:
 * Wait for the trigger duration timer to expire.
 * Have the hypnotist release you by name (*"Missy, you are released from sleepy time"*).
-* **Use your safeword:** Type `/echs safeword` (or `/hypno safeword`) to immediately purge all active holds, trances, and lingering effects. It also discards any compulsion waiting for you to wake.
+* **Use your safeword:** Type `/echs safeword` to immediately purge all active holds, trances, and lingering effects. It also discards any compulsion waiting for you to wake.
 
 `/echs forgettrigger`, and **Purge** on the Planted tab, **refuse while that trigger is actively holding you.** Deleting a trigger while under its direct influence is blocked to preserve scene tension; the safeword remains the universal exit. Because Bondage Club parses client slash commands before speech-restriction hooks evaluate text, your safeword remains fully accessible even while muted.

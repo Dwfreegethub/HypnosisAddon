@@ -1,7 +1,7 @@
 # Your First Session
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Real-time feedback, induction balancing, and diagnostic outputs are continually being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Real-time feedback, induction balancing, and diagnostic outputs are continually being refined.
 
 ---
 
@@ -46,9 +46,9 @@ When an induction begins, a dialog appears on your screen with a 60-second timer
 * **Ignore:** Neutral modifier (identical to letting the timer expire in silence).
 
 Your choice is completely private and is never disclosed to the hypnotist. You can also respond via chat commands:
-* `/echs agree` (or `/hypno agree`)
-* `/echs ignore` (or `/hypno ignore`)
-* `/echs fight` (or `/hypno fight`)
+* `/echs agree`
+* `/echs ignore`
+* `/echs fight`
 
 This is especially helpful if your wardrobe or another UI screen is open when the prompt lands.
 
@@ -85,7 +85,7 @@ You are always in control of your boundaries. See [Consent and Safety](Consent-a
 
 The universal exit:
 
-`/echs safeword` (or `/hypno safeword`)  
+`/echs safeword`  
 Instantly clears active trances, releases any trigger holding you, and restores all character controls from any state. Slash commands always bypass speech restrictions.
 
 *(Note on Waking:* In a shallow trance, the subject can surface on their own with `/echs wake`; a deep trance refuses and says so. Otherwise a trance ends when the hypnotist speaks a wake phrase like *"Missy, wake up"*, clicks the Wake Up button on their panel, when the session timer expires, or with the safeword).*
@@ -101,7 +101,7 @@ Every hypnotic suggestion is evaluated against four sequential gates on the subj
 3. **Name Gate:** The subject's character name must appear in the chat line.
 4. **Depth Gate:** The subject's current trance depth must meet or exceed the threshold assigned to that feature on their **Depth** tab.
 
-A phrase can match the dictionary perfectly and still fail if the subject is not deep enough. Use `/echs match <phrase>` (or `/hypno match <phrase>`) to verify wording and test the name gate independently.
+A phrase can match the dictionary perfectly and still fail if the subject is not deep enough. Use `/echs match <phrase>` to verify wording and test the name gate independently.
 
 ---
 

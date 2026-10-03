@@ -1,7 +1,7 @@
 # A Sample Session
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Real-time feedback, visual cues, and chat outputs are continually being refined. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Real-time feedback, visual cues, and chat outputs are continually being refined.
 
 ---
 
@@ -37,7 +37,7 @@ Elena opens Missy's player profile card, clicks the **spiral icon**, and selects
 Elena is trying to hypnotize you.
         [ Agree ]   [ Ignore ]   [ Fight ]
 
-Missy has 60 seconds to respond. She selects **Ignore**—she is curious to see what happens, but not actively assisting. *(She could also type `/echs ignore` or `/hypno ignore` into chat, which is especially handy if her wardrobe screen is open).*
+Missy has 60 seconds to respond. She selects **Ignore**—she is curious to see what happens, but not actively assisting. *(She could also type `/echs ignore` into chat, which is especially handy if her wardrobe screen is open).*
 
 **Elena never learns which button Missy clicked.** Elena's client opens a 60-second induction window. What she types during this window matters—each spoken line contributes to the induction roll up to a cap. Elena uses the time to roleplay:
 
@@ -56,7 +56,7 @@ One of *barely responsive*, *slightly relaxed*, *more relaxed*, or *almost under
 
 Elena has **two attempts by default** before triggering a 10-minute cooldown (Missy can raise this limit to 3 in her settings). Elena has one attempt remaining.
 
-*This is the intended baseline experience.* A stranger cannot simply drop a character into trance immediately. To check the real calculated odds at any time, Elena can type `/echs chance Missy` (or `/hypno chance Missy`).
+*This is the intended baseline experience.* A stranger cannot simply drop a character into trance immediately. To check the real calculated odds at any time, Elena can type `/echs chance Missy`.
 
 ---
 
@@ -197,8 +197,6 @@ The trigger remains active for the duration configured on Missy's Triggers tab, 
 ## Emergency Exit at Any Point
 
 /echs safeword
-
-*(or `/hypno safeword`)*
 
 Clears active trances, purges active triggers, and removes every lingering restriction immediately, from any state. Because Bondage Club parses client slash commands before speech-restriction hooks can evaluate them, the safeword works 100% of the time—even while silenced.
 

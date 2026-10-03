@@ -12,6 +12,17 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.100.6 · 3 October 2026
+
+- **The wiki is brought up to date.** Nothing in the game changed. Newly written up:
+  - what happens when the hypnotist leaves the room;
+  - that a trigger holding you survives a refresh;
+  - giving several people commands in one line;
+  - that an arousal stutter doesn't break a command;
+  - the extra freeze and denial wordings;
+  - that ((double parentheses)) count as out of character too.
+- The wiki now shows only `/echs` commands.
+
 ## v0.100.5 · 3 October 2026
 
 - **The backup download works again.** ECHS loads from GitHub, and if GitHub can't be reached it
@@ -66,7 +77,7 @@ report it and say which version your chat line shows.
   - **Light / safe:** poses and being held still, and a trance never silences you.
   - **Balanced:** adds speech, touch, undressing, arousal, the wardrobe lock, and triggers from
     people close to you.
-  - **Extreme.**
+  - **Extreme:** everything on, every depth set to 20, and it locks your settings (below).
 - **Five new setup questions** instead of the old ones: your role, how attempts are handled, what
   physical commands you allow, your senses, and triggers.
 - **Every page of setup has a Cancel button** that changes nothing.

@@ -114,7 +114,7 @@ If you answered Fight, or type `/echs fight` while under:
 
 ## 7. Answering ahead of time, being away, and toy mode
 
-All on the **Permissions** tab, at the bottom. See [Settings Reference](Settings-Reference).
+All on the **Inductions** tab. See [Settings Reference](Settings-Reference#2-inductions-tab).
 
 * **When someone tries to hypnotize me:** *Ask me* (the default), *Agree*, *Ignore* or *Fight*. Anything but *Ask me* answers every induction for you with no box. The hypnotist is never told which.
 * **When I'm away:** after 10 minutes with no key, click or touch, you are *away*.
@@ -131,6 +131,10 @@ The safeword always works, in every one of these.
 ## 8. Tries and waiting
 
 Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**.
+
+**If the hypnotist leaves the room:**
+* **Before the induction lands:** it is given up if they are not back within about 30 seconds, or are gone when it would land. It does **not** use up one of their tries.
+* **During a trance:** you are told *"[name] is not in the room. If they are not back within 5 minutes, this ends on its own."* If they return in time you are told they are back, and the trance carries on. If not, it ends exactly like any other ending. Triggers they planted and suggestions carried past waking stay.
 
 ---
 

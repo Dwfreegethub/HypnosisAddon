@@ -20,6 +20,29 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-10-03 (v0.100.6) — wiki audit fixes; the wiki shows only `/echs`
+
+A second AI audited `wiki_combined.md` (DW's `echswikiAudit.txt`). Every claim was checked against the
+code first. 10 of 13 were real; the two "direct conflicts" were not (the wiki's Extreme = 20 matches
+`wizard.ts`, and the earned-only/arousal-ok button exists).
+
+**Changes:**
+- Documented, each confirmed in the code (and the phrases run through `matchSuggestion`):
+  - the hypnotist leaving: 5 minutes in a trance (RECOVERY_WINDOW_MS), 30 seconds during an
+    induction, and no try spent;
+  - triggers surviving a reload (absolute `until`, so offline time counts);
+  - multi-target lines (`splitSegments`);
+  - unstutter;
+  - "you'll be stuck";
+  - the wider denial wording, and that an "until" clause does not lift a denial;
+  - `((double))` OOC;
+  - the 30-second held-notice gap.
+- How-Inductions-Work §7 no longer says the induction controls are on Permissions.
+- The player changelog's v0.99.0 entry now says what Extreme does.
+
+**Decided (DW, 2026-10-03):** the wiki shows only `/echs`. In-game text keeps `/hypno`, and both
+prefixes still work. The version bump is DW's call; no game code changed.
+
 ### Fixed 2026-10-03 (v0.100.5) — the jsDelivr fallback is pinned to the release tag
 
 The "Purge jsDelivr cache" job failed on every release from v0.99.0 to v0.100.4: five purges a run,

@@ -1,7 +1,7 @@
 # Depth and Trust
 
 > **Alpha Notice**  
-> ECHS is in active alpha development. Depth curves, interaction scaling, and roll balances are actively being tuned. Both `/echs` and `/hypno` are fully recognized prefixes.
+> ECHS is in active alpha development. Depth curves, interaction scaling, and roll balances are actively being tuned.
 
 ---
 
