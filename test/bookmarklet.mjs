@@ -18,7 +18,7 @@ await esbuild.build({
 	define: { __VERSION__: '"test"' },
 });
 const { bookmarkletUrl } = await import(pathToFileURL(out).href);
-const { CDN_URL, GITHUB_URL } = await import("./loader-bundle.mjs");
+const { CDN_MAIN_URL: CDN_URL, GITHUB_URL } = await import("./loader-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -33,7 +33,7 @@ const url = bookmarkletUrl();
 check("starts with javascript:", url.startsWith("javascript:"), true);
 check("one line (a bookmark address is one line)", url.includes("\n"), false);
 check("fetches the loader's GitHub address", url.includes(JSON.stringify(GITHUB_URL)), true);
-check("falls back to the loader's jsDelivr address", url.includes(JSON.stringify(CDN_URL)), true);
+check("falls back to jsDelivr following main (a bookmark is never updated, so no tag)", url.includes(JSON.stringify(CDN_URL)), true);
 check("GitHub comes before jsDelivr, as in the loader", url.indexOf("fetch(G") < url.indexOf(".catch(cdn)"), true);
 
 // --- running it against a stub page ------------------------------------------------------------

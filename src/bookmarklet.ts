@@ -8,7 +8,9 @@
 // Built FROM the loader's own addresses, never retyped, so the two cannot point at different
 // places; `npm run build` writes it to dist/bookmarklet.txt and `npm run release` to the committed
 // bookmarklet.txt. Same order and the same rules as the loader (loader.ts): GitHub first, jsDelivr
-// only if GitHub fails, never both, and a failure SAID, not silent (rule 5).
+// only if GitHub fails, never both, and a failure SAID, not silent (rule 5). One address differs:
+// its jsDelivr fallback follows main (CDN_MAIN_URL), where the loader's is pinned to its release
+// tag (v0.100.5). A bookmark is never updated, so a tag would freeze it on one release for good.
 //
 // Two differences, both because a bookmark is clicked by hand, usually after logging in:
 //   - clicking it twice must not load ECHS twice. The mod SDK refuses a second "ECHS" with an
@@ -18,7 +20,7 @@
 // Technique reference only: bookmark loaders are the common way BC add-ons (LSCG, BCX) are offered
 // without a userscript manager (rule 7, no code from either).
 
-import { CDN_URL, GITHUB_URL } from "./loader";
+import { CDN_MAIN_URL, GITHUB_URL } from "./loader";
 
 /** The bookmark's code, before the `javascript:` prefix. One line, no comments: some browsers
  * collapse a bookmark address to a single line, which would turn a `//` comment into the rest of it. */
@@ -27,7 +29,7 @@ export function bookmarkletCode(): string {
 		"(()=>{",
 		"const S=window.bcModSdk;",
 		'if(S&&S.getModsInfo&&S.getModsInfo().some(m=>m.name==="ECHS")){alert("ECHS is already loaded.");return;}',
-		`const G=${JSON.stringify(GITHUB_URL)},C=${JSON.stringify(CDN_URL)};`,
+		`const G=${JSON.stringify(GITHUB_URL)},C=${JSON.stringify(CDN_MAIN_URL)};`,
 		'const fail=()=>alert("ECHS could not load: neither GitHub nor jsDelivr could be reached. Try again in a moment.");',
 		"const cdn=()=>{const s=document.createElement(\"script\");s.src=C+\"?t=\"+Date.now();s.onerror=fail;document.head.appendChild(s);};",
 		'fetch(G,{cache:"no-cache"}).then(r=>{if(!r.ok)throw 0;return r.text();}).then(t=>{if(!t.trim())throw 0;',

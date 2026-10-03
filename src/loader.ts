@@ -13,7 +13,8 @@
 //      nosniff (checked 2026-09-23), so a script tag pointed at it is refused; it is fetched and
 //      run as inline text instead. It allows any origin (access-control-allow-origin "*") and
 //      caches for about five minutes, so a merged release reaches everyone within minutes.
-//   2. jsDelivr, following main, as a script tag — for players who cannot reach GitHub.
+//   2. jsDelivr, as a script tag — for players who cannot reach GitHub. Pinned to this release's
+//      tag since v0.100.5, not following main (see WHY A TAG below).
 //   3. Neither: say so on screen. A loader that fails quietly leaves a player with no add-on and
 //      nothing anywhere telling them why (rule 5).
 //
@@ -22,6 +23,14 @@
 // serving v0.91.2 for over an hour of purges — each accepted, unthrottled, on both of its networks.
 // Serving an OLD copy is not an error, so the GitHub fallback never ran and every player stayed on
 // the old build. GitHub cannot serve a stale `main` for longer than its short cache.
+//
+// WHY A TAG (v0.100.5, DW, 2026-10-03). Its `@main` lookup broke again: every purge from v0.99.0 to
+// v0.100.4 failed, and jsDelivr went on serving v0.98.4 for days. A player whose GitHub fetch
+// failed would have dropped silently onto that build. A tag names one fixed commit, so there is
+// no "what does main mean now" for jsDelivr to get wrong, and a tag URL is never stale. Each loader
+// asks for its own version's tag; .github/workflows/purge-cdn.yml creates the tag when the release
+// lands on main, so nobody has to remember to push one. The bookmark loader keeps `@main`
+// (CDN_MAIN_URL): it is pasted once and never updated, so a tag would freeze its fallback forever.
 //
 // Only a load that ERRORS falls through to the next source. There is deliberately no timeout: a
 // slow jsDelivr that answered after the fallback had already run would put a second copy of the
@@ -32,8 +41,12 @@
 
 import { info, warn } from "./log";
 
-/** jsDelivr's copy of the bundle on main. `npm run release` writes cdn/HypnosisAddon.js. */
-export const CDN_URL = "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js";
+/** The release tag jsDelivr is asked for: the one the purge workflow puts on this release. */
+export const CDN_TAG = `v${__VERSION__}`;
+/** jsDelivr's copy of this release's bundle. `npm run release` writes cdn/HypnosisAddon.js. */
+export const CDN_URL = `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@${CDN_TAG}/cdn/HypnosisAddon.js`;
+/** The same file following main, for the bookmark loader only (see WHY A TAG above). */
+export const CDN_MAIN_URL = "https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js";
 /** The same file from GitHub directly, used only when the CDN copy fails to load. */
 export const GITHUB_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
 

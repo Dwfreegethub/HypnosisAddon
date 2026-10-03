@@ -127,13 +127,14 @@ to be stale and should not be hand-edited for version bumps.
 On every page load it puts the add-on itself into the page from `cdn/HypnosisAddon.js`, in this order
 (`src/loader.ts`):
 
-1. **jsDelivr, following `main`**:
-   `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js`, as a script tag.
-   jsDelivr caches a branch URL for up to 12 hours by its own documentation, so
-   `.github/workflows/purge-cdn.yml` purges that URL on every push to `main` that changes the bundle.
-2. **The raw GitHub copy of the same file**, fetched and run inline. A script tag cannot point at raw
-   GitHub directly: it serves `text/plain` with `nosniff` (checked 2026-09-23). It allows any origin
-   and caches for five minutes. This is for players who can reach GitHub but not jsDelivr.
+1. **The raw GitHub copy, straight from `main`**, fetched and run inline (first since v0.92.1). A script
+   tag cannot point at raw GitHub directly: it serves `text/plain` with `nosniff` (checked 2026-09-23).
+   It allows any origin and caches for about five minutes, so a merge reaches everyone within minutes.
+2. **jsDelivr, pinned to this release's tag** (since v0.100.5):
+   `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@v<version>/cdn/HypnosisAddon.js`, as a script
+   tag, for players who cannot reach GitHub. `.github/workflows/purge-cdn.yml` creates the tag
+   `v<version>` on the commit that brings each release to `main`, then checks that jsDelivr serves it.
+   It still purges `@main` (best effort) for the bookmark loader, which follows `main`.
 3. **Neither:** a red note in the bottom-right corner saying ECHS could not load, which stays until
    clicked, plus a console warning.
 
@@ -142,7 +143,11 @@ the fallback had run would load the add-on twice.
 
 **Decided by DW, 2026-09-23 (the recommended option on each):**
 - *Follow main, not tags.* Every merge reaches testers on their next refresh, with no tag to push. A
-  forgotten tag would have meant nothing loads.
+  forgotten tag would have meant nothing loads. **Revised 2026-10-03 (v0.100.5, DW):** GitHub has
+  been first since v0.92.1, and jsDelivr's `@main` lookup stuck twice: v0.91.3, then v0.99.0 to
+  v0.100.4, when it served v0.98.4 for days through every purge. The jsDelivr fallback is now pinned to
+  the release tag, which the workflow pushes itself, so there is no tag to forget. The bookmark loader
+  keeps `@main`: a bookmark is never updated, so a tag would freeze its fallback on one release.
 - *Fall back to GitHub, then say so.* jsDelivr has had reachability trouble in mainland China, which
   may matter for Asia-server players (not confirmed).
 - *The loader's version tracks `package.json`.* Every release still bumps the root file, so a manager

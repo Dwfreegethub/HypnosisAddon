@@ -1,17 +1,19 @@
-# Clears jsDelivr's cached copy of the add-on whenever main gets a new one (v0.83.0).
+# Tags each release for jsDelivr, and confirms jsDelivr serves it (v0.83.0; tags since v0.100.5).
 #
-# Installed loaders fetch cdn/HypnosisAddon.js from jsDelivr following main. jsDelivr caches a
-# branch URL for up to 12 hours by its own documentation, so without this a release could take
-# half a day to reach testers, and two testers in one room could be on different builds for all
-# of it. A failed purge fails the job, visibly, on the Actions tab; the cost of a failure is lag,
-# never a broken install.
+# Installed loaders fall back to jsDelivr when GitHub fails (src/loader.ts). Since v0.100.5 each
+# loader asks for its own release's tag, `@v<version>`, not `@main`. This job makes that tag on the
+# commit that brought the release to main, so nobody has to remember to push one; a missing tag
+# would make every fallback load a 404.
 #
-# VERIFIED, NOT ASSUMED (2026-09-26). v0.91.3's purge reported success and jsDelivr went on serving
-# v0.91.2 for over ten minutes: the purge ran seconds after the push, and jsDelivr most likely
-# re-resolved `@main` before GitHub had moved the branch, caching the old commit again. A manual
-# re-run fixed it. So the job now purges, fetches what jsDelivr actually serves, compares the version
-# with package.json, and tries again — waiting between attempts — until they match, or FAILS saying
-# which version is still being served.
+# WHY TAGS (2026-10-03). The old job purged `@main` and checked what jsDelivr served. From v0.99.0 to
+# v0.100.4 every run failed: five purges each, and jsDelivr went on serving v0.98.4 for days. Its
+# lookup of what `main` means had stuck, as it did once before (2026-09-26, v0.91.3). A tag names
+# one commit, so there is nothing for jsDelivr to look up wrongly and nothing to purge.
+#
+# `@main` is still purged, best effort, for the bookmark loader, which follows main (a bookmark is
+# never updated, so it cannot carry a tag). A failure there is only a warning. What fails the job,
+# visibly on the Actions tab, is a tag that could not be made or that jsDelivr will not serve. The
+# cost of a failure is a missing fallback, never a broken install: players load from GitHub first.
 name: Purge jsDelivr cache
 
 on:
@@ -21,29 +23,49 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   purge:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Purge, then confirm jsDelivr serves this version
+      - name: Tag this release
         run: |
           want=$(node -p "require('./package.json').version")
-          url="https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js"
+          tag="v${want}"
+          if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+            # A tag already pushed is never moved: jsDelivr caches a tag for good, so moving it would
+            # leave its copy and GitHub's disagreeing. A release without a version bump lands here.
+            echo "Tag ${tag} already exists at $(git rev-list -n1 "${tag}"); leaving it."
+          else
+            git tag "${tag}" "${GITHUB_SHA}"
+            git push origin "refs/tags/${tag}"
+            echo "Tagged ${GITHUB_SHA} as ${tag}."
+          fi
+
+      - name: Confirm jsDelivr serves the tag
+        run: |
+          want=$(node -p "require('./package.json').version")
+          tag="v${want}"
+          url="https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@${tag}/cdn/HypnosisAddon.js"
           for attempt in 1 2 3 4 5; do
-            # Give GitHub a moment to settle the branch before jsDelivr looks it up again.
-            sleep 20
-            curl -fsS --retry 3 --retry-delay 5 "https://purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js" > /dev/null
-            sleep 10
-            got=$(curl -fsS "${url}?t=$(date +%s%N)" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | grep -m1 -F "$want" || true)
+            sleep 15
+            got=$(curl -fsS "${url}" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | grep -m1 -F "$want" || true)
             if [ "$got" = "$want" ] || [ "$got" = "v$want" ]; then
-              echo "jsDelivr serves v${want} (attempt ${attempt})."
+              echo "jsDelivr serves v${want} at @${tag} (attempt ${attempt})."
               exit 0
             fi
-            echo "Attempt ${attempt}: jsDelivr does not yet serve v${want}; purging again."
+            echo "Attempt ${attempt}: jsDelivr does not yet serve @${tag}; waiting."
           done
-          echo "::error::jsDelivr is still not serving v${want} after 5 purges. Re-run this workflow, or wait for its cache to expire."
+          echo "::error::jsDelivr does not serve v${want} at @${tag}. Fallback loads of this release will fail until it does."
           exit 1
+
+      - name: Purge @main for the bookmark loader (best effort)
+        if: always()
+        run: |
+          curl -fsS --retry 3 --retry-delay 5 "https://purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/cdn/HypnosisAddon.js" > /dev/null \
+            || echo "::warning::The @main purge failed; bookmark loaders that fall back to jsDelivr may get an older build."

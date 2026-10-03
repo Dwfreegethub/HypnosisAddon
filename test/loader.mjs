@@ -51,7 +51,7 @@ globalThis.fetch = async (url, opts) => { fetchCalls.push(url); return fetchImpl
 const consoleLines = [];
 for (const k of ["info", "warn", "debug", "log"]) console[k] = (...a) => consoleLines.push(`${k}: ${a.join(" ")}`);
 
-const { runLoader, CDN_URL, GITHUB_URL, FAILED_NOTICE } = await import("./loader-bundle.mjs");
+const { runLoader, CDN_URL, CDN_TAG, CDN_MAIN_URL, GITHUB_URL, FAILED_NOTICE } = await import("./loader-bundle.mjs");
 
 const reset = () => { appended = []; fetchCalls = []; consoleLines.length = 0; };
 const scripts = () => appended.filter((e) => e.tag === "script");
@@ -108,10 +108,18 @@ check("the notice tells the player what to do", /refresh/i.test(FAILED_NOTICE), 
 const release = read("release.mjs");
 const BUNDLE_PATH = "cdn/HypnosisAddon.js";
 check("release writes the bundle to cdn/HypnosisAddon.js", release.includes(`"${BUNDLE_PATH}"`), true);
-check("jsDelivr URL: this repo, following main, that path", CDN_URL, `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/${BUNDLE_PATH}`);
+// v0.100.5: pinned to the release's own tag, because jsDelivr's `@main` lookup can stick on an old
+// build for days. Failure looks like: `@main` back, or a tag that is not "v" + this version.
+check("jsDelivr URL: this repo, this release's tag, that path", CDN_URL, `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@v${"test"}/${BUNDLE_PATH}`);
+check("the tag is v + the version", CDN_TAG, "vtest");
+check("the bookmark's jsDelivr URL follows main", CDN_MAIN_URL, `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/${BUNDLE_PATH}`);
 check("GitHub URL: this repo, main, that path", GITHUB_URL, `https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/${BUNDLE_PATH}`);
 const purge = existsSync(new URL(".github/workflows/purge-cdn.yml", root)) ? read(".github/workflows/purge-cdn.yml") : "";
-check("the cache purge clears the same URL the loader loads", purge.includes(`purge.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@main/${BUNDLE_PATH}`), true);
+// The workflow must make the tag the loader asks for, under the same name, and check that URL.
+// Failure looks like: no tag pushed, so every fallback load is a 404 and ends in the notice.
+check("the workflow pushes the tag v<version>", /tag="v\$\{want\}"/.test(purge) && /git push origin "refs\/tags\/\$\{tag\}"/.test(purge), true);
+check("the workflow checks the same tag URL the loader loads", purge.includes(`cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@\${tag}/${BUNDLE_PATH}`), true);
+check("the workflow may push tags", /contents:\s*write/.test(purge), true);
 
 // --- the built loader keeps the update chain intact ------------------------------------------
 // A fresh build, so this reads what build.mjs makes now and not a stale dist/.
@@ -140,6 +148,9 @@ check("loader: at least the eight known hosts", keyLines(loader, "match").length
 // The loader must stay small and must not carry the add-on inside it.
 check("loader: does not contain the add-on itself", loader.includes("registerMod"), false);
 check("loader: under 20 KB", loader.length < 20_000, true);
+// esbuild leaves the template unfolded (`v${"0.100.5"}`), so accept either spelling of the same tag.
+check("loader: asks jsDelivr for this release's tag",
+	loader.includes(`CDN_TAG = \`v\${${JSON.stringify(pkg.version)}}\``) || loader.includes(`CDN_TAG = "v${pkg.version}"`), true);
 
 const bundle = read("dist/HypnosisAddon.js");
 check("bundle: no userscript header (it is loaded, never installed)", bundle.includes("==UserScript=="), false);
@@ -150,7 +161,7 @@ check("bundle: is the add-on, at this version", bundle.includes(`__VERSION__`) =
 // that the root file is the loader and the bundle exists. Failure looks like: the full add-on back
 // at the root, which a manager would install happily, and the CDN split silently undone.
 const committedRoot = read("HypnosisAddon.user.js");
-check("committed root file is the loader", committedRoot.includes(CDN_URL) && !committedRoot.includes("registerMod"), true);
+check("committed root file is the loader", committedRoot.includes(GITHUB_URL) && !committedRoot.includes("registerMod"), true);
 check("committed cdn/HypnosisAddon.js exists and is the add-on", existsSync(new URL(BUNDLE_PATH, root)) && read(BUNDLE_PATH).includes("registerMod"), true);
 
 say(`loader: ${pass} passed, ${fail} failed`);
