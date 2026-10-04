@@ -15,22 +15,19 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
-> **New in v0.98–v0.100:**
-> * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
-> * **Read-only lock banner:** locked settings show a yellow Read-only banner.
-> * **Trust list names:** the trust list shows people by the name they go by.
-> * **New setup:** the setup wizard has new templates and questions, and Extreme now locks your settings for a week after you confirm.
-> * **New Inductions tab:** attempts, answering ahead of time, toy mode and "sink deeper" are on their own tab.
->
-> See **[Settings Reference](Settings-Reference)**.
-
-> **New in v0.97: inductions reworked.** How deep you go now comes from how well you know the hypnotist, not from a lucky roll, so the same person lands you at about the same depth every time. You can also answer inductions ahead of time, choose what happens while you are away, turn on toy mode for the people you choose, and fight your way up out of a trance. Read **[How an Induction Works](How-Inductions-Work)**.
+**Recent highlights:**
+* **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
+* **Read-only lock banner:** locked settings show a yellow *Read-only* banner.
+* **Trust list names:** the trust list shows people by the name they go by.
+* **Setup wizard:** four starter templates and guided questions, with **Extreme** featuring a 7-day progressive lock.
+* **Inductions tab:** attempts, answering ahead of time, toy mode and *"sink deeper"* on a dedicated panel. See **[Settings Reference](Settings-Reference)**.
+* **Inductions reworked:** landing depth comes from how well you know the hypnotist rather than luck. Read **[How an Induction Works](How-Inductions-Work)**.
 
 ---
 
 ## Start Here
 
-| | |
+| Page | Description |
 |---|---|
 | **[Getting Started](Getting-Started)** | Install, first run, and what settings to switch on. |
 | **[What to Say](What-to-Say)** | **What you actually type.** The phrases and syntax the parser recognizes — keep this open while playing. |
@@ -41,20 +38,20 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 ## The Features
 
-| | |
+| Page | Description |
 |---|---|
 | **[Commanded Activities](Commanded-Activities)** | Being made to act rather than just freeze — autonomous movement and touch. |
-| **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name; sight dimmed, darkened or taken, by BC's own blindness. |
+| **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name; sight dimmed, darkened, or taken via native blindness. |
 | **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, compulsions that wait for a moment, and suggestions that survive waking. |
 | **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
-| **[How an Induction Works](How-Inductions-Work)** | **New in v0.97.** What decides whether it takes and how deep, going deeper, fighting up, answering ahead of time and toy mode. |
+| **[How an Induction Works](How-Inductions-Work)** | What decides whether it takes and how deep, going deeper, fighting up, answering ahead of time, and toy mode. |
 | **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |
 
 ---
 
 ## Reference
 
-| | |
+| Page | Description |
 |---|---|
 | **[Settings Reference](Settings-Reference)** | Every preference tab and what each toggle actually does. |
 | **[Commands](Commands)** | Slash command reference (`/echs`). |

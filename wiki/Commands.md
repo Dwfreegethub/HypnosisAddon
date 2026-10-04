@@ -1,5 +1,7 @@
 # Commands
 
+> 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all effects.
+
 > **Alpha Notice**  
 > ECHS is in active alpha development. Command syntax, debug outputs, and diagnostic helpers are evolving.
 

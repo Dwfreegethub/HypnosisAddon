@@ -1,5 +1,7 @@
 # Commanded Activities
 
+> 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all commands.
+
 > **Alpha Notice**  
 > ECHS is in active alpha development. Since v0.84.0 a commanded activity can be aimed at someone else in the room by name, or at the hypnotist (see [Touching Someone Else](#touching-someone-else)). Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
 
@@ -10,7 +12,20 @@ Everything else in the add-on **stops** the subject from doing something. This m
 *"Missy, touch your breasts"* and she performs the real Bondage Club activity on herself — it renders in the room exactly as though she had clicked it, with the same native arousal changes and the same chat narration.
 
 * **Permission:** *Made to Act (touch yourself on command)* on the Permissions tab.
-* **Default Depth:** **Yielding** (adjustable in your Depth settings).
+* **Default Depth:** **Yielding (20)** (adjustable in your Depth settings).
+
+---
+
+## Quick Jump
+
+* **[The Grammar](#the-grammar)**
+* **[Recognized Verbs](#recognized-verbs)**
+* **[Without Naming a Specific Part](#without-naming-a-specific-part)**
+* **[What Can Refuse an Action](#what-can-refuse-an-action)**
+* **[Touching Someone Else](#touching-someone-else)**
+* **[Storing in a Trigger](#storing-in-a-trigger)**
+* **[What the Players See](#what-the-players-see)**
+* **[Current Scope & Limits](#current-scope--limits)**
 
 ---
 
@@ -23,6 +38,10 @@ One pattern powers the entire activity parser:
 The **verb** picks the activity; **`your <part>`** selects the body zone. Around 40 body terms are understood — the exact same dictionary used by the self-touch block.
 
 Once you know *"touch your breasts"*, you automatically get *"pinch your nipples"*, *"lick your thighs"*, and *"spank your bottom"* without learning separate rules.
+
+* `<verb> your <part>` ──► Targets yourself (e.g., *"Missy, pinch your nipples"*)
+* `<verb> me` ──► Targets the hypnotist (e.g., *"Missy, kiss me"*)
+* `<verb> <name> ['s <part>]` ──► Targets another player (e.g., *"Missy, kiss Rei"*)
 
 ---
 
@@ -56,8 +75,7 @@ Words grouped on the same row trigger the same underlying game activity. **First
 | finger · masturbate · pleasure · play with | Masturbate | *"Missy, finger your pussy"* |
 | **touch · caress · stroke · rub · feel** | Caress — the catch-all, reaches almost every zone | *"Missy, touch your breasts"* |
 
-> ⚠️ **`feel` is a known alpha parser quirk and is listed here for transparency, not as a recommendation.**  
-> Because `feel` maps to the Caress activity, an ordinary deepening sentence — *"Missy, your arms feel heavy"* — can inadvertently be parsed as *caress your arms*, causing her character to execute a real, public touch. **Stick to `touch`, `caress`, or `stroke`** until verb disambiguation is updated. This quirk only affects subjects who have enabled *Made to Act*. See [Troubleshooting](Troubleshooting) for details.
+> ⚠️ **Caution (The "Feel" Trap):** Because `feel` maps to the Caress activity, an ordinary deepening sentence — *"Missy, your arms feel heavy"* — can inadvertently be parsed as *caress your arms*, causing her character to execute a real, public touch. **Stick to `touch`, `caress`, or `stroke`** until verb disambiguation is updated. This quirk only affects subjects who have enabled *Made to Act*. See [Troubleshooting](Troubleshooting) for details.
 
 ---
 
@@ -96,9 +114,9 @@ This allows classic hypnotic tropes to work seamlessly: *"you cannot touch yours
 
 | Say | Lands on |
 |---|---|
-| *"Missy, kiss Rei"* | Rei's lips. Kiss, spank and pet have a default spot (lips, bottom, head). Other verbs ask for a part |
-| *"Missy, kiss Rei's nipples"* · *"Missy, lick Rei on the neck"* | The part you name |
-| *"Missy, kiss me"* · *"Missy, pinch my nipples"* | Whoever said it, the hypnotist |
+| *"Missy, kiss Rei"* | Rei's lips. Kiss, spank and pet have a default spot (lips, bottom, head). Other verbs ask for a part. |
+| *"Missy, kiss Rei's nipples"* · *"Missy, lick Rei on the neck"* | The part you name. |
+| *"Missy, kiss me"* · *"Missy, pinch my nipples"* | Whoever said it, the hypnotist. |
 
 * **Names are exact.** Use the person's full name or their nickname as shown in the room. A partial or misspelled name does nothing. If two people answer to the same name, nothing happens and the hypnotist is told why.
 * **Permission:** the subject needs *Made to Act*. For anyone other than the hypnotist, she also needs **Made to Touch Others**, which is off by default.

@@ -1,7 +1,11 @@
 # Your First Session
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Real-time feedback, induction balancing, and diagnostic outputs are continually being refined.
+> **Looking for mechanics or numbers?**  
+> * For exact roll math, bonuses, and odds: see [How an Induction Works](How-Inductions-Work).
+> * For building long-term trust and depth gates: see [Depth and Trust](Depth-and-Trust).
+> * For a full scene in chat, line by line: see [A Sample Session](Sample-Session).
+>
+> This page is what each player sees during a first induction, and why first attempts often stall.
 
 ---
 
