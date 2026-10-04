@@ -1,5 +1,7 @@
 # Triggers and Lasting Effects
 
+> 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to purge active triggers, lingering suggestions, and waking compulsions.
+
 > **Alpha Notice**  
 > ECHS is in active alpha development. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
 
@@ -11,7 +13,7 @@ There are three ways for a suggestion to outlast an active session:
 * **Compulsion:** A trigger with no word. It waits for something to happen instead: a set time after you wake, someone coming into the room, or someone speaking.
 * **Carry-Forward Suggestion:** A suggestion that remains active on your character after you wake up.
 
-By default, all three require reaching a **Deep** trance level on genuine **Earned Depth** (built over time through trust and interaction; not temporary arousal). Depth thresholds can be customized in your Depth tab. See [Depth and Trust](Depth-and-Trust).
+By default, all three require reaching a **Deep (60)** trance level on genuine **Earned Depth** (built over time through trust and interaction; not temporary arousal). Depth thresholds can be customized in your Depth tab. See [Depth and Trust](Depth-and-Trust).
 
 ---
 
