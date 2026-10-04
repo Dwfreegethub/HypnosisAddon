@@ -37,7 +37,7 @@ Elena opens Missy's player profile card, clicks the **spiral icon**, and selects
 Elena is trying to hypnotize you.
         [ Agree ]   [ Ignore ]   [ Fight ]
 
-Missy has 60 seconds to respond. She selects **Ignore**—she is curious to see what happens, but not actively assisting. *(She could also type `/echs ignore` into chat, which is especially handy if her wardrobe screen is open).*
+Missy has 60 seconds to respond. She selects **Ignore**—she is curious to see what happens, but not actively assisting. *(She could also type `/echs ignore` into chat, which is especially handy if her wardrobe screen is open)*.
 
 **Elena never learns which button Missy clicked.** Elena's client opens a 60-second induction window. What she types during this window matters—each spoken line contributes to the induction roll up to a cap. Elena uses the time to roleplay:
 
