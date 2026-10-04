@@ -1,8 +1,7 @@
 # How an Induction Works
 
-> **New in v0.97.** How deep you go now comes from **how well you know the hypnotist**, not from luck. The roll still decides *whether* an induction takes, but once it does, trust, your relationship and your answer decide how deep you go, give or take a few points. Before v0.97, a single roll decided both, so a hypnotist you barely knew could drop you to Blank one time and to Drifting the next.
->
-> Also new: you can answer every induction ahead of time, choose what happens while you are away from the keyboard, turn on **toy mode** for people you choose, and push your way **up** out of a trance by fighting it.
+> **Looking for a step-by-step walkthrough?**  
+> If you just want to see how an induction looks in chat during roleplay, start with [Your First Session](Your-First-Session) or [A Sample Session](Sample-Session). This page breaks down the underlying math, roll modifiers, and depth calculations.
 
 This page explains the whole thing in plain words, with the real numbers underneath for anyone who wants them. To see your own numbers with someone in the room, type:
 
@@ -12,7 +11,7 @@ This page explains the whole thing in plain words, with the real numbers underne
 
 ---
 
-## 1. Two separate questions
+## 1. Two Separate Questions
 
 Every induction asks two things, one after the other:
 
@@ -23,13 +22,13 @@ A hypnotist you trust will land you at roughly the same depth every time. A stra
 
 ---
 
-## 2. Does it take?
+## 2. Does It Take? (The Roll)
 
 These add up to the chance:
 
 | What | Effect |
 |---|---|
-| **Your trust in them** | The biggest part. Trust 40 adds 40. |
+| **Your trust in them** | The biggest part. Trust 40 adds +40. |
 | **Your BC relationship** | Counts as trust of at least **15** for a friend, **30** for a lover, **65** for an owner. |
 | **Your arousal** | Adds up to **+25** at a full meter. Only if your BC arousal meter is on *Hybrid* or *Automatic*, and your Depth tab lets arousal count. |
 | **Your answer** | **Agree +25**, Ignore 0, **Fight −25**. |
@@ -43,7 +42,7 @@ Fighting always keeps a small chance (at least 5%, a little more against a skill
 
 ---
 
-## 3. How deep?
+## 3. How Deep?
 
 Once it takes, your depth is:
 
@@ -68,7 +67,7 @@ Skill and arousal take you deeper **for now**, but they never count toward **ear
 
 ---
 
-## 4. Some examples
+## 4. Some Examples
 
 With no skill, no practice, no arousal and nothing said during the box. Depth is rounded.
 
@@ -84,20 +83,28 @@ The tiers are Drifting 0–19, Yielding 20–39, Entranced 40–59, Deep 60–79
 
 ---
 
-## 5. Going deeper once under
+## 5. Going Deeper Once Under
 
-A hypnotist can say *"Missy, sink deeper"* (or *go deeper*, *drop deeper* and so on). It's a roll:
+Once you are under, the hypnotist can take you deeper by saying *"Missy, sink deeper"* (or *go deeper*, *drop deeper*, *fall deeper*, *sleep deeper*, *relax deeper*, *let go deeper*, *deeper and deeper*, or *drift deeper into trance*).
 
-* It starts at 40%. **Trust**, **skill**, **arousal**, **your answer** (Agree +20, Fight −25) and **time under** (+2 a minute, up to +20) all help or hurt. So does your **practice** when you Agree. **The deeper you already are, the harder it gets.** It is never below 10% or above 95%, and it always takes if you gave them your trust.
-* **A success takes you 15–25 deeper** while you are below Entranced, 10–15 from Entranced, and 5–10 from Deep. It takes you 5 more if your trust in them is over 60, or they own you.
-* **At most once a minute**, and only after one of their suggestions has landed in between.
-* **Your limit:** your Inductions tab's *"Sink deeper" stops at* (Entranced unless you change it, or *Never deeper*). It never raises earned depth.
+**Pacing and prerequisites:**
+* **Your name is needed** (or a whisper to you), and you must be under with them.
+* **At most once a minute**, and only after one of their suggestions has actually landed in between. Too soon, and they are told it is still settling.
+* **Your limit:** your Inductions tab's *"Sink deeper" stops at* (Entranced unless you change it; *Never deeper* turns it off). They are told when you are as deep as you let yourself go.
+
+**The roll and how far it goes:**
+* It starts at 40%. **Trust**, **skill**, **arousal**, **your answer** (Agree +20, Fight −25) and **time under** (+2 a minute, up to +20) all help or hurt. So does your **practice** when you Agree.
+* **The deeper you already are, the harder it gets.** It is never below 10% or above 95%, and it always takes if you gave them your trust.
+* **A success takes you 15–25 deeper** while you are below Entranced, 10–15 from Entranced, and 5–10 from Deep. It takes you 5 more if your trust in them is over 60, or they own you. A miss does nothing (unless you are fighting; see below).
+* **They see bands, never your exact depth:** *"It takes. They are deeply under."* or *"It does not take hold this time."* The room may see you sag or breathe slower, if you let the room see your reactions.
+
+**It never raises earned depth.** Spoken deepening never unlocks the earned-only three (triggers, suggestions that outlive the trance, the clothing illusion). A trigger cannot hold a deepening; the instant drop (*"...you will drop into trance"*) is a trigger's way under.
 
 See [What to Say](What-to-Say#going-deeper-mid-trance) for the phrases.
 
 ---
 
-## 6. Fighting your way up
+## 6. Fighting Your Way Up
 
 If you answered Fight, or type `/echs fight` while under:
 
@@ -112,7 +119,7 @@ If you answered Fight, or type `/echs fight` while under:
 
 ---
 
-## 7. Answering ahead of time, being away, and toy mode
+## 7. Answering Ahead of Time, Being Away, and Toy Mode
 
 All on the **Inductions** tab. See [Settings Reference](Settings-Reference#2-inductions-tab).
 
@@ -128,7 +135,7 @@ The safeword always works, in every one of these.
 
 ---
 
-## 8. Tries and waiting
+## 8. Tries and Waiting
 
 Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**.
 
@@ -138,7 +145,7 @@ Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions ta
 
 ---
 
-## 9. How the numbers grow
+## 9. How the Numbers Grow
 
 * **Trust** in a person grows as you talk: one step at most every 5 minutes per person, double if they speak to you by name or whisper, and 5 steps for every induction of theirs that takes. It rises fast at first and slows near the top: about **50** after an hour or two of real conversation, **90** only after many sessions together. Your Stats tab can make it fade when you don't see someone (it never fades unless you set it to).
 * **Your practice** grows with every induction you go through, a little more when it takes, and a little with every deepening.

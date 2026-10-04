@@ -1,5 +1,8 @@
 # Settings Reference
 
+> 🛡️ **EMERGENCY EXIT — ANY TIME, ANY STATE**  
+> If you need to stop or end the scene immediately: **Type `/echs safeword`**. It always works, even while silenced, and instantly breaks trances and releases all holding effects.
+
 > **Alpha Notice**  
 > ECHS is in active alpha development. Settings layouts, storage keys, and UI options are actively being polished.
 
@@ -10,6 +13,36 @@ Open settings via the **spiral icon on your player profile card**, or navigate t
 Everything in these menus represents a **permission** (*"Do I allow this to be done to me?"*) or a **depth threshold** (*"How deep must I be?"*). Ticking a toggle simply defines your boundaries — it never forces an effect on you on its own.
 
 *Note on Mid-Trance Editing:* By default, settings can be configured to lock during an active session (including during the induction window) to preserve immersion. If you ever need out, use your emergency safeword: `/echs safeword`.
+
+---
+
+## Permission ↔ Depth Quick Matrix
+
+Every feature needs both its permission ticked **and** your trance at least as deep as its threshold. These are the defaults; change any depth on the [Depth tab](#7-depth-tab).
+
+| Feature | Setting | Tab | Default Depth (0–99) | Default Tier |
+|---|---|---|:---:|:---:|
+| Not noticing clothing changes | Clothing Changes | Awareness | 0 | Drifting |
+| Not noticing bondage changes | Bondage Changes | Awareness | 0 | Drifting |
+| Not noticing touches | Touches / Activities | Awareness | 0 | Drifting |
+| Freezing | Movement Restriction | Permissions | 20 | Yielding |
+| Muting | Speech Restriction | Permissions | 20 | Yielding |
+| Poses | Posture Control | Permissions | 20 | Yielding |
+| Wardrobe lock | Clothing Restriction | Permissions | 20 | Yielding |
+| Blocking self-touch | Self-Touch Control | Permissions | 20 | Yielding |
+| Commanded touch (self, or the hypnotist) | Made to Act | Permissions | 20 | Yielding |
+| Commanded touch (someone else) | Made to Touch Others | Permissions | 20 (shares Made to Act's) | Yielding |
+| Leash & follow | Follow / Leash | Permissions | 40 | Entranced |
+| Undressing | Undressing | Permissions | 40 | Entranced |
+| Arousal, orgasm, denial | Arousal & Orgasm | Permissions | 40 | Entranced |
+| Hearing only one voice | Hearing | Permissions | 40 | Entranced |
+| Blindness | Sight | Permissions | 40 | Entranced |
+| Words said aloud by a trigger | Made to Speak | Permissions | 40 (and the trigger itself needs 60, earned) | Entranced |
+| Clothing illusion | Clothing Illusion | Permissions | 60, earned | Deep |
+| Planting triggers | Allow triggers to be planted in you | Triggers | 60, earned | Deep |
+| Carry-forward suggestions | Suggestions that outlive the trance | Triggers | 60, earned | Deep |
+
+*Earned* means only depth built through trust over time counts; arousal cannot reach it unless you open it on the Depth tab (carry-forward never).
 
 ---
 
@@ -42,7 +75,7 @@ What others may do to you. Everything here is off until you turn it on.
 |---|---|
 | **Speech Restriction** | Allows verbal muting (*"you cannot speak"*). Affects standard room chat only; slash commands always bypass speech locks. |
 | **Made to Speak (a trigger says words for you)** | Allows a planted trigger to make you say words aloud in the room (*"you will say 'I obey'"*). A gag still garbles them. Off by default; of the setup templates only Extreme turns it on, as does the strongest trigger answer in the setup questions. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects#words-to-say). |
-| **Hearing (hear only one voice, or only your name)** | Allows *"you hear only my voice"* (you hear only that person) and *"you only hear what is said to you"* (only lines with your name). Everything else said in the room is hidden from you; emotes, activities and out-of-character text in (parentheses) still get through, and what you cannot hear cannot command you. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [What to Say](What-to-Say#hearing--hearing--entranced). |
+| **Hearing (hear only one voice, or only your name)** | Allows *"you hear only my voice"* (you hear only that person) and *"you only hear what is said to you"* (only lines with your name). Everything else said in the room is hidden from you; emotes, activities and out-of-character text in (parentheses) still get through, and what you cannot hear cannot command you. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [What to Say](What-to-Say#hearing--hearing--entranced-40). |
 | **Sight (dimmed, very dark, or blind)** | Allows *"your vision is dimming"*, *"you can barely see"* and *"you cannot see"*. This is Bondage Club's own blindness, so your own BC settings cap it: with *Sensory Deprivation* on Light it never goes past very dark. Nobody else sees a change. Off by default; of the setup templates only Extreme turns it on, as does the strongest senses answer in the setup questions. See [Sensory Modulation](Sensory-Modulation#sight). |
 
 *Touch & arousal*
