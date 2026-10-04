@@ -1,7 +1,6 @@
 # Getting Started
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Some features and UI elements are still settling into place. If anything looks off or doesn't react as expected, check that your permissions are enabled first, and report unexpected behavior on the GitHub issue tracker.
+> 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all effects immediately.
 
 ---
 
@@ -45,16 +44,24 @@ The first time you load into a room after installing, two status lines will appe
 These appear **once per install** to let you know the script is alive and running safely in the background. You will also see a small black status box in the lower-right corner of your screen showing the add-on name (**ECHS**) and current build version.
 
 ### Configuring Your Settings
-To configure your permissions or run the setup wizard, open your native menu:
-* Navigate to **Preferences → Extensions → ECHS Hypnosis**.
+To configure your permissions or run the setup wizard, navigate to:
+* **Preferences → Extensions → ECHS Hypnosis**
 
 Here, you can choose one of four starting templates, each applied with one click:
-* **Hypnotist only** — you hypnotize others; nobody can hypnotize you.
-* **Light / safe** — poses and being held still, nothing more. A trance never silences you, and you are always asked first.
-* **Balanced** — movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you.
-* **Extreme** — everything on, easy to reach, no questions asked. It **locks your settings read-only for a week** (see [Settings Reference](Settings-Reference#9-setup-wizard)) and asks you to confirm first.
+* **[Hypnotist only](Settings-Reference#9-setup-wizard)** — you hypnotize others; nobody can hypnotize you.
+* **[Light / safe](Settings-Reference#9-setup-wizard)** — poses and being held still, nothing more. A trance never silences you, and you are always asked first.
+* **[Balanced](Settings-Reference#9-setup-wizard)** — movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you.
+* **[Extreme](Settings-Reference#the-extreme-lock)** — everything on, easy to reach, no questions asked. It **locks your settings read-only for a week** (see [Settings Reference](Settings-Reference#the-extreme-lock)) and asks you to confirm first.
 
 Or answer five short questions instead (your role, how attempts are handled, what physical commands you allow, your senses, and triggers). Every page has a **Cancel** button that changes nothing. You can re-run setup or change any setting by hand afterward, outside an active session.
+
+### Instant Trance: Toy Mode
+If you prefer hands-free play with an owner or partner without seeing induction confirmation boxes:
+1. Open **Preferences → Extensions → ECHS Hypnosis → Inductions**.
+2. Set **Toy mode** to **On**.
+3. Choose who it applies to under **Toy mode is for** (default *Owner and Lovers*; it can widen to *Owner, Lovers and whitelist* or further).
+
+When an authorized partner attempts an induction, **no prompt box appears**. You slip immediately into trance down to your configured *"Sink deeper" stops at* ceiling. Your safeword (`/echs safeword`) always works. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
 ### Initiating Hypnosis via Profiles
 Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 
@@ -68,8 +75,6 @@ Clicking that spiral opens their hypnosis panel, where **Attempt Hypnosis** send
 ## If Nothing Seems to Be Happening
 
 **That is completely normal.** On a fresh install, every single permission begins switched off, including the master switch. Until you complete the wizard or enable modules by hand, the add-on does nothing at all.
-
-This is the most common point of confusion for new players, but it is intentional — an add-on shouldn't start altering your game client until you have explicitly decided what you want enabled.
 
 ---
 
@@ -97,5 +102,5 @@ It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**,
 ## Next Steps
 
 * → **[A Sample Session](Sample-Session)** — A walkthrough of a real session from start to finish.
-* → **[What to Say](What-to-Say)** — The full vocabulary and sentence structures recognized by the parser. Keep this open during a scene!
+* → **[What to Say](What-to-Say)** — The full vocabulary and sentence structures recognized by the parser.
 * → **[Consent and Safety](Consent-and-Safety)** — Essential reading on client boundaries and emergency exits before turning on deeper modules.
