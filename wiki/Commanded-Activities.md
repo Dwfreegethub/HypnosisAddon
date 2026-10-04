@@ -156,4 +156,5 @@ In the current build, commanded activities are **one-shot**.
 
 * **Touching other players:** Built in v0.84.0 for a named person or the hypnotist. A random pick (*"touch someone's hand"*) and aiming a trigger at a person are still to come.
 * **Toy activities:** Interacting with held toys is under consideration.
-* **Loops and conditions:** Sustained actions (*"keep stroking"*) and conditional triggers (*"touch yourself whenever you hear X"*) are planned for later phases.
+* **Loops:** Sustained actions (*"keep stroking"*) are planned for a later phase.
+* **Conditions already work as triggers:** *"Missy, when you hear good girl, touch your breasts"* plants a trigger in one line (then *"Missy, remember trigger"*), and a compulsion waits for a moment instead of a word (*"Missy, five minutes after you wake, touch yourself"*, *"Missy, when Rei comes in, kneel"*). See [Storing in a Trigger](#storing-in-a-trigger) and [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
