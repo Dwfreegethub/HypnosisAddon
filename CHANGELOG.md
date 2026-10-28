@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.0.1 RC · 28 October 2026
+
+- **ECHS only ever runs once.** This gets ECHS ready for FUSAM, the add-on manager. If you load
+  ECHS two ways at once, for example the Tampermonkey script *and* FUSAM, only the first one starts.
+  Before, both copies would run, and things could happen twice (a drink counted double, for one).
+  You only need one way of loading ECHS.
+
 ## v1.0.0 RC · 28 October 2026
 
 - **ECHS 1.0, release candidate.** This is the build we intend to call 1.0. Your chat line and the

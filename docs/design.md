@@ -132,7 +132,8 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 
 | Module | What it owns |
 |---|---|
-| `main.ts` | Entry point: installs every hook, wires the modules, runs load-time recovery |
+| `index.ts` | The real entry point (since v1.0.1): claims the page with `window.__ECHS_LOADED__` and starts `main.ts` only if no other copy has, so two loaders (Tampermonkey, FUSAM, bookmark) never run ECHS twice |
+| `main.ts` | Installs every hook, wires the modules, runs load-time recovery. Started by `index.ts` |
 | `session.ts` | The induction state machine — attempt → private prompt → RP window → roll → trance → wake. Resolves both depths and pushes them into `depth.ts`. Owns `safeword()` / `hardFloorStop()` |
 | `voice.ts` | Parses the hypnotist's chat: the suggestion pattern library, the name gate, trigger firing |
 | `depth.ts` | Tiers, per-feature gates, the current depths, chemical scope. **Leaf** — imports only storage |
