@@ -12,6 +12,20 @@ report it and say which version your chat line shows.
 
 ---
 
+## v0.101.0 · 28 October 2026
+
+- **Drinks and cigarettes.** A crafted drink or cigarette can now make you easier or harder to
+  hypnotize for a while. Put `[hypno:relax]` or `[hypno:stimulate]` in the item's name or
+  description when you craft it.
+  - **A drink** (Filled Glass or Mug) takes effect each time someone sips it to you. Your own sips
+    count too.
+  - **A cigarette** works while it's in your mouth. It is gentler than a drink.
+  - It adds to arousal, wears off on its own, and never changes your trust in anyone.
+- **It is off until you turn it on.** On the Depth tab, set **Chemicals count** to *Arousal +
+  drugs* or *Drugs only*. Until then, a tagged drink tells you it did nothing and why.
+- Type `/echs drugs` to see how relaxed or stimulated you are. The safeword clears it at once.
+- The wiki has a new **Drinks and Cigarettes** page.
+
 ## v0.100.6 · 3 October 2026
 
 - **The wiki is brought up to date.** Nothing in the game changed. Newly written up:

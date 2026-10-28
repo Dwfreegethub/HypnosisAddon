@@ -143,6 +143,7 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 | `illusion.ts` | The clothing illusion, as a shadow character on the subject's own screen |
 | `undress.ts` | Taking clothes off one garment at a time, and naming the reason when it refuses |
 | `arousal.ts` | Drives BC's *own* arousal system; forced orgasm and denial |
+| `drugs.ts` | Crafted drinks and cigarettes tagged `[hypno:relax]` / `[hypno:stimulate]`: a temporary signed level that `session.ts`'s `chemicalLevel()` adds to arousal. Never stored; cleared by the total stop |
 | `selftouch.ts` | Hooks `ActivityRun`; whole-body and per-body-part blocks |
 | `suppression.ts` | Hides messages about things done to the subject, without changing what they do |
 | `conceal.ts` | Shows the subject's trigger words as `...` in their own chat, via BC's message-handler chain at priority 50. Changes only what is drawn |
@@ -310,7 +311,7 @@ Trust remains the primary driver either way — what changed is where it is read
 - Higher arousal = lower inhibitions = deeper momentary access, regardless of relationship history
 - Effect is temporary and session-only; never touches stored relationship trust, and never reaches persistent/deep features
 
-### 4. Drugs (temporary blunt instrument)
+### 4. Drugs (temporary blunt instrument) — **built v0.101.0**, see *Drug System*
 - Can raise **or lower** the same chemical access floor temporarily, same "Stranger ceiling" cap
 - Player-adjustable: character can be set as "drugs relax my guard" or "drugs make me paranoid"
 - **Hard rule:** drugs cannot be used to plant triggers or lasting suggestions
@@ -1085,6 +1086,25 @@ Map room note: since most BC bondage items add Slow rather than Freeze, the Tier
 
 ### Drug System
 
+> **BUILT v0.101.0 (2026-10-28): `relax` and `stimulate`, by drink and cigarette** — `src/drugs.ts`,
+> wired into `chemicalLevel()` in `session.ts`; tests in `test/drugs.mjs`. What DW decided, which
+> overrides the text below where they differ:
+> - **A temporary level, never stored trust** (rule 4 kept as written). One signed level, -40 to +40,
+>   decaying 1/min toward 0, never saved; the safeword and the hard floor clear it.
+> - **Drinks:** BC's `SipItem` aimed at her; the actor's `ItemHandheld` Craft is read (Name +
+>   decoded Description). 15 a sip, cap ±40. Filled Glass and Mug are the BC assets with `SipItem`.
+> - **Cigarettes:** BC has no smoking activity, so a tagged Cigarette counts while it is in her
+>   mouth (ItemMouth, or ItemHandheld option `typed: 0` "In Mouth"), checked each minute: 3 a
+>   minute, cap ±20 (DW: "less effect than drinking, 40 and 20"). Decay pauses while it is in; it
+>   never pulls a drink's higher level back down. After a safeword, one still in her mouth is
+>   ignored until taken out.
+> - **Stacking REVERSED (DW, 2026-10-28):** drugs now ADD to arousal (`arousal + drug`), replacing
+>   the `max()` rule below. "I have changed my mind a little."
+> - **Opt-in kept:** the default chemical scope stays *Arousal only*; a tagged drink then says it did
+>   nothing and names the setting (rule 5).
+> - **Not yet built:** `sedate`, `restore`, `extend` — inert tags until then. Injection is not
+>   wired either. See *Todo*.
+
 **Delivery mechanism:** BC's crafted item system (players write custom names and descriptions). The add-on scans crafted item descriptions for a `[hypno:x]` tag and triggers the appropriate effect based on both the tag and the interaction type (drink, smoke, inject, etc.). This is the same general approach as LSCG; the `[hypno:]` namespace prevents conflicts if both add-ons are running simultaneously.
 
 **Item types and actions scanned:**
@@ -1105,7 +1125,7 @@ Map room note: since most BC bondage items add Slow rather than Freeze, the Tier
 
 **Two directions:** drugs that lower resistance (raise chemical floor) AND items that boost resistance or recharge fatigue — players can have countermeasures if desired.
 
-**Stacking:** Arousal and drug effects are tracked as separate floor values. The effective chemical floor at any moment is `max(arousalFloor, drugFloor)` — they do not add together. This prevents aroused + drugged from trivially pushing susceptibility near 100.
+**Stacking (SUPERSEDED 2026-10-28 — drugs now add; see the box above):** Arousal and drug effects are tracked as separate floor values. The effective chemical floor at any moment is `max(arousalFloor, drugFloor)` — they do not add together. This prevents aroused + drugged from trivially pushing susceptibility near 100.
 
 **Doses vs. distinct items:** two items with distinct identities (mild vs. strong) rather than stacking doses of the same item. Multi-dose works for LSCG's general sedation; for hypnosis specifically, the RP overhead of repeated dosing before the induction starts eats the scene.
 
@@ -3145,6 +3165,11 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 
 ### Todo (staging TBD)
 
+- **The rest of the drugs (DW, 2026-10-28: "lets not forget the others").** v0.101.0 built `relax`
+  and `stimulate`. Still to build, from the *Drug System* table: `sedate` (a stronger relaxant),
+  `restore` (recharges fight fatigue) and `extend` (lengthens an active trance), plus the `Inject`
+  activity as a delivery route. `drugKindOf()` in `drugs.ts` is where a new tag is recognised.
+
 - **Stray asterisks on room lines — worked around in v0.92.7; a deeper look parked for the future
   (DW, 2026-09-26: "that works for now").** A watcher-side trace found the cause: the raw packet from
   the *sender's* client sometimes carries `**text`, because another add-on on the sender's side
@@ -4927,6 +4952,17 @@ only a live room shows. `/echs chance H` on S's side shows every number used.
 **Fifteen of thirty topics confirmed; 19 and 24 partly (what is left is named in each); the rest open, above.**
 Also confirmed by DW 2026-09-26: "you cannot move" holds pose and place (v0.91.x–v0.92.5, including
 the hypnotist's pose commands under WCE's animation engine). Next bugs or regressions go in Known Bugs.
+
+**v0.100.x (job 2 wizard and Extreme lock, job 3 Inductions tab, v0.100.3–v0.100.5 fixes):** DW ran
+the v0.100.6 `script_test.md` on 2026-10-28; the ticks were not saved and DW said to take it as all
+passing. Recorded here as *passed, by DW's word*, not as step-by-step confirmed.
+
+### 30. Drinks and cigarettes (v0.101.0) — **open, never run live**
+
+The `script_test.md` for v0.101.0 has the steps. The ones only a live room can answer: that the
+sip arrives with `ActivityName: "SipItem"` and her as `TargetMemberNumber` when **someone else**
+gives the drink, that the giver's `ItemHandheld.Craft.Description` is visible on her client, and
+that a crafted Cigarette keeps its Craft when moved between hand and mouth.
 
 ---
 

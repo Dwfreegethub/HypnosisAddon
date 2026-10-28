@@ -200,6 +200,8 @@ declare function ChatRoomSendEmote(message: string): void;
 // leaving orphans; pass Refresh=false while looping and refresh once at the end.
 declare function InventoryRemove(character: any, assetGroup: string, refresh?: boolean): void;
 declare function InventoryGet(character: any, assetGroup: string): any;
+// Crafting.js — crafted descriptions may be stored UTF16-packed; Decode returns plain text.
+declare const CraftingDescription: { Decode(description: string): string };
 
 // Asset.js — turns a group/name pair back into the shared Asset definition (a lookup in
 // AssetMap keyed `Group/Name`). Needed to rebuild an appearance item from stored identity,

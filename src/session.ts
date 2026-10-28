@@ -30,6 +30,7 @@ import {
 } from "./trust";
 import { clearAllTimers, timerDeadline } from "./timers";
 import { runTeardown, runWake, runTotalStop } from "./teardown";
+import { countedDrugLevel } from "./drugs";
 import {
 	tierOf,
 	tierLabel,
@@ -591,8 +592,7 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 
 // --- Subject side: the roll ----------------------------------------------------------
 
-/** The design doc's chemical access floor, from arousal. Drugs will feed the same floor
- * when they exist.
+/** Her arousal, 0-100, as one of the two inputs to chemicalLevel() below.
  *
  * Read off `Player.ArousalSettings.Progress` — OUR OWN arousal, on our own client. That's
  * both correct and convenient: it's the subject's lowered guard that matters, the roll
@@ -611,9 +611,7 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
  * v0.97.0: the level itself, 0-100, rather than a floor capped at 30. Each consumer takes its
  * own share of it (trust.md §12). */
 export function arousalLevel(): number {
-	// The player's chemical scope decides whether arousal counts at all. Drugs are unbuilt, so
-	// "Drugs only" and "Neither" currently mean the same thing — kept as four options anyway,
-	// so that a saved preference does not need migrating the day drugs land.
+	// The player's chemical scope decides whether arousal counts at all.
 	if (!arousalCounts()) return 0;
 	const settings = Player?.ArousalSettings;
 	const active = settings?.Active === "Hybrid" || settings?.Active === "Automatic";
@@ -622,14 +620,25 @@ export function arousalLevel(): number {
 	return Math.max(0, Math.min(100, progress));
 }
 
-/** Effective access for the landing chance: `max(relationshipTrust, trustGift) + arousal / 4`.
+/** The chemical half of every roll that arousal used to feed alone: arousal and crafted drugs
+ * (drugs.ts, v0.101.0), -40 to 140.
+ *
+ * The two ADD (DW, 2026-10-28, reversing the design doc's earlier max() rule): a relaxant boosts
+ * whatever arousal is already doing, and a stimulant takes away from it, down to below zero when
+ * there is no arousal to absorb it. The drug's own ±40 cap is what bounds the sum. Same consumers,
+ * same session-only rule as arousal (rule 4): nothing here is ever stored. */
+export function chemicalLevel(): number {
+	return arousalLevel() + countedDrugLevel();
+}
+
+/** Effective access for the landing chance: `max(relationshipTrust, trustGift) + chemical / 4`.
  *
  * v0.97.0 (trust.md §12): arousal ADDS a quarter of itself rather than being a floor under the
  * rest, so it helps an established relationship as well as a stranger. The relationship half is
  * category-aware — an owner lifts everything, a friend only session-scoped things — while the
  * arousal half is session-only by construction, which is why it is applied here and nowhere else. */
 export function effectiveAccess(memberId: number): number {
-	return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + arousalLevel() * AROUSAL_ACCESS_WEIGHT;
+	return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + chemicalLevel() * AROUSAL_ACCESS_WEIGHT;
 }
 
 // --- "I trust you" (v0.94.0, DW 2026-09-26) ----------------------------------------------
@@ -751,7 +760,7 @@ export function depthBases(hypnotistId: number, choice: SessionChoice): { full: 
 	const trust = trustWith(hypnotistId);
 	const relation = RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
 	const earned = trust * DEPTH_TRUST_WEIGHT + relation * DEPTH_RELATION_WEIGHT + STANCE_DEPTH[choice];
-	const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + arousalLevel() * DEPTH_AROUSAL_WEIGHT;
+	const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + chemicalLevel() * DEPTH_AROUSAL_WEIGHT;
 	// Rounded: trust is rarely a whole number, and an unrounded floor became the depth itself
 	// ("Depth 31.34328358208955", DW 2026-09-27, v0.97.1).
 	const floor = choice === "fight" ? 0 : Math.round(Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT));
@@ -970,6 +979,8 @@ export function noteInductionLine(sender: number, content: string): void {
 export function describeChances(memberId: number): string[] {
 	const trust = trustWith(memberId);
 	const arousal = arousalLevel();
+	const drug = countedDrugLevel();
+	const chemical = chemicalLevel();
 	const access = effectiveAccess(memberId);
 	const exp = experienceValue();
 	const perSession = (c: number) => 100 * (1 - Math.pow(1 - c / 100, maxAttempts()));
@@ -983,7 +994,8 @@ export function describeChances(memberId: number): string[] {
 		return `lands ${Math.max(0, lo)}–${hi} (earned ${Math.max(0, elo)}–${ehi})${lo <= 0 ? ", or slips away" : ""}`;
 	};
 	return [
-		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)} (+${(arousal * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) ` +
+		`vs [${memberId}] — trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)}, drugs ${drug.toFixed(0)} ` +
+			`(chemical ${chemical.toFixed(0)}: ${chemical >= 0 ? "+" : ""}${(chemical * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) ` +
 			`→ access ${access.toFixed(1)}, experience ${exp.toFixed(1)}`,
 		`  ${describeRelationship(memberId)}`,
 		...(session.phase === "Hypnotized" && session.hypnotistId === memberId
@@ -1410,7 +1422,7 @@ export function deepenChance(hypnotistId: number): number {
 		DEEPEN_BASE +
 		accessFor(hypnotistId, "session") * DEEPEN_TRUST_WEIGHT +
 		session.honouredSkill * DEEPEN_SKILL_WEIGHT +
-		arousalLevel() * DEEPEN_AROUSAL_WEIGHT +
+		chemicalLevel() * DEEPEN_AROUSAL_WEIGHT +
 		STANCE_DEEPEN[stance] +
 		Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) +
 		(stance === "agree" ? experienceValue() * DEEPEN_EXPERIENCE_WEIGHT : 0) -
@@ -1455,7 +1467,7 @@ export function surfaceChance(hypnotistId: number): number {
 		experienceValue() * SURFACE_EXPERIENCE_WEIGHT -
 		session.honouredSkill * SURFACE_SKILL_WEIGHT -
 		accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT -
-		arousalLevel() * SURFACE_AROUSAL_WEIGHT;
+		chemicalLevel() * SURFACE_AROUSAL_WEIGHT;
 	return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
 }
 
