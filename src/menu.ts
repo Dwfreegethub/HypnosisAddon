@@ -1,4 +1,4 @@
-import { log, warn } from "./log";
+import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates, setSight } from "./effects";
@@ -1600,7 +1600,7 @@ const RENEW_GAP = 60;
 function drawRenewalPrompt(): void {
 	const p = renewalPrompt();
 	if (!p) return;
-	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__}${RELEASE_SUFFIX} — Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
 	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -1706,7 +1706,7 @@ function runSettings(): void {
 	// place a player already looks when something is not behaving, and DrawText here is
 	// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
 	// chat banner and the corner watermark, so all three cannot disagree.
-	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__}${RELEASE_SUFFIX} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
 	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 	tipButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 	if (!settingsLocked()) {

@@ -4,8 +4,8 @@
 > If you are trapped, muted, frozen, or need to end the scene immediately: **Type `/echs safeword`**.  
 > Bondage Club processes slash commands before speech-restriction hooks see the text, so the safeword works 100% of the time, even when completely silenced. It instantly breaks active trances, releases all holding triggers, discards waking compulsions, and restores full character control.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. UI locations, diagnostic feedback, and known parser quirks are actively being refined.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. UI locations, diagnostic feedback, and known parser quirks are actively being refined.
 
 ---
 
@@ -124,7 +124,7 @@ The icon is intentionally visible for all players rather than hidden for non-use
 
 ---
 
-## 9. Known Alpha Quirks
+## 9. Known Quirks
 
 * **The "Feel" Caress Trap:** Because *"feel"* is mapped as a caress verb, an ordinary deepening sentence like *"Missy, your arms feel heavy"* can inadvertently parse as *caress your arms*, triggering a real self-touch activity. This only affects subjects who have enabled *Made to Act*. Hypnotists should prefer *touch*, *caress*, or *stroke*, and avoid using *"feel"* while *Made to Act* is active.
 * **Pose Words in Ordinary Patter:** *"Surrender"* and *"relax your arms"* are pose commands as well as common hypnosis phrasing. With *Posture Control* ticked, *"Missy, surrender to my voice"* raises her arms over her head, and *"Missy, relax your arms"* drops any arm pose she is holding. Leave the name out of that sentence, or rephrase, if you only meant atmosphere.

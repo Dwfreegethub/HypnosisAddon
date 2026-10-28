@@ -2,8 +2,8 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all commands.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Since v0.84.0 a commanded activity can be aimed at someone else in the room by name, or at the hypnotist (see [Touching Someone Else](#touching-someone-else)). Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Since v0.84.0 a commanded activity can be aimed at someone else in the room by name, or at the hypnotist (see [Touching Someone Else](#touching-someone-else)). Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
 
 ---
 

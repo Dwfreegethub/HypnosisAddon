@@ -1,4 +1,5 @@
 import { tellPlayer } from "./notify";
+import { RELEASE_SUFFIX } from "./log";
 import { wasWelcomeShown, markWelcomeShown, hasAnyPermissionGranted } from "./storage";
 
 // The first-run notice. Every permission — including hypnoEnabled — defaults off, and the
@@ -63,7 +64,7 @@ let bannerShown = false;
 export function showStartupBanner(): void {
 	if (bannerShown) return;
 	bannerShown = true;
-	tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) · v${__VERSION__} · /echs help`);
+	tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) · v${__VERSION__}${RELEASE_SUFFIX} · /echs help`);
 }
 
 /** Wait for a chat log, then show the banner once, and the first-run notice after it if due.
@@ -120,7 +121,7 @@ export const LOADED_TOAST_FADE_MS = 1_500;
 export function showLoadedToast(): void {
 	if (typeof document === "undefined" || !document.body) return;
 	const el = document.createElement("div");
-	el.textContent = `ECHS v${__VERSION__} loaded`;
+	el.textContent = `ECHS v${__VERSION__}${RELEASE_SUFFIX} loaded`;
 	Object.assign(el.style, {
 		position: "fixed",
 		bottom: "4px",

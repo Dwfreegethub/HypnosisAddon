@@ -4,8 +4,8 @@
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**.  
 > Works 100% of the time, even while completely silenced. It instantly breaks active trances and releases all holding effects.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
 
 **This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold.
 

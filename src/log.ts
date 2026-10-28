@@ -115,3 +115,7 @@ function inTestingRoom(): boolean {
 		return false;
 	}
 }
+
+/** " RC" while package.json carries a releaseLabel, "" otherwise. Appended to every place the
+ * version is SHOWN, never to the version itself (see env.d.ts). */
+export const RELEASE_SUFFIX: string = __RELEASE_LABEL__ ? ` ${__RELEASE_LABEL__}` : "";

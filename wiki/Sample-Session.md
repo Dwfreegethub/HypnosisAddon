@@ -1,7 +1,7 @@
 # A Sample Session
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Real-time feedback, visual cues, and chat outputs are continually being refined.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Real-time feedback, visual cues, and chat outputs are continually being refined.
 
 ---
 

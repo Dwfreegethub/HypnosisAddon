@@ -20,7 +20,32 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
-### Changed 2026-10-28 (v0.101.1) — `/echs` everywhere players look; `/hypno` stays as an alias
+### Decided 2026-10-28 (v1.0.0 RC) — the 1.0 release candidate, and a `dev` branch
+
+DW: "I want this merge to be version 1.0RC for release candidate. I also want to copy it to make a
+dev branch at the same time." This merge carries the `/echs` change below; it was cut as v0.101.1
+and renumbered before it shipped.
+
+**Numbering: plain `1.0.0`, labelled "RC" on screen (DW chose this over `1.0.0-rc.1`).** The
+version string is also two other things: the loader's `@version`, which userscript managers compare
+to decide on an update, and the jsDelivr fallback tag (`v<version>`, `purge-cdn.yml`). Managers do
+not agree on pre-release suffixes. A dot-split compare reads `1.0.0-rc.1` as having a fourth
+segment, and so as *newer* than a later `1.0.0`. That would have stranded RC installs on the RC
+loader and its pinned fallback tag, which is the v0.100.5 failure again. So:
+- `package.json` gains `releaseLabel: "RC"`. `build.mjs` defines it as `__RELEASE_LABEL__`, and
+  `log.ts` exports `RELEASE_SUFFIX` (" RC" or ""). The banner, the loaded toast and both
+  settings-screen titles append it right after the version. `CDN_TAG` and `@version` never see it.
+- **Going final** means deleting `releaseLabel`. If no code changes, that is still a patch bump
+  (1.0.1), because the label is compiled in. Fixes during the RC are 1.0.1, 1.0.2 and so on.
+- The test builds define the label as empty, `banner.mjs` checks that every version display
+  carries the suffix, and `bookmarklet.mjs` (which builds on its own) got the define too. Without
+  it that suite threw `ReferenceError` and `npm test` exited 1.
+
+**`dev` branch:** a copy of `main` at this release. Ongoing work branches from and merges into
+`dev`; a release is `dev` → `main`. The loader reads `main`, so nothing on `dev` reaches players.
+`CLAUDE.md`'s flow says so.
+
+### Changed 2026-10-28 (v1.0.0 RC, cut as v0.101.1) — `/echs` everywhere players look; `/hypno` stays as an alias
 
 DW noticed the in-game help still said `/hypno` after the drug tag became `[echs:]`. The decision:
 `/hypno` keeps working, and it is named in exactly one place, a note on `wiki/Commands.md`.

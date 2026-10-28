@@ -6,14 +6,18 @@ Your userscript manager installs updates on its own, so you are usually on the n
 already. To check which one you have, look at the first line ECHS prints in your chat when the
 game loads, or at the title of the ECHS settings screen.
 
-ECHS is in alpha. Every change below passes the automated checks, but not every one has been
-tried in a live room yet. If something behaves differently from what is written here, please
-report it and say which version your chat line shows.
+ECHS is at its **1.0 release candidate**. Every change below passes the automated checks, but not
+every one has been tried in a live room yet. If something behaves differently from what is written
+here, please report it and say which version your chat line shows.
 
 ---
 
-## v0.101.1 · 28 October 2026
+## v1.0.0 RC · 28 October 2026
 
+- **ECHS 1.0, release candidate.** This is the build we intend to call 1.0. Your chat line and the
+  settings title now read **v1.0.0 RC**. If nothing serious turns up, the "RC" comes off. If
+  something needs fixing first, the fixes arrive as 1.0.1, 1.0.2 and so on. Updates keep arriving
+  on their own, as before.
 - **Everything now says `/echs`.** The in-game help, the command menu, the welcome line and every
   message ECHS prints name `/echs` instead of the old name. Nothing else changed, and the commands
   you're used to still work exactly the same.

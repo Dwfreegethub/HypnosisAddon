@@ -2,8 +2,8 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to purge active triggers, lingering suggestions, and waking compulsions.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
 
 ---
 

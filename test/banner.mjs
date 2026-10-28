@@ -121,6 +121,8 @@ for (const [file, needle, what] of [
 	const line = versionLine(file, needle);
 	check(`${what} reads the build define`, /\$\{__VERSION__\}/.test(line), true);
 	check(`  and carries no hand-typed number`, /\bv?\d+\.\d+\.\d+\b/.test(line), false);
+	// The 1.0 RC label (package.json releaseLabel, DW 2026-10-28) shows wherever the number does.
+	check(`  and the release label right after it`, /\$\{__VERSION__\}\$\{RELEASE_SUFFIX\}/.test(line), true);
 }
 
 globalThis.setInterval = realSetInterval;

@@ -4,8 +4,8 @@ A conversational, text-driven hypnosis framework for [Bondage Club](https://www.
 
 *Formerly "BC Hypnosis Add-on". The repository, installation link, and saved settings are unchanged — only the in-game display name. Not affiliated with or to be confused with HSC (Hypnotic Slave Club).*
 
-> **⚠️ Alpha Testing Notice**  
-> **ECHS is currently in active alpha development.** Not all features are fully implemented, balance tuning is ongoing, and mechanics, settings, or syntax may change between updates. Expect occasional rough edges and report unexpected behavior on the repository.
+> **1.0 Release Candidate**  
+> **ECHS is at v1.0.0 RC, its 1.0 release candidate.** Balance tuning continues, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. Report unexpected behavior on the repository, with the version your chat line shows.
 
 ---
 

@@ -4,8 +4,8 @@ A conversational hypnosis add-on for [Bondage Club](https://www.bondageprojects.
 
 *Formerly "BC Hypnosis Add-on". The repository, install link, and your saved settings are completely unchanged — only the display name in-game. ECHS is an independent project and is not affiliated with HSC (Hypnotic Slave Club).*
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Some features (like parts of interpersonal touch) are still being wired up, balance is being tweaked, and mechanics or settings might shift between releases. If you run into odd behavior or broken edges, drop an issue on GitHub.
+> **1.0 Release Candidate**  
+> ECHS is at **v1.0.0 RC**: the build we intend to call 1.0. Balance may still be tweaked, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. If you run into odd behavior or broken edges, drop an issue on GitHub and say which version your chat line shows.
 
 ---
 
@@ -16,6 +16,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 **Recent highlights:**
+* **1.0 Release Candidate:** your chat line and settings title read **v1.0.0 RC**, and every help line and message now says `/echs`.
 * **Drinks and cigarettes:** a crafted drink or cigarette tagged `[echs:relax]` or `[echs:stimulate]` makes you easier or harder to hypnotize for a while. Opt in on the Depth tab. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**.
 * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
 * **Read-only lock banner:** locked settings show a yellow *Read-only* banner.
@@ -65,4 +66,4 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 This wiki and the in-game help (the **`?`** button in your settings, or `/echs help`) cover the exact same ground. The wiki is great for browsing out-of-game, while the in-game help is built to check quickly mid-scene. 
 
-Because ECHS is moving fast in alpha, whenever the two disagree, **the in-game help is bundled right into the running code and is more likely to be current.**
+Because ECHS is still changing, whenever the two disagree, **the in-game help is bundled right into the running code and is more likely to be current.**

@@ -20,7 +20,7 @@ import { readFile } from "node:fs/promises";
 // The shipped bundle replaces __VERSION__ from package.json (build.mjs). The suites don't care
 // what the string is, only that modules using it (welcome.ts's first-run notice) bundle and run
 // — so give it a stable placeholder rather than leaving it an undefined global.
-const DEFINE = { __VERSION__: JSON.stringify("test") };
+const DEFINE = { __VERSION__: JSON.stringify("test"), __RELEASE_LABEL__: JSON.stringify("") };
 
 const FORCE_TESTING_DECL = /^const FORCE_TESTING: boolean = (?:true|false);$/m;
 
