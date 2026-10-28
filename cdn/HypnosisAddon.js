@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.0.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.0.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7,6 +7,14 @@
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
+  };
   var __commonJS = (cb, mod) => function __require() {
     try {
       return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -30,6 +38,62 @@
     isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
     mod
   ));
+
+  // src/log.ts
+  function readDebugFlag() {
+    try {
+      return typeof localStorage !== "undefined" && localStorage.getItem(DEBUG_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+  function isDebugFlagOn() {
+    return debugFlag;
+  }
+  function setDebugFlag(on) {
+    debugFlag = on;
+    try {
+      localStorage.setItem(DEBUG_KEY, on ? "true" : "false");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function isDebugLogging() {
+    return debugFlag || inTestingRoom();
+  }
+  function log(...args) {
+    if (!isDebugLogging()) return;
+    console.debug(TAG, ...args);
+  }
+  function warn(...args) {
+    console.warn(TAG, ...args);
+  }
+  function info(...args) {
+    console.info(TAG, ...args);
+  }
+  function isTestingMode() {
+    return FORCE_TESTING || inTestingRoom();
+  }
+  function inTestingRoom() {
+    try {
+      const name = typeof ChatRoomData !== "undefined" && ChatRoomData ? ChatRoomData.Name : null;
+      return typeof name === "string" && name.trim().toLowerCase() === TESTING_ROOM;
+    } catch {
+      return false;
+    }
+  }
+  var TAG, DEBUG_KEY, debugFlag, TESTING_ROOM, FORCE_TESTING, RELEASE_SUFFIX;
+  var init_log = __esm({
+    "src/log.ts"() {
+      TAG = "[HypnosisAddon]";
+      DEBUG_KEY = "ECHS_DEBUG";
+      debugFlag = readDebugFlag();
+      TESTING_ROOM = "hypno testing";
+      FORCE_TESTING = false;
+      RELEASE_SUFFIX = "RC" ? ` ${"RC"}` : "";
+    }
+  });
 
   // node_modules/bondage-club-mod-sdk/dist/bcmodsdk.js
   var require_bcmodsdk = __commonJS({
@@ -191,6 +255,1214 @@ Was the mod loaded multiple times?`), u(a2));
 One of mods you are using is using an old version of SDK. It will work for now but please inform author to update`), window.bcModSdk);
         return "undefined" != typeof exports && (Object.defineProperty(exports, "__esModule", { value: true }), exports.default = y), y;
       })();
+    }
+  });
+
+  // src/notify.ts
+  function setRoomVoice(fn) {
+    roomVoice = fn;
+  }
+  function tellPlayer(message) {
+    if (typeof ChatRoomSendLocal !== "function") return;
+    ChatRoomSendLocal(`[${message}]`);
+  }
+  function tellRoom(message) {
+    if (!roomVoice()) return;
+    if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
+    if (!ServerPlayerIsInChatRoom()) return;
+    noteRoomLine(message);
+    try {
+      ChatRoomSendEmote(`**${message}`);
+    } catch (err) {
+      warn("could not emote to the room:", err);
+    }
+  }
+  function noteRoomLine(message) {
+    const now = Date.now();
+    while (pendingLines.length && (now - pendingLines[0].at > PENDING_MS || pendingLines.length > 20)) pendingLines.shift();
+    pendingLines.push({ line: `**${message}`.trim(), at: now });
+  }
+  function fixRoomLine(content) {
+    if (typeof content !== "string") return content;
+    const i = pendingLines.findIndex((p) => p.line === content.trim() || p.line.slice(1) === content.trim());
+    if (i < 0) return content;
+    pendingLines.splice(i, 1);
+    if (!content.startsWith("**")) return content;
+    log("room line: another add-on skipped BC's star strip; took the extra '*' off");
+    return content.slice(1);
+  }
+  function installRoomLineGuard(modApi2) {
+    modApi2.hookFunction("ServerSend", 1e3, (args, next) => {
+      const [type, data] = args;
+      if (type !== "ChatRoomChat" || data?.Type !== "Emote" || typeof data?.Content !== "string") return next(args);
+      const fixed = fixRoomLine(data.Content);
+      return fixed === data.Content ? next(args) : next([type, { ...data, Content: fixed }]);
+    });
+  }
+  function pronouns() {
+    const name = typeof Player?.GetPronouns === "function" ? Player.GetPronouns() : void 0;
+    return PRONOUNS[name] ?? PRONOUNS.TheyThem;
+  }
+  function fillTokens(template) {
+    const p = pronouns();
+    return template.replace(/\{name\}/g, String(Player?.Nickname || Player?.Name || "Someone")).replace(/\{their\}/g, p.their).replace(/\{them\}/g, p.them).replace(/\{themselves\}/g, p.themselves);
+  }
+  var roomVoice, pendingLines, PENDING_MS, PRONOUNS;
+  var init_notify = __esm({
+    "src/notify.ts"() {
+      init_log();
+      roomVoice = () => true;
+      pendingLines = [];
+      PENDING_MS = 1e4;
+      PRONOUNS = {
+        SheHer: { their: "her", them: "her", themselves: "herself" },
+        HeHim: { their: "his", them: "him", themselves: "himself" },
+        TheyThem: { their: "their", them: "them", themselves: "themselves" },
+        ItIt: { their: "its", them: "it", themselves: "itself" }
+      };
+    }
+  });
+
+  // src/messaging.ts
+  function registerHiddenHandler(type, handler) {
+    handlers.set(type, handler);
+  }
+  function sendHiddenMessage(message, target) {
+    ServerSend("ChatRoomChat", {
+      Content: HIDDEN_TAG,
+      Type: "Hidden",
+      Target: target ?? null,
+      Dictionary: [{ message }]
+    });
+  }
+  function handleIncomingHidden(data) {
+    if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
+      const message = data?.Dictionary?.[0]?.message;
+      if (!message) return true;
+      const handler = handlers.get(message.type);
+      if (handler) {
+        handler(data.Sender, message);
+      } else {
+        log(`hidden message from ${data.Sender}:`, message);
+        tellPlayer(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
+      }
+      return true;
+    }
+    return false;
+  }
+  var HIDDEN_TAG, handlers;
+  var init_messaging = __esm({
+    "src/messaging.ts"() {
+      init_log();
+      init_notify();
+      HIDDEN_TAG = "HypnoMsg";
+      handlers = /* @__PURE__ */ new Map();
+    }
+  });
+
+  // src/effects.ts
+  function findEmoticonItem(character) {
+    return character?.Appearance?.find((a) => a?.Asset?.Name === EMOTICON_ASSET_NAME);
+  }
+  function ensureEffectsAllowed() {
+    if (typeof Asset === "undefined" || !Array.isArray(Asset) || Asset.length === 0) return false;
+    const assets = Asset.filter((a) => a?.Name === EMOTICON_ASSET_NAME);
+    if (assets.length === 0) return false;
+    for (const asset of assets) {
+      asset.AllowEffect ?? (asset.AllowEffect = []);
+      for (const effect of MANAGED_EFFECTS) {
+        if (!asset.AllowEffect.includes(effect)) asset.AllowEffect.push(effect);
+      }
+    }
+    return true;
+  }
+  function installEffectAllowList() {
+    if (ensureEffectsAllowed()) {
+      log("Emoticon effect allow-list patched");
+      return;
+    }
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (ensureEffectsAllowed()) {
+        clearInterval(timer);
+        log(`Emoticon effect allow-list patched after ${tries} retries`);
+      } else if (tries >= 60) {
+        clearInterval(timer);
+        log("gave up patching Emoticon effect allow-list \u2014 BC assets never appeared");
+      }
+    }, 500);
+  }
+  function poseGroupOf(pose) {
+    if (POSE_GROUPS.stance.includes(pose)) return "stance";
+    if (POSE_GROUPS.arms.includes(pose)) return "arms";
+    return null;
+  }
+  function currentPoses() {
+    const p = Player?.ActivePose;
+    if (Array.isArray(p)) return p.filter((x) => typeof x === "string");
+    return typeof p === "string" && p ? [p] : [];
+  }
+  function setSuggestedPose(pose, group = poseGroupOf(pose ?? "") ?? "stance") {
+    const before = currentPoses();
+    const otherGroup = group === "stance" ? "arms" : "stance";
+    const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
+    const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
+    ownPoseChange++;
+    if (liftOwnFreeze) refreshOwnEffects();
+    try {
+      if (pose !== null) {
+        CharacterSetActivePose(Player, pose);
+      } else {
+        CharacterSetActivePose(Player, null);
+        for (const p of keep) CharacterSetActivePose(Player, p);
+      }
+    } finally {
+      ownPoseChange--;
+      if (liftOwnFreeze) refreshOwnEffects();
+    }
+    noteHeldPose();
+    if (ServerPlayerIsInChatRoom()) {
+      ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+    }
+    const after = currentPoses();
+    const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+    const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
+    if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
+    if (landed) ours[group] = pose;
+    else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
+    return landed;
+  }
+  function suggestedPose() {
+    const now = currentPoses();
+    const list = ["stance", "arms"].map((g) => ours[g]).filter((p) => !!p && now.includes(p));
+    return list.length ? list : null;
+  }
+  function restoreSuggestedPose(saved) {
+    const list = Array.isArray(saved) ? saved : saved ? [saved] : [];
+    for (const p of list) if (typeof p === "string" && p) setSuggestedPose(p);
+  }
+  function clearSuggestedPose(group, only) {
+    const now = currentPoses();
+    for (const g of group ? [group] : ["stance", "arms"]) {
+      const p = ours[g];
+      if (only && p !== only) continue;
+      ours[g] = null;
+      if (p && now.includes(p)) setSuggestedPose(null, g);
+    }
+  }
+  function setWalkingTrance(on) {
+    walkingTrance = on;
+  }
+  function isWalkingTrance() {
+    return walkingTrance;
+  }
+  function setSpeechBlocked(blocked) {
+    speechBlocked = blocked;
+  }
+  function isSpeechBlocked() {
+    return speechBlocked;
+  }
+  function withForcedSpeech(send) {
+    forcedSpeaking = true;
+    try {
+      return send();
+    } finally {
+      forcedSpeaking = false;
+    }
+  }
+  function isForcedSpeech() {
+    return forcedSpeaking;
+  }
+  function setScreenFade(opacity) {
+    screenFade = Math.max(0, Math.min(1, opacity));
+  }
+  function getScreenFade() {
+    return screenFade;
+  }
+  function drawTranceVeil() {
+    if (screenFade <= 0) return;
+    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+    MainCanvas.save();
+    MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
+    MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+    MainCanvas.restore();
+  }
+  function setSight(level2) {
+    sightLevel = level2;
+    refreshOwnEffects();
+    return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level2;
+  }
+  function getSight() {
+    return sightLevel;
+  }
+  function clearTranceStates() {
+    speechBlocked = false;
+    screenFade = 0;
+    if (sightLevel) setSight(0);
+    walkingTrance = false;
+  }
+  function reassertItemEffects() {
+    var _a;
+    if (!OWN_EFFECTS.size) return false;
+    const item = findEmoticonItem(Player);
+    if (!item) return false;
+    item.Property ?? (item.Property = {});
+    (_a = item.Property).Effect ?? (_a.Effect = []);
+    let restored = false;
+    for (const effect of OWN_EFFECTS) {
+      if (!item.Property.Effect.includes(effect)) {
+        item.Property.Effect.push(effect);
+        restored = true;
+      }
+    }
+    if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
+    return restored;
+  }
+  function noteHeldPose() {
+    heldPose = isHeldStill() ? currentPoses() : null;
+  }
+  function isHeldStill() {
+    return heldByUs("Freeze");
+  }
+  function heldNotice(line) {
+    const now = Date.now();
+    if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
+    lastHeldNotice = now;
+    tellPlayer(line);
+  }
+  function samePoses(a, b) {
+    const norm = (p) => (Array.isArray(p) ? p : typeof p === "string" && p ? [p] : []).slice().sort().join(",");
+    return norm(a) === norm(b);
+  }
+  function poseWouldChange(pose, force) {
+    const now = currentPoses();
+    if (pose == null) return !now.every((p) => p.startsWith("Base"));
+    if (typeof pose !== "string") return true;
+    if (force) return !samePoses(now, [pose]);
+    return !now.includes(pose);
+  }
+  function restoreHeldPose(held) {
+    Player.ActivePose = held;
+    heldPose = held.slice();
+    if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+    if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+  }
+  function installEffectHooks(modApi2) {
+    const holdPose = (args, next) => {
+      const [C, pose, force] = args;
+      if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
+        heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+        log("held still: refused a pose change");
+        return void 0;
+      }
+      return next(args);
+    };
+    modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, holdPose);
+    modApi2.hookFunction("CharacterSetActivePose", HOLD_PRIORITY, holdPose);
+    modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args, next) => {
+      const [data] = args;
+      const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
+      if (!aboutHer || !isHeldStill()) return next(args);
+      const held = currentPoses();
+      const result = next(args);
+      if (!samePoses(held, Player?.ActivePose)) {
+        restoreHeldPose(held);
+        heldNotice("Someone tries to move you, and your body will not be moved.");
+        log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+      }
+      return result;
+    });
+    modApi2.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args, next) => {
+      const [data] = args;
+      if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+      restoreHeldPose(currentPoses());
+      log("held still: refused an incoming pose update");
+      return void 0;
+    });
+    modApi2.hookFunction("PoseCanChangeUnaidedStatus", HOLD_PRIORITY, (args, next) => {
+      const [C, poseName] = args;
+      if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && !currentPoses().includes(poseName)) {
+        return typeof PoseChangeStatus !== "undefined" ? PoseChangeStatus.NEVER : 0;
+      }
+      return next(args);
+    });
+    modApi2.hookFunction("ServerSend", HOLD_PRIORITY, (args, next) => {
+      if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+        return next(args);
+      }
+      Player.ActivePose = heldPose.slice();
+      if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+      heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+      log("held still: a pose change got past the hook; put the held pose back before it was sent");
+      return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
+    });
+    modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
+      const result = next(args);
+      const [C, groups] = args;
+      if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g) => BLIND_GROUPS.includes(g))) {
+        const withSight = Array.isArray(result) ? result.slice() : [];
+        withSight.push(BLIND_EFFECTS[sightLevel]);
+        return withSight;
+      }
+      if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
+      if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
+      if (ownPoseChange > 0 && OWN_EFFECTS.has("Freeze")) {
+        const realFreeze = (C.Appearance ?? []).some(
+          (i) => i?.Asset?.Group?.Name !== EMOTICON_ASSET_NAME && (i?.Property?.Effect?.includes("Freeze") || i?.Asset?.Effect?.includes("Freeze"))
+        );
+        const merged2 = (Array.isArray(result) ? result : []).filter((e) => realFreeze || e !== "Freeze");
+        for (const effect of OWN_EFFECTS) if (effect !== "Freeze" && !merged2.includes(effect)) merged2.push(effect);
+        return merged2;
+      }
+      const merged = Array.isArray(result) ? result.slice() : [];
+      for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
+      if (merged.includes("Freeze") && isHeldStill() && !merged.includes("MapImmobile")) merged.push("MapImmobile");
+      return merged;
+    });
+    modApi2.hookFunction("ChatRoomCharacterUpdate", 5, (args, next) => {
+      const [C] = args;
+      if (C === Player || C?.IsPlayer?.()) reassertItemEffects();
+      return next(args);
+    });
+    effectsHooked = true;
+  }
+  function applyEffect(effectName, character = Player) {
+    var _a, _b;
+    const item = findEmoticonItem(character);
+    if (character !== Player) {
+      if (!item) return false;
+      ensureEffectsAllowed();
+      item.Property ?? (item.Property = {});
+      (_a = item.Property).Effect ?? (_a.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+      return true;
+    }
+    OWN_EFFECTS.add(effectName);
+    ensureEffectsAllowed();
+    if (item) {
+      item.Property ?? (item.Property = {});
+      (_b = item.Property).Effect ?? (_b.Effect = []);
+      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+    } else {
+      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
+    }
+    refreshOwnEffects();
+    if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+    if (effectName === "Freeze") noteHeldPose();
+    const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
+    if (!landed) {
+      warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+      OWN_EFFECTS.delete(effectName);
+      const effects = findEmoticonItem(Player)?.Property?.Effect;
+      const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+      if (at !== -1) {
+        effects.splice(at, 1);
+        if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+      }
+      return false;
+    }
+    return true;
+  }
+  function refreshOwnEffects() {
+    if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
+  }
+  function itemCarriesEffect(effectName) {
+    return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+  }
+  function hasOwnEffect(effectName) {
+    return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
+  }
+  function heldByUs(effectName) {
+    return OWN_EFFECTS.has(effectName);
+  }
+  function removeEffect(effectName, character = Player) {
+    const heldByUs2 = character === Player && OWN_EFFECTS.delete(effectName);
+    const item = findEmoticonItem(character);
+    const effects = item?.Property?.Effect;
+    const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
+    if (idx !== -1) effects.splice(idx, 1);
+    if (!heldByUs2 && idx === -1) return false;
+    if (character === Player) {
+      refreshOwnEffects();
+      if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
+      if (effectName === "Freeze") noteHeldPose();
+    }
+    return true;
+  }
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var init_effects = __esm({
+    "src/effects.ts"() {
+      init_log();
+      init_notify();
+      EMOTICON_ASSET_NAME = "Emoticon";
+      MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
+      POSE_GROUPS = {
+        stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "AllFours", "Hogtied", "BaseLower"],
+        arms: ["BackCuffs", "BackBoxTie", "BackElbowTouch", "OverTheHead", "Yoked", "BaseUpper"]
+      };
+      FULL_BODY_POSES = ["AllFours", "Hogtied"];
+      ours = { stance: null, arms: null };
+      speechBlocked = false;
+      screenFade = 0;
+      TRANCE_FADE_OPACITY = 0.3;
+      WALKING_FADE_OPACITY = 0.08;
+      walkingTrance = false;
+      forcedSpeaking = false;
+      VEIL_WIDTH = 1003;
+      BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
+      BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
+      sightLevel = 0;
+      OWN_EFFECTS = /* @__PURE__ */ new Set();
+      effectsHooked = false;
+      ownPoseChange = 0;
+      lastHeldNotice = 0;
+      heldPose = null;
+      HOLD_PRIORITY = 1e3;
+      HELD_NOTICE_GAP_MS = 3e4;
+    }
+  });
+
+  // src/suppression.ts
+  function setSuppressed(category, on) {
+    if (on) active.add(category);
+    else active.delete(category);
+  }
+  function isSuppressed(category) {
+    return active.has(category);
+  }
+  function setNumb(on) {
+    numb = on;
+  }
+  function isNumb() {
+    return numb;
+  }
+  function clearAllSuppression() {
+    active.clear();
+    numb = false;
+    hearing = null;
+  }
+  function setHearing(mode) {
+    hearing = mode;
+  }
+  function hearingMode() {
+    return hearing;
+  }
+  function hearsLine(sender, namesHer) {
+    if (!hearing || sender === Player?.MemberNumber) return true;
+    return hearing.kind === "voice" ? sender === hearing.member : namesHer;
+  }
+  function markUnheard(data) {
+    unheard.add(data);
+  }
+  function oocOnly(text) {
+    const spans = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of String(text ?? "")) {
+      if (ch === "(") {
+        if (depth === 0) current = "";
+        depth++;
+        current += ch;
+      } else if (ch === ")" && depth > 0) {
+        current += ch;
+        depth--;
+        if (depth === 0) spans.push(current);
+      } else if (depth > 0) {
+        current += ch;
+      }
+    }
+    if (depth > 0 && current.length > 1) spans.push(current);
+    return spans.join(" ").trim();
+  }
+  function installHearingFilter(onHidden) {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 hearing only one voice will not hide chat");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
+      Priority: 90,
+      Callback: (data, _sender, msg) => hearingFilter(data, msg, onHidden)
+    });
+    log("hearing filter registered at priority 90");
+  }
+  function hearingFilter(data, msg, onHidden) {
+    try {
+      if (!hearing || !data || !unheard.has(data)) return false;
+      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+      const ooc = oocOnly(msg);
+      if (ooc) return { msg: ooc };
+      const now = Date.now();
+      if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
+        lastOthersFade = now;
+        onHidden(hearing);
+      }
+      return true;
+    } catch (err) {
+      warn("hearing filter failed:", err);
+      return false;
+    }
+  }
+  function resetOthersFade() {
+    lastOthersFade = 0;
+  }
+  function targetsPlayer(data, metadata) {
+    if (metadata?.TargetMemberNumber != null) return metadata.TargetMemberNumber === Player.MemberNumber;
+    return data?.Sender !== Player.MemberNumber && !!ChatRoomMessageInvolvesPlayer?.(data);
+  }
+  function isItemSlot(group, isRestraint) {
+    return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
+  }
+  function classify(data, metadata) {
+    if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
+    if (data?.Type !== "Action") return null;
+    const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
+    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
+    if (assets.length > 0) return "clothing";
+    const group = metadata?.FocusGroup;
+    if (group) return isItemSlot(group) ? "bondage" : "clothing";
+    const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
+    return tag ?? null;
+  }
+  function installSuppression() {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: hide suppressed categories (after arousal, before display)",
+      Priority: 320,
+      Callback: (data, _sender, _msg, metadata) => {
+        try {
+          if (active.size === 0) return false;
+          const category = classify(data, metadata);
+          if (!category || !active.has(category)) return false;
+          if (!targetsPlayer(data, metadata)) return false;
+          log(`suppressed ${category} message:`, data?.Content);
+          return true;
+        } catch (err) {
+          warn("suppression handler failed:", err);
+          return false;
+        }
+      }
+    });
+    log("suppression handler registered at priority 320");
+    installNumbness();
+  }
+  function installNumbness() {
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: numbness (skip arousal, leave the message alone)",
+      Priority: 205,
+      Callback: (data, sender, _msg, metadata) => {
+        try {
+          if (!numb) return false;
+          if (!metadata?.ActivityName) return false;
+          if (metadata?.TargetMemberNumber !== Player?.MemberNumber) return false;
+          if (sender?.MemberNumber === Player?.MemberNumber) return false;
+          log(`numb to ${metadata.ActivityName} \u2014 skipping arousal`);
+          return { skip: (h) => h?.Description === AROUSAL_HANDLER };
+        } catch (err) {
+          warn("numbness handler failed:", err);
+          return false;
+        }
+      }
+    });
+    const handlers3 = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
+    if (handlers3 && !handlers3.some((h) => h?.Description === AROUSAL_HANDLER)) {
+      warn(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
+    }
+    log("numbness handler registered at priority 205");
+  }
+  var active, numb, hearing, unheard, OTHERS_FADE_GAP_MS, lastOthersFade, ACTION_TAGS, AROUSAL_HANDLER;
+  var init_suppression = __esm({
+    "src/suppression.ts"() {
+      init_log();
+      active = /* @__PURE__ */ new Set();
+      numb = false;
+      hearing = null;
+      unheard = /* @__PURE__ */ new WeakSet();
+      OTHERS_FADE_GAP_MS = 6e4;
+      lastOthersFade = 0;
+      ACTION_TAGS = {
+        ChangeClothes: "clothing"
+      };
+      AROUSAL_HANDLER = "Arousal processing";
+    }
+  });
+
+  // src/flavor.ts
+  function pick(options) {
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  function flavor(key) {
+    return pick(LINES[key]);
+  }
+  function publicFlavor(key) {
+    const options = PUBLIC_LINES[key];
+    return options ? fillTokens(pick(options)) : null;
+  }
+  function announce(key) {
+    tellPlayer(flavor(key));
+    const seen = publicFlavor(key);
+    if (seen) tellRoom(seen);
+  }
+  function announceOthersFade(kind) {
+    tellPlayer(
+      pick(
+        kind === "voice" ? [
+          "Other voices murmur somewhere far away. They don't matter.",
+          "Someone else is talking. The words slide past without landing.",
+          "There's talk at the edge of the room, soft and meaningless.",
+          "Voices drift by. None of them are the one you listen to.",
+          "The room hums with words that aren't for you."
+        ] : [
+          "Voices wash past. None of them are saying your name.",
+          "Words drift by, not meant for you, so they don't stay.",
+          "The room murmurs on. Nothing in it is yours to hear.",
+          "Someone speaks, but not to you, and it fades before it arrives."
+        ]
+      )
+    );
+  }
+  function announceBodyPartApplied(part) {
+    tellPlayer(
+      pick([
+        `Touching your ${part} stops being one of the things you are going to do.`,
+        `Your ${part} quietly moves out of your own reach.`,
+        `You will be leaving your ${part} alone now, and you do not mind.`
+      ])
+    );
+  }
+  function announceBodyPart(part) {
+    tellPlayer(bodyPartFlavor(part));
+    tellRoom(
+      fillTokens(
+        pick([
+          `{name} reaches for {their} ${part}, then seems to change {their} mind.`,
+          `{name} half-reaches for {their} ${part} and loses interest partway.`,
+          `{name}'s hands get as far as {their} ${part} before drifting away.`
+        ])
+      )
+    );
+  }
+  function bodyPartFlavor(part) {
+    const options = [
+      `Your hands move towards your ${part}, then you change your mind. You do not need to touch them.`,
+      `You reach for your ${part} and lose interest halfway there.`,
+      `Touching your ${part} stops seeming like something you were going to do.`,
+      `Your hands get as far as your ${part} before forgetting why.`
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  function announceInductionBegin() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name}'s eyes soften and go distant as a low voice draws {their} attention in.",
+          "{name} goes quiet and still, {their} whole focus narrowing to a single voice.",
+          "{name}'s gaze drifts, catches, and settles on something the rest of the room cannot hear."
+        ])
+      )
+    );
+  }
+  function inductionMissLine() {
+    return pick([
+      "The attempt doesn't quite land.",
+      "Something in you almost gives, and then doesn't.",
+      "The pull thins out before it reaches anything.",
+      "For a moment it nearly catches. The moment passes.",
+      "You feel the shape of it, and stay exactly where you are."
+    ]);
+  }
+  function inductionSpentLine() {
+    return pick([
+      "The attempt fades. You feel clear-headed, and harder to reach for a while.",
+      "Whatever was reaching for you lets go. Your head is your own, and stays that way a while.",
+      "It ebbs away and does not come back. You feel steadier, and less easy to move."
+    ]);
+  }
+  function announceInductionMiss() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name}'s eyes flutter, drift, and then find the room again.",
+          "Something almost settles over {name}, and then lifts.",
+          "{name} sways a little, blinks, and the distance goes out of {their} gaze.",
+          "For a breath {name} is somewhere else. Then {name} isn't."
+        ])
+      )
+    );
+  }
+  function hypnotistMissFlavor(subject) {
+    return pick([
+      `${subject} almost goes, and doesn't.`,
+      `Something in ${subject} nearly gives way, then settles.`,
+      `It reaches ${subject} and slides off.`,
+      `${subject} wavers for a moment, and stays put.`
+    ]);
+  }
+  function announceTranceEnter() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name}'s eyes slip half-closed, and {their} whole body lets go.",
+          "Something in {name} gives way, and the tension goes out of {them}, soft and unhurried.",
+          "{name} sinks, breath slowing, wearing the loose calm of someone gone well under."
+        ])
+      )
+    );
+  }
+  function tranceExpiryLine() {
+    return pick([
+      "The trance thins out on its own, and you surface slowly.",
+      "Whatever was holding you under loosens by itself, and the room comes back.",
+      "The calm drains away of its own accord, and your head is your own again."
+    ]);
+  }
+  function announceTranceExpiry() {
+    tellRoom(
+      fillTokens(
+        pick([
+          "{name} blinks slowly, and the distance goes out of {their} eyes as the trance wears off.",
+          "The looseness drains out of {name} by degrees, and {name} surfaces on {their} own.",
+          "{name} stirs and draws a longer breath, the trance having quietly run its course."
+        ])
+      )
+    );
+  }
+  function hypnotistExpiryFlavor(subject) {
+    return pick([
+      `${subject} comes up out of the trance unprompted.`,
+      `The trance lets go of ${subject} by itself.`,
+      `${subject} drifts back up out of trance.`
+    ]);
+  }
+  var PUBLIC_LINES, LINES;
+  var init_flavor = __esm({
+    "src/flavor.ts"() {
+      init_notify();
+      PUBLIC_LINES = {
+        "movement-block": [
+          "{name} goes very still, mid-motion.",
+          "{name} stops moving, as though the idea had gone."
+        ],
+        "movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+        // Follow is observable in the same way going still is: nobody sees the compulsion land,
+        // but they see {name} close the distance and keep it closed. Naming {name} is required —
+        // room lines carry no sender.
+        "follow-block": [
+          "{name} stays close, unwilling to let any distance open.",
+          "{name} keeps near, as though on an invisible leash."
+        ],
+        "follow-release": ["{name} steps back, {their} own distance to keep again."],
+        "deepen-surface": [
+          "{name} stirs, surfacing a little.",
+          "{name}'s eyes flicker, a little more awake than before."
+        ],
+        "deepen-woke": [
+          "{name} blinks hard, and comes fully awake.",
+          "{name} shakes {their} head and surfaces, awake."
+        ],
+        deepen: [
+          "{name}'s head lolls forward as {their} breathing slows further.",
+          "{name} sags a little, sinking further away.",
+          "{name}'s eyelids grow heavier, {their} breathing slow and even."
+        ],
+        kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
+        stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
+        // Every pose is as visible as kneeling, so each gets a room line. The body moves first and
+        // the face stays soft, the same register as kneel.
+        "kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
+        "legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
+        "legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
+        "all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
+        "lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
+        "hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
+        "arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
+        "elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
+        "arms-up": ["{name}'s arms rise over {their} head and stay there."],
+        "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
+        "arms-relax": ["{name}'s arms drift down to {their} sides."],
+        "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
+        // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
+        // INTO one is observable, which is why the attempt keys carry the public lines and the
+        // apply keys mostly do not. Movement and posture are the exceptions: going still and
+        // kneeling are visible in themselves.
+        // Undressing is the most observable thing in the add-on — it changes the character
+        // everyone in the room is looking at, so unlike every other apply-time effect these get
+        // a public line rather than staying silent.
+        undress: [
+          "{name} slips out of something slow and dreamy, and doesn't seem to mind being watched.",
+          "{name}'s hands undo a fastening while {their} face stays somewhere soft and far away.",
+          "Something of {name}'s comes off, set aside without a glance, unhurried and unbothered."
+        ],
+        "undress-all": [
+          "{name} undresses steadily, piece after piece, dreamy and unhurried and glad to be seen.",
+          "{name} bares everything with the soft, unbothered thoroughness of a habit."
+        ],
+        "undress-blocked": [
+          "{name}'s hands move to undress and stop, held.",
+          "{name} starts to undo something and cannot make {their} hands finish."
+        ],
+        "undress-frozen": [
+          "{name} does not move to undress. {name} does not move at all."
+        ],
+        // A ghost is visible from outside as a hesitation and no more — which is exactly what it
+        // is. The room should not be able to tell it apart from someone losing their thread.
+        "trigger-ghost": [
+          "{name} pauses, as though half-hearing {their} own name.",
+          "Something goes across {name}'s face and does not stay."
+        ],
+        "clothing-blocked-attempt": [
+          "{name} reaches for {their} clothes, and {their} hand drifts away again.",
+          "{name} half-reaches for a fastening and seems to forget why."
+        ],
+        "selftouch-frozen": ["{name} twitches towards {themselves}, and nothing moves."],
+        "selftouch-blocked": [
+          "{name} starts to reach for {themselves}, aches to, and doesn't.",
+          "{name}'s hands stay exactly where they are, though {their} whole body plainly wishes otherwise."
+        ],
+        "speech-blocked-attempt": [
+          "{name} opens {their} mouth, and nothing comes out.",
+          "{name} tries to say something, and does not."
+        ],
+        "orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."],
+        "orgasm-held": ["{name} shudders right at the brink, and does not go over."]
+      };
+      LINES = {
+        "movement-block": [
+          "Your body simply stops listening to you.",
+          "You tell your legs to move. Nothing happens.",
+          "Somewhere far off you decide to move, and the message never arrives."
+        ],
+        "movement-release": [
+          "Control seeps back into your limbs.",
+          "Your body is yours again. You hadn't noticed it stopped being.",
+          "Something lets go of you, and you can move."
+        ],
+        "follow-block": [
+          "Being near them is where you belong. The thought of letting distance open is faintly unbearable.",
+          "Wherever they go, you go. It does not feel like a decision.",
+          "An invisible tether draws you to their side, and staying there is the only comfortable place to be."
+        ],
+        "follow-release": [
+          "The tether loosens. You can be your own distance from them again.",
+          "The pull to stay near fades, and where you stand is your own choice once more."
+        ],
+        // Apply-time: a possibility closing, with nothing reached for yet.
+        "clothing-block": [
+          "The idea of changing your clothes quietly stops being available.",
+          "Your clothes settle into being simply what you are wearing, not something you could alter.",
+          "Somewhere between you and your own buttons, a decision gets made without you."
+        ],
+        // Attempt-time: the moment you actually walk into it.
+        "clothing-blocked-attempt": [
+          "You reach for a fastening and forget what you were reaching for.",
+          "Your hands will not go near your clothes, and you stop wondering why.",
+          "The thought of changing slips away before you can hold on to it."
+        ],
+        "clothing-release": [
+          "You could change your clothes, if you wanted to. The idea is available again.",
+          "Whatever was standing between you and your clothes quietly isn't.",
+          "Your hands remember what they were for."
+        ],
+        kneel: [
+          "Your knees fold sweetly under you before you decide anything.",
+          "Down feels right, and something in you is quietly pleased to go there.",
+          "You are kneeling. You don't remember choosing to, and you like it here."
+        ],
+        stand: [
+          "You rise, without quite deciding to.",
+          "Something lifts you back onto your feet.",
+          "You are standing again. The floor lets you go."
+        ],
+        "kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
+        "legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
+        "legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
+        "all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
+        "lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
+        "hands-behind": ["Your hands find each other behind your back and stay clasped there."],
+        "arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
+        "elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
+        "arms-up": ["Your arms rise over your head and stay there, light and obedient."],
+        "arms-out": ["Your arms lift out to either side and hold, level and steady."],
+        "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
+        "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
+        "speech-block": [
+          "You go to answer and find there is nothing to answer with.",
+          "The words are there. The way out of your mouth is not.",
+          "Speaking stops seeming like something you know how to do."
+        ],
+        "speech-release": [
+          "Your voice is handed back to you.",
+          "The way to your own words opens up again.",
+          "You could speak now. The thought arrives whole this time."
+        ],
+        "hear-voice": [
+          "The room goes quiet around one voice. It's the only one that reaches you now.",
+          "Every other voice slides out of focus. One stays sharp, and it's the one that matters.",
+          "You stop listening to the room. There's only one voice worth hearing."
+        ],
+        "hear-name": [
+          "The room softens into murmur. Only your name cuts through it.",
+          "Voices blur together. If one says your name, you'll hear it.",
+          "Talk that isn't meant for you stops reaching you."
+        ],
+        "sight-dim": [
+          "The room dims, as if someone turned the lights down.",
+          "Your vision softens and greys at the edges.",
+          "Everything is a little harder to make out now."
+        ],
+        "sight-dark": [
+          "The dark closes in. You can barely make anything out.",
+          "Shapes blur into shadow. You can hardly see.",
+          "Most of the light slips away from your eyes."
+        ],
+        "sight-blind": [
+          "Everything goes black. Your eyes are open, and there is nothing to see.",
+          "The last of the light fades, and the darkness is complete.",
+          "You cannot see. The dark doesn't feel like something to fight."
+        ],
+        "sight-release": [
+          "Light seeps back in, and the room takes shape again.",
+          "Your vision clears.",
+          "You can see again."
+        ],
+        "sight-capped": ["The dark deepens, but not all the way. Some light stays with you."],
+        "hear-release": [
+          "The room's voices come back, one after another.",
+          "Sound fills back in around you. You can hear everyone again.",
+          "The murmur sharpens into words again, all of them."
+        ],
+        // Suppression flavor leans on absence rather than sensation — the point isn't that it
+        // feels different, it's that nothing arrives to be noticed in the first place.
+        "awareness-block": [
+          "Things are happening to you. None of them seem worth noticing.",
+          "Whatever is being done, it stops reaching you somewhere on the way.",
+          "You stop keeping track of what is being done to you. It was never important."
+        ],
+        "awareness-release": [
+          "You start noticing what's being done to you again.",
+          "The world reattaches itself to your body.",
+          "Details you had stopped collecting begin arriving again."
+        ],
+        // The per-category lines. Clothing and bondage had no wording of their own because they
+        // had no suggestion of their own — only touch did — and "you will not notice your
+        // clothing" landed on the broad line, which took whatever else was permitted along with
+        // it and said the broad thing. Same register as awareness-block: absence, not sensation.
+        "clothing-awareness-block": [
+          "What you are wearing stops being something you keep track of.",
+          "Clothes come and go. It does not seem to be your concern.",
+          "Whatever is on you is on you. You stop checking."
+        ],
+        "clothing-awareness-release": [
+          "You notice what you are wearing again.",
+          "Your clothes are yours to keep track of once more."
+        ],
+        "bondage-awareness-block": [
+          "Whatever holds you holds you. You stop noticing it being put there.",
+          "Rope and leather become part of the furniture.",
+          "Restraint arrives without an announcement."
+        ],
+        "bondage-awareness-release": [
+          "You notice what holds you again.",
+          "Every knot and buckle reports back."
+        ],
+        "touch-block": [
+          "Hands on you stop registering as anything at all.",
+          "You are being touched. The information simply doesn't arrive.",
+          "Touch happens somewhere far away from wherever you are."
+        ],
+        "touch-release": [
+          "You can feel where you're being touched again.",
+          "Your skin starts reporting back.",
+          "Touch reaches you again, arriving where it should."
+        ],
+        // Numbness is the sensation, not the knowing — so these describe a body that has gone
+        // quiet rather than attention that has wandered. The subject can still SEE they are
+        // being touched, which is the difference from touch-block above and is deliberate:
+        // watching it happen and feeling nothing is the better half of this.
+        "numb-block": [
+          "You can see it happening. Your body declines to have an opinion about it.",
+          "Hands move over you and land on nothing at all.",
+          "Somewhere between your skin and you, the message stops being delivered.",
+          "You are being touched, and it is happening to somebody else's body."
+        ],
+        "numb-release": [
+          "Your body comes back, all at once, and remembers what it was feeling.",
+          "Sensation returns to your skin like warmth to a cold hand.",
+          "You can feel again, and everything that was quiet is suddenly not."
+        ],
+        // Undressing is the most observable thing in the add-on — it changes the character
+        // everyone in the room is looking at. These read as the hands acting first and the
+        // intention arriving late, same register as the rest, but they are not secrets.
+        undress: [
+          "Your hands find the fastening before you've decided anything, and go willingly.",
+          "It comes off easy, and some warm, unhurried part of you is glad to be seen.",
+          "Taking it off feels like the obvious, pleasant thing to have been doing."
+        ],
+        "undress-all": [
+          "Your hands work without consulting you, unhurried, until there is nothing left to bare.",
+          "Piece by piece it goes, and none of it feels like a decision \u2014 only something easy and warm.",
+          "You undress the way you would sink into a habit \u2014 thorough, dreamy, glad to."
+        ],
+        "effect-failed": [
+          "The words reach you, but for once your body does not answer them.",
+          "Something tries to settle over you and slides off."
+        ],
+        "undress-bare": [
+          "Your hands go looking for something to take off and find nothing there.",
+          "There is nothing left to remove. Your hands settle again."
+        ],
+        "undress-blocked": [
+          "Your hands try, and something holds them where they are.",
+          "You go to undress and find you cannot \u2014 something else has that decision."
+        ],
+        // Deliberately worded like selftouch-frozen's third line, because it is the same fact:
+        // you were told to do something with your hands and your hands are not yours right now.
+        "undress-frozen": [
+          "Undressing would require moving, and you cannot move at all.",
+          "You are told to undress. Nothing of yours so much as shifts."
+        ],
+        // Deliberately says nothing about triggers, and never names one. The subject is not told
+        // what almost happened — that is the whole of what a trigger keeps back — only that
+        // something reached for them and did not arrive.
+        "trigger-ghost": [
+          "Something in you turns over, faintly, and settles again.",
+          "A word goes past you and almost catches. Almost.",
+          "For a moment you were about to do something. The moment goes."
+        ],
+        "trigger-reinforced": [
+          "Something already inside you is gone over again, and set more firmly.",
+          "You do not know what was just deepened. It was deepened all the same."
+        ],
+        deepen: [
+          "Your mind clouds further as you sink down into a deeper trance.",
+          "You slip further down. It is quieter here.",
+          "The words pull you lower, and you let them.",
+          "Another layer of you goes soft and still."
+        ],
+        "deepen-failed": [
+          "You drift for a moment, and settle back where you were.",
+          "The words wash over you without taking you any lower."
+        ],
+        "deepen-surface": [
+          "You push against it, and for once the pull gives. You come up a little, clearer.",
+          "You fight the words off and rise, a layer nearer the surface.",
+          "Something in you refuses. You drift upward, a little more yourself."
+        ],
+        "deepen-rise": [
+          "You push back, and rise a little. Not far, but it is yours.",
+          "You fight the pull and gain a little ground toward the surface.",
+          "Something in you digs in, and you come up a fraction."
+        ],
+        "deepen-woke": [
+          "You fight it all the way up, and break the surface. You are awake.",
+          "You refuse, and keep refusing, and suddenly you are clear-headed and awake."
+        ],
+        "selftouch-frozen": [
+          "Your hand doesn't move. Nothing of yours does.",
+          "You go to reach for yourself and find nothing answers.",
+          "Reaching would require moving, and you cannot move at all."
+        ],
+        "selftouch-blocked": [
+          "Your hands stay exactly where they are, however much you would like them not to.",
+          "You want to touch yourself \u2014 and your hands stay put, and the wanting only sharpens.",
+          "Touching yourself isn't among the things you're allowed right now, and the ache of that is its own reward."
+        ],
+        "selftouch-applied": [
+          "Reaching for yourself quietly stops being one of your options, and part of you thrills at that.",
+          "Something closes off between you and your own hands, and leaves the wanting nowhere to go.",
+          "You will not be touching yourself. The decision is already made, it was not yours, and you find you don't mind."
+        ],
+        // DW's wording, near enough: a restriction lands and the subject finds the not-knowing
+        // interesting rather than alarming. It has to stay vague — a trigger fires with no
+        // spoken instruction, so naming the part would hand them what the trigger does.
+        "restriction-settles": [
+          "You feel something close off. You are not sure what yet, and the not-knowing is oddly interesting.",
+          "A small door shuts somewhere in you. You will find out which one when you reach for it.",
+          "Something has been put out of your reach. You will discover what when your hands get there."
+        ],
+        "selftouch-part-release": [
+          "Your hands are your own again, all of you within reach.",
+          "Whatever was keeping you from yourself lets go."
+        ],
+        // Arousal flavor keeps the same register as the rest: the body reacts first and the
+        // subject finds out afterwards. Going DOWN is written as something being taken away
+        // rather than as relief, so no direction of this reads as the subject's own doing.
+        "arousal-none": [
+          "Whatever was building in you is simply put down somewhere you cannot reach.",
+          "The heat goes out of you. You don't remember wanting anything.",
+          "Your body cools, and takes the wanting with it."
+        ],
+        "arousal-light": [
+          "A slow warmth curls low in you and gets comfortable, like it means to stay.",
+          "A small heat starts up somewhere, uninvited and not unwelcome.",
+          "You catch yourself wanting, and you don't remember when that started."
+        ],
+        "arousal-high": [
+          "The wanting floods in all at once, and suddenly nothing in the room exists but how much you want it.",
+          "Your body goes suddenly, shamelessly desperate, and no part of that was your idea.",
+          "Heat climbs through you faster than you can have an opinion about it, and you stop trying to."
+        ],
+        "arousal-full": [
+          "You are right at the edge, trembling, and something is holding you there.",
+          "Everything in you is gathered and waiting, aching, one word from going over.",
+          "You are so close it hurts, and going the rest of the way is not up to you \u2014 and oh, you want it to be."
+        ],
+        "orgasm-force": [
+          "You go over, because you were told to, and the relief of not choosing is its own sweetness.",
+          "Your body obeys before you understand what it was asked, and it feels wonderful to.",
+          "It takes you, and you let it, because letting it was never the question."
+        ],
+        "orgasm-deny": [
+          "The way over closes quietly, and you accept that it is closed \u2014 even as you strain toward it.",
+          "You can get close, deliciously close, and no further, and you find you don't argue.",
+          "Finishing stops being one of the things available to you, and the wanting just pools and stays."
+        ],
+        "orgasm-allow": [
+          "The way over is open again, warm and waiting, whenever you're offered it.",
+          "Something unlocks low in you, eager, and you could finish now.",
+          "Whatever was standing in the way steps aside, and your body knows it at once."
+        ],
+        "orgasm-held": [
+          "You reach the very edge, and it will not let you over. You stay there, aching.",
+          "Everything tips toward release, and the way over stays shut.",
+          "You get right to the brink and hang there, as you were told you would."
+        ],
+        "orgasm-refused": [
+          "You strain for it, right to the edge, and something holds you back. Nothing gives.",
+          "You are told to go over, and you cannot \u2014 the wanting only builds with nowhere to go.",
+          "Your body reaches for it, finds the way shut, and hangs there aching."
+        ],
+        // The illusion's flavor has one job the others don't: it must not describe a CHANGE,
+        // because the subject is supposed to believe nothing has changed. So it reads as
+        // attention sliding off the question rather than as anything being done.
+        "illusion-block": [
+          "You stop wondering what you have on. You know what you have on.",
+          "Looking down settles nothing and you lose interest in looking again.",
+          "However you are dressed is however you are dressed. The question closes."
+        ],
+        "illusion-release": [
+          "You look down, properly this time, and see what is actually there.",
+          "Your eyes finally land on yourself, and the answer is not the one you were carrying.",
+          "Whatever was smoothing the question over lets go of it."
+        ],
+        // Deliberately plain rather than in-fiction: this one is a mismatch between the
+        // hypnotist's expectation and the player's own settings, and dressing that up as
+        // atmosphere would leave both of them confused about why nothing happened.
+        "arousal-unavailable": [
+          "Nothing reaches you there \u2014 your arousal meter is switched off in BC's preferences."
+        ],
+        // Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
+        "speech-blocked-attempt": [
+          "The words don't come.",
+          "Nothing comes out.",
+          "Your mouth doesn't cooperate.",
+          "The thought dissolves before it reaches your lips."
+        ]
+      };
     }
   });
 
@@ -650,1242 +1922,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/main.ts
-  var import_bondage_club_mod_sdk = __toESM(require_bcmodsdk());
-
-  // src/log.ts
-  var TAG = "[HypnosisAddon]";
-  var DEBUG_KEY = "ECHS_DEBUG";
-  function readDebugFlag() {
-    try {
-      return typeof localStorage !== "undefined" && localStorage.getItem(DEBUG_KEY) === "true";
-    } catch {
-      return false;
-    }
-  }
-  var debugFlag = readDebugFlag();
-  function isDebugFlagOn() {
-    return debugFlag;
-  }
-  function setDebugFlag(on) {
-    debugFlag = on;
-    try {
-      localStorage.setItem(DEBUG_KEY, on ? "true" : "false");
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function isDebugLogging() {
-    return debugFlag || inTestingRoom();
-  }
-  function log(...args) {
-    if (!isDebugLogging()) return;
-    console.debug(TAG, ...args);
-  }
-  function warn(...args) {
-    console.warn(TAG, ...args);
-  }
-  function info(...args) {
-    console.info(TAG, ...args);
-  }
-  var TESTING_ROOM = "hypno testing";
-  var FORCE_TESTING = false;
-  function isTestingMode() {
-    return FORCE_TESTING || inTestingRoom();
-  }
-  function inTestingRoom() {
-    try {
-      const name = typeof ChatRoomData !== "undefined" && ChatRoomData ? ChatRoomData.Name : null;
-      return typeof name === "string" && name.trim().toLowerCase() === TESTING_ROOM;
-    } catch {
-      return false;
-    }
-  }
-  var RELEASE_SUFFIX = "RC" ? ` ${"RC"}` : "";
-
-  // src/notify.ts
-  var roomVoice = () => true;
-  function setRoomVoice(fn) {
-    roomVoice = fn;
-  }
-  function tellPlayer(message) {
-    if (typeof ChatRoomSendLocal !== "function") return;
-    ChatRoomSendLocal(`[${message}]`);
-  }
-  function tellRoom(message) {
-    if (!roomVoice()) return;
-    if (typeof ChatRoomSendEmote !== "function" || typeof ServerPlayerIsInChatRoom !== "function") return;
-    if (!ServerPlayerIsInChatRoom()) return;
-    noteRoomLine(message);
-    try {
-      ChatRoomSendEmote(`**${message}`);
-    } catch (err) {
-      warn("could not emote to the room:", err);
-    }
-  }
-  var pendingLines = [];
-  var PENDING_MS = 1e4;
-  function noteRoomLine(message) {
-    const now = Date.now();
-    while (pendingLines.length && (now - pendingLines[0].at > PENDING_MS || pendingLines.length > 20)) pendingLines.shift();
-    pendingLines.push({ line: `**${message}`.trim(), at: now });
-  }
-  function fixRoomLine(content) {
-    if (typeof content !== "string") return content;
-    const i = pendingLines.findIndex((p) => p.line === content.trim() || p.line.slice(1) === content.trim());
-    if (i < 0) return content;
-    pendingLines.splice(i, 1);
-    if (!content.startsWith("**")) return content;
-    log("room line: another add-on skipped BC's star strip; took the extra '*' off");
-    return content.slice(1);
-  }
-  function installRoomLineGuard(modApi2) {
-    modApi2.hookFunction("ServerSend", 1e3, (args, next) => {
-      const [type, data] = args;
-      if (type !== "ChatRoomChat" || data?.Type !== "Emote" || typeof data?.Content !== "string") return next(args);
-      const fixed = fixRoomLine(data.Content);
-      return fixed === data.Content ? next(args) : next([type, { ...data, Content: fixed }]);
-    });
-  }
-  var PRONOUNS = {
-    SheHer: { their: "her", them: "her", themselves: "herself" },
-    HeHim: { their: "his", them: "him", themselves: "himself" },
-    TheyThem: { their: "their", them: "them", themselves: "themselves" },
-    ItIt: { their: "its", them: "it", themselves: "itself" }
-  };
-  function pronouns() {
-    const name = typeof Player?.GetPronouns === "function" ? Player.GetPronouns() : void 0;
-    return PRONOUNS[name] ?? PRONOUNS.TheyThem;
-  }
-  function fillTokens(template) {
-    const p = pronouns();
-    return template.replace(/\{name\}/g, String(Player?.Nickname || Player?.Name || "Someone")).replace(/\{their\}/g, p.their).replace(/\{them\}/g, p.them).replace(/\{themselves\}/g, p.themselves);
-  }
-
-  // src/messaging.ts
-  var HIDDEN_TAG = "HypnoMsg";
-  var handlers = /* @__PURE__ */ new Map();
-  function registerHiddenHandler(type, handler) {
-    handlers.set(type, handler);
-  }
-  function sendHiddenMessage(message, target) {
-    ServerSend("ChatRoomChat", {
-      Content: HIDDEN_TAG,
-      Type: "Hidden",
-      Target: target ?? null,
-      Dictionary: [{ message }]
-    });
-  }
-  function handleIncomingHidden(data) {
-    if (data?.Type === "Hidden" && data?.Content === HIDDEN_TAG && typeof data?.Sender === "number") {
-      const message = data?.Dictionary?.[0]?.message;
-      if (!message) return true;
-      const handler = handlers.get(message.type);
-      if (handler) {
-        handler(data.Sender, message);
-      } else {
-        log(`hidden message from ${data.Sender}:`, message);
-        tellPlayer(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
-      }
-      return true;
-    }
-    return false;
-  }
-
-  // src/effects.ts
-  var EMOTICON_ASSET_NAME = "Emoticon";
-  var MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
-  function findEmoticonItem(character) {
-    return character?.Appearance?.find((a) => a?.Asset?.Name === EMOTICON_ASSET_NAME);
-  }
-  function ensureEffectsAllowed() {
-    if (typeof Asset === "undefined" || !Array.isArray(Asset) || Asset.length === 0) return false;
-    const assets = Asset.filter((a) => a?.Name === EMOTICON_ASSET_NAME);
-    if (assets.length === 0) return false;
-    for (const asset of assets) {
-      asset.AllowEffect ?? (asset.AllowEffect = []);
-      for (const effect of MANAGED_EFFECTS) {
-        if (!asset.AllowEffect.includes(effect)) asset.AllowEffect.push(effect);
-      }
-    }
-    return true;
-  }
-  function installEffectAllowList() {
-    if (ensureEffectsAllowed()) {
-      log("Emoticon effect allow-list patched");
-      return;
-    }
-    let tries = 0;
-    const timer = setInterval(() => {
-      tries += 1;
-      if (ensureEffectsAllowed()) {
-        clearInterval(timer);
-        log(`Emoticon effect allow-list patched after ${tries} retries`);
-      } else if (tries >= 60) {
-        clearInterval(timer);
-        log("gave up patching Emoticon effect allow-list \u2014 BC assets never appeared");
-      }
-    }, 500);
-  }
-  var POSE_GROUPS = {
-    stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "AllFours", "Hogtied", "BaseLower"],
-    arms: ["BackCuffs", "BackBoxTie", "BackElbowTouch", "OverTheHead", "Yoked", "BaseUpper"]
-  };
-  var FULL_BODY_POSES = ["AllFours", "Hogtied"];
-  function poseGroupOf(pose) {
-    if (POSE_GROUPS.stance.includes(pose)) return "stance";
-    if (POSE_GROUPS.arms.includes(pose)) return "arms";
-    return null;
-  }
-  var ours = { stance: null, arms: null };
-  function currentPoses() {
-    const p = Player?.ActivePose;
-    if (Array.isArray(p)) return p.filter((x) => typeof x === "string");
-    return typeof p === "string" && p ? [p] : [];
-  }
-  function setSuggestedPose(pose, group = poseGroupOf(pose ?? "") ?? "stance") {
-    const before = currentPoses();
-    const otherGroup = group === "stance" ? "arms" : "stance";
-    const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
-    const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
-    ownPoseChange++;
-    if (liftOwnFreeze) refreshOwnEffects();
-    try {
-      if (pose !== null) {
-        CharacterSetActivePose(Player, pose);
-      } else {
-        CharacterSetActivePose(Player, null);
-        for (const p of keep) CharacterSetActivePose(Player, p);
-      }
-    } finally {
-      ownPoseChange--;
-      if (liftOwnFreeze) refreshOwnEffects();
-    }
-    noteHeldPose();
-    if (ServerPlayerIsInChatRoom()) {
-      ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
-    }
-    const after = currentPoses();
-    const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
-    const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
-    if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
-    if (landed) ours[group] = pose;
-    else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
-    return landed;
-  }
-  function suggestedPose() {
-    const now = currentPoses();
-    const list = ["stance", "arms"].map((g) => ours[g]).filter((p) => !!p && now.includes(p));
-    return list.length ? list : null;
-  }
-  function restoreSuggestedPose(saved) {
-    const list = Array.isArray(saved) ? saved : saved ? [saved] : [];
-    for (const p of list) if (typeof p === "string" && p) setSuggestedPose(p);
-  }
-  function clearSuggestedPose(group, only) {
-    const now = currentPoses();
-    for (const g of group ? [group] : ["stance", "arms"]) {
-      const p = ours[g];
-      if (only && p !== only) continue;
-      ours[g] = null;
-      if (p && now.includes(p)) setSuggestedPose(null, g);
-    }
-  }
-  var speechBlocked = false;
-  var screenFade = 0;
-  var TRANCE_FADE_OPACITY = 0.3;
-  var WALKING_FADE_OPACITY = 0.08;
-  var walkingTrance = false;
-  function setWalkingTrance(on) {
-    walkingTrance = on;
-  }
-  function isWalkingTrance() {
-    return walkingTrance;
-  }
-  function setSpeechBlocked(blocked) {
-    speechBlocked = blocked;
-  }
-  function isSpeechBlocked() {
-    return speechBlocked;
-  }
-  var forcedSpeaking = false;
-  function withForcedSpeech(send) {
-    forcedSpeaking = true;
-    try {
-      return send();
-    } finally {
-      forcedSpeaking = false;
-    }
-  }
-  function isForcedSpeech() {
-    return forcedSpeaking;
-  }
-  function setScreenFade(opacity) {
-    screenFade = Math.max(0, Math.min(1, opacity));
-  }
-  function getScreenFade() {
-    return screenFade;
-  }
-  var VEIL_WIDTH = 1003;
-  function drawTranceVeil() {
-    if (screenFade <= 0) return;
-    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
-    MainCanvas.save();
-    MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
-    MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
-    MainCanvas.restore();
-  }
-  var BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
-  var BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
-  var sightLevel = 0;
-  function setSight(level2) {
-    sightLevel = level2;
-    refreshOwnEffects();
-    return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level2;
-  }
-  function getSight() {
-    return sightLevel;
-  }
-  function clearTranceStates() {
-    speechBlocked = false;
-    screenFade = 0;
-    if (sightLevel) setSight(0);
-    walkingTrance = false;
-  }
-  var OWN_EFFECTS = /* @__PURE__ */ new Set();
-  var effectsHooked = false;
-  function reassertItemEffects() {
-    var _a;
-    if (!OWN_EFFECTS.size) return false;
-    const item = findEmoticonItem(Player);
-    if (!item) return false;
-    item.Property ?? (item.Property = {});
-    (_a = item.Property).Effect ?? (_a.Effect = []);
-    let restored = false;
-    for (const effect of OWN_EFFECTS) {
-      if (!item.Property.Effect.includes(effect)) {
-        item.Property.Effect.push(effect);
-        restored = true;
-      }
-    }
-    if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
-    return restored;
-  }
-  var ownPoseChange = 0;
-  var lastHeldNotice = 0;
-  var heldPose = null;
-  var HOLD_PRIORITY = 1e3;
-  function noteHeldPose() {
-    heldPose = isHeldStill() ? currentPoses() : null;
-  }
-  var HELD_NOTICE_GAP_MS = 3e4;
-  function isHeldStill() {
-    return heldByUs("Freeze");
-  }
-  function heldNotice(line) {
-    const now = Date.now();
-    if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
-    lastHeldNotice = now;
-    tellPlayer(line);
-  }
-  function samePoses(a, b) {
-    const norm = (p) => (Array.isArray(p) ? p : typeof p === "string" && p ? [p] : []).slice().sort().join(",");
-    return norm(a) === norm(b);
-  }
-  function poseWouldChange(pose, force) {
-    const now = currentPoses();
-    if (pose == null) return !now.every((p) => p.startsWith("Base"));
-    if (typeof pose !== "string") return true;
-    if (force) return !samePoses(now, [pose]);
-    return !now.includes(pose);
-  }
-  function restoreHeldPose(held) {
-    Player.ActivePose = held;
-    heldPose = held.slice();
-    if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-    if (ServerPlayerIsInChatRoom()) ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
-  }
-  function installEffectHooks(modApi2) {
-    const holdPose = (args, next) => {
-      const [C, pose, force] = args;
-      if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-        heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-        log("held still: refused a pose change");
-        return void 0;
-      }
-      return next(args);
-    };
-    modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, holdPose);
-    modApi2.hookFunction("CharacterSetActivePose", HOLD_PRIORITY, holdPose);
-    modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args, next) => {
-      const [data] = args;
-      const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
-      if (!aboutHer || !isHeldStill()) return next(args);
-      const held = currentPoses();
-      const result = next(args);
-      if (!samePoses(held, Player?.ActivePose)) {
-        restoreHeldPose(held);
-        heldNotice("Someone tries to move you, and your body will not be moved.");
-        log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
-      }
-      return result;
-    });
-    modApi2.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args, next) => {
-      const [data] = args;
-      if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
-      restoreHeldPose(currentPoses());
-      log("held still: refused an incoming pose update");
-      return void 0;
-    });
-    modApi2.hookFunction("PoseCanChangeUnaidedStatus", HOLD_PRIORITY, (args, next) => {
-      const [C, poseName] = args;
-      if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && !currentPoses().includes(poseName)) {
-        return typeof PoseChangeStatus !== "undefined" ? PoseChangeStatus.NEVER : 0;
-      }
-      return next(args);
-    });
-    modApi2.hookFunction("ServerSend", HOLD_PRIORITY, (args, next) => {
-      if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
-        return next(args);
-      }
-      Player.ActivePose = heldPose.slice();
-      if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-      heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-      log("held still: a pose change got past the hook; put the held pose back before it was sent");
-      return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
-    });
-    modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
-      const result = next(args);
-      const [C, groups] = args;
-      if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g) => BLIND_GROUPS.includes(g))) {
-        const withSight = Array.isArray(result) ? result.slice() : [];
-        withSight.push(BLIND_EFFECTS[sightLevel]);
-        return withSight;
-      }
-      if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
-      if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
-      if (ownPoseChange > 0 && OWN_EFFECTS.has("Freeze")) {
-        const realFreeze = (C.Appearance ?? []).some(
-          (i) => i?.Asset?.Group?.Name !== EMOTICON_ASSET_NAME && (i?.Property?.Effect?.includes("Freeze") || i?.Asset?.Effect?.includes("Freeze"))
-        );
-        const merged2 = (Array.isArray(result) ? result : []).filter((e) => realFreeze || e !== "Freeze");
-        for (const effect of OWN_EFFECTS) if (effect !== "Freeze" && !merged2.includes(effect)) merged2.push(effect);
-        return merged2;
-      }
-      const merged = Array.isArray(result) ? result.slice() : [];
-      for (const effect of OWN_EFFECTS) if (!merged.includes(effect)) merged.push(effect);
-      if (merged.includes("Freeze") && isHeldStill() && !merged.includes("MapImmobile")) merged.push("MapImmobile");
-      return merged;
-    });
-    modApi2.hookFunction("ChatRoomCharacterUpdate", 5, (args, next) => {
-      const [C] = args;
-      if (C === Player || C?.IsPlayer?.()) reassertItemEffects();
-      return next(args);
-    });
-    effectsHooked = true;
-  }
-  function applyEffect(effectName, character = Player) {
-    var _a, _b;
-    const item = findEmoticonItem(character);
-    if (character !== Player) {
-      if (!item) return false;
-      ensureEffectsAllowed();
-      item.Property ?? (item.Property = {});
-      (_a = item.Property).Effect ?? (_a.Effect = []);
-      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
-      return true;
-    }
-    OWN_EFFECTS.add(effectName);
-    ensureEffectsAllowed();
-    if (item) {
-      item.Property ?? (item.Property = {});
-      (_b = item.Property).Effect ?? (_b.Effect = []);
-      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
-    } else {
-      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
-    }
-    refreshOwnEffects();
-    if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
-    if (effectName === "Freeze") noteHeldPose();
-    const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
-    if (!landed) {
-      warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
-      OWN_EFFECTS.delete(effectName);
-      const effects = findEmoticonItem(Player)?.Property?.Effect;
-      const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
-      if (at !== -1) {
-        effects.splice(at, 1);
-        if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
-      }
-      return false;
-    }
-    return true;
-  }
-  function refreshOwnEffects() {
-    if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
-  }
-  function itemCarriesEffect(effectName) {
-    return !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
-  }
-  function hasOwnEffect(effectName) {
-    return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
-  }
-  function heldByUs(effectName) {
-    return OWN_EFFECTS.has(effectName);
-  }
-  function removeEffect(effectName, character = Player) {
-    const heldByUs2 = character === Player && OWN_EFFECTS.delete(effectName);
-    const item = findEmoticonItem(character);
-    const effects = item?.Property?.Effect;
-    const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
-    if (idx !== -1) effects.splice(idx, 1);
-    if (!heldByUs2 && idx === -1) return false;
-    if (character === Player) {
-      refreshOwnEffects();
-      if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
-      if (effectName === "Freeze") noteHeldPose();
-    }
-    return true;
-  }
-
-  // src/suppression.ts
-  var active = /* @__PURE__ */ new Set();
-  function setSuppressed(category, on) {
-    if (on) active.add(category);
-    else active.delete(category);
-  }
-  function isSuppressed(category) {
-    return active.has(category);
-  }
-  var numb = false;
-  function setNumb(on) {
-    numb = on;
-  }
-  function isNumb() {
-    return numb;
-  }
-  function clearAllSuppression() {
-    active.clear();
-    numb = false;
-    hearing = null;
-  }
-  var hearing = null;
-  function setHearing(mode) {
-    hearing = mode;
-  }
-  function hearingMode() {
-    return hearing;
-  }
-  function hearsLine(sender, namesHer) {
-    if (!hearing || sender === Player?.MemberNumber) return true;
-    return hearing.kind === "voice" ? sender === hearing.member : namesHer;
-  }
-  var unheard = /* @__PURE__ */ new WeakSet();
-  function markUnheard(data) {
-    unheard.add(data);
-  }
-  function oocOnly(text) {
-    const spans = [];
-    let depth = 0;
-    let current = "";
-    for (const ch of String(text ?? "")) {
-      if (ch === "(") {
-        if (depth === 0) current = "";
-        depth++;
-        current += ch;
-      } else if (ch === ")" && depth > 0) {
-        current += ch;
-        depth--;
-        if (depth === 0) spans.push(current);
-      } else if (depth > 0) {
-        current += ch;
-      }
-    }
-    if (depth > 0 && current.length > 1) spans.push(current);
-    return spans.join(" ").trim();
-  }
-  var OTHERS_FADE_GAP_MS = 6e4;
-  var lastOthersFade = 0;
-  function installHearingFilter(onHidden) {
-    if (typeof ChatRoomRegisterMessageHandler !== "function") {
-      warn("ChatRoomRegisterMessageHandler missing \u2014 hearing only one voice will not hide chat");
-      return;
-    }
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
-      Priority: 90,
-      Callback: (data, _sender, msg) => hearingFilter(data, msg, onHidden)
-    });
-    log("hearing filter registered at priority 90");
-  }
-  function hearingFilter(data, msg, onHidden) {
-    try {
-      if (!hearing || !data || !unheard.has(data)) return false;
-      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
-      const ooc = oocOnly(msg);
-      if (ooc) return { msg: ooc };
-      const now = Date.now();
-      if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
-        lastOthersFade = now;
-        onHidden(hearing);
-      }
-      return true;
-    } catch (err) {
-      warn("hearing filter failed:", err);
-      return false;
-    }
-  }
-  function resetOthersFade() {
-    lastOthersFade = 0;
-  }
-  function targetsPlayer(data, metadata) {
-    if (metadata?.TargetMemberNumber != null) return metadata.TargetMemberNumber === Player.MemberNumber;
-    return data?.Sender !== Player.MemberNumber && !!ChatRoomMessageInvolvesPlayer?.(data);
-  }
-  var ACTION_TAGS = {
-    ChangeClothes: "clothing"
-  };
-  function isItemSlot(group, isRestraint) {
-    return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
-  }
-  function classify(data, metadata) {
-    if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
-    if (data?.Type !== "Action") return null;
-    const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
-    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
-    if (assets.length > 0) return "clothing";
-    const group = metadata?.FocusGroup;
-    if (group) return isItemSlot(group) ? "bondage" : "clothing";
-    const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
-    return tag ?? null;
-  }
-  function installSuppression() {
-    if (typeof ChatRoomRegisterMessageHandler !== "function") {
-      warn("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
-      return;
-    }
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: hide suppressed categories (after arousal, before display)",
-      Priority: 320,
-      Callback: (data, _sender, _msg, metadata) => {
-        try {
-          if (active.size === 0) return false;
-          const category = classify(data, metadata);
-          if (!category || !active.has(category)) return false;
-          if (!targetsPlayer(data, metadata)) return false;
-          log(`suppressed ${category} message:`, data?.Content);
-          return true;
-        } catch (err) {
-          warn("suppression handler failed:", err);
-          return false;
-        }
-      }
-    });
-    log("suppression handler registered at priority 320");
-    installNumbness();
-  }
-  var AROUSAL_HANDLER = "Arousal processing";
-  function installNumbness() {
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: numbness (skip arousal, leave the message alone)",
-      Priority: 205,
-      Callback: (data, sender, _msg, metadata) => {
-        try {
-          if (!numb) return false;
-          if (!metadata?.ActivityName) return false;
-          if (metadata?.TargetMemberNumber !== Player?.MemberNumber) return false;
-          if (sender?.MemberNumber === Player?.MemberNumber) return false;
-          log(`numb to ${metadata.ActivityName} \u2014 skipping arousal`);
-          return { skip: (h) => h?.Description === AROUSAL_HANDLER };
-        } catch (err) {
-          warn("numbness handler failed:", err);
-          return false;
-        }
-      }
-    });
-    const handlers3 = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
-    if (handlers3 && !handlers3.some((h) => h?.Description === AROUSAL_HANDLER)) {
-      warn(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
-    }
-    log("numbness handler registered at priority 205");
-  }
-
-  // src/flavor.ts
-  var PUBLIC_LINES = {
-    "movement-block": [
-      "{name} goes very still, mid-motion.",
-      "{name} stops moving, as though the idea had gone."
-    ],
-    "movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
-    // Follow is observable in the same way going still is: nobody sees the compulsion land,
-    // but they see {name} close the distance and keep it closed. Naming {name} is required —
-    // room lines carry no sender.
-    "follow-block": [
-      "{name} stays close, unwilling to let any distance open.",
-      "{name} keeps near, as though on an invisible leash."
-    ],
-    "follow-release": ["{name} steps back, {their} own distance to keep again."],
-    "deepen-surface": [
-      "{name} stirs, surfacing a little.",
-      "{name}'s eyes flicker, a little more awake than before."
-    ],
-    "deepen-woke": [
-      "{name} blinks hard, and comes fully awake.",
-      "{name} shakes {their} head and surfaces, awake."
-    ],
-    deepen: [
-      "{name}'s head lolls forward as {their} breathing slows further.",
-      "{name} sags a little, sinking further away.",
-      "{name}'s eyelids grow heavier, {their} breathing slow and even."
-    ],
-    kneel: ["{name} melts down to {their} knees and looks quietly content to be there.", "{name} kneels, unhurried and unquestioning, as if it were the sweetest idea in the world."],
-    stand: ["{name} rises, without seeming to decide to.", "{name} is on {their} feet again."],
-    // Every pose is as visible as kneeling, so each gets a room line. The body moves first and
-    // the face stays soft, the same register as kneel.
-    "kneel-spread": ["{name} sinks to {their} knees and lets them drift apart, unhurried."],
-    "legs-spread": ["{name}'s feet slide apart until {their} stance is wide and open."],
-    "legs-closed": ["{name}'s feet draw together and stay there, neat and still."],
-    "all-fours": ["{name} goes down onto {their} hands and knees and stays there, content."],
-    "lie-down": ["{name} lowers {themselves} to the floor and lies there, face down and quiet."],
-    "hands-behind": ["{name}'s hands find each other behind {their} back and stay clasped there."],
-    "arms-behind": ["{name}'s arms fold behind {their} back, forearms laid neatly together."],
-    "elbows-behind": ["{name}'s elbows draw back behind {them} until they almost touch."],
-    "arms-up": ["{name}'s arms rise over {their} head and stay there."],
-    "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
-    "arms-relax": ["{name}'s arms drift down to {their} sides."],
-    "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
-    // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
-    // INTO one is observable, which is why the attempt keys carry the public lines and the
-    // apply keys mostly do not. Movement and posture are the exceptions: going still and
-    // kneeling are visible in themselves.
-    // Undressing is the most observable thing in the add-on — it changes the character
-    // everyone in the room is looking at, so unlike every other apply-time effect these get
-    // a public line rather than staying silent.
-    undress: [
-      "{name} slips out of something slow and dreamy, and doesn't seem to mind being watched.",
-      "{name}'s hands undo a fastening while {their} face stays somewhere soft and far away.",
-      "Something of {name}'s comes off, set aside without a glance, unhurried and unbothered."
-    ],
-    "undress-all": [
-      "{name} undresses steadily, piece after piece, dreamy and unhurried and glad to be seen.",
-      "{name} bares everything with the soft, unbothered thoroughness of a habit."
-    ],
-    "undress-blocked": [
-      "{name}'s hands move to undress and stop, held.",
-      "{name} starts to undo something and cannot make {their} hands finish."
-    ],
-    "undress-frozen": [
-      "{name} does not move to undress. {name} does not move at all."
-    ],
-    // A ghost is visible from outside as a hesitation and no more — which is exactly what it
-    // is. The room should not be able to tell it apart from someone losing their thread.
-    "trigger-ghost": [
-      "{name} pauses, as though half-hearing {their} own name.",
-      "Something goes across {name}'s face and does not stay."
-    ],
-    "clothing-blocked-attempt": [
-      "{name} reaches for {their} clothes, and {their} hand drifts away again.",
-      "{name} half-reaches for a fastening and seems to forget why."
-    ],
-    "selftouch-frozen": ["{name} twitches towards {themselves}, and nothing moves."],
-    "selftouch-blocked": [
-      "{name} starts to reach for {themselves}, aches to, and doesn't.",
-      "{name}'s hands stay exactly where they are, though {their} whole body plainly wishes otherwise."
-    ],
-    "speech-blocked-attempt": [
-      "{name} opens {their} mouth, and nothing comes out.",
-      "{name} tries to say something, and does not."
-    ],
-    "orgasm-refused": ["{name} strains for it, trembling, and something holds {them} back."],
-    "orgasm-held": ["{name} shudders right at the brink, and does not go over."]
-  };
-  var LINES = {
-    "movement-block": [
-      "Your body simply stops listening to you.",
-      "You tell your legs to move. Nothing happens.",
-      "Somewhere far off you decide to move, and the message never arrives."
-    ],
-    "movement-release": [
-      "Control seeps back into your limbs.",
-      "Your body is yours again. You hadn't noticed it stopped being.",
-      "Something lets go of you, and you can move."
-    ],
-    "follow-block": [
-      "Being near them is where you belong. The thought of letting distance open is faintly unbearable.",
-      "Wherever they go, you go. It does not feel like a decision.",
-      "An invisible tether draws you to their side, and staying there is the only comfortable place to be."
-    ],
-    "follow-release": [
-      "The tether loosens. You can be your own distance from them again.",
-      "The pull to stay near fades, and where you stand is your own choice once more."
-    ],
-    // Apply-time: a possibility closing, with nothing reached for yet.
-    "clothing-block": [
-      "The idea of changing your clothes quietly stops being available.",
-      "Your clothes settle into being simply what you are wearing, not something you could alter.",
-      "Somewhere between you and your own buttons, a decision gets made without you."
-    ],
-    // Attempt-time: the moment you actually walk into it.
-    "clothing-blocked-attempt": [
-      "You reach for a fastening and forget what you were reaching for.",
-      "Your hands will not go near your clothes, and you stop wondering why.",
-      "The thought of changing slips away before you can hold on to it."
-    ],
-    "clothing-release": [
-      "You could change your clothes, if you wanted to. The idea is available again.",
-      "Whatever was standing between you and your clothes quietly isn't.",
-      "Your hands remember what they were for."
-    ],
-    kneel: [
-      "Your knees fold sweetly under you before you decide anything.",
-      "Down feels right, and something in you is quietly pleased to go there.",
-      "You are kneeling. You don't remember choosing to, and you like it here."
-    ],
-    stand: [
-      "You rise, without quite deciding to.",
-      "Something lifts you back onto your feet.",
-      "You are standing again. The floor lets you go."
-    ],
-    "kneel-spread": ["You sink to your knees, and they drift apart on their own. It feels right to be open like this."],
-    "legs-spread": ["Your feet slide apart. You don't remember deciding to, and you stay that way."],
-    "legs-closed": ["Your feet draw together, and they stay there without being asked twice."],
-    "all-fours": ["Down onto your hands and knees, and it feels like where you belong."],
-    "lie-down": ["You lower yourself to the floor, face down, and the floor holds you."],
-    "hands-behind": ["Your hands find each other behind your back and stay clasped there."],
-    "arms-behind": ["Your arms fold behind your back, forearms together, as if tied."],
-    "elbows-behind": ["Your elbows draw back until they nearly touch. It pulls, and you let it."],
-    "arms-up": ["Your arms rise over your head and stay there, light and obedient."],
-    "arms-out": ["Your arms lift out to either side and hold, level and steady."],
-    "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
-    "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
-    "speech-block": [
-      "You go to answer and find there is nothing to answer with.",
-      "The words are there. The way out of your mouth is not.",
-      "Speaking stops seeming like something you know how to do."
-    ],
-    "speech-release": [
-      "Your voice is handed back to you.",
-      "The way to your own words opens up again.",
-      "You could speak now. The thought arrives whole this time."
-    ],
-    "hear-voice": [
-      "The room goes quiet around one voice. It's the only one that reaches you now.",
-      "Every other voice slides out of focus. One stays sharp, and it's the one that matters.",
-      "You stop listening to the room. There's only one voice worth hearing."
-    ],
-    "hear-name": [
-      "The room softens into murmur. Only your name cuts through it.",
-      "Voices blur together. If one says your name, you'll hear it.",
-      "Talk that isn't meant for you stops reaching you."
-    ],
-    "sight-dim": [
-      "The room dims, as if someone turned the lights down.",
-      "Your vision softens and greys at the edges.",
-      "Everything is a little harder to make out now."
-    ],
-    "sight-dark": [
-      "The dark closes in. You can barely make anything out.",
-      "Shapes blur into shadow. You can hardly see.",
-      "Most of the light slips away from your eyes."
-    ],
-    "sight-blind": [
-      "Everything goes black. Your eyes are open, and there is nothing to see.",
-      "The last of the light fades, and the darkness is complete.",
-      "You cannot see. The dark doesn't feel like something to fight."
-    ],
-    "sight-release": [
-      "Light seeps back in, and the room takes shape again.",
-      "Your vision clears.",
-      "You can see again."
-    ],
-    "sight-capped": ["The dark deepens, but not all the way. Some light stays with you."],
-    "hear-release": [
-      "The room's voices come back, one after another.",
-      "Sound fills back in around you. You can hear everyone again.",
-      "The murmur sharpens into words again, all of them."
-    ],
-    // Suppression flavor leans on absence rather than sensation — the point isn't that it
-    // feels different, it's that nothing arrives to be noticed in the first place.
-    "awareness-block": [
-      "Things are happening to you. None of them seem worth noticing.",
-      "Whatever is being done, it stops reaching you somewhere on the way.",
-      "You stop keeping track of what is being done to you. It was never important."
-    ],
-    "awareness-release": [
-      "You start noticing what's being done to you again.",
-      "The world reattaches itself to your body.",
-      "Details you had stopped collecting begin arriving again."
-    ],
-    // The per-category lines. Clothing and bondage had no wording of their own because they
-    // had no suggestion of their own — only touch did — and "you will not notice your
-    // clothing" landed on the broad line, which took whatever else was permitted along with
-    // it and said the broad thing. Same register as awareness-block: absence, not sensation.
-    "clothing-awareness-block": [
-      "What you are wearing stops being something you keep track of.",
-      "Clothes come and go. It does not seem to be your concern.",
-      "Whatever is on you is on you. You stop checking."
-    ],
-    "clothing-awareness-release": [
-      "You notice what you are wearing again.",
-      "Your clothes are yours to keep track of once more."
-    ],
-    "bondage-awareness-block": [
-      "Whatever holds you holds you. You stop noticing it being put there.",
-      "Rope and leather become part of the furniture.",
-      "Restraint arrives without an announcement."
-    ],
-    "bondage-awareness-release": [
-      "You notice what holds you again.",
-      "Every knot and buckle reports back."
-    ],
-    "touch-block": [
-      "Hands on you stop registering as anything at all.",
-      "You are being touched. The information simply doesn't arrive.",
-      "Touch happens somewhere far away from wherever you are."
-    ],
-    "touch-release": [
-      "You can feel where you're being touched again.",
-      "Your skin starts reporting back.",
-      "Touch reaches you again, arriving where it should."
-    ],
-    // Numbness is the sensation, not the knowing — so these describe a body that has gone
-    // quiet rather than attention that has wandered. The subject can still SEE they are
-    // being touched, which is the difference from touch-block above and is deliberate:
-    // watching it happen and feeling nothing is the better half of this.
-    "numb-block": [
-      "You can see it happening. Your body declines to have an opinion about it.",
-      "Hands move over you and land on nothing at all.",
-      "Somewhere between your skin and you, the message stops being delivered.",
-      "You are being touched, and it is happening to somebody else's body."
-    ],
-    "numb-release": [
-      "Your body comes back, all at once, and remembers what it was feeling.",
-      "Sensation returns to your skin like warmth to a cold hand.",
-      "You can feel again, and everything that was quiet is suddenly not."
-    ],
-    // Undressing is the most observable thing in the add-on — it changes the character
-    // everyone in the room is looking at. These read as the hands acting first and the
-    // intention arriving late, same register as the rest, but they are not secrets.
-    undress: [
-      "Your hands find the fastening before you've decided anything, and go willingly.",
-      "It comes off easy, and some warm, unhurried part of you is glad to be seen.",
-      "Taking it off feels like the obvious, pleasant thing to have been doing."
-    ],
-    "undress-all": [
-      "Your hands work without consulting you, unhurried, until there is nothing left to bare.",
-      "Piece by piece it goes, and none of it feels like a decision \u2014 only something easy and warm.",
-      "You undress the way you would sink into a habit \u2014 thorough, dreamy, glad to."
-    ],
-    "effect-failed": [
-      "The words reach you, but for once your body does not answer them.",
-      "Something tries to settle over you and slides off."
-    ],
-    "undress-bare": [
-      "Your hands go looking for something to take off and find nothing there.",
-      "There is nothing left to remove. Your hands settle again."
-    ],
-    "undress-blocked": [
-      "Your hands try, and something holds them where they are.",
-      "You go to undress and find you cannot \u2014 something else has that decision."
-    ],
-    // Deliberately worded like selftouch-frozen's third line, because it is the same fact:
-    // you were told to do something with your hands and your hands are not yours right now.
-    "undress-frozen": [
-      "Undressing would require moving, and you cannot move at all.",
-      "You are told to undress. Nothing of yours so much as shifts."
-    ],
-    // Deliberately says nothing about triggers, and never names one. The subject is not told
-    // what almost happened — that is the whole of what a trigger keeps back — only that
-    // something reached for them and did not arrive.
-    "trigger-ghost": [
-      "Something in you turns over, faintly, and settles again.",
-      "A word goes past you and almost catches. Almost.",
-      "For a moment you were about to do something. The moment goes."
-    ],
-    "trigger-reinforced": [
-      "Something already inside you is gone over again, and set more firmly.",
-      "You do not know what was just deepened. It was deepened all the same."
-    ],
-    deepen: [
-      "Your mind clouds further as you sink down into a deeper trance.",
-      "You slip further down. It is quieter here.",
-      "The words pull you lower, and you let them.",
-      "Another layer of you goes soft and still."
-    ],
-    "deepen-failed": [
-      "You drift for a moment, and settle back where you were.",
-      "The words wash over you without taking you any lower."
-    ],
-    "deepen-surface": [
-      "You push against it, and for once the pull gives. You come up a little, clearer.",
-      "You fight the words off and rise, a layer nearer the surface.",
-      "Something in you refuses. You drift upward, a little more yourself."
-    ],
-    "deepen-rise": [
-      "You push back, and rise a little. Not far, but it is yours.",
-      "You fight the pull and gain a little ground toward the surface.",
-      "Something in you digs in, and you come up a fraction."
-    ],
-    "deepen-woke": [
-      "You fight it all the way up, and break the surface. You are awake.",
-      "You refuse, and keep refusing, and suddenly you are clear-headed and awake."
-    ],
-    "selftouch-frozen": [
-      "Your hand doesn't move. Nothing of yours does.",
-      "You go to reach for yourself and find nothing answers.",
-      "Reaching would require moving, and you cannot move at all."
-    ],
-    "selftouch-blocked": [
-      "Your hands stay exactly where they are, however much you would like them not to.",
-      "You want to touch yourself \u2014 and your hands stay put, and the wanting only sharpens.",
-      "Touching yourself isn't among the things you're allowed right now, and the ache of that is its own reward."
-    ],
-    "selftouch-applied": [
-      "Reaching for yourself quietly stops being one of your options, and part of you thrills at that.",
-      "Something closes off between you and your own hands, and leaves the wanting nowhere to go.",
-      "You will not be touching yourself. The decision is already made, it was not yours, and you find you don't mind."
-    ],
-    // DW's wording, near enough: a restriction lands and the subject finds the not-knowing
-    // interesting rather than alarming. It has to stay vague — a trigger fires with no
-    // spoken instruction, so naming the part would hand them what the trigger does.
-    "restriction-settles": [
-      "You feel something close off. You are not sure what yet, and the not-knowing is oddly interesting.",
-      "A small door shuts somewhere in you. You will find out which one when you reach for it.",
-      "Something has been put out of your reach. You will discover what when your hands get there."
-    ],
-    "selftouch-part-release": [
-      "Your hands are your own again, all of you within reach.",
-      "Whatever was keeping you from yourself lets go."
-    ],
-    // Arousal flavor keeps the same register as the rest: the body reacts first and the
-    // subject finds out afterwards. Going DOWN is written as something being taken away
-    // rather than as relief, so no direction of this reads as the subject's own doing.
-    "arousal-none": [
-      "Whatever was building in you is simply put down somewhere you cannot reach.",
-      "The heat goes out of you. You don't remember wanting anything.",
-      "Your body cools, and takes the wanting with it."
-    ],
-    "arousal-light": [
-      "A slow warmth curls low in you and gets comfortable, like it means to stay.",
-      "A small heat starts up somewhere, uninvited and not unwelcome.",
-      "You catch yourself wanting, and you don't remember when that started."
-    ],
-    "arousal-high": [
-      "The wanting floods in all at once, and suddenly nothing in the room exists but how much you want it.",
-      "Your body goes suddenly, shamelessly desperate, and no part of that was your idea.",
-      "Heat climbs through you faster than you can have an opinion about it, and you stop trying to."
-    ],
-    "arousal-full": [
-      "You are right at the edge, trembling, and something is holding you there.",
-      "Everything in you is gathered and waiting, aching, one word from going over.",
-      "You are so close it hurts, and going the rest of the way is not up to you \u2014 and oh, you want it to be."
-    ],
-    "orgasm-force": [
-      "You go over, because you were told to, and the relief of not choosing is its own sweetness.",
-      "Your body obeys before you understand what it was asked, and it feels wonderful to.",
-      "It takes you, and you let it, because letting it was never the question."
-    ],
-    "orgasm-deny": [
-      "The way over closes quietly, and you accept that it is closed \u2014 even as you strain toward it.",
-      "You can get close, deliciously close, and no further, and you find you don't argue.",
-      "Finishing stops being one of the things available to you, and the wanting just pools and stays."
-    ],
-    "orgasm-allow": [
-      "The way over is open again, warm and waiting, whenever you're offered it.",
-      "Something unlocks low in you, eager, and you could finish now.",
-      "Whatever was standing in the way steps aside, and your body knows it at once."
-    ],
-    "orgasm-held": [
-      "You reach the very edge, and it will not let you over. You stay there, aching.",
-      "Everything tips toward release, and the way over stays shut.",
-      "You get right to the brink and hang there, as you were told you would."
-    ],
-    "orgasm-refused": [
-      "You strain for it, right to the edge, and something holds you back. Nothing gives.",
-      "You are told to go over, and you cannot \u2014 the wanting only builds with nowhere to go.",
-      "Your body reaches for it, finds the way shut, and hangs there aching."
-    ],
-    // The illusion's flavor has one job the others don't: it must not describe a CHANGE,
-    // because the subject is supposed to believe nothing has changed. So it reads as
-    // attention sliding off the question rather than as anything being done.
-    "illusion-block": [
-      "You stop wondering what you have on. You know what you have on.",
-      "Looking down settles nothing and you lose interest in looking again.",
-      "However you are dressed is however you are dressed. The question closes."
-    ],
-    "illusion-release": [
-      "You look down, properly this time, and see what is actually there.",
-      "Your eyes finally land on yourself, and the answer is not the one you were carrying.",
-      "Whatever was smoothing the question over lets go of it."
-    ],
-    // Deliberately plain rather than in-fiction: this one is a mismatch between the
-    // hypnotist's expectation and the player's own settings, and dressing that up as
-    // atmosphere would leave both of them confused about why nothing happened.
-    "arousal-unavailable": [
-      "Nothing reaches you there \u2014 your arousal meter is switched off in BC's preferences."
-    ],
-    // Short and repeatable — this one fires on every attempt, so it can't be a paragraph.
-    "speech-blocked-attempt": [
-      "The words don't come.",
-      "Nothing comes out.",
-      "Your mouth doesn't cooperate.",
-      "The thought dissolves before it reaches your lips."
-    ]
-  };
-  function pick(options) {
-    return options[Math.floor(Math.random() * options.length)];
-  }
-  function flavor(key) {
-    return pick(LINES[key]);
-  }
-  function publicFlavor(key) {
-    const options = PUBLIC_LINES[key];
-    return options ? fillTokens(pick(options)) : null;
-  }
-  function announce(key) {
-    tellPlayer(flavor(key));
-    const seen = publicFlavor(key);
-    if (seen) tellRoom(seen);
-  }
-  function announceOthersFade(kind) {
-    tellPlayer(
-      pick(
-        kind === "voice" ? [
-          "Other voices murmur somewhere far away. They don't matter.",
-          "Someone else is talking. The words slide past without landing.",
-          "There's talk at the edge of the room, soft and meaningless.",
-          "Voices drift by. None of them are the one you listen to.",
-          "The room hums with words that aren't for you."
-        ] : [
-          "Voices wash past. None of them are saying your name.",
-          "Words drift by, not meant for you, so they don't stay.",
-          "The room murmurs on. Nothing in it is yours to hear.",
-          "Someone speaks, but not to you, and it fades before it arrives."
-        ]
-      )
-    );
-  }
-  function announceBodyPartApplied(part) {
-    tellPlayer(
-      pick([
-        `Touching your ${part} stops being one of the things you are going to do.`,
-        `Your ${part} quietly moves out of your own reach.`,
-        `You will be leaving your ${part} alone now, and you do not mind.`
-      ])
-    );
-  }
-  function announceBodyPart(part) {
-    tellPlayer(bodyPartFlavor(part));
-    tellRoom(
-      fillTokens(
-        pick([
-          `{name} reaches for {their} ${part}, then seems to change {their} mind.`,
-          `{name} half-reaches for {their} ${part} and loses interest partway.`,
-          `{name}'s hands get as far as {their} ${part} before drifting away.`
-        ])
-      )
-    );
-  }
-  function bodyPartFlavor(part) {
-    const options = [
-      `Your hands move towards your ${part}, then you change your mind. You do not need to touch them.`,
-      `You reach for your ${part} and lose interest halfway there.`,
-      `Touching your ${part} stops seeming like something you were going to do.`,
-      `Your hands get as far as your ${part} before forgetting why.`
-    ];
-    return options[Math.floor(Math.random() * options.length)];
-  }
-  function announceInductionBegin() {
-    tellRoom(
-      fillTokens(
-        pick([
-          "{name}'s eyes soften and go distant as a low voice draws {their} attention in.",
-          "{name} goes quiet and still, {their} whole focus narrowing to a single voice.",
-          "{name}'s gaze drifts, catches, and settles on something the rest of the room cannot hear."
-        ])
-      )
-    );
-  }
-  function inductionMissLine() {
-    return pick([
-      "The attempt doesn't quite land.",
-      "Something in you almost gives, and then doesn't.",
-      "The pull thins out before it reaches anything.",
-      "For a moment it nearly catches. The moment passes.",
-      "You feel the shape of it, and stay exactly where you are."
-    ]);
-  }
-  function inductionSpentLine() {
-    return pick([
-      "The attempt fades. You feel clear-headed, and harder to reach for a while.",
-      "Whatever was reaching for you lets go. Your head is your own, and stays that way a while.",
-      "It ebbs away and does not come back. You feel steadier, and less easy to move."
-    ]);
-  }
-  function announceInductionMiss() {
-    tellRoom(
-      fillTokens(
-        pick([
-          "{name}'s eyes flutter, drift, and then find the room again.",
-          "Something almost settles over {name}, and then lifts.",
-          "{name} sways a little, blinks, and the distance goes out of {their} gaze.",
-          "For a breath {name} is somewhere else. Then {name} isn't."
-        ])
-      )
-    );
-  }
-  function hypnotistMissFlavor(subject) {
-    return pick([
-      `${subject} almost goes, and doesn't.`,
-      `Something in ${subject} nearly gives way, then settles.`,
-      `It reaches ${subject} and slides off.`,
-      `${subject} wavers for a moment, and stays put.`
-    ]);
-  }
-  function announceTranceEnter() {
-    tellRoom(
-      fillTokens(
-        pick([
-          "{name}'s eyes slip half-closed, and {their} whole body lets go.",
-          "Something in {name} gives way, and the tension goes out of {them}, soft and unhurried.",
-          "{name} sinks, breath slowing, wearing the loose calm of someone gone well under."
-        ])
-      )
-    );
-  }
-  function tranceExpiryLine() {
-    return pick([
-      "The trance thins out on its own, and you surface slowly.",
-      "Whatever was holding you under loosens by itself, and the room comes back.",
-      "The calm drains away of its own accord, and your head is your own again."
-    ]);
-  }
-  function announceTranceExpiry() {
-    tellRoom(
-      fillTokens(
-        pick([
-          "{name} blinks slowly, and the distance goes out of {their} eyes as the trance wears off.",
-          "The looseness drains out of {name} by degrees, and {name} surfaces on {their} own.",
-          "{name} stirs and draws a longer breath, the trance having quietly run its course."
-        ])
-      )
-    );
-  }
-  function hypnotistExpiryFlavor(subject) {
-    return pick([
-      `${subject} comes up out of the trance unprompted.`,
-      `The trance lets go of ${subject} by itself.`,
-      `${subject} drifts back up out of trance.`
-    ]);
-  }
-
-  // src/storage.ts
-  var import_lz_string = __toESM(require_lz_string());
-
   // src/curve.ts
-  var H_TRUST = 25;
-  var H_EXPERIENCE = 25;
   function valueFromCount(count, h) {
     const n = Math.max(0, count);
     return 100 * n / (n + h);
@@ -1894,10 +1931,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const v = Math.max(0, Math.min(99.9, value));
     return h * v / (100 - v);
   }
+  var H_TRUST, H_EXPERIENCE;
+  var init_curve = __esm({
+    "src/curve.ts"() {
+      H_TRUST = 25;
+      H_EXPERIENCE = 25;
+    }
+  });
 
   // src/away.ts
-  var AWAY_AFTER_MS = 10 * 6e4;
-  var lastActivity = Date.now();
   function noteActivity() {
     lastActivity = Date.now();
   }
@@ -1914,6 +1956,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log("away watch installed: 10 minutes without a key, click or touch counts as away");
   }
+  var AWAY_AFTER_MS, lastActivity;
+  var init_away = __esm({
+    "src/away.ts"() {
+      init_log();
+      AWAY_AFTER_MS = 10 * 6e4;
+      lastActivity = Date.now();
+    }
+  });
 
   // src/ladder.ts
   function characterFor(memberNumber) {
@@ -1941,15 +1991,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return false;
     }
   }
+  var init_ladder = __esm({
+    "src/ladder.ts"() {
+    }
+  });
 
   // src/trust.ts
-  var RATE_LIMIT_MS = 5 * 6e4;
-  var DIRECTED_MULTIPLIER = 2;
-  var INDUCTION_INTERACTIONS = 5;
-  var ATTEMPT_EXPERIENCE = 0.25;
-  var INDUCTION_EXPERIENCE = 1;
-  var DEEPEN_EXPERIENCE = 0.5;
-  var lastCounted = /* @__PURE__ */ new Map();
   function noteConversation(sender, senderName, directed) {
     if (!sender || typeof Player?.MemberNumber !== "number" || sender === Player.MemberNumber) return;
     const now = Date.now();
@@ -1986,11 +2033,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (hours < 24) return `${hours}h ago`;
     return `${Math.floor(hours / 24)}d ago`;
   }
-  var RELATIONS = {
-    friend: { kind: "friend", floor: 15, reaches: ["session"] },
-    lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },
-    owner: { kind: "owner", floor: 65, reaches: ["session", "arousal", "deceptive", "persistent"] }
-  };
   function characterFor2(memberId) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberId
@@ -2054,10 +2096,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     ];
   }
+  var RATE_LIMIT_MS, DIRECTED_MULTIPLIER, INDUCTION_INTERACTIONS, ATTEMPT_EXPERIENCE, INDUCTION_EXPERIENCE, DEEPEN_EXPERIENCE, lastCounted, RELATIONS;
+  var init_trust = __esm({
+    "src/trust.ts"() {
+      init_log();
+      init_storage();
+      init_curve();
+      RATE_LIMIT_MS = 5 * 6e4;
+      DIRECTED_MULTIPLIER = 2;
+      INDUCTION_INTERACTIONS = 5;
+      ATTEMPT_EXPERIENCE = 0.25;
+      INDUCTION_EXPERIENCE = 1;
+      DEEPEN_EXPERIENCE = 0.5;
+      lastCounted = /* @__PURE__ */ new Map();
+      RELATIONS = {
+        friend: { kind: "friend", floor: 15, reaches: ["session"] },
+        lover: { kind: "lover", floor: 30, reaches: ["session", "arousal"] },
+        owner: { kind: "owner", floor: 65, reaches: ["session", "arousal", "deceptive", "persistent"] }
+      };
+    }
+  });
 
   // src/timers.ts
-  var timers = /* @__PURE__ */ new Map();
-  var deadlines = /* @__PURE__ */ new Map();
   function scheduleTimer(key, delayMs, fn) {
     cancelTimer(key);
     deadlines.set(key, Date.now() + delayMs);
@@ -2081,7 +2141,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     deadlines.delete(key);
   }
-  var activeKeys = /* @__PURE__ */ new Set();
   function markActive(key) {
     activeKeys.add(key);
   }
@@ -2097,11 +2156,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     deadlines.clear();
     activeKeys.clear();
   }
+  var timers, deadlines, activeKeys;
+  var init_timers = __esm({
+    "src/timers.ts"() {
+      timers = /* @__PURE__ */ new Map();
+      deadlines = /* @__PURE__ */ new Map();
+      activeKeys = /* @__PURE__ */ new Set();
+    }
+  });
 
   // src/teardown.ts
-  var cleanups = /* @__PURE__ */ new Set();
-  var wakeListeners = /* @__PURE__ */ new Set();
-  var totalStopListeners = /* @__PURE__ */ new Set();
   function onWake(listener) {
     wakeListeners.add(listener);
   }
@@ -2135,15 +2199,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     }
   }
+  var cleanups, wakeListeners, totalStopListeners;
+  var init_teardown = __esm({
+    "src/teardown.ts"() {
+      cleanups = /* @__PURE__ */ new Set();
+      wakeListeners = /* @__PURE__ */ new Set();
+      totalStopListeners = /* @__PURE__ */ new Set();
+    }
+  });
 
   // src/depth.ts
-  var DEPTH_TIERS = [
-    { key: "drifting", label: "Drifting", min: 0, blurb: "barely under, still mostly present" },
-    { key: "yielding", label: "Yielding", min: 20, blurb: "noticeably affected, starting to respond" },
-    { key: "entranced", label: "Entranced", min: 40, blurb: "clearly hypnotized, suggestions land" },
-    { key: "deep", label: "Deep", min: 60, blurb: "will faded, limited self-direction" },
-    { key: "blank", label: "Blank", min: 80, blurb: "fully gone, complete receptivity" }
-  ];
   function tierOf(depth) {
     let found = "drifting";
     for (const t of DEPTH_TIERS) if (depth >= t.min) found = t.key;
@@ -2155,7 +2220,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function tierLabel(tier) {
     return DEPTH_TIERS.find((t) => t.key === tier)?.label ?? String(tier);
   }
-  var MAX_GATE_DEPTH = 99;
   function depthLabel(depth) {
     return `${depth} [${tierLabel(tierOf(depth))}]`;
   }
@@ -2164,12 +2228,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!Number.isFinite(n)) return null;
     return Math.min(MAX_GATE_DEPTH, Math.max(0, Math.round(n)));
   }
-  var CHEMICAL_SCOPES = [
-    { key: "both", label: "Arousal + drugs" },
-    { key: "arousal", label: "Arousal only" },
-    { key: "drugs", label: "Drugs only" },
-    { key: "none", label: "Neither" }
-  ];
   function nextScope(scope) {
     const at = CHEMICAL_SCOPES.findIndex((s) => s.key === scope);
     return CHEMICAL_SCOPES[(at + 1) % CHEMICAL_SCOPES.length].key;
@@ -2198,8 +2256,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
   }
-  var depthFull = 0;
-  var depthEarned = 0;
   function setCurrentDepths(full, earned) {
     depthFull = full;
     depthEarned = Math.min(full, earned);
@@ -2214,35 +2270,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function currentDepthEarned() {
     return depthEarned;
   }
-  var DEPTH_GATES = [
-    // Mood: noticing less is the shallowest thing hypnosis does.
-    { key: "suppressClothing", label: "Not noticing clothing changes", depth: 0, earnedOnly: false },
-    { key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
-    { key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
-    // Behavioural, session-only.
-    { key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
-    { key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
-    { key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
-    { key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
-    { key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
-    { key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
-    // Deeper, still session-only.
-    { key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
-    // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
-    { key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
-    { key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
-    { key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
-    { key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
-    { key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
-    // The earned-only three: two outlive the session, one lies to the subject.
-    { key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
-    { key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
-    { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
-  ];
   function gateFor(key) {
     return DEPTH_GATES.find((g) => g.key === key);
   }
-  var CHEMICAL_TOGGLEABLE = /* @__PURE__ */ new Set(["illusionControl", "triggerControl"]);
   function isChemicalToggleable(key) {
     const g = gateFor(key);
     return !!g && g.earnedOnly && CHEMICAL_TOGGLEABLE.has(key);
@@ -2277,19 +2307,56 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const have = Math.floor(earnedGate ? earned : full);
     return `needs ${depthLabel(requiredDepth(key))}, at ${depthLabel(have)}${earnedGate ? " earned \u2014 arousal does not count toward this one" : ""}`;
   }
+  var DEPTH_TIERS, MAX_GATE_DEPTH, CHEMICAL_SCOPES, depthFull, depthEarned, DEPTH_GATES, CHEMICAL_TOGGLEABLE;
+  var init_depth = __esm({
+    "src/depth.ts"() {
+      init_storage();
+      DEPTH_TIERS = [
+        { key: "drifting", label: "Drifting", min: 0, blurb: "barely under, still mostly present" },
+        { key: "yielding", label: "Yielding", min: 20, blurb: "noticeably affected, starting to respond" },
+        { key: "entranced", label: "Entranced", min: 40, blurb: "clearly hypnotized, suggestions land" },
+        { key: "deep", label: "Deep", min: 60, blurb: "will faded, limited self-direction" },
+        { key: "blank", label: "Blank", min: 80, blurb: "fully gone, complete receptivity" }
+      ];
+      MAX_GATE_DEPTH = 99;
+      CHEMICAL_SCOPES = [
+        { key: "both", label: "Arousal + drugs" },
+        { key: "arousal", label: "Arousal only" },
+        { key: "drugs", label: "Drugs only" },
+        { key: "none", label: "Neither" }
+      ];
+      depthFull = 0;
+      depthEarned = 0;
+      DEPTH_GATES = [
+        // Mood: noticing less is the shallowest thing hypnosis does.
+        { key: "suppressClothing", label: "Not noticing clothing changes", depth: 0, earnedOnly: false },
+        { key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
+        { key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
+        // Behavioural, session-only.
+        { key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
+        { key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
+        { key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
+        { key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
+        { key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
+        { key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
+        // Deeper, still session-only.
+        { key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
+        // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
+        { key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
+        { key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
+        { key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
+        { key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
+        { key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
+        // The earned-only three: two outlive the session, one lies to the subject.
+        { key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
+        { key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
+        { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
+      ];
+      CHEMICAL_TOGGLEABLE = /* @__PURE__ */ new Set(["illusionControl", "triggerControl"]);
+    }
+  });
 
   // src/drugs.ts
-  var DIRECTION = { relax: 1, stimulate: -1 };
-  var DRINK_DOSE = 15;
-  var DRINK_CAP = 40;
-  var SMOKE_DOSE = 3;
-  var SMOKE_CAP = 20;
-  var DECAY_PER_MINUTE = 1;
-  var SMOKE_TICK_MS = 6e4;
-  var TAG2 = /\[\s*echs\s*:\s*([a-z]+)\s*\]/gi;
-  var level = 0;
-  var settledAt = 0;
-  var smoking = null;
   function craftText(craft) {
     if (!craft) return "";
     let description = typeof craft.Description === "string" ? craft.Description : "";
@@ -2328,22 +2395,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (toward < cap) level = dir * Math.min(cap, toward + amount);
     return level;
   }
-  var stubbedOut = false;
   function clearDrugs() {
     level = 0;
     settledAt = 0;
     smoking = null;
     stubbedOut = false;
   }
-  onTotalStop(() => {
-    const lit = smoking;
-    clearDrugs();
-    stubbedOut = !!lit;
-  });
-  var FEEL = {
-    relax: "A warm looseness spreads through you, and your guard slips a little.",
-    stimulate: "A sharp, buzzing clarity sets in. Your mind feels harder to slip past."
-  };
   function off(kind, what) {
     return `The [echs:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
   }
@@ -2425,19 +2482,44 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, SMOKE_TICK_MS);
     log("drinks and cigarettes installed");
   }
+  var DIRECTION, DRINK_DOSE, DRINK_CAP, SMOKE_DOSE, SMOKE_CAP, DECAY_PER_MINUTE, SMOKE_TICK_MS, TAG2, level, settledAt, smoking, stubbedOut, FEEL;
+  var init_drugs = __esm({
+    "src/drugs.ts"() {
+      init_log();
+      init_notify();
+      init_storage();
+      init_depth();
+      init_teardown();
+      DIRECTION = { relax: 1, stimulate: -1 };
+      DRINK_DOSE = 15;
+      DRINK_CAP = 40;
+      SMOKE_DOSE = 3;
+      SMOKE_CAP = 20;
+      DECAY_PER_MINUTE = 1;
+      SMOKE_TICK_MS = 6e4;
+      TAG2 = /\[\s*echs\s*:\s*([a-z]+)\s*\]/gi;
+      level = 0;
+      settledAt = 0;
+      smoking = null;
+      stubbedOut = false;
+      onTotalStop(() => {
+        const lit = smoking;
+        clearDrugs();
+        stubbedOut = !!lit;
+      });
+      FEEL = {
+        relax: "A warm looseness spreads through you, and your guard slips a little.",
+        stimulate: "A sharp, buzzing clarity sets in. Your mind feels harder to slip past."
+      };
+    }
+  });
 
   // src/illusion.ts
-  var SHADOW_ID = "HypnosisAddonIllusion";
-  var NAME_FIELDS = ["Name", "Nickname", "LabelColor"];
-  var COSMETIC_GROUPS = /* @__PURE__ */ new Set(["EyeShadow", "Decals"]);
   function isWornGroup(group) {
     if (!group) return false;
     if (COSMETIC_GROUPS.has(group.Name)) return false;
     return group.Clothing === true || group.Category === "Item";
   }
-  var shadow = null;
-  var frozen = null;
-  var lastSignature = "";
   function isIllusionActive() {
     return frozen !== null;
   }
@@ -2569,14 +2651,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     log("clothing illusion hook installed on DrawCharacter");
   }
+  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature;
+  var init_illusion = __esm({
+    "src/illusion.ts"() {
+      init_log();
+      SHADOW_ID = "HypnosisAddonIllusion";
+      NAME_FIELDS = ["Name", "Nickname", "LabelColor"];
+      COSMETIC_GROUPS = /* @__PURE__ */ new Set(["EyeShadow", "Decals"]);
+      shadow = null;
+      frozen = null;
+      lastSignature = "";
+    }
+  });
 
   // src/arousal.ts
-  var AROUSAL_LEVELS = {
-    none: 0,
-    light: 30,
-    high: 70,
-    full: 95
-  };
   function arousalAvailable() {
     const settings = Player?.ArousalSettings;
     return !!settings && settings.Active !== "Inactive";
@@ -2621,18 +2709,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
     deniedByUs = false;
     removeEffect("DenialMode");
   }
-  var deniedByUs = false;
   function orgasmDeniedByUs() {
     return deniedByUs || heldByUs("DenialMode");
   }
   function denialCarrierLost() {
     return deniedByUs && !itemCarriesEffect("DenialMode");
   }
+  var AROUSAL_LEVELS, deniedByUs;
+  var init_arousal = __esm({
+    "src/arousal.ts"() {
+      init_log();
+      init_effects();
+      AROUSAL_LEVELS = {
+        none: 0,
+        light: 30,
+        high: 70,
+        full: 95
+      };
+      deniedByUs = false;
+    }
+  });
 
   // src/follow.ts
-  var LEASH_EFFECT = "Leash";
-  var followActive = false;
-  var followTarget = null;
   function applyFollow(leader) {
     followActive = true;
     followTarget = leader;
@@ -2654,7 +2752,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     followTarget = null;
     if (had) log("follow compulsion off");
   }
-  var clearFollow = releaseFollow;
   function installFollow(modApi2) {
     modApi2.hookFunction("ChatRoomDoHoldLeash", 10, (args, next) => {
       const sender = args?.[0];
@@ -2671,14 +2768,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return next(args);
     });
   }
+  var LEASH_EFFECT, followActive, followTarget, clearFollow;
+  var init_follow = __esm({
+    "src/follow.ts"() {
+      init_log();
+      init_effects();
+      LEASH_EFFECT = "Leash";
+      followActive = false;
+      followTarget = null;
+      clearFollow = releaseFollow;
+    }
+  });
 
   // src/recovery.ts
-  var RECOVERY_WINDOW_MS = 5 * 6e4;
-  var WAIT_POLL_MS = 3e3;
-  var STARTUP_POLL_MS = 250;
-  var NO_ROOM_FALLBACK_MS = 2e4;
-  var GIVE_UP_MS = 12e4;
-  var OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
   function stateKey() {
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `HypnosisAddon_Session_${member}` : null;
@@ -2788,13 +2890,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const within = Date.now() - (saved.savedAt || 0) <= RECOVERY_WINDOW_MS;
     return `saved for reconnect: ${age}s old (${within ? "inside" : "PAST"} the ${RECOVERY_WINDOW_MS / 6e4}-minute window), hypnotist ${saved.hypnotistName || saved.hypnotistId}, depth ${saved.depth}, ${saved.triggers?.length ?? 0} trigger(s), ${saved.carried?.length ?? 0} carried${isWaitingForHypnotist() ? " \u2014 WAITING for them to come back" : ""}`;
   }
-  var handlers2 = null;
-  var waitTimer = null;
   function registerRecoveryHandlers(h) {
     handlers2 = h;
   }
-  var triggerSnapshot = null;
-  var triggerRestore = null;
   function registerTriggerRecovery(snapshot, restore) {
     triggerSnapshot = snapshot;
     triggerRestore = restore;
@@ -2962,20 +3060,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isWaitingForHypnotist() {
     return waitTimer !== null;
   }
+  var RECOVERY_WINDOW_MS, WAIT_POLL_MS, STARTUP_POLL_MS, NO_ROOM_FALLBACK_MS, GIVE_UP_MS, OUR_EFFECTS, handlers2, waitTimer, triggerSnapshot, triggerRestore;
+  var init_recovery = __esm({
+    "src/recovery.ts"() {
+      init_log();
+      init_notify();
+      init_storage();
+      init_effects();
+      init_suppression();
+      init_selftouch();
+      init_illusion();
+      init_arousal();
+      init_follow();
+      RECOVERY_WINDOW_MS = 5 * 6e4;
+      WAIT_POLL_MS = 3e3;
+      STARTUP_POLL_MS = 250;
+      NO_ROOM_FALLBACK_MS = 2e4;
+      GIVE_UP_MS = 12e4;
+      OUR_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
+      handlers2 = null;
+      waitTimer = null;
+      triggerSnapshot = null;
+      triggerRestore = null;
+    }
+  });
 
   // src/carry.ts
-  var MAX_CARRIED = 8;
-  var TIMER_KEY = "carry-forward";
-  var carrier = null;
-  var carrierName = "";
-  var ids = [];
-  var reapplyOne = null;
-  var undoOne = null;
   function registerCarryHandlers(reapply, undo) {
     reapplyOne = reapply;
     undoOne = undo;
   }
-  var applied = [];
   function noteApplied(id) {
     const at = applied.indexOf(id);
     if (at !== -1) applied.splice(at, 1);
@@ -3116,43 +3230,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     carrierName = "";
     return true;
   }
+  var MAX_CARRIED, TIMER_KEY, carrier, carrierName, ids, reapplyOne, undoOne, applied;
+  var init_carry = __esm({
+    "src/carry.ts"() {
+      init_log();
+      init_notify();
+      init_storage();
+      init_depth();
+      init_timers();
+      MAX_CARRIED = 8;
+      TIMER_KEY = "carry-forward";
+      carrier = null;
+      carrierName = "";
+      ids = [];
+      reapplyOne = null;
+      undoOne = null;
+      applied = [];
+    }
+  });
 
   // src/session.ts
-  var PROMPT_TIMEOUT_MS = 6e4;
-  var INDUCTION_WINDOW_MS = 6e4;
-  var maxAttempts = () => getMaxAttempts();
-  var COOLDOWN_MS = 10 * 6e4;
-  var SESSION_TIMEOUT_MS = 30 * 6e4;
-  var TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
-  var RESISTANCE_FLOOR = 5;
-  var CHANCE_CEILING = 95;
-  var EXPERIENCE_WEIGHT = 0.2;
-  var STRANGER_CEILING = 30;
-  var AROUSAL_ACCESS_WEIGHT = 0.25;
-  var SKILL_ATTEMPT_CREDIT = 0.25;
-  var SKILL_SUCCESS_CREDIT = 1;
-  var SELF_WAKE_MAX_DEPTH = 40;
-  var CHOICE_MODIFIER = { agree: 25, ignore: 0, fight: -25 };
-  var TRANCE_ABSENCE_GRACE_MS = RECOVERY_WINDOW_MS;
-  var INDUCTION_ABSENCE_GRACE_MS = 3e4;
-  var PRESENCE_POLL_MS = 3e3;
-  var RELATION_DEPTH_FLOOR = {
-    friend: 0,
-    lover: 40,
-    // Entranced — arousal, always
-    owner: 60
-    // Deep — the illusion and triggers, always; Blank still has to be earned
-  };
-  var STANCE_DEPTH = { agree: 20, ignore: 0, fight: -20 };
-  var DEPTH_TRUST_WEIGHT = 0.5;
-  var DEPTH_RELATION_WEIGHT = 0.5;
-  var DEPTH_SKILL_WEIGHT = 0.2;
-  var DEPTH_AROUSAL_WEIGHT = 0.15;
-  var TRUST_DEPTH_FLOOR_WEIGHT = 0.5;
-  var LANDED_DEPTH_MAX = 95;
-  var RP_BONUS_PER_LINE = 5;
-  var RP_BONUS_CAP = 15;
-  var RP_MIN_LENGTH = 15;
   function freshSession() {
     return {
       phase: "Idle",
@@ -3174,13 +3271,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       honouredSkill: 0
     };
   }
-  var session = freshSession();
-  var promptTimer = null;
-  var windowTimer = null;
-  var sessionTimer = null;
-  var cooldownTimer = null;
-  var hypnotistGoneSince = 0;
-  var presenceTimer = null;
   function clearTimers() {
     for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
     promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
@@ -3217,9 +3307,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (depth < 60) return "deeply under";
     return "very deep";
   }
-  var sessionEndsAt = 0;
-  var PERSIST_HEARTBEAT_MS = 5e3;
-  var persistTimer = null;
   function stopPersistHeartbeat() {
     if (persistTimer) clearInterval(persistTimer);
     persistTimer = null;
@@ -3342,9 +3429,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function effectiveAccess(memberId) {
     return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + chemicalLevel() * AROUSAL_ACCESS_WEIGHT;
   }
-  var TRUST_GIFT_MS = 5 * 6e4;
-  var TRUST_GIFT_FLOOR = 65;
-  var trustGift = null;
   function trustGiftWaiting(memberId) {
     return !!trustGift && trustGift.memberId === memberId && !trustGift.spentOn && Date.now() < trustGift.until;
   }
@@ -3387,7 +3471,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return `You trust ${name}. If they reach for you in the next ${TRUST_GIFT_MS / 6e4} minutes, you will go along with it without being asked.`;
   }
-  var TRUST_LINE = /\bi (?:really |truly |completely |fully |totally |do |still )?trust you\b/;
   function noticeTrustLine(text, whisperTo) {
     const t = text.toLowerCase().replace(/[‘’]/g, "'");
     if (!TRUST_LINE.test(t)) return null;
@@ -3426,9 +3509,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const full = at(b.full);
     return { full, earned: Math.max(0, Math.min(full, at(b.earned))) };
   }
-  var NO_SKILL = { additive: 0, fightFloor: 0 };
-  var SKILL_ADDITIVE_WEIGHT = 0.35;
-  var SKILL_FIGHT_FLOOR_WEIGHT = 0.25;
   function currentSkillTerms(earnedOnly) {
     if (earnedOnly) return NO_SKILL;
     const v = session.honouredSkill;
@@ -3702,27 +3782,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`dropped into trance by ${hypnotistId}'s trigger, depth ${session.depth}/${session.depthEarned}`);
     return null;
   }
-  var DEEPEN_COOLDOWN_MS = 6e4;
-  var DEEPEN_TIME_PER_MINUTE = 2;
-  var DEEPEN_TIME_MAX = 20;
-  var DEEPEN_MIN = 10;
-  var DEEPEN_MAX = 95;
-  var TIER_ORDER = ["drifting", "yielding", "entranced", "deep", "blank"];
-  var DEEPEN_BASE = 40;
-  var DEEPEN_TRUST_WEIGHT = 0.3;
-  var DEEPEN_SKILL_WEIGHT = 0.25;
-  var DEEPEN_AROUSAL_WEIGHT = 0.15;
-  var DEEPEN_EXPERIENCE_WEIGHT = 0.15;
-  var DEEPEN_DEPTH_WEIGHT = 0.3;
-  var STANCE_DEEPEN = { agree: 20, ignore: 0, fight: -25 };
-  var DEEPEN_STEPS = [
-    [40, 15, 25],
-    [70, 10, 15],
-    [Infinity, 5, 10]
-  ];
-  var DEEPEN_TRUST_SYNERGY_AT = 60;
-  var DEEPEN_TRUST_SYNERGY = 5;
-  var struggleReporter = null;
   function registerStruggleReporter(fn) {
     struggleReporter = fn;
   }
@@ -3742,19 +3801,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function between(lo, hi) {
     return lo + Math.floor(Math.random() * (hi - lo + 1));
   }
-  var SURFACE_BASE = { drifting: 55, yielding: 40, entranced: 28, deep: 18, blank: 10 };
-  var SURFACE_EXPERIENCE_WEIGHT = 0.35;
-  var SURFACE_SKILL_WEIGHT = 0.25;
-  var SURFACE_TRUST_WEIGHT = 0.15;
-  var SURFACE_AROUSAL_WEIGHT = 0.2;
-  var SURFACE_MIN = 3;
-  var SURFACE_MAX = 75;
-  var SURFACE_DROPS = [
-    [40, 20, 30],
-    [60, 10, 15],
-    [Infinity, 5, 10]
-  ];
-  var STRUGGLE_COOLDOWN_MS = 6e4;
   function surfaceChance(hypnotistId) {
     const raw = SURFACE_BASE[tierOf(session.depth)] + experienceValue() * SURFACE_EXPERIENCE_WEIGHT - session.honouredSkill * SURFACE_SKILL_WEIGHT - accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT - chemicalLevel() * SURFACE_AROUSAL_WEIGHT;
     return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
@@ -4107,7 +4153,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isSessionActiveWith(memberNumber) {
     return session.phase === "Hypnotized" && session.hypnotistId === memberNumber;
   }
-  var views = /* @__PURE__ */ new Map();
   function getSessionView(memberNumber) {
     return views.get(memberNumber);
   }
@@ -4327,54 +4372,128 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
     });
   }
+  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, SESSION_TIMEOUT_MS, TIMEOUT_MINUTES, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var init_session = __esm({
+    "src/session.ts"() {
+      init_log();
+      init_notify();
+      init_flavor();
+      init_messaging();
+      init_storage();
+      init_away();
+      init_ladder();
+      init_trust();
+      init_timers();
+      init_teardown();
+      init_drugs();
+      init_depth();
+      init_recovery();
+      init_suppression();
+      init_selftouch();
+      init_arousal();
+      init_illusion();
+      init_carry();
+      init_effects();
+      init_follow();
+      PROMPT_TIMEOUT_MS = 6e4;
+      INDUCTION_WINDOW_MS = 6e4;
+      maxAttempts = () => getMaxAttempts();
+      COOLDOWN_MS = 10 * 6e4;
+      SESSION_TIMEOUT_MS = 30 * 6e4;
+      TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
+      RESISTANCE_FLOOR = 5;
+      CHANCE_CEILING = 95;
+      EXPERIENCE_WEIGHT = 0.2;
+      STRANGER_CEILING = 30;
+      AROUSAL_ACCESS_WEIGHT = 0.25;
+      SKILL_ATTEMPT_CREDIT = 0.25;
+      SKILL_SUCCESS_CREDIT = 1;
+      SELF_WAKE_MAX_DEPTH = 40;
+      CHOICE_MODIFIER = { agree: 25, ignore: 0, fight: -25 };
+      TRANCE_ABSENCE_GRACE_MS = RECOVERY_WINDOW_MS;
+      INDUCTION_ABSENCE_GRACE_MS = 3e4;
+      PRESENCE_POLL_MS = 3e3;
+      RELATION_DEPTH_FLOOR = {
+        friend: 0,
+        lover: 40,
+        // Entranced — arousal, always
+        owner: 60
+        // Deep — the illusion and triggers, always; Blank still has to be earned
+      };
+      STANCE_DEPTH = { agree: 20, ignore: 0, fight: -20 };
+      DEPTH_TRUST_WEIGHT = 0.5;
+      DEPTH_RELATION_WEIGHT = 0.5;
+      DEPTH_SKILL_WEIGHT = 0.2;
+      DEPTH_AROUSAL_WEIGHT = 0.15;
+      TRUST_DEPTH_FLOOR_WEIGHT = 0.5;
+      LANDED_DEPTH_MAX = 95;
+      RP_BONUS_PER_LINE = 5;
+      RP_BONUS_CAP = 15;
+      RP_MIN_LENGTH = 15;
+      session = freshSession();
+      promptTimer = null;
+      windowTimer = null;
+      sessionTimer = null;
+      cooldownTimer = null;
+      hypnotistGoneSince = 0;
+      presenceTimer = null;
+      sessionEndsAt = 0;
+      PERSIST_HEARTBEAT_MS = 5e3;
+      persistTimer = null;
+      TRUST_GIFT_MS = 5 * 6e4;
+      TRUST_GIFT_FLOOR = 65;
+      trustGift = null;
+      TRUST_LINE = /\bi (?:really |truly |completely |fully |totally |do |still )?trust you\b/;
+      NO_SKILL = { additive: 0, fightFloor: 0 };
+      SKILL_ADDITIVE_WEIGHT = 0.35;
+      SKILL_FIGHT_FLOOR_WEIGHT = 0.25;
+      DEEPEN_COOLDOWN_MS = 6e4;
+      DEEPEN_TIME_PER_MINUTE = 2;
+      DEEPEN_TIME_MAX = 20;
+      DEEPEN_MIN = 10;
+      DEEPEN_MAX = 95;
+      TIER_ORDER = ["drifting", "yielding", "entranced", "deep", "blank"];
+      DEEPEN_BASE = 40;
+      DEEPEN_TRUST_WEIGHT = 0.3;
+      DEEPEN_SKILL_WEIGHT = 0.25;
+      DEEPEN_AROUSAL_WEIGHT = 0.15;
+      DEEPEN_EXPERIENCE_WEIGHT = 0.15;
+      DEEPEN_DEPTH_WEIGHT = 0.3;
+      STANCE_DEEPEN = { agree: 20, ignore: 0, fight: -25 };
+      DEEPEN_STEPS = [
+        [40, 15, 25],
+        [70, 10, 15],
+        [Infinity, 5, 10]
+      ];
+      DEEPEN_TRUST_SYNERGY_AT = 60;
+      DEEPEN_TRUST_SYNERGY = 5;
+      struggleReporter = null;
+      SURFACE_BASE = { drifting: 55, yielding: 40, entranced: 28, deep: 18, blank: 10 };
+      SURFACE_EXPERIENCE_WEIGHT = 0.35;
+      SURFACE_SKILL_WEIGHT = 0.25;
+      SURFACE_TRUST_WEIGHT = 0.15;
+      SURFACE_AROUSAL_WEIGHT = 0.2;
+      SURFACE_MIN = 3;
+      SURFACE_MAX = 75;
+      SURFACE_DROPS = [
+        [40, 20, 30],
+        [60, 10, 15],
+        [Infinity, 5, 10]
+      ];
+      STRUGGLE_COOLDOWN_MS = 6e4;
+      views = /* @__PURE__ */ new Map();
+    }
+  });
 
   // src/storage.ts
-  var SETTINGS_KEY = "HypnosisAddon";
   function backupKey() {
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
   }
-  var DECAY_PER_DAY = {
-    never: 0,
-    veryslow: 0.25,
-    slow: 1,
-    typical: 2,
-    fast: 5,
-    veryfast: 12
-  };
-  var DECAY_RATES = [
-    { key: "never", label: "Never" },
-    { key: "veryslow", label: "Very slowly" },
-    { key: "slow", label: "Slowly" },
-    { key: "typical", label: "Typical" },
-    { key: "fast", label: "Fast" },
-    { key: "veryfast", label: "Very fast" }
-  ];
-  var ATTEMPT_LIMITS = [2, 3];
-  var SKILL_HONOUR_RUNGS = [
-    { key: "ignore", label: "Ignore it" },
-    { key: "trusted", label: "Only from people I trust" },
-    { key: "capped", label: "Honour, capped" },
-    { key: "floored", label: "Full from people I trust, capped otherwise" },
-    { key: "full", label: "Skill can beat my resistance" }
-  ];
-  var SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 4);
-  var DEFAULT_SKILL_HONOUR = "floored";
-  var DEFAULT_MAX_ATTEMPTS = 2;
   function nextAttemptLimit(current) {
     const i = ATTEMPT_LIMITS.indexOf(current);
     return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
   }
-  var TRIGGER_CONDITIONS = ["wake", "arrive", "speak"];
-  var TRIGGER_SCOPE_KEYS = [
-    "hypnotist",
-    "owner",
-    "lovers",
-    "whitelist",
-    "dominants",
-    "notblack",
-    "everyone"
-  ];
   function defaultFeatures() {
     return {
       hypnoEnabled: false,
@@ -4441,9 +4560,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       features: defaultFeatures()
     };
   }
-  var cached = null;
-  var cachedFromAccount = false;
-  var lastLoadError = "";
   function normalise(settings) {
     const s = settings ?? defaultSettings();
     const stored = s.features ?? {};
@@ -4559,7 +4675,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function getTrust(memberId) {
     return loadSettings().trust.find((t) => t.memberId === memberId);
   }
-  var LEGACY_GATE_TIERS = { drifting: 0, yielding: 20, entranced: 40, deep: 60, blank: 80 };
   function migrateDepthGates(gates) {
     for (const [key, value] of Object.entries(gates)) {
       const n = typeof value === "string" && value in LEGACY_GATE_TIERS ? LEGACY_GATE_TIERS[value] : typeof value === "number" && Number.isFinite(value) ? Math.min(99, Math.max(0, Math.round(value))) : null;
@@ -4841,36 +4956,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     loadSettings().welcomeShown = true;
     saveSettings();
   }
-  var PERMISSION_KEYS = [
-    "movementRestriction",
-    "clothingRestriction",
-    "postureControl",
-    "followControl",
-    "speechRestriction",
-    "selfTouchControl",
-    "compelActivity",
-    "compelTouchOthers",
-    "forcedSpeech",
-    "hearingControl",
-    "sightControl",
-    "arousalControl",
-    "illusionControl",
-    "undressControl",
-    "triggerControl",
-    "carryForward"
-  ];
   function hasAnyPermissionGranted() {
     const f = loadSettings().features;
     return PERMISSION_KEYS.some((k) => f[k] === true);
   }
-  var DEEPEST_TIERS = [
-    { key: "never", label: "Never deeper" },
-    { key: "yielding", label: "Yielding" },
-    { key: "entranced", label: "Entranced" },
-    { key: "deep", label: "Deep" },
-    { key: "blank", label: "Blank" }
-  ];
-  var DEFAULT_DEEPEST = "entranced";
   function getDeepestTier() {
     return loadSettings().deepestTier ?? DEFAULT_DEEPEST;
   }
@@ -4882,30 +4971,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
     return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
   }
-  var DEFAULT_STANCES = [
-    { key: "prompt", label: "Ask me" },
-    { key: "agree", label: "Agree" },
-    { key: "ignore", label: "Ignore" },
-    { key: "fight", label: "Fight" }
-  ];
-  var DEFAULT_DEFAULT_STANCE = "prompt";
-  var AWAY_STANCES = [
-    { key: "refuse", label: "Refuse" },
-    { key: "ignore", label: "Ignore" },
-    { key: "keep", label: "Keep my answer" }
-  ];
-  var DEFAULT_AWAY_STANCE = "refuse";
-  var TOY_SCOPES = [
-    { key: "owner", label: "Owner only" },
-    { key: "lovers", label: "Owner and Lovers" },
-    { key: "whitelist", label: "Owner, Lovers and whitelist" },
-    { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
-    { key: "notblack", label: "Everyone, except blacklist" },
-    { key: "everyone", label: "Everyone, no exceptions" }
-  ];
-  var DEFAULT_TOY_SCOPE = "lovers";
-  var OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
-  var cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
   function getDefaultStance() {
     return loadSettings().defaultStance ?? DEFAULT_DEFAULT_STANCE;
   }
@@ -4944,8 +5009,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     delete loadSettings().skillHonour;
     saveSettings();
   }
-  var EXTREME_TRIAL_DAYS = 7;
-  var EXTREME_MONTH_DAYS = 30;
   function getExtremeLock() {
     const s = loadSettings();
     return typeof s.extremeLockUntil === "number" ? { until: s.extremeLockUntil, stage: s.extremeLockStage ?? "trial" } : null;
@@ -4989,20 +5052,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var TRIGGER_LIFESPANS = [
-    { minutes: 0, label: "No limit" },
-    { minutes: 15, label: "15 minutes" },
-    { minutes: 30, label: "30 minutes" },
-    { minutes: 60, label: "1 hour" },
-    { minutes: 120, label: "2 hours" },
-    { minutes: 360, label: "6 hours" },
-    { minutes: 1440, label: "1 day" }
-  ];
-  var DROP_MODES = [
-    { key: "off", label: "Off" },
-    { key: "once", label: "One time" },
-    { key: "unlimited", label: "Unlimited" }
-  ];
   function getDropMode() {
     return loadSettings().dropTriggers;
   }
@@ -5030,58 +5079,125 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var init_storage = __esm({
+    "src/storage.ts"() {
+      import_lz_string = __toESM(require_lz_string());
+      init_log();
+      init_curve();
+      init_session();
+      SETTINGS_KEY = "HypnosisAddon";
+      DECAY_PER_DAY = {
+        never: 0,
+        veryslow: 0.25,
+        slow: 1,
+        typical: 2,
+        fast: 5,
+        veryfast: 12
+      };
+      DECAY_RATES = [
+        { key: "never", label: "Never" },
+        { key: "veryslow", label: "Very slowly" },
+        { key: "slow", label: "Slowly" },
+        { key: "typical", label: "Typical" },
+        { key: "fast", label: "Fast" },
+        { key: "veryfast", label: "Very fast" }
+      ];
+      ATTEMPT_LIMITS = [2, 3];
+      SKILL_HONOUR_RUNGS = [
+        { key: "ignore", label: "Ignore it" },
+        { key: "trusted", label: "Only from people I trust" },
+        { key: "capped", label: "Honour, capped" },
+        { key: "floored", label: "Full from people I trust, capped otherwise" },
+        { key: "full", label: "Skill can beat my resistance" }
+      ];
+      SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 4);
+      DEFAULT_SKILL_HONOUR = "floored";
+      DEFAULT_MAX_ATTEMPTS = 2;
+      TRIGGER_CONDITIONS = ["wake", "arrive", "speak"];
+      TRIGGER_SCOPE_KEYS = [
+        "hypnotist",
+        "owner",
+        "lovers",
+        "whitelist",
+        "dominants",
+        "notblack",
+        "everyone"
+      ];
+      cached = null;
+      cachedFromAccount = false;
+      lastLoadError = "";
+      LEGACY_GATE_TIERS = { drifting: 0, yielding: 20, entranced: 40, deep: 60, blank: 80 };
+      PERMISSION_KEYS = [
+        "movementRestriction",
+        "clothingRestriction",
+        "postureControl",
+        "followControl",
+        "speechRestriction",
+        "selfTouchControl",
+        "compelActivity",
+        "compelTouchOthers",
+        "forcedSpeech",
+        "hearingControl",
+        "sightControl",
+        "arousalControl",
+        "illusionControl",
+        "undressControl",
+        "triggerControl",
+        "carryForward"
+      ];
+      DEEPEST_TIERS = [
+        { key: "never", label: "Never deeper" },
+        { key: "yielding", label: "Yielding" },
+        { key: "entranced", label: "Entranced" },
+        { key: "deep", label: "Deep" },
+        { key: "blank", label: "Blank" }
+      ];
+      DEFAULT_DEEPEST = "entranced";
+      DEFAULT_STANCES = [
+        { key: "prompt", label: "Ask me" },
+        { key: "agree", label: "Agree" },
+        { key: "ignore", label: "Ignore" },
+        { key: "fight", label: "Fight" }
+      ];
+      DEFAULT_DEFAULT_STANCE = "prompt";
+      AWAY_STANCES = [
+        { key: "refuse", label: "Refuse" },
+        { key: "ignore", label: "Ignore" },
+        { key: "keep", label: "Keep my answer" }
+      ];
+      DEFAULT_AWAY_STANCE = "refuse";
+      TOY_SCOPES = [
+        { key: "owner", label: "Owner only" },
+        { key: "lovers", label: "Owner and Lovers" },
+        { key: "whitelist", label: "Owner, Lovers and whitelist" },
+        { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+        { key: "notblack", label: "Everyone, except blacklist" },
+        { key: "everyone", label: "Everyone, no exceptions" }
+      ];
+      DEFAULT_TOY_SCOPE = "lovers";
+      OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+      cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      EXTREME_TRIAL_DAYS = 7;
+      EXTREME_MONTH_DAYS = 30;
+      TRIGGER_LIFESPANS = [
+        { minutes: 0, label: "No limit" },
+        { minutes: 15, label: "15 minutes" },
+        { minutes: 30, label: "30 minutes" },
+        { minutes: 60, label: "1 hour" },
+        { minutes: 120, label: "2 hours" },
+        { minutes: 360, label: "6 hours" },
+        { minutes: 1440, label: "1 day" }
+      ];
+      DROP_MODES = [
+        { key: "off", label: "Off" },
+        { key: "once", label: "One time" },
+        { key: "unlimited", label: "Unlimited" }
+      ];
+    }
+  });
 
   // src/selftouch.ts
-  var BODY_PARTS = {
-    breasts: ["ItemBreast", "ItemNipples"],
-    breast: ["ItemBreast", "ItemNipples"],
-    chest: ["ItemBreast", "ItemNipples"],
-    nipples: ["ItemNipples"],
-    nipple: ["ItemNipples"],
-    // The broad words cover the clitoris too; the specific ones don't reach back.
-    pussy: ["ItemVulva", "ItemVulvaPiercings"],
-    vulva: ["ItemVulva", "ItemVulvaPiercings"],
-    cunt: ["ItemVulva", "ItemVulvaPiercings"],
-    clit: ["ItemVulvaPiercings"],
-    clitoris: ["ItemVulvaPiercings"],
-    // Same two slots as above — see the note on ItemPenis not existing.
-    cock: ["ItemVulva", "ItemVulvaPiercings"],
-    penis: ["ItemVulva", "ItemVulvaPiercings"],
-    dick: ["ItemVulva", "ItemVulvaPiercings"],
-    tip: ["ItemVulvaPiercings"],
-    crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
-    butt: ["ItemButt"],
-    ass: ["ItemButt"],
-    bottom: ["ItemButt"],
-    mouth: ["ItemMouth"],
-    lips: ["ItemMouth"],
-    face: ["ItemHead"],
-    head: ["ItemHead"],
-    hair: ["ItemHead"],
-    ears: ["ItemEars"],
-    ear: ["ItemEars"],
-    nose: ["ItemNose"],
-    neck: ["ItemNeck"],
-    throat: ["ItemNeck"],
-    // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
-    legs: ["ItemLegs", "ItemFeet"],
-    leg: ["ItemLegs", "ItemFeet"],
-    thighs: ["ItemLegs"],
-    feet: ["ItemBoots"],
-    toes: ["ItemBoots"],
-    hands: ["ItemHands"],
-    arms: ["ItemArms"],
-    shoulders: ["ItemArms"],
-    belly: ["ItemPelvis", "ItemTorso"],
-    stomach: ["ItemPelvis", "ItemTorso"],
-    tummy: ["ItemPelvis", "ItemTorso"],
-    waist: ["ItemTorso"],
-    ribs: ["ItemTorso"],
-    hips: ["ItemPelvis"]
-  };
-  var blockedGroups = /* @__PURE__ */ new Map();
-  var blockAllSelfTouch = false;
-  var commandInProgress = false;
   function beginCommandedActivity() {
     commandInProgress = true;
   }
@@ -5159,19 +5275,67 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     log("self-touch hook installed on ActivityRun");
   }
+  var BODY_PARTS, blockedGroups, blockAllSelfTouch, commandInProgress;
+  var init_selftouch = __esm({
+    "src/selftouch.ts"() {
+      init_log();
+      init_flavor();
+      init_effects();
+      init_storage();
+      BODY_PARTS = {
+        breasts: ["ItemBreast", "ItemNipples"],
+        breast: ["ItemBreast", "ItemNipples"],
+        chest: ["ItemBreast", "ItemNipples"],
+        nipples: ["ItemNipples"],
+        nipple: ["ItemNipples"],
+        // The broad words cover the clitoris too; the specific ones don't reach back.
+        pussy: ["ItemVulva", "ItemVulvaPiercings"],
+        vulva: ["ItemVulva", "ItemVulvaPiercings"],
+        cunt: ["ItemVulva", "ItemVulvaPiercings"],
+        clit: ["ItemVulvaPiercings"],
+        clitoris: ["ItemVulvaPiercings"],
+        // Same two slots as above — see the note on ItemPenis not existing.
+        cock: ["ItemVulva", "ItemVulvaPiercings"],
+        penis: ["ItemVulva", "ItemVulvaPiercings"],
+        dick: ["ItemVulva", "ItemVulvaPiercings"],
+        tip: ["ItemVulvaPiercings"],
+        crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
+        butt: ["ItemButt"],
+        ass: ["ItemButt"],
+        bottom: ["ItemButt"],
+        mouth: ["ItemMouth"],
+        lips: ["ItemMouth"],
+        face: ["ItemHead"],
+        head: ["ItemHead"],
+        hair: ["ItemHead"],
+        ears: ["ItemEars"],
+        ear: ["ItemEars"],
+        nose: ["ItemNose"],
+        neck: ["ItemNeck"],
+        throat: ["ItemNeck"],
+        // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
+        legs: ["ItemLegs", "ItemFeet"],
+        leg: ["ItemLegs", "ItemFeet"],
+        thighs: ["ItemLegs"],
+        feet: ["ItemBoots"],
+        toes: ["ItemBoots"],
+        hands: ["ItemHands"],
+        arms: ["ItemArms"],
+        shoulders: ["ItemArms"],
+        belly: ["ItemPelvis", "ItemTorso"],
+        stomach: ["ItemPelvis", "ItemTorso"],
+        tummy: ["ItemPelvis", "ItemTorso"],
+        waist: ["ItemTorso"],
+        ribs: ["ItemTorso"],
+        hips: ["ItemPelvis"]
+      };
+      blockedGroups = /* @__PURE__ */ new Map();
+      blockAllSelfTouch = false;
+      commandInProgress = false;
+    }
+  });
 
   // src/undress.ts
-  var UNDRESS_ORDER = [
-    "Cloth",
-    "ClothLower",
-    "SuitTop",
-    "SuitLower",
-    "Bra",
-    "Panties",
-    "Socks",
-    "Shoes",
-    "Gloves"
-  ];
   function undressBlockedReason() {
     if (typeof InventoryRemove !== "function" || !Array.isArray(Player?.Appearance)) {
       return "unavailable";
@@ -5216,6 +5380,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`undressed: ${removed.join(", ")}`);
     return { removed };
   }
+  var UNDRESS_ORDER;
+  var init_undress = __esm({
+    "src/undress.ts"() {
+      init_log();
+      init_effects();
+      UNDRESS_ORDER = [
+        "Cloth",
+        "ClothLower",
+        "SuitTop",
+        "SuitLower",
+        "Bra",
+        "Panties",
+        "Socks",
+        "Shoes",
+        "Gloves"
+      ];
+    }
+  });
 
   // src/extreme.ts
   function extremeLocked() {
@@ -5238,12 +5420,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lock) return "";
     return now >= lock.until ? "Locked by Extreme: open your ECHS settings to choose whether to renew or unlock." : `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
   }
-  var EXTREME_WARNING = [
-    `Extreme locks your settings in read-only mode for ${EXTREME_TRIAL_DAYS} days. You will be able to view them, but not change them \u2014 that includes switching hypnosis off and removing planted triggers.`,
-    "/echs safeword always ends a trance, locked or not.",
-    "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
-    `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
-  ];
   function renewalPrompt() {
     const lock = getExtremeLock();
     if (!lock) return null;
@@ -5270,6 +5446,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log("Extreme lock ended by /echs exit_extreme");
     return "Extreme lock ended. Your settings are editable again; trust, triggers and stats are untouched.";
   }
+  var EXTREME_WARNING;
+  var init_extreme = __esm({
+    "src/extreme.ts"() {
+      init_log();
+      init_storage();
+      EXTREME_WARNING = [
+        `Extreme locks your settings in read-only mode for ${EXTREME_TRIAL_DAYS} days. You will be able to view them, but not change them \u2014 that includes switching hypnosis off and removing planted triggers.`,
+        "/echs safeword always ends a trance, locked or not.",
+        "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
+        `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
+      ];
+    }
+  });
 
   // src/triggers.ts
   function tellHypnotist(hypnotistId, text) {
@@ -5297,28 +5486,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       result.lines.forEach(tellPlayer);
     });
   }
-  var MIN_PHRASE_LENGTH = 5;
-  var MAX_ACTIONS = 8;
-  var TRIGGER_DECAY_PER_DAY = {
-    never: 0,
-    veryslow: 5,
-    slow: 15,
-    typical: 40,
-    fast: 90,
-    veryfast: 300
-  };
-  var DECAY_GRACE_DAYS = 14;
-  var TIER_HOLD = {
-    drifting: 1,
-    yielding: 0.8,
-    entranced: 0.6,
-    deep: 0.4,
-    blank: 0.25
-  };
-  var CHEMICAL_DECAY_PER_DAY = 150;
-  var FIRING_CREDIT_FRACTION = 0.06;
-  var MAX_FIRING_CREDIT_FRACTION = 0.5;
-  var TRIGGER_GHOST_THRESHOLD = 10;
   function triggerStrength(t) {
     if (t.plantedDepth <= 0) return 0;
     if (isExpired(t)) return 0;
@@ -5460,7 +5627,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`TESTING: aged ${chosen.length} trigger(s) by ${days} day(s)`);
     return { refusal: null, lines, aged: chosen.length };
   }
-  var MAX_WAKE_DELAY_MS = 864e5;
   function describeConditionFor(c, installerId, subject) {
     const verbWake = subject === "they" ? "they wake" : "you wake";
     if (c.fireOn === "wake") return c.delayMs ? `${describeSpan(c.delayMs)} after ${verbWake}` : `the moment ${verbWake}`;
@@ -5480,8 +5646,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!recording) return "";
     return recording.condition ? `the compulsion (${describeConditionFor(recording.condition, recording.hypnotistId, "they")})` : `"${recording.phrase}"`;
   }
-  var MAX_REQUESTED_LIFESPAN_MS = 30 * 864e5;
-  var recording = null;
   function isRecording() {
     return recording !== null;
   }
@@ -5491,34 +5655,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function cancelRecording() {
     recording = null;
   }
-  onTeardown(() => {
-    if (recording) {
-      log(`trance torn down mid-recording \u2014 abandoning ${recordingLabel()}`);
-      recording = null;
-    }
-    const spent = listTriggers().filter((t) => t.spent);
-    for (const t of spent) forgetTrigger(t.key);
-    if (spent.length) log(`teardown removed ${spent.length} used-up trigger(s)`);
-  });
-  onWake((hypnotistId) => {
-    if (hypnotistId == null) return;
-    const now = Date.now();
-    let armed = 0;
-    for (const t of listTriggers()) {
-      if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
-      t.dueAt = now + (t.delayMs ?? 0);
-      armed++;
-    }
-    if (armed) {
-      updateTriggers();
-      log(`armed ${armed} wake compulsion(s) from ${hypnotistId}`);
-    }
-  });
-  onTotalStop(() => {
-    const wake = listTriggers().filter((t) => t.fireOn === "wake");
-    for (const t of wake) forgetTrigger(t.key);
-    if (wake.length) log(`total stop discarded ${wake.length} wake compulsion(s)`);
-  });
   function dueCompulsions(now = Date.now()) {
     return listTriggers().filter((t) => t.fireOn === "wake" && !!t.dueAt && t.dueAt <= now && triggerCanFire(t));
   }
@@ -5583,12 +5719,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     tellHypnotist(recording.hypnotistId, `[trigger] Noted for ${recordingLabel()}: ${noted}.`);
     return "The shape of it shifts, just slightly.";
   }
-  var COLLISION_REFUSAL_CAP = 4;
-  var COLLISION_WINDOW_MS = 10 * 6e4;
-  var collisionRefusalCount = 0;
-  var collisionWindowStart = 0;
-  var COLLISION_FLAT = "[trigger] Refused \u2014 too many trigger attempts just now. Try again in a little while.";
-  var COLLISION_VAGUE = "[trigger] Refused \u2014 that phrase is too close to something already set aside in her. Choose a different, more distinctive word.";
   function collisionRateLimited() {
     const now = Date.now();
     if (now - collisionWindowStart > COLLISION_WINDOW_MS) {
@@ -5704,10 +5834,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return "Something is being set aside in you. You let it happen.";
   }
-  var DROP_ACTION = "trance-drop";
-  var SAY_PREFIX = "say:";
-  var MAX_SAY_TIMES = 5;
-  var MAX_SAY_LENGTH = 200;
   function sayActionId(text, times) {
     const n = Math.max(1, Math.min(MAX_SAY_TIMES, Math.round(times) || 1));
     return `${SAY_PREFIX}${n}:${text.slice(0, MAX_SAY_LENGTH)}`;
@@ -5828,15 +5954,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     recording = null;
     return displaced ? "Something already set aside in you comes loose \u2014 and something new settles into the space it leaves." : "It settles somewhere you won't think to look for it.";
   }
-  var TRIGGER_SCOPES = [
-    { key: "hypnotist", label: "Hypnotist only" },
-    { key: "owner", label: "Hypnotist and Owner" },
-    { key: "lovers", label: "Hypnotist, Owner and Lovers" },
-    { key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
-    { key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
-    { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
-    { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
-  ];
   function characterFor3(memberNumber) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberNumber
@@ -5875,6 +5992,91 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function installerHasSession(trigger) {
     return isSessionActiveWith(trigger.installedBy);
   }
+  var MIN_PHRASE_LENGTH, MAX_ACTIONS, TRIGGER_DECAY_PER_DAY, DECAY_GRACE_DAYS, TIER_HOLD, CHEMICAL_DECAY_PER_DAY, FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION, TRIGGER_GHOST_THRESHOLD, MAX_WAKE_DELAY_MS, MAX_REQUESTED_LIFESPAN_MS, recording, COLLISION_REFUSAL_CAP, COLLISION_WINDOW_MS, collisionRefusalCount, collisionWindowStart, COLLISION_FLAT, COLLISION_VAGUE, DROP_ACTION, SAY_PREFIX, MAX_SAY_TIMES, MAX_SAY_LENGTH, TRIGGER_SCOPES;
+  var init_triggers = __esm({
+    "src/triggers.ts"() {
+      init_log();
+      init_notify();
+      init_storage();
+      init_session();
+      init_ladder();
+      init_depth();
+      init_messaging();
+      init_teardown();
+      MIN_PHRASE_LENGTH = 5;
+      MAX_ACTIONS = 8;
+      TRIGGER_DECAY_PER_DAY = {
+        never: 0,
+        veryslow: 5,
+        slow: 15,
+        typical: 40,
+        fast: 90,
+        veryfast: 300
+      };
+      DECAY_GRACE_DAYS = 14;
+      TIER_HOLD = {
+        drifting: 1,
+        yielding: 0.8,
+        entranced: 0.6,
+        deep: 0.4,
+        blank: 0.25
+      };
+      CHEMICAL_DECAY_PER_DAY = 150;
+      FIRING_CREDIT_FRACTION = 0.06;
+      MAX_FIRING_CREDIT_FRACTION = 0.5;
+      TRIGGER_GHOST_THRESHOLD = 10;
+      MAX_WAKE_DELAY_MS = 864e5;
+      MAX_REQUESTED_LIFESPAN_MS = 30 * 864e5;
+      recording = null;
+      onTeardown(() => {
+        if (recording) {
+          log(`trance torn down mid-recording \u2014 abandoning ${recordingLabel()}`);
+          recording = null;
+        }
+        const spent = listTriggers().filter((t) => t.spent);
+        for (const t of spent) forgetTrigger(t.key);
+        if (spent.length) log(`teardown removed ${spent.length} used-up trigger(s)`);
+      });
+      onWake((hypnotistId) => {
+        if (hypnotistId == null) return;
+        const now = Date.now();
+        let armed = 0;
+        for (const t of listTriggers()) {
+          if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
+          t.dueAt = now + (t.delayMs ?? 0);
+          armed++;
+        }
+        if (armed) {
+          updateTriggers();
+          log(`armed ${armed} wake compulsion(s) from ${hypnotistId}`);
+        }
+      });
+      onTotalStop(() => {
+        const wake = listTriggers().filter((t) => t.fireOn === "wake");
+        for (const t of wake) forgetTrigger(t.key);
+        if (wake.length) log(`total stop discarded ${wake.length} wake compulsion(s)`);
+      });
+      COLLISION_REFUSAL_CAP = 4;
+      COLLISION_WINDOW_MS = 10 * 6e4;
+      collisionRefusalCount = 0;
+      collisionWindowStart = 0;
+      COLLISION_FLAT = "[trigger] Refused \u2014 too many trigger attempts just now. Try again in a little while.";
+      COLLISION_VAGUE = "[trigger] Refused \u2014 that phrase is too close to something already set aside in her. Choose a different, more distinctive word.";
+      DROP_ACTION = "trance-drop";
+      SAY_PREFIX = "say:";
+      MAX_SAY_TIMES = 5;
+      MAX_SAY_LENGTH = 200;
+      TRIGGER_SCOPES = [
+        { key: "hypnotist", label: "Hypnotist only" },
+        { key: "owner", label: "Hypnotist and Owner" },
+        { key: "lovers", label: "Hypnotist, Owner and Lovers" },
+        { key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
+        { key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
+        { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
+        { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
+      ];
+    }
+  });
 
   // src/voice.ts
   function normalize(text) {
@@ -5903,8 +6105,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function applyArousal(level2) {
     if (!setArousalLevel(level2)) return "arousal-unavailable";
   }
-  var ORGASM_DENIED_UNTIL = /\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
-  var UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
   function applyUndress(count) {
     const liftedOwnFreeze = heldByUs("Freeze");
     if (liftedOwnFreeze) {
@@ -5967,11 +6167,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return { applied: applied2, skipped };
   }
-  var CATEGORY_WORDS = {
-    suppressClothing: "clothing",
-    suppressBondage: "bondage",
-    suppressActivities: "touches"
-  };
   function permitted(suggestion, features) {
     const keys = Array.isArray(suggestion.permission) ? suggestion.permission : [suggestion.permission];
     return keys.some((k) => features[k]);
@@ -5995,7 +6190,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       undo: () => clearSuggestedPose(poseGroupOf(pose) ?? "stance", pose)
     };
   }
-  var HEARING_IDS = ["hear-voice", "hear-name"];
   function applySight(level2) {
     const got = setSight(level2);
     if (got <= 0) {
@@ -6017,767 +6211,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     };
   }
-  var SIGHT_IDS = ["sight-dim", "sight-dark", "sight-blind"];
-  var STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
-  var ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
-  var POSE_SUGGESTIONS = [
-    poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
-      /\bkneel (?:with your knees )?(?:spread|apart)\b/,
-      /\bspread your knees\b/,
-      /\bknees (?:apart|spread|wide)\b/
-    ]),
-    poseSuggestion("legs-spread", "Spread", ["spread your legs", "stand with your legs apart"], [
-      /\b(?:spread|part) your legs\b/,
-      /\b(?:legs|feet) (?:apart|wide)\b/
-    ]),
-    poseSuggestion("legs-closed", "LegsClosed", ["legs closed", "feet together"], [
-      /\b(?:legs|feet) (?:closed|together)\b/,
-      /\bclose your legs\b/
-    ]),
-    poseSuggestion("all-fours", "AllFours", ["on all fours", "get on your hands and knees"], [
-      /\bon all fours\b/,
-      /\bon your hands and knees\b/
-    ]),
-    poseSuggestion("lie-down", "Hogtied", ["lie down", "down on your stomach"], [
-      /(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
-      /\bon your (?:stomach|belly|front)\b/
-    ]),
-    // Arms. Names per DW's verified reference (docs/bc-pose-reference.md): BC has no crossed-arms
-    // pose and no surrender pose, so "cross your arms" is not offered and "surrender" raises the
-    // arms over the head, its closest pose.
-    poseSuggestion("hands-behind", "BackCuffs", ["hands behind your back", "clasp your hands behind your back"], [
-      /\bhands behind your back\b/
-    ]),
-    poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
-      /\barms behind your back\b/,
-      /\bbox your arms\b/
-    ]),
-    poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
-      /\belbows (?:behind your back|together)\b/
-    ]),
-    poseSuggestion("arms-up", "OverTheHead", ["put your hands up", "raise your arms", "hands above your head", "surrender", "hands where I can see them"], [
-      /\b(?:hands|arms) up\b/,
-      /\braise your (?:arms|hands)\b/,
-      /\b(?:hands|arms) (?:above|over) your head\b/,
-      // Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
-      // DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
-      /(?<!\bi )(?<!\bwe )\bsurrender\b/,
-      /\bwhere i can see them\b/
-    ]),
-    poseSuggestion("arms-out", "Yoked", ["hold your arms out", "yoke your arms"], [
-      /\b(?:hold|put|stretch) your arms out\b/,
-      /\byoke your arms\b/
-    ]),
-    {
-      id: "arms-relax",
-      examples: ["relax your arms", "arms at your sides"],
-      release: true,
-      releaseOf: ARM_IDS,
-      permission: "postureControl",
-      // "Relax your arms" is induction patter too; kept on DW's call, 2026-09-23. Like "stand",
-      // it clears any arm pose, including one the subject chose themselves.
-      patterns: [
-        /\brelax your arms\b/,
-        /\b(?:arms|hands) (?:at|by) your sides?\b/,
-        /\b(?:lower|drop) your (?:arms|hands)\b/,
-        /\b(?:arms|hands) down\b/
-      ],
-      run: () => setSuggestedPose(null, "arms") ? void 0 : "pose-blocked"
-    }
-  ];
-  var SUGGESTIONS = [
-    // Arousal goes FIRST. Its patterns are the most specific in the table (every one names
-    // arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
-    // reverse is not true: "you are stuck at the edge" would otherwise be eaten by
-    // movement-block's "stuck", and "you cannot stand it" by the posture entry.
-    {
-      id: "arousal-none",
-      examples: ["you are not aroused", "your arousal fades", "you feel no desire"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou are (?:not|no longer) (?:\w+ ){0,2}(?:aroused|turned on|excited|horny|needy)\b/,
-        /\byour (?:arousal|excitement|need|desire|heat|wanting) (?:is gone|fades|drains away|goes away|disappears|leaves you)\b/,
-        /\byou feel no (?:arousal|desire|need|excitement)\b/,
-        /\byou (?:do not|will not) (?:want|need) (?:it|anything|me)\b/
-      ],
-      run: () => applyArousal("none")
-    },
-    {
-      id: "arousal-light",
-      examples: ["you are lightly aroused", "you feel a little warm"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou are (?:only |just )?(?:lightly|slightly|mildly|barely|a little|a bit) (?:aroused|turned on|excited|warm|horny)\b/,
-        /\byou feel (?:a little|a bit|slightly|lightly) (?:aroused|warm|excited|horny)\b/,
-        /\byou are (?:just )?(?:starting|beginning) to (?:feel it|get (?:warm|aroused|excited))\b/,
-        /\ba (?:little|small|faint) (?:warmth|heat) (?:builds|starts|begins|settles)\b/
-      ],
-      run: () => applyArousal("light")
-    },
-    {
-      id: "arousal-high",
-      examples: ["you are very aroused", "you are desperate", "you need it badly"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou are (?:\w+ )?(?:very|highly|deeply|so|extremely|badly|terribly|painfully) (?:aroused|turned on|excited|horny|needy)\b/,
-        /\byou (?:are|feel) (?:\w+ )?(?:aching|burning|desperate|needy)\b/,
-        /\byou (?:want|need) (?:it|this|me|to come|to cum) (?:badly|so much|desperately|now)\b/,
-        /\byour (?:arousal|need|heat|desire) (?:climbs|builds|floods you|takes over)\b/
-      ],
-      run: () => applyArousal("high")
-    },
-    {
-      id: "arousal-full",
-      examples: ["you are right on the edge", "you are so close"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou are (?:fully|completely|totally|utterly) (?:aroused|turned on)\b/,
-        /\byou are (?:\w+ ){0,2}(?:on|at) the (?:very )?(?:edge|brink)\b/,
-        /\byou are (?:so close|almost there|about to (?:come|cum|burst))\b/,
-        /\byou are (?:\w+ )?edged\b/
-      ],
-      run: () => applyArousal("full")
-    },
-    // allow before deny before force, and all three before anything else, because they
-    // overlap: "you cannot come now" contains "come now", and "you may come now" contains
-    // both. First match wins, so the most restrictive reading has to be listed first.
-    {
-      id: "orgasm-allow",
-      examples: ["you may come now", "you may cum now", "you are allowed to orgasm"],
-      displayExamples: ["you may come/cum now", "you are allowed to orgasm"],
-      release: true,
-      releaseOf: "orgasm-deny",
-      permission: "arousalControl",
-      patterns: [
-        /\byou (?:can|may) (?:come|cum|orgasm|climax|finish) (?:again|now|freely|whenever|if|when)\b/,
-        /\byou are (?:allowed|free|permitted) to (?:come|cum|orgasm|climax|finish)\b/,
-        /\bi (?:allow|permit) you to (?:come|cum|orgasm|climax|finish)\b/,
-        /\byour orgasm is (?:allowed|yours)\b/,
-        /\byou are no longer denied\b/
-      ],
-      // A denial that names its own end — "you cannot cum until I allow you to cum" — holds a
-      // permission phrase inside its condition. Listed first, allow read that half and LIFTED
-      // the denial the line was laying down. A negated orgasm before an until/unless clause is
-      // a denial, so the line carries on down to orgasm-deny.
-      unless: [ORGASM_DENIED_UNTIL],
-      run: () => setOrgasmDenied(false)
-    },
-    {
-      id: "orgasm-deny",
-      examples: ["you cannot come", "you cannot cum", "you are forbidden to come"],
-      displayExamples: ["you cannot come/cum", "you are forbidden to come"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou (?:cannot|will not|may not|must not|are not to) (?:come|cum|orgasm|climax|finish)\b/,
-        /\byou are (?:not allowed|not permitted|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
-        /\byou are (?:forbidden|not allowed|not permitted) from (?:coming|cumming|orgasming|climaxing|finishing)\b/,
-        /\b(?:do not|you will not) (?:you )?dare (?:to )?(?:come|cum|orgasm|climax|finish)\b/,
-        /\byou will (?:not be able|be unable) to (?:come|cum|orgasm|climax|finish)\b/,
-        /\byou have forgotten how to (?:come|cum|orgasm|climax)\b/,
-        /\byour orgasm is denied\b/,
-        /\byou are denied\b/,
-        /\bno (?:coming|cumming|orgasms?)\b/,
-        /\b(?:do not|never) (?:come|cum|orgasm|climax)\b/
-      ],
-      run: () => setOrgasmDenied(true),
-      undo: () => setOrgasmDenied(false)
-    },
-    {
-      id: "orgasm-force",
-      examples: ["come for me", "cum for me", "you will come now"],
-      displayExamples: ["come/cum for me", "you will come now"],
-      permission: "arousalControl",
-      patterns: [
-        /\b(?:come|cum) for me\b/,
-        /\b(?:come|cum|orgasm) now\b/,
-        /\byou (?:will|are going to) (?:come|cum|orgasm|climax|finish) (?:now|for me)\b/,
-        /\byou (?:come|cum|orgasm) (?:now|for me)\b/,
-        /\bgo over (?:the edge )?(?:now|for me)\b/
-      ],
-      // No undo: an orgasm is an event, not a state, so there is nothing for a trigger
-      // release to take back.
-      run: () => applyForcedOrgasm()
-    },
-    // The clothing illusion. Listed here, before the awareness entries, because the two
-    // overlap: "you do not notice what you are wearing" also matches awareness-block's
-    // "you do not notice what", and the more specific reading has to win.
-    {
-      id: "illusion-release",
-      examples: [
-        "look at yourself",
-        "you can see yourself again",
-        "you notice your clothes",
-        "you notice you are naked"
-      ],
-      release: true,
-      releaseOf: "illusion-block",
-      permission: "illusionControl",
-      patterns: [
-        /\byou (?:can|may) (?:see|tell) (?:what|how) you are (?:wearing|dressed)\b/,
-        /\byou (?:can|may) see yourself (?:again|properly|clearly)\b/,
-        /\byou (?:see|notice) yourself as you (?:really |actually )?are\b/,
-        // "again" was mandatory on the next one and a qualifier was mandatory on the
-        // last, so "you notice your clothes" and a bare "look at yourself" — two of the
-        // most natural ways to say this — matched nothing at all.
-        /\byou (?:notice|see|feel) your (?:clothes|clothing|outfit)\b/,
-        /\byou (?:can|may) tell what you have on\b/,
-        /\blook (?:down )?at yourself\b/,
-        /\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
-        /\byou (?:notice|see) what (?:you are wearing|is missing)\b/
-      ],
-      run: () => clearIllusion()
-    },
-    {
-      id: "illusion-block",
-      examples: ["you cannot tell what you are wearing", "your clothes look the same to you"],
-      permission: "illusionControl",
-      // The first suggestion to carry a trust threshold, and still the only one. Checked
-      // against relationship trust alone — the arousal floor must never reach a feature
-      // that lies to someone about their own state. See ILLUSION_TRUST_THRESHOLD above for
-      // why the number is 65 rather than the 70 this table originally called for.
-      patterns: [
-        /\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
-        /\byou (?:do not|will not|cannot) notice (?:what|how) you are (?:wearing|dressed)\b/,
-        /\byou (?:do not|will not|cannot) notice your (?:clothes|clothing|outfit)\b/,
-        /\byou (?:cannot|do not) (?:tell|see) what you have on\b/,
-        /\byour (?:clothes|clothing|outfit) (?:look|looks|stay|stays) the same to you\b/,
-        /\byou look the same to yourself\b/,
-        /\bnothing about you (?:changes|has changed)\b/,
-        /\byou (?:do not|cannot) see yourself change\b/,
-        /\byou will (?:not be able|be unable) to (?:tell|see) (?:what|how) you are (?:wearing|dressed)\b/
-      ],
-      run: () => freezeAppearance() ? void 0 : void 0,
-      undo: () => clearIllusion()
-    },
-    {
-      id: "movement-release",
-      examples: ["you can move again", "your body is your own"],
-      release: true,
-      releaseOf: "movement-block",
-      permission: "movementRestriction",
-      patterns: [
-        /\byou (can|may) move\b/,
-        /\byou are (free|able|allowed) to move\b/,
-        /\byou are no longer (frozen|paralyzed|rooted|immobile|still)\b/,
-        /\byou (can|may) move (again|now|freely)\b/,
-        /\bmove (again|freely)\b/,
-        /\byour body is your own\b/
-      ],
-      run: () => {
-        removeEffect("Freeze");
-      }
-    },
-    {
-      id: "movement-block",
-      examples: ["you cannot move", "stay still", "you are frozen", "you will be frozen"],
-      permission: "movementRestriction",
-      patterns: [
-        // The optional (\w+ ) throughout lets one adverb slip in without needing a
-        // separate pattern for it — "you are completely frozen", "you cannot even move".
-        /\byou cannot (\w+ )?move\b/,
-        /\byou are (unable|not able) to move\b/,
-        /\byou are (\w+ )?(frozen|paralyzed|rooted|immobile|stuck)\b/,
-        /\b(do not|never) move\b/,
-        /\b(stay|hold|remain) (still|frozen|put)\b/,
-        /\b(stay|remain) where you are\b/,
-        /\byour body (will not|does not|cannot) (move|respond|obey)\b/,
-        /\byou (cannot|will not) move (a muscle|an inch|at all)\b/,
-        // Future phrasing, natural when building a trigger: "when I say sleepy time,
-        // you will not be able to move". Same effect either way — the tense is for the
-        // hypnotist's benefit, not a different mechanic.
-        /\byou will (not be able|be unable) to move\b/,
-        /\byou will not move\b/,
-        // v0.92.6 (DW): "you will be frozen", the future of "you are frozen", and "you'll be
-        // frozen" ("you'll" is not expanded by normalize, so it arrives as "you ll"). Not "you
-        // will not / never / no longer be frozen", which say the opposite.
-        /\byou (will|ll) (?!not\b|never\b|no\b)(\w+ )?be (\w+ )?(frozen|paralyzed|rooted|immobile|stuck)\b/
-      ],
-      // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
-      // told it did not land, and the room is not told of a stillness that is not there.
-      run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
-      undo: () => removeEffect("Freeze")
-    },
-    // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
-    // block's verbs before the block gets a look. Deliberately no "come with me" — that would
-    // collide with the orgasm "come" family, which is listed earlier and would swallow it.
-    {
-      id: "follow-release",
-      examples: ["you can leave", "you don't have to follow me", "you are free to go"],
-      release: true,
-      releaseOf: "follow-block",
-      permission: "followControl",
-      patterns: [
-        /\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
-        /\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
-        /\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
-        /\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
-        /\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
-        /\bstay (?:wherever|where) you (?:like|want|please)\b/
-      ],
-      run: () => {
-        releaseFollow();
-      }
-    },
-    {
-      id: "follow-block",
-      examples: ["follow me", "stay close to me", "you cannot leave my side"],
-      permission: "followControl",
-      patterns: [
-        /\bfollow me\b/,
-        /\byou (?:will|must) follow(?: me)?\b/,
-        /\byou follow (?:me|wherever i go)\b/,
-        /\bstay (?:close|near)\b/,
-        /\bstay (?:at|by) my (?:side|heel)\b/,
-        /\byou (?:cannot|can't|will not|won't) (?:leave|walk away from) (?:my side|me)\b/,
-        /\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
-        /\bheel\b/
-      ],
-      run: () => {
-        applyFollow(currentHypnotistId());
-      },
-      undo: () => releaseFollow()
-    },
-    {
-      id: "clothing-release",
-      examples: ["you can change your clothes"],
-      release: true,
-      releaseOf: "clothing-block",
-      permission: "clothingRestriction",
-      patterns: [
-        /\byou (can|may) (change|remove|touch|adjust) your (clothes|clothing|outfit)\b/,
-        /\byou are (free|able|allowed) to (change|dress|undress)\b/,
-        /\byou (can|may) (dress|undress)\b/,
-        /\byour (clothes|clothing|outfit) are yours again\b/
-      ],
-      run: () => {
-        removeEffect("BlockWardrobe");
-      }
-    },
-    {
-      id: "clothing-block",
-      examples: ["you cannot change your clothes", "leave your clothes alone"],
-      permission: "clothingRestriction",
-      patterns: [
-        /\byou cannot (change|remove|take off|touch|adjust) your (clothes|clothing|outfit)\b/,
-        /\byou cannot (dress|undress|strip|get dressed|get undressed)\b/,
-        /\byou are (unable|not able) to (change|remove) your (clothes|clothing|outfit)\b/,
-        /\byour (clothes|clothing|outfit) (stay|stays|will stay|must stay|are staying)\b/,
-        /\b(do not|never) (touch|change|remove|adjust) your (clothes|clothing|outfit)\b/,
-        /\bleave your (clothes|clothing|outfit) alone\b/,
-        /\byou have forgotten how to (dress|undress|change)\b/,
-        /\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/
-      ],
-      run: () => applyEffect("BlockWardrobe") ? void 0 : "effect-failed",
-      undo: () => removeEffect("BlockWardrobe")
-    },
-    // Taking clothes OFF, as opposed to clothing-block above, which is being unable to change
-    // them. ORDER IS LOAD-BEARING: these sit AFTER clothing-block so that "you cannot undress"
-    // and "you cannot strip" are read as restrictions rather than as instructions. First match
-    // wins, and the negated forms have to get there first.
-    //
-    // "all-at-once" is listed first because "take everything off" contains "take", and the
-    // single-garment patterns must not eat it. Same first-match-wins rule as releases.
-    {
-      id: "undress-all",
-      examples: ["take everything off", "strip"],
-      permission: "undressControl",
-      patterns: [
-        /\btake (everything|it all) off\b/,
-        /\btake off (everything|all your clothes)\b/,
-        /\b(strip|undress) (completely|entirely|all the way)\b/,
-        /\byou are (getting|going) completely undressed\b/,
-        /\bremove (everything|all your clothes)\b/,
-        /\bnothing stays on\b/,
-        // Bare, and safe to be bare: the name gate already requires the line to address
-        // the subject, so "comic strip" only fires if somebody says "Missy, comic strip".
-        /\bstrip\b/
-      ],
-      unless: UNDRESS_IS_THE_OBJECT,
-      run: () => applyUndress(Infinity)
-    },
-    {
-      id: "undress",
-      examples: ["take something off", "undress"],
-      permission: "undressControl",
-      patterns: [
-        /\btake (something|a piece|one thing|another|it) off\b/,
-        /\btake off (something|a piece|one thing|another)\b/,
-        /\b(you )?(start|begin) (to )?undress(ing)?\b/,
-        /\byou (want|need) to undress\b/,
-        /\bundress (for me|yourself|now)\b/,
-        /\bundress\b/,
-        /\btake your clothes off\b/,
-        /\bremove (a|one) (piece|garment|item)\b/
-      ],
-      unless: UNDRESS_IS_THE_OBJECT,
-      run: () => applyUndress(1)
-    },
-    // PER-CATEGORY awareness, and they sit BEFORE the broad pair below because the broad
-    // block's /you (do not|will not) notice/ has no right-hand anchor and would take "you will
-    // not notice your clothing" first — which is exactly what happened in play: the line
-    // meant for clothing took every permitted category and reported the broad thing. Touch
-    // already had its own pair (touch-block / touch-release, further down); clothing and
-    // bondage did not, so the only way to reach either alone was to have unticked the others.
-    //
-    // Releases before blocks, as everywhere: "you notice your clothes again" contains
-    // "notice your clothes".
-    //
-    // AND THE CLOTHING PAIR MUST NOT SOUND LIKE THE ILLUSION. "You will not notice your
-    // clothing" is an illusion-block pattern — listed above, on purpose, because "notice" there
-    // reads as perception and the more specific feature wins. That is the line DW said in play
-    // at Drifting, and it was refused for depth by the illusion, not ignored by awareness. So
-    // every phrasing here names the CHANGE or the ACT — being undressed, clothes changing —
-    // rather than the clothes themselves, and the suite pins the illusion's claim on the other
-    // wording so nobody "fixes" the collision by moving it.
-    {
-      id: "clothing-awareness-release",
-      examples: ["you notice being undressed again", "clothing changes register again"],
-      release: true,
-      releaseOf: "clothing-awareness-block",
-      permission: "suppressClothing",
-      patterns: [
-        /\byou notice (being|when you are) (dressed|undressed|redressed|changed|stripped) again\b/,
-        /\byou notice changes to your (clothes|clothing|outfit)( again)?\b/,
-        /\b(clothing|clothes|outfit) changes (register|reach you)( again)?\b/
-      ],
-      run: () => setSuppressed("clothing", false)
-    },
-    {
-      id: "clothing-awareness-block",
-      examples: ["you will not notice being undressed", "changes to your clothes go unnoticed"],
-      permission: "suppressClothing",
-      patterns: [
-        /\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed|stripped)\b/,
-        /\byou (do not|will not|cannot) notice changes to your (clothes|clothing|outfit)\b/,
-        /\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing|stripping) you\b/,
-        // "...when I strip you" — the phrasing the undress entries used to take, and strip her.
-        /\byou (do not|will not|cannot) notice (when|while|as|if) (i|we|they|he|she|someone|anyone|people) (strip|strips|undress|undresses|change|changes|dress|dresses) you\b/,
-        /\b(clothing|clothes|outfit) changes go unnoticed\b/,
-        /\bchanges to your (clothes|clothing|outfit) go unnoticed\b/
-      ],
-      run: () => setSuppressed("clothing", true),
-      undo: () => setSuppressed("clothing", false)
-    },
-    {
-      id: "bondage-awareness-release",
-      examples: ["you notice the ropes again"],
-      release: true,
-      releaseOf: "bondage-awareness-block",
-      permission: "suppressBondage",
-      patterns: [
-        /\byou notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs) again\b/,
-        /\byou (notice|feel) being (tied|bound|restrained) again\b/
-      ],
-      run: () => setSuppressed("bondage", false)
-    },
-    {
-      id: "bondage-awareness-block",
-      examples: ["you will not notice the ropes", "you do not notice being tied"],
-      permission: "suppressBondage",
-      patterns: [
-        /\byou (do not|will not|cannot) notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs)\b/,
-        /\byou (do not|will not|cannot) notice being (tied|bound|restrained)\b/
-      ],
-      run: () => setSuppressed("bondage", true),
-      undo: () => setSuppressed("bondage", false)
-    },
-    {
-      // The broad one: clothing, bondage and touch together. Each category is still
-      // applied only if separately permitted — saying it doesn't override a box the
-      // subject left unchecked.
-      id: "awareness-release",
-      examples: ["you notice everything again"],
-      release: true,
-      releaseOf: "awareness-block",
-      permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
-      patterns: [
-        /\byou notice (everything|things|them|it) again\b/,
-        /\byou (notice|feel) what (happens|is happening|is done) to you\b/,
-        // "awake" deliberately NOT here — "you are awake again" should end the trance,
-        // not merely restore awareness of clothing changes. It belongs to wake.
-        /\byou are aware (again|to it)\b/,
-        // "You can notice" / "you may notice" needs an object that means awareness coming
-        // BACK. It used to be bare, and ordinary patter starts that way far more often than a
-        // release does: "you may notice a warmth spreading" matched here and silently lifted
-        // clothing, bondage and touch hiding, the illusion and numbness, mid-scene, with
-        // nothing said to the hypnotist. That was the "inconsistent suppression" and the
-        // "awareness cancels the illusion" of DW's 2026-09-22 list, one cause for both.
-        /\byou (can|may) notice (again|everything|things|it all)\b/,
-        /\byou (can|may) notice (what|anything that) (happens|is happening|is done) to you\b/
-      ],
-      run: () => {
-        setSuppressed("clothing", false);
-        setSuppressed("bondage", false);
-        setSuppressed("activity", false);
-        clearIllusion();
-        setNumb(false);
-      }
-    },
-    {
-      id: "awareness-block",
-      examples: ["you notice nothing", "you are unaware"],
-      permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
-      patterns: [
-        /\byou notice nothing\b/,
-        /\byou (do not|will not) notice\b/,
-        /\byou (cannot|do not) notice (anything|what)\b/,
-        /\bnothing (that happens|done) to you (matters|registers)\b/,
-        /\byou are (unaware|oblivious)\b/
-      ],
-      run: () => {
-        const { applied: applied2 } = reachableCategories(
-          ["suppressClothing", "suppressBondage", "suppressActivities"],
-          getFeatures()
-        );
-        if (applied2.includes("suppressClothing")) setSuppressed("clothing", true);
-        if (applied2.includes("suppressBondage")) setSuppressed("bondage", true);
-        if (applied2.includes("suppressActivities")) setSuppressed("activity", true);
-      }
-    },
-    // The touch pair and the numbness pair below say different things and were one entry
-    // until v0.39.0. "Ignore my touches" is about ATTENTION — it reaches you, you do not
-    // attend to it, and your arousal still climbs with no visible cause, which is the good
-    // half of the mechanic. "You cannot feel my touch" is about SENSATION, and bundling the
-    // two made it a lie: the subject was told she felt nothing while her own arousal meter
-    // told her otherwise. Same class of bug as the illusion surviving "you notice
-    // everything again" in v0.38.2 — a suggestion the subject can directly observe to be
-    // false.
-    //
-    // Numbness sits under arousalControl rather than suppressActivities, per DW. Consenting
-    // to "you may hide when I am touched" is not consenting to "my body may be made not to
-    // respond", and the two are worth being asked separately.
-    {
-      id: "touch-release",
-      examples: ["you notice my touches again", "you register my touch"],
-      release: true,
-      releaseOf: "touch-block",
-      permission: "suppressActivities",
-      // "You can notice my touch" used to be left out, because awareness-release's bare
-      // /you (can|may) notice/ took it first. That pattern was narrowed in v0.82.0 (it was
-      // also taking ordinary patter), so the obvious phrasing lives here now.
-      patterns: [
-        /\byou (can|may) (notice|register) (my|his|her|their) (touch|touches)\b/,
-        /\byou notice (my|his|her|their) (touch|touches) again\b/,
-        /\byou (notice|register) (my|his|her|their) (touch|touches)\b/,
-        /\byou (will |)stop ignoring (my|his|her|their) (touch|touches)\b/
-      ],
-      run: () => setSuppressed("activity", false)
-    },
-    {
-      id: "touch-block",
-      examples: ["you will ignore my touches"],
-      permission: "suppressActivities",
-      patterns: [
-        /\byou (will |)ignore (my|his|her|their) (touch|touches)\b/,
-        /\bignore (my|his|her|their) (touch|touches)\b/
-      ],
-      run: () => setSuppressed("activity", true),
-      undo: () => setSuppressed("activity", false)
-    },
-    {
-      id: "numb-release",
-      examples: ["you can feel my touch again", "you can feel again"],
-      release: true,
-      releaseOf: "numb-block",
-      permission: "arousalControl",
-      patterns: [
-        /\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
-        /\byou feel (my|his|her|their) (touch|touches) again\b/,
-        /\byou (can|may) feel (me|it|again|things again|everything again)\b/,
-        /\byour (skin|body) (responds|reacts|works|feels)( again)?\b/,
-        /\byou are not numb\b/,
-        /\btouch reaches you again\b/
-      ],
-      // Generous, like every release: this also lifts the message-hiding above. Being told
-      // you can feel someone's touch again while the touches are still being hidden from
-      // you leaves the subject in a state the words deny — and handing something back is
-      // always allowed to undo more than taking it away applies.
-      run: () => {
-        setNumb(false);
-        setSuppressed("activity", false);
-      }
-    },
-    {
-      id: "numb-block",
-      examples: ["you cannot feel my touch", "you feel nothing when I touch you"],
-      permission: "arousalControl",
-      patterns: [
-        /\byou (cannot|do not) feel (my|his|her|their) (touch|touches|hands)\b/,
-        /\b(my|his|her|their) (touch|touches) (do not|does not) reach you\b/,
-        /\byou (cannot|do not) feel (me|my hands|anything|it)\b/,
-        /\byou feel nothing\b/,
-        /\byou (are|go) numb\b/,
-        /\byour (skin|body) (cannot|does not) feel\b/,
-        /\btouch (cannot|does not) reach you\b/
-      ],
-      run: () => setNumb(true),
-      undo: () => setNumb(false)
-    },
-    {
-      id: "speech-release",
-      examples: ["you can speak again", "your voice is back"],
-      release: true,
-      releaseOf: "speech-block",
-      permission: "speechRestriction",
-      patterns: [
-        /\byou (can|may) (speak|talk)\b/,
-        /\byou are (free|able|allowed) to (speak|talk)\b/,
-        /\byour voice (is back|returns|is yours)\b/,
-        /\b(speak|talk) (again|freely)\b/,
-        /\byou have your voice back\b/
-      ],
-      run: () => setSpeechBlocked(false)
-    },
-    {
-      id: "speech-block",
-      examples: ["you cannot speak", "stay silent", "not a word"],
-      permission: "speechRestriction",
-      patterns: [
-        /\byou cannot (\w+ )?(speak|talk)\b/,
-        /\byou are (unable|not able) to (speak|talk)\b/,
-        /\b(do not|never) (speak|talk)\b/,
-        /\byou have (no voice|lost your voice)\b/,
-        /\byour voice is gone\b/,
-        /\b(stay|remain|be) (silent|quiet)\b/,
-        /\bnot a (word|sound)\b/,
-        /\byou have forgotten how to (speak|talk)\b/,
-        /\byou will (not be able|be unable) to (speak|talk)\b/,
-        /\byou will not (speak|talk)\b/,
-        /(?<!\bi )(?<!\bwe )\bsilence\b/
-      ],
-      run: () => setSpeechBlocked(true),
-      undo: () => setSpeechBlocked(false)
-    },
-    // Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
-    // say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
-    {
-      id: "hear-release",
-      examples: ["you can hear everyone again", "your hearing comes back"],
-      release: true,
-      releaseOf: HEARING_IDS,
-      permission: "hearingControl",
-      patterns: [
-        /\byou (?:can|may|will) hear (?:everyone|everybody|everything|the (?:whole )?room|them all|all of them|others|other people)(?: again)?\b/,
-        /\byou (?:can|may) hear (?:again|normally)\b/,
-        /\byour hearing (?:is back|comes back|returns|is yours)\b/,
-        /\blisten to (?:everyone|everybody|the room) again\b/
-      ],
-      run: () => {
-        setHearing(null);
-      }
-    },
-    {
-      id: "hear-voice",
-      examples: ["you hear only my voice", "you will only hear me"],
-      permission: "hearingControl",
-      patterns: [
-        /\byou (?:will |can |)(?:only hear|hear only|hear nothing but|hear no one but|hear nobody but) (?:my voice|me)\b/,
-        /\bmy voice is (?:the only (?:one|voice|thing|sound)|all) you (?:can |will |)hear\b/,
-        /\bonly my voice (?:reaches you|matters|gets through)\b/,
-        /\byou (?:will |)(?:listen only|only listen) to (?:me|my voice)\b/
-      ],
-      // Locked to whoever said it, or to whoever FIRED the trigger carrying it (DW). With nobody
-      // behind it (a carried re-apply) there is no voice to keep, so it does not land (rule 5).
-      run: (speaker) => {
-        if (typeof speaker !== "number") return "effect-failed";
-        setHearing({ kind: "voice", member: speaker });
-        resetOthersFade();
-      },
-      undo: () => {
-        if (hearingMode()?.kind === "voice") setHearing(null);
-      }
-    },
-    {
-      id: "hear-name",
-      examples: ["you only hear what is said to you", "you only hear your name"],
-      permission: "hearingControl",
-      patterns: [
-        /\byou (?:will |can |)(?:only hear|hear only) (?:what is|what s|whats|things|words|what gets) (?:said|meant|directed|spoken|aimed) (?:to|at|for) you\b/,
-        /\byou (?:will |can |)(?:only hear|hear only) (?:your (?:own )?name|(?:lines|voices|words|people) (?:that|who) (?:say|use|call) your name)\b/,
-        /\bonly your name (?:reaches you|gets through|cuts through)\b/
-      ],
-      run: () => {
-        setHearing({ kind: "name" });
-        resetOthersFade();
-      },
-      undo: () => {
-        if (hearingMode()?.kind === "name") setHearing(null);
-      }
-    },
-    // Sight (v0.93.0, DW). Release first. Then darkest to lightest, so "fading to black" is blindness
-    // before "fading" can read as dimming. The illusion's "you cannot see what you are wearing" sits
-    // earlier in the table and wins, as the first match always does.
-    {
-      id: "sight-release",
-      examples: ["you can see again", "your vision clears"],
-      release: true,
-      releaseOf: SIGHT_IDS,
-      permission: "sightControl",
-      patterns: [
-        /\byou (?:can|may) see (?:again|clearly|normally)\b/,
-        /\byour (?:vision|sight|eyesight) (?:clears|is clearing|returns|comes back|is back|is yours)\b/,
-        /\bthe (?:light|world|room) (?:comes back|returns)\b/
-      ],
-      run: () => {
-        setSight(0);
-      }
-    },
-    sightSuggestion("sight-blind", 3, ["you cannot see", "everything goes black", "everything is fading to black"], [
-      /\byou cannot (?:\w+ )?see(?! (?:what|how|yourself|your (?:clothes|clothing|outfit)))\b/,
-      /\byou are (?:\w+ )?blind\b/,
-      /\byou will (?:be (?:\w+ )?blind|not be able to see|be unable to see)\b/,
-      /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|fading|fades|turning|turns) (?:to |)black\b/,
-      /\b(?:everything|the (?:world|room)) (?:is |)(?:completely |totally |)(?:black|dark) now\b/,
-      /\bdarkness takes your (?:sight|vision|eyes)\b/
-    ]),
-    sightSuggestion("sight-dark", 2, ["you can barely see", "everything is going dark"], [
-      /\byou can (?:barely|hardly|scarcely) see\b/,
-      /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|growing|grows|getting|gets|turning|turns) (?:very |so |)dark\b/,
-      /\bthe dark(?:ness|) closes in\b/
-    ]),
-    sightSuggestion("sight-dim", 1, ["your vision is dimming", "the room grows dim"], [
-      /\byour (?:vision|sight|eyesight) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|blurring|blurs|fading|fades|softening|softens)\b/,
-      /\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/
-    ]),
-    ...POSE_SUGGESTIONS,
-    {
-      id: "stand",
-      examples: ["stand", "get up", "on your feet"],
-      release: true,
-      releaseOf: STANCE_IDS,
-      permission: "postureControl",
-      // Bare "stand" and "rise" are matched now that a suggestion also has to name the
-      // subject — that gate does most of the false-positive work, so these no longer have
-      // to be excluded wholesale. The narrow guards that remain cover what the name gate
-      // doesn't: "I can't stand it, Missy" (normalised to "cannot stand") and the
-      // hypnotist narrating themselves ("I stand beside you, Missy").
-      patterns: [
-        /(?<!cannot )(?<!\bi )(?<!\bwe )\bstand\b/,
-        /(?<!\bi )(?<!\bwe )\brise\b/,
-        /(?<!\bto )(?<!\bi )(?<!\bwe )\bget up\b/,
-        /\b(get|rise) to your feet\b/,
-        /\bon your feet\b/
-      ],
-      // Clears the legs only now: "stand" no longer drops arms held behind the back.
-      run: () => setSuggestedPose(null, "stance") ? void 0 : "pose-blocked"
-    },
-    {
-      id: "kneel",
-      examples: ["kneel", "on your knees"],
-      permission: "postureControl",
-      // Guarded so the hypnotist narrating their own action ("I kneel beside you") doesn't
-      // put the subject on the floor. "I want you to kneel" still lands — the guard is on
-      // the pronoun immediately before the verb, not anywhere in the line.
-      patterns: [
-        /(?<!\bi )(?<!\bwe )\bkneel\b/,
-        /\b(get|down|drop) on your knees\b/,
-        /\bon your knees\b/,
-        /\bdrop to your knees\b/
-      ],
-      run: () => applyPose("Kneel"),
-      undo: () => clearSuggestedPose("stance", "Kneel")
-    }
-  ];
   function isSelfReferential(text) {
     return /^(i|we)\b/.test(text) && !/\byou\b/.test(text);
   }
@@ -6796,74 +6229,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!names.length || mentionsAnyName(inCharacter, names)) return inCharacter;
     return `${names[0]}, ${inCharacter}`;
   }
-  var VOCATIVE_FILLER = /* @__PURE__ */ new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
-  var CLAUSE_SPLIT = /[,;.!?:\n\r]+|\band\b|\bthen\b/i;
-  var OBJECT_MARKERS = /* @__PURE__ */ new Set([
-    "at",
-    "to",
-    "with",
-    "about",
-    "like",
-    "for",
-    "from",
-    "of",
-    "on",
-    "near",
-    "beside",
-    "behind",
-    "toward",
-    "towards",
-    "into",
-    "onto",
-    "against",
-    "between",
-    "around",
-    "over",
-    "under",
-    "by",
-    "as",
-    "than",
-    "or",
-    "nor",
-    "past",
-    "beyond",
-    "beneath",
-    "above",
-    "below",
-    "off",
-    "through"
-  ]);
-  var OBJECT_VERBS = /* @__PURE__ */ new Set([
-    "grope",
-    "squeeze",
-    "fondle",
-    "pinch",
-    "spank",
-    "smack",
-    "slap",
-    "scratch",
-    "tickle",
-    "pull",
-    "tug",
-    "choke",
-    "massage",
-    "knead",
-    "nibble",
-    "lick",
-    "kiss",
-    "suck",
-    "bite",
-    "pet",
-    "finger",
-    "masturbate",
-    "pleasure",
-    "caress",
-    "stroke",
-    "touch",
-    "feel",
-    "rub"
-  ]);
-  var bareWord = (w) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
   function splitSegments(content, known) {
     const isName = (w) => known.has(bareWord(w));
     const isFiller = (w) => VOCATIVE_FILLER.has(bareWord(w));
@@ -6965,24 +6330,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
-  var PART_BLOCK = [
-    /\byou (?:cannot|will not|do not) touch your ([a-z]+)\b/,
-    // Future phrasing, the natural way to say it while building a trigger. Without this,
-    // "you will not be able to touch your breasts" matched nothing at all and looked like
-    // the command had simply been ignored.
-    /\byou will (?:not be able|be unable) to touch your ([a-z]+)\b/,
-    /\b(?:do not|never) touch your ([a-z]+)\b/
-  ];
-  var PART_RELEASE = [
-    /\byou (?:can|may) touch your ([a-z]+)\b/,
-    /\byour ([a-z]+) (?:are|is) yours again\b/
-  ];
-  var SELF_BLOCK = [
-    /\byou (?:cannot|will not|do not) touch yourself\b/,
-    /\byou will (?:not be able|be unable) to touch yourself\b/,
-    /\b(?:do not|never) touch yourself\b/
-  ];
-  var SELF_RELEASE = [/\byou (?:can|may) touch yourself\b/];
   function matchBodyPartCommand(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return null;
@@ -7022,19 +6369,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!id) return "no match";
     return mentionsAnyName(content, playerOwnNames()) ? `${id} \u2014 would fire` : `${id} \u2014 but your name isn't in the line, so it would be ignored`;
   }
-  var TRIGGER_START = [
-    /\byour trigger (?:word|phrase) is (.+)$/,
-    /\bthe trigger (?:word|phrase) is (.+)$/,
-    /\byour (?:new )?trigger is (.+)$/,
-    /\bwhen (?:i say|you hear) (.+)$/
-  ];
-  var TRIGGER_COMMIT = [/\bremember (?:the |this |that )?trigger\b/, /\bthe trigger is set\b/, /\block (?:it |that )?in\b/];
-  var TRIGGER_CANCEL = [/\b(?:forget|cancel|never mind|nevermind) (?:the |that |this )?trigger\b/];
-  var DROP_INTO = String.raw`(?:straight |right |back |deep |deeply |down )*(?:into (?:a )?(?:deep )?trance|under(?! (?:the|a|an|my|your|his|her|their|it|that|this|there)\b))`;
-  var TRIGGER_DROP = [
-    new RegExp(String.raw`\byou (?:will |ll )?(?:drop|sink|fall|slip|go) ${DROP_INTO}\b`),
-    new RegExp(String.raw`\b(?:it|this|that|this trigger|that trigger|the word|the words) (?:will )?(?:drops?|puts?|sends?|takes?) you ${DROP_INTO}\b`)
-  ];
   function cleanPhrase(raw) {
     let phrase = raw.trim();
     for (const name of playerOwnNames()) {
@@ -7054,89 +6388,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!isRecording()) return false;
     return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
-  var OPT_SUBJ = String.raw`(?:this trigger|that trigger|the trigger|this word|that word|this phrase|that phrase|it)`;
-  var OPT_YOU = String.raw`(?:you will|you ll|you)`;
-  var OPT_OBEY = String.raw`(?:obey|respond to|answer|react to)`;
-  var OPT_NUM = String.raw`(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety|half an?)`;
-  var OPT_UNIT = String.raw`(minutes?|mins?|hours?|hrs?|days?)`;
-  var NUMBER_WORDS = {
-    a: 1,
-    an: 1,
-    one: 1,
-    two: 2,
-    three: 3,
-    four: 4,
-    five: 5,
-    six: 6,
-    seven: 7,
-    eight: 8,
-    nine: 9,
-    ten: 10,
-    eleven: 11,
-    twelve: 12,
-    fifteen: 15,
-    twenty: 20,
-    thirty: 30,
-    "forty five": 45,
-    forty: 40,
-    fifty: 50,
-    sixty: 60,
-    ninety: 90,
-    "half a": 0.5,
-    "half an": 0.5
-  };
-  var UNIT_MS = { m: 6e4, h: 36e5, d: 864e5 };
-  var OPTION_PATTERNS = [
-    // Whole words only. First: the "only when I say it ..." family below would read these as
-    // "only me" if they came later.
-    ...[
-      String.raw`\bonly (?:when|if) (?:you hear |i say )?(?:it|the word|the words|the phrase|those words|that word|that phrase) (?:exactly|on its own|by itself|alone)\b`,
-      String.raw`\bonly the (?:exact|whole) (?:word|words|phrase)\b`,
-      String.raw`\b(?:exactly|precisely) as i say it\b`,
-      String.raw`\b(?:it|the word|the words|the phrase) (?:has|have|needs?) to be (?:said )?(?:exactly|on its own|by itself|whole)\b`,
-      String.raw`\bnot (?:as )?(?:a )?part of (?:another|other|a longer) words?\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "strict", value: true }) })),
-    // Works once / every time.
-    ...[
-      String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?works? (?:only )?(?:once|one time)\b`,
-      String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) (?:only )?(?:once|one time)\b`,
-      String.raw`\b(?:it is|it s|this is) (?:a )?one (?:time|shot|use)(?: only| trigger| thing)?\b`,
-      String.raw`\bonce and then (?:it is |it s |it will be )?(?:gone|done|forgotten)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: true }) })),
-    ...[
-      String.raw`\b${OPT_SUBJ} (?:will )?works? every (?:single )?time\b`,
-      String.raw`\b${OPT_YOU} ${OPT_OBEY} (?:it|this|that|this trigger|that trigger) every (?:single )?time\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: false }) })),
-    // Lifespan.
-    ...[
-      String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
-      String.raw`\b${OPT_SUBJ} (?:will )?(?:fades?|wears? off|goes away|disappears?|ends?|expires?) (?:in|after) (?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
-      String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) for (?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: lifespanOption })),
-    ...[
-      String.raw`\b${OPT_SUBJ} (?:will )?(?:lasts?|stays?|holds?) forever\b`,
-      String.raw`\b${OPT_SUBJ} (?:will )?never (?:fades?|wears? off|goes away|ends?|expires?)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "lifespan", ms: 0 }) })),
-    // Who may fire it. The subject's own setting still caps whatever is asked for here.
-    ...[
-      String.raw`\b(?:anyone|anybody|everyone|whoever) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger|the word|the words|those words)\b`,
-      String.raw`\bwhoever says (?:it|this|that|the word|the words|those words)\b`,
-      String.raw`\bno matter who says (?:it|this|that|the word|the words|those words)\b`,
-      String.raw`\b${OPT_SUBJ} works for (?:anyone|anybody|everyone)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "everyone" }) })),
-    ...[
-      String.raw`\byour owner (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "owner" }) })),
-    ...[
-      String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "lovers" }) })),
-    ...[
-      String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
-      String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
-      String.raw`\bonly (?:from|in) my voice\b`,
-      String.raw`\bonly (?:when|if) i say (?:it|this|that|the word|the words|those words)\b`
-    ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "hypnotist" }) }))
-  ];
   function lifespanOption(m) {
     const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
     const ms = UNIT_MS[m[2][0]];
@@ -7152,11 +6403,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
-  var SAY_RAW = /\byou(?:\s+will|\s*['‘’ʼ]ll)?\s+(?:say|repeat|recite|(?:answer|reply|respond)\s+with)(?:\s+(?:the\s+words|these\s+words|this))?\s*[,:]?\s+(.+?)\s*$/i;
-  var SAY_NORM = /\byou (?:will |ll )?(?:say|repeat|recite|(?:answer|reply|respond) with)\b/;
-  var SAY_TIMES = /[\s,.;:]*\b(one|two|three|four|five|\d+)\s+times?[.!]*$|[\s,.;:]*\b(once|twice|thrice)[.!]*$/i;
-  var SAY_TIME_WORDS = { one: 1, once: 1, two: 2, twice: 2, three: 3, thrice: 3, four: 4, five: 5 };
-  var NOT_WORDS = /^(?:nothing|anything|a word|not a word|no more|another word|a thing|out loud|aloud)[.!]*$/i;
   function parseSayClause(raw) {
     const match = SAY_RAW.exec(raw);
     if (!match) return null;
@@ -7177,17 +6423,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!text || NOT_WORDS.test(text)) return null;
     return { text, times: Math.max(1, Math.min(5, times)) };
   }
-  var COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
-  var WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|awaken|awake|are (?:wide )?awake(?: again)?|open your eyes|come out of (?:it|trance|the trance|this))|waking(?: up)?|awakening)`;
-  var WAKE_LEAD = String.raw`(?:${COND_LEAD}|(?:right |just |soon |straight )?after|upon)`;
-  var COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
-  var COND_WAKE_NOW = new RegExp(String.raw`\b${WAKE_LEAD} ${WAKE_VERB}\b`);
-  var COND_ARRIVE = new RegExp(
-    String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`
-  );
-  var COND_SPEAK = new RegExp(
-    String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`
-  );
   function personCondition(content) {
     const c = parseCondition(content);
     return !!c && c.fireOn !== "wake";
@@ -7209,7 +6444,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
     return null;
   }
-  var PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
   function isRecordableAction(text) {
     return !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
   }
@@ -7266,7 +6500,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
-  var rereadingRest = false;
   function handleConditionStart(sender, content, parsed) {
     if (parsed.fireOn === "wake" && parsed.rest && isWakeLine(parsed.rest)) return false;
     if (isRecording()) {
@@ -7384,8 +6617,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var TRIGGER_STEP_BASE_MS = 1200;
-  var TRIGGER_STEP_JITTER_MS = 800;
   function drainTriggerSteps(trigger, steps) {
     if (!steps.length) return;
     steps[0]();
@@ -7415,11 +6646,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (mode === "once") trigger.oneShot = true;
     tellHypnotist(speaker, `[trigger] They drop straight into trance (${tierLabel(tierOf(strength))}).`);
   }
-  var FORCED_LINE_CAP = 6;
-  var FORCED_WINDOW_MS = 6e4;
-  var forcedLineTimes = [];
-  var forcedCapNoticeAt = 0;
-  var FORCED_ECHOES = [];
   function isForcedEcho(sender, content) {
     if (sender !== Player?.MemberNumber) return false;
     const text = normalize(content);
@@ -7472,8 +6698,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn("arrival compulsion failed:", err);
     }
   }
-  var COMPULSION_POLL_MS = 5e3;
-  var compulsionPoll = null;
   function checkDueCompulsions(now = Date.now()) {
     if (isHypnotized()) return 0;
     if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return 0;
@@ -7606,11 +6830,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return keys[0] ?? (Array.isArray(suggestion.permission) ? suggestion.permission[0] : suggestion.permission);
   }
-  var TRIGGER_RELEASE = [
-    /\byou are released from (.+)$/,
-    /\bi release you from (.+)$/,
-    /\brelease (?:the )?trigger (.+)$/
-  ];
   function undoTrigger(trigger) {
     for (const id of trigger.actions) {
       if (id.startsWith("touch:")) {
@@ -7727,12 +6946,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return false;
   }
-  var REINFORCE = [
-    /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
-    /\breinforce (?:that|the|your) triggers?\b/,
-    /\b(?:that|the|your) triggers? (?:is|are) (?:stronger|deeper) now\b/,
-    /\blet (?:that|the|your) triggers? (?:settle|sink) deeper\b/
-  ];
   function handleReinforcement(sender, content) {
     const text = normalize(content);
     if (!REINFORCE.some((p) => p.test(text))) return false;
@@ -7753,12 +6966,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     announce("trigger-reinforced");
     return true;
   }
-  var DEEPEN = [
-    /\b(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float) (?:down )?(?:even |much |a little |a bit |further and |ever )?deeper\b/,
-    /\bdeeper and deeper\b/,
-    /\bdeeper (?:down )?(?:into|in) (?:trance|the trance|sleep)\b/
-  ];
-  var DEEPEN_NEGATED = /\b(?:do not|don t|dont|never|not|no|cannot|can t)\s+(?:(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float)\s+(?:any\s+)?)?deeper\b/;
   function isDeepeningLine(content) {
     const text = normalize(content);
     return DEEPEN.some((p) => p.test(text)) && !DEEPEN_NEGATED.test(text);
@@ -7820,9 +7027,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellHypnotist(sender, `[deepen] ${lead} push back up a little.`);
     }
   }
-  registerStruggleReporter((hypnotistId, r) => {
-    if (r.kind === "surfaced" || r.kind === "woke") reportSurfacing(hypnotistId, r, "They");
-  });
   function handleTriggerFiring(sender, content) {
     const text = normalize(content);
     if (!text) return false;
@@ -7840,24 +7044,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var CARRY_LAST = [
-    /\b(?:that|this|it) (?:will |)stays? with (?:you|her|him|them)\b/,
-    /\byou will keep (?:that|this|it)\b/,
-    /\b(?:that|this|it) (?:will |)(?:stay|stays|remain|remains) (?:with you )?(?:when|after) you wake\b/,
-    /\byou will carry (?:that|this|it) with you\b/,
-    /\b(?:that|this|it) (?:one |)stays\b/
-  ];
-  var CARRY_ALL = [
-    /\ball of (?:this|that|it) (?:will |)stays? with you\b/,
-    /\b(?:all|everything) (?:of it |)(?:will |)stays? with you\b/,
-    /\byou will keep (?:all of |)(?:this|everything)\b/,
-    /\beverything i (?:have |)told you stays\b/
-  ];
-  var CARRY_CANCEL = [
-    /\b(?:this|that|it|none of it|nothing) will not stay with you\b/,
-    /\bforget what i (?:said|told you)\b/,
-    /\bnothing stays with you\b/
-  ];
   function applyActionById(id) {
     if (id.startsWith("touch:")) {
       const word = id.slice("touch:".length);
@@ -7876,36 +7062,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     SUGGESTIONS.find((s) => s.id === id)?.undo?.();
   }
-  registerCarryHandlers(applyActionById, undoActionById);
-  registerTriggerRecovery(
-    () => listTriggers().filter((t) => isActive(timerKey(t))).map((t) => ({ key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) })),
-    (saved) => {
-      const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
-      if (!trigger) {
-        log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
-        return;
-      }
-      for (const id of saved.actions) {
-        try {
-          applyActionById(id);
-        } catch (err) {
-          warn(`recovery: could not re-apply "${id}":`, err);
-        }
-      }
-      markActive(saved.key);
-      const remaining = saved.until ? saved.until - Date.now() : 0;
-      if (remaining > 0) {
-        scheduleTimer(saved.key, remaining, () => {
-          undoTrigger(trigger);
-          tellPlayer("Whatever was holding you loosens on its own.");
-        });
-      }
-      saveForReconnect();
-      log(
-        `recovery: trigger "${trigger.phrase}" restored with ${remaining > 0 ? `${Math.round(remaining / 6e4)} min left` : "no clock"}`
-      );
-    }
-  );
   function handleCarryControl(sender, content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return false;
@@ -7926,42 +7082,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (result.subject) tellPlayer(result.subject);
     return true;
   }
-  var WAKE_PATTERNS = [
-    // Bare "wake" included: DW tried "Missy wake" and nothing happened. Guarded against
-    // first-person the same way the other bare imperatives are.
-    /(?<!\bi )(?<!\bwe )\bwake\b/,
-    /\bwake up\b/,
-    /\bwake now\b/,
-    /\byou (?:are|will be) (?:wide )?awake\b/,
-    /\byou (?:will |)wake (?:up )?(?:now|when|on)\b/,
-    /\bawaken\b/,
-    /\bcome back to me\b/,
-    /\bcome out of (?:it|trance|the trance)\b/
-  ];
   function isWakeLine(content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return false;
     return WAKE_PATTERNS.some((p) => p.test(text));
   }
-  var WALK_ENTER_PATTERNS = [
-    /\bwalk with me\b/,
-    /\bcome (?:and )?walk with me\b/,
-    /\b(?:stay|come) with me as you (?:move|walk)\b/,
-    /\byou (?:can|may) (?:move|walk) (?:with me |)(?:but |and |)stay under\b/,
-    /\byou (?:can|may) walk(?: with me)?\b/,
-    /\bmove with me\b/,
-    /\bon your feet\b/
-  ];
-  var WALK_LEAVE_PATTERNS = [
-    /\bbe still\b/,
-    /\bbe frozen\b/,
-    /\bstop\b/,
-    /\b(?:stand|hold|stay) still\b/,
-    /\bstay put\b/,
-    /\bstillness\b/,
-    /\bfreeze again\b/,
-    /\bstay\b/
-  ];
   function handleWalkingTrance(sender, content) {
     const text = normalize(content);
     if (!text || isSelfReferential(text)) return false;
@@ -8034,31 +7159,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else announceBodyPartApplied(cmd.word);
     return true;
   }
-  var ACTIVITY_VERBS = [
-    { activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
-    { activity: "Pinch", re: /\bpinch\b/ },
-    { activity: "Spank", re: /\b(?:spank|smack)\b/ },
-    { activity: "Slap", re: /\bslap\b/ },
-    { activity: "Scratch", re: /\bscratch\b/ },
-    { activity: "Tickle", re: /\btickle\b/ },
-    { activity: "Pull", re: /\b(?:pull|tug)\b/ },
-    { activity: "Choke", re: /\bchoke\b/ },
-    { activity: "MassageHands", re: /\b(?:massage|knead)\b/ },
-    { activity: "Nibble", re: /\bnibble\b/ },
-    { activity: "Lick", re: /\blick\b/ },
-    { activity: "Kiss", re: /\bkiss\b/ },
-    { activity: "Suck", re: /\bsuck\b/ },
-    { activity: "Bite", re: /\bbite\b/ },
-    { activity: "Pet", re: /\bpet\b/ },
-    { activity: "MasturbateHand", re: /\b(?:finger|masturbate|pleasure|play with)\b/ },
-    // The universal — Caress reaches almost every zone, so "touch your <anything>" lands.
-    { activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ }
-  ];
-  var COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will ?not|no longer|stop)\b/;
-  var GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
-  var VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
-  var MAX_TOUCH_TIMES = 5;
-  var REPEAT_RAW = /\b(one|two|three|four|five|\d+)\s+times?\b|\b(twice|thrice)\b/i;
   function repeatCount(raw) {
     const m = REPEAT_RAW.exec(raw);
     if (!m) return 1;
@@ -8094,19 +7194,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const n = Number(id.slice(star + 1));
     return { base: id.slice(0, star), times: Number.isInteger(n) && n > 1 ? Math.min(n, MAX_TOUCH_TIMES) : 1 };
   }
-  var VAGUE_ZONES = [
-    "ItemBreast",
-    "ItemButt",
-    "ItemArms",
-    "ItemLegs",
-    "ItemTorso",
-    "ItemNeck",
-    "ItemHead",
-    "ItemPelvis",
-    "ItemHands",
-    "ItemFeet",
-    "ItemNipples"
-  ];
   function pickVagueZone() {
     const reachable = VAGUE_ZONES.filter((g) => {
       try {
@@ -8229,7 +7316,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
   }
-  var DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
   function matchTargetedActivityCommand(content, roster) {
     const text = normalize(content);
     if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
@@ -8262,7 +7348,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const roster = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
     return roster.filter((c) => c?.MemberNumber && c.MemberNumber !== Player?.MemberNumber);
   }
-  var namesOf = (c) => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
   function itemPermissionBlocks(target) {
     try {
       if (typeof ServerChatRoomGetAllowItem === "function") return ServerChatRoomGetAllowItem(Player, target) === false;
@@ -8437,12 +7522,1148 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, TRIGGER_RELEASE, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf;
+  var init_voice = __esm({
+    "src/voice.ts"() {
+      init_log();
+      init_effects();
+      init_suppression();
+      init_selftouch();
+      init_storage();
+      init_session();
+      init_follow();
+      init_depth();
+      init_flavor();
+      init_notify();
+      init_arousal();
+      init_illusion();
+      init_undress();
+      init_carry();
+      init_timers();
+      init_recovery();
+      init_extreme();
+      init_triggers();
+      ORGASM_DENIED_UNTIL = /\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
+      UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
+      CATEGORY_WORDS = {
+        suppressClothing: "clothing",
+        suppressBondage: "bondage",
+        suppressActivities: "touches"
+      };
+      HEARING_IDS = ["hear-voice", "hear-name"];
+      SIGHT_IDS = ["sight-dim", "sight-dark", "sight-blind"];
+      STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
+      ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
+      POSE_SUGGESTIONS = [
+        poseSuggestion("kneel-spread", "KneelingSpread", ["kneel spread", "spread your knees"], [
+          /\bkneel (?:with your knees )?(?:spread|apart)\b/,
+          /\bspread your knees\b/,
+          /\bknees (?:apart|spread|wide)\b/
+        ]),
+        poseSuggestion("legs-spread", "Spread", ["spread your legs", "stand with your legs apart"], [
+          /\b(?:spread|part) your legs\b/,
+          /\b(?:legs|feet) (?:apart|wide)\b/
+        ]),
+        poseSuggestion("legs-closed", "LegsClosed", ["legs closed", "feet together"], [
+          /\b(?:legs|feet) (?:closed|together)\b/,
+          /\bclose your legs\b/
+        ]),
+        poseSuggestion("all-fours", "AllFours", ["on all fours", "get on your hands and knees"], [
+          /\bon all fours\b/,
+          /\bon your hands and knees\b/
+        ]),
+        poseSuggestion("lie-down", "Hogtied", ["lie down", "down on your stomach"], [
+          /(?<!\bi )(?<!\bwe )\b(?:lie|lay) down\b/,
+          /\bon your (?:stomach|belly|front)\b/
+        ]),
+        // Arms. Names per DW's verified reference (docs/bc-pose-reference.md): BC has no crossed-arms
+        // pose and no surrender pose, so "cross your arms" is not offered and "surrender" raises the
+        // arms over the head, its closest pose.
+        poseSuggestion("hands-behind", "BackCuffs", ["hands behind your back", "clasp your hands behind your back"], [
+          /\bhands behind your back\b/
+        ]),
+        poseSuggestion("arms-behind", "BackBoxTie", ["arms behind your back", "box your arms"], [
+          /\barms behind your back\b/,
+          /\bbox your arms\b/
+        ]),
+        poseSuggestion("elbows-behind", "BackElbowTouch", ["elbows behind your back"], [
+          /\belbows (?:behind your back|together)\b/
+        ]),
+        poseSuggestion("arms-up", "OverTheHead", ["put your hands up", "raise your arms", "hands above your head", "surrender", "hands where I can see them"], [
+          /\b(?:hands|arms) up\b/,
+          /\braise your (?:arms|hands)\b/,
+          /\b(?:hands|arms) (?:above|over) your head\b/,
+          // Bare "surrender" is also ordinary hypnosis patter ("surrender to my voice"). Kept on
+          // DW's call, 2026-09-23, with the conflict noted in the wiki rather than guarded here.
+          /(?<!\bi )(?<!\bwe )\bsurrender\b/,
+          /\bwhere i can see them\b/
+        ]),
+        poseSuggestion("arms-out", "Yoked", ["hold your arms out", "yoke your arms"], [
+          /\b(?:hold|put|stretch) your arms out\b/,
+          /\byoke your arms\b/
+        ]),
+        {
+          id: "arms-relax",
+          examples: ["relax your arms", "arms at your sides"],
+          release: true,
+          releaseOf: ARM_IDS,
+          permission: "postureControl",
+          // "Relax your arms" is induction patter too; kept on DW's call, 2026-09-23. Like "stand",
+          // it clears any arm pose, including one the subject chose themselves.
+          patterns: [
+            /\brelax your arms\b/,
+            /\b(?:arms|hands) (?:at|by) your sides?\b/,
+            /\b(?:lower|drop) your (?:arms|hands)\b/,
+            /\b(?:arms|hands) down\b/
+          ],
+          run: () => setSuggestedPose(null, "arms") ? void 0 : "pose-blocked"
+        }
+      ];
+      SUGGESTIONS = [
+        // Arousal goes FIRST. Its patterns are the most specific in the table (every one names
+        // arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
+        // reverse is not true: "you are stuck at the edge" would otherwise be eaten by
+        // movement-block's "stuck", and "you cannot stand it" by the posture entry.
+        {
+          id: "arousal-none",
+          examples: ["you are not aroused", "your arousal fades", "you feel no desire"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou are (?:not|no longer) (?:\w+ ){0,2}(?:aroused|turned on|excited|horny|needy)\b/,
+            /\byour (?:arousal|excitement|need|desire|heat|wanting) (?:is gone|fades|drains away|goes away|disappears|leaves you)\b/,
+            /\byou feel no (?:arousal|desire|need|excitement)\b/,
+            /\byou (?:do not|will not) (?:want|need) (?:it|anything|me)\b/
+          ],
+          run: () => applyArousal("none")
+        },
+        {
+          id: "arousal-light",
+          examples: ["you are lightly aroused", "you feel a little warm"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou are (?:only |just )?(?:lightly|slightly|mildly|barely|a little|a bit) (?:aroused|turned on|excited|warm|horny)\b/,
+            /\byou feel (?:a little|a bit|slightly|lightly) (?:aroused|warm|excited|horny)\b/,
+            /\byou are (?:just )?(?:starting|beginning) to (?:feel it|get (?:warm|aroused|excited))\b/,
+            /\ba (?:little|small|faint) (?:warmth|heat) (?:builds|starts|begins|settles)\b/
+          ],
+          run: () => applyArousal("light")
+        },
+        {
+          id: "arousal-high",
+          examples: ["you are very aroused", "you are desperate", "you need it badly"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou are (?:\w+ )?(?:very|highly|deeply|so|extremely|badly|terribly|painfully) (?:aroused|turned on|excited|horny|needy)\b/,
+            /\byou (?:are|feel) (?:\w+ )?(?:aching|burning|desperate|needy)\b/,
+            /\byou (?:want|need) (?:it|this|me|to come|to cum) (?:badly|so much|desperately|now)\b/,
+            /\byour (?:arousal|need|heat|desire) (?:climbs|builds|floods you|takes over)\b/
+          ],
+          run: () => applyArousal("high")
+        },
+        {
+          id: "arousal-full",
+          examples: ["you are right on the edge", "you are so close"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou are (?:fully|completely|totally|utterly) (?:aroused|turned on)\b/,
+            /\byou are (?:\w+ ){0,2}(?:on|at) the (?:very )?(?:edge|brink)\b/,
+            /\byou are (?:so close|almost there|about to (?:come|cum|burst))\b/,
+            /\byou are (?:\w+ )?edged\b/
+          ],
+          run: () => applyArousal("full")
+        },
+        // allow before deny before force, and all three before anything else, because they
+        // overlap: "you cannot come now" contains "come now", and "you may come now" contains
+        // both. First match wins, so the most restrictive reading has to be listed first.
+        {
+          id: "orgasm-allow",
+          examples: ["you may come now", "you may cum now", "you are allowed to orgasm"],
+          displayExamples: ["you may come/cum now", "you are allowed to orgasm"],
+          release: true,
+          releaseOf: "orgasm-deny",
+          permission: "arousalControl",
+          patterns: [
+            /\byou (?:can|may) (?:come|cum|orgasm|climax|finish) (?:again|now|freely|whenever|if|when)\b/,
+            /\byou are (?:allowed|free|permitted) to (?:come|cum|orgasm|climax|finish)\b/,
+            /\bi (?:allow|permit) you to (?:come|cum|orgasm|climax|finish)\b/,
+            /\byour orgasm is (?:allowed|yours)\b/,
+            /\byou are no longer denied\b/
+          ],
+          // A denial that names its own end — "you cannot cum until I allow you to cum" — holds a
+          // permission phrase inside its condition. Listed first, allow read that half and LIFTED
+          // the denial the line was laying down. A negated orgasm before an until/unless clause is
+          // a denial, so the line carries on down to orgasm-deny.
+          unless: [ORGASM_DENIED_UNTIL],
+          run: () => setOrgasmDenied(false)
+        },
+        {
+          id: "orgasm-deny",
+          examples: ["you cannot come", "you cannot cum", "you are forbidden to come"],
+          displayExamples: ["you cannot come/cum", "you are forbidden to come"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou (?:cannot|will not|may not|must not|are not to) (?:come|cum|orgasm|climax|finish)\b/,
+            /\byou are (?:not allowed|not permitted|forbidden) to (?:come|cum|orgasm|climax|finish)\b/,
+            /\byou are (?:forbidden|not allowed|not permitted) from (?:coming|cumming|orgasming|climaxing|finishing)\b/,
+            /\b(?:do not|you will not) (?:you )?dare (?:to )?(?:come|cum|orgasm|climax|finish)\b/,
+            /\byou will (?:not be able|be unable) to (?:come|cum|orgasm|climax|finish)\b/,
+            /\byou have forgotten how to (?:come|cum|orgasm|climax)\b/,
+            /\byour orgasm is denied\b/,
+            /\byou are denied\b/,
+            /\bno (?:coming|cumming|orgasms?)\b/,
+            /\b(?:do not|never) (?:come|cum|orgasm|climax)\b/
+          ],
+          run: () => setOrgasmDenied(true),
+          undo: () => setOrgasmDenied(false)
+        },
+        {
+          id: "orgasm-force",
+          examples: ["come for me", "cum for me", "you will come now"],
+          displayExamples: ["come/cum for me", "you will come now"],
+          permission: "arousalControl",
+          patterns: [
+            /\b(?:come|cum) for me\b/,
+            /\b(?:come|cum|orgasm) now\b/,
+            /\byou (?:will|are going to) (?:come|cum|orgasm|climax|finish) (?:now|for me)\b/,
+            /\byou (?:come|cum|orgasm) (?:now|for me)\b/,
+            /\bgo over (?:the edge )?(?:now|for me)\b/
+          ],
+          // No undo: an orgasm is an event, not a state, so there is nothing for a trigger
+          // release to take back.
+          run: () => applyForcedOrgasm()
+        },
+        // The clothing illusion. Listed here, before the awareness entries, because the two
+        // overlap: "you do not notice what you are wearing" also matches awareness-block's
+        // "you do not notice what", and the more specific reading has to win.
+        {
+          id: "illusion-release",
+          examples: [
+            "look at yourself",
+            "you can see yourself again",
+            "you notice your clothes",
+            "you notice you are naked"
+          ],
+          release: true,
+          releaseOf: "illusion-block",
+          permission: "illusionControl",
+          patterns: [
+            /\byou (?:can|may) (?:see|tell) (?:what|how) you are (?:wearing|dressed)\b/,
+            /\byou (?:can|may) see yourself (?:again|properly|clearly)\b/,
+            /\byou (?:see|notice) yourself as you (?:really |actually )?are\b/,
+            // "again" was mandatory on the next one and a qualifier was mandatory on the
+            // last, so "you notice your clothes" and a bare "look at yourself" — two of the
+            // most natural ways to say this — matched nothing at all.
+            /\byou (?:notice|see|feel) your (?:clothes|clothing|outfit)\b/,
+            /\byou (?:can|may) tell what you have on\b/,
+            /\blook (?:down )?at yourself\b/,
+            /\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
+            /\byou (?:notice|see) what (?:you are wearing|is missing)\b/
+          ],
+          run: () => clearIllusion()
+        },
+        {
+          id: "illusion-block",
+          examples: ["you cannot tell what you are wearing", "your clothes look the same to you"],
+          permission: "illusionControl",
+          // The first suggestion to carry a trust threshold, and still the only one. Checked
+          // against relationship trust alone — the arousal floor must never reach a feature
+          // that lies to someone about their own state. See ILLUSION_TRUST_THRESHOLD above for
+          // why the number is 65 rather than the 70 this table originally called for.
+          patterns: [
+            /\byou cannot (?:tell|see|remember) (?:what|how) you are (?:wearing|dressed)\b/,
+            /\byou (?:do not|will not|cannot) notice (?:what|how) you are (?:wearing|dressed)\b/,
+            /\byou (?:do not|will not|cannot) notice your (?:clothes|clothing|outfit)\b/,
+            /\byou (?:cannot|do not) (?:tell|see) what you have on\b/,
+            /\byour (?:clothes|clothing|outfit) (?:look|looks|stay|stays) the same to you\b/,
+            /\byou look the same to yourself\b/,
+            /\bnothing about you (?:changes|has changed)\b/,
+            /\byou (?:do not|cannot) see yourself change\b/,
+            /\byou will (?:not be able|be unable) to (?:tell|see) (?:what|how) you are (?:wearing|dressed)\b/
+          ],
+          run: () => freezeAppearance() ? void 0 : void 0,
+          undo: () => clearIllusion()
+        },
+        {
+          id: "movement-release",
+          examples: ["you can move again", "your body is your own"],
+          release: true,
+          releaseOf: "movement-block",
+          permission: "movementRestriction",
+          patterns: [
+            /\byou (can|may) move\b/,
+            /\byou are (free|able|allowed) to move\b/,
+            /\byou are no longer (frozen|paralyzed|rooted|immobile|still)\b/,
+            /\byou (can|may) move (again|now|freely)\b/,
+            /\bmove (again|freely)\b/,
+            /\byour body is your own\b/
+          ],
+          run: () => {
+            removeEffect("Freeze");
+          }
+        },
+        {
+          id: "movement-block",
+          examples: ["you cannot move", "stay still", "you are frozen", "you will be frozen"],
+          permission: "movementRestriction",
+          patterns: [
+            // The optional (\w+ ) throughout lets one adverb slip in without needing a
+            // separate pattern for it — "you are completely frozen", "you cannot even move".
+            /\byou cannot (\w+ )?move\b/,
+            /\byou are (unable|not able) to move\b/,
+            /\byou are (\w+ )?(frozen|paralyzed|rooted|immobile|stuck)\b/,
+            /\b(do not|never) move\b/,
+            /\b(stay|hold|remain) (still|frozen|put)\b/,
+            /\b(stay|remain) where you are\b/,
+            /\byour body (will not|does not|cannot) (move|respond|obey)\b/,
+            /\byou (cannot|will not) move (a muscle|an inch|at all)\b/,
+            // Future phrasing, natural when building a trigger: "when I say sleepy time,
+            // you will not be able to move". Same effect either way — the tense is for the
+            // hypnotist's benefit, not a different mechanic.
+            /\byou will (not be able|be unable) to move\b/,
+            /\byou will not move\b/,
+            // v0.92.6 (DW): "you will be frozen", the future of "you are frozen", and "you'll be
+            // frozen" ("you'll" is not expanded by normalize, so it arrives as "you ll"). Not "you
+            // will not / never / no longer be frozen", which say the opposite.
+            /\byou (will|ll) (?!not\b|never\b|no\b)(\w+ )?be (\w+ )?(frozen|paralyzed|rooted|immobile|stuck)\b/
+          ],
+          // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
+          // told it did not land, and the room is not told of a stillness that is not there.
+          run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
+          undo: () => removeEffect("Freeze")
+        },
+        // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
+        // block's verbs before the block gets a look. Deliberately no "come with me" — that would
+        // collide with the orgasm "come" family, which is listed earlier and would swallow it.
+        {
+          id: "follow-release",
+          examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+          release: true,
+          releaseOf: "follow-block",
+          permission: "followControl",
+          patterns: [
+            /\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
+            /\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
+            /\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
+            /\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+            /\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
+            /\bstay (?:wherever|where) you (?:like|want|please)\b/
+          ],
+          run: () => {
+            releaseFollow();
+          }
+        },
+        {
+          id: "follow-block",
+          examples: ["follow me", "stay close to me", "you cannot leave my side"],
+          permission: "followControl",
+          patterns: [
+            /\bfollow me\b/,
+            /\byou (?:will|must) follow(?: me)?\b/,
+            /\byou follow (?:me|wherever i go)\b/,
+            /\bstay (?:close|near)\b/,
+            /\bstay (?:at|by) my (?:side|heel)\b/,
+            /\byou (?:cannot|can't|will not|won't) (?:leave|walk away from) (?:my side|me)\b/,
+            /\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
+            /\bheel\b/
+          ],
+          run: () => {
+            applyFollow(currentHypnotistId());
+          },
+          undo: () => releaseFollow()
+        },
+        {
+          id: "clothing-release",
+          examples: ["you can change your clothes"],
+          release: true,
+          releaseOf: "clothing-block",
+          permission: "clothingRestriction",
+          patterns: [
+            /\byou (can|may) (change|remove|touch|adjust) your (clothes|clothing|outfit)\b/,
+            /\byou are (free|able|allowed) to (change|dress|undress)\b/,
+            /\byou (can|may) (dress|undress)\b/,
+            /\byour (clothes|clothing|outfit) are yours again\b/
+          ],
+          run: () => {
+            removeEffect("BlockWardrobe");
+          }
+        },
+        {
+          id: "clothing-block",
+          examples: ["you cannot change your clothes", "leave your clothes alone"],
+          permission: "clothingRestriction",
+          patterns: [
+            /\byou cannot (change|remove|take off|touch|adjust) your (clothes|clothing|outfit)\b/,
+            /\byou cannot (dress|undress|strip|get dressed|get undressed)\b/,
+            /\byou are (unable|not able) to (change|remove) your (clothes|clothing|outfit)\b/,
+            /\byour (clothes|clothing|outfit) (stay|stays|will stay|must stay|are staying)\b/,
+            /\b(do not|never) (touch|change|remove|adjust) your (clothes|clothing|outfit)\b/,
+            /\bleave your (clothes|clothing|outfit) alone\b/,
+            /\byou have forgotten how to (dress|undress|change)\b/,
+            /\byou will (not be able|be unable) to (change|remove|touch) your (clothes|clothing|outfit)\b/
+          ],
+          run: () => applyEffect("BlockWardrobe") ? void 0 : "effect-failed",
+          undo: () => removeEffect("BlockWardrobe")
+        },
+        // Taking clothes OFF, as opposed to clothing-block above, which is being unable to change
+        // them. ORDER IS LOAD-BEARING: these sit AFTER clothing-block so that "you cannot undress"
+        // and "you cannot strip" are read as restrictions rather than as instructions. First match
+        // wins, and the negated forms have to get there first.
+        //
+        // "all-at-once" is listed first because "take everything off" contains "take", and the
+        // single-garment patterns must not eat it. Same first-match-wins rule as releases.
+        {
+          id: "undress-all",
+          examples: ["take everything off", "strip"],
+          permission: "undressControl",
+          patterns: [
+            /\btake (everything|it all) off\b/,
+            /\btake off (everything|all your clothes)\b/,
+            /\b(strip|undress) (completely|entirely|all the way)\b/,
+            /\byou are (getting|going) completely undressed\b/,
+            /\bremove (everything|all your clothes)\b/,
+            /\bnothing stays on\b/,
+            // Bare, and safe to be bare: the name gate already requires the line to address
+            // the subject, so "comic strip" only fires if somebody says "Missy, comic strip".
+            /\bstrip\b/
+          ],
+          unless: UNDRESS_IS_THE_OBJECT,
+          run: () => applyUndress(Infinity)
+        },
+        {
+          id: "undress",
+          examples: ["take something off", "undress"],
+          permission: "undressControl",
+          patterns: [
+            /\btake (something|a piece|one thing|another|it) off\b/,
+            /\btake off (something|a piece|one thing|another)\b/,
+            /\b(you )?(start|begin) (to )?undress(ing)?\b/,
+            /\byou (want|need) to undress\b/,
+            /\bundress (for me|yourself|now)\b/,
+            /\bundress\b/,
+            /\btake your clothes off\b/,
+            /\bremove (a|one) (piece|garment|item)\b/
+          ],
+          unless: UNDRESS_IS_THE_OBJECT,
+          run: () => applyUndress(1)
+        },
+        // PER-CATEGORY awareness, and they sit BEFORE the broad pair below because the broad
+        // block's /you (do not|will not) notice/ has no right-hand anchor and would take "you will
+        // not notice your clothing" first — which is exactly what happened in play: the line
+        // meant for clothing took every permitted category and reported the broad thing. Touch
+        // already had its own pair (touch-block / touch-release, further down); clothing and
+        // bondage did not, so the only way to reach either alone was to have unticked the others.
+        //
+        // Releases before blocks, as everywhere: "you notice your clothes again" contains
+        // "notice your clothes".
+        //
+        // AND THE CLOTHING PAIR MUST NOT SOUND LIKE THE ILLUSION. "You will not notice your
+        // clothing" is an illusion-block pattern — listed above, on purpose, because "notice" there
+        // reads as perception and the more specific feature wins. That is the line DW said in play
+        // at Drifting, and it was refused for depth by the illusion, not ignored by awareness. So
+        // every phrasing here names the CHANGE or the ACT — being undressed, clothes changing —
+        // rather than the clothes themselves, and the suite pins the illusion's claim on the other
+        // wording so nobody "fixes" the collision by moving it.
+        {
+          id: "clothing-awareness-release",
+          examples: ["you notice being undressed again", "clothing changes register again"],
+          release: true,
+          releaseOf: "clothing-awareness-block",
+          permission: "suppressClothing",
+          patterns: [
+            /\byou notice (being|when you are) (dressed|undressed|redressed|changed|stripped) again\b/,
+            /\byou notice changes to your (clothes|clothing|outfit)( again)?\b/,
+            /\b(clothing|clothes|outfit) changes (register|reach you)( again)?\b/
+          ],
+          run: () => setSuppressed("clothing", false)
+        },
+        {
+          id: "clothing-awareness-block",
+          examples: ["you will not notice being undressed", "changes to your clothes go unnoticed"],
+          permission: "suppressClothing",
+          patterns: [
+            /\byou (do not|will not|cannot) notice (being|when you are) (dressed|undressed|redressed|changed|stripped)\b/,
+            /\byou (do not|will not|cannot) notice changes to your (clothes|clothing|outfit)\b/,
+            /\byou (do not|will not|cannot) notice (anyone|someone|people|me) (changing|dressing|undressing|stripping) you\b/,
+            // "...when I strip you" — the phrasing the undress entries used to take, and strip her.
+            /\byou (do not|will not|cannot) notice (when|while|as|if) (i|we|they|he|she|someone|anyone|people) (strip|strips|undress|undresses|change|changes|dress|dresses) you\b/,
+            /\b(clothing|clothes|outfit) changes go unnoticed\b/,
+            /\bchanges to your (clothes|clothing|outfit) go unnoticed\b/
+          ],
+          run: () => setSuppressed("clothing", true),
+          undo: () => setSuppressed("clothing", false)
+        },
+        {
+          id: "bondage-awareness-release",
+          examples: ["you notice the ropes again"],
+          release: true,
+          releaseOf: "bondage-awareness-block",
+          permission: "suppressBondage",
+          patterns: [
+            /\byou notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs) again\b/,
+            /\byou (notice|feel) being (tied|bound|restrained) again\b/
+          ],
+          run: () => setSuppressed("bondage", false)
+        },
+        {
+          id: "bondage-awareness-block",
+          examples: ["you will not notice the ropes", "you do not notice being tied"],
+          permission: "suppressBondage",
+          patterns: [
+            /\byou (do not|will not|cannot) notice (the |your |any )?(ropes|restraints|bondage|bindings|cuffs)\b/,
+            /\byou (do not|will not|cannot) notice being (tied|bound|restrained)\b/
+          ],
+          run: () => setSuppressed("bondage", true),
+          undo: () => setSuppressed("bondage", false)
+        },
+        {
+          // The broad one: clothing, bondage and touch together. Each category is still
+          // applied only if separately permitted — saying it doesn't override a box the
+          // subject left unchecked.
+          id: "awareness-release",
+          examples: ["you notice everything again"],
+          release: true,
+          releaseOf: "awareness-block",
+          permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
+          patterns: [
+            /\byou notice (everything|things|them|it) again\b/,
+            /\byou (notice|feel) what (happens|is happening|is done) to you\b/,
+            // "awake" deliberately NOT here — "you are awake again" should end the trance,
+            // not merely restore awareness of clothing changes. It belongs to wake.
+            /\byou are aware (again|to it)\b/,
+            // "You can notice" / "you may notice" needs an object that means awareness coming
+            // BACK. It used to be bare, and ordinary patter starts that way far more often than a
+            // release does: "you may notice a warmth spreading" matched here and silently lifted
+            // clothing, bondage and touch hiding, the illusion and numbness, mid-scene, with
+            // nothing said to the hypnotist. That was the "inconsistent suppression" and the
+            // "awareness cancels the illusion" of DW's 2026-09-22 list, one cause for both.
+            /\byou (can|may) notice (again|everything|things|it all)\b/,
+            /\byou (can|may) notice (what|anything that) (happens|is happening|is done) to you\b/
+          ],
+          run: () => {
+            setSuppressed("clothing", false);
+            setSuppressed("bondage", false);
+            setSuppressed("activity", false);
+            clearIllusion();
+            setNumb(false);
+          }
+        },
+        {
+          id: "awareness-block",
+          examples: ["you notice nothing", "you are unaware"],
+          permission: ["suppressClothing", "suppressBondage", "suppressActivities"],
+          patterns: [
+            /\byou notice nothing\b/,
+            /\byou (do not|will not) notice\b/,
+            /\byou (cannot|do not) notice (anything|what)\b/,
+            /\bnothing (that happens|done) to you (matters|registers)\b/,
+            /\byou are (unaware|oblivious)\b/
+          ],
+          run: () => {
+            const { applied: applied2 } = reachableCategories(
+              ["suppressClothing", "suppressBondage", "suppressActivities"],
+              getFeatures()
+            );
+            if (applied2.includes("suppressClothing")) setSuppressed("clothing", true);
+            if (applied2.includes("suppressBondage")) setSuppressed("bondage", true);
+            if (applied2.includes("suppressActivities")) setSuppressed("activity", true);
+          }
+        },
+        // The touch pair and the numbness pair below say different things and were one entry
+        // until v0.39.0. "Ignore my touches" is about ATTENTION — it reaches you, you do not
+        // attend to it, and your arousal still climbs with no visible cause, which is the good
+        // half of the mechanic. "You cannot feel my touch" is about SENSATION, and bundling the
+        // two made it a lie: the subject was told she felt nothing while her own arousal meter
+        // told her otherwise. Same class of bug as the illusion surviving "you notice
+        // everything again" in v0.38.2 — a suggestion the subject can directly observe to be
+        // false.
+        //
+        // Numbness sits under arousalControl rather than suppressActivities, per DW. Consenting
+        // to "you may hide when I am touched" is not consenting to "my body may be made not to
+        // respond", and the two are worth being asked separately.
+        {
+          id: "touch-release",
+          examples: ["you notice my touches again", "you register my touch"],
+          release: true,
+          releaseOf: "touch-block",
+          permission: "suppressActivities",
+          // "You can notice my touch" used to be left out, because awareness-release's bare
+          // /you (can|may) notice/ took it first. That pattern was narrowed in v0.82.0 (it was
+          // also taking ordinary patter), so the obvious phrasing lives here now.
+          patterns: [
+            /\byou (can|may) (notice|register) (my|his|her|their) (touch|touches)\b/,
+            /\byou notice (my|his|her|their) (touch|touches) again\b/,
+            /\byou (notice|register) (my|his|her|their) (touch|touches)\b/,
+            /\byou (will |)stop ignoring (my|his|her|their) (touch|touches)\b/
+          ],
+          run: () => setSuppressed("activity", false)
+        },
+        {
+          id: "touch-block",
+          examples: ["you will ignore my touches"],
+          permission: "suppressActivities",
+          patterns: [
+            /\byou (will |)ignore (my|his|her|their) (touch|touches)\b/,
+            /\bignore (my|his|her|their) (touch|touches)\b/
+          ],
+          run: () => setSuppressed("activity", true),
+          undo: () => setSuppressed("activity", false)
+        },
+        {
+          id: "numb-release",
+          examples: ["you can feel my touch again", "you can feel again"],
+          release: true,
+          releaseOf: "numb-block",
+          permission: "arousalControl",
+          patterns: [
+            /\byou (can|may) feel (my|his|her|their) (touch|touches|hands)\b/,
+            /\byou feel (my|his|her|their) (touch|touches) again\b/,
+            /\byou (can|may) feel (me|it|again|things again|everything again)\b/,
+            /\byour (skin|body) (responds|reacts|works|feels)( again)?\b/,
+            /\byou are not numb\b/,
+            /\btouch reaches you again\b/
+          ],
+          // Generous, like every release: this also lifts the message-hiding above. Being told
+          // you can feel someone's touch again while the touches are still being hidden from
+          // you leaves the subject in a state the words deny — and handing something back is
+          // always allowed to undo more than taking it away applies.
+          run: () => {
+            setNumb(false);
+            setSuppressed("activity", false);
+          }
+        },
+        {
+          id: "numb-block",
+          examples: ["you cannot feel my touch", "you feel nothing when I touch you"],
+          permission: "arousalControl",
+          patterns: [
+            /\byou (cannot|do not) feel (my|his|her|their) (touch|touches|hands)\b/,
+            /\b(my|his|her|their) (touch|touches) (do not|does not) reach you\b/,
+            /\byou (cannot|do not) feel (me|my hands|anything|it)\b/,
+            /\byou feel nothing\b/,
+            /\byou (are|go) numb\b/,
+            /\byour (skin|body) (cannot|does not) feel\b/,
+            /\btouch (cannot|does not) reach you\b/
+          ],
+          run: () => setNumb(true),
+          undo: () => setNumb(false)
+        },
+        {
+          id: "speech-release",
+          examples: ["you can speak again", "your voice is back"],
+          release: true,
+          releaseOf: "speech-block",
+          permission: "speechRestriction",
+          patterns: [
+            /\byou (can|may) (speak|talk)\b/,
+            /\byou are (free|able|allowed) to (speak|talk)\b/,
+            /\byour voice (is back|returns|is yours)\b/,
+            /\b(speak|talk) (again|freely)\b/,
+            /\byou have your voice back\b/
+          ],
+          run: () => setSpeechBlocked(false)
+        },
+        {
+          id: "speech-block",
+          examples: ["you cannot speak", "stay silent", "not a word"],
+          permission: "speechRestriction",
+          patterns: [
+            /\byou cannot (\w+ )?(speak|talk)\b/,
+            /\byou are (unable|not able) to (speak|talk)\b/,
+            /\b(do not|never) (speak|talk)\b/,
+            /\byou have (no voice|lost your voice)\b/,
+            /\byour voice is gone\b/,
+            /\b(stay|remain|be) (silent|quiet)\b/,
+            /\bnot a (word|sound)\b/,
+            /\byou have forgotten how to (speak|talk)\b/,
+            /\byou will (not be able|be unable) to (speak|talk)\b/,
+            /\byou will not (speak|talk)\b/,
+            /(?<!\bi )(?<!\bwe )\bsilence\b/
+          ],
+          run: () => setSpeechBlocked(true),
+          undo: () => setSpeechBlocked(false)
+        },
+        // Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
+        // say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
+        {
+          id: "hear-release",
+          examples: ["you can hear everyone again", "your hearing comes back"],
+          release: true,
+          releaseOf: HEARING_IDS,
+          permission: "hearingControl",
+          patterns: [
+            /\byou (?:can|may|will) hear (?:everyone|everybody|everything|the (?:whole )?room|them all|all of them|others|other people)(?: again)?\b/,
+            /\byou (?:can|may) hear (?:again|normally)\b/,
+            /\byour hearing (?:is back|comes back|returns|is yours)\b/,
+            /\blisten to (?:everyone|everybody|the room) again\b/
+          ],
+          run: () => {
+            setHearing(null);
+          }
+        },
+        {
+          id: "hear-voice",
+          examples: ["you hear only my voice", "you will only hear me"],
+          permission: "hearingControl",
+          patterns: [
+            /\byou (?:will |can |)(?:only hear|hear only|hear nothing but|hear no one but|hear nobody but) (?:my voice|me)\b/,
+            /\bmy voice is (?:the only (?:one|voice|thing|sound)|all) you (?:can |will |)hear\b/,
+            /\bonly my voice (?:reaches you|matters|gets through)\b/,
+            /\byou (?:will |)(?:listen only|only listen) to (?:me|my voice)\b/
+          ],
+          // Locked to whoever said it, or to whoever FIRED the trigger carrying it (DW). With nobody
+          // behind it (a carried re-apply) there is no voice to keep, so it does not land (rule 5).
+          run: (speaker) => {
+            if (typeof speaker !== "number") return "effect-failed";
+            setHearing({ kind: "voice", member: speaker });
+            resetOthersFade();
+          },
+          undo: () => {
+            if (hearingMode()?.kind === "voice") setHearing(null);
+          }
+        },
+        {
+          id: "hear-name",
+          examples: ["you only hear what is said to you", "you only hear your name"],
+          permission: "hearingControl",
+          patterns: [
+            /\byou (?:will |can |)(?:only hear|hear only) (?:what is|what s|whats|things|words|what gets) (?:said|meant|directed|spoken|aimed) (?:to|at|for) you\b/,
+            /\byou (?:will |can |)(?:only hear|hear only) (?:your (?:own )?name|(?:lines|voices|words|people) (?:that|who) (?:say|use|call) your name)\b/,
+            /\bonly your name (?:reaches you|gets through|cuts through)\b/
+          ],
+          run: () => {
+            setHearing({ kind: "name" });
+            resetOthersFade();
+          },
+          undo: () => {
+            if (hearingMode()?.kind === "name") setHearing(null);
+          }
+        },
+        // Sight (v0.93.0, DW). Release first. Then darkest to lightest, so "fading to black" is blindness
+        // before "fading" can read as dimming. The illusion's "you cannot see what you are wearing" sits
+        // earlier in the table and wins, as the first match always does.
+        {
+          id: "sight-release",
+          examples: ["you can see again", "your vision clears"],
+          release: true,
+          releaseOf: SIGHT_IDS,
+          permission: "sightControl",
+          patterns: [
+            /\byou (?:can|may) see (?:again|clearly|normally)\b/,
+            /\byour (?:vision|sight|eyesight) (?:clears|is clearing|returns|comes back|is back|is yours)\b/,
+            /\bthe (?:light|world|room) (?:comes back|returns)\b/
+          ],
+          run: () => {
+            setSight(0);
+          }
+        },
+        sightSuggestion("sight-blind", 3, ["you cannot see", "everything goes black", "everything is fading to black"], [
+          /\byou cannot (?:\w+ )?see(?! (?:what|how|yourself|your (?:clothes|clothing|outfit)))\b/,
+          /\byou are (?:\w+ )?blind\b/,
+          /\byou will (?:be (?:\w+ )?blind|not be able to see|be unable to see)\b/,
+          /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|fading|fades|turning|turns) (?:to |)black\b/,
+          /\b(?:everything|the (?:world|room)) (?:is |)(?:completely |totally |)(?:black|dark) now\b/,
+          /\bdarkness takes your (?:sight|vision|eyes)\b/
+        ]),
+        sightSuggestion("sight-dark", 2, ["you can barely see", "everything is going dark"], [
+          /\byou can (?:barely|hardly|scarcely) see\b/,
+          /\b(?:everything|the (?:world|room)|your (?:vision|sight)) (?:is |)(?:going|goes|growing|grows|getting|gets|turning|turns) (?:very |so |)dark\b/,
+          /\bthe dark(?:ness|) closes in\b/
+        ]),
+        sightSuggestion("sight-dim", 1, ["your vision is dimming", "the room grows dim"], [
+          /\byour (?:vision|sight|eyesight) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|blurring|blurs|fading|fades|softening|softens)\b/,
+          /\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/
+        ]),
+        ...POSE_SUGGESTIONS,
+        {
+          id: "stand",
+          examples: ["stand", "get up", "on your feet"],
+          release: true,
+          releaseOf: STANCE_IDS,
+          permission: "postureControl",
+          // Bare "stand" and "rise" are matched now that a suggestion also has to name the
+          // subject — that gate does most of the false-positive work, so these no longer have
+          // to be excluded wholesale. The narrow guards that remain cover what the name gate
+          // doesn't: "I can't stand it, Missy" (normalised to "cannot stand") and the
+          // hypnotist narrating themselves ("I stand beside you, Missy").
+          patterns: [
+            /(?<!cannot )(?<!\bi )(?<!\bwe )\bstand\b/,
+            /(?<!\bi )(?<!\bwe )\brise\b/,
+            /(?<!\bto )(?<!\bi )(?<!\bwe )\bget up\b/,
+            /\b(get|rise) to your feet\b/,
+            /\bon your feet\b/
+          ],
+          // Clears the legs only now: "stand" no longer drops arms held behind the back.
+          run: () => setSuggestedPose(null, "stance") ? void 0 : "pose-blocked"
+        },
+        {
+          id: "kneel",
+          examples: ["kneel", "on your knees"],
+          permission: "postureControl",
+          // Guarded so the hypnotist narrating their own action ("I kneel beside you") doesn't
+          // put the subject on the floor. "I want you to kneel" still lands — the guard is on
+          // the pronoun immediately before the verb, not anywhere in the line.
+          patterns: [
+            /(?<!\bi )(?<!\bwe )\bkneel\b/,
+            /\b(get|down|drop) on your knees\b/,
+            /\bon your knees\b/,
+            /\bdrop to your knees\b/
+          ],
+          run: () => applyPose("Kneel"),
+          undo: () => clearSuggestedPose("stance", "Kneel")
+        }
+      ];
+      VOCATIVE_FILLER = /* @__PURE__ */ new Set(["ok", "okay", "now", "so", "hey", "hi", "well", "alright", "right", "but", "and", "then", "please", "listen"]);
+      CLAUSE_SPLIT = /[,;.!?:\n\r]+|\band\b|\bthen\b/i;
+      OBJECT_MARKERS = /* @__PURE__ */ new Set([
+        "at",
+        "to",
+        "with",
+        "about",
+        "like",
+        "for",
+        "from",
+        "of",
+        "on",
+        "near",
+        "beside",
+        "behind",
+        "toward",
+        "towards",
+        "into",
+        "onto",
+        "against",
+        "between",
+        "around",
+        "over",
+        "under",
+        "by",
+        "as",
+        "than",
+        "or",
+        "nor",
+        "past",
+        "beyond",
+        "beneath",
+        "above",
+        "below",
+        "off",
+        "through"
+      ]);
+      OBJECT_VERBS = /* @__PURE__ */ new Set([
+        "grope",
+        "squeeze",
+        "fondle",
+        "pinch",
+        "spank",
+        "smack",
+        "slap",
+        "scratch",
+        "tickle",
+        "pull",
+        "tug",
+        "choke",
+        "massage",
+        "knead",
+        "nibble",
+        "lick",
+        "kiss",
+        "suck",
+        "bite",
+        "pet",
+        "finger",
+        "masturbate",
+        "pleasure",
+        "caress",
+        "stroke",
+        "touch",
+        "feel",
+        "rub"
+      ]);
+      bareWord = (w) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
+      PART_BLOCK = [
+        /\byou (?:cannot|will not|do not) touch your ([a-z]+)\b/,
+        // Future phrasing, the natural way to say it while building a trigger. Without this,
+        // "you will not be able to touch your breasts" matched nothing at all and looked like
+        // the command had simply been ignored.
+        /\byou will (?:not be able|be unable) to touch your ([a-z]+)\b/,
+        /\b(?:do not|never) touch your ([a-z]+)\b/
+      ];
+      PART_RELEASE = [
+        /\byou (?:can|may) touch your ([a-z]+)\b/,
+        /\byour ([a-z]+) (?:are|is) yours again\b/
+      ];
+      SELF_BLOCK = [
+        /\byou (?:cannot|will not|do not) touch yourself\b/,
+        /\byou will (?:not be able|be unable) to touch yourself\b/,
+        /\b(?:do not|never) touch yourself\b/
+      ];
+      SELF_RELEASE = [/\byou (?:can|may) touch yourself\b/];
+      TRIGGER_START = [
+        /\byour trigger (?:word|phrase) is (.+)$/,
+        /\bthe trigger (?:word|phrase) is (.+)$/,
+        /\byour (?:new )?trigger is (.+)$/,
+        /\bwhen (?:i say|you hear) (.+)$/
+      ];
+      TRIGGER_COMMIT = [/\bremember (?:the |this |that )?trigger\b/, /\bthe trigger is set\b/, /\block (?:it |that )?in\b/];
+      TRIGGER_CANCEL = [/\b(?:forget|cancel|never mind|nevermind) (?:the |that |this )?trigger\b/];
+      DROP_INTO = String.raw`(?:straight |right |back |deep |deeply |down )*(?:into (?:a )?(?:deep )?trance|under(?! (?:the|a|an|my|your|his|her|their|it|that|this|there)\b))`;
+      TRIGGER_DROP = [
+        new RegExp(String.raw`\byou (?:will |ll )?(?:drop|sink|fall|slip|go) ${DROP_INTO}\b`),
+        new RegExp(String.raw`\b(?:it|this|that|this trigger|that trigger|the word|the words) (?:will )?(?:drops?|puts?|sends?|takes?) you ${DROP_INTO}\b`)
+      ];
+      OPT_SUBJ = String.raw`(?:this trigger|that trigger|the trigger|this word|that word|this phrase|that phrase|it)`;
+      OPT_YOU = String.raw`(?:you will|you ll|you)`;
+      OPT_OBEY = String.raw`(?:obey|respond to|answer|react to)`;
+      OPT_NUM = String.raw`(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety|half an?)`;
+      OPT_UNIT = String.raw`(minutes?|mins?|hours?|hrs?|days?)`;
+      NUMBER_WORDS = {
+        a: 1,
+        an: 1,
+        one: 1,
+        two: 2,
+        three: 3,
+        four: 4,
+        five: 5,
+        six: 6,
+        seven: 7,
+        eight: 8,
+        nine: 9,
+        ten: 10,
+        eleven: 11,
+        twelve: 12,
+        fifteen: 15,
+        twenty: 20,
+        thirty: 30,
+        "forty five": 45,
+        forty: 40,
+        fifty: 50,
+        sixty: 60,
+        ninety: 90,
+        "half a": 0.5,
+        "half an": 0.5
+      };
+      UNIT_MS = { m: 6e4, h: 36e5, d: 864e5 };
+      OPTION_PATTERNS = [
+        // Whole words only. First: the "only when I say it ..." family below would read these as
+        // "only me" if they came later.
+        ...[
+          String.raw`\bonly (?:when|if) (?:you hear |i say )?(?:it|the word|the words|the phrase|those words|that word|that phrase) (?:exactly|on its own|by itself|alone)\b`,
+          String.raw`\bonly the (?:exact|whole) (?:word|words|phrase)\b`,
+          String.raw`\b(?:exactly|precisely) as i say it\b`,
+          String.raw`\b(?:it|the word|the words|the phrase) (?:has|have|needs?) to be (?:said )?(?:exactly|on its own|by itself|whole)\b`,
+          String.raw`\bnot (?:as )?(?:a )?part of (?:another|other|a longer) words?\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "strict", value: true }) })),
+        // Works once / every time.
+        ...[
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?works? (?:only )?(?:once|one time)\b`,
+          String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) (?:only )?(?:once|one time)\b`,
+          String.raw`\b(?:it is|it s|this is) (?:a )?one (?:time|shot|use)(?: only| trigger| thing)?\b`,
+          String.raw`\bonce and then (?:it is |it s |it will be )?(?:gone|done|forgotten)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: true }) })),
+        ...[
+          String.raw`\b${OPT_SUBJ} (?:will )?works? every (?:single )?time\b`,
+          String.raw`\b${OPT_YOU} ${OPT_OBEY} (?:it|this|that|this trigger|that trigger) every (?:single )?time\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "once", value: false }) })),
+        // Lifespan.
+        ...[
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:fades?|wears? off|goes away|disappears?|ends?|expires?) (?:in|after) (?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
+          String.raw`\b${OPT_YOU} (?:only )?${OPT_OBEY} (?:it|this|that|this trigger|that trigger) for (?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: lifespanOption })),
+        ...[
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:lasts?|stays?|holds?) forever\b`,
+          String.raw`\b${OPT_SUBJ} (?:will )?never (?:fades?|wears? off|goes away|ends?|expires?)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "lifespan", ms: 0 }) })),
+        // Who may fire it. The subject's own setting still caps whatever is asked for here.
+        ...[
+          String.raw`\b(?:anyone|anybody|everyone|whoever) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger|the word|the words|those words)\b`,
+          String.raw`\bwhoever says (?:it|this|that|the word|the words|those words)\b`,
+          String.raw`\bno matter who says (?:it|this|that|the word|the words|those words)\b`,
+          String.raw`\b${OPT_SUBJ} works for (?:anyone|anybody|everyone)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "everyone" }) })),
+        ...[
+          String.raw`\byour owner (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "owner" }) })),
+        ...[
+          String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "lovers" }) })),
+        ...[
+          String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
+          String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
+          String.raw`\bonly (?:from|in) my voice\b`,
+          String.raw`\bonly (?:when|if) i say (?:it|this|that|the word|the words|those words)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "hypnotist" }) }))
+      ];
+      SAY_RAW = /\byou(?:\s+will|\s*['‘’ʼ]ll)?\s+(?:say|repeat|recite|(?:answer|reply|respond)\s+with)(?:\s+(?:the\s+words|these\s+words|this))?\s*[,:]?\s+(.+?)\s*$/i;
+      SAY_NORM = /\byou (?:will |ll )?(?:say|repeat|recite|(?:answer|reply|respond) with)\b/;
+      SAY_TIMES = /[\s,.;:]*\b(one|two|three|four|five|\d+)\s+times?[.!]*$|[\s,.;:]*\b(once|twice|thrice)[.!]*$/i;
+      SAY_TIME_WORDS = { one: 1, once: 1, two: 2, twice: 2, three: 3, thrice: 3, four: 4, five: 5 };
+      NOT_WORDS = /^(?:nothing|anything|a word|not a word|no more|another word|a thing|out loud|aloud)[.!]*$/i;
+      COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
+      WAKE_VERB = String.raw`(?:you (?:wake(?: up)?|awaken|awake|are (?:wide )?awake(?: again)?|open your eyes|come out of (?:it|trance|the trance|this))|waking(?: up)?|awakening)`;
+      WAKE_LEAD = String.raw`(?:${COND_LEAD}|(?:right |just |soon |straight )?after|upon)`;
+      COND_WAKE_DELAY = new RegExp(String.raw`\b(?:in |exactly |about |some )?${OPT_NUM} ${OPT_UNIT} after ${WAKE_VERB}\b`);
+      COND_WAKE_NOW = new RegExp(String.raw`\b${WAKE_LEAD} ${WAKE_VERB}\b`);
+      COND_ARRIVE = new RegExp(
+        String.raw`\b${COND_LEAD} ([a-z]+) (?:comes? (?:in|back|here)|arrives?|enters?|walks? in|joins? us|shows? up|gets? here)\b`
+      );
+      COND_SPEAK = new RegExp(
+        String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`
+      );
+      PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
+      rereadingRest = false;
+      TRIGGER_STEP_BASE_MS = 1200;
+      TRIGGER_STEP_JITTER_MS = 800;
+      FORCED_LINE_CAP = 6;
+      FORCED_WINDOW_MS = 6e4;
+      forcedLineTimes = [];
+      forcedCapNoticeAt = 0;
+      FORCED_ECHOES = [];
+      COMPULSION_POLL_MS = 5e3;
+      compulsionPoll = null;
+      TRIGGER_RELEASE = [
+        /\byou are released from (.+)$/,
+        /\bi release you from (.+)$/,
+        /\brelease (?:the )?trigger (.+)$/
+      ];
+      REINFORCE = [
+        /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
+        /\breinforce (?:that|the|your) triggers?\b/,
+        /\b(?:that|the|your) triggers? (?:is|are) (?:stronger|deeper) now\b/,
+        /\blet (?:that|the|your) triggers? (?:settle|sink) deeper\b/
+      ];
+      DEEPEN = [
+        /\b(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float) (?:down )?(?:even |much |a little |a bit |further and |ever )?deeper\b/,
+        /\bdeeper and deeper\b/,
+        /\bdeeper (?:down )?(?:into|in) (?:trance|the trance|sleep)\b/
+      ];
+      DEEPEN_NEGATED = /\b(?:do not|don t|dont|never|not|no|cannot|can t)\s+(?:(?:sink|go|drop|fall|sleep|relax|slip|drift|let go|melt|float)\s+(?:any\s+)?)?deeper\b/;
+      registerStruggleReporter((hypnotistId, r) => {
+        if (r.kind === "surfaced" || r.kind === "woke") reportSurfacing(hypnotistId, r, "They");
+      });
+      CARRY_LAST = [
+        /\b(?:that|this|it) (?:will |)stays? with (?:you|her|him|them)\b/,
+        /\byou will keep (?:that|this|it)\b/,
+        /\b(?:that|this|it) (?:will |)(?:stay|stays|remain|remains) (?:with you )?(?:when|after) you wake\b/,
+        /\byou will carry (?:that|this|it) with you\b/,
+        /\b(?:that|this|it) (?:one |)stays\b/
+      ];
+      CARRY_ALL = [
+        /\ball of (?:this|that|it) (?:will |)stays? with you\b/,
+        /\b(?:all|everything) (?:of it |)(?:will |)stays? with you\b/,
+        /\byou will keep (?:all of |)(?:this|everything)\b/,
+        /\beverything i (?:have |)told you stays\b/
+      ];
+      CARRY_CANCEL = [
+        /\b(?:this|that|it|none of it|nothing) will not stay with you\b/,
+        /\bforget what i (?:said|told you)\b/,
+        /\bnothing stays with you\b/
+      ];
+      registerCarryHandlers(applyActionById, undoActionById);
+      registerTriggerRecovery(
+        () => listTriggers().filter((t) => isActive(timerKey(t))).map((t) => ({ key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) })),
+        (saved) => {
+          const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
+          if (!trigger) {
+            log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
+            return;
+          }
+          for (const id of saved.actions) {
+            try {
+              applyActionById(id);
+            } catch (err) {
+              warn(`recovery: could not re-apply "${id}":`, err);
+            }
+          }
+          markActive(saved.key);
+          const remaining = saved.until ? saved.until - Date.now() : 0;
+          if (remaining > 0) {
+            scheduleTimer(saved.key, remaining, () => {
+              undoTrigger(trigger);
+              tellPlayer("Whatever was holding you loosens on its own.");
+            });
+          }
+          saveForReconnect();
+          log(
+            `recovery: trigger "${trigger.phrase}" restored with ${remaining > 0 ? `${Math.round(remaining / 6e4)} min left` : "no clock"}`
+          );
+        }
+      );
+      WAKE_PATTERNS = [
+        // Bare "wake" included: DW tried "Missy wake" and nothing happened. Guarded against
+        // first-person the same way the other bare imperatives are.
+        /(?<!\bi )(?<!\bwe )\bwake\b/,
+        /\bwake up\b/,
+        /\bwake now\b/,
+        /\byou (?:are|will be) (?:wide )?awake\b/,
+        /\byou (?:will |)wake (?:up )?(?:now|when|on)\b/,
+        /\bawaken\b/,
+        /\bcome back to me\b/,
+        /\bcome out of (?:it|trance|the trance)\b/
+      ];
+      WALK_ENTER_PATTERNS = [
+        /\bwalk with me\b/,
+        /\bcome (?:and )?walk with me\b/,
+        /\b(?:stay|come) with me as you (?:move|walk)\b/,
+        /\byou (?:can|may) (?:move|walk) (?:with me |)(?:but |and |)stay under\b/,
+        /\byou (?:can|may) walk(?: with me)?\b/,
+        /\bmove with me\b/,
+        /\bon your feet\b/
+      ];
+      WALK_LEAVE_PATTERNS = [
+        /\bbe still\b/,
+        /\bbe frozen\b/,
+        /\bstop\b/,
+        /\b(?:stand|hold|stay) still\b/,
+        /\bstay put\b/,
+        /\bstillness\b/,
+        /\bfreeze again\b/,
+        /\bstay\b/
+      ];
+      ACTIVITY_VERBS = [
+        { activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
+        { activity: "Pinch", re: /\bpinch\b/ },
+        { activity: "Spank", re: /\b(?:spank|smack)\b/ },
+        { activity: "Slap", re: /\bslap\b/ },
+        { activity: "Scratch", re: /\bscratch\b/ },
+        { activity: "Tickle", re: /\btickle\b/ },
+        { activity: "Pull", re: /\b(?:pull|tug)\b/ },
+        { activity: "Choke", re: /\bchoke\b/ },
+        { activity: "MassageHands", re: /\b(?:massage|knead)\b/ },
+        { activity: "Nibble", re: /\bnibble\b/ },
+        { activity: "Lick", re: /\blick\b/ },
+        { activity: "Kiss", re: /\bkiss\b/ },
+        { activity: "Suck", re: /\bsuck\b/ },
+        { activity: "Bite", re: /\bbite\b/ },
+        { activity: "Pet", re: /\bpet\b/ },
+        { activity: "MasturbateHand", re: /\b(?:finger|masturbate|pleasure|play with)\b/ },
+        // The universal — Caress reaches almost every zone, so "touch your <anything>" lands.
+        { activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ }
+      ];
+      COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will ?not|no longer|stop)\b/;
+      GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
+      VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
+      MAX_TOUCH_TIMES = 5;
+      REPEAT_RAW = /\b(one|two|three|four|five|\d+)\s+times?\b|\b(twice|thrice)\b/i;
+      VAGUE_ZONES = [
+        "ItemBreast",
+        "ItemButt",
+        "ItemArms",
+        "ItemLegs",
+        "ItemTorso",
+        "ItemNeck",
+        "ItemHead",
+        "ItemPelvis",
+        "ItemHands",
+        "ItemFeet",
+        "ItemNipples"
+      ];
+      DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
+      namesOf = (c) => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
+    }
+  });
 
   // src/icon.ts
-  var INK = "#2c2352";
-  var TURNS = 3;
-  var R_MAX = 44;
-  var STROKE = 4.5;
   function spiralPath() {
     const n = 240;
     const tMax = TURNS * 2 * Math.PI;
@@ -8462,25 +8683,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return void 0;
     }
   }
-  var SPIRAL_ICON = build();
+  var INK, TURNS, R_MAX, STROKE, SPIRAL_ICON;
+  var init_icon = __esm({
+    "src/icon.ts"() {
+      INK = "#2c2352";
+      TURNS = 3;
+      R_MAX = 44;
+      STROKE = 4.5;
+      SPIRAL_ICON = build();
+    }
+  });
 
   // src/panel.ts
-  var TITLE_Y = 110;
-  var TAB_LEFT = 200;
-  var TAB_WIDTH = 280;
-  var TAB_HEIGHT = 72;
-  var TAB_GAP = 8;
-  var PANEL_LEFT = TAB_LEFT + TAB_WIDTH;
-  var PANEL_TOP = 190;
-  var PANEL_WIDTH = 1800 - PANEL_LEFT;
-  var PANEL_HEIGHT = 902 - PANEL_TOP;
-  var BORDER = 3;
-  var MAX_TABS = Math.floor((PANEL_HEIGHT + TAB_GAP) / (TAB_HEIGHT + TAB_GAP));
-  var BLURB_Y = 235;
-  var CONTENT_LEFT = PANEL_LEFT + 60;
-  var BACK_LEFT = 1815;
-  var BACK_TOP = 75;
-  var BACK_SIZE = 90;
   function tabTop(index) {
     return PANEL_TOP + index * (TAB_HEIGHT + TAB_GAP);
   }
@@ -8585,14 +8799,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DrawRect(panelRight - BORDER, PANEL_TOP, BORDER, PANEL_HEIGHT, "Black");
     DrawRect(PANEL_LEFT, panelBottom - BORDER, PANEL_WIDTH, BORDER, "Black");
   }
-  var HELP_LEFT = CONTENT_LEFT;
-  var HELP_WIDTH = PANEL_LEFT + PANEL_WIDTH - CONTENT_LEFT - 40;
-  var HELP_TOP = 282;
-  var HELP_BOTTOM = PANEL_TOP + PANEL_HEIGHT - 96;
-  var BODY_SIZE = 24;
-  var HEAD_SIZE = 26;
-  var HEAD_LEAD = 18;
-  var GAP_SIZE = 14;
   function styleOf(style) {
     if (style === "head") return { size: HEAD_SIZE, color: "Black" };
     if (style === "dim") return { size: BODY_SIZE, color: "#777" };
@@ -8649,16 +8855,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return pages;
   }
-  function drawHelpLines(lines, page2) {
+  function drawHelpLines(lines, page3) {
     const pages = paginateHelp(lines);
-    const p = Math.min(Math.max(0, page2), pages.length - 1);
+    const p = Math.min(Math.max(0, page3), pages.length - 1);
     for (const row of pages[p]) {
       if (row.text) drawSmallText(row.text, HELP_LEFT, row.y, row.size, row.color);
     }
     return pages.length;
   }
-  var SCROLLBAR_WIDTH = 44;
-  var THUMB_MIN = 40;
   function scrollMax(a) {
     return Math.max(0, a.content - a.height);
   }
@@ -8716,20 +8920,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function clickScrollBar(a) {
     if (!scrollNeeded(a) || !MouseIn(barLeft(a), a.top, SCROLLBAR_WIDTH, a.height)) return false;
-    const page2 = Math.max(a.step, a.height - a.step);
+    const page3 = Math.max(a.step, a.height - a.step);
     if (MouseY < a.top + SCROLLBAR_WIDTH) scrollBy(a, -a.step);
     else if (MouseY >= a.top + a.height - SCROLLBAR_WIDTH) scrollBy(a, a.step);
     else {
       const t = thumb(a);
-      if (MouseY < t.top) scrollBy(a, -page2);
-      else if (MouseY >= t.top + t.height) scrollBy(a, page2);
+      if (MouseY < t.top) scrollBy(a, -page3);
+      else if (MouseY >= t.top + t.height) scrollBy(a, page3);
     }
     return true;
   }
-  var TIP_WIDTH = 450;
-  var TIP_FONT = 26;
-  var TIP_PAD = 12;
-  var pendingTip = null;
   function tipButton(left, top, width, height, label, color, image, tip, disabled = false) {
     DrawButton(left, top, width, height, label, color, image, "", disabled);
     if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
@@ -8781,11 +8981,43 @@ One of mods you are using is using an old version of SDK. It will work for now b
       el.style.visibility = covered ? "hidden" : "";
     }
   }
+  var TITLE_Y, TAB_LEFT, TAB_WIDTH, TAB_HEIGHT, TAB_GAP, PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, BORDER, MAX_TABS, BLURB_Y, CONTENT_LEFT, BACK_LEFT, BACK_TOP, BACK_SIZE, HELP_LEFT, HELP_WIDTH, HELP_TOP, HELP_BOTTOM, BODY_SIZE, HEAD_SIZE, HEAD_LEAD, GAP_SIZE, SCROLLBAR_WIDTH, THUMB_MIN, TIP_WIDTH, TIP_FONT, TIP_PAD, pendingTip;
+  var init_panel = __esm({
+    "src/panel.ts"() {
+      TITLE_Y = 110;
+      TAB_LEFT = 200;
+      TAB_WIDTH = 280;
+      TAB_HEIGHT = 72;
+      TAB_GAP = 8;
+      PANEL_LEFT = TAB_LEFT + TAB_WIDTH;
+      PANEL_TOP = 190;
+      PANEL_WIDTH = 1800 - PANEL_LEFT;
+      PANEL_HEIGHT = 902 - PANEL_TOP;
+      BORDER = 3;
+      MAX_TABS = Math.floor((PANEL_HEIGHT + TAB_GAP) / (TAB_HEIGHT + TAB_GAP));
+      BLURB_Y = 235;
+      CONTENT_LEFT = PANEL_LEFT + 60;
+      BACK_LEFT = 1815;
+      BACK_TOP = 75;
+      BACK_SIZE = 90;
+      HELP_LEFT = CONTENT_LEFT;
+      HELP_WIDTH = PANEL_LEFT + PANEL_WIDTH - CONTENT_LEFT - 40;
+      HELP_TOP = 282;
+      HELP_BOTTOM = PANEL_TOP + PANEL_HEIGHT - 96;
+      BODY_SIZE = 24;
+      HEAD_SIZE = 26;
+      HEAD_LEAD = 18;
+      GAP_SIZE = 14;
+      SCROLLBAR_WIDTH = 44;
+      THUMB_MIN = 40;
+      TIP_WIDTH = 450;
+      TIP_FONT = 26;
+      TIP_PAD = 12;
+      pendingTip = null;
+    }
+  });
 
   // src/help.ts
-  var open = false;
-  var activeTab = 0;
-  var page = 0;
   function isHelpOpen() {
     return open;
   }
@@ -8797,10 +9029,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function closeHelp() {
     open = false;
   }
-  var head = (text) => ({ text, style: "head" });
-  var body = (text) => ({ text });
-  var dim = (text) => ({ text, style: "dim" });
-  var gap = () => ({ text: "", style: "gap" });
   function startedLines() {
     return [
       head("The short version"),
@@ -9103,22 +9331,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return lines;
   }
-  var TABS = [
-    { name: "Start Here", blurb: "The loop, both sides of it, and every way out.", lines: startedLines },
-    {
-      name: "What to Say",
-      blurb: "Everything you can say to a subject, generated from the patterns themselves.",
-      lines: vocabularyLines
-    },
-    { name: "Depth & Trust", blurb: "How deep someone can take you, how that is earned, and what each depth reaches.", lines: depthTrustLines },
-    { name: "Lasting", blurb: "Triggers and carried suggestions \u2014 the things that outlive a session.", lines: lastingLines },
-    { name: "Commands", blurb: "The typed commands. The features themselves are spoken, not typed.", lines: commandLines }
-  ];
-  var PAGE_BUTTON_WIDTH = 120;
-  var PAGE_BUTTON_HEIGHT = 52;
-  var PAGE_BUTTON_TOP = PANEL_TOP + PANEL_HEIGHT - 72;
-  var PAGE_PREV_LEFT = PANEL_LEFT + PANEL_WIDTH - 300;
-  var PAGE_NEXT_LEFT = PANEL_LEFT + PANEL_WIDTH - 160;
   function drawHelp(title) {
     DrawText(title, MainCanvasWidth / 2, TITLE_Y, "Black");
     DrawButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Close help");
@@ -9165,36 +9377,43 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return MouseIn(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT);
   }
+  var open, activeTab, page, head, body, dim, gap, TABS, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, PAGE_BUTTON_TOP, PAGE_PREV_LEFT, PAGE_NEXT_LEFT;
+  var init_help = __esm({
+    "src/help.ts"() {
+      init_voice();
+      init_commands();
+      init_storage();
+      init_triggers();
+      init_depth();
+      init_log();
+      init_panel();
+      open = false;
+      activeTab = 0;
+      page = 0;
+      head = (text) => ({ text, style: "head" });
+      body = (text) => ({ text });
+      dim = (text) => ({ text, style: "dim" });
+      gap = () => ({ text: "", style: "gap" });
+      TABS = [
+        { name: "Start Here", blurb: "The loop, both sides of it, and every way out.", lines: startedLines },
+        {
+          name: "What to Say",
+          blurb: "Everything you can say to a subject, generated from the patterns themselves.",
+          lines: vocabularyLines
+        },
+        { name: "Depth & Trust", blurb: "How deep someone can take you, how that is earned, and what each depth reaches.", lines: depthTrustLines },
+        { name: "Lasting", blurb: "Triggers and carried suggestions \u2014 the things that outlive a session.", lines: lastingLines },
+        { name: "Commands", blurb: "The typed commands. The features themselves are spoken, not typed.", lines: commandLines }
+      ];
+      PAGE_BUTTON_WIDTH = 120;
+      PAGE_BUTTON_HEIGHT = 52;
+      PAGE_BUTTON_TOP = PANEL_TOP + PANEL_HEIGHT - 72;
+      PAGE_PREV_LEFT = PANEL_LEFT + PANEL_WIDTH - 300;
+      PAGE_NEXT_LEFT = PANEL_LEFT + PANEL_WIDTH - 160;
+    }
+  });
 
   // src/wizard.ts
-  var MANAGED_FEATURES = [
-    "movementRestriction",
-    "clothingRestriction",
-    "postureControl",
-    "followControl",
-    "speechRestriction",
-    "selfTouchControl",
-    "compelActivity",
-    "compelTouchOthers",
-    "forcedSpeech",
-    "hearingControl",
-    "sightControl",
-    "arousalControl",
-    "illusionControl",
-    "undressControl",
-    "triggerControl",
-    "carryForward",
-    "suppressClothing",
-    "suppressBondage",
-    "suppressActivities",
-    "lockedWhileHypnotized"
-  ];
-  var TRANCE_DEFAULTS = {
-    tranceCannotMove: true,
-    tranceCannotSpeak: true,
-    tranceScreenFade: true,
-    tranceClothingFreeze: false
-  };
   function applySetup(cfg) {
     const on = new Set(cfg.features);
     setFeature("hypnoEnabled", cfg.hypnoEnabled);
@@ -9219,89 +9438,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     setTriggerDecayRate(cfg.triggerDecay ?? "never");
     setStarterState("done");
   }
-  var PRESETS = [
-    {
-      key: "hypnotist",
-      name: "Hypnotist only",
-      blurb: "You drive, you are not a subject. Nobody can hypnotize you; you can still hypnotize others.",
-      config: { hypnoEnabled: false, features: [], deepest: DEFAULT_DEEPEST, stance: "fight" }
-    },
-    {
-      key: "light",
-      name: "Light / safe",
-      blurb: "Poses and being held still, nothing more. A trance never silences you, and you are always asked first.",
-      config: {
-        hypnoEnabled: true,
-        features: ["movementRestriction", "postureControl"],
-        trance: { tranceCannotSpeak: false },
-        deepest: "yielding",
-        stance: "prompt"
-      }
-    },
-    {
-      key: "balanced",
-      name: "Balanced",
-      blurb: "Movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you. You are always asked first.",
-      config: {
-        hypnoEnabled: true,
-        features: [
-          "movementRestriction",
-          "postureControl",
-          "speechRestriction",
-          "selfTouchControl",
-          "arousalControl",
-          "undressControl",
-          "clothingRestriction",
-          "triggerControl"
-        ],
-        deepest: "entranced",
-        stance: "prompt",
-        triggerScope: "whitelist"
-      }
-    },
-    {
-      key: "extreme",
-      name: "Extreme",
-      blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
-      config: {
-        hypnoEnabled: true,
-        features: [
-          "movementRestriction",
-          "postureControl",
-          "speechRestriction",
-          "selfTouchControl",
-          "arousalControl",
-          "undressControl",
-          "clothingRestriction",
-          "followControl",
-          "compelActivity",
-          "compelTouchOthers",
-          "forcedSpeech",
-          "hearingControl",
-          "sightControl",
-          "illusionControl",
-          "suppressClothing",
-          "suppressBondage",
-          "suppressActivities",
-          "triggerControl",
-          "carryForward",
-          "lockedWhileHypnotized"
-        ],
-        allDepths: 20,
-        deepest: "blank",
-        openChemical: true,
-        stance: "agree",
-        toyMode: true,
-        toyScope: "whitelist",
-        drop: "unlimited",
-        away: "keep",
-        triggerScope: "notblack",
-        // DW, 2026-09-29: kept on purpose. The default is "never", so Extreme's triggers DO fade,
-        // slowly, unless reinforced (job2.md §5.5).
-        triggerDecay: "veryslow"
-      }
-    }
-  ];
   function applyPreset(key) {
     const preset = PRESETS.find((p) => p.key === key);
     if (!preset) return false;
@@ -9312,52 +9448,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     applyPreset("extreme");
     return startExtremeTrial(now);
   }
-  var QUESTIONS = [
-    {
-      key: "role",
-      title: "What role do you plan to take in hypnosis scenes?",
-      options: [
-        { value: "hypnotist", label: "Hypnotist only \u2014 nobody hypnotizes me" },
-        { value: "subject", label: "Subject, or both" }
-      ]
-    },
-    {
-      key: "induction",
-      title: "How do you want to handle incoming trance attempts?",
-      options: [
-        { value: "ask", label: "Always ask me first" },
-        { value: "trusted", label: "Go under at once for my owner and lovers (toy mode); ask anyone else" },
-        { value: "submit", label: "Complete submission: agree to everyone, toy mode on" }
-      ]
-    },
-    {
-      key: "physical",
-      title: "What physical commands are you comfortable allowing?",
-      options: [
-        { value: "basics", label: "Poses and being held still only" },
-        { value: "standard", label: "Standard play: also silence, self-touch, undressing, orgasm control" },
-        { value: "deep", label: "Deep vulnerability: also touching others, following, acting on command" }
-      ]
-    },
-    {
-      key: "senses",
-      title: "Do you want hypnotists to change what you see, hear and notice?",
-      options: [
-        { value: "none", label: "No \u2014 normal chat and sight (the trance veil still shows)" },
-        { value: "veil", label: "The trance veil, and the clothing illusion" },
-        { value: "full", label: "Full: blindness, hearing one voice, not noticing clothing, bondage or touch" }
-      ]
-    },
-    {
-      key: "triggers",
-      title: "How should triggers and lasting suggestions work?",
-      options: [
-        { value: "none", label: "None \u2014 nothing outlives the trance" },
-        { value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
-        { value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" }
-      ]
-    }
-  ];
   function wizardConfig(answers2) {
     if (answers2.role === "hypnotist") return PRESETS[0].config;
     const features = [];
@@ -9395,9 +9485,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return cfg;
   }
-  var forced = false;
-  var stage = "welcome";
-  var answers = {};
   function shouldShowWizard() {
     return forced || getStarterState() === "new";
   }
@@ -9415,32 +9502,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (getStarterState() === "new") setStarterState("done");
     finish();
   }
-  var WZ_LEFT = 260;
-  var WZ_WIDTH = 1480;
-  var WZ_TOP = PANEL_TOP;
-  var WZ_HEIGHT = PANEL_HEIGHT;
-  var CONTENT_X = WZ_LEFT + 40;
-  var CONTENT_MAX = WZ_WIDTH - 80;
-  var OPT_TOP = WZ_TOP + 150;
-  var OPT_HEIGHT = 60;
-  var OPT_GAP = 14;
-  var OPT_WIDTH = WZ_WIDTH - 80;
-  var NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
-  var NAV_HEIGHT = 56;
-  var NAV_FORWARD_WIDTH = 200;
-  var FORWARD_WAITING = "#b8b8b8";
-  var NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - NAV_FORWARD_WIDTH;
-  var CONFIRM_WIDTH = 340;
-  var CONFIRM_LEFT = WZ_LEFT + WZ_WIDTH - 40 - CONFIRM_WIDTH;
-  var NAV_CANCEL_WIDTH = 200;
-  var NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - NAV_CANCEL_WIDTH;
-  var CONFIRM_CANCEL_LEFT = CONFIRM_LEFT - 20 - NAV_CANCEL_WIDTH;
-  var PRESET_ROW = 90;
-  var PRESET_TOP = WZ_TOP + 150;
-  var PRESET_BUTTON_WIDTH = 360;
-  var PRESET_BUTTON_HEIGHT = 64;
-  var QUESTIONS_BUTTON_WIDTH = 500;
-  var SKIP_BUTTON_WIDTH = 300;
   function optionTop(i) {
     return OPT_TOP + i * (OPT_HEIGHT + OPT_GAP);
   }
@@ -9598,186 +9659,216 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function navBackHit() {
     return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);
   }
+  var MANAGED_FEATURES, TRANCE_DEFAULTS, PRESETS, QUESTIONS, forced, stage, answers, WZ_LEFT, WZ_WIDTH, WZ_TOP, WZ_HEIGHT, CONTENT_X, CONTENT_MAX, OPT_TOP, OPT_HEIGHT, OPT_GAP, OPT_WIDTH, NAV_TOP, NAV_HEIGHT, NAV_FORWARD_WIDTH, FORWARD_WAITING, NAV_FORWARD_LEFT, CONFIRM_WIDTH, CONFIRM_LEFT, NAV_CANCEL_WIDTH, NAV_CANCEL_LEFT, CONFIRM_CANCEL_LEFT, PRESET_ROW, PRESET_TOP, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT, QUESTIONS_BUTTON_WIDTH, SKIP_BUTTON_WIDTH;
+  var init_wizard = __esm({
+    "src/wizard.ts"() {
+      init_storage();
+      init_depth();
+      init_extreme();
+      init_notify();
+      init_panel();
+      MANAGED_FEATURES = [
+        "movementRestriction",
+        "clothingRestriction",
+        "postureControl",
+        "followControl",
+        "speechRestriction",
+        "selfTouchControl",
+        "compelActivity",
+        "compelTouchOthers",
+        "forcedSpeech",
+        "hearingControl",
+        "sightControl",
+        "arousalControl",
+        "illusionControl",
+        "undressControl",
+        "triggerControl",
+        "carryForward",
+        "suppressClothing",
+        "suppressBondage",
+        "suppressActivities",
+        "lockedWhileHypnotized"
+      ];
+      TRANCE_DEFAULTS = {
+        tranceCannotMove: true,
+        tranceCannotSpeak: true,
+        tranceScreenFade: true,
+        tranceClothingFreeze: false
+      };
+      PRESETS = [
+        {
+          key: "hypnotist",
+          name: "Hypnotist only",
+          blurb: "You drive, you are not a subject. Nobody can hypnotize you; you can still hypnotize others.",
+          config: { hypnoEnabled: false, features: [], deepest: DEFAULT_DEEPEST, stance: "fight" }
+        },
+        {
+          key: "light",
+          name: "Light / safe",
+          blurb: "Poses and being held still, nothing more. A trance never silences you, and you are always asked first.",
+          config: {
+            hypnoEnabled: true,
+            features: ["movementRestriction", "postureControl"],
+            trance: { tranceCannotSpeak: false },
+            deepest: "yielding",
+            stance: "prompt"
+          }
+        },
+        {
+          key: "balanced",
+          name: "Balanced",
+          blurb: "Movement, poses, speech, touch, undressing, arousal and the wardrobe, plus triggers from people close to you. You are always asked first.",
+          config: {
+            hypnoEnabled: true,
+            features: [
+              "movementRestriction",
+              "postureControl",
+              "speechRestriction",
+              "selfTouchControl",
+              "arousalControl",
+              "undressControl",
+              "clothingRestriction",
+              "triggerControl"
+            ],
+            deepest: "entranced",
+            stance: "prompt",
+            triggerScope: "whitelist"
+          }
+        },
+        {
+          key: "extreme",
+          name: "Extreme",
+          blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
+          config: {
+            hypnoEnabled: true,
+            features: [
+              "movementRestriction",
+              "postureControl",
+              "speechRestriction",
+              "selfTouchControl",
+              "arousalControl",
+              "undressControl",
+              "clothingRestriction",
+              "followControl",
+              "compelActivity",
+              "compelTouchOthers",
+              "forcedSpeech",
+              "hearingControl",
+              "sightControl",
+              "illusionControl",
+              "suppressClothing",
+              "suppressBondage",
+              "suppressActivities",
+              "triggerControl",
+              "carryForward",
+              "lockedWhileHypnotized"
+            ],
+            allDepths: 20,
+            deepest: "blank",
+            openChemical: true,
+            stance: "agree",
+            toyMode: true,
+            toyScope: "whitelist",
+            drop: "unlimited",
+            away: "keep",
+            triggerScope: "notblack",
+            // DW, 2026-09-29: kept on purpose. The default is "never", so Extreme's triggers DO fade,
+            // slowly, unless reinforced (job2.md §5.5).
+            triggerDecay: "veryslow"
+          }
+        }
+      ];
+      QUESTIONS = [
+        {
+          key: "role",
+          title: "What role do you plan to take in hypnosis scenes?",
+          options: [
+            { value: "hypnotist", label: "Hypnotist only \u2014 nobody hypnotizes me" },
+            { value: "subject", label: "Subject, or both" }
+          ]
+        },
+        {
+          key: "induction",
+          title: "How do you want to handle incoming trance attempts?",
+          options: [
+            { value: "ask", label: "Always ask me first" },
+            { value: "trusted", label: "Go under at once for my owner and lovers (toy mode); ask anyone else" },
+            { value: "submit", label: "Complete submission: agree to everyone, toy mode on" }
+          ]
+        },
+        {
+          key: "physical",
+          title: "What physical commands are you comfortable allowing?",
+          options: [
+            { value: "basics", label: "Poses and being held still only" },
+            { value: "standard", label: "Standard play: also silence, self-touch, undressing, orgasm control" },
+            { value: "deep", label: "Deep vulnerability: also touching others, following, acting on command" }
+          ]
+        },
+        {
+          key: "senses",
+          title: "Do you want hypnotists to change what you see, hear and notice?",
+          options: [
+            { value: "none", label: "No \u2014 normal chat and sight (the trance veil still shows)" },
+            { value: "veil", label: "The trance veil, and the clothing illusion" },
+            { value: "full", label: "Full: blindness, hearing one voice, not noticing clothing, bondage or touch" }
+          ]
+        },
+        {
+          key: "triggers",
+          title: "How should triggers and lasting suggestions work?",
+          options: [
+            { value: "none", label: "None \u2014 nothing outlives the trance" },
+            { value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+            { value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" }
+          ]
+        }
+      ];
+      forced = false;
+      stage = "welcome";
+      answers = {};
+      WZ_LEFT = 260;
+      WZ_WIDTH = 1480;
+      WZ_TOP = PANEL_TOP;
+      WZ_HEIGHT = PANEL_HEIGHT;
+      CONTENT_X = WZ_LEFT + 40;
+      CONTENT_MAX = WZ_WIDTH - 80;
+      OPT_TOP = WZ_TOP + 150;
+      OPT_HEIGHT = 60;
+      OPT_GAP = 14;
+      OPT_WIDTH = WZ_WIDTH - 80;
+      NAV_TOP = WZ_TOP + WZ_HEIGHT - 76;
+      NAV_HEIGHT = 56;
+      NAV_FORWARD_WIDTH = 200;
+      FORWARD_WAITING = "#b8b8b8";
+      NAV_FORWARD_LEFT = WZ_LEFT + WZ_WIDTH - 40 - NAV_FORWARD_WIDTH;
+      CONFIRM_WIDTH = 340;
+      CONFIRM_LEFT = WZ_LEFT + WZ_WIDTH - 40 - CONFIRM_WIDTH;
+      NAV_CANCEL_WIDTH = 200;
+      NAV_CANCEL_LEFT = NAV_FORWARD_LEFT - 20 - NAV_CANCEL_WIDTH;
+      CONFIRM_CANCEL_LEFT = CONFIRM_LEFT - 20 - NAV_CANCEL_WIDTH;
+      PRESET_ROW = 90;
+      PRESET_TOP = WZ_TOP + 150;
+      PRESET_BUTTON_WIDTH = 360;
+      PRESET_BUTTON_HEIGHT = 64;
+      QUESTIONS_BUTTON_WIDTH = 500;
+      SKIP_BUTTON_WIDTH = 300;
+    }
+  });
 
   // src/menu.ts
   function isHeading(item) {
     return item.heading !== void 0;
   }
-  var TABS2 = [
-    {
-      name: "Permissions",
-      blurb: "What others may do to you. All off by default. Triggers are persistent and outlive the session.",
-      // v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
-      // rest grouped under headings. How inductions reach you moved to its own tab.
-      fixedRows: [
-        { key: "hypnoEnabled", label: "Hypnosis Enabled" },
-        { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
-      ],
-      rows: [
-        { heading: "Body" },
-        { key: "movementRestriction", label: "Movement Restriction" },
-        { key: "postureControl", label: "Posture Control" },
-        { key: "followControl", label: "Follow / Leash" },
-        { key: "clothingRestriction", label: "Clothing Restriction" },
-        { key: "undressControl", label: "Undressing" },
-        { heading: "Voice & senses" },
-        { key: "speechRestriction", label: "Speech Restriction" },
-        { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
-        { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
-        { key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
-        { heading: "Touch & arousal" },
-        { key: "selfTouchControl", label: "Self-Touch Control" },
-        { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
-        { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
-        { key: "arousalControl", label: "Arousal & Orgasm" },
-        { heading: "Mind" },
-        { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" }
-      ]
-    },
-    {
-      // v0.100.0 (job3.md §2A): how someone gets you under, out of the Permissions list where these
-      // sat at the bottom, three screens down. "Sink deeper" came from the Depth tab.
-      name: "Inductions",
-      blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
-      rows: [],
-      scrollExtra: {
-        height: inductionsHeight,
-        draw: drawInductions,
-        click: clickInductions,
-        hide: () => {
-          if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-        }
-      }
-    },
-    {
-      name: "Trance Defaults",
-      blurb: "What being under is like, and what the room sees of it. On by default \u2014 this is the trance itself, not something granted.",
-      rows: [
-        { key: "tranceCannotMove", label: "Cannot Move" },
-        { key: "tranceCannotSpeak", label: "Cannot Speak" },
-        { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
-        { key: "tranceScreenFade", label: "Screen Fade" },
-        { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
-        { key: "roomSeesReactions", label: "Others See Your Reactions" },
-        { key: "releaseOnDisconnect", label: "Release everything if you disconnect" }
-      ]
-    },
-    {
-      name: "Awareness",
-      blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
-      rows: [
-        { key: "suppressClothing", label: "Clothing Changes" },
-        { key: "suppressBondage", label: "Bondage Changes" },
-        { key: "suppressActivities", label: "Touches / Activities" },
-        { key: "suppressTriggerSetup", label: "Trigger setup (hide what is planted)" }
-      ]
-    },
-    {
-      // Triggers earned their own tab once there were three settings for them — a
-      // permission, a scope and a duration. DW asked where the duration belonged, and
-      // the honest answer was "nowhere yet".
-      name: "Triggers",
-      blurb: "Things that outlast the session. Both need a Deep trance by default, on earned depth \u2014 though the Depth tab can let arousal reach them, at the price of fading fast.",
-      rows: [
-        { key: "triggerControl", label: "Allow triggers to be planted in you" },
-        { key: "carryForward", label: "Suggestions that outlive the trance" },
-        { key: "selfTrigger", label: "You can fire your own triggers" },
-        { key: "showTriggerWords", label: "Show trigger words when you list them" },
-        { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
-      ],
-      extra: drawTriggerControls,
-      scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
-      // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
-      // not clip to a canvas area, so the rows stop above them rather than scrolling under.
-      rowsBottom: 610
-    },
-    {
-      // The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
-      // own because it is a LIST, which grows, and the Triggers tab is already full of controls.
-      name: "Planted",
-      blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
-      render: drawPlanted,
-      clickExtra: clickPlanted
-    },
-    {
-      // Depth earned its own tab rather than a column beside the permissions: thirteen
-      // features times a tier control is more than the Permissions tab can carry, and the
-      // two questions are genuinely different anyway. The checkbox asks "may they ever";
-      // this asks "how far under do I have to be first".
-      name: "Depth",
-      blurb: "How deep you must be before each thing can reach you. The checkbox still has to be on.",
-      render: drawDepthGates,
-      clickExtra: clickDepthGates
-    },
-    {
-      name: "Stats",
-      blurb: "Trust and experience. Counts are shown because they are what is actually stored.",
-      render: drawStats
-    }
-  ];
-  var STATS_TAB = TABS2[TABS2.length - 1];
-  var BASE_TABS = TABS2.slice(0, TABS2.length - 1);
-  var showAdvanced = false;
   function visibleTabs() {
     return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
   }
   function advancedButtonTop() {
     return tabTop(visibleTabs().length) + 4;
   }
-  var ADVANCED_BUTTON_HEIGHT = 52;
-  var activeTab2 = 0;
-  var HELP_LEFT2 = 1700;
-  var SETUP_WIDTH = 170;
-  var SETUP_LEFT = HELP_LEFT2 - SETUP_WIDTH - 20;
-  var HELP_TOP2 = BACK_TOP;
-  var HELP_SIZE = BACK_SIZE;
-  var BOX_LEFT = CONTENT_LEFT;
-  var BOX_SIZE = 70;
-  var ROW_SPACING = 78;
-  var STAT_NAME_X = BOX_LEFT;
-  var STAT_VALUE_X = BOX_LEFT + 460;
-  var STAT_DETAIL_X = BOX_LEFT + 620;
-  var STAT_NAME_MAX = 440;
-  var STAT_LINE_HEIGHT = 40;
-  var STAT_EXPERIENCE_Y = 290;
-  var STAT_HEADER_Y = 330;
-  var STAT_FIRST_ROW_Y = 370;
-  var STAT_ROWS_PER_PAGE = 7;
-  var PAGE_BUTTON_TOP2 = 635;
-  var PAGE_BUTTON_WIDTH2 = 110;
-  var PAGE_BUTTON_HEIGHT2 = 46;
-  var PAGE_PREV_LEFT2 = BOX_LEFT;
-  var PAGE_NEXT_LEFT2 = BOX_LEFT + 130;
-  var statPage = 0;
-  var DATA_BUTTON_TOP = 740;
-  var DATA_BUTTON_WIDTH = 200;
-  var DATA_BUTTON_HEIGHT = 60;
-  var DATA_BUTTON_GAP = 20;
-  var DATA_BUTTONS = ["Export", "Import", "Reset"];
-  var resetArmedUntil = 0;
-  var RESET_ARM_MS = 5e3;
   function dataButtonLeft(index) {
     return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
   }
-  var PLANTED_ROW_TOP = 295;
-  var PLANTED_ROW_STEP = 62;
-  var PLANTED_ROW_HEIGHT = 48;
-  var PLANTED_ROWS_PER_PAGE = 6;
-  var PLANTED_BUTTON_WIDTH = 150;
-  var PLANTED_PURGE_LEFT = CONTENT_LEFT + 1060;
-  var PLANTED_DETAILS_LEFT = PLANTED_PURGE_LEFT - PLANTED_BUTTON_WIDTH - 16;
-  var PLANTED_TEXT_MAX = PLANTED_DETAILS_LEFT - CONTENT_LEFT - 20;
-  var PLANTED_PAGE_TOP = 680;
-  var CLEAR_ALL_TOP = 770;
-  var CLEAR_ALL_WIDTH = 260;
-  var CLEAR_ALL_HEIGHT = 60;
-  var CLEAR_ALL_NOTE_X = CONTENT_LEFT + CLEAR_ALL_WIDTH + 30;
-  var CLEAR_ALL_NOTE_WIDTH = PANEL_LEFT + PANEL_WIDTH - 40 - CLEAR_ALL_NOTE_X;
-  var DETAIL_PURGE_LEFT = CONTENT_LEFT + PLANTED_BUTTON_WIDTH + 20;
-  var plantedPage = 0;
-  var plantedDetail = 0;
-  var clearAllArmedUntil = 0;
-  var CLEAR_ALL_ARM_MS = 5e3;
   function plantedPageCount(count) {
     return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE));
   }
@@ -9927,10 +10018,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var ATTEMPT_BUTTON_WIDTH = 560;
-  var ATTEMPT_BUTTON_HEIGHT = 44;
-  var ATTEMPT_CAPTION_HEIGHT = 44;
-  var ATTEMPT_CAPTION_GAP = 8;
   function attemptControlHeight() {
     return ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT;
   }
@@ -9958,37 +10045,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked ? "Gray" : "#555"
     );
   }
-  var labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
-  var PERMISSION_CYCLES = [
-    {
-      label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
-      caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
-      tooltip: "Answer the induction box for you, every time",
-      cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance()))
-    },
-    {
-      label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
-      caption: () => getAwayStance() === "refuse" ? "After 10 minutes with no input, the answer above and toy mode turn them away." : getAwayStance() === "ignore" ? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off." : "Being away changes nothing: the answer above and toy mode still apply.",
-      tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
-      cycle: () => setAwayStance(nextAwayStance(getAwayStance()))
-    },
-    {
-      label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
-      caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
-      tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
-      cycle: () => setToyMode(!getToyMode())
-    }
-  ];
-  var CYCLE_GAP = 16;
-  var TOY_SCOPE_ID = "HypnosisAddonToyScope";
-  var TOY_SCOPE_LABEL_WIDTH = 250;
-  var TOY_SCOPE_WIDTH = 560;
-  var DEEPEST_CONTROL = {
-    label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
-    caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
-    tooltip: "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
-    cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier()))
-  };
   function inductionsHeight() {
     return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
   }
@@ -10135,31 +10191,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`induction attempt limit set to ${next}`);
     return true;
   }
-  var DEPTH_ROW_TOP = 270;
-  var DEPTH_ROW_HEIGHT = 52;
-  var DEPTH_ROWS_PER_PAGE = 7;
-  var DEPTH_CTRL_LEFT = BOX_LEFT + 600;
-  var DEPTH_LABEL_MAX = 600 - 30;
-  var DEPTH_STEP_WIDTH = 64;
-  var DEPTH_STEP = 5;
-  var DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
-  var DEPTH_INPUT_WIDTH = 96;
-  var DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
-  var DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
-  var DEPTH_TIER_TEXT_MAX = 240;
-  var DEPTH_BUTTON_HEIGHT = 44;
-  var CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
-  var DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
-  var DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
-  var CHEM_TOGGLE_WIDTH = 136;
-  var SCOPE_BUTTON_LEFT = BOX_LEFT;
-  var SCOPE_BUTTON_TOP = 740;
-  var SCOPE_BUTTON_WIDTH = 430;
-  var DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
-  var DEFAULTS_BUTTON_WIDTH = 240;
-  var HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
-  var HONOUR_BUTTON_WIDTH = 720;
-  var depthPage = 0;
   function depthPageCount() {
     return Math.max(1, Math.ceil(DEPTH_GATES.length / DEPTH_ROWS_PER_PAGE));
   }
@@ -10363,7 +10394,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(message);
     tellPlayer(message);
   }
-  var IMPORT_LOCKED_MESSAGE = "Import refused: your settings are locked until this session ends.";
   function clickDataButton(index) {
     const name = DATA_BUTTONS[index];
     if (name === "Export") {
@@ -10422,35 +10452,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
     });
   }
-  var SCOPE_ID = "HypnosisAddonTriggerScope";
-  var SCOPE_LABEL_Y = 630;
-  var SCOPE_CENTRE_X = CONTENT_LEFT + 380;
-  var SCOPE_CENTRE_Y = 675;
-  var SCOPE_WIDTH = 760;
-  var SCOPE_HEIGHT = 56;
-  var DECAY_ID = "HypnosisAddonDecayRate";
-  var DECAY_LABEL_X = CONTENT_LEFT + 560;
-  var DECAY_LABEL_Y = 660;
-  var DECAY_CENTRE_X = CONTENT_LEFT + 940;
-  var DECAY_CENTRE_Y = 705;
-  var DECAY_WIDTH = 520;
-  var DECAY_HEIGHT = 46;
-  var TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
-  var TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 680;
-  var TRIGGER_DECAY_LABEL_MAX = 500;
-  var TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
-  var TRIGGER_DECAY_WIDTH = 500;
-  var LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
-  var LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
-  var LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
-  var LIFESPAN_WIDTH = 380;
-  var DURATION_ID = "HypnosisAddonTriggerDuration";
-  var DURATION_LABEL_Y = 760;
-  var DURATION_CENTRE_X = CONTENT_LEFT + 70;
-  var DURATION_CENTRE_Y = 802;
-  var DURATION_WIDTH = 140;
-  var DURATION_HEIGHT = 56;
-  var DECAY_CAPTION_Y = 858;
   function ownedControlIds() {
     return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
   }
@@ -10625,24 +10626,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     drawDataButtons();
   }
-  var ROWS_TOP = 270;
-  var HEADING_SPACING = 50;
-  var FIXED_BAND = 92;
-  var FIXED_COLUMN = 560;
-  var INDENT = 60;
-  var ROWS_PAD = 10;
-  var ROWS_FLOOR_GAP = 20;
-  var rowScroll = {
-    left: BOX_LEFT,
-    top: ROWS_TOP,
-    width: PANEL_LEFT + PANEL_WIDTH - 20 - BOX_LEFT,
-    height: 0,
-    content: 0,
-    offset: 0,
-    step: ROW_SPACING
-  };
-  var rowsDrawnAt = 0;
-  var ROWS_ON_SCREEN_MS = 500;
   function layoutRows(tab) {
     rowScroll.top = ROWS_TOP + (tab.fixedRows?.length ? FIXED_BAND : 0);
     rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
@@ -10681,23 +10664,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } catch {
     }
   }
-  var LOCK_BANNER_BACK = "#ffe3a3";
-  var LOCK_BANNER_TEXT = "#5c3d00";
   function settingsLocked() {
     return getFeatures().lockedWhileHypnotized && isSessionLive() || extremeLocked();
   }
   function lockedTip() {
     return extremeLocked() ? extremeRefusal() : "Locked until this session ends";
   }
-  var RENEW_LEFT = PANEL_LEFT + 120;
-  var RENEW_TOP = PANEL_TOP + 360;
-  var RENEW_WIDTH = 520;
-  var RENEW_HEIGHT = 80;
-  var RENEW_GAP = 60;
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10727,8 +10703,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       clickRenewal(true);
     }
   }
-  var EXTENSION_ID = "HypnosisAddon";
-  var EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
   async function openHelpScreen() {
     try {
       if (typeof PreferenceOpenSubscreen !== "function" || typeof PreferenceExtensionsSettings === "undefined") {
@@ -10766,7 +10740,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11036,9 +11010,314 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var init_menu = __esm({
+    "src/menu.ts"() {
+      init_log();
+      init_icon();
+      init_notify();
+      init_effects();
+      init_storage();
+      init_suppression();
+      init_selftouch();
+      init_arousal();
+      init_illusion();
+      init_trust();
+      init_triggers();
+      init_voice();
+      init_session();
+      init_depth();
+      init_help();
+      init_wizard();
+      init_extreme();
+      init_panel();
+      TABS2 = [
+        {
+          name: "Permissions",
+          blurb: "What others may do to you. All off by default. Triggers are persistent and outlive the session.",
+          // v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
+          // rest grouped under headings. How inductions reach you moved to its own tab.
+          fixedRows: [
+            { key: "hypnoEnabled", label: "Hypnosis Enabled" },
+            { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
+          ],
+          rows: [
+            { heading: "Body" },
+            { key: "movementRestriction", label: "Movement Restriction" },
+            { key: "postureControl", label: "Posture Control" },
+            { key: "followControl", label: "Follow / Leash" },
+            { key: "clothingRestriction", label: "Clothing Restriction" },
+            { key: "undressControl", label: "Undressing" },
+            { heading: "Voice & senses" },
+            { key: "speechRestriction", label: "Speech Restriction" },
+            { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
+            { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
+            { key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
+            { heading: "Touch & arousal" },
+            { key: "selfTouchControl", label: "Self-Touch Control" },
+            { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
+            { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
+            { key: "arousalControl", label: "Arousal & Orgasm" },
+            { heading: "Mind" },
+            { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" }
+          ]
+        },
+        {
+          // v0.100.0 (job3.md §2A): how someone gets you under, out of the Permissions list where these
+          // sat at the bottom, three screens down. "Sink deeper" came from the Depth tab.
+          name: "Inductions",
+          blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
+          rows: [],
+          scrollExtra: {
+            height: inductionsHeight,
+            draw: drawInductions,
+            click: clickInductions,
+            hide: () => {
+              if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+            }
+          }
+        },
+        {
+          name: "Trance Defaults",
+          blurb: "What being under is like, and what the room sees of it. On by default \u2014 this is the trance itself, not something granted.",
+          rows: [
+            { key: "tranceCannotMove", label: "Cannot Move" },
+            { key: "tranceCannotSpeak", label: "Cannot Speak" },
+            { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
+            { key: "tranceScreenFade", label: "Screen Fade" },
+            { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
+            { key: "roomSeesReactions", label: "Others See Your Reactions" },
+            { key: "releaseOnDisconnect", label: "Release everything if you disconnect" }
+          ]
+        },
+        {
+          name: "Awareness",
+          blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
+          rows: [
+            { key: "suppressClothing", label: "Clothing Changes" },
+            { key: "suppressBondage", label: "Bondage Changes" },
+            { key: "suppressActivities", label: "Touches / Activities" },
+            { key: "suppressTriggerSetup", label: "Trigger setup (hide what is planted)" }
+          ]
+        },
+        {
+          // Triggers earned their own tab once there were three settings for them — a
+          // permission, a scope and a duration. DW asked where the duration belonged, and
+          // the honest answer was "nowhere yet".
+          name: "Triggers",
+          blurb: "Things that outlast the session. Both need a Deep trance by default, on earned depth \u2014 though the Depth tab can let arousal reach them, at the price of fading fast.",
+          rows: [
+            { key: "triggerControl", label: "Allow triggers to be planted in you" },
+            { key: "carryForward", label: "Suggestions that outlive the trance" },
+            { key: "selfTrigger", label: "You can fire your own triggers" },
+            { key: "showTriggerWords", label: "Show trigger words when you list them" },
+            { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
+          ],
+          extra: drawTriggerControls,
+          scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
+          // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
+          // not clip to a canvas area, so the rows stop above them rather than scrolling under.
+          rowsBottom: 610
+        },
+        {
+          // The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
+          // own because it is a LIST, which grows, and the Triggers tab is already full of controls.
+          name: "Planted",
+          blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
+          render: drawPlanted,
+          clickExtra: clickPlanted
+        },
+        {
+          // Depth earned its own tab rather than a column beside the permissions: thirteen
+          // features times a tier control is more than the Permissions tab can carry, and the
+          // two questions are genuinely different anyway. The checkbox asks "may they ever";
+          // this asks "how far under do I have to be first".
+          name: "Depth",
+          blurb: "How deep you must be before each thing can reach you. The checkbox still has to be on.",
+          render: drawDepthGates,
+          clickExtra: clickDepthGates
+        },
+        {
+          name: "Stats",
+          blurb: "Trust and experience. Counts are shown because they are what is actually stored.",
+          render: drawStats
+        }
+      ];
+      STATS_TAB = TABS2[TABS2.length - 1];
+      BASE_TABS = TABS2.slice(0, TABS2.length - 1);
+      showAdvanced = false;
+      ADVANCED_BUTTON_HEIGHT = 52;
+      activeTab2 = 0;
+      HELP_LEFT2 = 1700;
+      SETUP_WIDTH = 170;
+      SETUP_LEFT = HELP_LEFT2 - SETUP_WIDTH - 20;
+      HELP_TOP2 = BACK_TOP;
+      HELP_SIZE = BACK_SIZE;
+      BOX_LEFT = CONTENT_LEFT;
+      BOX_SIZE = 70;
+      ROW_SPACING = 78;
+      STAT_NAME_X = BOX_LEFT;
+      STAT_VALUE_X = BOX_LEFT + 460;
+      STAT_DETAIL_X = BOX_LEFT + 620;
+      STAT_NAME_MAX = 440;
+      STAT_LINE_HEIGHT = 40;
+      STAT_EXPERIENCE_Y = 290;
+      STAT_HEADER_Y = 330;
+      STAT_FIRST_ROW_Y = 370;
+      STAT_ROWS_PER_PAGE = 7;
+      PAGE_BUTTON_TOP2 = 635;
+      PAGE_BUTTON_WIDTH2 = 110;
+      PAGE_BUTTON_HEIGHT2 = 46;
+      PAGE_PREV_LEFT2 = BOX_LEFT;
+      PAGE_NEXT_LEFT2 = BOX_LEFT + 130;
+      statPage = 0;
+      DATA_BUTTON_TOP = 740;
+      DATA_BUTTON_WIDTH = 200;
+      DATA_BUTTON_HEIGHT = 60;
+      DATA_BUTTON_GAP = 20;
+      DATA_BUTTONS = ["Export", "Import", "Reset"];
+      resetArmedUntil = 0;
+      RESET_ARM_MS = 5e3;
+      PLANTED_ROW_TOP = 295;
+      PLANTED_ROW_STEP = 62;
+      PLANTED_ROW_HEIGHT = 48;
+      PLANTED_ROWS_PER_PAGE = 6;
+      PLANTED_BUTTON_WIDTH = 150;
+      PLANTED_PURGE_LEFT = CONTENT_LEFT + 1060;
+      PLANTED_DETAILS_LEFT = PLANTED_PURGE_LEFT - PLANTED_BUTTON_WIDTH - 16;
+      PLANTED_TEXT_MAX = PLANTED_DETAILS_LEFT - CONTENT_LEFT - 20;
+      PLANTED_PAGE_TOP = 680;
+      CLEAR_ALL_TOP = 770;
+      CLEAR_ALL_WIDTH = 260;
+      CLEAR_ALL_HEIGHT = 60;
+      CLEAR_ALL_NOTE_X = CONTENT_LEFT + CLEAR_ALL_WIDTH + 30;
+      CLEAR_ALL_NOTE_WIDTH = PANEL_LEFT + PANEL_WIDTH - 40 - CLEAR_ALL_NOTE_X;
+      DETAIL_PURGE_LEFT = CONTENT_LEFT + PLANTED_BUTTON_WIDTH + 20;
+      plantedPage = 0;
+      plantedDetail = 0;
+      clearAllArmedUntil = 0;
+      CLEAR_ALL_ARM_MS = 5e3;
+      ATTEMPT_BUTTON_WIDTH = 560;
+      ATTEMPT_BUTTON_HEIGHT = 44;
+      ATTEMPT_CAPTION_HEIGHT = 44;
+      ATTEMPT_CAPTION_GAP = 8;
+      labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+      PERMISSION_CYCLES = [
+        {
+          label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
+          caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
+          tooltip: "Answer the induction box for you, every time",
+          cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance()))
+        },
+        {
+          label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
+          caption: () => getAwayStance() === "refuse" ? "After 10 minutes with no input, the answer above and toy mode turn them away." : getAwayStance() === "ignore" ? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off." : "Being away changes nothing: the answer above and toy mode still apply.",
+          tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
+          cycle: () => setAwayStance(nextAwayStance(getAwayStance()))
+        },
+        {
+          label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
+          caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
+          tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+          cycle: () => setToyMode(!getToyMode())
+        }
+      ];
+      CYCLE_GAP = 16;
+      TOY_SCOPE_ID = "HypnosisAddonToyScope";
+      TOY_SCOPE_LABEL_WIDTH = 250;
+      TOY_SCOPE_WIDTH = 560;
+      DEEPEST_CONTROL = {
+        label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
+        caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
+        tooltip: "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
+        cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier()))
+      };
+      DEPTH_ROW_TOP = 270;
+      DEPTH_ROW_HEIGHT = 52;
+      DEPTH_ROWS_PER_PAGE = 7;
+      DEPTH_CTRL_LEFT = BOX_LEFT + 600;
+      DEPTH_LABEL_MAX = 600 - 30;
+      DEPTH_STEP_WIDTH = 64;
+      DEPTH_STEP = 5;
+      DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
+      DEPTH_INPUT_WIDTH = 96;
+      DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
+      DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
+      DEPTH_TIER_TEXT_MAX = 240;
+      DEPTH_BUTTON_HEIGHT = 44;
+      CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
+      DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
+      DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
+      CHEM_TOGGLE_WIDTH = 136;
+      SCOPE_BUTTON_LEFT = BOX_LEFT;
+      SCOPE_BUTTON_TOP = 740;
+      SCOPE_BUTTON_WIDTH = 430;
+      DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
+      DEFAULTS_BUTTON_WIDTH = 240;
+      HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
+      HONOUR_BUTTON_WIDTH = 720;
+      depthPage = 0;
+      IMPORT_LOCKED_MESSAGE = "Import refused: your settings are locked until this session ends.";
+      SCOPE_ID = "HypnosisAddonTriggerScope";
+      SCOPE_LABEL_Y = 630;
+      SCOPE_CENTRE_X = CONTENT_LEFT + 380;
+      SCOPE_CENTRE_Y = 675;
+      SCOPE_WIDTH = 760;
+      SCOPE_HEIGHT = 56;
+      DECAY_ID = "HypnosisAddonDecayRate";
+      DECAY_LABEL_X = CONTENT_LEFT + 560;
+      DECAY_LABEL_Y = 660;
+      DECAY_CENTRE_X = CONTENT_LEFT + 940;
+      DECAY_CENTRE_Y = 705;
+      DECAY_WIDTH = 520;
+      DECAY_HEIGHT = 46;
+      TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
+      TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 680;
+      TRIGGER_DECAY_LABEL_MAX = 500;
+      TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
+      TRIGGER_DECAY_WIDTH = 500;
+      LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
+      LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
+      LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
+      LIFESPAN_WIDTH = 380;
+      DURATION_ID = "HypnosisAddonTriggerDuration";
+      DURATION_LABEL_Y = 760;
+      DURATION_CENTRE_X = CONTENT_LEFT + 70;
+      DURATION_CENTRE_Y = 802;
+      DURATION_WIDTH = 140;
+      DURATION_HEIGHT = 56;
+      DECAY_CAPTION_Y = 858;
+      ROWS_TOP = 270;
+      HEADING_SPACING = 50;
+      FIXED_BAND = 92;
+      FIXED_COLUMN = 560;
+      INDENT = 60;
+      ROWS_PAD = 10;
+      ROWS_FLOOR_GAP = 20;
+      rowScroll = {
+        left: BOX_LEFT,
+        top: ROWS_TOP,
+        width: PANEL_LEFT + PANEL_WIDTH - 20 - BOX_LEFT,
+        height: 0,
+        content: 0,
+        offset: 0,
+        step: ROW_SPACING
+      };
+      rowsDrawnAt = 0;
+      ROWS_ON_SCREEN_MS = 500;
+      LOCK_BANNER_BACK = "#ffe3a3";
+      LOCK_BANNER_TEXT = "#5c3d00";
+      RENEW_LEFT = PANEL_LEFT + 120;
+      RENEW_TOP = PANEL_TOP + 360;
+      RENEW_WIDTH = 520;
+      RENEW_HEIGHT = 80;
+      RENEW_GAP = 60;
+      EXTENSION_ID = "HypnosisAddon";
+      EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
+    }
+  });
 
   // src/commands.ts
-  var suppressNextAction = false;
   function consumeSuppressFlag() {
     if (!suppressNextAction) return false;
     suppressNextAction = false;
@@ -11067,7 +11346,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (matches.length !== 1) return null;
     return { id: matches[0].MemberNumber, name: matches[0].Name };
   }
-  var lastInduced = null;
   function startInduction(target) {
     lastInduced = target;
     const view = getSessionView(target.id);
@@ -11099,7 +11377,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function wholeName(args) {
     return (args ?? "").trim().replace(/\s+/g, " ");
   }
-  var isNumber = (w) => w !== "" && Number.isFinite(Number(w));
   function firstWord(args) {
     return (args ?? "").trim().split(/\s+/)[0] ?? "";
   }
@@ -11107,8 +11384,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(message);
     tellPlayer(message);
   }
-  var COMMAND_TAGS = ["echs", "hypno"];
-  var GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
   function menuLines() {
     return [
       "Erotic Chat Hypnosis Suite (ECHS) \u2014 most of this works by SPEAKING to someone in a session, not by typing.",
@@ -11227,778 +11502,792 @@ One of mods you are using is using an old version of SDK. It will work for now b
       description: c.Description
     }));
   }
-  var COMMANDS = [
-    // --- Session flow. These stay usable in any state; safeword especially must
-    // never be conditional on anything (design doc's hard floor). ---
-    {
-      Tag: "agree",
-      group: "Session",
-      Description: "Accept a hypnosis attempt \u2014 cooperative, improves their roll. Under: stop resisting",
-      Action: () => answerPrompt("agree")
-    },
-    {
-      Tag: "ignore",
-      group: "Session",
-      Description: "Neither help nor resist a hypnosis attempt (or, under, going deeper)",
-      Action: () => answerPrompt("ignore")
-    },
-    {
-      Tag: "fight",
-      group: "Session",
-      Description: "Resist a hypnosis attempt \u2014 lowers their roll. Under: push back up, and fight going deeper",
-      Action: () => answerPrompt("fight")
-    },
-    {
-      Tag: "trust",
-      group: "Session",
-      args: "<name|number>",
-      Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
-      Action: (args) => {
-        const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /echs trust <name or member number>") : null;
-        if (!wholeName(args)) reply("Who? usage: /echs trust <name or member number>");
-        if (target) reply(giveTrust(target.id, target.name));
-      }
-    },
-    {
-      Tag: "wake",
-      group: "Session",
-      Description: "Wake yourself, if the trance is shallow enough",
-      Action: () => selfWake()
-    },
-    {
-      Tag: "safeword",
-      group: "Session",
-      Description: "Hard stop: clears the trance and every effect. Always works.",
-      Action: () => safeword()
-    },
-    {
-      // The one to reach for after a reconnect, or any time the question is "why can I not
-      // do that". `session` answers what PHASE you are in and what you have permitted;
-      // this answers what is actually on you, which is a different question and was the
-      // one with no command behind it.
-      Tag: "effects",
-      group: "Session",
-      Description: "Show everything currently affecting you, and what would survive a reconnect",
-      Action: () => {
-        for (const line of describeCurrentState()) reply(line);
-        const held = listTriggers().filter(isTriggerInEffect);
-        reply(
-          held.length ? `triggers holding you: ${held.map((t) => `"${t.actions.join(", ")}" (by ${t.installedByName})`).join("; ")}` : "no trigger is holding you"
-        );
-        reply(describeCarry());
-        reply(describeSavedState());
-        reply("Out of any of it: /echs safeword.");
-      }
-    },
-    {
-      Tag: "session",
-      group: "Session",
-      Description: "Show your session state and which permissions are granted",
-      Action: () => reply(describeSession())
-    },
-    {
-      // Crafted drinks and cigarettes (drugs.ts). The level fades on its own and is never saved,
-      // so this is the only way to see it, and to see why a drink did nothing.
-      Tag: "drugs",
-      group: "Session",
-      Description: "Show how much a crafted drink or cigarette is affecting you",
-      Action: () => reply(describeDrugs())
-    },
-    {
-      // Bypasses matching, permissions and the session entirely — calls BC's pose
-      // API directly. If this works but saying "kneel" doesn't, the problem is in
-      // our gating; if this fails too, it's the pose API itself.
-      Tag: "kneel",
-      group: "Diagnostics",
-      Description: "Kneel directly, bypassing matching, permissions and session",
-      Action: () => {
-        setSuggestedPose("Kneel");
-        reply(
-          `pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
-        );
-      }
-    },
-    {
-      Tag: "stand",
-      group: "Diagnostics",
-      Description: "Stand directly, bypassing matching, permissions and session",
-      Action: () => {
-        setSuggestedPose(null);
-        reply(
-          `pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
-        );
-      }
-    },
-    {
-      // Reports what the parser makes of a phrase without needing a live session,
-      // so a line that "does nothing" can be pinned on matching vs. permissions.
-      Tag: "match",
-      group: "Diagnostics",
-      args: "<phrase>",
-      Description: "Report what a spoken phrase would trigger, and why not",
-      Action: (args) => {
-        if (!args.trim()) {
-          reply("usage: /echs match <phrase to test>");
-          return;
-        }
-        reply(`"${args.trim()}" \u2192 ${describeMatch(args)}`);
-      }
-    },
-    {
-      // Jumps straight to a trust level without playing to it. Back-solves the
-      // interaction count that produces the value, since counts are what's stored.
-      Tag: "settrust",
-      group: "Testing",
-      args: "[name|number] <0-100>",
-      Description: "Jump trust to a value without playing to it",
-      Action: (args) => {
-        const usage = "usage: /echs settrust [name or member number] <0-100>";
-        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
-        const value = tail.length ? Number(tail[0]) : NaN;
-        if (!Number.isFinite(value)) {
-          reply(usage);
-          return;
-        }
-        const target = targetOrAsk(token, usage);
-        if (!target) return;
-        const entry = setTrustValue(target.id, target.name, value);
-        reply(
-          `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
-        );
-      }
-    },
-    {
-      // BC relationships need an actual owner or lover to test against, which is not
-      // something you can arrange on demand. This pretends, per member number, so the
-      // floors and the category rules can be exercised with one alt.
-      Tag: "relate",
-      group: "Testing",
-      args: "[name|number] <none|friend|lover|owner|clear>",
-      Description: "Pretend a BC relationship with someone, to test the trust floors",
-      Action: (args) => {
-        const usage = "usage: /echs relate [name or member number] <none|friend|lover|owner|clear>";
-        const parts = args.trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) {
-          const all = listRelationshipOverrides();
-          reply(all.length ? "test overrides:" : "no relationship overrides set");
-          all.forEach((o) => reply(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} \u2192 ${o.kind}`));
-          reply(usage);
-          return;
-        }
-        const KINDS = ["none", "friend", "lover", "owner", "clear"];
-        const split = splitNameAndTail(args, 1, (w) => KINDS.includes(w.toLowerCase()));
-        const token = split.name;
-        const kind = (split.tail[0] ?? parts[parts.length - 1]).toLowerCase();
-        if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
-          reply(usage);
-          return;
-        }
-        const target = targetOrAsk(token, usage);
-        if (!target) return;
-        setRelationshipOverride(target.id, kind === "clear" ? null : kind);
-        reply(`${target.name}: ${describeRelationship(target.id)}`);
-        reply(
-          `  access \u2014 session ${accessFor(target.id, "session").toFixed(1)}, arousal ${accessFor(target.id, "arousal").toFixed(1)}, deceptive ${accessFor(target.id, "deceptive").toFixed(1)}, persistent ${accessFor(target.id, "persistent").toFixed(1)}`
-        );
-      }
-    },
-    {
-      Tag: "decay",
-      group: "Testing",
-      args: "[never|veryslow|slow|typical|fast|veryfast]",
-      Description: "Read or set how fast trust fades without contact",
-      Action: (args) => {
-        const token = firstWord(args).toLowerCase();
-        if (!token) {
-          reply(`trust decay: ${getDecayRate()} \u2014 ${DECAY_RATES.map((r) => r.key).join(", ")}`);
-          return;
-        }
-        if (!DECAY_RATES.some((r) => r.key === token)) {
-          reply(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
-          return;
-        }
-        if (extremeLocked()) {
-          reply(extremeRefusal());
-          return;
-        }
-        setDecayRate(token);
-        reply(`trust decay set to ${token}`);
-      }
-    },
-    {
-      Tag: "setexp",
-      group: "Testing",
-      args: "<0-100>",
-      Description: "Jump subject experience to a value",
-      Action: (args) => {
-        const value = Number(firstWord(args));
-        if (!Number.isFinite(value)) {
-          reply("usage: /echs setexp <0-100>");
-          return;
-        }
-        reply(`experience \u2192 ${setExperienceValue(value).toFixed(1)}`);
-      }
-    },
-    {
-      Tag: "export",
-      group: "Data",
-      Description: "Print your settings as a blob you can copy and keep",
-      Action: () => {
-        reply("Copy the line below. /echs import <blob> restores it.");
-        reply(exportSettings());
-      }
-    },
-    {
-      Tag: "import",
-      group: "Data",
-      args: "<blob>",
-      Description: "Replace all settings with a previously exported blob",
-      Action: (args) => {
-        if (settingsLocked()) {
-          reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
-          return;
-        }
-        const result = importSettings(args);
-        reply(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
-      }
-    },
-    {
-      // Two-step on purpose: this throws away every stat and toggle, and a single
-      // mistyped command shouldn't be able to do that.
-      Tag: "reset",
-      group: "Data",
-      Description: "Wipe all settings and stats back to defaults (asks first)",
-      Action: (args) => {
-        if (firstWord(args).toLowerCase() !== "confirm") {
-          if (isHypnotized()) {
+  var suppressNextAction, lastInduced, isNumber, COMMAND_TAGS, GUIDE_LOCATION, COMMANDS;
+  var init_commands = __esm({
+    "src/commands.ts"() {
+      init_log();
+      init_notify();
+      init_effects();
+      init_voice();
+      init_illusion();
+      init_arousal();
+      init_drugs();
+      init_storage();
+      init_trust();
+      init_storage();
+      init_triggers();
+      init_carry();
+      init_messaging();
+      init_session();
+      init_recovery();
+      init_extreme();
+      init_menu();
+      init_depth();
+      suppressNextAction = false;
+      lastInduced = null;
+      isNumber = (w) => w !== "" && Number.isFinite(Number(w));
+      COMMAND_TAGS = ["echs", "hypno"];
+      GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
+      COMMANDS = [
+        // --- Session flow. These stay usable in any state; safeword especially must
+        // never be conditional on anything (design doc's hard floor). ---
+        {
+          Tag: "agree",
+          group: "Session",
+          Description: "Accept a hypnosis attempt \u2014 cooperative, improves their roll. Under: stop resisting",
+          Action: () => answerPrompt("agree")
+        },
+        {
+          Tag: "ignore",
+          group: "Session",
+          Description: "Neither help nor resist a hypnosis attempt (or, under, going deeper)",
+          Action: () => answerPrompt("ignore")
+        },
+        {
+          Tag: "fight",
+          group: "Session",
+          Description: "Resist a hypnosis attempt \u2014 lowers their roll. Under: push back up, and fight going deeper",
+          Action: () => answerPrompt("fight")
+        },
+        {
+          Tag: "trust",
+          group: "Session",
+          args: "<name|number>",
+          Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
+          Action: (args) => {
+            const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /echs trust <name or member number>") : null;
+            if (!wholeName(args)) reply("Who? usage: /echs trust <name or member number>");
+            if (target) reply(giveTrust(target.id, target.name));
+          }
+        },
+        {
+          Tag: "wake",
+          group: "Session",
+          Description: "Wake yourself, if the trance is shallow enough",
+          Action: () => selfWake()
+        },
+        {
+          Tag: "safeword",
+          group: "Session",
+          Description: "Hard stop: clears the trance and every effect. Always works.",
+          Action: () => safeword()
+        },
+        {
+          // The one to reach for after a reconnect, or any time the question is "why can I not
+          // do that". `session` answers what PHASE you are in and what you have permitted;
+          // this answers what is actually on you, which is a different question and was the
+          // one with no command behind it.
+          Tag: "effects",
+          group: "Session",
+          Description: "Show everything currently affecting you, and what would survive a reconnect",
+          Action: () => {
+            for (const line of describeCurrentState()) reply(line);
+            const held = listTriggers().filter(isTriggerInEffect);
             reply(
-              "This erases all trust, experience and settings. You are also in a trance right now \u2014 resetting will end it and release everything first. Run: /echs reset confirm"
+              held.length ? `triggers holding you: ${held.map((t) => `"${t.actions.join(", ")}" (by ${t.installedByName})`).join("; ")}` : "no trigger is holding you"
             );
-            reply("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
-            return;
+            reply(describeCarry());
+            reply(describeSavedState());
+            reply("Out of any of it: /echs safeword.");
           }
-          reply("This erases all trust, experience and settings. Run: /echs reset confirm");
-          return;
-        }
-        reply(resetSettings());
-      }
-    },
-    {
-      // The dropdown on the Triggers tab does the same thing. This exists because a setting
-      // you can only reach by opening a screen is a setting that cannot be scripted, and the
-      // test bot drives everything else by command.
-      Tag: "triggerdecay",
-      group: "Data",
-      args: "[rate]",
-      Description: "How fast planted triggers fade without reinforcement (separate from trust decay)",
-      Action: (args) => {
-        const token = firstWord(args).toLowerCase();
-        if (!token) {
-          reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"} \u2014 ${describeDecayPace()}.`);
-          reply(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
-          return;
-        }
-        const rate = DECAY_RATES.find((r) => r.key === token);
-        if (!rate) {
-          reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
-          return;
-        }
-        if (extremeLocked()) {
-          reply(extremeRefusal());
-          return;
-        }
-        setTriggerDecayRate(rate.key);
-        reply(`Planted triggers now fade: ${rate.label} \u2014 ${describeDecayPace(rate.key)}.`);
-        reply(
-          "Deeper plantings fade more slowly, and neglect compounds: the longer one goes unused the faster it sheds. Firing it slows that; only a re-induction resets it."
-        );
-      }
-    },
-    {
-      Tag: "triggers",
-      group: "Diagnostics",
-      // `full` is advertised only where it works. A getter, not a fixed value, because testing
-      // mode is now a runtime room check: read afresh each time the help is drawn, the hint
-      // appears in the testing room and is gone outside it, so the screen never documents an
-      // argument that would ignore you.
-      get args() {
-        return isTestingMode() ? "[number] [full]" : "[number]";
-      },
-      Description: "List the triggers planted in you; add a number to see what one does",
-      Action: (args) => {
-        const words = args.trim().toLowerCase().split(/\s+/).filter(Boolean);
-        const full = isTestingMode() && words.includes("full");
-        const number = words.find((w) => w !== "full");
-        if (number !== void 0) {
-          describeTriggerDetail(Number(number), full).forEach(reply);
-          return;
-        }
-        const lines = describeTriggerList(full);
-        lines.forEach(reply);
-        if (lines.length > 1) {
-          reply(
-            "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
-          );
-        }
-      }
-    },
-    {
-      Tag: "forgettrigger",
-      group: "Data",
-      args: "<number|all>",
-      Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
-      Action: (args) => {
-        const token = args.trim().toLowerCase();
-        if (!token) {
-          reply("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
-          return;
-        }
-        if (extremeLocked()) {
-          reply(extremeRefusal());
-          return;
-        }
-        const all = listTriggers();
-        if (token === "all" || token === "all confirm") {
-          if (!all.length) {
-            reply("no triggers planted");
-            return;
-          }
-          const refusal = clearAllRefusal();
-          if (refusal) {
-            reply(refusal);
-            return;
-          }
-          if (token === "all") {
+        },
+        {
+          Tag: "session",
+          group: "Session",
+          Description: "Show your session state and which permissions are granted",
+          Action: () => reply(describeSession())
+        },
+        {
+          // Crafted drinks and cigarettes (drugs.ts). The level fades on its own and is never saved,
+          // so this is the only way to see it, and to see why a drink did nothing.
+          Tag: "drugs",
+          group: "Session",
+          Description: "Show how much a crafted drink or cigarette is affecting you",
+          Action: () => reply(describeDrugs())
+        },
+        {
+          // Bypasses matching, permissions and the session entirely — calls BC's pose
+          // API directly. If this works but saying "kneel" doesn't, the problem is in
+          // our gating; if this fails too, it's the pose API itself.
+          Tag: "kneel",
+          group: "Diagnostics",
+          Description: "Kneel directly, bypassing matching, permissions and session",
+          Action: () => {
+            setSuggestedPose("Kneel");
             reply(
-              `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
+              `pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
             );
-            return;
           }
-          reply(`forgot ${forgetAllTriggers()} trigger(s)`);
-          return;
+        },
+        {
+          Tag: "stand",
+          group: "Diagnostics",
+          Description: "Stand directly, bypassing matching, permissions and session",
+          Action: () => {
+            setSuggestedPose(null);
+            reply(
+              `pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
+            );
+          }
+        },
+        {
+          // Reports what the parser makes of a phrase without needing a live session,
+          // so a line that "does nothing" can be pinned on matching vs. permissions.
+          Tag: "match",
+          group: "Diagnostics",
+          args: "<phrase>",
+          Description: "Report what a spoken phrase would trigger, and why not",
+          Action: (args) => {
+            if (!args.trim()) {
+              reply("usage: /echs match <phrase to test>");
+              return;
+            }
+            reply(`"${args.trim()}" \u2192 ${describeMatch(args)}`);
+          }
+        },
+        {
+          // Jumps straight to a trust level without playing to it. Back-solves the
+          // interaction count that produces the value, since counts are what's stored.
+          Tag: "settrust",
+          group: "Testing",
+          args: "[name|number] <0-100>",
+          Description: "Jump trust to a value without playing to it",
+          Action: (args) => {
+            const usage = "usage: /echs settrust [name or member number] <0-100>";
+            const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+            const value = tail.length ? Number(tail[0]) : NaN;
+            if (!Number.isFinite(value)) {
+              reply(usage);
+              return;
+            }
+            const target = targetOrAsk(token, usage);
+            if (!target) return;
+            const entry = setTrustValue(target.id, target.name, value);
+            reply(
+              `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
+            );
+          }
+        },
+        {
+          // BC relationships need an actual owner or lover to test against, which is not
+          // something you can arrange on demand. This pretends, per member number, so the
+          // floors and the category rules can be exercised with one alt.
+          Tag: "relate",
+          group: "Testing",
+          args: "[name|number] <none|friend|lover|owner|clear>",
+          Description: "Pretend a BC relationship with someone, to test the trust floors",
+          Action: (args) => {
+            const usage = "usage: /echs relate [name or member number] <none|friend|lover|owner|clear>";
+            const parts = args.trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) {
+              const all = listRelationshipOverrides();
+              reply(all.length ? "test overrides:" : "no relationship overrides set");
+              all.forEach((o) => reply(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} \u2192 ${o.kind}`));
+              reply(usage);
+              return;
+            }
+            const KINDS = ["none", "friend", "lover", "owner", "clear"];
+            const split = splitNameAndTail(args, 1, (w) => KINDS.includes(w.toLowerCase()));
+            const token = split.name;
+            const kind = (split.tail[0] ?? parts[parts.length - 1]).toLowerCase();
+            if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
+              reply(usage);
+              return;
+            }
+            const target = targetOrAsk(token, usage);
+            if (!target) return;
+            setRelationshipOverride(target.id, kind === "clear" ? null : kind);
+            reply(`${target.name}: ${describeRelationship(target.id)}`);
+            reply(
+              `  access \u2014 session ${accessFor(target.id, "session").toFixed(1)}, arousal ${accessFor(target.id, "arousal").toFixed(1)}, deceptive ${accessFor(target.id, "deceptive").toFixed(1)}, persistent ${accessFor(target.id, "persistent").toFixed(1)}`
+            );
+          }
+        },
+        {
+          Tag: "decay",
+          group: "Testing",
+          args: "[never|veryslow|slow|typical|fast|veryfast]",
+          Description: "Read or set how fast trust fades without contact",
+          Action: (args) => {
+            const token = firstWord(args).toLowerCase();
+            if (!token) {
+              reply(`trust decay: ${getDecayRate()} \u2014 ${DECAY_RATES.map((r) => r.key).join(", ")}`);
+              return;
+            }
+            if (!DECAY_RATES.some((r) => r.key === token)) {
+              reply(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
+              return;
+            }
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
+            setDecayRate(token);
+            reply(`trust decay set to ${token}`);
+          }
+        },
+        {
+          Tag: "setexp",
+          group: "Testing",
+          args: "<0-100>",
+          Description: "Jump subject experience to a value",
+          Action: (args) => {
+            const value = Number(firstWord(args));
+            if (!Number.isFinite(value)) {
+              reply("usage: /echs setexp <0-100>");
+              return;
+            }
+            reply(`experience \u2192 ${setExperienceValue(value).toFixed(1)}`);
+          }
+        },
+        {
+          Tag: "export",
+          group: "Data",
+          Description: "Print your settings as a blob you can copy and keep",
+          Action: () => {
+            reply("Copy the line below. /echs import <blob> restores it.");
+            reply(exportSettings());
+          }
+        },
+        {
+          Tag: "import",
+          group: "Data",
+          args: "<blob>",
+          Description: "Replace all settings with a previously exported blob",
+          Action: (args) => {
+            if (settingsLocked()) {
+              reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
+              return;
+            }
+            const result = importSettings(args);
+            reply(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
+          }
+        },
+        {
+          // Two-step on purpose: this throws away every stat and toggle, and a single
+          // mistyped command shouldn't be able to do that.
+          Tag: "reset",
+          group: "Data",
+          Description: "Wipe all settings and stats back to defaults (asks first)",
+          Action: (args) => {
+            if (firstWord(args).toLowerCase() !== "confirm") {
+              if (isHypnotized()) {
+                reply(
+                  "This erases all trust, experience and settings. You are also in a trance right now \u2014 resetting will end it and release everything first. Run: /echs reset confirm"
+                );
+                reply("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
+                return;
+              }
+              reply("This erases all trust, experience and settings. Run: /echs reset confirm");
+              return;
+            }
+            reply(resetSettings());
+          }
+        },
+        {
+          // The dropdown on the Triggers tab does the same thing. This exists because a setting
+          // you can only reach by opening a screen is a setting that cannot be scripted, and the
+          // test bot drives everything else by command.
+          Tag: "triggerdecay",
+          group: "Data",
+          args: "[rate]",
+          Description: "How fast planted triggers fade without reinforcement (separate from trust decay)",
+          Action: (args) => {
+            const token = firstWord(args).toLowerCase();
+            if (!token) {
+              reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"} \u2014 ${describeDecayPace()}.`);
+              reply(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+              return;
+            }
+            const rate = DECAY_RATES.find((r) => r.key === token);
+            if (!rate) {
+              reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+              return;
+            }
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
+            setTriggerDecayRate(rate.key);
+            reply(`Planted triggers now fade: ${rate.label} \u2014 ${describeDecayPace(rate.key)}.`);
+            reply(
+              "Deeper plantings fade more slowly, and neglect compounds: the longer one goes unused the faster it sheds. Firing it slows that; only a re-induction resets it."
+            );
+          }
+        },
+        {
+          Tag: "triggers",
+          group: "Diagnostics",
+          // `full` is advertised only where it works. A getter, not a fixed value, because testing
+          // mode is now a runtime room check: read afresh each time the help is drawn, the hint
+          // appears in the testing room and is gone outside it, so the screen never documents an
+          // argument that would ignore you.
+          get args() {
+            return isTestingMode() ? "[number] [full]" : "[number]";
+          },
+          Description: "List the triggers planted in you; add a number to see what one does",
+          Action: (args) => {
+            const words = args.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            const full = isTestingMode() && words.includes("full");
+            const number = words.find((w) => w !== "full");
+            if (number !== void 0) {
+              describeTriggerDetail(Number(number), full).forEach(reply);
+              return;
+            }
+            const lines = describeTriggerList(full);
+            lines.forEach(reply);
+            if (lines.length > 1) {
+              reply(
+                "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
+              );
+            }
+          }
+        },
+        {
+          Tag: "forgettrigger",
+          group: "Data",
+          args: "<number|all>",
+          Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
+          Action: (args) => {
+            const token = args.trim().toLowerCase();
+            if (!token) {
+              reply("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
+              return;
+            }
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
+            const all = listTriggers();
+            if (token === "all" || token === "all confirm") {
+              if (!all.length) {
+                reply("no triggers planted");
+                return;
+              }
+              const refusal = clearAllRefusal();
+              if (refusal) {
+                reply(refusal);
+                return;
+              }
+              if (token === "all") {
+                reply(
+                  `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
+                );
+                return;
+              }
+              reply(`forgot ${forgetAllTriggers()} trigger(s)`);
+              return;
+            }
+            const index = Number(token);
+            if (!Number.isInteger(index) || index < 1 || index > all.length) {
+              reply(`no trigger ${token} \u2014 you have ${all.length}. See /echs triggers.`);
+              return;
+            }
+            if (isTriggerInEffect(all[index - 1])) {
+              reply(
+                `Trigger ${index} is holding you right now, so it can't be deleted. Wait for it to wear off, have whoever set it release you, or use /echs safeword \u2014 that always works, from any state.`
+              );
+              return;
+            }
+            const gone = forgetTrigger(all[index - 1].key);
+            reply(gone ? `forgot trigger ${index}` : "nothing removed");
+          }
+        },
+        {
+          Tag: "storage",
+          group: "Diagnostics",
+          Description: "Where settings loaded from, and what each source holds",
+          Action: () => describeStorage().forEach(reply)
+        },
+        {
+          // Browser-console diagnostics, off by default so other mod developers' devtools stay
+          // clear. Not a Testing command: a player may be asked to turn it on to send a report.
+          Tag: "debug",
+          group: "Diagnostics",
+          args: "[on|off]",
+          Description: "Switch the add-on's routine console lines on or off (this browser only)",
+          Action: (args) => {
+            const word = firstWord(args).toLowerCase();
+            if (word && word !== "on" && word !== "off") {
+              reply("usage: /echs debug [on|off] \u2014 with nothing, it switches to the other setting.");
+              return;
+            }
+            const on = word ? word === "on" : !isDebugFlagOn();
+            const saved = setDebugFlag(on);
+            reply(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that \u2014 it lasts until you reload.)"}`);
+            if (on) reply("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level \u2014 switch that on to see them.");
+            else if (isDebugLogging()) reply("They stay on while you're in the Hypno Testing room.");
+          }
+        },
+        {
+          // YOUR OWN number, never anyone else's — the only skill value a command will print, by
+          // the same rule that keeps trust and experience to a sought-out screen (§5a). What the
+          // far side then honours is their setting and is deliberately invisible to you.
+          Tag: "skill",
+          group: "Diagnostics",
+          Description: "Show your own hypnotist skill, and how it is read",
+          Action: () => {
+            const v = skillValue();
+            reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
+            reply("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
+            reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
+          }
+        },
+        {
+          Tag: "induce",
+          group: "Session",
+          args: "[name|number]",
+          Description: "Attempt an induction on someone, the same as the remote's button",
+          Action: (args) => {
+            const target = targetOrAsk(wholeName(args), "usage: /echs induce [name or member number]");
+            if (!target) return;
+            startInduction(target);
+          }
+        },
+        {
+          Tag: "retry",
+          group: "Session",
+          Description: "Try again on the last person you attempted",
+          Action: () => {
+            if (!lastInduced) {
+              reply("You haven't attempted anyone yet this session \u2014 use /echs induce [name].");
+              return;
+            }
+            const still = others().some((c) => c?.MemberNumber === lastInduced.id);
+            if (!still) {
+              reply(`${lastInduced.name} isn't in the room any more.`);
+              return;
+            }
+            startInduction(lastInduced);
+          }
+        },
+        {
+          Tag: "chance",
+          group: "Diagnostics",
+          args: "[name|number]",
+          Description: "Show the induction chance for each choice against someone",
+          Action: (args) => {
+            const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
+            if (target) describeChances(target.id).forEach(reply);
+          }
+        },
+        {
+          Tag: "freeze",
+          group: "Testing",
+          Description: "Apply the Freeze effect to yourself",
+          Action: () => reply(
+            applyEffect("Freeze") ? "Freeze applied" : "Freeze failed \u2014 no Emoticon item found"
+          )
+        },
+        {
+          Tag: "unfreeze",
+          group: "Testing",
+          Description: "Remove the Freeze effect from yourself",
+          Action: () => reply(
+            removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"
+          )
+        },
+        {
+          // Same job as /echs kneel: exercise the arousal API with no matching, permission
+          // or session in the way, so "saying it did nothing" can be pinned on the gates
+          // rather than on BC's arousal system.
+          Tag: "arousal",
+          group: "Testing",
+          args: "<none|light|high|full|orgasm|deny|allow>",
+          Description: "Drive arousal directly, bypassing matching, permissions and session",
+          Action: (args) => {
+            const what = firstWord(args).toLowerCase();
+            if (!arousalAvailable()) {
+              reply(
+                "arousal is switched off for this character \u2014 set Preferences > Arousal to something other than Inactive"
+              );
+              return;
+            }
+            if (what === "orgasm") {
+              reply(`forced orgasm: ${forceOrgasm()}`);
+              return;
+            }
+            if (what === "deny" || what === "allow") {
+              setOrgasmDenied(what === "deny");
+              reply(`orgasm denial ${what === "deny" ? "applied" : "released"} (DenialMode effect)`);
+              return;
+            }
+            if (!(what in AROUSAL_LEVELS)) {
+              reply(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
+              return;
+            }
+            setArousalLevel(what);
+            reply(
+              `arousal set to ${what} (${AROUSAL_LEVELS[what]}). Progress=${Player?.ArousalSettings?.Progress} Active=${Player?.ArousalSettings?.Active}`
+            );
+          }
+        },
+        {
+          Tag: "carry",
+          group: "Diagnostics",
+          args: "[drop]",
+          Description: "Show what is set to outlive the trance, or drop it",
+          Action: (args) => {
+            if (firstWord(args).toLowerCase() === "drop") {
+              reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
+              return;
+            }
+            reply(describeCarry());
+          }
+        },
+        {
+          // Bypasses matching, permissions, trust and session, like /echs kneel. Also the
+          // quickest way to confirm the draw hook is alive at all.
+          Tag: "illusion",
+          group: "Testing",
+          args: "<on|off>",
+          Description: "Freeze/release your own view of your clothes, bypassing all gates",
+          Action: (args) => {
+            const word = firstWord(args).toLowerCase();
+            if (word === "on") freezeAppearance();
+            else if (word === "off") clearIllusion();
+            reply(describeIllusion());
+          }
+        },
+        {
+          Tag: "suppress",
+          group: "Testing",
+          Description: "Arm a one-shot swallow of the next incoming Action message",
+          Action: () => {
+            suppressNextAction = true;
+            reply(
+              "armed: next incoming Action-type message will be logged and suppressed"
+            );
+          }
+        },
+        {
+          Tag: "wardrobeblock",
+          group: "Testing",
+          args: "<on|off>",
+          Description: "Toggle the BlockWardrobe effect on yourself",
+          Action: (args) => {
+            const on = firstWord(args).toLowerCase() !== "off";
+            const ok = on ? applyEffect("BlockWardrobe") : removeEffect("BlockWardrobe");
+            reply(
+              ok ? `wardrobe block ${on ? "ON" : "OFF"}` : "wardrobe block failed \u2014 no Emoticon item found"
+            );
+          }
+        },
+        {
+          Tag: "ping",
+          group: "Testing",
+          args: "[name|number]",
+          Description: "Send a hidden-message round trip to test the channel",
+          Action: (args) => {
+            const target = targetOrAsk(wholeName(args), "usage: /echs ping [name or member number]");
+            if (!target) return;
+            sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
+            reply(`sent ping to ${target.name} (${target.id})`);
+          }
+        },
+        {
+          Tag: "bumptrust",
+          group: "Testing",
+          args: "[name|number] <n>",
+          Description: "Add n interactions (conversation is 1, an induction is 5)",
+          Action: (args) => {
+            const usage = "usage: /echs bumptrust [name or member number] <interactions>";
+            const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
+            const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
+            if (!Number.isFinite(delta)) {
+              reply(usage);
+              return;
+            }
+            const target = targetOrAsk(token, usage);
+            if (!target) return;
+            const entry = addInteractions(target.id, target.name, delta);
+            reply(
+              `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
+            );
+          }
+        },
+        {
+          // The escape hatch that was missing. A junk entry could previously only be removed by
+          // resetting everything, which also throws away every real relationship — so the cost
+          // of one bad row was the whole dataset.
+          //
+          // Takes a raw member number as well as a name, deliberately: the row you most want to
+          // delete is the one that should not exist, and such a row is often for somebody who is
+          // not in the room to be named.
+          Tag: "forgettrust",
+          group: "Data",
+          args: "<name|number>",
+          Description: "Delete a stored trust entry outright \u2014 see /echs logtrust for the numbers",
+          Action: (args) => {
+            const token = wholeName(args);
+            if (!token) {
+              reply("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
+              return;
+            }
+            const byNumber = /^\d+$/.test(token) ? Number(token) : null;
+            const entry = byNumber ? listTrustRaw().find((t) => t.memberId === byNumber) : listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
+            if (!entry) {
+              reply(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
+              return;
+            }
+            forgetTrust(entry.memberId);
+            reply(`Forgot ${trustEntryLabel(entry)} \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
+          }
+        },
+        {
+          // TESTING ONLY. Depth normally comes from the induction roll, which means every check
+          // of a depth gate is at the mercy of chance — you cannot ask "does Deep unlock the
+          // illusion" without rolling until you get a Deep. This sets it directly.
+          //
+          // Two numbers, because one would hide the thing most worth testing: `full earned`
+          // lets the earned-only rule be exercised deliberately. `/echs depth 80 20` is a
+          // subject who is deep because they are aroused, and must still be refused a trigger.
+          Tag: "depth",
+          group: "Testing",
+          args: "<0-100> [earned]",
+          Description: "TESTING: force the current trance depth, and optionally the earned half",
+          Action: (args) => {
+            if (!isTestingMode()) {
+              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              return;
+            }
+            const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) {
+              reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
+              reply("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
+              return;
+            }
+            const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
+            const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
+            setCurrentDepths(full, earned);
+            reply(
+              `Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. For suggestions to land you also need a live session \u2014 see /echs trance.`
+            );
+          }
+        },
+        {
+          // Under our own tag, never a top-level /bot: that name is BC's. See sendToBot.
+          Tag: "bot",
+          group: "Testing",
+          args: "<command>",
+          Description: "TESTING: send a command to the test bot (works while silenced)",
+          Action: sendToBot
+        },
+        {
+          // TESTING ONLY, and the missing half of /echs depth.
+          //
+          // Depth alone was never enough: handleSpokenLine() checks isSessionActiveWith(sender)
+          // BEFORE it consults any depth gate, so a forced depth with no session refused every
+          // suggestion and looked exactly like a broken feature. This starts a real session at
+          // a chosen depth in one step, which is what the depth scenarios actually need.
+          Tag: "trance",
+          group: "Testing",
+          args: "[who] [depth] [earned]",
+          Description: "TESTING: go straight under with someone, at a chosen depth, skipping the roll",
+          Action: (args) => {
+            if (!isTestingMode()) {
+              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              return;
+            }
+            const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
+            const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
+            const target = targetOrAsk(token, "Usage: /echs trance [who] [depth] [earned]");
+            if (!target) return;
+            const full = depths.length ? Number(depths[0]) : 80;
+            const earned = depths.length > 1 ? Number(depths[1]) : full;
+            const refused = forceTrance(target.id, full, earned);
+            if (refused) {
+              reply(`Can't: ${refused}.`);
+              return;
+            }
+            reply(
+              `Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /echs wake to come out.`
+            );
+          }
+        },
+        {
+          // TESTING ONLY, and the piece the decay scenario is blocked on.
+          //
+          // Trigger strength is derived from a clock, and every reading after the first one is
+          // days away: even at *very fast* a Deep planting takes twelve hours to die. So the
+          // scenario could watch a trigger start to fade and could not reach the compounding, the
+          // firing credit, the ghost threshold or the sweep — four of its five expected results.
+          // Turning the rate up further does not help, because a rate fast enough to sit through
+          // is a rate too coarse to see the tier discount in.
+          //
+          // By NUMBER, not phrase — the same reasoning as /echs forgettrigger. The phrase is
+          // hidden from the subject unless they asked to see it, and a testing command must not
+          // be the way round that.
+          Tag: "agetrigger",
+          group: "Testing",
+          args: "[days] [number]",
+          Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
+          Action: (args) => {
+            if (!isTestingMode()) {
+              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              return;
+            }
+            const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
+            const days = parts.length ? Number(parts[0]) : 1;
+            if (!Number.isFinite(days)) {
+              reply("Usage: /echs agetrigger [days] [number] \u2014 see /echs triggers for the numbering.");
+              reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
+              reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
+              reply(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
+              return;
+            }
+            const index = parts.length > 1 ? Number(parts[1]) : void 0;
+            if (index !== void 0 && !Number.isInteger(index)) {
+              reply(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
+              return;
+            }
+            const result = ageTriggers(days, index);
+            if (result.refusal) {
+              reply(`Can't: ${result.refusal}.`);
+              return;
+            }
+            reply(`Aged ${result.aged} trigger(s) by ${days} day(s) \u2014 strength before and after:`);
+            result.lines.forEach(reply);
+            reply(
+              "The firing credit is untouched \u2014 only the clock moved. One aged to nothing is swept on the next /echs triggers, unless it is holding you."
+            );
+            reply(`Undo this exact move with /echs agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
+          }
+        },
+        {
+          // The companion to the above, and the one to read when something will not fire: it
+          // answers "what would work right now" in one screen rather than by trying things.
+          Tag: "gates",
+          group: "Diagnostics",
+          Description: "Show every depth gate, what it needs, and whether you are deep enough now",
+          Action: () => {
+            const full = currentDepth();
+            const earned = currentDepthEarned();
+            reply(
+              `Depth ${full} full / ${earned} earned \u2014 ${tierLabel(tierOf(full))}. Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}. ${describeDrugs()}`
+            );
+            const features = getFeatures();
+            for (const gate of DEPTH_GATES) {
+              const granted = !!features[gate.key];
+              const deep = depthAllows(gate.key, full, earned);
+              const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
+              reply(
+                `  ${verdict.padEnd(16)} ${gate.label} \u2014 needs ${depthLabel(requiredDepth(gate.key))}${gate.earnedOnly ? ", earned only" : ""}`
+              );
+            }
+          }
+        },
+        {
+          Tag: "logtrust",
+          group: "Testing",
+          Description: "List stored trust and experience, with the counts behind them",
+          Action: () => describeTrust().forEach(reply)
         }
-        const index = Number(token);
-        if (!Number.isInteger(index) || index < 1 || index > all.length) {
-          reply(`no trigger ${token} \u2014 you have ${all.length}. See /echs triggers.`);
-          return;
-        }
-        if (isTriggerInEffect(all[index - 1])) {
-          reply(
-            `Trigger ${index} is holding you right now, so it can't be deleted. Wait for it to wear off, have whoever set it release you, or use /echs safeword \u2014 that always works, from any state.`
-          );
-          return;
-        }
-        const gone = forgetTrigger(all[index - 1].key);
-        reply(gone ? `forgot trigger ${index}` : "nothing removed");
-      }
-    },
-    {
-      Tag: "storage",
-      group: "Diagnostics",
-      Description: "Where settings loaded from, and what each source holds",
-      Action: () => describeStorage().forEach(reply)
-    },
-    {
-      // Browser-console diagnostics, off by default so other mod developers' devtools stay
-      // clear. Not a Testing command: a player may be asked to turn it on to send a report.
-      Tag: "debug",
-      group: "Diagnostics",
-      args: "[on|off]",
-      Description: "Switch the add-on's routine console lines on or off (this browser only)",
-      Action: (args) => {
-        const word = firstWord(args).toLowerCase();
-        if (word && word !== "on" && word !== "off") {
-          reply("usage: /echs debug [on|off] \u2014 with nothing, it switches to the other setting.");
-          return;
-        }
-        const on = word ? word === "on" : !isDebugFlagOn();
-        const saved = setDebugFlag(on);
-        reply(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that \u2014 it lasts until you reload.)"}`);
-        if (on) reply("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level \u2014 switch that on to see them.");
-        else if (isDebugLogging()) reply("They stay on while you're in the Hypno Testing room.");
-      }
-    },
-    {
-      // YOUR OWN number, never anyone else's — the only skill value a command will print, by
-      // the same rule that keeps trust and experience to a sought-out screen (§5a). What the
-      // far side then honours is their setting and is deliberately invisible to you.
-      Tag: "skill",
-      group: "Diagnostics",
-      Description: "Show your own hypnotist skill, and how it is read",
-      Action: () => {
-        const v = skillValue();
-        reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
-        reply("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
-        reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
-      }
-    },
-    {
-      Tag: "induce",
-      group: "Session",
-      args: "[name|number]",
-      Description: "Attempt an induction on someone, the same as the remote's button",
-      Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /echs induce [name or member number]");
-        if (!target) return;
-        startInduction(target);
-      }
-    },
-    {
-      Tag: "retry",
-      group: "Session",
-      Description: "Try again on the last person you attempted",
-      Action: () => {
-        if (!lastInduced) {
-          reply("You haven't attempted anyone yet this session \u2014 use /echs induce [name].");
-          return;
-        }
-        const still = others().some((c) => c?.MemberNumber === lastInduced.id);
-        if (!still) {
-          reply(`${lastInduced.name} isn't in the room any more.`);
-          return;
-        }
-        startInduction(lastInduced);
-      }
-    },
-    {
-      Tag: "chance",
-      group: "Diagnostics",
-      args: "[name|number]",
-      Description: "Show the induction chance for each choice against someone",
-      Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
-        if (target) describeChances(target.id).forEach(reply);
-      }
-    },
-    {
-      Tag: "freeze",
-      group: "Testing",
-      Description: "Apply the Freeze effect to yourself",
-      Action: () => reply(
-        applyEffect("Freeze") ? "Freeze applied" : "Freeze failed \u2014 no Emoticon item found"
-      )
-    },
-    {
-      Tag: "unfreeze",
-      group: "Testing",
-      Description: "Remove the Freeze effect from yourself",
-      Action: () => reply(
-        removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"
-      )
-    },
-    {
-      // Same job as /echs kneel: exercise the arousal API with no matching, permission
-      // or session in the way, so "saying it did nothing" can be pinned on the gates
-      // rather than on BC's arousal system.
-      Tag: "arousal",
-      group: "Testing",
-      args: "<none|light|high|full|orgasm|deny|allow>",
-      Description: "Drive arousal directly, bypassing matching, permissions and session",
-      Action: (args) => {
-        const what = firstWord(args).toLowerCase();
-        if (!arousalAvailable()) {
-          reply(
-            "arousal is switched off for this character \u2014 set Preferences > Arousal to something other than Inactive"
-          );
-          return;
-        }
-        if (what === "orgasm") {
-          reply(`forced orgasm: ${forceOrgasm()}`);
-          return;
-        }
-        if (what === "deny" || what === "allow") {
-          setOrgasmDenied(what === "deny");
-          reply(`orgasm denial ${what === "deny" ? "applied" : "released"} (DenialMode effect)`);
-          return;
-        }
-        if (!(what in AROUSAL_LEVELS)) {
-          reply(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
-          return;
-        }
-        setArousalLevel(what);
-        reply(
-          `arousal set to ${what} (${AROUSAL_LEVELS[what]}). Progress=${Player?.ArousalSettings?.Progress} Active=${Player?.ArousalSettings?.Active}`
-        );
-      }
-    },
-    {
-      Tag: "carry",
-      group: "Diagnostics",
-      args: "[drop]",
-      Description: "Show what is set to outlive the trance, or drop it",
-      Action: (args) => {
-        if (firstWord(args).toLowerCase() === "drop") {
-          reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
-          return;
-        }
-        reply(describeCarry());
-      }
-    },
-    {
-      // Bypasses matching, permissions, trust and session, like /echs kneel. Also the
-      // quickest way to confirm the draw hook is alive at all.
-      Tag: "illusion",
-      group: "Testing",
-      args: "<on|off>",
-      Description: "Freeze/release your own view of your clothes, bypassing all gates",
-      Action: (args) => {
-        const word = firstWord(args).toLowerCase();
-        if (word === "on") freezeAppearance();
-        else if (word === "off") clearIllusion();
-        reply(describeIllusion());
-      }
-    },
-    {
-      Tag: "suppress",
-      group: "Testing",
-      Description: "Arm a one-shot swallow of the next incoming Action message",
-      Action: () => {
-        suppressNextAction = true;
-        reply(
-          "armed: next incoming Action-type message will be logged and suppressed"
-        );
-      }
-    },
-    {
-      Tag: "wardrobeblock",
-      group: "Testing",
-      args: "<on|off>",
-      Description: "Toggle the BlockWardrobe effect on yourself",
-      Action: (args) => {
-        const on = firstWord(args).toLowerCase() !== "off";
-        const ok = on ? applyEffect("BlockWardrobe") : removeEffect("BlockWardrobe");
-        reply(
-          ok ? `wardrobe block ${on ? "ON" : "OFF"}` : "wardrobe block failed \u2014 no Emoticon item found"
-        );
-      }
-    },
-    {
-      Tag: "ping",
-      group: "Testing",
-      args: "[name|number]",
-      Description: "Send a hidden-message round trip to test the channel",
-      Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /echs ping [name or member number]");
-        if (!target) return;
-        sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
-        reply(`sent ping to ${target.name} (${target.id})`);
-      }
-    },
-    {
-      Tag: "bumptrust",
-      group: "Testing",
-      args: "[name|number] <n>",
-      Description: "Add n interactions (conversation is 1, an induction is 5)",
-      Action: (args) => {
-        const usage = "usage: /echs bumptrust [name or member number] <interactions>";
-        const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
-        const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
-        if (!Number.isFinite(delta)) {
-          reply(usage);
-          return;
-        }
-        const target = targetOrAsk(token, usage);
-        if (!target) return;
-        const entry = addInteractions(target.id, target.name, delta);
-        reply(
-          `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
-        );
-      }
-    },
-    {
-      // The escape hatch that was missing. A junk entry could previously only be removed by
-      // resetting everything, which also throws away every real relationship — so the cost
-      // of one bad row was the whole dataset.
-      //
-      // Takes a raw member number as well as a name, deliberately: the row you most want to
-      // delete is the one that should not exist, and such a row is often for somebody who is
-      // not in the room to be named.
-      Tag: "forgettrust",
-      group: "Data",
-      args: "<name|number>",
-      Description: "Delete a stored trust entry outright \u2014 see /echs logtrust for the numbers",
-      Action: (args) => {
-        const token = wholeName(args);
-        if (!token) {
-          reply("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
-          return;
-        }
-        const byNumber = /^\d+$/.test(token) ? Number(token) : null;
-        const entry = byNumber ? listTrustRaw().find((t) => t.memberId === byNumber) : listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
-        if (!entry) {
-          reply(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
-          return;
-        }
-        forgetTrust(entry.memberId);
-        reply(`Forgot ${trustEntryLabel(entry)} \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
-      }
-    },
-    {
-      // TESTING ONLY. Depth normally comes from the induction roll, which means every check
-      // of a depth gate is at the mercy of chance — you cannot ask "does Deep unlock the
-      // illusion" without rolling until you get a Deep. This sets it directly.
-      //
-      // Two numbers, because one would hide the thing most worth testing: `full earned`
-      // lets the earned-only rule be exercised deliberately. `/echs depth 80 20` is a
-      // subject who is deep because they are aroused, and must still be refused a trigger.
-      Tag: "depth",
-      group: "Testing",
-      args: "<0-100> [earned]",
-      Description: "TESTING: force the current trance depth, and optionally the earned half",
-      Action: (args) => {
-        if (!isTestingMode()) {
-          reply("Not available \u2014 join the Hypno Testing room to use this.");
-          return;
-        }
-        const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) {
-          reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
-          reply("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
-          return;
-        }
-        const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
-        const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
-        setCurrentDepths(full, earned);
-        reply(
-          `Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. For suggestions to land you also need a live session \u2014 see /echs trance.`
-        );
-      }
-    },
-    {
-      // Under our own tag, never a top-level /bot: that name is BC's. See sendToBot.
-      Tag: "bot",
-      group: "Testing",
-      args: "<command>",
-      Description: "TESTING: send a command to the test bot (works while silenced)",
-      Action: sendToBot
-    },
-    {
-      // TESTING ONLY, and the missing half of /echs depth.
-      //
-      // Depth alone was never enough: handleSpokenLine() checks isSessionActiveWith(sender)
-      // BEFORE it consults any depth gate, so a forced depth with no session refused every
-      // suggestion and looked exactly like a broken feature. This starts a real session at
-      // a chosen depth in one step, which is what the depth scenarios actually need.
-      Tag: "trance",
-      group: "Testing",
-      args: "[who] [depth] [earned]",
-      Description: "TESTING: go straight under with someone, at a chosen depth, skipping the roll",
-      Action: (args) => {
-        if (!isTestingMode()) {
-          reply("Not available \u2014 join the Hypno Testing room to use this.");
-          return;
-        }
-        const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
-        const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
-        const target = targetOrAsk(token, "Usage: /echs trance [who] [depth] [earned]");
-        if (!target) return;
-        const full = depths.length ? Number(depths[0]) : 80;
-        const earned = depths.length > 1 ? Number(depths[1]) : full;
-        const refused = forceTrance(target.id, full, earned);
-        if (refused) {
-          reply(`Can't: ${refused}.`);
-          return;
-        }
-        reply(
-          `Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /echs wake to come out.`
-        );
-      }
-    },
-    {
-      // TESTING ONLY, and the piece the decay scenario is blocked on.
-      //
-      // Trigger strength is derived from a clock, and every reading after the first one is
-      // days away: even at *very fast* a Deep planting takes twelve hours to die. So the
-      // scenario could watch a trigger start to fade and could not reach the compounding, the
-      // firing credit, the ghost threshold or the sweep — four of its five expected results.
-      // Turning the rate up further does not help, because a rate fast enough to sit through
-      // is a rate too coarse to see the tier discount in.
-      //
-      // By NUMBER, not phrase — the same reasoning as /echs forgettrigger. The phrase is
-      // hidden from the subject unless they asked to see it, and a testing command must not
-      // be the way round that.
-      Tag: "agetrigger",
-      group: "Testing",
-      args: "[days] [number]",
-      Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
-      Action: (args) => {
-        if (!isTestingMode()) {
-          reply("Not available \u2014 join the Hypno Testing room to use this.");
-          return;
-        }
-        const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-        const days = parts.length ? Number(parts[0]) : 1;
-        if (!Number.isFinite(days)) {
-          reply("Usage: /echs agetrigger [days] [number] \u2014 see /echs triggers for the numbering.");
-          reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
-          reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
-          reply(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
-          return;
-        }
-        const index = parts.length > 1 ? Number(parts[1]) : void 0;
-        if (index !== void 0 && !Number.isInteger(index)) {
-          reply(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
-          return;
-        }
-        const result = ageTriggers(days, index);
-        if (result.refusal) {
-          reply(`Can't: ${result.refusal}.`);
-          return;
-        }
-        reply(`Aged ${result.aged} trigger(s) by ${days} day(s) \u2014 strength before and after:`);
-        result.lines.forEach(reply);
-        reply(
-          "The firing credit is untouched \u2014 only the clock moved. One aged to nothing is swept on the next /echs triggers, unless it is holding you."
-        );
-        reply(`Undo this exact move with /echs agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
-      }
-    },
-    {
-      // The companion to the above, and the one to read when something will not fire: it
-      // answers "what would work right now" in one screen rather than by trying things.
-      Tag: "gates",
-      group: "Diagnostics",
-      Description: "Show every depth gate, what it needs, and whether you are deep enough now",
-      Action: () => {
-        const full = currentDepth();
-        const earned = currentDepthEarned();
-        reply(
-          `Depth ${full} full / ${earned} earned \u2014 ${tierLabel(tierOf(full))}. Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}. ${describeDrugs()}`
-        );
-        const features = getFeatures();
-        for (const gate of DEPTH_GATES) {
-          const granted = !!features[gate.key];
-          const deep = depthAllows(gate.key, full, earned);
-          const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
-          reply(
-            `  ${verdict.padEnd(16)} ${gate.label} \u2014 needs ${depthLabel(requiredDepth(gate.key))}${gate.earnedOnly ? ", earned only" : ""}`
-          );
-        }
-      }
-    },
-    {
-      Tag: "logtrust",
-      group: "Testing",
-      Description: "List stored trust and experience, with the counts behind them",
-      Action: () => describeTrust().forEach(reply)
+      ];
     }
-  ];
+  });
 
   // src/prompt.ts
-  var PANEL_LEFT2 = 150;
-  var PANEL_TOP2 = 250;
-  var PANEL_WIDTH2 = 700;
-  var PANEL_HEIGHT2 = 300;
-  var BUTTON_TOP = 450;
-  var BUTTON_WIDTH = 200;
-  var BUTTON_HEIGHT = 70;
-  var BUTTON_GAP = 25;
-  var FIRST_BUTTON_LEFT = 175;
-  var CHOICES = [
-    { choice: "agree", label: "Agree", hover: "Let it happen. Much more likely to go under." },
-    { choice: "ignore", label: "Ignore", hover: "Neither help nor resist. No bonus either way." },
-    { choice: "fight", label: "Fight", hover: "Brace against it. Much more likely to stay clear." }
-  ];
   function buttonLeft(index) {
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
   }
@@ -12051,72 +12340,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
+  var PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_GAP, FIRST_BUTTON_LEFT, CHOICES;
+  var init_prompt = __esm({
+    "src/prompt.ts"() {
+      init_log();
+      init_session();
+      PANEL_LEFT2 = 150;
+      PANEL_TOP2 = 250;
+      PANEL_WIDTH2 = 700;
+      PANEL_HEIGHT2 = 300;
+      BUTTON_TOP = 450;
+      BUTTON_WIDTH = 200;
+      BUTTON_HEIGHT = 70;
+      BUTTON_GAP = 25;
+      FIRST_BUTTON_LEFT = 175;
+      CHOICES = [
+        { choice: "agree", label: "Agree", hover: "Let it happen. Much more likely to go under." },
+        { choice: "ignore", label: "Ignore", hover: "Neither help nor resist. No bonus either way." },
+        { choice: "fight", label: "Fight", hover: "Brace against it. Much more likely to stay clear." }
+      ];
+    }
+  });
 
   // src/remote.ts
-  var ICON_LEFT = 90;
-  var ICON_TOP = 130;
-  var ICON_SIZE = 60;
-  var ICON_INSET = 8;
-  var SUB_EXIT_LEFT = 1815;
-  var SUB_EXIT_TOP = 75;
-  var SUB_EXIT_SIZE = 90;
-  var SUB_HELP_LEFT = 1700;
-  var FEATURE_BUTTON_LEFT = 400;
-  var FEATURE_BUTTON_WIDTH = 500;
-  var FEATURE_BUTTON_HEIGHT = 90;
-  var SESSION_BUTTON_TOP = 290;
-  var FIRST_FEATURE_TOP = 430;
-  var FEATURE_SPACING = 115;
-  var STATUS_LINE_Y = 245;
-  var ABSENT_LINE_Y = 380;
-  var RETRY_LEFT = 700;
-  var RETRY_TOP = 470;
-  var RETRY_WIDTH = 300;
-  var RETRY_HEIGHT = 80;
-  var activeTarget = null;
-  var FEATURES = [
-    {
-      key: "movement",
-      permission: "movementRestriction",
-      applyLabel: "Apply Movement Restriction",
-      releaseLabel: "Release Movement Restriction",
-      isActive: (t) => !!t.HasEffect?.("Freeze"),
-      apply: () => applyEffect("Freeze"),
-      release: () => removeEffect("Freeze"),
-      applyFlavor: "movement-block",
-      releaseFlavor: "movement-release"
-    },
-    {
-      key: "clothing",
-      permission: "clothingRestriction",
-      applyLabel: "Apply Clothing Restriction",
-      releaseLabel: "Release Clothing Restriction",
-      isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
-      apply: () => applyEffect("BlockWardrobe"),
-      release: () => removeEffect("BlockWardrobe"),
-      applyFlavor: "clothing-block",
-      releaseFlavor: "clothing-release"
-    },
-    {
-      key: "posture",
-      permission: "postureControl",
-      applyLabel: "Kneel",
-      releaseLabel: "Stand",
-      // Not HasEffect — IsKneeling() reads PoseMapping.BodyLower, which is derived from
-      // the synced ActivePose, so it's readable for anyone we can see.
-      isActive: (t) => !!t.IsKneeling?.(),
-      apply: () => setSuggestedPose("Kneel"),
-      release: () => setSuggestedPose(null, "stance"),
-      applyFlavor: "kneel",
-      releaseFlavor: "stand"
-    }
-  ];
   function featureTop(index) {
     return FIRST_FEATURE_TOP + index * FEATURE_SPACING;
   }
-  var knownState = /* @__PURE__ */ new Map();
-  var PROBE_TIMEOUT_MS = 3e3;
-  var probedAt = /* @__PURE__ */ new Map();
   function presenceOf(memberNumber) {
     if (knownState.has(memberNumber) || getSessionView(memberNumber)) return "present";
     const asked = probedAt.get(memberNumber);
@@ -12394,23 +12643,82 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
+  var ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, FIRST_FEATURE_TOP, FEATURE_SPACING, STATUS_LINE_Y, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, FEATURES, knownState, PROBE_TIMEOUT_MS, probedAt;
+  var init_remote = __esm({
+    "src/remote.ts"() {
+      init_log();
+      init_icon();
+      init_messaging();
+      init_storage();
+      init_effects();
+      init_flavor();
+      init_help();
+      init_session();
+      ICON_LEFT = 90;
+      ICON_TOP = 130;
+      ICON_SIZE = 60;
+      ICON_INSET = 8;
+      SUB_EXIT_LEFT = 1815;
+      SUB_EXIT_TOP = 75;
+      SUB_EXIT_SIZE = 90;
+      SUB_HELP_LEFT = 1700;
+      FEATURE_BUTTON_LEFT = 400;
+      FEATURE_BUTTON_WIDTH = 500;
+      FEATURE_BUTTON_HEIGHT = 90;
+      SESSION_BUTTON_TOP = 290;
+      FIRST_FEATURE_TOP = 430;
+      FEATURE_SPACING = 115;
+      STATUS_LINE_Y = 245;
+      ABSENT_LINE_Y = 380;
+      RETRY_LEFT = 700;
+      RETRY_TOP = 470;
+      RETRY_WIDTH = 300;
+      RETRY_HEIGHT = 80;
+      activeTarget = null;
+      FEATURES = [
+        {
+          key: "movement",
+          permission: "movementRestriction",
+          applyLabel: "Apply Movement Restriction",
+          releaseLabel: "Release Movement Restriction",
+          isActive: (t) => !!t.HasEffect?.("Freeze"),
+          apply: () => applyEffect("Freeze"),
+          release: () => removeEffect("Freeze"),
+          applyFlavor: "movement-block",
+          releaseFlavor: "movement-release"
+        },
+        {
+          key: "clothing",
+          permission: "clothingRestriction",
+          applyLabel: "Apply Clothing Restriction",
+          releaseLabel: "Release Clothing Restriction",
+          isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
+          apply: () => applyEffect("BlockWardrobe"),
+          release: () => removeEffect("BlockWardrobe"),
+          applyFlavor: "clothing-block",
+          releaseFlavor: "clothing-release"
+        },
+        {
+          key: "posture",
+          permission: "postureControl",
+          applyLabel: "Kneel",
+          releaseLabel: "Stand",
+          // Not HasEffect — IsKneeling() reads PoseMapping.BodyLower, which is derived from
+          // the synced ActivePose, so it's readable for anyone we can see.
+          isActive: (t) => !!t.IsKneeling?.(),
+          apply: () => setSuggestedPose("Kneel"),
+          release: () => setSuggestedPose(null, "stance"),
+          applyFlavor: "kneel",
+          releaseFlavor: "stand"
+        }
+      ];
+      knownState = /* @__PURE__ */ new Map();
+      PROBE_TIMEOUT_MS = 3e3;
+      probedAt = /* @__PURE__ */ new Map();
+    }
+  });
 
   // src/conceal.ts
-  var WORD_SPELLINGS = {
-    cannot: String.raw`(?:cannot|can['‘’ʼ]?t|can\s+not)`,
-    // normalize() reads "ur" as "your" only as a whole word, so the "ur" ending "our" must not match.
-    your: String.raw`(?:your|(?<![a-z])ur)`
-  };
-  var PAIR_SPELLINGS = {
-    "do not": String.raw`(?:do[^a-z]+not|don['‘’ʼ]?t)`,
-    "will not": String.raw`(?:will[^a-z]+not|won['‘’ʼ]?t)`,
-    "must not": String.raw`(?:must[^a-z]+not|mustn['‘’ʼ]?t)`,
-    "does not": String.raw`(?:does[^a-z]+not|doesn['‘’ʼ]?t)`,
-    "is not": String.raw`(?:is[^a-z]+not|isn['‘’ʼ]?t)`,
-    "are not": String.raw`(?:are[^a-z]+not|aren['‘’ʼ]?t)`,
-    "you are": String.raw`(?:you[^a-z]+are|you['‘’ʼ]?re)`,
-    "you have": String.raw`(?:you[^a-z]+have|you['‘’ʼ]?ve)`
-  };
   function wordPattern(word) {
     const stutter = `(?:${word[0]}-)*`;
     return stutter + (WORD_SPELLINGS[word] ?? word);
@@ -12490,12 +12798,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     });
   }
+  var WORD_SPELLINGS, PAIR_SPELLINGS;
+  var init_conceal = __esm({
+    "src/conceal.ts"() {
+      init_log();
+      init_storage();
+      init_triggers();
+      init_voice();
+      init_session();
+      WORD_SPELLINGS = {
+        cannot: String.raw`(?:cannot|can['‘’ʼ]?t|can\s+not)`,
+        // normalize() reads "ur" as "your" only as a whole word, so the "ur" ending "our" must not match.
+        your: String.raw`(?:your|(?<![a-z])ur)`
+      };
+      PAIR_SPELLINGS = {
+        "do not": String.raw`(?:do[^a-z]+not|don['‘’ʼ]?t)`,
+        "will not": String.raw`(?:will[^a-z]+not|won['‘’ʼ]?t)`,
+        "must not": String.raw`(?:must[^a-z]+not|mustn['‘’ʼ]?t)`,
+        "does not": String.raw`(?:does[^a-z]+not|doesn['‘’ʼ]?t)`,
+        "is not": String.raw`(?:is[^a-z]+not|isn['‘’ʼ]?t)`,
+        "are not": String.raw`(?:are[^a-z]+not|aren['‘’ʼ]?t)`,
+        "you are": String.raw`(?:you[^a-z]+are|you['‘’ʼ]?re)`,
+        "you have": String.raw`(?:you[^a-z]+have|you['‘’ʼ]?ve)`
+      };
+    }
+  });
 
   // src/denial.ts
-  var DENIAL_HOLD = 99;
-  var ORGASM_HAPPENING = 2;
-  var ANNOUNCE_EVERY_MS = 6e4;
-  var lastAnnounced = 0;
   function isPlayer(C) {
     return !!C && (C === Player || C.IsPlayer?.() === true);
   }
@@ -12553,6 +12882,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log("orgasm denial hooks installed on ActivityOrgasmPrepare and ActivityOrgasmStart");
   }
+  var DENIAL_HOLD, ORGASM_HAPPENING, ANNOUNCE_EVERY_MS, lastAnnounced;
+  var init_denial = __esm({
+    "src/denial.ts"() {
+      init_log();
+      init_flavor();
+      init_effects();
+      init_storage();
+      init_arousal();
+      DENIAL_HOLD = 99;
+      ORGASM_HAPPENING = 2;
+      ANNOUNCE_EVERY_MS = 6e4;
+      lastAnnounced = 0;
+    }
+  });
 
   // src/welcome.ts
   function maybeShowFirstRunNotice() {
@@ -12563,13 +12906,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     markWelcomeShown();
   }
-  var BANNER_POLL_MS = 1e3;
-  var BANNER_GIVE_UP_MS = 10 * 6e4;
-  var bannerShown = false;
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.0.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.0.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12587,12 +12927,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const poll = setInterval(tick, BANNER_POLL_MS);
     tick();
   }
-  var LOADED_TOAST_HOLD_MS = 5e3;
-  var LOADED_TOAST_FADE_MS = 1500;
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.0.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.0.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12614,8 +12952,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
       setTimeout(() => el.remove(), LOADED_TOAST_FADE_MS + 100);
     }, LOADED_TOAST_HOLD_MS);
   }
+  var BANNER_POLL_MS, BANNER_GIVE_UP_MS, bannerShown, LOADED_TOAST_HOLD_MS, LOADED_TOAST_FADE_MS;
+  var init_welcome = __esm({
+    "src/welcome.ts"() {
+      init_notify();
+      init_log();
+      init_storage();
+      BANNER_POLL_MS = 1e3;
+      BANNER_GIVE_UP_MS = 10 * 6e4;
+      bannerShown = false;
+      LOADED_TOAST_HOLD_MS = 5e3;
+      LOADED_TOAST_FADE_MS = 1500;
+    }
+  });
 
   // src/main.ts
+  var main_exports = {};
   function safely(label, fn) {
     try {
       fn();
@@ -12623,141 +12975,182 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"1.0.0"})`);
-  safely("loaded toast", showLoadedToast);
-  safely("startup banner", startStartupBanner);
-  var modApi = import_bondage_club_mod_sdk.default.registerMod(
-    {
-      name: "ECHS",
-      fullName: "Erotic Chat Hypnosis Suite",
-      version: "1.0.0",
-      repository: "https://github.com/Dwfreegethub/HypnosisAddon"
-    },
-    // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
-    // registration under the same name rather than throwing on the second load.
-    { allowReplace: true }
-  );
-  safely("ChatRoomMessage hook", () => {
-    modApi.hookFunction(
-      "ChatRoomMessage",
-      10,
-      ((args, next) => {
-        const data = args[0];
-        if (handleIncomingHidden(data)) {
-          return next(args);
-        }
-        if (data?.Type === "Action" && consumeSuppressFlag()) {
-          log("suppressed Action message:", JSON.stringify(data));
-          return void 0;
-        }
-        log("ChatRoomMessage", data);
-        const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
-        const whisperedToMe = data?.Type === "Whisper" && typeof Player?.MemberNumber === "number" && data.Sender !== Player.MemberNumber;
-        const commandLine = inCharacter ? asAddressed(inCharacter, whisperedToMe) : null;
-        const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
-        if (!heard) markUnheard(data);
-        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
-          try {
-            if (isTriggerSetupLine(data.Sender, commandLine)) {
-              handleSpokenLine(data.Sender, commandLine);
-              log("hid trigger setup line from the subject");
+  var import_bondage_club_mod_sdk, modApi;
+  var init_main = __esm({
+    "src/main.ts"() {
+      import_bondage_club_mod_sdk = __toESM(require_bcmodsdk());
+      init_log();
+      init_messaging();
+      init_commands();
+      init_effects();
+      init_flavor();
+      init_menu();
+      init_illusion();
+      init_prompt();
+      init_remote();
+      init_session();
+      init_away();
+      init_suppression();
+      init_conceal();
+      init_follow();
+      init_triggers();
+      init_drugs();
+      init_selftouch();
+      init_denial();
+      init_voice();
+      init_trust();
+      init_storage();
+      init_notify();
+      init_welcome();
+      info(`script loaded (v${"1.0.1"})`);
+      safely("loaded toast", showLoadedToast);
+      safely("startup banner", startStartupBanner);
+      modApi = import_bondage_club_mod_sdk.default.registerMod(
+        {
+          name: "ECHS",
+          fullName: "Erotic Chat Hypnosis Suite",
+          version: "1.0.1",
+          repository: "https://github.com/Dwfreegethub/HypnosisAddon"
+        },
+        // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
+        // registration under the same name rather than throwing on the second load.
+        { allowReplace: true }
+      );
+      safely("ChatRoomMessage hook", () => {
+        modApi.hookFunction(
+          "ChatRoomMessage",
+          10,
+          ((args, next) => {
+            const data = args[0];
+            if (handleIncomingHidden(data)) {
+              return next(args);
+            }
+            if (data?.Type === "Action" && consumeSuppressFlag()) {
+              log("suppressed Action message:", JSON.stringify(data));
               return void 0;
             }
-          } catch (err) {
-            warn("trigger-setup check failed:", err);
-          }
-        }
-        const result = next(args);
-        if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
-          noteArrival(data.Sender);
-        }
-        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && typeof Player?.MemberNumber === "number" && data.Sender === Player.MemberNumber) {
-          try {
-            const told = noticeTrustLine(inCharacter, data.Type === "Whisper" ? data.Target : void 0);
-            if (told) tellPlayer(told);
-          } catch (err) {
-            warn("trust line failed:", err);
-          }
-        }
-        if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
-          try {
-            handleSpokenLine(data.Sender, commandLine);
-          } catch (err) {
-            warn("suggestion parsing failed:", err);
-          }
-          try {
-            noteInductionLine(data.Sender, inCharacter);
-          } catch (err) {
-            warn("induction RP counting failed:", err);
-          }
-          try {
-            const sender = ChatRoomCharacter?.find((c) => c?.MemberNumber === data.Sender);
-            const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
-            noteConversation(data.Sender, displayNameOf(sender), directed);
-          } catch (err) {
-            warn("trust accrual failed:", err);
-          }
-        }
-        return result;
-      })
-    );
+            log("ChatRoomMessage", data);
+            const inCharacter = typeof data?.Content === "string" ? stripOOC(unstutter(data.Content)) : null;
+            const whisperedToMe = data?.Type === "Whisper" && typeof Player?.MemberNumber === "number" && data.Sender !== Player.MemberNumber;
+            const commandLine = inCharacter ? asAddressed(inCharacter, whisperedToMe) : null;
+            const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
+            if (!heard) markUnheard(data);
+            if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
+              try {
+                if (isTriggerSetupLine(data.Sender, commandLine)) {
+                  handleSpokenLine(data.Sender, commandLine);
+                  log("hid trigger setup line from the subject");
+                  return void 0;
+                }
+              } catch (err) {
+                warn("trigger-setup check failed:", err);
+              }
+            }
+            const result = next(args);
+            if (data?.Type === "Action" && data?.Content === "ServerEnter" && typeof data?.Sender === "number") {
+              noteArrival(data.Sender);
+            }
+            if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && typeof Player?.MemberNumber === "number" && data.Sender === Player.MemberNumber) {
+              try {
+                const told = noticeTrustLine(inCharacter, data.Type === "Whisper" ? data.Target : void 0);
+                if (told) tellPlayer(told);
+              } catch (err) {
+                warn("trust line failed:", err);
+              }
+            }
+            if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
+              try {
+                handleSpokenLine(data.Sender, commandLine);
+              } catch (err) {
+                warn("suggestion parsing failed:", err);
+              }
+              try {
+                noteInductionLine(data.Sender, inCharacter);
+              } catch (err) {
+                warn("induction RP counting failed:", err);
+              }
+              try {
+                const sender = ChatRoomCharacter?.find((c) => c?.MemberNumber === data.Sender);
+                const directed = data.Type === "Whisper" || mentionsAnyName(inCharacter, playerOwnNames());
+                noteConversation(data.Sender, displayNameOf(sender), directed);
+              } catch (err) {
+                warn("trust accrual failed:", err);
+              }
+            }
+            return result;
+          })
+        );
+      });
+      setRoomVoice(() => getFeatures().roomSeesReactions);
+      safely("effect allow-list", installEffectAllowList);
+      safely("effect hooks", () => installEffectHooks(modApi));
+      safely("room line guard", () => installRoomLineGuard(modApi));
+      safely("speech-block hook", () => {
+        modApi.hookFunction(
+          "ChatRoomSendChatMessage",
+          10,
+          ((args, next) => {
+            if (!isSpeechBlocked()) return next(args);
+            if (isForcedSpeech()) return next(args);
+            if (!getFeatures().blockOOC && stripOOC(args[0]) === null) return next(args);
+            log("speech blocked:", args[0]);
+            announce("speech-blocked-attempt");
+            return false;
+          })
+        );
+      });
+      safely("wardrobe-block hook", () => {
+        modApi.hookFunction(
+          "ChatRoomOpenWardrobeScreen",
+          10,
+          ((args, next) => {
+            if (Player?.CanChangeOwnClothes?.() === false && heldByUs("BlockWardrobe")) {
+              announce("clothing-blocked-attempt");
+              return void 0;
+            }
+            return next(args);
+          })
+        );
+      });
+      safely("screen-fade hook", () => {
+        modApi.hookFunction(
+          "ChatRoomRun",
+          9,
+          ((args, next) => {
+            const result = next(args);
+            drawTranceVeil();
+            return result;
+          })
+        );
+      });
+      safely("session state machine", installSession);
+      safely("away watch", installAwayWatch);
+      safely("trigger status channel", installTriggers);
+      safely("message suppression", installSuppression);
+      safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
+      safely("trigger word concealment", installConcealment);
+      safely("delayed compulsions", installCompulsions);
+      safely("drinks and cigarettes", installDrugs);
+      safely("self-touch hook", () => installSelfTouch(modApi));
+      safely("orgasm denial hooks", () => installDenial(modApi));
+      safely("follow-leash hook", () => installFollow(modApi));
+      safely("/echs command registration", installCommands);
+      safely("preference menu registration", installMenu);
+      safely("remote (Information Sheet) registration", () => installRemote(modApi));
+      safely("induction prompt box", () => installPrompt(modApi));
+      safely("clothing illusion", () => installIllusion(modApi));
+    }
   });
-  setRoomVoice(() => getFeatures().roomSeesReactions);
-  safely("effect allow-list", installEffectAllowList);
-  safely("effect hooks", () => installEffectHooks(modApi));
-  safely("room line guard", () => installRoomLineGuard(modApi));
-  safely("speech-block hook", () => {
-    modApi.hookFunction(
-      "ChatRoomSendChatMessage",
-      10,
-      ((args, next) => {
-        if (!isSpeechBlocked()) return next(args);
-        if (isForcedSpeech()) return next(args);
-        if (!getFeatures().blockOOC && stripOOC(args[0]) === null) return next(args);
-        log("speech blocked:", args[0]);
-        announce("speech-blocked-attempt");
-        return false;
-      })
+
+  // src/index.ts
+  init_log();
+  var page2 = window;
+  if (page2.__ECHS_LOADED__) {
+    warn(
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.0.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
-  });
-  safely("wardrobe-block hook", () => {
-    modApi.hookFunction(
-      "ChatRoomOpenWardrobeScreen",
-      10,
-      ((args, next) => {
-        if (Player?.CanChangeOwnClothes?.() === false && heldByUs("BlockWardrobe")) {
-          announce("clothing-blocked-attempt");
-          return void 0;
-        }
-        return next(args);
-      })
-    );
-  });
-  safely("screen-fade hook", () => {
-    modApi.hookFunction(
-      "ChatRoomRun",
-      9,
-      ((args, next) => {
-        const result = next(args);
-        drawTranceVeil();
-        return result;
-      })
-    );
-  });
-  safely("session state machine", installSession);
-  safely("away watch", installAwayWatch);
-  safely("trigger status channel", installTriggers);
-  safely("message suppression", installSuppression);
-  safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
-  safely("trigger word concealment", installConcealment);
-  safely("delayed compulsions", installCompulsions);
-  safely("drinks and cigarettes", installDrugs);
-  safely("self-touch hook", () => installSelfTouch(modApi));
-  safely("orgasm denial hooks", () => installDenial(modApi));
-  safely("follow-leash hook", () => installFollow(modApi));
-  safely("/echs command registration", installCommands);
-  safely("preference menu registration", installMenu);
-  safely("remote (Information Sheet) registration", () => installRemote(modApi));
-  safely("induction prompt box", () => installPrompt(modApi));
-  safely("clothing illusion", () => installIllusion(modApi));
+  } else {
+    page2.__ECHS_LOADED__ = "1.0.1";
+    void Promise.resolve().then(() => (init_main(), main_exports));
+  }
 })();
