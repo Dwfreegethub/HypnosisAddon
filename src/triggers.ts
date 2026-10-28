@@ -426,7 +426,7 @@ export interface AgeResult {
 	 *
 	 * NO PHRASES. The subject's own list hides them unless they have asked to see them, and a
 	 * testing affordance must not be the hole in that; triggers are named by their number in
-	 * `/hypno triggers`, exactly as `/hypno forgettrigger` names them. */
+	 * `/echs triggers`, exactly as `/echs forgettrigger` names them. */
 	lines: string[];
 	aged: number;
 }
@@ -464,7 +464,7 @@ export function ageTriggers(days: number, index?: number): AgeResult {
 	const all = listTriggers();
 	if (!all.length) return refuse("no triggers planted");
 	if (index !== undefined && (!Number.isInteger(index) || index < 1 || index > all.length)) {
-		return refuse(`no trigger ${index} — you have ${all.length}. See /hypno triggers for the numbering`);
+		return refuse(`no trigger ${index} — you have ${all.length}. See /echs triggers for the numbering`);
 	}
 	const chosen = index === undefined ? all.slice() : [all[index - 1]];
 	const lines: string[] = [];
@@ -1139,7 +1139,7 @@ export function triggersFiredBy(speaker: number, normalisedText: string): Trigge
 /** Triggers this speaker may RELEASE by name. Deliberately looser than firing: undoing can
  * never harm the subject, so it does not answer to the self-trigger setting the way firing
  * does. That matters most for the case it was written for — a subject who has been silenced
- * cannot say a release phrase at all, so the ways out that remain (this, `/hypno release`,
+ * cannot say a release phrase at all, so the ways out that remain (this, `/echs release`,
  * the duration timer, the safeword) must not be narrowed further than they already are. */
 export function triggersReleasableBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
@@ -1148,7 +1148,7 @@ export function triggersReleasableBy(speaker: number, normalisedText: string): T
 	return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
 }
 
-/** For the settings screen and /hypno triggers. */
+/** For the settings screen and /echs triggers. */
 export function describeScope(): string {
 	return TRIGGER_SCOPES.find((s) => s.key === getTriggerScope())?.label ?? "Hypnotist only";
 }

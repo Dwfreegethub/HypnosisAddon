@@ -73,7 +73,7 @@ check("carries the full name", /Erotic Chat Hypnosis Suite \(ECHS\)/.test(line),
 // string "test" for the suites. So "vtest" here is the proof that the number comes from the
 // build rather than a hand-typed literal, which is the whole reason this line can be trusted.
 check("carries the build version, from the define", /\bvtest\b/.test(line), true);
-check("points at the guide", /\/hypno help/.test(line), true);
+check("points at the guide", /\/echs help/.test(line), true);
 check("one line, not several", line.includes("\n"), false);
 
 // --- never twice --------------------------------------------------------------------------

@@ -63,7 +63,7 @@ let bannerShown = false;
 export function showStartupBanner(): void {
 	if (bannerShown) return;
 	bannerShown = true;
-	tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) · v${__VERSION__} · /hypno help`);
+	tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) · v${__VERSION__} · /echs help`);
 }
 
 /** Wait for a chat log, then show the banner once, and the first-run notice after it if due.

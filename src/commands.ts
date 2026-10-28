@@ -80,7 +80,7 @@ function findCharacter(memberId: number): any {
 
 // --- Target resolution ---------------------------------------------------------------
 // Commands take a name OR a member number, and ask when they get neither. Typing
-// "/hypno chance Missy" beats looking up a six-digit number, and the number stays valid
+// "/echs chance Missy" beats looking up a six-digit number, and the number stays valid
 // for anyone not currently in the room.
 
 interface Target {
@@ -114,7 +114,7 @@ function resolveTarget(token: string): Target | null {
 	return { id: matches[0].MemberNumber, name: matches[0].Name };
 }
 
-/** Who `/hypno retry` means. Set by every induction started from a command, so a retry does
+/** Who `/echs retry` means. Set by every induction started from a command, so a retry does
  * not need the name typed again — which is the whole point of having it. Module-level and
  * not persisted: it is a convenience for the next thirty seconds, not state. */
 let lastInduced: Target | null = null;
@@ -164,7 +164,7 @@ function targetOrAsk(token: string, usage: string): Target | null {
 /** Split "<name> <value…>" from the END. BC names can contain spaces ("Missys Helper"), so the
  * name is never assumed to be one word: up to `max` trailing words that pass `isTail` are the
  * values, and everything before them is the name. Reading the first word as the name is what made
- * `/hypno trance Missys Helper 80` read "Helper" as the depth — 0 (DW, 2026-09-25). */
+ * `/echs trance Missys Helper 80` read "Helper" as the depth — 0 (DW, 2026-09-25). */
 function splitNameAndTail(args: string, max: number, isTail: (word: string) => boolean): { name: string; tail: string[] } {
 	const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
 	const tail: string[] = [];
@@ -197,13 +197,13 @@ function reply(message: string): void {
 * own ICommand shape and gets passed through untouched. */
 interface HypnoCommand {
 	Tag: string;
-	/** Shown both in BC's native command help and in our `/hypno` summary. BC renders this
+	/** Shown both in BC's native command help and in our `/echs` summary. BC renders this
 	* verbatim for externally-added commands (CommandsHelp._GetDescription checks
 	* `command.Description` before its own translation cache), so it needs no CSV entry. */
 	Description: string;
 	group: "Session" | "Diagnostics" | "Data" | "Testing";
 	/** Argument hint, e.g. "[name|number] <0-100>". Shown in the summary and prepended to
-	 * the description, so a glance at `/hypno` tells you which commands take something —
+	 * the description, so a glance at `/echs` tells you which commands take something —
 	 * a bare list of names doesn't, which is what made `chance` look like it took nothing. */
 	args?: string;
 	Action: (args: string) => void;
@@ -213,32 +213,32 @@ interface HypnoCommand {
 // not by hooking CommandParse — that runs BEFORE registry lookup and would still hit
 // BC's "no such command" path for anything we didn't recognize ourselves, fighting the
 // game's own validation instead of using the extension point it already provides.
-/** Every tag the main command answers to. `hypno` is first because it is the one the guide,
- * the wiki and every help line name; `echs` is the add-on's own name, registered so someone
- * who reaches for it is not met with BC's "no such command". */
-const COMMAND_TAGS = ["hypno", "echs"] as const;
+/** Every tag the main command answers to. `echs` is the name every help line and the guide use
+ * (DW, 2026-10-28: "hypno" is being retired from what players see). `hypno` is the old name, kept
+ * registered so habit and old notes still work; only the wiki mentions it. BC's own /help cannot
+ * hide a registered command, so there it is listed as "Same as /echs". */
+const COMMAND_TAGS = ["echs", "hypno"] as const;
 
 // Where the full guide lives if the on-screen jump can't run — the manual path is the
-// fallback for `/hypno help`, and the tail of the bare `/hypno` menu. Built from menu.ts's
+// fallback for `/echs help`, and the tail of the bare `/echs` menu. Built from menu.ts's
 // own label rather than repeating it, so the two cannot name different entries.
 const GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} — the ? button (or the Help button in the remote panel).`;
 
-/** The bare `/hypno` menu: a short, friendly signpost rather than a wall of commands.
+/** The bare `/echs` menu: a short, friendly signpost rather than a wall of commands.
  * Points at the two ways to go deeper — the on-screen guide and the full typed list —
- * so the dense command dump moved to `/hypno commands` for anyone who wants it. */
+ * so the dense command dump moved to `/echs commands` for anyone who wants it. */
 function menuLines(): string[] {
 	return [
 		"Erotic Chat Hypnosis Suite (ECHS) — most of this works by SPEAKING to someone in a session, not by typing.",
-		"  /hypno induce <name> — start hypnotizing someone (the same as the Attempt Hypnosis button); /hypno retry tries them again",
-		"  /hypno help — open the full on-screen guide: what to say, trust, depth, triggers",
-		"  /hypno commands — list every typed command",
-		"  /hypno match <phrase> — check what a phrase would do, and why nothing happened",
-		"  /hypno safeword — hard stop; clears everything, always works",
-		"  (/echs is the same command as /hypno — either works, anywhere.)",
+		"  /echs induce <name> — start hypnotizing someone (the same as the Attempt Hypnosis button); /echs retry tries them again",
+		"  /echs help — open the full on-screen guide: what to say, trust, depth, triggers",
+		"  /echs commands — list every typed command",
+		"  /echs match <phrase> — check what a phrase would do, and why nothing happened",
+		"  /echs safeword — hard stop; clears everything, always works",
 	];
 }
 
-/** `/hypno commands`: the typed commands, one readable line per group instead of the old
+/** `/echs commands`: the typed commands, one readable line per group instead of the old
  * single pipe-delimited dump. GENERATED from COMMANDS so it can't drift, and the Testing
  * group is listed only inside the Hypno Testing room — the same gate the commands obey. */
 function commandListLines(): string[] {
@@ -258,7 +258,7 @@ function commandListLines(): string[] {
 		const tags = inGroup.map((c) => (c.args ? `${c.Tag} ${c.args}` : c.Tag)).join(", ");
 		lines.push(`${group} (${NOTE[group]}): ${tags}`);
 	}
-	lines.push("Full illustrated guide: /hypno help · what a phrase does and why not: /hypno match <phrase>");
+	lines.push("Full illustrated guide: /echs help · what a phrase does and why not: /echs match <phrase>");
 	return lines;
 }
 
@@ -289,9 +289,8 @@ export function installCommands(): void {
 		},
 	];
 
-	// ONE definition, registered under two tags. `/hypno` is what every wiki page, help line
-	// and everyone's habit already says, so it keeps working untouched; `/echs` matches the
-	// add-on's name for anyone who reaches for that instead.
+	// ONE definition, registered under two tags: `/echs`, which everything names, and the old
+	// `/hypno`, which keeps working untouched for anyone in the habit.
 	//
 	// A factory rather than one object registered twice: BC keeps whatever it is handed in
 	// its own Commands array, so two entries sharing one object would let anything BC ever
@@ -300,7 +299,7 @@ export function installCommands(): void {
 	const hypnoCommand = (Tag: string) => ({
 		Tag,
 		Description:
-			"Erotic Chat Hypnosis Suite — session control, diagnostics and test commands",
+			Tag === "echs" ? "Erotic Chat Hypnosis Suite — session control, diagnostics and test commands" : "Same as /echs",
 		// An unknown subcommand reaches here with its words as `args` (R132 CommandExecute stops the
 		// chain at the first unmatched word). That is where the undocumented `exit_extreme` lives,
 		// on purpose: a registered subcommand would be listed by BC's own /help (DW: keep it hidden).
@@ -350,9 +349,9 @@ export function installCommands(): void {
  * The whole point: a silenced subject cannot type `!next`. ChatRoomSendChatMessage — where
  * the speech block lives — runs AFTER command parsing, so a slash command still gets through
  * when ordinary speech does not. That asymmetry is deliberate (it is what keeps
- * `/hypno safeword` reachable) and this rides on it.
+ * `/echs safeword` reachable) and this rides on it.
  *
- * ONLY as `/hypno bot` (and `/echs bot`) since v0.86.1. ECHS used to register a top-level
+ * ONLY as `/echs bot` (and the old `/hypno bot`) since v0.86.1. ECHS used to register a top-level
  * `/bot` too, on the belief that BC had none. It does — CommandsDefault.js, R132: it sends
  * "ChatRoomBot <text>" as a hidden message to everyone else in the room, which is how players
  * talk to room bots — and CommandCombine replaces a command with the same tag. So every player
@@ -364,7 +363,7 @@ export function installCommands(): void {
  * "ChatRoomBot" hidden message as well as ours.
  *
  * `!` in chat keeps working. Two ways in, and the one that survives a gag is the point. */
-/** Hand one line to the test bot, for `/hypno bot`.
+/** Hand one line to the test bot, for `/echs bot`.
  *
  * IT SAYS WHAT IT DID, and that is the point of this version. The first one sent the message
  * and returned in silence, so "the command never ran" and "the command ran and the bot did not
@@ -379,7 +378,7 @@ function sendToBot(args: string): void {
 	}
 	const text = (args ?? "").trim();
 	if (!text) {
-		reply("Usage: /hypno bot <command> — e.g. /hypno bot next, /hypno bot run 2, /hypno bot ok.");
+		reply("Usage: /echs bot <command> — e.g. /echs bot next, /echs bot run 2, /echs bot ok.");
 		reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
 		return;
 	}
@@ -400,11 +399,11 @@ function sendToBot(args: string): void {
 	// Naming the target matters as much as confirming the send: if it went to the wrong person
 	// — a second bot instance, someone else in the room — that is invisible otherwise.
 	reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " — your hypnotist" : ""}.`);
-	log(`/hypno bot -> ${target}: ${text}`);
+	log(`/echs bot -> ${target}: ${text}`);
 }
 
 /** The command list as the help screen sees it. Same list BC's own help and the bare
- * `/hypno` summary are built from, so none of the three can fall behind the others. */
+ * `/echs` summary are built from, so none of the three can fall behind the others. */
 export function commandHelp(): { group: string; tag: string; args: string; description: string }[] {
 	return COMMANDS.map((c) => ({
 		group: c.group,
@@ -443,8 +442,8 @@ const COMMANDS: HypnoCommand[] = [
 		Action: (args: string) => {
 			// The name is required, never assumed from who happens to be in the room (DW): trust
 			// is given to someone.
-			const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /hypno trust <name or member number>") : null;
-			if (!wholeName(args)) reply("Who? usage: /hypno trust <name or member number>");
+			const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /echs trust <name or member number>") : null;
+			if (!wholeName(args)) reply("Who? usage: /echs trust <name or member number>");
 			if (target) reply(giveTrust(target.id, target.name));
 		},
 	},
@@ -478,7 +477,7 @@ const COMMANDS: HypnoCommand[] = [
 			);
 			reply(describeCarry());
 			reply(describeSavedState());
-			reply("Out of any of it: /hypno safeword.");
+			reply("Out of any of it: /echs safeword.");
 		},
 	},
 	{
@@ -531,7 +530,7 @@ const COMMANDS: HypnoCommand[] = [
 		Description: "Report what a spoken phrase would trigger, and why not",
 		Action: (args: string) => {
 			if (!args.trim()) {
-				reply("usage: /hypno match <phrase to test>");
+				reply("usage: /echs match <phrase to test>");
 				return;
 			}
 			reply(`"${args.trim()}" → ${describeMatch(args)}`);
@@ -545,7 +544,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number] <0-100>",
 		Description: "Jump trust to a value without playing to it",
 		Action: (args: string) => {
-			const usage = "usage: /hypno settrust [name or member number] <0-100>";
+			const usage = "usage: /echs settrust [name or member number] <0-100>";
 			// One argument means the value, with the target inferred — the common case
 			// when there's only one other person around. Two means target then value.
 			const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
@@ -572,7 +571,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number] <none|friend|lover|owner|clear>",
 		Description: "Pretend a BC relationship with someone, to test the trust floors",
 		Action: (args: string) => {
-			const usage = "usage: /hypno relate [name or member number] <none|friend|lover|owner|clear>";
+			const usage = "usage: /echs relate [name or member number] <none|friend|lover|owner|clear>";
 			const parts = args.trim().split(/\s+/).filter(Boolean);
 			if (!parts.length) {
 				const all = listRelationshipOverrides();
@@ -616,7 +615,7 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			if (!DECAY_RATES.some((r) => r.key === token)) {
-				reply(`usage: /hypno decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
+				reply(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
 				return;
 			}
 			if (extremeLocked()) {
@@ -635,7 +634,7 @@ const COMMANDS: HypnoCommand[] = [
 		Action: (args: string) => {
 			const value = Number(firstWord(args));
 			if (!Number.isFinite(value)) {
-				reply("usage: /hypno setexp <0-100>");
+				reply("usage: /echs setexp <0-100>");
 				return;
 			}
 			reply(`experience → ${setExperienceValue(value).toFixed(1)}`);
@@ -646,7 +645,7 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Data",
 		Description: "Print your settings as a blob you can copy and keep",
 		Action: () => {
-			reply("Copy the line below. /hypno import <blob> restores it.");
+			reply("Copy the line below. /echs import <blob> restores it.");
 			reply(exportSettings());
 		},
 	},
@@ -680,12 +679,12 @@ const COMMANDS: HypnoCommand[] = [
 				if (isHypnotized()) {
 					reply(
 						"This erases all trust, experience and settings. You are also in a trance right now — " +
-							"resetting will end it and release everything first. Run: /hypno reset confirm",
+							"resetting will end it and release everything first. Run: /echs reset confirm",
 					);
-					reply("(If you only want out of the trance, /hypno safeword does that and keeps your settings.)");
+					reply("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
 					return;
 				}
-				reply("This erases all trust, experience and settings. Run: /hypno reset confirm");
+				reply("This erases all trust, experience and settings. Run: /echs reset confirm");
 				return;
 			}
 			reply(resetSettings());
@@ -751,8 +750,8 @@ const COMMANDS: HypnoCommand[] = [
 			lines.forEach(reply);
 			if (lines.length > 1) {
 				reply(
-					"See what one does with /hypno triggers <number>. Remove one with /hypno forgettrigger <number> " +
-						"(not while it is holding you; /hypno safeword is the way out of that).",
+					"See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> " +
+						"(not while it is holding you; /echs safeword is the way out of that).",
 				);
 			}
 		},
@@ -761,11 +760,11 @@ const COMMANDS: HypnoCommand[] = [
 		Tag: "forgettrigger",
 		group: "Data",
 		args: "<number|all>",
-		Description: "Remove a planted trigger by its number from /hypno triggers, or all (asks first)",
+		Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
 		Action: (args: string) => {
 			const token = args.trim().toLowerCase();
 			if (!token) {
-				reply("usage: /hypno forgettrigger <number|all>  (see /hypno triggers)");
+				reply("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
 				return;
 			}
 			// The one exception to "always available": the Extreme lock covers removing triggers too
@@ -801,7 +800,7 @@ const COMMANDS: HypnoCommand[] = [
 				if (token === "all") {
 					reply(
 						`This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. ` +
-							"Type /hypno forgettrigger all confirm to do it.",
+							"Type /echs forgettrigger all confirm to do it.",
 					);
 					return;
 				}
@@ -810,13 +809,13 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			const index = Number(token);
 			if (!Number.isInteger(index) || index < 1 || index > all.length) {
-				reply(`no trigger ${token} — you have ${all.length}. See /hypno triggers.`);
+				reply(`no trigger ${token} — you have ${all.length}. See /echs triggers.`);
 				return;
 			}
 			if (isTriggerInEffect(all[index - 1])) {
 				reply(
 					`Trigger ${index} is holding you right now, so it can't be deleted. ` +
-						`Wait for it to wear off, have whoever set it release you, or use /hypno safeword — ` +
+						`Wait for it to wear off, have whoever set it release you, or use /echs safeword — ` +
 						`that always works, from any state.`,
 				);
 				return;
@@ -841,7 +840,7 @@ const COMMANDS: HypnoCommand[] = [
 		Action: (args: string) => {
 			const word = firstWord(args).toLowerCase();
 			if (word && word !== "on" && word !== "off") {
-				reply("usage: /hypno debug [on|off] — with nothing, it switches to the other setting.");
+				reply("usage: /echs debug [on|off] — with nothing, it switches to the other setting.");
 				return;
 			}
 			const on = word ? word === "on" : !isDebugFlagOn();
@@ -871,7 +870,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number]",
 		Description: "Attempt an induction on someone, the same as the remote's button",
 		Action: (args: string) => {
-			const target = targetOrAsk(wholeName(args), "usage: /hypno induce [name or member number]");
+			const target = targetOrAsk(wholeName(args), "usage: /echs induce [name or member number]");
 			if (!target) return;
 			startInduction(target);
 		},
@@ -882,7 +881,7 @@ const COMMANDS: HypnoCommand[] = [
 		Description: "Try again on the last person you attempted",
 		Action: () => {
 			if (!lastInduced) {
-				reply("You haven't attempted anyone yet this session — use /hypno induce [name].");
+				reply("You haven't attempted anyone yet this session — use /echs induce [name].");
 				return;
 			}
 			// Resolved fresh rather than trusting the stored name: they may have left, and
@@ -901,7 +900,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number]",
 		Description: "Show the induction chance for each choice against someone",
 		Action: (args: string) => {
-			const target = targetOrAsk(wholeName(args), "usage: /hypno chance [name or member number]");
+			const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
 			if (target) describeChances(target.id).forEach(reply);
 		},
 	},
@@ -926,7 +925,7 @@ const COMMANDS: HypnoCommand[] = [
 			),
 	},
 	{
-		// Same job as /hypno kneel: exercise the arousal API with no matching, permission
+		// Same job as /echs kneel: exercise the arousal API with no matching, permission
 		// or session in the way, so "saying it did nothing" can be pinned on the gates
 		// rather than on BC's arousal system.
 		Tag: "arousal",
@@ -952,7 +951,7 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			if (!(what in AROUSAL_LEVELS)) {
-				reply(`usage: /hypno arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
+				reply(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
 				return;
 			}
 			setArousalLevel(what as ArousalLevel);
@@ -976,7 +975,7 @@ const COMMANDS: HypnoCommand[] = [
 		},
 	},
 	{
-		// Bypasses matching, permissions, trust and session, like /hypno kneel. Also the
+		// Bypasses matching, permissions, trust and session, like /echs kneel. Also the
 		// quickest way to confirm the draw hook is alive at all.
 		Tag: "illusion",
 		group: "Testing",
@@ -1026,7 +1025,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number]",
 		Description: "Send a hidden-message round trip to test the channel",
 		Action: (args: string) => {
-			const target = targetOrAsk(wholeName(args), "usage: /hypno ping [name or member number]");
+			const target = targetOrAsk(wholeName(args), "usage: /echs ping [name or member number]");
 			if (!target) return;
 			sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
 			reply(`sent ping to ${target.name} (${target.id})`);
@@ -1038,7 +1037,7 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number] <n>",
 		Description: "Add n interactions (conversation is 1, an induction is 5)",
 		Action: (args: string) => {
-			const usage = "usage: /hypno bumptrust [name or member number] <interactions>";
+			const usage = "usage: /echs bumptrust [name or member number] <interactions>";
 			// This split was /s+/ rather than /\s+/ — it split on the letter "s", so
 			// "bumptrust Missy 5" parsed as target "Mi" and never worked with a name.
 			const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
@@ -1067,11 +1066,11 @@ const COMMANDS: HypnoCommand[] = [
 		Tag: "forgettrust",
 		group: "Data",
 		args: "<name|number>",
-		Description: "Delete a stored trust entry outright — see /hypno logtrust for the numbers",
+		Description: "Delete a stored trust entry outright — see /echs logtrust for the numbers",
 		Action: (args: string) => {
 			const token = wholeName(args);
 			if (!token) {
-				reply("Usage: /hypno forgettrust <name|number>. /hypno logtrust lists them with their numbers.");
+				reply("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
 				return;
 			}
 			// Resolve by number first, so an entry for somebody absent is still reachable.
@@ -1080,7 +1079,7 @@ const COMMANDS: HypnoCommand[] = [
 				? listTrustRaw().find((t) => t.memberId === byNumber)
 				: listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
 			if (!entry) {
-				reply(`No stored trust entry matches "${token}". /hypno logtrust shows what is stored.`);
+				reply(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
 				return;
 			}
 			forgetTrust(entry.memberId);
@@ -1093,7 +1092,7 @@ const COMMANDS: HypnoCommand[] = [
 		// illusion" without rolling until you get a Deep. This sets it directly.
 		//
 		// Two numbers, because one would hide the thing most worth testing: `full earned`
-		// lets the earned-only rule be exercised deliberately. `/hypno depth 80 20` is a
+		// lets the earned-only rule be exercised deliberately. `/echs depth 80 20` is a
 		// subject who is deep because they are aroused, and must still be refused a trigger.
 		Tag: "depth",
 		group: "Testing",
@@ -1107,7 +1106,7 @@ const COMMANDS: HypnoCommand[] = [
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			if (!parts.length) {
 				reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
-				reply("Usage: /hypno depth <0-100> [earned]. Try `/hypno depth 80 20` for an aroused-but-unearned trance.");
+				reply("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
 				return;
 			}
 			const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
@@ -1116,7 +1115,7 @@ const COMMANDS: HypnoCommand[] = [
 			reply(
 				`Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned — ` +
 					`${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. ` +
-					`For suggestions to land you also need a live session — see /hypno trance.`,
+					`For suggestions to land you also need a live session — see /echs trance.`,
 			);
 		},
 	},
@@ -1129,7 +1128,7 @@ const COMMANDS: HypnoCommand[] = [
 		Action: sendToBot,
 	},
 	{
-		// TESTING ONLY, and the missing half of /hypno depth.
+		// TESTING ONLY, and the missing half of /echs depth.
 		//
 		// Depth alone was never enough: handleSpokenLine() checks isSessionActiveWith(sender)
 		// BEFORE it consults any depth gate, so a forced depth with no session refused every
@@ -1145,12 +1144,12 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			// Depths are read from the END, so a name with spaces in it stays whole. A number is a
-			// depth only if it is 0-100; member numbers are far larger, so `/hypno trance 12345 80`
-			// still reads 12345 as who. `/hypno trance 80` alone lets the usual one-other-person
+			// depth only if it is 0-100; member numbers are far larger, so `/echs trance 12345 80`
+			// still reads 12345 as who. `/echs trance 80` alone lets the usual one-other-person
 			// rule pick who.
 			const isDepth = (w: string) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
 			const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
-			const target = targetOrAsk(token, "Usage: /hypno trance [who] [depth] [earned]");
+			const target = targetOrAsk(token, "Usage: /echs trance [who] [depth] [earned]");
 			if (!target) return;
 			const full = depths.length ? Number(depths[0]) : 80;
 			const earned = depths.length > 1 ? Number(depths[1]) : full;
@@ -1161,7 +1160,7 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			reply(
 				`Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned — ` +
-					`${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /hypno wake to come out.`,
+					`${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /echs wake to come out.`,
 			);
 		},
 	},
@@ -1175,7 +1174,7 @@ const COMMANDS: HypnoCommand[] = [
 		// Turning the rate up further does not help, because a rate fast enough to sit through
 		// is a rate too coarse to see the tier discount in.
 		//
-		// By NUMBER, not phrase — the same reasoning as /hypno forgettrigger. The phrase is
+		// By NUMBER, not phrase — the same reasoning as /echs forgettrigger. The phrase is
 		// hidden from the subject unless they asked to see it, and a testing command must not
 		// be the way round that.
 		Tag: "agetrigger",
@@ -1188,27 +1187,27 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
-			// BOTH ARGUMENTS OPTIONAL, DW's call: a bare `/hypno agetrigger` means one day
+			// BOTH ARGUMENTS OPTIONAL, DW's call: a bare `/echs agetrigger` means one day
 			// across every planted trigger. The commonest thing to want mid-scenario is "move
 			// it on a bit and look again", and that is the form with nothing to mistype — which
 			// matters when the subject driving it may be frozen, silenced, or both.
 			//
 			// Safe to make the bare form DO something rather than print usage, because it is
-			// exactly reversible: `/hypno agetrigger -1` puts the clock back. The usage text is
+			// exactly reversible: `/echs agetrigger -1` puts the clock back. The usage text is
 			// still one wrong word away, below.
 			const days = parts.length ? Number(parts[0]) : 1;
 			if (!Number.isFinite(days)) {
-				reply("Usage: /hypno agetrigger [days] [number] — see /hypno triggers for the numbering.");
+				reply("Usage: /echs agetrigger [days] [number] — see /echs triggers for the numbering.");
 				reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
 				reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
-				reply(`Triggers currently fade: ${describeDecayPace()}. /hypno triggerdecay changes that.`);
+				reply(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
 				return;
 			}
 			// Validated here as well as inside ageTriggers, so a mistyped number reads as a
 			// typo rather than as "no trigger NaN".
 			const index = parts.length > 1 ? Number(parts[1]) : undefined;
 			if (index !== undefined && !Number.isInteger(index)) {
-				reply(`"${parts[1]}" is not a trigger number. /hypno triggers lists them by number.`);
+				reply(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
 				return;
 			}
 			const result = ageTriggers(days, index);
@@ -1223,12 +1222,12 @@ const COMMANDS: HypnoCommand[] = [
 			// still in the list until something reads the list.
 			reply(
 				"The firing credit is untouched — only the clock moved. One aged to nothing is " +
-					"swept on the next /hypno triggers, unless it is holding you.",
+					"swept on the next /echs triggers, unless it is holding you.",
 			);
 			// Named explicitly because the bare form writes without being asked twice. Nothing
 			// here is recoverable from the stored data alone — the old timestamp is gone — so
 			// the way back has to be a thing you were told, not a thing you work out.
-			reply(`Undo this exact move with /hypno agetrigger ${-days}${index !== undefined ? ` ${index}` : ""}.`);
+			reply(`Undo this exact move with /echs agetrigger ${-days}${index !== undefined ? ` ${index}` : ""}.`);
 		},
 	},
 	{

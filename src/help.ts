@@ -28,7 +28,7 @@ import {
 // GENERATED, not written out. The vocabulary tab is built from voice.ts's own suggestion
 // table and the command tab from commands.ts's own list, because the one thing this file
 // must never do is describe a version of the add-on that no longer exists. That has already
-// happened once to the `/hypno` summary, which is why it is generated now too.
+// happened once to the `/echs` summary, which is why it is generated now too.
 //
 // What IS hand-written here is the connective prose — how the loop fits together, what the
 // gates mean. None of it repeats a value that lives in code: thresholds, durations and the
@@ -72,7 +72,7 @@ function startedLines(): HelpLine[] {
 		body("2. Someone attempts hypnosis; you privately choose Agree, Ignore or"),
 		body("   Fight. They are never told which."),
 		body("3. If it lands, they can suggest things simply by talking to you."),
-		body("4. /hypno safeword ends everything, from any state, always."),
+		body("4. /echs safeword ends everything, from any state, always."),
 		gap(),
 		head("As the hypnotist"),
 		body("1. Open their profile, click the H icon, Attempt Hypnosis."),
@@ -89,7 +89,7 @@ function startedLines(): HelpLine[] {
 		body("  3. their name is in the line, or you whispered it to them"),
 		body("  4. they are deep enough — the deeper the effect, the deeper the"),
 		body("     trance it needs (see Depth & Trust)"),
-		dim("/hypno match <phrase> reports whether the words matched; a refused"),
+		dim("/echs match <phrase> reports whether the words matched; a refused"),
 		dim("suggestion tells the hypnotist which gate stopped it."),
 		gap(),
 		head("Who sees what"),
@@ -102,8 +102,8 @@ function startedLines(): HelpLine[] {
 		dim("the emotes off entirely."),
 		gap(),
 		head("Getting out"),
-		body("The Wake Up button · a spoken wake word · /hypno wake while the"),
-		body("trance is still shallow · a 30-minute timeout · and /hypno safeword,"),
+		body("The Wake Up button · a spoken wake word · /echs wake while the"),
+		body("trance is still shallow · a 30-minute timeout · and /echs safeword,"),
 		body("which no setting and no suggestion can ever take away."),
 	];
 }
@@ -219,7 +219,7 @@ function depthTrustLines(): HelpLine[] {
 		body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
 		body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
 		body("your setting, on the Inductions tab."),
-		dim("/hypno chance <name> shows the real numbers for each choice."),
+		dim("/echs chance <name> shows the real numbers for each choice."),
 		gap(),
 		head("How deep it lands"),
 		body("The roll only says whether it lands. How deep comes from your trust"),
@@ -254,12 +254,12 @@ function depthTrustLines(): HelpLine[] {
 		body("A minute apart, with a suggestion that landed in between."),
 		gap(),
 		head("Fighting it, once under"),
-		body("/hypno fight while under means you resist from then on (/hypno agree"),
+		body("/echs fight while under means you resist from then on (/echs agree"),
 		body("or ignore to stop), and you push back at once. A deepening that"),
 		body("misses may bring you up too, and past the surface, awake. At most one"),
 		body("push a minute. The shallower you are, and the more practised, the"),
 		body("better; their skill, your trust and your arousal hold you down."),
-		dim("/hypno chance <name> shows both odds while you are under with them."),
+		dim("/echs chance <name> shows both odds while you are under with them."),
 		gap(),
 		dim('Your Inductions tab says how far: "Sink deeper" stops at Entranced unless'),
 		dim("you open it. It never reaches the earned-only three."),
@@ -269,7 +269,7 @@ function depthTrustLines(): HelpLine[] {
 		body("reaches for you within 5 minutes, you are not asked: it goes ahead"),
 		body("as Agree, and your trust in them counts as at least 65 for that one"),
 		body("induction and the trance it leads to. Then it is spent."),
-		dim("It never reaches the earned-only three. /hypno trust <name> does the"),
+		dim("It never reaches the earned-only three. /echs trust <name> does the"),
 		dim("same; the safeword clears it."),
 	];
 }
@@ -321,7 +321,7 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, that trigger holds" — said while under with the one who`),
 		body("planted it — resets the clock. Firing it only slows the fade."),
 		dim("A trigger opened to arousal (above) fades fast whatever the rate."),
-		dim("/hypno triggers lists each one's strength; add its number to see what it does."),
+		dim("/echs triggers lists each one's strength; add its number to see what it does."),
 		gap(),
 		head("Carrying a suggestion past waking"),
 		body(`"Missy, you cannot tell what you are wearing"`),
@@ -333,8 +333,8 @@ function lastingLines(): HelpLine[] {
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you ·"),
-		body("/hypno safeword, which always works from any state."),
-		dim("/hypno forgettrigger REFUSES while a trigger has hold of you —"),
+		body("/echs safeword, which always works from any state."),
+		dim("/echs forgettrigger REFUSES while a trigger has hold of you —"),
 		dim("deleting it would be too quiet an escape. Chat commands survive"),
 		dim("being silenced, so the safeword stays reachable when speech does not."),
 		gap(),
@@ -370,7 +370,7 @@ function commandLines(): HelpLine[] {
 		lines.push(head(group));
 		if (NOTE[group]) lines.push(dim(NOTE[group]));
 		for (const c of inGroup) {
-			lines.push(body(`/hypno ${c.tag}${c.args ? ` ${c.args}` : ""} — ${c.description}`));
+			lines.push(body(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} — ${c.description}`));
 		}
 		lines.push(gap());
 	}

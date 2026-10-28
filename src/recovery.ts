@@ -602,7 +602,7 @@ export function stopWaiting(): void {
 	waitTimer = null;
 }
 
-/** For tests and `/hypno session`. */
+/** For tests and `/echs session`. */
 export function isWaitingForHypnotist(): boolean {
 	return waitTimer !== null;
 }

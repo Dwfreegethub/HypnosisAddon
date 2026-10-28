@@ -4,7 +4,7 @@ import { answerPrompt, getPendingPrompt, SessionChoice } from "./session";
 // The in-room choice box for an induction attempt.
 //
 // The prompt has always existed — it just lived entirely in chat, answered with
-// /hypno agree|ignore|fight. That works, but it asks the player to notice a line of text
+// /echs agree|ignore|fight. That works, but it asks the player to notice a line of text
 // scrolling past and then type, inside a 60-second window, at the exact moment their
 // attention is on the other character. A box on the screen is what a consent prompt should
 // look like.

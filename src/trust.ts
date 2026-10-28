@@ -186,7 +186,7 @@ export function trustEntryLabel(t: { memberId: number; memberName?: string }): s
 	return name && !/^#\d+$/.test(name) ? `${name} (#${t.memberId})` : `#${t.memberId}`;
 }
 
-/** What BC says this person is to us — or what `/hypno relate` has been told to pretend.
+/** What BC says this person is to us — or what `/echs relate` has been told to pretend.
  *
  * Highest wins: an owner who is also on the friend list is an owner. Friend is checked off
  * Player.FriendList, which is a plain list of member numbers, so it works for someone who
@@ -240,7 +240,7 @@ export function trustStatRows(): TrustStatRow[] {
 		}));
 }
 
-/** Human-readable dump for /hypno logtrust.
+/** Human-readable dump for /echs logtrust.
  *
  * Reads the RAW list, not the filtered one. When a row appears that should not exist, the
  * question is what its member number actually is, and a list that has already hidden the

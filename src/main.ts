@@ -91,7 +91,7 @@ safely("ChatRoomMessage hook", () => {
 			//
 			// Until the three-way split exists (ignore clothing / ignore bondage / ignore
 			// activities done to me), the only thing that suppresses anything is the explicit
-			// /hypno suppress test command. Nothing suppresses by default.
+			// /echs suppress test command. Nothing suppresses by default.
 			if (data?.Type === "Action" && consumeSuppressFlag()) {
 				log("suppressed Action message:", JSON.stringify(data));
 				return undefined;
@@ -224,7 +224,7 @@ safely("room line guard", () => installRoomLineGuard(modApi));
 
 // Speech blocking. ChatRoomSendChatMessage is the right hook rather than ChatRoomSendChat:
 // it runs AFTER command parsing and after the emote and whisper branches, so being silenced
-// leaves /hypno safeword reachable, emotes usable, and whispers open as an OOC lifeline —
+// leaves /echs safeword reachable, emotes usable, and whispers open as an OOC lifeline —
 // it only takes away ordinary room speech. BC blocks the same function for its own
 // BlockTalk owner rule, and a falsy return leaves the typed text in the input box.
 safely("speech-block hook", () => {
@@ -319,7 +319,7 @@ safely("orgasm denial hooks", () => installDenial(modApi));
 // take the subject's (add-on-injected) leash. See follow.ts.
 safely("follow-leash hook", () => installFollow(modApi));
 
-safely("/hypno command registration", installCommands);
+safely("/echs command registration", installCommands);
 safely("preference menu registration", installMenu);
 safely("remote (Information Sheet) registration", () => installRemote(modApi));
 

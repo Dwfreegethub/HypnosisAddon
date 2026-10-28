@@ -321,7 +321,7 @@ export interface FeatureToggles {
 	 * carried suggestion, and no remaining trigger time. The escape hatch for anyone who does
 	 * not want a technical failure to be a way of being held. */
 	releaseOnDisconnect: boolean;
-	/** Whether `/hypno triggers` shows you the phrases that fire your own triggers.
+	/** Whether `/echs triggers` shows you the phrases that fire your own triggers.
 	 *
 	 * OFF by default, which is the design doc's "trigger words hidden by default, with a
 	 * player setting to show them". Hiding is the interesting default — you cannot decide
@@ -399,7 +399,7 @@ export interface FeatureToggles {
 	 * its old name because renaming a stored key costs a migration for nothing.
 	 *
 	 * Deliberately locks ITSELF too — being able to switch the lock off mid-session would
-	 * make it decorative. `/hypno safeword` is the way out, and it's a chat command rather
+	 * make it decorative. `/echs safeword` is the way out, and it's a chat command rather
 	 * than a menu action, so this can never trap anyone. */
 	lockedWhileHypnotized: boolean;
 
@@ -529,7 +529,7 @@ interface HypnoAddonSettings {
 	 * set it to something else the day it exists. */
 	chemicalScope: string;
 	/** TESTING ONLY: pretend a relationship exists, keyed by member number as a string
-	 * because JSON object keys always are. Set with `/hypno relate`. Lets the relationship
+	 * because JSON object keys always are. Set with `/echs relate`. Lets the relationship
 	 * floors be exercised without actually collaring anyone. */
 	relationshipOverride: Record<string, RelationKind>;
 	features: FeatureToggles;
@@ -607,7 +607,7 @@ let cached: HypnoAddonSettings | null = null;
 /** Did the cache come from the account's own server-synced data, or only from the
  * localStorage backup / defaults? See loadSettings. */
 let cachedFromAccount = false;
-/** Set when a load fell over, so /hypno storage can report it rather than it being a
+/** Set when a load fell over, so /echs storage can report it rather than it being a
  * console line nobody saw. */
 let lastLoadError = "";
 
@@ -1094,7 +1094,7 @@ export function resetSettings(): string {
 	cachedFromAccount = true;
 	saveSettings();
 	if (stopFailed) {
-		return "Settings reset to defaults — but the trance could not be ended. Use /hypno safeword.";
+		return "Settings reset to defaults — but the trance could not be ended. Use /echs safeword.";
 	}
 	// Release first, wipe second, in the wording as well as the order: the release is the half
 	// she needs to trust immediately.

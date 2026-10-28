@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.101.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.101.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3969,7 +3969,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     startPresenceWatch();
     const descriptor = skillDescriptor(session.honouredSkill);
     notify(
-      `${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
+      `${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
     );
   }
   function getPendingPrompt() {
@@ -3983,7 +3983,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function answerPrompt(raw) {
     const choice = (raw ?? "").trim().toLowerCase();
     if (!["agree", "ignore", "fight"].includes(choice)) {
-      notify("usage: /hypno agree | ignore | fight");
+      notify("usage: /echs agree | ignore | fight");
       return;
     }
     if (session.phase === "Hypnotized") {
@@ -4015,7 +4015,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (session.depth > SELF_WAKE_MAX_DEPTH) {
-      notify("You're too far under to surface on your own. (/hypno safeword always works.)");
+      notify("You're too far under to surface on your own. (/echs safeword always works.)");
       return;
     }
     endSession("you woke yourself");
@@ -4257,7 +4257,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (answer.kind === "stance") {
         session.choice = answer.stance;
         notify(
-          `${who} reaches for you, and you ${answer.stance === "agree" ? "go along with it" : answer.stance === "fight" ? "brace against it" : "neither help nor resist"}, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/hypno agree, ignore or fight changes it for this one.)`
+          `${who} reaches for you, and you ${answer.stance === "agree" ? "go along with it" : answer.stance === "fight" ? "brace against it" : "neither help nor resist"}, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/echs agree, ignore or fight changes it for this one.)`
         );
         beginInductionWindow();
         return;
@@ -4771,7 +4771,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     cachedFromAccount = true;
     saveSettings();
     if (stopFailed) {
-      return "Settings reset to defaults \u2014 but the trance could not be ended. Use /hypno safeword.";
+      return "Settings reset to defaults \u2014 but the trance could not be ended. Use /echs safeword.";
     }
     if (ended === "trance") return "Trance ended and every effect released. Settings reset to defaults.";
     if (ended === "induction") return "Induction stopped and every effect released. Settings reset to defaults.";
@@ -5446,7 +5446,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const all = listTriggers();
     if (!all.length) return refuse2("no triggers planted");
     if (index !== void 0 && (!Number.isInteger(index) || index < 1 || index > all.length)) {
-      return refuse2(`no trigger ${index} \u2014 you have ${all.length}. See /hypno triggers for the numbering`);
+      return refuse2(`no trigger ${index} \u2014 you have ${all.length}. See /echs triggers for the numbering`);
     }
     const chosen = index === void 0 ? all.slice() : [all[index - 1]];
     const lines = [];
@@ -8813,7 +8813,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("2. Someone attempts hypnosis; you privately choose Agree, Ignore or"),
       body("   Fight. They are never told which."),
       body("3. If it lands, they can suggest things simply by talking to you."),
-      body("4. /hypno safeword ends everything, from any state, always."),
+      body("4. /echs safeword ends everything, from any state, always."),
       gap(),
       head("As the hypnotist"),
       body("1. Open their profile, click the H icon, Attempt Hypnosis."),
@@ -8830,7 +8830,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("  3. their name is in the line, or you whispered it to them"),
       body("  4. they are deep enough \u2014 the deeper the effect, the deeper the"),
       body("     trance it needs (see Depth & Trust)"),
-      dim("/hypno match <phrase> reports whether the words matched; a refused"),
+      dim("/echs match <phrase> reports whether the words matched; a refused"),
       dim("suggestion tells the hypnotist which gate stopped it."),
       gap(),
       head("Who sees what"),
@@ -8843,8 +8843,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("the emotes off entirely."),
       gap(),
       head("Getting out"),
-      body("The Wake Up button \xB7 a spoken wake word \xB7 /hypno wake while the"),
-      body("trance is still shallow \xB7 a 30-minute timeout \xB7 and /hypno safeword,"),
+      body("The Wake Up button \xB7 a spoken wake word \xB7 /echs wake while the"),
+      body("trance is still shallow \xB7 a 30-minute timeout \xB7 and /echs safeword,"),
       body("which no setting and no suggestion can ever take away.")
     ];
   }
@@ -8953,7 +8953,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
       body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
       body("your setting, on the Inductions tab."),
-      dim("/hypno chance <name> shows the real numbers for each choice."),
+      dim("/echs chance <name> shows the real numbers for each choice."),
       gap(),
       head("How deep it lands"),
       body("The roll only says whether it lands. How deep comes from your trust"),
@@ -8988,12 +8988,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("A minute apart, with a suggestion that landed in between."),
       gap(),
       head("Fighting it, once under"),
-      body("/hypno fight while under means you resist from then on (/hypno agree"),
+      body("/echs fight while under means you resist from then on (/echs agree"),
       body("or ignore to stop), and you push back at once. A deepening that"),
       body("misses may bring you up too, and past the surface, awake. At most one"),
       body("push a minute. The shallower you are, and the more practised, the"),
       body("better; their skill, your trust and your arousal hold you down."),
-      dim("/hypno chance <name> shows both odds while you are under with them."),
+      dim("/echs chance <name> shows both odds while you are under with them."),
       gap(),
       dim('Your Inductions tab says how far: "Sink deeper" stops at Entranced unless'),
       dim("you open it. It never reaches the earned-only three."),
@@ -9003,7 +9003,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("reaches for you within 5 minutes, you are not asked: it goes ahead"),
       body("as Agree, and your trust in them counts as at least 65 for that one"),
       body("induction and the trance it leads to. Then it is spent."),
-      dim("It never reaches the earned-only three. /hypno trust <name> does the"),
+      dim("It never reaches the earned-only three. /echs trust <name> does the"),
       dim("same; the safeword clears it.")
     ];
   }
@@ -9054,7 +9054,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, that trigger holds" \u2014 said while under with the one who`),
       body("planted it \u2014 resets the clock. Firing it only slows the fade."),
       dim("A trigger opened to arousal (above) fades fast whatever the rate."),
-      dim("/hypno triggers lists each one's strength; add its number to see what it does."),
+      dim("/echs triggers lists each one's strength; add its number to see what it does."),
       gap(),
       head("Carrying a suggestion past waking"),
       body(`"Missy, you cannot tell what you are wearing"`),
@@ -9066,8 +9066,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("If something is holding you"),
       body("Wait for it to wear off \xB7 have whoever set it release you \xB7"),
-      body("/hypno safeword, which always works from any state."),
-      dim("/hypno forgettrigger REFUSES while a trigger has hold of you \u2014"),
+      body("/echs safeword, which always works from any state."),
+      dim("/echs forgettrigger REFUSES while a trigger has hold of you \u2014"),
       dim("deleting it would be too quiet an escape. Chat commands survive"),
       dim("being silenced, so the safeword stays reachable when speech does not."),
       gap(),
@@ -9096,7 +9096,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lines.push(head(group));
       if (NOTE[group]) lines.push(dim(NOTE[group]));
       for (const c of inGroup) {
-        lines.push(body(`/hypno ${c.tag}${c.args ? ` ${c.args}` : ""} \u2014 ${c.description}`));
+        lines.push(body(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} \u2014 ${c.description}`));
       }
       lines.push(gap());
     }
@@ -9792,7 +9792,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       holding ? "Holding" : "Purge",
       holding || extremeLocked() ? "#ddd" : "#ffe0e0",
       "",
-      extremeLocked() ? lockedTip() : holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+      extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Remove this trigger",
       holding || extremeLocked()
     );
   }
@@ -9866,7 +9866,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!t) return `There is no trigger ${index}.`;
     if (extremeLocked()) return extremeRefusal();
     if (isTriggerInEffect(t)) {
-      return `Trigger ${index} is holding you right now, so it can't be removed. Wait for it to wear off, have whoever set it release you, or use /hypno safeword.`;
+      return `Trigger ${index} is holding you right now, so it can't be removed. Wait for it to wear off, have whoever set it release you, or use /echs safeword.`;
     }
     forgetTrigger(t.key);
     log(`purged trigger ${index} (by ${t.installedByName}) from the settings screen`);
@@ -10390,7 +10390,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           const result = importSettings(text);
           notifyLocal(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
         },
-        () => notifyLocal("Could not read the clipboard \u2014 use /hypno import <blob> instead.")
+        () => notifyLocal("Could not read the clipboard \u2014 use /echs import <blob> instead.")
       );
       return;
     }
@@ -10696,7 +10696,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.0"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.1"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10765,7 +10765,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.1"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11106,17 +11106,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(message);
     tellPlayer(message);
   }
-  var COMMAND_TAGS = ["hypno", "echs"];
+  var COMMAND_TAGS = ["echs", "hypno"];
   var GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
   function menuLines() {
     return [
       "Erotic Chat Hypnosis Suite (ECHS) \u2014 most of this works by SPEAKING to someone in a session, not by typing.",
-      "  /hypno induce <name> \u2014 start hypnotizing someone (the same as the Attempt Hypnosis button); /hypno retry tries them again",
-      "  /hypno help \u2014 open the full on-screen guide: what to say, trust, depth, triggers",
-      "  /hypno commands \u2014 list every typed command",
-      "  /hypno match <phrase> \u2014 check what a phrase would do, and why nothing happened",
-      "  /hypno safeword \u2014 hard stop; clears everything, always works",
-      "  (/echs is the same command as /hypno \u2014 either works, anywhere.)"
+      "  /echs induce <name> \u2014 start hypnotizing someone (the same as the Attempt Hypnosis button); /echs retry tries them again",
+      "  /echs help \u2014 open the full on-screen guide: what to say, trust, depth, triggers",
+      "  /echs commands \u2014 list every typed command",
+      "  /echs match <phrase> \u2014 check what a phrase would do, and why nothing happened",
+      "  /echs safeword \u2014 hard stop; clears everything, always works"
     ];
   }
   function commandListLines() {
@@ -11135,7 +11134,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const tags = inGroup.map((c) => c.args ? `${c.Tag} ${c.args}` : c.Tag).join(", ");
       lines.push(`${group} (${NOTE[group]}): ${tags}`);
     }
-    lines.push("Full illustrated guide: /hypno help \xB7 what a phrase does and why not: /hypno match <phrase>");
+    lines.push("Full illustrated guide: /echs help \xB7 what a phrase does and why not: /echs match <phrase>");
     return lines;
   }
   function installCommands() {
@@ -11159,7 +11158,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     ];
     const hypnoCommand = (Tag) => ({
       Tag,
-      Description: "Erotic Chat Hypnosis Suite \u2014 session control, diagnostics and test commands",
+      Description: Tag === "echs" ? "Erotic Chat Hypnosis Suite \u2014 session control, diagnostics and test commands" : "Same as /echs",
       // An unknown subcommand reaches here with its words as `args` (R132 CommandExecute stops the
       // chain at the first unmatched word). That is where the undocumented `exit_extreme` lives,
       // on purpose: a registered subcommand would be listed by BC's own /help (DW: keep it hidden).
@@ -11202,7 +11201,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const text = (args ?? "").trim();
     if (!text) {
-      reply("Usage: /hypno bot <command> \u2014 e.g. /hypno bot next, /hypno bot run 2, /hypno bot ok.");
+      reply("Usage: /echs bot <command> \u2014 e.g. /echs bot next, /echs bot run 2, /echs bot ok.");
       reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
       return;
     }
@@ -11217,7 +11216,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     sendHiddenMessage({ type: "test-command", text }, target);
     const name = findCharacter(target)?.Name ?? `#${target}`;
     reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
-    log(`/hypno bot -> ${target}: ${text}`);
+    log(`/echs bot -> ${target}: ${text}`);
   }
   function commandHelp() {
     return COMMANDS.map((c) => ({
@@ -11254,8 +11253,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "<name|number>",
       Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
       Action: (args) => {
-        const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /hypno trust <name or member number>") : null;
-        if (!wholeName(args)) reply("Who? usage: /hypno trust <name or member number>");
+        const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /echs trust <name or member number>") : null;
+        if (!wholeName(args)) reply("Who? usage: /echs trust <name or member number>");
         if (target) reply(giveTrust(target.id, target.name));
       }
     },
@@ -11287,7 +11286,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         );
         reply(describeCarry());
         reply(describeSavedState());
-        reply("Out of any of it: /hypno safeword.");
+        reply("Out of any of it: /echs safeword.");
       }
     },
     {
@@ -11338,7 +11337,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Report what a spoken phrase would trigger, and why not",
       Action: (args) => {
         if (!args.trim()) {
-          reply("usage: /hypno match <phrase to test>");
+          reply("usage: /echs match <phrase to test>");
           return;
         }
         reply(`"${args.trim()}" \u2192 ${describeMatch(args)}`);
@@ -11352,7 +11351,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number] <0-100>",
       Description: "Jump trust to a value without playing to it",
       Action: (args) => {
-        const usage = "usage: /hypno settrust [name or member number] <0-100>";
+        const usage = "usage: /echs settrust [name or member number] <0-100>";
         const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
         const value = tail.length ? Number(tail[0]) : NaN;
         if (!Number.isFinite(value)) {
@@ -11376,7 +11375,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number] <none|friend|lover|owner|clear>",
       Description: "Pretend a BC relationship with someone, to test the trust floors",
       Action: (args) => {
-        const usage = "usage: /hypno relate [name or member number] <none|friend|lover|owner|clear>";
+        const usage = "usage: /echs relate [name or member number] <none|friend|lover|owner|clear>";
         const parts = args.trim().split(/\s+/).filter(Boolean);
         if (!parts.length) {
           const all = listRelationshipOverrides();
@@ -11414,7 +11413,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         if (!DECAY_RATES.some((r) => r.key === token)) {
-          reply(`usage: /hypno decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
+          reply(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
           return;
         }
         if (extremeLocked()) {
@@ -11433,7 +11432,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Action: (args) => {
         const value = Number(firstWord(args));
         if (!Number.isFinite(value)) {
-          reply("usage: /hypno setexp <0-100>");
+          reply("usage: /echs setexp <0-100>");
           return;
         }
         reply(`experience \u2192 ${setExperienceValue(value).toFixed(1)}`);
@@ -11444,7 +11443,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       group: "Data",
       Description: "Print your settings as a blob you can copy and keep",
       Action: () => {
-        reply("Copy the line below. /hypno import <blob> restores it.");
+        reply("Copy the line below. /echs import <blob> restores it.");
         reply(exportSettings());
       }
     },
@@ -11472,12 +11471,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (firstWord(args).toLowerCase() !== "confirm") {
           if (isHypnotized()) {
             reply(
-              "This erases all trust, experience and settings. You are also in a trance right now \u2014 resetting will end it and release everything first. Run: /hypno reset confirm"
+              "This erases all trust, experience and settings. You are also in a trance right now \u2014 resetting will end it and release everything first. Run: /echs reset confirm"
             );
-            reply("(If you only want out of the trance, /hypno safeword does that and keeps your settings.)");
+            reply("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
             return;
           }
-          reply("This erases all trust, experience and settings. Run: /hypno reset confirm");
+          reply("This erases all trust, experience and settings. Run: /echs reset confirm");
           return;
         }
         reply(resetSettings());
@@ -11537,7 +11536,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         lines.forEach(reply);
         if (lines.length > 1) {
           reply(
-            "See what one does with /hypno triggers <number>. Remove one with /hypno forgettrigger <number> (not while it is holding you; /hypno safeword is the way out of that)."
+            "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
           );
         }
       }
@@ -11546,11 +11545,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Tag: "forgettrigger",
       group: "Data",
       args: "<number|all>",
-      Description: "Remove a planted trigger by its number from /hypno triggers, or all (asks first)",
+      Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
       Action: (args) => {
         const token = args.trim().toLowerCase();
         if (!token) {
-          reply("usage: /hypno forgettrigger <number|all>  (see /hypno triggers)");
+          reply("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
           return;
         }
         if (extremeLocked()) {
@@ -11570,7 +11569,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           }
           if (token === "all") {
             reply(
-              `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /hypno forgettrigger all confirm to do it.`
+              `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
             );
             return;
           }
@@ -11579,12 +11578,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         const index = Number(token);
         if (!Number.isInteger(index) || index < 1 || index > all.length) {
-          reply(`no trigger ${token} \u2014 you have ${all.length}. See /hypno triggers.`);
+          reply(`no trigger ${token} \u2014 you have ${all.length}. See /echs triggers.`);
           return;
         }
         if (isTriggerInEffect(all[index - 1])) {
           reply(
-            `Trigger ${index} is holding you right now, so it can't be deleted. Wait for it to wear off, have whoever set it release you, or use /hypno safeword \u2014 that always works, from any state.`
+            `Trigger ${index} is holding you right now, so it can't be deleted. Wait for it to wear off, have whoever set it release you, or use /echs safeword \u2014 that always works, from any state.`
           );
           return;
         }
@@ -11608,7 +11607,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Action: (args) => {
         const word = firstWord(args).toLowerCase();
         if (word && word !== "on" && word !== "off") {
-          reply("usage: /hypno debug [on|off] \u2014 with nothing, it switches to the other setting.");
+          reply("usage: /echs debug [on|off] \u2014 with nothing, it switches to the other setting.");
           return;
         }
         const on = word ? word === "on" : !isDebugFlagOn();
@@ -11638,7 +11637,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Attempt an induction on someone, the same as the remote's button",
       Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /hypno induce [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /echs induce [name or member number]");
         if (!target) return;
         startInduction(target);
       }
@@ -11649,7 +11648,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Description: "Try again on the last person you attempted",
       Action: () => {
         if (!lastInduced) {
-          reply("You haven't attempted anyone yet this session \u2014 use /hypno induce [name].");
+          reply("You haven't attempted anyone yet this session \u2014 use /echs induce [name].");
           return;
         }
         const still = others().some((c) => c?.MemberNumber === lastInduced.id);
@@ -11666,7 +11665,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Show the induction chance for each choice against someone",
       Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /hypno chance [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
         if (target) describeChances(target.id).forEach(reply);
       }
     },
@@ -11687,7 +11686,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       )
     },
     {
-      // Same job as /hypno kneel: exercise the arousal API with no matching, permission
+      // Same job as /echs kneel: exercise the arousal API with no matching, permission
       // or session in the way, so "saying it did nothing" can be pinned on the gates
       // rather than on BC's arousal system.
       Tag: "arousal",
@@ -11712,7 +11711,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         if (!(what in AROUSAL_LEVELS)) {
-          reply(`usage: /hypno arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
+          reply(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
           return;
         }
         setArousalLevel(what);
@@ -11735,7 +11734,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     },
     {
-      // Bypasses matching, permissions, trust and session, like /hypno kneel. Also the
+      // Bypasses matching, permissions, trust and session, like /echs kneel. Also the
       // quickest way to confirm the draw hook is alive at all.
       Tag: "illusion",
       group: "Testing",
@@ -11778,7 +11777,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number]",
       Description: "Send a hidden-message round trip to test the channel",
       Action: (args) => {
-        const target = targetOrAsk(wholeName(args), "usage: /hypno ping [name or member number]");
+        const target = targetOrAsk(wholeName(args), "usage: /echs ping [name or member number]");
         if (!target) return;
         sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
         reply(`sent ping to ${target.name} (${target.id})`);
@@ -11790,7 +11789,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       args: "[name|number] <n>",
       Description: "Add n interactions (conversation is 1, an induction is 5)",
       Action: (args) => {
-        const usage = "usage: /hypno bumptrust [name or member number] <interactions>";
+        const usage = "usage: /echs bumptrust [name or member number] <interactions>";
         const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
         const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
         if (!Number.isFinite(delta)) {
@@ -11816,17 +11815,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Tag: "forgettrust",
       group: "Data",
       args: "<name|number>",
-      Description: "Delete a stored trust entry outright \u2014 see /hypno logtrust for the numbers",
+      Description: "Delete a stored trust entry outright \u2014 see /echs logtrust for the numbers",
       Action: (args) => {
         const token = wholeName(args);
         if (!token) {
-          reply("Usage: /hypno forgettrust <name|number>. /hypno logtrust lists them with their numbers.");
+          reply("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
           return;
         }
         const byNumber = /^\d+$/.test(token) ? Number(token) : null;
         const entry = byNumber ? listTrustRaw().find((t) => t.memberId === byNumber) : listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
         if (!entry) {
-          reply(`No stored trust entry matches "${token}". /hypno logtrust shows what is stored.`);
+          reply(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
           return;
         }
         forgetTrust(entry.memberId);
@@ -11839,7 +11838,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // illusion" without rolling until you get a Deep. This sets it directly.
       //
       // Two numbers, because one would hide the thing most worth testing: `full earned`
-      // lets the earned-only rule be exercised deliberately. `/hypno depth 80 20` is a
+      // lets the earned-only rule be exercised deliberately. `/echs depth 80 20` is a
       // subject who is deep because they are aroused, and must still be refused a trigger.
       Tag: "depth",
       group: "Testing",
@@ -11853,14 +11852,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
         if (!parts.length) {
           reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
-          reply("Usage: /hypno depth <0-100> [earned]. Try `/hypno depth 80 20` for an aroused-but-unearned trance.");
+          reply("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
           return;
         }
         const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
         const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
         setCurrentDepths(full, earned);
         reply(
-          `Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. For suggestions to land you also need a live session \u2014 see /hypno trance.`
+          `Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. For suggestions to land you also need a live session \u2014 see /echs trance.`
         );
       }
     },
@@ -11873,7 +11872,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Action: sendToBot
     },
     {
-      // TESTING ONLY, and the missing half of /hypno depth.
+      // TESTING ONLY, and the missing half of /echs depth.
       //
       // Depth alone was never enough: handleSpokenLine() checks isSessionActiveWith(sender)
       // BEFORE it consults any depth gate, so a forced depth with no session refused every
@@ -11890,7 +11889,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
         const { name: token, tail: depths } = splitNameAndTail(args, 2, isDepth);
-        const target = targetOrAsk(token, "Usage: /hypno trance [who] [depth] [earned]");
+        const target = targetOrAsk(token, "Usage: /echs trance [who] [depth] [earned]");
         if (!target) return;
         const full = depths.length ? Number(depths[0]) : 80;
         const earned = depths.length > 1 ? Number(depths[1]) : full;
@@ -11900,7 +11899,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         reply(
-          `Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /hypno wake to come out.`
+          `Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /echs wake to come out.`
         );
       }
     },
@@ -11914,7 +11913,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // Turning the rate up further does not help, because a rate fast enough to sit through
       // is a rate too coarse to see the tier discount in.
       //
-      // By NUMBER, not phrase — the same reasoning as /hypno forgettrigger. The phrase is
+      // By NUMBER, not phrase — the same reasoning as /echs forgettrigger. The phrase is
       // hidden from the subject unless they asked to see it, and a testing command must not
       // be the way round that.
       Tag: "agetrigger",
@@ -11929,15 +11928,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
         const days = parts.length ? Number(parts[0]) : 1;
         if (!Number.isFinite(days)) {
-          reply("Usage: /hypno agetrigger [days] [number] \u2014 see /hypno triggers for the numbering.");
+          reply("Usage: /echs agetrigger [days] [number] \u2014 see /echs triggers for the numbering.");
           reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
           reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
-          reply(`Triggers currently fade: ${describeDecayPace()}. /hypno triggerdecay changes that.`);
+          reply(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
           return;
         }
         const index = parts.length > 1 ? Number(parts[1]) : void 0;
         if (index !== void 0 && !Number.isInteger(index)) {
-          reply(`"${parts[1]}" is not a trigger number. /hypno triggers lists them by number.`);
+          reply(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
           return;
         }
         const result = ageTriggers(days, index);
@@ -11948,9 +11947,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         reply(`Aged ${result.aged} trigger(s) by ${days} day(s) \u2014 strength before and after:`);
         result.lines.forEach(reply);
         reply(
-          "The firing credit is untouched \u2014 only the clock moved. One aged to nothing is swept on the next /hypno triggers, unless it is holding you."
+          "The firing credit is untouched \u2014 only the clock moved. One aged to nothing is swept on the next /echs triggers, unless it is holding you."
         );
-        reply(`Undo this exact move with /hypno agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
+        reply(`Undo this exact move with /echs agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
       }
     },
     {
@@ -12569,7 +12568,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.101.0"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.101.1"} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12592,7 +12591,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.101.0"} loaded`;
+    el.textContent = `ECHS v${"0.101.1"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12623,14 +12622,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.101.0"})`);
+  info(`script loaded (v${"0.101.1"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.101.0",
+      version: "0.101.1",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -12755,7 +12754,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("self-touch hook", () => installSelfTouch(modApi));
   safely("orgasm denial hooks", () => installDenial(modApi));
   safely("follow-leash hook", () => installFollow(modApi));
-  safely("/hypno command registration", installCommands);
+  safely("/echs command registration", installCommands);
   safely("preference menu registration", installMenu);
   safely("remote (Information Sheet) registration", () => installRemote(modApi));
   safely("induction prompt box", () => installPrompt(modApi));

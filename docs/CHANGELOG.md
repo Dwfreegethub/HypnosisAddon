@@ -20,6 +20,23 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-10-28 (v0.101.1) — `/echs` everywhere players look; `/hypno` stays as an alias
+
+DW noticed the in-game help still said `/hypno` after the drug tag became `[echs:]`. The decision:
+`/hypno` keeps working, and it is named in exactly one place, a note on `wiki/Commands.md`.
+
+- Every `/hypno` in `src/` became `/echs`. That covers the help screen, the bare-command menu,
+  `/echs commands`, the startup banner, and every reply and notice (141 occurrences). The menu line
+  "(/echs is the same command as /hypno…)" is gone.
+- `COMMAND_TAGS` is now `["echs", "hypno"]`. BC's own `/help` has no way to hide a registered
+  command (R132 `CommandsHelp.ShowForPartial` lists all of `GetCommands()`), so `/hypno` is
+  registered with the description "Same as /echs" rather than the full name.
+- The README and the player changelog's older entries were reworded to match.
+- New suite `test/echs-name.mjs`. It builds the shipped bundle, where comments are stripped, and
+  fails on any `/hypno`. It also checks that the `hypno` tag is still registered. `alias.mjs`
+  still proves `/hypno` runs the same command, and several suites still type `/hypno` on purpose.
+- `CLAUDE.md` rule text updated to match.
+
 ### Added 2026-10-28 (v0.101.0) — crafted drinks and cigarettes: `relax` and `stimulate`
 
 The *Drug System* from `design.md`, first two drugs. New module `src/drugs.ts`.

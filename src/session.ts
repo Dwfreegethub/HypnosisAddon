@@ -273,7 +273,7 @@ interface SubjectSession {
 	lastDeepenAt: number;
 	landedSinceDeepen: boolean;
 	/** When she last struggled, fighting (v0.97.0): at most one struggle roll a minute, whether a
-	 * missed deepening or her own /hypno fight set it off. */
+	 * missed deepening or her own /echs fight set it off. */
 	lastStruggleAt: number;
 	/** Who the pending prompt names, and when it lapses. Held here rather than in the
 	 * prompt box so the on-screen panel and the chat fallback read one source of truth —
@@ -644,7 +644,7 @@ export function effectiveAccess(memberId: number): number {
 // --- "I trust you" (v0.94.0, DW 2026-09-26) ----------------------------------------------
 //
 // The subject says "I trust you, Eri" (or whispers "I trust you" to Eri, or types
-// /hypno trust Eri). For the next 5 minutes, an induction from Eri skips the Agree / Ignore /
+// /echs trust Eri). For the next 5 minutes, an induction from Eri skips the Agree / Ignore /
 // Fight box and goes ahead as Agree, and for that one induction her trust in Eri counts as at
 // least 65. DW's choices: the name is required; it reaches session and arousal only; a floor of
 // 65; and it is USED UP BY ONE INDUCTION. So once an induction takes it, it lasts for that
@@ -754,7 +754,7 @@ export function noticeTrustLine(text: string, whisperTo?: number): string | null
 		: 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
 }
 
-/** The two depth sums before the 2d10, and the floor under both. Exported for /hypno chance and
+/** The two depth sums before the 2d10, and the floor under both. Exported for /echs chance and
  * the tests. */
 export function depthBases(hypnotistId: number, choice: SessionChoice): { full: number; earned: number; floor: number } {
 	const trust = trustWith(hypnotistId);
@@ -942,7 +942,7 @@ export function inductionChance(
 
 /** What the roleplay in this induction window is currently worth, 0-15.
  *
- * Zero for anyone who is not the hypnotist of the live attempt, so the `/hypno chance`
+ * Zero for anyone who is not the hypnotist of the live attempt, so the `/echs chance`
  * diagnostic reports a clean number for people you are not mid-induction with. */
 export function rpBonusFor(hypnotistId: number): number {
 	if (hypnotistId !== session.hypnotistId) return 0;
@@ -1193,7 +1193,7 @@ function toyInduction(who: string): void {
 	log(`toy mode: ${who} [${session.hypnotistId}] put us under at ${session.depth}/${session.depthEarned}`);
 }
 
-/** /hypno chance lines for the settings that answer without asking. */
+/** /echs chance lines for the settings that answer without asking. */
 function describeStanceSettings(memberId: number): string[] {
 	const label = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
 	const lines: string[] = [];
@@ -1249,7 +1249,7 @@ function scheduleCooldownEnd(): void {
  *
  * This exists because of a real hole in the test harness. Every depth gate is checked by
  * handleSpokenLine(), which requires isSessionActiveWith(sender) FIRST — so the scenarios
- * that opened with `/hypno depth 30 30` and then had the bot speak could never do anything:
+ * that opened with `/echs depth 30 30` and then had the bot speak could never do anything:
  * a forced depth is a number, not a session, and the suggestion was refused before the
  * depth was ever consulted. The addon was correct and the harness was testing nothing.
  *
@@ -1392,7 +1392,7 @@ export type DeepenOutcome =
 	| { kind: "cooldown"; seconds: number }
 	| { kind: "needs-command" };
 
-/** A struggle she started herself with /hypno fight mid-trance: the three ways a deepening's
+/** A struggle she started herself with /echs fight mid-trance: the three ways a deepening's
  * struggle can end, plus holding (she lost) and resting (the minute has not passed). */
 export type StruggleOutcome =
 	| { kind: "surfaced"; band: string; crossed: boolean }
@@ -1413,7 +1413,7 @@ export function noteSuggestionLanded(sender: number): void {
 }
 
 /** The chance a deepening succeeds right now, 10-95, or 100 on her spent trust gift. Exported for
- * the tests and for /hypno chance. */
+ * the tests and for /echs chance. */
 export function deepenChance(hypnotistId: number): number {
 	if (trustGiftFloor(hypnotistId) > 0 && trustGift?.spentOn === session) return 100;
 	const minutes = session.hypnotizedAt ? (Date.now() - session.hypnotizedAt) / 60_000 : 0;
@@ -1430,7 +1430,7 @@ export function deepenChance(hypnotistId: number): number {
 	return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
 }
 
-/** The step band a hit uses at this depth. Exported for /hypno chance. */
+/** The step band a hit uses at this depth. Exported for /echs chance. */
 export function deepenStep(depth: number): [number, number, number] {
 	return DEEPEN_STEPS.find(([below]) => depth < below) ?? DEEPEN_STEPS[DEEPEN_STEPS.length - 1];
 }
@@ -1444,7 +1444,7 @@ function between(lo: number, hi: number): number {
 // the more skilled the hypnotist, the more she trusts them, and the more aroused she is. DW chose the
 // softened bases (55/40/28/18/10) so a fighting sub still stands a chance at Deep, and a middle band
 // for 40-59 so there is no cliff at 40. It rolls when a deepening misses while she fights, or when
-// she types /hypno fight mid-trance; at most once a minute either way.
+// she types /echs fight mid-trance; at most once a minute either way.
 const SURFACE_BASE: Record<DepthTier, number> = { drifting: 55, yielding: 40, entranced: 28, deep: 18, blank: 10 };
 const SURFACE_EXPERIENCE_WEIGHT = 0.35;
 const SURFACE_SKILL_WEIGHT = 0.25;
@@ -1471,7 +1471,7 @@ export function surfaceChance(hypnotistId: number): number {
 	return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
 }
 
-/** How far a win brings her up from this depth, [least, most]. Exported for /hypno chance. */
+/** How far a win brings her up from this depth, [least, most]. Exported for /echs chance. */
 export function surfaceDrop(depth: number): [number, number] {
 	const [, lo, hi] = SURFACE_DROPS.find(([below]) => depth < below) ?? SURFACE_DROPS[SURFACE_DROPS.length - 1];
 	return [lo, hi];
@@ -1513,7 +1513,7 @@ function struggle(hypnotistId: number): StruggleOutcome {
 	return { kind: "surfaced", band: depthBand(session.depth), crossed: tierOf(session.depth) !== before };
 }
 
-/** She changes her stance mid-trance (/hypno fight, agree, ignore). Private, as at the prompt.
+/** She changes her stance mid-trance (/echs fight, agree, ignore). Private, as at the prompt.
  * Choosing to fight also struggles, at most once a minute (v0.97.0). */
 function setTranceStance(choice: SessionChoice): void {
 	session.choice = choice;
@@ -1791,7 +1791,7 @@ function showPrompt(hypnotistName: string): void {
 	startPresenceWatch();
 	const descriptor = skillDescriptor(session.honouredSkill);
 	notify(
-		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /hypno agree, /hypno ignore, /hypno fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)` +
+		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)` +
 			(descriptor ? ` ${descriptor}` : ""),
 	);
 }
@@ -1815,7 +1815,7 @@ export function getPendingPrompt(): { hypnotistName: string; remainingMs: number
 export function answerPrompt(raw: string): void {
 	const choice = (raw ?? "").trim().toLowerCase() as SessionChoice;
 	if (!["agree", "ignore", "fight"].includes(choice)) {
-		notify("usage: /hypno agree | ignore | fight");
+		notify("usage: /echs agree | ignore | fight");
 		return;
 	}
 	// Under already: the choice becomes her stance for the rest of the trance (v0.96.0). It is what
@@ -1858,7 +1858,7 @@ export function selfWake(): void {
 	if (session.depth > SELF_WAKE_MAX_DEPTH) {
 		// Deliberately not a hard refusal: the safeword below is always available, and the
 		// player is told so, so "can't wake" is a game state and never an actual trap.
-		notify("You're too far under to surface on your own. (/hypno safeword always works.)");
+		notify("You're too far under to surface on your own. (/echs safeword always works.)");
 		return;
 	}
 	endSession("you woke yourself");
@@ -2024,7 +2024,7 @@ export function isHypnotized(): boolean {
  *
  * CooldownRequired is deliberately NOT live. The attempts are spent, nothing can reach the
  * subject until the cooldown expires, and a lock that outlasts what it is protecting against
- * is just a setting nobody can change. `/hypno safeword` clears the session from any of these
+ * is just a setting nobody can change. `/echs safeword` clears the session from any of these
  * phases, so the lock can never be a trap — same reasoning the lock has always carried. */
 export function isSessionLive(): boolean {
 	return session.phase !== "Idle" && session.phase !== "CooldownRequired";
@@ -2122,7 +2122,7 @@ function reportMissToHypnotist(sender: number, message: Record<string, any>, pre
  * and every later update (a re-query, a refusal) carries none. A refusal never counts. */
 /** Tell the hypnotist, in their own chat log, that the subject's client turned their request down.
  *
- * DW, 2026-09-27: "/hypno induce is not recognizing when Missy is already in session or in a
+ * DW, 2026-09-27: "/echs induce is not recognizing when Missy is already in session or in a
  * cooldown period." It was: her client refused ("Already under.", "Not yet — try again later.")
  * and the refusal reached only the Information Sheet panel. The command had already said
  * "Attempting an induction on Missy", so with the panel closed the request looked like it had
@@ -2309,7 +2309,7 @@ export function installSession(): void {
 			session.choice = answer.stance;
 			notify(
 				`${who} reaches for you, and you ${answer.stance === "agree" ? "go along with it" : answer.stance === "fight" ? "brace against it" : "neither help nor resist"}` +
-					`, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/hypno agree, ignore or fight changes it for this one.)`,
+					`, as you set yourself to${answer.wasAway ? " while you are away" : ""}. (/echs agree, ignore or fight changes it for this one.)`,
 			);
 			beginInductionWindow();
 			return;
