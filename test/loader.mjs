@@ -127,7 +127,8 @@ execFileSync(process.execPath, ["build.mjs"], { cwd: root, stdio: "ignore" });
 const pkg = JSON.parse(read("package.json"));
 const meta = read("meta.txt");
 const loader = read("dist/HypnosisAddon.loader.user.js");
-const header = (s) => s.slice(0, s.indexOf("// ==/UserScript==")).split("\n");
+// A Windows checkout (core.autocrlf) gives meta.txt CRLF endings; a stray \r would end every value.
+const header = (s) => s.slice(0, s.indexOf("// ==/UserScript==")).split(/\r?\n/);
 const keyLines = (s, key) => header(s).filter((l) => new RegExp(`^// @${key}\\s`).test(l));
 const INSTALL_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js";
 
