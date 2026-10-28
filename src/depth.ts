@@ -71,9 +71,29 @@ export function nextScope(scope: ChemicalScope): ChemicalScope {
 	return CHEMICAL_SCOPES[(at + 1) % CHEMICAL_SCOPES.length].key;
 }
 
-/** Does arousal count toward depth right now? Drugs are unbuilt, so `drugs` and `none` are
- * currently the same answer — deliberately kept as four options anyway, so that switching a
- * saved preference does not become a migration the day drugs land. */
+/** The player's chemical scope as the Depth tab names it. */
+export function scopeLabel(): string {
+	let scope: unknown = "arousal";
+	try {
+		scope = getChemicalScope();
+	} catch {
+		// As arousalCounts: unreadable settings read as the default.
+	}
+	return CHEMICAL_SCOPES.find((s) => s.key === scope)?.label ?? "Arousal only";
+}
+
+/** Do crafted drugs count right now (drugs.ts, v0.101.0)? Off by default: the default scope is
+ * "Arousal only", so a drug does nothing until the player opts in — and says so when it doesn't. */
+export function drugsCount(): boolean {
+	try {
+		const scope = getChemicalScope();
+		return scope === "both" || scope === "drugs";
+	} catch {
+		return false;
+	}
+}
+
+/** Does arousal count toward depth right now? */
 export function arousalCounts(): boolean {
 	try {
 		const scope = getChemicalScope();

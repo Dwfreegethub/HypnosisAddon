@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v0.100.6. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v0.101.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -938,10 +938,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
   var BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
   var sightLevel = 0;
-  function setSight(level) {
-    sightLevel = level;
+  function setSight(level2) {
+    sightLevel = level2;
     refreshOwnEffects();
-    return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level;
+    return typeof Player?.GetBlindLevel === "function" ? Player.GetBlindLevel() : level2;
   }
   function getSight() {
     return sightLevel;
@@ -2173,6 +2173,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const at = CHEMICAL_SCOPES.findIndex((s) => s.key === scope);
     return CHEMICAL_SCOPES[(at + 1) % CHEMICAL_SCOPES.length].key;
   }
+  function scopeLabel() {
+    let scope = "arousal";
+    try {
+      scope = getChemicalScope();
+    } catch {
+    }
+    return CHEMICAL_SCOPES.find((s) => s.key === scope)?.label ?? "Arousal only";
+  }
+  function drugsCount() {
+    try {
+      const scope = getChemicalScope();
+      return scope === "both" || scope === "drugs";
+    } catch {
+      return false;
+    }
+  }
   function arousalCounts() {
     try {
       const scope = getChemicalScope();
@@ -2259,6 +2275,154 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const earnedGate = effectiveEarnedOnly(key);
     const have = Math.floor(earnedGate ? earned : full);
     return `needs ${depthLabel(requiredDepth(key))}, at ${depthLabel(have)}${earnedGate ? " earned \u2014 arousal does not count toward this one" : ""}`;
+  }
+
+  // src/drugs.ts
+  var DIRECTION = { relax: 1, stimulate: -1 };
+  var DRINK_DOSE = 15;
+  var DRINK_CAP = 40;
+  var SMOKE_DOSE = 3;
+  var SMOKE_CAP = 20;
+  var DECAY_PER_MINUTE = 1;
+  var SMOKE_TICK_MS = 6e4;
+  var TAG2 = /\[\s*echs\s*:\s*([a-z]+)\s*\]/gi;
+  var level = 0;
+  var settledAt = 0;
+  var smoking = null;
+  function craftText(craft) {
+    if (!craft) return "";
+    let description = typeof craft.Description === "string" ? craft.Description : "";
+    try {
+      if (typeof CraftingDescription !== "undefined" && description) description = CraftingDescription.Decode(description);
+    } catch {
+    }
+    return `${craft.Name ?? ""} | ${description}`;
+  }
+  function drugKindOf(craft) {
+    const text = craftText(craft);
+    for (const match of text.matchAll(TAG2)) {
+      const word = match[1].toLowerCase();
+      if (word === "relax" || word === "stimulate") return word;
+    }
+    return null;
+  }
+  function settle(now) {
+    if (settledAt && !smoking && level !== 0) {
+      const fall = (now - settledAt) / 6e4 * DECAY_PER_MINUTE;
+      level = Math.abs(level) <= fall ? 0 : level - Math.sign(level) * fall;
+    }
+    settledAt = now;
+  }
+  function drugLevel(now = Date.now()) {
+    settle(now);
+    return level;
+  }
+  function countedDrugLevel(now = Date.now()) {
+    return drugsCount() ? drugLevel(now) : 0;
+  }
+  function dose(kind, amount, cap, now = Date.now()) {
+    settle(now);
+    const dir = DIRECTION[kind];
+    const toward = level * dir;
+    if (toward < cap) level = dir * Math.min(cap, toward + amount);
+    return level;
+  }
+  var stubbedOut = false;
+  function clearDrugs() {
+    level = 0;
+    settledAt = 0;
+    smoking = null;
+    stubbedOut = false;
+  }
+  onTotalStop(() => {
+    const lit = smoking;
+    clearDrugs();
+    stubbedOut = !!lit;
+  });
+  var FEEL = {
+    relax: "A warm looseness spreads through you, and your guard slips a little.",
+    stimulate: "A sharp, buzzing clarity sets in. Your mind feels harder to slip past."
+  };
+  function off(kind, what) {
+    return `The [echs:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
+  }
+  function handleSip(actor) {
+    if (!getFeatures().hypnoEnabled) return;
+    const cup = typeof InventoryGet === "function" ? InventoryGet(actor, "ItemHandheld") : null;
+    const kind = drugKindOf(cup?.Craft);
+    if (!kind) return;
+    if (!drugsCount()) {
+      tellPlayer(off(kind, "drink"));
+      return;
+    }
+    const before = drugLevel();
+    const after = dose(kind, DRINK_DOSE, DRINK_CAP);
+    log(`drink: ${kind} ${before.toFixed(1)} \u2192 ${after.toFixed(1)} (from [${actor?.MemberNumber}])`);
+    tellPlayer(after === before ? `${FEEL[kind]} It can't take you any further than it has.` : FEEL[kind]);
+  }
+  function cigaretteInMouth(C) {
+    if (typeof InventoryGet !== "function") return null;
+    const mouth = InventoryGet(C, "ItemMouth");
+    if (mouth?.Asset?.Name === "Cigarette") {
+      const kind = drugKindOf(mouth.Craft);
+      if (kind) return kind;
+    }
+    const hand = InventoryGet(C, "ItemHandheld");
+    if (hand?.Asset?.Name === "Cigarette" && (hand.Property?.TypeRecord?.typed ?? 0) === 0) return drugKindOf(hand.Craft);
+    return null;
+  }
+  function smokeTick(now = Date.now()) {
+    const kind = getFeatures().hypnoEnabled ? cigaretteInMouth(Player) : null;
+    const was = smoking;
+    settle(now);
+    if (stubbedOut) {
+      if (!kind) stubbedOut = false;
+      return;
+    }
+    smoking = kind;
+    if (!kind) return;
+    if (!drugsCount()) {
+      if (was !== kind) tellPlayer(off(kind, "cigarette"));
+      return;
+    }
+    const before = level;
+    const after = dose(kind, SMOKE_DOSE, SMOKE_CAP, now);
+    if (was !== kind) tellPlayer(FEEL[kind]);
+    if (after !== before) log(`cigarette: ${kind} ${before.toFixed(1)} \u2192 ${after.toFixed(1)}`);
+  }
+  function describeDrugs() {
+    const raw = drugLevel();
+    const shown = Math.round(raw);
+    const what = shown > 0 ? `relaxed (+${shown})` : shown < 0 ? `stimulated (${shown})` : "clear";
+    const counts = drugsCount() ? "" : ` \u2014 not counting: Chemicals count is "${scopeLabel()}"`;
+    const holding = smoking ? `, a ${smoking} cigarette is holding it` : "";
+    return `Drugs: ${what}${holding}${counts}.`;
+  }
+  function installDrugs() {
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: crafted drinks",
+      // Ahead of BC's arousal handler (210) only so we read the cup before anything else runs; we
+      // never stop or rewrite the message.
+      Priority: 200,
+      Callback: (_data, sender, _msg, metadata) => {
+        try {
+          if (metadata?.ActivityName === "SipItem" && metadata?.TargetMemberNumber === Player?.MemberNumber && sender) {
+            handleSip(sender);
+          }
+        } catch (err) {
+          warn("drink handler failed:", err);
+        }
+        return false;
+      }
+    });
+    setInterval(() => {
+      try {
+        smokeTick();
+      } catch (err) {
+        warn("cigarette check failed:", err);
+      }
+    }, SMOKE_TICK_MS);
+    log("drinks and cigarettes installed");
   }
 
   // src/illusion.ts
@@ -2416,19 +2580,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const settings = Player?.ArousalSettings;
     return !!settings && settings.Active !== "Inactive";
   }
-  function setArousalLevel(level) {
+  function setArousalLevel(level2) {
     if (!arousalAvailable()) {
       log(`arousal suggestion ignored \u2014 the player's arousal meter is set to Inactive`);
       return false;
     }
-    const target = AROUSAL_LEVELS[level];
+    const target = AROUSAL_LEVELS[level2];
     ActivitySetArousal(Player, target);
     const settings = Player.ArousalSettings;
     const orgasming = typeof settings.OrgasmTimer === "number" && settings.OrgasmTimer > CurrentTime;
     if (!orgasming && (settings.AffectExpression == null || settings.AffectExpression)) {
       ActivityExpression(Player, target);
     }
-    log(`arousal set to ${level} (${target})`);
+    log(`arousal set to ${level2} (${target})`);
     return true;
   }
   function forceOrgasm() {
@@ -3171,8 +3335,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const progress = typeof settings?.Progress === "number" ? settings.Progress : 0;
     return Math.max(0, Math.min(100, progress));
   }
+  function chemicalLevel() {
+    return arousalLevel() + countedDrugLevel();
+  }
   function effectiveAccess(memberId) {
-    return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + arousalLevel() * AROUSAL_ACCESS_WEIGHT;
+    return Math.max(accessFor(memberId, "session"), trustGiftFloor(memberId)) + chemicalLevel() * AROUSAL_ACCESS_WEIGHT;
   }
   var TRUST_GIFT_MS = 5 * 6e4;
   var TRUST_GIFT_FLOOR = 65;
@@ -3243,7 +3410,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const trust = trustWith(hypnotistId);
     const relation = RELATION_DEPTH_FLOOR[relationshipWith(hypnotistId)] ?? 0;
     const earned = trust * DEPTH_TRUST_WEIGHT + relation * DEPTH_RELATION_WEIGHT + STANCE_DEPTH[choice];
-    const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + arousalLevel() * DEPTH_AROUSAL_WEIGHT;
+    const full = earned + session.honouredSkill * DEPTH_SKILL_WEIGHT + chemicalLevel() * DEPTH_AROUSAL_WEIGHT;
     const floor = choice === "fight" ? 0 : Math.round(Math.max(relation, trust * TRUST_DEPTH_FLOOR_WEIGHT));
     return { full, earned, floor };
   }
@@ -3321,6 +3488,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function describeChances(memberId) {
     const trust = trustWith(memberId);
     const arousal = arousalLevel();
+    const drug = countedDrugLevel();
+    const chemical = chemicalLevel();
     const access = effectiveAccess(memberId);
     const exp = experienceValue();
     const perSession = (c) => 100 * (1 - Math.pow(1 - c / 100, maxAttempts()));
@@ -3333,7 +3502,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return `lands ${Math.max(0, lo)}\u2013${hi} (earned ${Math.max(0, elo)}\u2013${ehi})${lo <= 0 ? ", or slips away" : ""}`;
     };
     return [
-      `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)} (+${(arousal * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) \u2192 access ${access.toFixed(1)}, experience ${exp.toFixed(1)}`,
+      `vs [${memberId}] \u2014 trust ${trust.toFixed(1)}, arousal ${arousal.toFixed(0)}, drugs ${drug.toFixed(0)} (chemical ${chemical.toFixed(0)}: ${chemical >= 0 ? "+" : ""}${(chemical * AROUSAL_ACCESS_WEIGHT).toFixed(1)}) \u2192 access ${access.toFixed(1)}, experience ${exp.toFixed(1)}`,
       `  ${describeRelationship(memberId)}`,
       ...session.phase === "Hypnotized" && session.hypnotistId === memberId ? (() => {
         const stance = session.choice ?? "ignore";
@@ -3563,7 +3732,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (trustGiftFloor(hypnotistId) > 0 && trustGift?.spentOn === session) return 100;
     const minutes = session.hypnotizedAt ? (Date.now() - session.hypnotizedAt) / 6e4 : 0;
     const stance = session.choice ?? "ignore";
-    const raw = DEEPEN_BASE + accessFor(hypnotistId, "session") * DEEPEN_TRUST_WEIGHT + session.honouredSkill * DEEPEN_SKILL_WEIGHT + arousalLevel() * DEEPEN_AROUSAL_WEIGHT + STANCE_DEEPEN[stance] + Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) + (stance === "agree" ? experienceValue() * DEEPEN_EXPERIENCE_WEIGHT : 0) - session.depth * DEEPEN_DEPTH_WEIGHT;
+    const raw = DEEPEN_BASE + accessFor(hypnotistId, "session") * DEEPEN_TRUST_WEIGHT + session.honouredSkill * DEEPEN_SKILL_WEIGHT + chemicalLevel() * DEEPEN_AROUSAL_WEIGHT + STANCE_DEEPEN[stance] + Math.min(DEEPEN_TIME_MAX, Math.floor(minutes) * DEEPEN_TIME_PER_MINUTE) + (stance === "agree" ? experienceValue() * DEEPEN_EXPERIENCE_WEIGHT : 0) - session.depth * DEEPEN_DEPTH_WEIGHT;
     return Math.max(DEEPEN_MIN, Math.min(DEEPEN_MAX, raw));
   }
   function deepenStep(depth) {
@@ -3586,7 +3755,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   ];
   var STRUGGLE_COOLDOWN_MS = 6e4;
   function surfaceChance(hypnotistId) {
-    const raw = SURFACE_BASE[tierOf(session.depth)] + experienceValue() * SURFACE_EXPERIENCE_WEIGHT - session.honouredSkill * SURFACE_SKILL_WEIGHT - accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT - arousalLevel() * SURFACE_AROUSAL_WEIGHT;
+    const raw = SURFACE_BASE[tierOf(session.depth)] + experienceValue() * SURFACE_EXPERIENCE_WEIGHT - session.honouredSkill * SURFACE_SKILL_WEIGHT - accessFor(hypnotistId, "session") * SURFACE_TRUST_WEIGHT - chemicalLevel() * SURFACE_AROUSAL_WEIGHT;
     return Math.max(SURFACE_MIN, Math.min(SURFACE_MAX, raw));
   }
   function surfaceDrop(depth) {
@@ -5241,7 +5410,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       parts.push(left > 0 ? `ends in ${describeSpan(left)}` : "expired");
     }
     if (t.strict) parts.push("whole words only");
-    if (t.scope) parts.push(`fired by: ${scopeLabel(effectiveScope(t))}`);
+    if (t.scope) parts.push(`fired by: ${scopeLabel2(effectiveScope(t))}`);
     return parts.join(", ");
   }
   function describeStrength(t) {
@@ -5402,7 +5571,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
       case "scope":
         recording.scope = option.scope;
-        noted = `who can fire it: ${scopeLabel(option.scope)}`;
+        noted = `who can fire it: ${scopeLabel2(option.scope)}`;
         break;
       case "strict":
         recording.strict = option.value || void 0;
@@ -5639,7 +5808,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       notes.push(`Her settings let a trigger live at most ${describeSpan(ceilingMs)}, so it ends then.`);
     }
     if (trigger.scope && scopeIsWider(trigger.scope, getTriggerScope())) {
-      notes.push(`Her settings only allow "${scopeLabel(getTriggerScope())}", so that is who can fire it.`);
+      notes.push(`Her settings only allow "${scopeLabel2(getTriggerScope())}", so that is who can fire it.`);
     }
     if (isDrop && recording.oneShot === false && getDropMode() === "once") {
       notes.push("Her settings let a drop trigger work only once, so it will.");
@@ -5672,7 +5841,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       (c) => c?.MemberNumber === memberNumber
     );
   }
-  function scopeLabel(scope) {
+  function scopeLabel2(scope) {
     return TRIGGER_SCOPES.find((s) => s.key === scope)?.label ?? scope;
   }
   function scopeIsWider(a, b) {
@@ -5730,8 +5899,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const final = kept.replace(/\s+/g, " ").trim();
     return final.length ? final : null;
   }
-  function applyArousal(level) {
-    if (!setArousalLevel(level)) return "arousal-unavailable";
+  function applyArousal(level2) {
+    if (!setArousalLevel(level2)) return "arousal-unavailable";
   }
   var ORGASM_DENIED_UNTIL = /\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
   var UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
@@ -5826,24 +5995,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
   }
   var HEARING_IDS = ["hear-voice", "hear-name"];
-  function applySight(level) {
-    const got = setSight(level);
+  function applySight(level2) {
+    const got = setSight(level2);
     if (got <= 0) {
       setSight(0);
       return "effect-failed";
     }
-    if (got < level) return "sight-capped";
+    if (got < level2) return "sight-capped";
   }
-  function sightSuggestion(id, level, examples, patterns) {
+  function sightSuggestion(id, level2, examples, patterns) {
     return {
       id,
       examples,
       permission: "sightControl",
       patterns,
-      run: () => applySight(level),
+      run: () => applySight(level2),
       // Only while it is still this level: a trigger's dimming must not undo a blindness said since.
       undo: () => {
-        if (getSight() === level) setSight(0);
+        if (getSight() === level2) setSight(0);
       }
     };
   }
@@ -8841,7 +9010,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function lastingLines() {
     const minutes = getTriggerDuration();
     const scope = getTriggerScope();
-    const scopeLabel2 = TRIGGER_SCOPES.find((sc) => sc.key === scope)?.label ?? scope;
+    const scopeLabel3 = TRIGGER_SCOPES.find((sc) => sc.key === scope)?.label ?? scope;
     return [
       head("Two ways to outlast a session"),
       body("A TRIGGER sleeps until someone says its word. A CARRIED suggestion"),
@@ -8903,7 +9072,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("being silenced, so the safeword stays reachable when speech does not."),
       gap(),
       head("Right now, on this character"),
-      body(`A fired trigger lasts ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel2}.`),
+      body(`A fired trigger lasts ${minutes > 0 ? `${minutes} min` : "until released"}, and triggers fire for: ${scopeLabel3}.`),
       dim("Both are on the Triggers tab of the settings screen.")
     ];
   }
@@ -10527,7 +10696,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.6"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.0"} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10596,7 +10765,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.100.6"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"0.101.0"} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11126,6 +11295,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       group: "Session",
       Description: "Show your session state and which permissions are granted",
       Action: () => reply(describeSession())
+    },
+    {
+      // Crafted drinks and cigarettes (drugs.ts). The level fades on its own and is never saved,
+      // so this is the only way to see it, and to see why a drink did nothing.
+      Tag: "drugs",
+      group: "Session",
+      Description: "Show how much a crafted drink or cigarette is affecting you",
+      Action: () => reply(describeDrugs())
     },
     {
       // Bypasses matching, permissions and the session entirely — calls BC's pose
@@ -11786,7 +11963,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const full = currentDepth();
         const earned = currentDepthEarned();
         reply(
-          `Depth ${full} full / ${earned} earned \u2014 ${tierLabel(tierOf(full))}. Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}.`
+          `Depth ${full} full / ${earned} earned \u2014 ${tierLabel(tierOf(full))}. Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}. ${describeDrugs()}`
         );
         const features = getFeatures();
         for (const gate of DEPTH_GATES) {
@@ -12392,7 +12569,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.100.6"} \xB7 /hypno help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"0.101.0"} \xB7 /hypno help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12415,7 +12592,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"0.100.6"} loaded`;
+    el.textContent = `ECHS v${"0.101.0"} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -12446,14 +12623,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`FAILED to set up ${label}:`, err);
     }
   }
-  info(`script loaded (v${"0.100.6"})`);
+  info(`script loaded (v${"0.101.0"})`);
   safely("loaded toast", showLoadedToast);
   safely("startup banner", startStartupBanner);
   var modApi = import_bondage_club_mod_sdk.default.registerMod(
     {
       name: "ECHS",
       fullName: "Erotic Chat Hypnosis Suite",
-      version: "0.100.6",
+      version: "0.101.0",
       repository: "https://github.com/Dwfreegethub/HypnosisAddon"
     },
     // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -12574,6 +12751,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
   safely("trigger word concealment", installConcealment);
   safely("delayed compulsions", installCompulsions);
+  safely("drinks and cigarettes", installDrugs);
   safely("self-touch hook", () => installSelfTouch(modApi));
   safely("orgasm denial hooks", () => installDenial(modApi));
   safely("follow-leash hook", () => installFollow(modApi));

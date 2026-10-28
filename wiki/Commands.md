@@ -41,6 +41,7 @@ You are told the attempt went out; what happens next is the other player's choic
 | **`/echs safeword`** | **Hard stop. Clears the active trance and every lingering effect. Always works.** | Any time, under any condition, from any state. |
 | `/echs effects` | Lists everything currently affecting you, and what would survive a reconnect. | Checking *"Why can't I do that?"* or diagnosing persistent states. |
 | `/echs session` | Displays your active session state and which permissions are granted. | Checking *"Why didn't that suggestion land?"* |
+| `/echs drugs` | Shows how relaxed or stimulated a crafted drink or cigarette has left you, and whether it is counting. | Checking *"Did that drink do anything?"* See [Drinks and Cigarettes](Drinks-and-Cigarettes). |
 
 **`effects` and `session` answer different questions:**
 * `session` tells you what phase you are in and what permissions you have granted to the hypnotist.

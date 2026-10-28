@@ -4,6 +4,7 @@ import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch, isTriggerInEffect, describeTriggerList, describeTriggerDetail, clearAllRefusal } from "./voice";
 import { freezeAppearance, clearIllusion, isIllusionActive, describeIllusion } from "./illusion";
 import { AROUSAL_LEVELS, ArousalLevel, arousalAvailable, setArousalLevel, forceOrgasm, setOrgasmDenied } from "./arousal";
+import { describeDrugs } from "./drugs";
 import {
 	addInteractions,
 	setTrustValue,
@@ -485,6 +486,14 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Session",
 		Description: "Show your session state and which permissions are granted",
 		Action: () => reply(describeSession()),
+	},
+	{
+		// Crafted drinks and cigarettes (drugs.ts). The level fades on its own and is never saved,
+		// so this is the only way to see it, and to see why a drink did nothing.
+		Tag: "drugs",
+		group: "Session",
+		Description: "Show how much a crafted drink or cigarette is affecting you",
+		Action: () => reply(describeDrugs()),
 	},
 	{
 		// Bypasses matching, permissions and the session entirely — calls BC's pose
@@ -1233,7 +1242,7 @@ const COMMANDS: HypnoCommand[] = [
 			const earned = currentDepthEarned();
 			reply(
 				`Depth ${full} full / ${earned} earned — ${tierLabel(tierOf(full))}. ` +
-					`Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}.`,
+					`Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}. ${describeDrugs()}`,
 			);
 			const features = getFeatures();
 			for (const gate of DEPTH_GATES) {

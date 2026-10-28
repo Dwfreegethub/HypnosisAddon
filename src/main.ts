@@ -14,6 +14,7 @@ import { installSuppression, installHearingFilter, hearsLine, markUnheard } from
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
 import { installTriggers } from "./triggers";
+import { installDrugs } from "./drugs";
 import { installSelfTouch } from "./selftouch";
 import { installDenial } from "./denial";
 import {
@@ -302,6 +303,9 @@ safely("trigger word concealment", installConcealment);
 // Delayed compulsions due after a wake: checked on their own interval, which outlives every
 // clearAllTimers() — see installCompulsions in voice.ts.
 safely("delayed compulsions", installCompulsions);
+
+// Crafted drinks and cigarettes tagged [hypno:relax] / [hypno:stimulate] — see drugs.ts.
+safely("drinks and cigarettes", installDrugs);
 
 // Blocks self-directed activities outright (no arousal, no message) rather than hiding
 // them — see selftouch.ts for why ActivityRun and not the handler chain.

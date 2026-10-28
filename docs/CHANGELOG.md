@@ -20,6 +20,51 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-10-28 (v0.101.0) — crafted drinks and cigarettes: `relax` and `stimulate`
+
+The *Drug System* from `design.md`, first two drugs. New module `src/drugs.ts`.
+
+**What DW decided, in order:**
+- Drugs give a **temporary** boost, not stored trust. Rule 4 holds as written: the level is never
+  saved, decays 1/min, and the total stop clears it.
+- `relax` and `stimulate` first; `sedate`, `restore`, `extend` kept on the Todo list.
+- A cigarette **builds while in her mouth**, with a lower cap than a drink: drinks ±40 (15 a sip),
+  cigarettes ±20 (3 a minute).
+- **Opt-in kept:** the default chemical scope stays *Arousal only*.
+- **Then, mid-build, the stacking rule reversed:** drugs ADD to arousal. The design doc's `max()`
+  rule is marked superseded. `chemicalLevel()` in `session.ts` is now `arousalLevel() +
+  countedDrugLevel()` and replaces `arousalLevel()` at its four consumers (landing access, full
+  depth, deepen, surface). Earned depth still never sees it.
+
+**How it reads the item, verified against the R132 client:** `SipItem` is published with
+`ActivityName` and the target in the message metadata, and the cup is the **actor's**
+`ItemHandheld`. `ServerAppearanceBundle` syncs `Craft.Name` and `Craft.Description`, so the
+subject's client reads the giver's craft directly. The giver needs no add-on (rule 1). A
+description may be UTF16-packed, so it is run through `CraftingDescription.Decode`. BC has **no
+smoking activity**: the Cigarette is `ItemMouth`, or `ItemHandheld` with typed options In Mouth (0,
+the default) / In Hand (1). So a cigarette is polled once a minute rather than caught as an event.
+Technique reference: LSCG's `injector.ts` reads the actor's handheld Craft on `SipItem` the same
+way. No code is taken (rule 7). LSCG matches plain words ("mind control", "hypnotizing"), so our
+bracketed `[echs:…]` tags can't collide with it in either direction.
+
+**Two things the new suite caught before shipping:**
+- The total-stop hook was first registered inside `installDrugs()`, so it was missing wherever
+  install had not run. `teardown.ts` asks for module-load registration; it now does that.
+- A cigarette still in her mouth would have started dosing again a minute after a safeword. It is
+  now "stubbed out" until removed.
+
+**Rule 5:** an untagged drink stays silent, since it isn't ours. A tagged one with drugs not
+counting says so and names the setting. A dose at the cap says it can't go further. `/echs drugs`
+shows the level, and `/echs gates` and `/hypno chance` include it.
+
+Tests: `test/drugs.mjs`, 46 checks.
+
+### Changed 2026-10-28 (no bump) — `test/loader.mjs` tolerates CRLF checkouts (#91)
+
+On a Windows checkout with `core.autocrlf`, `meta.txt` arrives with CRLF line endings, so the
+header values kept a `\r` and three loader checks read `""`. The header is now split on `\r?\n`.
+The shipped files were never affected.
+
 ### Changed 2026-10-03 (v0.100.6) — wiki audit fixes; the wiki shows only `/echs`
 
 A second AI audited `wiki_combined.md` (DW's `echswikiAudit.txt`). Every claim was checked against the
