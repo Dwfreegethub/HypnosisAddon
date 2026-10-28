@@ -59,7 +59,13 @@ The reasoning for each is in the Orientation section; this is the checklist.
 - **Branches (since 1.0.0 RC, 2026-10-28):** `main` is what players run; the loader and the wiki
   sync both read it. `dev` is where work collects between releases.
 - **Flow:** branch from `dev`, bump, `npm run release`, both changelogs, PR into `dev`,
-  squash-merge, pull. **A release** is a PR from `dev` into `main`, made when DW says to publish.
+  squash-merge, pull. **A release** is a PR from `dev` into `main`, made when DW says to publish,
+  merged with a **merge commit** (`gh pr merge --merge`), never squashed: a squash would make every
+  later release re-apply the same changes and conflict. Never delete `dev` when merging it. The
+  first was #95 (v1.0.1 RC).
+- **FUSAM** lists ECHS from raw GitHub (`type: "eval"`): `stable` is `main`'s
+  `cdn/HypnosisAddon.js`, `dev` is `dev`'s. So a merge into `dev` reaches FUSAM's dev-channel
+  players too; keep `dev` working. `src/index.ts` keeps two loaders from starting ECHS twice.
   The loader fetches from `main`, so nothing on `dev` or a `feat/` branch reaches players. A hotfix
   goes to `main` and is then merged back into `dev`. Docs-only and wiki-only changes need no bump.
   Wiki edits reach the GitHub wiki only once they are on `main`.
