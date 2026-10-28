@@ -11,7 +11,7 @@ const TAG = "[HypnosisAddon]";
 //
 // console.debug alone was not enough: other mod developers keep Verbose on for their own work,
 // and there our line per chat message was still a flood (Fina's feedback, v0.85.3). So routine
-// diagnostics are now also OFF unless asked for — `/hypno debug`, remembered per browser — and
+// diagnostics are now also OFF unless asked for — `/echs debug`, remembered per browser — and
 // on by themselves in the Hypno Testing room, so a tester never has to remember to ask. warn()
 // and info() are not gated: a fault must always show (rule 5), and so must the startup line.
 
@@ -29,7 +29,7 @@ function readDebugFlag(): boolean {
 
 let debugFlag = readDebugFlag();
 
-/** Whether `/hypno debug` is switched on in this browser. The room does not count here. */
+/** Whether `/echs debug` is switched on in this browser. The room does not count here. */
 export function isDebugFlagOn(): boolean {
 	return debugFlag;
 }
@@ -90,7 +90,7 @@ const TESTING_ROOM = "hypno testing";
 const FORCE_TESTING: boolean = false;
 
 /** Whether the testing affordances are available right now: the force-state commands
- * (`/hypno trance`, `/hypno depth`, `/hypno agetrigger`), `/hypno triggers full`, and the
+ * (`/echs trance`, `/echs depth`, `/echs agetrigger`), `/echs triggers full`, and the
  * `/bot` test-bot channel. True in the testing room (or when the harness has pinned it on),
  * false everywhere else.
  *
@@ -115,3 +115,7 @@ function inTestingRoom(): boolean {
 		return false;
 	}
 }
+
+/** " RC" while package.json carries a releaseLabel, "" otherwise. Appended to every place the
+ * version is SHOWN, never to the version itself (see env.d.ts). */
+export const RELEASE_SUFFIX: string = __RELEASE_LABEL__ ? ` ${__RELEASE_LABEL__}` : "";

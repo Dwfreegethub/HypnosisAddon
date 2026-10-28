@@ -15,7 +15,7 @@ import { isSessionActiveWith } from "./session";
 
 // Trigger words shown as "..." in the subject's own chat (v0.89.0, design.md "Trigger Overhaul",
 // decision 6). The subject should not learn their trigger word from hearing it: not when it is
-// planted, not when it is said. `/hypno triggers` already hid it; this is the chat half.
+// planted, not when it is said. `/echs triggers` already hid it; this is the chat half.
 //
 // HOW. BC's message-handler API, as suppression.ts uses it (verified in R132 ChatRoom.js):
 // a post-handler may return `{ msg }`, and the display handler at 500 renders the transformed

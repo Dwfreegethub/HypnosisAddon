@@ -23,7 +23,7 @@ export function isAway(): boolean {
 	return Date.now() - lastActivity >= AWAY_AFTER_MS;
 }
 
-/** Minutes since her last input, for /hypno chance. */
+/** Minutes since her last input, for /echs chance. */
 export function idleMinutes(): number {
 	return Math.floor((Date.now() - lastActivity) / 60_000);
 }

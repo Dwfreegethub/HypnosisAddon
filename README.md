@@ -4,8 +4,8 @@ A conversational, text-driven hypnosis framework for [Bondage Club](https://www.
 
 *Formerly "BC Hypnosis Add-on". The repository, installation link, and saved settings are unchanged — only the in-game display name. Not affiliated with or to be confused with HSC (Hypnotic Slave Club).*
 
-> **⚠️ Alpha Testing Notice**  
-> **ECHS is currently in active alpha development.** Not all features are fully implemented, balance tuning is ongoing, and mechanics, settings, or syntax may change between updates. Expect occasional rough edges and report unexpected behavior on the repository.
+> **1.0 Release Candidate**  
+> **ECHS is at v1.0.0 RC, its 1.0 release candidate.** Balance tuning continues, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. Report unexpected behavior on the repository, with the version your chat line shows.
 
 ---
 
@@ -15,7 +15,7 @@ One player acts as the hypnotist: they initiate an induction, and your client de
 
 From there, suggestions unfold naturally through everyday speech and whispers — *"Missy, you cannot move"*, *"Missy, touch my cheek"*, *"Missy, everything is fading to black"*. Instead of relying on rigid, click-heavy menus, **ECHS** evaluates incoming dialogue against your client settings in real-time, executing only the actions and sensory shifts you have explicitly consented to. Suggestions can outlive the trance, or be planted as subconscious trigger words that fire whenever uttered.
 
-**Everything is off until you turn it on, and `/echs safeword` (or legacy `/hypno safeword`) always works.**
+**Everything is off until you turn it on, and `/echs safeword` always works.**
 
 ---
 
@@ -69,9 +69,9 @@ ECHS alters client rendering and interaction dispatch. Safety controls are hardw
 * **Client-Side Sovereignty:** Another player's client can only ever *request* an action. Your local client evaluates every single incoming command against your current settings. No external script can force an override.
 * **Granular, Revocable Permissions:** You control individual permissions for immobility, muting, sensory impairment, touch targets, arousal control, and triggers. Revoking a permission releases that effect instantly.
 * **Emergency Releases Always Available:**
-  * **`/echs safeword`** (or `/hypno safeword`) — Instantly breaks trance and wipes every active effect, bypasses all mutes, and cannot be intercepted or disabled.
+  * **`/echs safeword`** — Instantly breaks trance and wipes every active effect, bypasses all mutes, and cannot be intercepted or disabled.
   * **Unticking *Hypnosis Enabled*** — Immediate full release via the settings screen.
-  * **`/echs wake`** (or `/hypno wake`) — Allows subjects to surface independently if their trance is sufficiently shallow.
+  * **`/echs wake`** — Allows subjects to surface independently if their trance is sufficiently shallow.
   * **Automatic Timeouts:** All active trances, freeze states, and sensory blocks expire naturally over time.
 
 ---
@@ -80,8 +80,8 @@ ECHS alters client rendering and interaction dispatch. Safety controls are hardw
 
 * **What's New:** See the **[changelog](CHANGELOG.md)** for what changed in each update, in plain language.
 * **Full Guide:** Visit the [ECHS Wiki](https://github.com/Dwfreegethub/HypnosisAddon/wiki) for comprehensive guides on commands, depth formulas, trust ratings, and trigger setups.
-* **In-Game Help:** Click the **`?`** icon in the ECHS settings panel to read the full manual, or run `/echs help` (or `/hypno help`) in the chat bar.
-* **Quick Reference:** Type `/echs` (or `/hypno`) in chat to print a list of active commands.
+* **In-Game Help:** Click the **`?`** icon in the ECHS settings panel to read the full manual, or run `/echs help` in the chat bar.
+* **Quick Reference:** Type `/echs` in chat to print a list of active commands.
 
 ---
 

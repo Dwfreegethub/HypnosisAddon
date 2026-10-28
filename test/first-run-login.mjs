@@ -73,7 +73,7 @@ globalThis.ChatRoomCharacter = [Player];
 tickAll();
 // Failure looks like 1 (banner only): the notice did not fire on an ordinary fresh login.
 check("joining a room prints the banner and the two-line notice", local.length, 3);
-check("  banner first", /v\w+ · \/hypno help/.test(local[0] ?? ""), true);
+check("  banner first", /v\w+ · \/echs help/.test(local[0] ?? ""), true);
 check("  then the notice", /nothing is switched on yet/.test(local[1] ?? ""), true);
 check("  all local, nothing emoted to the room", room.length, 0);
 check("  the banner poll stopped itself", intervals.size, 0);

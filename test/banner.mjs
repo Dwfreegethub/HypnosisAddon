@@ -73,7 +73,7 @@ check("carries the full name", /Erotic Chat Hypnosis Suite \(ECHS\)/.test(line),
 // string "test" for the suites. So "vtest" here is the proof that the number comes from the
 // build rather than a hand-typed literal, which is the whole reason this line can be trusted.
 check("carries the build version, from the define", /\bvtest\b/.test(line), true);
-check("points at the guide", /\/hypno help/.test(line), true);
+check("points at the guide", /\/echs help/.test(line), true);
 check("one line, not several", line.includes("\n"), false);
 
 // --- never twice --------------------------------------------------------------------------
@@ -121,6 +121,8 @@ for (const [file, needle, what] of [
 	const line = versionLine(file, needle);
 	check(`${what} reads the build define`, /\$\{__VERSION__\}/.test(line), true);
 	check(`  and carries no hand-typed number`, /\bv?\d+\.\d+\.\d+\b/.test(line), false);
+	// The 1.0 RC label (package.json releaseLabel, DW 2026-10-28) shows wherever the number does.
+	check(`  and the release label right after it`, /\$\{__VERSION__\}\$\{RELEASE_SUFFIX\}/.test(line), true);
 }
 
 globalThis.setInterval = realSetInterval;

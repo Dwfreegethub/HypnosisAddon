@@ -5,6 +5,9 @@ another: induction, spoken suggestions, persistent triggers, the clothing illusi
 and a trust-and-depth gating system underneath all of it.
 
 **Version:** `package.json` is the single source of truth; the on-screen banner derives from it.
+Since 1.0.0 (2026-10-28) it may also carry `releaseLabel` ("RC"), which is shown after the number
+and never put into it: the number is also the jsDelivr tag and what userscript managers compare.
+Going final means deleting `releaseLabel`, with a patch bump. Reasoning in `docs/CHANGELOG.md`.
 
 ## Where the facts live — do not copy them here
 
@@ -34,7 +37,7 @@ Settled decisions are recorded in `design.md`. Do not re-decide one without flag
 The reasoning for each is in the Orientation section; this is the checklist.
 
 1. **Subject-authoritative.** Every cross-player action is a request; the subject's client alone decides, from its own settings. Never trust the hypnotist's client for permissions, depth, session state, or whether a suggestion matched.
-2. **The safeword always works.** `/hypno safeword` clears everything from any state. No feature, trigger or lock may reach it. Unticking *Hypnosis Enabled* is the same floor and shares the same teardown (`hardFloorStop()`). **One exception, DW's decision (2026-09-29, job2.md §5.4), from v0.99.0:**
+2. **The safeword always works.** `/echs safeword` clears everything from any state. No feature, trigger or lock may reach it. Unticking *Hypnosis Enabled* is the same floor and shares the same teardown (`hardFloorStop()`). **One exception, DW's decision (2026-09-29, job2.md §5.4), from v0.99.0:**
    - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All and `/echs forgettrigger` are refused.
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
@@ -53,13 +56,16 @@ The reasoning for each is in the Orientation section; this is the checklist.
 
 ## Working with DW
 
-- **Flow:** branch from `main`, bump, `npm run release`, both changelogs, PR, squash-merge, pull.
-  A large change may live on a `feat/` branch while DW tests it; the loader fetches from `main`, so
-  a branch never reaches players. A hotfix goes to `main` and is then merged into any open branch.
-  Docs-only and wiki-only changes need no bump.
+- **Branches (since 1.0.0 RC, 2026-10-28):** `main` is what players run; the loader and the wiki
+  sync both read it. `dev` is where work collects between releases.
+- **Flow:** branch from `dev`, bump, `npm run release`, both changelogs, PR into `dev`,
+  squash-merge, pull. **A release** is a PR from `dev` into `main`, made when DW says to publish.
+  The loader fetches from `main`, so nothing on `dev` or a `feat/` branch reaches players. A hotfix
+  goes to `main` and is then merged back into `dev`. Docs-only and wiki-only changes need no bump.
+  Wiki edits reach the GitHub wiki only once they are on `main`.
 - **Live testing:** DW tests with the subject **Missy** and the hypnotist **Missys Helper**, in the
   **Hypno Testing** room. Write test steps as exact commands DW can paste, and write every command
-  as `/echs …`, not `/hypno …` (both work; `/echs` is what players see).
+  as `/echs …`, not `/hypno …`. `/hypno` still works as an alias, but since v0.101.1 it is named in exactly one place, a note on `wiki/Commands.md`. Never write it in help, chat text, the README or changelogs; `test/echs-name.mjs` fails the build if the shipped add-on contains it.
 - **Every build DW is to test comes with `script_test.md`** at the repo root, rewritten for that
   build (DW asked for this on 2026-09-29, after the v0.98.2 script). What it contains:
   - numbered steps with checkboxes, grouped by feature;

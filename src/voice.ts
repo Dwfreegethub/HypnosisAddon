@@ -210,7 +210,7 @@ interface Suggestion {
 	undo?: () => void;
 	/** Wordings that land, for the help screen. Kept beside the patterns rather than in
 	 * help.ts on purpose: a duplicated source of truth always eventually drifts, which is
-	 * the same lesson the generated /hypno summary already learned. Every entry must have
+	 * the same lesson the generated /echs summary already learned. Every entry must have
 	 * at least one, and it must be a phrase the patterns above actually match. */
 	examples: string[];
 	/** OPTIONAL display override for the help screen. `examples` are the real, test-checked
@@ -415,7 +415,7 @@ function permitted(suggestion: Suggestion, features: FeatureToggles): boolean {
  * two numbers rather than a decision.
  *
  * Named and exported so the help screen can read it rather than repeat it; the same
- * duplicated-source-of-truth rule that made the /hypno summary generated. */
+ * duplicated-source-of-truth rule that made the /echs summary generated. */
 export const ILLUSION_TRUST_THRESHOLD = 65;
 
 /** What undressing costs, from the design doc's feature-threshold table ("Remove clothes,
@@ -1533,7 +1533,7 @@ export function otherRoomNames(speaker: number): string[] {
 /** The pure half of this module: text in, suggestion id out. Split from handleSpokenLine
  * so the pattern library can be exercised directly against a phrase list without needing a
  * live session, a chat room, or the BC globals. Deliberately does NOT apply the name gate —
- * /hypno match stays useful for checking a phrasing on its own. */
+ * /echs match stays useful for checking a phrasing on its own. */
 export function matchSuggestion(content: string): FlavorKey | null {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return null;
@@ -1638,7 +1638,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 	}));
 }
 
-/** Human-readable verdict on a phrase for /hypno match — reports the pattern result and
+/** Human-readable verdict on a phrase for /echs match — reports the pattern result and
  * the name gate separately, since a phrase can match perfectly and still be ignored. */
 export function describeMatch(content: string): string {
 	const id = matchSuggestion(content);
@@ -2544,14 +2544,14 @@ function undoTrigger(trigger: Trigger): void {
 	forgetIfSpent(trigger);
 }
 
-/** Is this trigger's grip currently on the subject? Read by `/hypno forgettrigger`, which
+/** Is this trigger's grip currently on the subject? Read by `/echs forgettrigger`, which
  * refuses while it is — you do not get to quietly delete the thing that is holding you.
  * The safeword is the way out of that, and saying so is the point. */
 export function isTriggerInEffect(trigger: Trigger): boolean {
 	return isActive(timerKey(trigger));
 }
 
-/** Should `/hypno triggers` print the phrases?
+/** Should `/echs triggers` print the phrases?
  *
  * Two ways to yes, and they are different in kind. The player's own **setting** is the
  * shipping answer — hidden by default, theirs to change. `full` is a **testing** argument that
@@ -2810,7 +2810,7 @@ function handleDeepening(sender: number, line: string): boolean {
 }
 
 /** She came up, fighting: from a missed deepening (`lead` "It does not take, and they") or from her
- * own /hypno fight mid-trance (v0.97.0). A new tier is the room's to see; a smaller rise is hers,
+ * own /echs fight mid-trance (v0.97.0). A new tier is the room's to see; a smaller rise is hers,
  * and the hypnotist is told either way, in bands. */
 function reportSurfacing(
 	sender: number,

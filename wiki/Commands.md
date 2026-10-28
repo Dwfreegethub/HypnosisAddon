@@ -2,14 +2,15 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all effects.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Command syntax, debug outputs, and diagnostic helpers are evolving.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Command syntax, debug outputs, and diagnostic helpers are evolving.
 
 ---
 
 Most features are **spoken**, not typed — see [What to Say](What-to-Say). These slash commands are the utility exceptions for managing sessions, inspecting client states, and handling emergency exits.
 
 * `/echs` on its own prints a short in-game command menu, starting with how to begin: `/echs induce <name>`.
+* **Used to typing `/hypno`?** That's the old name, and it still works exactly like `/echs`.
 * `/echs help` opens the built-in guide.
 * `/echs commands` lists every registered command.
 

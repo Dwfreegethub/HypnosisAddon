@@ -18,7 +18,7 @@ const common = {
 	bundle: true,
 	format: "iife",
 	target: "es2020",
-	define: { __VERSION__: JSON.stringify(pkg.version) },
+	define: { __VERSION__: JSON.stringify(pkg.version), __RELEASE_LABEL__: JSON.stringify(pkg.releaseLabel ?? "") },
 	logLevel: "info",
 };
 

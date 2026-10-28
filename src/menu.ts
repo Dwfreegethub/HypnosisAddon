@@ -1,4 +1,4 @@
-import { log, warn } from "./log";
+import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates, setSight } from "./effects";
@@ -378,14 +378,14 @@ function dataButtonLeft(index: number): number {
 }
 
 // --- Planted tab: the trigger inspector ------------------------------------------------
-// A paged list, one row per trigger: the same summary `/hypno triggers` prints (who, how strong,
+// A paged list, one row per trigger: the same summary `/echs triggers` prints (who, how strong,
 // whether it is holding you), with Details and Purge. Details replaces the list with that one
-// trigger in full, the settings-screen version of `/hypno triggers <number>`: one deliberate
+// trigger in full, the settings-screen version of `/echs triggers <number>`: one deliberate
 // step to see what a trigger does. Purge refuses while the trigger is holding you, exactly as
-// `/hypno forgettrigger` does; Clear All refuses while anything is, and asks once.
+// `/echs forgettrigger` does; Clear All refuses while anything is, and asks once.
 //
 // Neither is under the settings lock, on purpose: removing something planted in you is "always
-// available, never gated", the principle `/hypno forgettrigger` states. What protects a scene is
+// available, never gated", the principle `/echs forgettrigger` states. What protects a scene is
 // the refusal while a trigger holds you, and that applies here in full.
 const PLANTED_ROW_TOP = 295;
 const PLANTED_ROW_STEP = 62;
@@ -426,7 +426,7 @@ function drawPurgeButton(left: number, top: number, height: number, holding: boo
 		holding ? "Holding" : "Purge",
 		holding || extremeLocked() ? "#ddd" : "#ffe0e0",
 		"",
-		extremeLocked() ? lockedTip() : holding ? "It is holding you. /hypno safeword clears it" : "Remove this trigger",
+		extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Remove this trigger",
 		holding || extremeLocked(),
 	);
 }
@@ -512,7 +512,7 @@ export function purgePlanted(index: number): string {
 	if (isTriggerInEffect(t)) {
 		return (
 			`Trigger ${index} is holding you right now, so it can't be removed. ` +
-			"Wait for it to wear off, have whoever set it release you, or use /hypno safeword."
+			"Wait for it to wear off, have whoever set it release you, or use /echs safeword."
 		);
 	}
 	forgetTrigger(t.key);
@@ -1101,7 +1101,7 @@ function notifyLocal(message: string): void {
 	tellPlayer(message);
 }
 
-/** What a refused import says, from the Data tab button and `/hypno import` alike, so the two
+/** What a refused import says, from the Data tab button and `/echs import` alike, so the two
  * cannot drift apart. Import is the one data action the settings lock covers: it replaces every
  * toggle in one go without ending anything, so an open Import made the lock decorative — paste a
  * blob and every permission the lock was holding still is rewritten mid-session. Export only
@@ -1144,7 +1144,7 @@ export function clickDataButton(index: number): void {
 				const result = importSettings(text);
 				notifyLocal(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
 			},
-			() => notifyLocal("Could not read the clipboard — use /hypno import <blob> instead."),
+			() => notifyLocal("Could not read the clipboard — use /echs import <blob> instead."),
 		);
 		return;
 	}
@@ -1574,7 +1574,7 @@ function detachWheel(): void {
  * live — see isSessionLive.
  *
  * Tabs stay clickable and the exit button still works — the screen is readable while
- * locked, just not editable. `/hypno safeword` remains the way out in every case, and
+ * locked, just not editable. `/echs safeword` remains the way out in every case, and
  * being a chat command it's untouched by any of this. */
 const LOCK_BANNER_BACK = "#ffe3a3";
 const LOCK_BANNER_TEXT = "#5c3d00";
@@ -1600,7 +1600,7 @@ const RENEW_GAP = 60;
 function drawRenewalPrompt(): void {
 	const p = renewalPrompt();
 	if (!p) return;
-	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__}${RELEASE_SUFFIX} — Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
 	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -1641,13 +1641,13 @@ const EXTENSION_ID = "HypnosisAddon";
  * screen titles carry the full name where there is room for it.
  *
  * Exported because commands.ts spells out the manual path to this same entry for anyone whose
- * `/hypno help` jump cannot run. That string is BUILT from this one rather than repeating it:
+ * `/echs help` jump cannot run. That string is BUILT from this one rather than repeating it:
  * renaming one and not the other would send the player looking for a label that is not there,
  * and nothing at runtime would notice. */
 export const EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
 
 /** Open Preferences > Extensions > ECHS Hypnosis with the on-screen guide already showing —
- * the target of `/hypno help`, so the full illustrated guide is one line away from chat.
+ * the target of `/echs help`, so the full illustrated guide is one line away from chat.
  *
  * This does exactly what clicking our entry in the Extensions list does (verified against
  * R131): PreferenceOpenSubscreen switches to Preferences and builds the list from any screen,
@@ -1706,7 +1706,7 @@ function runSettings(): void {
 	// place a player already looks when something is not behaving, and DrawText here is
 	// centred on a 2000-wide canvas with room to spare. Same __VERSION__ define as the
 	// chat banner and the corner watermark, so all three cannot disagree.
-	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+	DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${__VERSION__}${RELEASE_SUFFIX} — settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
 	tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
 	tipButton(HELP_LEFT, HELP_TOP, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
 	if (!settingsLocked()) {

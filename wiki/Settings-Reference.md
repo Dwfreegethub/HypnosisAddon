@@ -3,8 +3,8 @@
 > 🛡️ **EMERGENCY EXIT — ANY TIME, ANY STATE**  
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**. It always works, even while silenced, and instantly breaks trances and releases all holding effects.
 
-> **Alpha Notice**  
-> ECHS is in active alpha development. Settings layouts, storage keys, and UI options are actively being polished.
+> **1.0 Release Candidate**  
+> ECHS is at its 1.0 release candidate. Settings layouts, storage keys, and UI options are actively being polished.
 
 ---
 

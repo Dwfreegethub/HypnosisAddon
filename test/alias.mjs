@@ -68,9 +68,12 @@ check("they are two separate registry entries", byTag("hypno") !== byTag("echs")
 const tags = (c) => (c?.Subcommands ?? []).map((s) => s.Tag);
 check("/echs carries the same subcommands as /hypno", tags(byTag("echs")), tags(byTag("hypno")));
 check("  and there is more than a handful of them", tags(byTag("echs")).length > 5, true);
-check("both describe the add-on by its full name", [byTag("hypno"), byTag("echs")].map((c) => c?.Description), [
+// v0.101.1 (DW): "hypno" is retired from what players see. BC's /help cannot hide a registered
+// command, so /hypno is listed there only as the old name. Failure: /echs loses its description,
+// or /hypno advertises itself as the main command again.
+check("/echs carries the full name; /hypno says only that it is the same", [byTag("echs"), byTag("hypno")].map((c) => c?.Description), [
 	"Erotic Chat Hypnosis Suite — session control, diagnostics and test commands",
-	"Erotic Chat Hypnosis Suite — session control, diagnostics and test commands",
+	"Same as /echs",
 ]);
 
 // --- nothing mutable is shared between them ---------------------------------------------------
@@ -94,10 +97,11 @@ local = [];
 byTag("echs")?.Action("");
 const menu = local.join("\n");
 check("bare /echs prints the menu", menu.includes("Erotic Chat Hypnosis Suite (ECHS)"), true);
-check("  and the menu says the two tags are the same command", menu.includes("/echs is the same command as /hypno"), true);
+// Only the wiki mentions /hypno now (DW, 2026-10-28). Failure: the old name creeps back into the menu.
+check("  and the menu never names /hypno", menu.includes("/hypno"), false);
 // v0.90.1: how to START is the first thing a new hypnotist needs, and it was only findable in the
 // full command list. Failure: the menu stops naming induce, or names a command that does not exist.
-check("  and it names how to start an induction", menu.includes("/hypno induce <name>"), true);
+check("  and it names how to start an induction", menu.includes("/echs induce <name>"), true);
 check("  a command that really exists", !!sub(byTag("echs"), "induce") && !!sub(byTag("echs"), "retry"), true);
 
 local = [];

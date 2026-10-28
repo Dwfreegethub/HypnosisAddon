@@ -6,11 +6,21 @@ Your userscript manager installs updates on its own, so you are usually on the n
 already. To check which one you have, look at the first line ECHS prints in your chat when the
 game loads, or at the title of the ECHS settings screen.
 
-ECHS is in alpha. Every change below passes the automated checks, but not every one has been
-tried in a live room yet. If something behaves differently from what is written here, please
-report it and say which version your chat line shows.
+ECHS is at its **1.0 release candidate**. Every change below passes the automated checks, but not
+every one has been tried in a live room yet. If something behaves differently from what is written
+here, please report it and say which version your chat line shows.
 
 ---
+
+## v1.0.0 RC · 28 October 2026
+
+- **ECHS 1.0, release candidate.** This is the build we intend to call 1.0. Your chat line and the
+  settings title now read **v1.0.0 RC**. If nothing serious turns up, the "RC" comes off. If
+  something needs fixing first, the fixes arrive as 1.0.1, 1.0.2 and so on. Updates keep arriving
+  on their own, as before.
+- **Everything now says `/echs`.** The in-game help, the command menu, the welcome line and every
+  message ECHS prints name `/echs` instead of the old name. Nothing else changed, and the commands
+  you're used to still work exactly the same.
 
 ## v0.101.0 · 28 October 2026
 
@@ -440,7 +450,7 @@ report it and say which version your chat line shows.
 
 - **`/bot` works again for room bots.** ECHS had taken over the game's `/bot` command, so
   talking to a room's bot answered "join the Hypno Testing room" instead. ECHS now leaves `/bot`
-  alone and only uses `/hypno` and `/echs`. Thanks to Bella for reporting it.
+  alone and only uses its own `/echs` command. Thanks to Bella for reporting it.
 
 ## v0.86.0 · 24 September 2026
 
@@ -460,7 +470,7 @@ report it and say which version your chat line shows.
 
 - **ECHS is quiet in the browser console.** It no longer writes a line for every chat message,
   even with the console set to show everything, which was getting in the way of other add-on
-  makers. If you are asked for console output with a bug report, type `/hypno debug` to switch it
+  makers. If you are asked for console output with a bug report, type `/echs debug` to switch it
   on (and again to switch it off). It is always on in the Hypno Testing room. Real errors still
   show either way.
 
@@ -648,7 +658,7 @@ now hides the awareness, where it used to strip. It does not do both.
 ## v0.81.0 · 22 September 2026
 
 - **ECHS says which version you are on.** When the game loads, a line in your own chat shows the
-  name, the version and `/hypno help`. Only you see it. The settings screen title shows the
+  name, the version and `/echs help`. Only you see it. The settings screen title shows the
   version too.
 
 ## v0.80.0 · 21 September 2026
@@ -681,7 +691,7 @@ now hides the awareness, where it used to strip. It does not do both.
 ## v0.78.0 · 18 September 2026
 
 - **Renamed to Erotic Chat Hypnosis Suite (ECHS)**, so it is not confused with an unrelated
-  project called HSC. `/echs` now works everywhere `/hypno` does. Your settings and the install
+  project called HSC. `/echs` is now its command. Your settings and the install
   link did not change.
 
 ## v0.77.0 · 17 September 2026
@@ -695,7 +705,7 @@ now hides the awareness, where it used to strip. It does not do both.
 
 - **A missed induction now says so.** The subject, the hypnotist and, if the subject shows their
   reactions, the room all see that it did not take, without saying why.
-- **New commands:** `/hypno induce <name>` starts an induction, and `/hypno retry` tries again
+- **New commands:** `/echs induce <name>` starts an induction, and `/echs retry` tries again
   after a miss.
 
 ## v0.75.0 · 17 September 2026

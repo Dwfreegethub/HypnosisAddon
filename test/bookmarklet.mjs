@@ -15,7 +15,7 @@ const out = fileURLToPath(new URL("test/bookmarklet.gen.mjs", root));
 await esbuild.build({
 	entryPoints: [fileURLToPath(new URL("src/bookmarklet.ts", root))],
 	bundle: true, format: "esm", outfile: out, logLevel: "warning",
-	define: { __VERSION__: '"test"' },
+	define: { __VERSION__: '"test"', __RELEASE_LABEL__: '""' },
 });
 const { bookmarkletUrl } = await import(pathToFileURL(out).href);
 const { CDN_MAIN_URL: CDN_URL, GITHUB_URL } = await import("./loader-bundle.mjs");
