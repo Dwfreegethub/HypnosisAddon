@@ -143,7 +143,7 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 | `illusion.ts` | The clothing illusion, as a shadow character on the subject's own screen |
 | `undress.ts` | Taking clothes off one garment at a time, and naming the reason when it refuses |
 | `arousal.ts` | Drives BC's *own* arousal system; forced orgasm and denial |
-| `drugs.ts` | Crafted drinks and cigarettes tagged `[hypno:relax]` / `[hypno:stimulate]`: a temporary signed level that `session.ts`'s `chemicalLevel()` adds to arousal. Never stored; cleared by the total stop |
+| `drugs.ts` | Crafted drinks and cigarettes tagged `[echs:relax]` / `[echs:stimulate]`: a temporary signed level that `session.ts`'s `chemicalLevel()` adds to arousal. Never stored; cleared by the total stop |
 | `selftouch.ts` | Hooks `ActivityRun`; whole-body and per-body-part blocks |
 | `suppression.ts` | Hides messages about things done to the subject, without changing what they do |
 | `conceal.ts` | Shows the subject's trigger words as `...` in their own chat, via BC's message-handler chain at priority 50. Changes only what is drawn |
@@ -1100,12 +1100,14 @@ Map room note: since most BC bondage items add Slow rather than Freeze, the Tier
 >   ignored until taken out.
 > - **Stacking REVERSED (DW, 2026-10-28):** drugs now ADD to arousal (`arousal + drug`), replacing
 >   the `max()` rule below. "I have changed my mind a little."
+> - **The tag is `[echs:…]`, not `[hypno:…]`** (DW, 2026-10-28: the "hypno" name is being retired
+>   from everything players type). `[hypno:relax]` does nothing.
 > - **Opt-in kept:** the default chemical scope stays *Arousal only*; a tagged drink then says it did
 >   nothing and names the setting (rule 5).
 > - **Not yet built:** `sedate`, `restore`, `extend` — inert tags until then. Injection is not
 >   wired either. See *Todo*.
 
-**Delivery mechanism:** BC's crafted item system (players write custom names and descriptions). The add-on scans crafted item descriptions for a `[hypno:x]` tag and triggers the appropriate effect based on both the tag and the interaction type (drink, smoke, inject, etc.). This is the same general approach as LSCG; the `[hypno:]` namespace prevents conflicts if both add-ons are running simultaneously.
+**Delivery mechanism:** BC's crafted item system (players write custom names and descriptions). The add-on scans crafted item descriptions for a `[echs:x]` tag and triggers the appropriate effect based on both the tag and the interaction type (drink, smoke, inject, etc.). This is the same general approach as LSCG; the `[echs:]` namespace prevents conflicts if both add-ons are running simultaneously.
 
 **Item types and actions scanned:**
 - Cup / drink → `drink` action
@@ -1117,11 +1119,11 @@ Map room note: since most BC bondage items add Slow rather than Freeze, the Tier
 
 | Tag | Effect | Natural item pairing |
 |-----|--------|---------------------|
-| `[hypno:relax]` | Mild inhibition lowering — small susceptibility bump | Drink, cigarette |
-| `[hypno:sedate]` | Strong inhibition lowering — significant susceptibility bump | Injection, potion |
-| `[hypno:stimulate]` | Inhibition raiser — makes subject harder to hypnotize | Stimulant drink, injection |
-| `[hypno:restore]` | Recharges resistance fatigue so subject can fight harder | Tonic, injection |
-| `[hypno:extend]` | Prolongs an active trance session slightly | Potion used during a session |
+| `[echs:relax]` | Mild inhibition lowering — small susceptibility bump | Drink, cigarette |
+| `[echs:sedate]` | Strong inhibition lowering — significant susceptibility bump | Injection, potion |
+| `[echs:stimulate]` | Inhibition raiser — makes subject harder to hypnotize | Stimulant drink, injection |
+| `[echs:restore]` | Recharges resistance fatigue so subject can fight harder | Tonic, injection |
+| `[echs:extend]` | Prolongs an active trance session slightly | Potion used during a session |
 
 **Two directions:** drugs that lower resistance (raise chemical floor) AND items that boost resistance or recharge fatigue — players can have countermeasures if desired.
 

@@ -45,7 +45,7 @@ smoking activity**: the Cigarette is `ItemMouth`, or `ItemHandheld` with typed o
 the default) / In Hand (1). So a cigarette is polled once a minute rather than caught as an event.
 Technique reference: LSCG's `injector.ts` reads the actor's handheld Craft on `SipItem` the same
 way. No code is taken (rule 7). LSCG matches plain words ("mind control", "hypnotizing"), so our
-bracketed `[hypno:…]` tags can't collide with it in either direction.
+bracketed `[echs:…]` tags can't collide with it in either direction.
 
 **Two things the new suite caught before shipping:**
 - The total-stop hook was first registered inside `installDrugs()`, so it was missing wherever

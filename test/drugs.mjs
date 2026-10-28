@@ -1,6 +1,6 @@
 // Crafted drinks and cigarettes, v0.101.0 (DW, 2026-10-28).
 //
-// A craft tagged [hypno:relax] or [hypno:stimulate] moves a drug level that ADDS to arousal in the
+// A craft tagged [echs:relax] or [echs:stimulate] moves a drug level that ADDS to arousal in the
 // induction's chemical half (DW reversed the old max() rule the same day). Drinks: 15 a sip, to
 // ±40. A cigarette in her mouth: 3 a minute, to ±20, and never pulls a drink's level back down.
 // Decays 1 a minute once nothing feeds it. Off unless her chemical scope lets drugs count, and
@@ -46,11 +46,12 @@ storage.setFeature("hypnoEnabled", true);
 // --- reading the tag -------------------------------------------------------------------------
 // Failure looks like: a tag in the description missed, a differently-cased tag missed, or an
 // unbuilt drug (sedate) treated as one we know.
-check("tag in the name", drugs.drugKindOf({ Name: "Calm Tea [hypno:relax]" }), "relax");
-check("tag in the description", drugs.drugKindOf({ Name: "Tea", Description: "Soothing. [hypno:relax]" }), "relax");
-check("any case, spaces inside", drugs.drugKindOf({ Name: "Brew [ HYPNO : Stimulate ]" }), "stimulate");
-check("an unbuilt drug is inert", drugs.drugKindOf({ Name: "[hypno:sedate]" }), null);
-check("an unknown tag before a known one is skipped", drugs.drugKindOf({ Name: "[hypno:sedate] [hypno:relax]" }), "relax");
+check("tag in the name", drugs.drugKindOf({ Name: "Calm Tea [echs:relax]" }), "relax");
+check("tag in the description", drugs.drugKindOf({ Name: "Tea", Description: "Soothing. [echs:relax]" }), "relax");
+check("any case, spaces inside", drugs.drugKindOf({ Name: "Brew [ ECHS : Stimulate ]" }), "stimulate");
+check("an unbuilt drug is inert", drugs.drugKindOf({ Name: "[echs:sedate]" }), null);
+check("an unknown tag before a known one is skipped", drugs.drugKindOf({ Name: "[echs:sedate] [echs:relax]" }), "relax");
+check("the retired [hypno:] tag does nothing", drugs.drugKindOf({ Name: "Calm Tea [hypno:relax]" }), null);
 check("an LSCG keyword is not ours", drugs.drugKindOf({ Name: "Hypnotizing mind control drink" }), null);
 check("no craft at all", drugs.drugKindOf(undefined), null);
 
@@ -59,7 +60,7 @@ check("no craft at all", drugs.drugKindOf(undefined), null);
 // player never having opted in.
 reset();
 check("default scope is Arousal only", storage.getChemicalScope(), "arousal");
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper);
 check("  the level does not move", level(), 0);
 check("  she is told why, naming the setting", said.some((m) => /does nothing/.test(m) && /Arousal only/.test(m) && /Depth tab/.test(m)), true);
@@ -73,7 +74,7 @@ wear(helper, "ItemHandheld", cup("Plain Water"));
 drugs.handleSip(helper);
 check("an untagged drink: no change", level(), 0);
 check("  and nothing said", said.length, 0);
-wear(helper, "ItemHandheld", cup("Calm Tea", "[hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea", "[echs:relax]"));
 drugs.handleSip(helper);
 check("one relax sip: +15", level(), 15);
 check("  she feels it", said.some((m) => /looseness/.test(m)), true);
@@ -87,21 +88,21 @@ check("  and says it can't go further", said.some((m) => /any further/.test(m)),
 
 // Her own drink: she is the actor holding the cup.
 reset();
-wear(Player, "ItemHandheld", cup("Espresso [hypno:stimulate]"));
+wear(Player, "ItemHandheld", cup("Espresso [echs:stimulate]"));
 drugs.handleSip(Player);
 check("her own stimulate sip: -15", level(), -15);
 drugs.handleSip(Player); drugs.handleSip(Player); drugs.handleSip(Player);
 check("stimulate caps at -40", level(), -40);
 
 // Opposite drugs cancel.
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper);
 check("relax after stimulate moves it back toward 0", level(), -25);
 
 // --- decay ------------------------------------------------------------------------------------
 // Failure looks like: no decay, decay past 0, or decay at the wrong rate.
 reset();
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper);
 clock += 5 * MIN;
 check("5 minutes later: 15 → 10", level(), 10);
@@ -112,10 +113,10 @@ check("it stops at 0, never goes negative", level(), 0);
 // Failure looks like: a cigarette in hand counting, one reaching past 20, one pulling a drink's
 // 40 back down, or decay running while it is still in her mouth.
 reset();
-wear(Player, "ItemHandheld", cigarette("Clove [hypno:relax]", 1)); // typed 1: In Hand
+wear(Player, "ItemHandheld", cigarette("Clove [echs:relax]", 1)); // typed 1: In Hand
 drugs.smokeTick();
 check("a cigarette held in the hand does nothing", level(), 0);
-wear(Player, "ItemHandheld", cigarette("Clove [hypno:relax]")); // fresh: option 0, In Mouth
+wear(Player, "ItemHandheld", cigarette("Clove [echs:relax]")); // fresh: option 0, In Mouth
 drugs.smokeTick();
 check("in her mouth (handheld, default option): +3", level(), 3);
 check("  she feels it once", said.filter((m) => /looseness/.test(m)).length, 1);
@@ -130,14 +131,14 @@ clock += 4 * MIN;
 check("taken out: decays from 20", level(), 16);
 
 reset();
-wear(Player, "ItemMouth", cigarette("Menthol [hypno:stimulate]"));
+wear(Player, "ItemMouth", cigarette("Menthol [echs:stimulate]"));
 drugs.smokeTick();
 check("an ItemMouth cigarette counts too, stimulate: -3", level(), -3);
 
 reset();
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper); drugs.handleSip(helper); drugs.handleSip(helper);
-wear(Player, "ItemMouth", cigarette("Clove [hypno:relax]"));
+wear(Player, "ItemMouth", cigarette("Clove [echs:relax]"));
 drugs.smokeTick();
 check("a cigarette never pulls a drink's 40 down to 20", level(), 40);
 
@@ -146,14 +147,14 @@ check("a cigarette never pulls a drink's 40 down to 20", level(), 40);
 reset();
 Player.ArousalSettings.Progress = 60;
 check("arousal alone", session.chemicalLevel(), 60);
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper); drugs.handleSip(helper);
 check("arousal 60 + relax 30 = 90, they add", session.chemicalLevel(), 90);
 const withDrug = session.effectiveAccess(HYP);
 drugs.clearDrugs();
 check("  and the drink lifts access by a quarter of itself (+7.5)", Math.round((withDrug - session.effectiveAccess(HYP)) * 10) / 10, 7.5);
 Player.ArousalSettings.Progress = 0;
-wear(Player, "ItemHandheld", cup("Espresso [hypno:stimulate]"));
+wear(Player, "ItemHandheld", cup("Espresso [echs:stimulate]"));
 drugs.handleSip(Player); drugs.handleSip(Player);
 check("no arousal, stimulate 30: chemical -30", session.chemicalLevel(), -30);
 
@@ -170,7 +171,7 @@ storage.setChemicalScope("both");
 // Failure looks like: a drink working with hypnosis unticked, or any level surviving the safeword.
 reset();
 storage.setFeature("hypnoEnabled", false);
-wear(helper, "ItemHandheld", cup("Calm Tea [hypno:relax]"));
+wear(helper, "ItemHandheld", cup("Calm Tea [echs:relax]"));
 drugs.handleSip(helper);
 check("hypnosis unticked: a drink does nothing", level(), 0);
 check("  and says nothing (the add-on is off)", said.length, 0);
@@ -182,7 +183,7 @@ check("the safeword clears it", level(), 0);
 
 // A cigarette still in her mouth must not start again the minute after a safeword.
 reset();
-wear(Player, "ItemMouth", cigarette("Clove [hypno:relax]"));
+wear(Player, "ItemMouth", cigarette("Clove [echs:relax]"));
 drugs.smokeTick(); clock += MIN; drugs.smokeTick();
 check("smoking: 6", level(), 6);
 session.safeword();
@@ -190,7 +191,7 @@ clock += MIN; drugs.smokeTick();
 check("safeword, cigarette still in: stays 0", level(), 0);
 strip(Player, "ItemMouth");
 clock += MIN; drugs.smokeTick();
-wear(Player, "ItemMouth", cigarette("Clove [hypno:relax]"));
+wear(Player, "ItemMouth", cigarette("Clove [echs:relax]"));
 clock += MIN; drugs.smokeTick();
 check("taken out and put back: counts again", level(), 3);
 

@@ -2285,7 +2285,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var SMOKE_CAP = 20;
   var DECAY_PER_MINUTE = 1;
   var SMOKE_TICK_MS = 6e4;
-  var TAG2 = /\[\s*hypno\s*:\s*([a-z]+)\s*\]/gi;
+  var TAG2 = /\[\s*echs\s*:\s*([a-z]+)\s*\]/gi;
   var level = 0;
   var settledAt = 0;
   var smoking = null;
@@ -2344,7 +2344,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     stimulate: "A sharp, buzzing clarity sets in. Your mind feels harder to slip past."
   };
   function off(kind, what) {
-    return `The [hypno:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
+    return `The [echs:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
   }
   function handleSip(actor) {
     if (!getFeatures().hypnoEnabled) return;

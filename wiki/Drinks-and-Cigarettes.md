@@ -12,10 +12,10 @@ Craft the item in Bondage Club's crafting screen and put a tag in its **name or 
 
 | Tag | What it does |
 |---|---|
-| `[hypno:relax]` | Lowers your guard: an induction lands more easily and goes deeper. |
-| `[hypno:stimulate]` | Sharpens you: harder to put under, and easier to fight your way back up. |
+| `[echs:relax]` | Lowers your guard: an induction lands more easily and goes deeper. |
+| `[echs:stimulate]` | Sharpens you: harder to put under, and easier to fight your way back up. |
 
-Capital letters don't matter, so `[Hypno:Relax]` works too. Anyone can craft one, and the person handing you the drink doesn't need ECHS.
+Capital letters don't matter, so `[Echs:Relax]` works too. Anyone can craft one, and the person handing you the drink doesn't need ECHS.
 
 **Items that work:**
 - **Drinks:** a crafted **Filled Glass** or **Mug**. It takes effect when someone uses the **Sip** action on your mouth with it. Sipping your own drink counts too.

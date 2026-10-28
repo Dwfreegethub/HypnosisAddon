@@ -1,6 +1,6 @@
 // Crafted drinks and cigarettes (v0.101.0, DW 2026-10-28).
 //
-// A crafted item whose name or description carries `[hypno:relax]` or `[hypno:stimulate]` moves a
+// A crafted item whose name or description carries `[echs:relax]` or `[echs:stimulate]` moves a
 // drug level, -40 to +40, that feeds the chemical half of the induction alongside arousal
 // (session.ts, chemicalLevel). relax makes her easier to put under; stimulate harder. The level
 // is a moment, not a record: it decays toward 0, is never saved, and the safeword clears it — so
@@ -43,8 +43,9 @@ export const SMOKE_CAP = 20;
 export const DECAY_PER_MINUTE = 1;
 const SMOKE_TICK_MS = 60_000;
 
-/** `[hypno:relax]`, any case, spaces allowed inside the brackets. */
-const TAG = /\[\s*hypno\s*:\s*([a-z]+)\s*\]/gi;
+/** `[echs:relax]`, any case, spaces allowed inside the brackets. `echs`, not `hypno`: DW is moving
+ * everything players type off the old "hypno" name (2026-10-28), and no `[hypno:]` item ever shipped. */
+const TAG = /\[\s*echs\s*:\s*([a-z]+)\s*\]/gi;
 
 let level = 0;
 let settledAt = 0;
@@ -131,7 +132,7 @@ const FEEL: Record<DrugKind, string> = {
 };
 
 function off(kind: DrugKind, what: string): string {
-	return `The [hypno:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
+	return `The [echs:${kind}] in that ${what} does nothing: Chemicals count is set to "${scopeLabel()}". Choose "Arousal + drugs" or "Drugs only" on the Depth tab to let it work.`;
 }
 
 /** A sip aimed at her. `actor` is the character holding the cup — her, for her own drink. */

@@ -15,7 +15,7 @@ report it and say which version your chat line shows.
 ## v0.101.0 · 28 October 2026
 
 - **Drinks and cigarettes.** A crafted drink or cigarette can now make you easier or harder to
-  hypnotize for a while. Put `[hypno:relax]` or `[hypno:stimulate]` in the item's name or
+  hypnotize for a while. Put `[echs:relax]` or `[echs:stimulate]` in the item's name or
   description when you craft it.
   - **A drink** (Filled Glass or Mug) takes effect each time someone sips it to you. Your own sips
     count too.

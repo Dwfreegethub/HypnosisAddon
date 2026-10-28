@@ -16,7 +16,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 **Recent highlights:**
-* **Drinks and cigarettes:** a crafted drink or cigarette tagged `[hypno:relax]` or `[hypno:stimulate]` makes you easier or harder to hypnotize for a while. Opt in on the Depth tab. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**.
+* **Drinks and cigarettes:** a crafted drink or cigarette tagged `[echs:relax]` or `[echs:stimulate]` makes you easier or harder to hypnotize for a while. Opt in on the Depth tab. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**.
 * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
 * **Read-only lock banner:** locked settings show a yellow *Read-only* banner.
 * **Trust list names:** the trust list shows people by the name they go by.
@@ -44,7 +44,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | **[Commanded Activities](Commanded-Activities)** | Being made to act rather than just freeze — autonomous movement and touch. |
 | **[Sensory Modulation](Sensory-Modulation)** | Hearing only one voice, or only your name; sight dimmed, darkened, or taken via native blindness. |
 | **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** | Words that fire later, compulsions that wait for a moment, and suggestions that survive waking. |
-| **[Drinks and Cigarettes](Drinks-and-Cigarettes)** | Crafted items tagged `[hypno:relax]` or `[hypno:stimulate]` that make you easier or harder to put under for a while. |
+| **[Drinks and Cigarettes](Drinks-and-Cigarettes)** | Crafted items tagged `[echs:relax]` or `[echs:stimulate]` that make you easier or harder to put under for a while. |
 | **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
 | **[How an Induction Works](How-Inductions-Work)** | What decides whether it takes and how deep, going deeper, fighting up, answering ahead of time, and toy mode. |
 | **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |
