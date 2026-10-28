@@ -4959,7 +4959,7 @@ the hypnotist's pose commands under WCE's animation engine). Next bugs or regres
 the v0.100.6 `script_test.md` on 2026-10-28; the ticks were not saved and DW said to take it as all
 passing. Recorded here as *passed, by DW's word*, not as step-by-step confirmed.
 
-### 30. Drinks and cigarettes (v0.101.0) — **open, never run live**
+### ~~30. Drinks and cigarettes (v0.101.0)~~ — **confirmed live by DW 2026-10-28** (the v0.101.0 `script_test.md`, "I tested that and it works")
 
 The `script_test.md` for v0.101.0 has the steps. The ones only a live room can answer: that the
 sip arrives with `ActivityName: "SipItem"` and her as `TargetMemberNumber` when **someone else**
