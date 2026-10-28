@@ -26,7 +26,7 @@ const common = {
 // install from a local checkout runs. Players no longer install it (v0.83.0) — see below.
 const options = {
 	...common,
-	entryPoints: ["src/main.ts"],
+	entryPoints: ["src/index.ts"],
 	outfile: "dist/HypnosisAddon.user.js",
 	banner: { js: banner },
 };
@@ -40,7 +40,7 @@ const options = {
 // code as the dev build, byte for byte, below the header.
 const bundle = {
 	...common,
-	entryPoints: ["src/main.ts"],
+	entryPoints: ["src/index.ts"],
 	outfile: "dist/HypnosisAddon.js",
 	banner: {
 		js: `// Erotic Chat Hypnosis Suite (ECHS) v${pkg.version}. Loaded at runtime by the installed loader;\n// this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js`,

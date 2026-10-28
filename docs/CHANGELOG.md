@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-10-28 (v1.0.1 RC) — ECHS starts once per page, however many loaders run it
+
+Found while preparing the FUSAM listing. FUSAM loads `cdn/HypnosisAddon.js` itself, and a player can
+easily keep the Tampermonkey loader installed as well. Nothing stopped two copies starting. The
+second would re-run `main.ts`, installing every hook, `ChatRoomRegisterMessageHandler` and interval
+again, so a sip would be dosed twice. `registerMod`'s `allowReplace` replaces the SDK hooks only, not
+BC's message handlers or our timers. The bookmark loader had the same gap.
+
+- New entry point `src/index.ts`. It sets `window.__ECHS_LOADED__` to the version synchronously,
+  then `import("./main")`, which esbuild inlines, so the bundle is still one file. A later copy that
+  finds the flag set logs a console warning naming both loaders and starts nothing. `build.mjs`
+  builds the dev userscript and the CDN bundle from `index.ts`.
+- `main.ts` now runs one microtask after the script, instead of during it. Nothing reads ECHS
+  synchronously after injecting it: the loader only waits for `onload`.
+- New suite `test/load-once.mjs`. It runs the real `dist/HypnosisAddon.js` in a `vm` sandbox: twice
+  in one page, then once in a page already claimed. It counts `main.ts`'s "script loaded" line.
+  With the guard disabled, 3 of its 6 checks fail, so it is not vacuous (rule 6).
+
 ### Decided 2026-10-28 (v1.0.0 RC) — the 1.0 release candidate, and a `dev` branch
 
 DW: "I want this merge to be version 1.0RC for release candidate. I also want to copy it to make a
