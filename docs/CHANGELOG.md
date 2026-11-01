@@ -20,6 +20,25 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-01 (v1.0.1 RC) — FUSAM loads ECHS from GitHub Pages, with an icon
+
+No add-on code changed, so no bump. The FUSAM entry drafted on 2026-10-28 used `"type": "eval"`,
+because raw GitHub serves `text/plain` with `nosniff` and FUSAM's `"script"` type loads with a
+`<script>` tag, which the browser then refuses. When DW posted the entry in the BC Scripting
+Community Discord, it was pushed back on: `eval` is disliked there, and only 3 of the 44 listed
+add-ons use it. Freya (FBM) said to deploy on GitHub Pages instead. Checked 2026-11-01: Pages serves
+`.js` as `application/javascript` with `Access-Control-Allow-Origin: *`, which is how the FBM and
+SlimeBeep listings load as `"script"`. A claim in the same thread that Pages serves the wrong type is
+not borne out.
+
+- New `.github/workflows/pages.yml` publishes `main`'s and `dev`'s `cdn/HypnosisAddon.js` and
+  `pages/icon.png`. Pages deploys from `main` only, so a push to `dev` dispatches a run on `main`,
+  which rebuilds from both branches.
+- `pages/icon.png` is the `src/icon.ts` spiral, rendered at 256×256 on a pale `#ece8f7` tile. On its
+  own, the navy line almost vanishes on FUSAM's dark icon background (`#353535`).
+- The Tampermonkey loader already injects the bundle with a script tag, so the bundle needs no change
+  to load this way.
+
 ### Fixed 2026-10-28 (v1.0.1 RC) — ECHS starts once per page, however many loaders run it
 
 Found while preparing the FUSAM listing. FUSAM loads `cdn/HypnosisAddon.js` itself, and a player can

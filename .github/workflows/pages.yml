@@ -1,0 +1,85 @@
+# Publishes the FUSAM site at https://dwfreegethub.github.io/HypnosisAddon/ (2026-11-01).
+#
+#   HypnosisAddon.js      main's cdn/HypnosisAddon.js  (FUSAM "stable")
+#   dev/HypnosisAddon.js  dev's cdn/HypnosisAddon.js   (FUSAM "dev")
+#   icon.png              pages/icon.png               (FUSAM's add-on list icon)
+#
+# WHY PAGES. FUSAM's "script" type loads an add-on with a <script> tag, and the browser refuses one
+# that is not served as JavaScript. Raw GitHub serves text/plain with nosniff, so the first manifest
+# entry had to use "eval" (fetch the text, eval() it), which the BC Scripting Discord pushed back on.
+# Pages serves application/javascript with Access-Control-Allow-Origin: *, as the FBM and SlimeBeep
+# listings already rely on.
+#
+# Pages can only deploy from main (the github-pages environment allows the default branch only). So
+# a push to dev does not deploy; it asks for a run on main, which always rebuilds the whole site from
+# both branches. Either branch changing therefore republishes both files.
+#
+# icon.png is the add-on's own spiral (src/icon.ts) at 256x256, scaled to 86% on a #ece8f7 rounded
+# tile so it stays visible on FUSAM's dark (#353535) icon background as well as the light one.
+name: Publish GitHub Pages
+
+on:
+  push:
+    branches: [main, dev]
+    paths: [cdn/HypnosisAddon.js, pages/**, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Ask main to rebuild the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Until this file is on main there is nothing to dispatch. Say so rather than fail: the
+          # first release to main publishes dev's build anyway.
+          if ! gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/pages.yml?ref=main" > /dev/null 2>&1; then
+            echo "::warning::pages.yml is not on main yet, so dev's build is not published until the next release."
+            exit 0
+          fi
+          gh workflow run pages.yml --ref main --repo "${GITHUB_REPOSITORY}"
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: main
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: dev
+
+      - name: Assemble the site
+        run: |
+          mkdir -p site/dev
+          cp main/cdn/HypnosisAddon.js site/HypnosisAddon.js
+          cp dev/cdn/HypnosisAddon.js site/dev/HypnosisAddon.js
+          cp main/pages/icon.png site/icon.png
+          touch site/.nojekyll
+          echo "stable: v$(node -p "require('./main/package.json').version")"
+          echo "dev:    v$(node -p "require('./dev/package.json').version")"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

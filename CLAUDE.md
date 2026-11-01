@@ -63,8 +63,11 @@ The reasoning for each is in the Orientation section; this is the checklist.
   merged with a **merge commit** (`gh pr merge --merge`), never squashed: a squash would make every
   later release re-apply the same changes and conflict. Never delete `dev` when merging it. The
   first was #95 (v1.0.1 RC).
-- **FUSAM** lists ECHS from raw GitHub (`type: "eval"`): `stable` is `main`'s
-  `cdn/HypnosisAddon.js`, `dev` is `dev`'s. So a merge into `dev` reaches FUSAM's dev-channel
+- **FUSAM** lists ECHS from GitHub Pages (`type: "script"`, since 2026-11-01):
+  `dwfreegethub.github.io/HypnosisAddon/HypnosisAddon.js` is `main`'s `cdn/HypnosisAddon.js`
+  (`stable`), `…/dev/HypnosisAddon.js` is `dev`'s, and `…/icon.png` is `pages/icon.png`.
+  `.github/workflows/pages.yml` republishes on every push to either branch. Not raw GitHub: it
+  serves `text/plain`, which a script tag refuses. So a merge into `dev` reaches FUSAM's dev-channel
   players too; keep `dev` working. `src/index.ts` keeps two loaders from starting ECHS twice.
   The loader fetches from `main`, so nothing on `dev` or a `feat/` branch reaches players. A hotfix
   goes to `main` and is then merged back into `dev`. Docs-only and wiki-only changes need no bump.
