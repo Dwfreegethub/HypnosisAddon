@@ -65,7 +65,7 @@ What others may do to you. Everything here is off until you turn it on.
 |---|---|
 | **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you; nobody else can change your pose. Items can still be put on you. |
 | **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. |
-| **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the hypnotist's side across room transitions using Bondage Club's native leash system. Requires your native BC leashing permissions to be enabled. |
+| **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the side of whoever said it, across room changes, using Bondage Club's own leash. No leash or collar is needed. Requires your own BC setting that lets others leash you, and the hypnotist must also run ECHS. |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
 

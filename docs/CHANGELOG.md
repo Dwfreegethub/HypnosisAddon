@@ -20,6 +20,51 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-01 (v1.1.0 RC) — Follow / leash rebuilt on LSCG's technique: no leash item, no Hold Leash
+
+**Reported broken by a tester, 2026-11-01.** The v0.77.0 design was never given the two-account run
+its own entry asked for. Read against the live R133 client (BC's leash code is unchanged from R132),
+it failed in two ways:
+- *"Follow me"* only injected a `"Leash"` effect onto the subject's Emoticon item, making them
+  leashable. The hypnotist still had to open the subject and click BC's **Hold Leash**, and nothing
+  told them to. The room line ("as though on an invisible leash") announced a leash that was not on,
+  against rule 5.
+- `Asset.AllowEffect` is client-local, so every client without ECHS strips the injected effect in
+  `ValidationSanitizeEffects`. A hypnotist without ECHS never got the option at all. The v0.77.0
+  entry's "works with a hypnotist who has no add-on" was wrong.
+
+**The new mechanism is LSCG's** (`src/Modules/leashing.ts`, its `"compulsion"` grab type and the
+arm and ear grabs), reimplemented, with no LSCG code (rule 7). BC still does the room move.
+- **Subject:** while compelled, `ChatRoomCanBeLeashedBy` answers true for the leader with no leash
+  item (still false when the room blocks Leashing or the subject is Tethered, Mounted or Enclosed).
+  `ServerHandleLeashBeep` stands the leader in as `ChatRoomLeashPlayer` for its synchronous check,
+  which runs before its first await, and puts the real value back, so a real leash someone else
+  holds is untouched. `ChatRoomCanLeave` is false while the leader is in the room, and not after,
+  so a failed follow (a locked or full room) cannot strand the subject. A second beep for the room
+  being joined is ignored; LSCG found that one pulls the follower back out.
+- **Hypnotist:** the subject's client sends `follow-on` / `follow-off`, and the hypnotist's adds a
+  `"Leash"` AccountBeep to each follower on every `ChatRoomPingLeashedPlayers`. A Leash beep is not
+  limited to friends. The subject re-sends `follow-on` (quietly) whenever the leader is seen in
+  the room again, because a reload on the hypnotist's side forgets its followers.
+- **Rule 1 holds.** A beep moves nobody unless the subject's own client has a compulsion on, from
+  that sender. Nothing the hypnotist sends turns one on.
+- **Rule 5.** `applyFollow` refuses when the subject's `AllowPlayerLeashing` is off (BC's beep
+  handler returns at once without it) or the room blocks leashing. The suggestion then returns the
+  new private key `follow-unavailable`, and the hypnotist is told the reason. With no `follow-ack`
+  within 8 seconds, the subject is told the hypnotist isn't running ECHS.
+- **It follows whoever said it**, which for a trigger is the trigger's speaker, as `design.md`'s
+  trigger table always said. It used to follow the session's hypnotist.
+- **Reload:** the follow is now saved with its leader (`SavedSession.follow`). A v1.0.1 save that
+  has `"Leash"` in `effects` restores as a follow of the saved hypnotist, and the leftover effect is
+  taken off. `"Leash"` stays in the managed lists only so that a leftover from an older version is
+  still recognised and removed.
+- **Living alongside LSCG:** both add-ons hook the same four BC functions, and each acts only for its
+  own pairings and passes everything else on. This has not been tried live yet; it is in
+  `script_test.md`.
+
+`test/follow.mjs` (40 checks) covers both sides. Still owed: a live two-account run, which is
+`script_test.md`.
+
 ### Changed 2026-11-01 (v1.0.1 RC) — FUSAM loads ECHS from GitHub Pages, with an icon
 
 No add-on code changed, so no bump. The FUSAM entry drafted on 2026-10-28 used `"type": "eval"`,

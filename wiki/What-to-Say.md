@@ -114,7 +114,9 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 **Poses come in two groups, legs and arms,** and one never undoes the other: *"kneel"* then *"hands behind your back"* leaves the subject kneeling with hands clasped. A pose that bondage prevents does not happen, and the room sees the subject try and fail rather than a line claiming it worked. *"On all fours"* and *"lie down"* are whole-body poses, so they take the arms with them. Bondage Club has no sitting or crossed-arms pose, so *"sit"* and *"cross your arms"* do nothing.
 
-**Follow / Leash** hooks into Bondage Club's native leash system. The phrase makes the subject leashable on command; the hypnotist then takes the leash using the standard **Hold Leash** button. The game handles room transitions automatically, and the subject cannot walk away while held. This requires the subject's native BC leashing settings to allow it, and only the active hypnotist can hold the leash while under trance.
+**Follow / Leash** uses Bondage Club's own leash, with no leash or collar needed and nothing to click. Once the phrase lands, the hypnotist is told the subject will follow. When the hypnotist leaves the room, the game brings the subject along, and the subject cannot walk out on their own while the hypnotist is in the room. *"You can leave"*, waking, or the safeword ends it.
+
+It needs three things. **Both players must run ECHS:** without it on the hypnotist's side, the subject feels the pull but nothing can take them to another room, and the subject is told so. **The subject's own Bondage Club setting that lets others leash them must be on** (Preferences, Immersion). **The room must not block leashing.** If either setting stops it, the phrase does not land and the hypnotist is told why. Being tied to furniture or shut in a cage also stops it, as it does a real leash. Only the person who said the phrase can lead the subject.
 
 ---
 

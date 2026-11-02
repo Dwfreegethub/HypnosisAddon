@@ -30,7 +30,7 @@ import {
 	FrozenItem,
 } from "./illusion";
 import { clearOrgasmDenial } from "./arousal";
-import { applyFollow } from "./follow";
+import { applyFollow, releaseFollow, isFollowActive, followTargetId } from "./follow";
 
 // Surviving a disconnect.
 //
@@ -131,6 +131,10 @@ export interface SavedSession {
 	 * AllowEffect patch strips them, so re-asserting is the difference between usually and
 	 * always. */
 	effects: string[];
+	/** The follow compulsion (v1.1.0), with who it follows. Absent when none was on. It holds no BC
+	 * effect any more, so nothing on the appearance would bring it back. Saves from v1.0.1 and
+	 * earlier carry "Leash" in `effects` instead, which the restore converts. */
+	follow?: { leader: number | null };
 	/** Poses a suggestion put them in, so waking still knows to undo them. A single string in
 	 * saves written before v0.85.0. */
 	pose: string[] | string | null;
@@ -211,6 +215,7 @@ export function snapshotLocalState(): Omit<
 		// ours, so saving another add-on's Freeze would make it ours after a reload.
 		effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
 		pose: suggestedPose(),
+		...(isFollowActive() ? { follow: { leader: followTargetId() } } : {}),
 	};
 }
 
@@ -237,7 +242,7 @@ export function releaseEverything(reason: string): void {
 function releaseOurEffects(): void {
 	removeEffect("Freeze");
 	removeEffect("BlockWardrobe");
-	removeEffect("Leash");
+	releaseFollow();
 	clearOrgasmDenial();
 }
 
@@ -272,7 +277,7 @@ export function describeCurrentState(): string[] {
 		on("frozen", hasOwnEffect("Freeze")),
 		on("wardrobe blocked", hasOwnEffect("BlockWardrobe")),
 		on("orgasm denied", hasOwnEffect("DenialMode")),
-		on("leashed to follow", hasOwnEffect("Leash")),
+		on("compelled to follow", isFollowActive() || hasOwnEffect("Leash")),
 		on("posed by suggestion", !!st.pose, String(st.pose)),
 		on("self-touch blocked", st.selfTouch.all || st.selfTouch.groups.length > 0, describeSelfTouchBlocks()),
 	];
@@ -420,13 +425,18 @@ function restoreLocalState(saved: SavedSession): void {
 	// back in our own record, and the code that narrates or acts on "our" freeze reads only that
 	// record now (effects.ts heldByUs). Skipping it because the item still showed the effect left
 	// a resumed trance's freeze out of the record.
-	for (const e of saved.effects ?? []) applyEffect(e);
-	// The follow compulsion is a leash effect plus in-memory scope state, and only the effect
-	// rides the appearance across a reload. Re-arm the compulsion so it feels continuous and so
-	// the session's teardown still knows to cut it — with no leader, since who was leading is
-	// not part of the saved state. Unscoped means the hook stops gating who may lead, which is
-	// the honest cost of a reload; a room change keeps module state and never hits this.
-	if (hasOwnEffect("Leash")) applyFollow(null);
+	// "Leash" is the follow mechanism before v1.1.0, which no longer puts any effect on.
+	for (const e of saved.effects ?? []) if (e !== "Leash") applyEffect(e);
+	// The follow compulsion lives in follow.ts's memory, so it comes back from the save, with its
+	// leader. A save from v1.0.1 or earlier recorded it only as the "Leash" effect, and its leader
+	// was the hypnotist. Quiet: the leader's ECHS is told again once they are seen in the room.
+	// If leashing has since been switched off, applyFollow refuses and the compulsion stays off.
+	const legacyFollow = (saved.effects ?? []).includes("Leash") || hasOwnEffect("Leash");
+	if (saved.follow || legacyFollow) {
+		const why = applyFollow(saved.follow ? saved.follow.leader : saved.hypnotistId ?? null, { quiet: true });
+		if (why) log(`recovery: follow not restored, ${why}`);
+		if (hasOwnEffect("Leash")) removeEffect("Leash");
+	}
 	if (saved.pose) restoreSuggestedPose(saved.pose);
 	// The illusion comes back as the ORIGINAL frozen clothes, rebuilt from their stored
 	// identities. Re-freezing instead would snapshot whatever is worn at this moment — the

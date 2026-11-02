@@ -800,7 +800,15 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
 			/\bheel\b/,
 		],
-		run: () => { applyFollow(currentHypnotistId()); },
+		// Follows whoever said it: the hypnotist in a session, or a trigger's speaker. A follow that
+		// could never lead anyone (leashing off in her settings, or in this room) does not land.
+		run: (speaker) => {
+			const leader = typeof speaker === "number" ? speaker : currentHypnotistId();
+			const why = applyFollow(leader);
+			if (!why) return undefined;
+			if (leader != null) tellHypnotist(leader, `[follow] They can't be led between rooms: ${why}.`);
+			return "follow-unavailable";
+		},
 		undo: () => releaseFollow(),
 	},
 	{
