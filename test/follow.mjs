@@ -53,7 +53,7 @@ globalThis.setTimeout = (fn, ms, ...a) => {
 };
 globalThis.clearTimeout = (t) => (t?.fake ? (t.cleared = true) : realClearTimeout(t));
 
-const { voice, storage, session, follow, messaging, recovery } = await import("./harness-bundle.mjs");
+const { voice, storage, session, follow, messaging, recovery, effects } = await import("./harness-bundle.mjs");
 session.installSession();
 const hooks = {};
 follow.installFollow({ hookFunction: (name, _p, fn) => (hooks[name] = fn) });
@@ -155,6 +155,16 @@ hear("Missy, follow me");
 check("leashing off in her settings: nothing is put on", follow.isFollowActive(), false);
 check("  and the hypnotist is told why", toHyp.some((t) => t.includes("can't be led between rooms") && t.includes("setting")), true);
 Player.OnlineSharedSettings.AllowPlayerLeashing = true;
+
+// "Stop following me" (v1.1.1), said during walking trance. Failure: walking trance's own "stop"
+// takes the line, she goes back to full trance and still follows.
+storage.setFeature("movementRestriction", true);
+hear("Missy, follow me");
+hear("Missy, walk with me.");
+check("setup: following, and walking", [follow.isFollowActive(), effects.isWalkingTrance()], [true, true]);
+hear("Missy, stop following me.");
+check("'stop following me' while walking: the follow ends", follow.isFollowActive(), false);
+check("  and she is still walking", effects.isWalkingTrance(), true);
 
 // The safeword.
 hear("Missy, follow me");

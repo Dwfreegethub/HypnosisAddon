@@ -20,6 +20,19 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-01 (v1.1.1 RC) — "Stop following me" releases a follow
+
+DW asked for it: the natural thing to say had no pattern. `follow-release` gains
+`(stop|quit|cease) following (me)`, `(do not|don't) follow me`, `no (more|longer) following (me)`,
+and `need to` beside `have to` in "you don't have to follow me". "Don't follow me" contains "follow
+me", so it relies on the release being listed before `follow-block`, as every release is. "Keep
+following me" matches nothing, and is tested to stay that way.
+
+**The walking-trance clash.** While walking, `WALK_LEAVE_PATTERNS` takes any line with a bare
+`stop` and returns her to full trance, consuming the line, so "stop following me" would have
+left walking trance and kept the follow on. That pattern is now `stop` not followed by
+"following". `test/follow.mjs` checks it, and was seen to fail with the old pattern.
+
 ### Changed 2026-11-01 (v1.1.0 RC) — Follow / leash rebuilt on LSCG's technique: no leash item, no Hold Leash
 
 **Reported broken by a tester, 2026-11-01.** The v0.77.0 design was never given the two-account run

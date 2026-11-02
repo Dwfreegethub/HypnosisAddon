@@ -110,7 +110,7 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 | *"relax your arms"* · *"arms at your sides"* | — *release* (arms only) |
 | *“you can move again”* · *“your body is your own”* | — *release* |
 | *"follow me"* · *"stay close"* · *"heel"* | Follow / Leash · **Entranced (40)** |
-| *“you can leave”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
+| *“you can leave”* · *“stop following me”* · *“don't follow me”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
 
 **Poses come in two groups, legs and arms,** and one never undoes the other: *"kneel"* then *"hands behind your back"* leaves the subject kneeling with hands clasped. A pose that bondage prevents does not happen, and the room sees the subject try and fail rather than a line claiming it worked. *"On all fours"* and *"lie down"* are whole-body poses, so they take the arms with them. Bondage Club has no sitting or crossed-arms pose, so *"sit"* and *"cross your arms"* do nothing.
 

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.1.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.1.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7982,7 +7982,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // collide with the orgasm "come" family, which is listed earlier and would swallow it.
         {
           id: "follow-release",
-          examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+          examples: ["you can leave", "stop following me", "you don't have to follow me", "you are free to go"],
           release: true,
           releaseOf: "follow-block",
           permission: "followControl",
@@ -7990,7 +7990,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
             /\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
             /\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
-            /\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+            /\byou (?:do not|don't) (?:have|need) to (?:follow|stay)(?: me| close| near)?\b/,
+            // "Stop following me" and its kin (v1.1.1, DW). "Don't follow me" contains "follow me",
+            // which is why the release has to stay listed before the block.
+            /\b(?:stop|quit|cease) following(?: me)?\b/,
+            /\b(?:do not|don't) follow me\b/,
+            /\bno (?:more|longer) following(?: me)?\b/,
             /\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
             /\bstay (?:wherever|where) you (?:like|want|please)\b/
           ],
@@ -8765,7 +8770,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       WALK_LEAVE_PATTERNS = [
         /\bbe still\b/,
         /\bbe frozen\b/,
-        /\bstop\b/,
+        // Not "stop following me": that releases the follow, and leaving walking trance would eat it.
+        /\bstop\b(?! following)/,
         /\b(?:stand|hold|stay) still\b/,
         /\bstay put\b/,
         /\bstillness\b/,
@@ -10825,7 +10831,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10892,7 +10898,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13061,7 +13067,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.1.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.1.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13082,7 +13088,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.1.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.1.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13154,14 +13160,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.1.0"})`);
+      info(`script loaded (v${"1.1.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.1.0",
+          version: "1.1.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13299,10 +13305,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.1.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.1.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.1.0";
+    page2.__ECHS_LOADED__ = "1.1.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

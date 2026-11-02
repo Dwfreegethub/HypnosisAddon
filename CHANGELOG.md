@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.1.1 RC · 1 November 2026
+
+- **More ways to end a follow.** As well as *"you can leave"*, the hypnotist can now say
+  *"stop following me"*, *"quit following me"*, *"don't follow me"*, *"no more following"* or
+  *"you don't need to follow me"*. *"Stop following me"* also works during a walking trance, where
+  a plain *"stop"* still brings the subject back to full trance.
+
 ## v1.1.0 RC · 1 November 2026
 
 - **Follow works now, with no leash needed.** When a hypnotist says *"follow me"* and it lands,

@@ -91,6 +91,18 @@ const CASES = [
 	["you don't have to follow me", "follow-release"],
 	["You can walk away.", "follow-release"],
 	["Stay wherever you like.", "follow-release"],
+	// v1.1.1: "stop following". Failure: unmatched, or "don't follow me" read as follow-block.
+	["Stop following me.", "follow-release"],
+	["stop following", "follow-release"],
+	["You can stop following me now.", "follow-release"],
+	["quit following me", "follow-release"],
+	["Don't follow me.", "follow-release"],
+	["do not follow me anymore", "follow-release"],
+	["no more following me", "follow-release"],
+	["you don't need to follow me", "follow-release"],
+	["You no longer need to follow me.", "follow-release"],
+	// Still the block: "following" alone is not a release.
+	["Keep following me.", null],
 	// follow must not swallow the movement family, nor the reverse — different restrictions
 	["Stay still.", "movement-block"],
 	["Stay where you are.", "movement-block"],

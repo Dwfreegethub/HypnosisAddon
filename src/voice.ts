@@ -772,7 +772,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// collide with the orgasm "come" family, which is listed earlier and would swallow it.
 	{
 		id: "follow-release",
-		examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+		examples: ["you can leave", "stop following me", "you don't have to follow me", "you are free to go"],
 		release: true,
 		releaseOf: "follow-block",
 		permission: "followControl",
@@ -780,7 +780,12 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
 			/\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
 			/\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
-			/\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+			/\byou (?:do not|don't) (?:have|need) to (?:follow|stay)(?: me| close| near)?\b/,
+			// "Stop following me" and its kin (v1.1.1, DW). "Don't follow me" contains "follow me",
+			// which is why the release has to stay listed before the block.
+			/\b(?:stop|quit|cease) following(?: me)?\b/,
+			/\b(?:do not|don't) follow me\b/,
+			/\bno (?:more|longer) following(?: me)?\b/,
 			/\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
 			/\bstay (?:wherever|where) you (?:like|want|please)\b/,
 		],
@@ -3035,7 +3040,8 @@ const WALK_ENTER_PATTERNS = [
 const WALK_LEAVE_PATTERNS = [
 	/\bbe still\b/,
 	/\bbe frozen\b/,
-	/\bstop\b/,
+	// Not "stop following me": that releases the follow, and leaving walking trance would eat it.
+	/\bstop\b(?! following)/,
 	/\b(?:stand|hold|stay) still\b/,
 	/\bstay put\b/,
 	/\bstillness\b/,
