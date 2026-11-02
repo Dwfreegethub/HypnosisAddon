@@ -96,6 +96,9 @@ export type FlavorKey =
 	/** A restriction (freeze, wardrobe block) that was said, permitted and deep enough, and still
 	 * did not take hold in the game. Private only: the room must not be told of a freeze that is not there. */
 	| "effect-failed"
+	/** "Follow me" said, permitted and deep enough, but nothing could lead her anywhere: her own
+	 * leashing setting is off, or the room blocks leashing. Private, like effect-failed. */
+	| "follow-unavailable"
 	/** Hands bound, or a lock that is not ours. */
 	| "undress-blocked"
 	/** Told to strip while OUR OWN freeze is holding her. Distinct from undress-blocked,
@@ -396,6 +399,10 @@ const LINES: Record<FlavorKey, string[]> = {
 	"effect-failed": [
 		"The words reach you, but for once your body does not answer them.",
 		"Something tries to settle over you and slides off.",
+	],
+	"follow-unavailable": [
+		"The urge to follow rises, and finds nowhere to go.",
+		"Something wants you at their side, and cannot take you there.",
 	],
 	"undress-bare": [
 		"Your hands go looking for something to take off and find nothing there.",

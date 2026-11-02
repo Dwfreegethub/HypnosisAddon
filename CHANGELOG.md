@@ -12,6 +12,20 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.1.0 RC · 1 November 2026
+
+- **Follow works now, with no leash needed.** When a hypnotist says *"follow me"* and it lands,
+  they are told so, and when they leave the room the game brings the subject along. There is no
+  leash or collar to put on and no **Hold Leash** button to click any more. Before, the subject
+  only became leashable and nothing said what to do next, so most of the time nobody followed.
+  While the hypnotist is in the room, the subject cannot walk out on their own. *"You can leave"*,
+  waking, or the safeword ends it.
+- **Both of you need ECHS for follow.** If the hypnotist doesn't run it, the subject is told the
+  pull cannot take them anywhere.
+- **Follow tells you when it can't work.** If the subject has switched off the game's own setting
+  that lets others leash them, or the room blocks leashing, the phrase does not land and the
+  hypnotist is told why.
+
 ## v1.0.1 RC · 28 October 2026
 
 - **ECHS only ever runs once.** This gets ECHS ready for FUSAM, the add-on manager. If you load

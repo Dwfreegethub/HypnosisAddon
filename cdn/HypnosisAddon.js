@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.0.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.1.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1310,6 +1310,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "effect-failed": [
           "The words reach you, but for once your body does not answer them.",
           "Something tries to settle over you and slides off."
+        ],
+        "follow-unavailable": [
+          "The urge to follow rises, and finds nowhere to go.",
+          "Something wants you at their side, and cannot take you there."
         ],
         "undress-bare": [
           "Your hands go looking for something to take off and find nothing there.",
@@ -2731,52 +2735,188 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/follow.ts
-  function applyFollow(leader) {
+  function isFollowActive() {
+    return followActive;
+  }
+  function followTargetId() {
+    return followTarget;
+  }
+  function characterFor3(member) {
+    if (member == null || typeof ChatRoomCharacter === "undefined" || !Array.isArray(ChatRoomCharacter)) return null;
+    return ChatRoomCharacter.find((c) => c?.MemberNumber === member) ?? null;
+  }
+  function nameOf(member) {
+    const C = characterFor3(member);
+    const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
+    return nick || typeof C?.Name === "string" && C.Name || (member != null ? `#${member}` : "them");
+  }
+  function roomAllowsLeashing() {
+    const data = typeof ChatRoomData !== "undefined" ? ChatRoomData : null;
+    return !Array.isArray(data?.BlockCategory) || !data.BlockCategory.includes("Leashing");
+  }
+  function playerAllowsLeashing() {
+    return !!Player?.OnlineSharedSettings?.AllowPlayerLeashing;
+  }
+  function isTrapped(C) {
+    return (C?.Appearance ?? []).some(
+      (item) => TRAPPING_EFFECTS.some((e) => item?.Asset?.Effect?.includes?.(e) || item?.Property?.Effect?.includes?.(e))
+    );
+  }
+  function followBlocker() {
+    if (!playerAllowsLeashing()) return "their game setting that lets others leash them is off";
+    if (!roomAllowsLeashing()) return "this room blocks leashing";
+    return null;
+  }
+  function clearAckTimer() {
+    if (ackTimer) clearTimeout(ackTimer);
+    ackTimer = null;
+  }
+  function announceTo(leader) {
+    sendHiddenMessage({ type: "follow-on" }, leader);
+    clearAckTimer();
+    ackTimer = setTimeout(() => {
+      ackTimer = null;
+      if (!followActive || followTarget !== leader) return;
+      tellPlayer(`${nameOf(leader)} isn't running ECHS, so the pull you feel cannot lead you into another room.`);
+      log(`follow: no acknowledgement from ${leader}`);
+    }, ACK_TIMEOUT_MS);
+  }
+  function applyFollow(leader, opts = {}) {
+    const blocker = followBlocker();
+    if (blocker) {
+      log(`follow: not applied, ${blocker}`);
+      return blocker;
+    }
+    if (followActive && followTarget != null && followTarget !== leader) sendHiddenMessage({ type: "follow-off" }, followTarget);
     followActive = true;
     followTarget = leader;
-    applyEffect(LEASH_EFFECT);
+    if (hasOwnEffect("Leash")) removeEffect("Leash");
+    if (leader != null) {
+      if (opts.quiet) reannounceIfLeaderHere();
+      else announceTo(leader);
+    }
     log(`follow compulsion on, leader ${leader ?? "unknown"}`);
+    return null;
   }
   function releaseFollow() {
-    const had = followActive || hasOwnEffect(LEASH_EFFECT);
-    removeEffect(LEASH_EFFECT);
+    const had = followActive;
+    const leader = followTarget;
+    followActive = false;
+    followTarget = null;
+    followingTo = null;
+    clearAckTimer();
+    if (leader != null) {
+      try {
+        sendHiddenMessage({ type: "follow-off" }, leader);
+      } catch (err) {
+        warn("follow: could not tell the leader", err);
+      }
+    }
     try {
-      if (typeof ChatRoomLeashPlayer !== "undefined" && ChatRoomLeashPlayer != null && followTarget != null && ChatRoomLeashPlayer === followTarget) {
+      if (hasOwnEffect("Leash")) removeEffect("Leash");
+      if (leader != null && typeof ChatRoomLeashPlayer !== "undefined" && ChatRoomLeashPlayer === leader) {
         ChatRoomLeashPlayer = null;
         if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
       }
     } catch (err) {
       warn("follow: could not clear leash state", err);
     }
-    followActive = false;
-    followTarget = null;
     if (had) log("follow compulsion off");
   }
+  function reannounceIfLeaderHere() {
+    if (!followActive || followTarget == null || !characterFor3(followTarget)) return;
+    sendHiddenMessage({ type: "follow-on", again: true }, followTarget);
+  }
   function installFollow(modApi2) {
-    modApi2.hookFunction("ChatRoomDoHoldLeash", 10, (args, next) => {
-      const sender = args?.[0];
-      if (followActive && followTarget != null && sender?.MemberNumber !== followTarget) {
-        log(`follow: refused leash grab by ${sender?.MemberNumber} \u2014 only ${followTarget} may lead`);
+    registerHiddenHandler("follow-on", (sender, message) => {
+      const isNew = !followers.has(sender);
+      followers.add(sender);
+      sendHiddenMessage({ type: "follow-ack" }, sender);
+      if (isNew && !message.again) {
+        tellPlayer(`${nameOf(sender)} will follow you now. When you leave the room, the game brings them along.`);
+      }
+    });
+    registerHiddenHandler("follow-off", (sender) => {
+      if (followers.delete(sender)) tellPlayer(`${nameOf(sender)} no longer follows you.`);
+    });
+    registerHiddenHandler("follow-ack", (sender) => {
+      if (sender === followTarget) clearAckTimer();
+    });
+    modApi2.hookFunction("ChatRoomPingLeashedPlayers", 10, (args, next) => {
+      const result = next(args);
+      const held = typeof ChatRoomLeashList !== "undefined" && Array.isArray(ChatRoomLeashList) ? ChatRoomLeashList : [];
+      for (const member of followers) {
+        if (held.includes(member)) continue;
         try {
-          ServerSend("ChatRoomChat", { Content: "RemoveLeash", Type: "Hidden", Target: sender?.MemberNumber });
-          if (typeof CharacterRefreshLeash === "function") CharacterRefreshLeash(Player);
+          ServerSend("AccountBeep", { MemberNumber: member, BeepType: "Leash" });
         } catch (err) {
-          warn("follow: could not refuse leash grab", err);
+          warn("follow: could not call a follower", err);
         }
-        return void 0;
+      }
+      if (followers.size) log(`follow: called ${followers.size} follower(s) to ${ChatRoomData?.Name ?? "the new room"}`);
+      return result;
+    });
+    modApi2.hookFunction("ChatRoomCanBeLeashedBy", 10, (args, next) => {
+      const [source, C] = args;
+      if (followActive && followTarget != null && source === followTarget && (C === Player || C?.IsPlayer?.()) && roomAllowsLeashing() && !isTrapped(C)) {
+        return true;
       }
       return next(args);
     });
+    modApi2.hookFunction("ServerHandleLeashBeep", 10, (args, next) => {
+      const data = args[0];
+      const fromLeader = followActive && followTarget != null && data?.MemberNumber === followTarget;
+      if (!fromLeader) return next(args);
+      if (followingTo !== null && data?.ChatRoomName === followingTo) return Promise.resolve();
+      if (!playerAllowsLeashing()) {
+        tellPlayer(`You feel the pull to follow ${nameOf(followTarget)}, but your setting that lets others leash you is off.`);
+        return next(args);
+      }
+      const saved = ChatRoomLeashPlayer;
+      ChatRoomLeashPlayer = followTarget;
+      followingTo = typeof data?.ChatRoomName === "string" ? data.ChatRoomName : null;
+      log(`follow: ${followTarget} went to ${data?.ChatRoomName}; following`);
+      let result;
+      try {
+        result = next(args);
+      } finally {
+        if (ChatRoomLeashPlayer === followTarget) ChatRoomLeashPlayer = saved;
+      }
+      return Promise.resolve(result).finally(() => {
+        followingTo = null;
+      });
+    });
+    modApi2.hookFunction("ChatRoomCanLeave", 10, (args, next) => {
+      if (followActive && followTarget != null && characterFor3(followTarget) && roomAllowsLeashing()) return false;
+      return next(args);
+    });
+    modApi2.hookFunction("ChatRoomSync", 10, (args, next) => {
+      const result = next(args);
+      followingTo = null;
+      reannounceIfLeaderHere();
+      return result;
+    });
+    modApi2.hookFunction("ChatRoomSyncMemberJoin", 10, (args, next) => {
+      const result = next(args);
+      if (followTarget != null && args[0]?.Character?.MemberNumber === followTarget) reannounceIfLeaderHere();
+      return result;
+    });
   }
-  var LEASH_EFFECT, followActive, followTarget, clearFollow;
+  var ACK_TIMEOUT_MS, followActive, followTarget, ackTimer, followingTo, TRAPPING_EFFECTS, clearFollow, followers;
   var init_follow = __esm({
     "src/follow.ts"() {
       init_log();
+      init_notify();
       init_effects();
-      LEASH_EFFECT = "Leash";
+      init_messaging();
+      ACK_TIMEOUT_MS = 8e3;
       followActive = false;
       followTarget = null;
+      ackTimer = null;
+      followingTo = null;
+      TRAPPING_EFFECTS = ["Tethered", "Mounted", "Enclose", "OneWayEnclose"];
       clearFollow = releaseFollow;
+      followers = /* @__PURE__ */ new Set();
     }
   });
 
@@ -2827,7 +2967,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
       // ours, so saving another add-on's Freeze would make it ours after a reload.
       effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
-      pose: suggestedPose()
+      pose: suggestedPose(),
+      ...isFollowActive() ? { follow: { leader: followTargetId() } } : {}
     };
   }
   function releaseEverything(reason) {
@@ -2847,7 +2988,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function releaseOurEffects() {
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
-    removeEffect("Leash");
+    releaseFollow();
     clearOrgasmDenial();
   }
   function hasOrphanedEffects() {
@@ -2860,7 +3001,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       on("frozen", hasOwnEffect("Freeze")),
       on("wardrobe blocked", hasOwnEffect("BlockWardrobe")),
       on("orgasm denied", hasOwnEffect("DenialMode")),
-      on("leashed to follow", hasOwnEffect("Leash")),
+      on("compelled to follow", isFollowActive() || hasOwnEffect("Leash")),
       on("posed by suggestion", !!st.pose, String(st.pose)),
       on("self-touch blocked", st.selfTouch.all || st.selfTouch.groups.length > 0, describeSelfTouchBlocks())
     ];
@@ -2939,8 +3080,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (const c of saved.suppressed ?? []) setSuppressed(c, true);
     setNumb(!!saved.numb);
     restoreSelfTouch(saved.selfTouch ?? { all: false, groups: [] });
-    for (const e of saved.effects ?? []) applyEffect(e);
-    if (hasOwnEffect("Leash")) applyFollow(null);
+    for (const e of saved.effects ?? []) if (e !== "Leash") applyEffect(e);
+    const legacyFollow = (saved.effects ?? []).includes("Leash") || hasOwnEffect("Leash");
+    if (saved.follow || legacyFollow) {
+      const why = applyFollow(saved.follow ? saved.follow.leader : saved.hypnotistId ?? null, { quiet: true });
+      if (why) log(`recovery: follow not restored, ${why}`);
+      if (hasOwnEffect("Leash")) removeEffect("Leash");
+    }
     if (saved.pose) restoreSuggestedPose(saved.pose);
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
@@ -5481,7 +5627,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         sender,
         `[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`
       );
-      const who = characterFor3(sender)?.Name ?? `#${sender}`;
+      const who = characterFor4(sender)?.Name ?? `#${sender}`;
       tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
       result.lines.forEach(tellPlayer);
     });
@@ -5663,7 +5809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function compulsionsFor(event, member) {
     if (member === Player?.MemberNumber) return [];
-    const C = characterFor3(member);
+    const C = characterFor4(member);
     const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
     return listTriggers().filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
@@ -5677,7 +5823,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!word) return null;
     if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
     if (word === "i" || word === "me") {
-      return { watchName: nameKey(characterFor3(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+      return { watchName: nameKey(characterFor4(installerId)?.Name) || "the hypnotist", watchMember: installerId };
     }
     if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
     const inRoom = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -5954,7 +6100,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     recording = null;
     return displaced ? "Something already set aside in you comes loose \u2014 and something new settles into the space it leaves." : "It settles somewhere you won't think to look for it.";
   }
-  function characterFor3(memberNumber) {
+  function characterFor4(memberNumber) {
     return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber === memberNumber
     );
@@ -7866,8 +8012,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\byou (?:belong|stay) (?:at|by) my (?:side|heel|feet)\b/,
             /\bheel\b/
           ],
-          run: () => {
-            applyFollow(currentHypnotistId());
+          // Follows whoever said it: the hypnotist in a session, or a trigger's speaker. A follow that
+          // could never lead anyone (leashing off in her settings, or in this room) does not land.
+          run: (speaker) => {
+            const leader = typeof speaker === "number" ? speaker : currentHypnotistId();
+            const why = applyFollow(leader);
+            if (!why) return void 0;
+            if (leader != null) tellHypnotist(leader, `[follow] They can't be led between rooms: ${why}.`);
+            return "follow-unavailable";
           },
           undo: () => releaseFollow()
         },
@@ -10673,7 +10825,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10740,7 +10892,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.0.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12909,7 +13061,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.0.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.1.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -12930,7 +13082,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.0.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.1.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13002,14 +13154,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.0.1"})`);
+      info(`script loaded (v${"1.1.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.0.1",
+          version: "1.1.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13147,10 +13299,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.0.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.1.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.0.1";
+    page2.__ECHS_LOADED__ = "1.1.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

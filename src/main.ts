@@ -315,8 +315,9 @@ safely("self-touch hook", () => installSelfTouch(modApi));
 // DenialMode to — v0.83.1's live run showed it does not stop one. See denial.ts.
 safely("orgasm denial hooks", () => installDenial(modApi));
 
-// Scopes the follow/leash compulsion to the active hypnotist: while it is on, only they may
-// take the subject's (add-on-injected) leash. See follow.ts.
+// Follow / leash (v1.1.0): lets BC's own leash carry a compelled subject after the one who said
+// "follow me", with no leash item, and has a hypnotist's ECHS call their followers on a room
+// change. Both halves live in follow.ts.
 safely("follow-leash hook", () => installFollow(modApi));
 
 safely("/echs command registration", installCommands);
