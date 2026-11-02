@@ -42,6 +42,19 @@ While having ECHS installed on both sides delivers the full experience, several 
 
 ## Installation
 
+### FUSAM (easiest)
+
+ECHS is listed on [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/), the Bondage Club add-on manager.
+
+1. Install [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) if you don't have it yet.
+2. In Bondage Club, open the **Addon Manager** (on the login screen and in **Preferences**).
+3. Find **Erotic Chat Hypnosis Suite (ECHS)**, set it to **stable**, then reload and log in.
+4. Open **Preferences → Extensions → ECHS Hypnosis** to set it up.
+
+Use only one way of loading ECHS. If you move to FUSAM, remove the userscript or bookmark.
+
+### Userscript manager
+
 1. Install a userscript manager: [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
 2. Open the install script: [Install ECHS](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js). Your userscript manager will prompt you to confirm the installation.
 3. Reload Bondage Club and log in.
@@ -56,8 +69,6 @@ This also works on phones and tablets.
 3. Open Bondage Club and click the bookmark. You can do this on the login screen or after logging in.
 
 Click it each time you open the game. It always loads the newest version, and clicking it twice does no harm. Full steps are on the wiki's [Getting Started](https://github.com/Dwfreegethub/HypnosisAddon/wiki/Getting-Started) page.
-
-*Note: Listing on [FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/) is planned for a future release.*
 
 ---
 

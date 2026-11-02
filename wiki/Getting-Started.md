@@ -6,6 +6,21 @@
 
 ## Installing
 
+### The easy way: FUSAM
+
+ECHS is listed on **[FUSAM](https://sidiousious.gitlab.io/bc-addon-loader/)**, the add-on manager many players already use for other Bondage Club add-ons.
+
+1. If you don't have FUSAM yet, install it from **[its page](https://sidiousious.gitlab.io/bc-addon-loader/)**.
+2. In Bondage Club, click the **Addon Manager** button. It is on the login screen and in **Preferences**.
+3. Find **Erotic Chat Hypnosis Suite (ECHS)** and set it to **stable**. Choose **Account** to have it on every device you log in from, or **Browser** for just this one.
+4. Reload Bondage Club and log in, then open **Preferences → Extensions → ECHS Hypnosis** to run the setup wizard.
+
+**Updates are automatic:** FUSAM loads the newest stable version every time. The **dev** option gets changes before they are released, but those have had less testing.
+
+**Only use one way to load ECHS.** If you switch to FUSAM from the userscript or the bookmark, remove the old one. If two are left on, only the first one starts, and it says so in the browser console.
+
+### With a userscript manager
+
 1. Install a userscript manager: **[Tampermonkey](https://www.tampermonkey.net/)** or **[Violentmonkey](https://violentmonkey.github.io/)**.
 2. Open **[the install link](https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js)** and accept the prompt shown by your userscript manager.
 3. Reload Bondage Club and log into your account.
@@ -25,8 +40,6 @@ No Tampermonkey or Violentmonkey, or playing on a phone or tablet? Use a bookmar
 * **It always loads the newest version**, so there is nothing to update.
 * **Clicking it twice does no harm:** it tells you ECHS is already loaded. It also knows if the userscript already loaded it.
 * Some browsers remove the `javascript:` part when you paste. If the bookmark does nothing, check the address still starts with `javascript:`.
-
-*(Note: Listing on FUSAM is planned for a future release, but is not yet arranged.)*
 
 **Does the other player need it installed?** For a full, interactive session, yes — both of you need the script running. However, two things will work on you even if your partner has nothing installed:
 * **Trigger words:** Matching happens entirely inside your own local client. As long as someone says the word in chat, your script picks it up.
