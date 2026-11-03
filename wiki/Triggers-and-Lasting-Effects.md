@@ -175,7 +175,8 @@ A hypnotist can ask for a narrower or wider scope for one trigger while planting
 
 ## 7. Releasing a Trigger
 
-* **Specific Release by Name:** Saying *"Missy, you are released from sleepy time"* releases that specific trigger immediately, working inside or outside of trance. The hypnotist is told whether it let go, whether it was not holding them, or that nothing by that name is planted, which usually means a typo. A "when someone comes in" or "after you wake" trigger has no word, so it cannot be released this way: the subject removes it with `/echs forgettrigger <number>`.
+* **Specific Release by Name:** Saying *"Missy, you are released from sleepy time"* releases that specific trigger immediately, working inside or outside of trance. The hypnotist is told whether it let go, whether it was not holding them, or that nothing by that name is planted, which usually means a typo. A "when someone comes in" or "after you wake" trigger has no word, so it cannot be released this way: the hypnotist who planted it can remove it with *"forget every trigger I gave you"*, or the subject with `/echs forgettrigger <number>`.
+* **Removing a Trigger for Good:** The hypnotist who planted a trigger can delete it, so it never fires again: *"Missy, forget the trigger sleepy time"* (or *"the trigger sleepy time is gone"*, or *"I take back sleepy time"*). *"Missy, forget every trigger I gave you"* removes all of theirs at once, including "when someone comes in" and "after you wake" triggers, which have no word to name. Only the person who planted it can do this, and no trance is needed. If the trigger is holding you at the time, it lets go first. The subject is told something set in them is gone, never the word.
 * **Trance-Only General Releases:** Broad release phrasing (*"you are awake"*, *"wake up"*) applies only to active trance sessions and does not release dormant or fired triggers outside of a session.
 
 ---

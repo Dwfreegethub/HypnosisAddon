@@ -15,7 +15,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, listTriggers, updateTriggers, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, listTriggers, updateTriggers, forgetTrigger, FeatureToggles, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -2544,6 +2544,103 @@ export function isTriggerReleaseLine(content: string): boolean {
 	return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
 }
 
+// --- The hypnotist removing a trigger they planted (v1.3.0, DW 2026-11-02) ---------------------
+// Release undoes what a trigger is doing now; this deletes it, so it never fires again. Until now
+// only the subject could (`/echs forgettrigger`), so a hypnotist who regretted one, or whose
+// "when anyone comes in" kept going off, had no way to take it back.
+//
+// ONLY THE ONE WHO PLANTED IT. Releasing is open to anyone her scope lets fire it, because undoing
+// can't hurt her; deleting is wiping out someone else's work, which is theirs alone (DW's call).
+// No trance needed: taking a trigger away can only help her, and making the hypnotist put her
+// under again just to remove it would be the wrong way round. Her name is needed, as for anything
+// spoken to her that changes what is in her. A trigger holding her lets go first, then goes.
+const TRIGGER_REMOVE_ALL = [
+	/\b(?:forget|remove|erase|delete) (?:every|all) (?:of )?(?:the |my |your )?triggers?\b/,
+];
+const TRIGGER_REMOVE = [
+	/\b(?:forget|remove|erase|delete) (?:the |that |your )?trigger (?:word |phrase )?(.+)$/,
+	/\bthe trigger (.+?) is gone(?: now)?$/,
+];
+/** Only a removal when it names one of their triggers: "I take back what I said" is conversation. */
+const TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
+
+export type TriggerRemoval = { kind: "all" } | { kind: "one"; phrase: string; soft?: boolean } | null;
+
+/** Pure: what removal, if any, this line asks for. A captured phrase that is only her name ("forget
+ * the trigger, Missy") is no removal, so it can still cancel a trigger being set up. */
+export function parseTriggerRemoval(content: string): TriggerRemoval {
+	const text = normalize(content);
+	if (!text) return null;
+	if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+	for (const pattern of TRIGGER_REMOVE) {
+		const match = pattern.exec(text);
+		if (!match) continue;
+		const phrase = cleanPhrase(match[1]);
+		if (phrase) return { kind: "one", phrase };
+	}
+	const back = TRIGGER_TAKE_BACK.exec(text);
+	const backPhrase = back ? cleanPhrase(back[1]) : "";
+	if (backPhrase) return { kind: "one", phrase: backPhrase, soft: true };
+	return null;
+}
+
+/** Undo (if it is holding or still landing) and delete. Returns whether it was holding. */
+function removeTrigger(trigger: Trigger): boolean {
+	const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
+	undoTrigger(trigger);
+	forgetTrigger(trigger.key);
+	log(`trigger "${trigger.phrase || trigger.key}" removed by its installer ${trigger.installedBy}`);
+	return holding;
+}
+
+function handleTriggerRemoval(sender: number, line: string): boolean {
+	const parsed = parseTriggerRemoval(line);
+	if (!parsed) return false;
+	if (!mentionsAnyName(line, playerOwnNames())) return false;
+	// The subject is not their own installer here; her way is /echs forgettrigger.
+	if (sender === Player?.MemberNumber) return false;
+	const mine = listTriggers().filter((t) => t.installedBy === sender);
+	if (parsed.kind === "all") {
+		if (!mine.length) {
+			tellHypnotist(sender, "[trigger] Nothing you planted is in them.");
+			return true;
+		}
+		const held = mine.map(removeTrigger).filter(Boolean).length;
+		tellHypnotist(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held ? " What was holding them lets go." : ""}`);
+		tellPlayer(held ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
+		return true;
+	}
+	// Longest phrase first, as the release does. Their phrase triggers only: a compulsion has no word.
+	const trigger = mine
+		.filter((t) => !t.fireOn && !!t.phrase && parsed.phrase.includes(t.phrase))
+		.sort((a, b) => b.phrase.length - a.phrase.length)[0];
+	if (!trigger) {
+		// "I take back what I said" names no trigger of theirs: ordinary conversation, let it through.
+		if (parsed.soft) return false;
+		// "Forget the trigger <the one being set up>" still means cancel it: let the line through.
+		if (isRecording()) return false;
+		// Same words whether it is someone else's trigger or none at all, so another hypnotist's
+		// word is never confirmed. Still claimed: a removal line must not go on to FIRE the word.
+		// Her name was said, so this is no stranger's passing remark; told always.
+		tellHypnotist(
+			sender,
+			`[trigger] Nothing of yours called "${parsed.phrase}" is planted in them. For one with no word ("when someone comes in"), say "forget every trigger I gave you".`,
+		);
+		return true;
+	}
+	const held = removeTrigger(trigger);
+	tellHypnotist(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+	tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
+	return true;
+}
+
+/** A removal line that must never go on to fire the word it names. The soft "I take back" form
+ * is left out: it is only a removal when it matched. */
+export function isTriggerRemovalLine(content: string): boolean {
+	const parsed = parseTriggerRemoval(content);
+	return parsed !== null && !(parsed.kind === "one" && parsed.soft);
+}
+
 /** Reverse everything a trigger applied. Shared by the named release, the timer, and
  * anything else that needs to let go — one path, so they can't drift apart. */
 function undoTrigger(trigger: Trigger): void {
@@ -3660,6 +3757,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	const line = scope.text;
 
 	if (line !== null) {
+		// Removing one of theirs (v1.3.0) before trigger control, whose "forget the trigger" cancel
+		// would otherwise swallow "forget the trigger sleepy time".
+		if (handleTriggerRemoval(sender, line)) return;
 		// Trigger control first, so "remember trigger" can't be read as anything else.
 		if (handleTriggerControl(sender, line)) return;
 		// Then carry control, before anything that could read "this will stay with you" as a
@@ -3671,6 +3771,10 @@ export function handleSpokenLine(sender: number, content: string): void {
 		// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
 		// planted word and set the thing off in the middle of maintaining it.
 		if (handleReinforcement(sender, line)) return;
+	} else if (isTriggerRemovalLine(content)) {
+		// v1.3.0: the same rule for removal. Not addressed to her, so it removes nothing of hers,
+		// and the word it names must not fire either.
+		return;
 	} else if (isTriggerReleaseLine(content)) {
 		// v1.2.2: a release line that was not cut down to us. Before this, it fell through to the
 		// firing below, which reads the whole line, so "you are released from frozen. Ella, kneel"

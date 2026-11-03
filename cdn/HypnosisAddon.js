@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.2.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.3.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7058,6 +7058,63 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const text = normalize(content);
     return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
   }
+  function parseTriggerRemoval(content) {
+    const text = normalize(content);
+    if (!text) return null;
+    if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+    for (const pattern of TRIGGER_REMOVE) {
+      const match = pattern.exec(text);
+      if (!match) continue;
+      const phrase = cleanPhrase(match[1]);
+      if (phrase) return { kind: "one", phrase };
+    }
+    const back = TRIGGER_TAKE_BACK.exec(text);
+    const backPhrase = back ? cleanPhrase(back[1]) : "";
+    if (backPhrase) return { kind: "one", phrase: backPhrase, soft: true };
+    return null;
+  }
+  function removeTrigger(trigger) {
+    const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
+    undoTrigger(trigger);
+    forgetTrigger(trigger.key);
+    log(`trigger "${trigger.phrase || trigger.key}" removed by its installer ${trigger.installedBy}`);
+    return holding;
+  }
+  function handleTriggerRemoval(sender, line) {
+    const parsed = parseTriggerRemoval(line);
+    if (!parsed) return false;
+    if (!mentionsAnyName(line, playerOwnNames())) return false;
+    if (sender === Player?.MemberNumber) return false;
+    const mine = listTriggers().filter((t) => t.installedBy === sender);
+    if (parsed.kind === "all") {
+      if (!mine.length) {
+        tellHypnotist(sender, "[trigger] Nothing you planted is in them.");
+        return true;
+      }
+      const held2 = mine.map(removeTrigger).filter(Boolean).length;
+      tellHypnotist(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
+      tellPlayer(held2 ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
+      return true;
+    }
+    const trigger = mine.filter((t) => !t.fireOn && !!t.phrase && parsed.phrase.includes(t.phrase)).sort((a, b) => b.phrase.length - a.phrase.length)[0];
+    if (!trigger) {
+      if (parsed.soft) return false;
+      if (isRecording()) return false;
+      tellHypnotist(
+        sender,
+        `[trigger] Nothing of yours called "${parsed.phrase}" is planted in them. For one with no word ("when someone comes in"), say "forget every trigger I gave you".`
+      );
+      return true;
+    }
+    const held = removeTrigger(trigger);
+    tellHypnotist(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+    tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
+    return true;
+  }
+  function isTriggerRemovalLine(content) {
+    const parsed = parseTriggerRemoval(content);
+    return parsed !== null && !(parsed.kind === "one" && parsed.soft);
+  }
   function undoTrigger(trigger) {
     for (const id of trigger.actions) {
       if (id.startsWith("touch:")) {
@@ -7687,10 +7744,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
     const line = scope.text;
     if (line !== null) {
+      if (handleTriggerRemoval(sender, line)) return;
       if (handleTriggerControl(sender, line)) return;
       if (handleCarryControl(sender, line)) return;
       if (handleTriggerRelease(sender, line)) return;
       if (handleReinforcement(sender, line)) return;
+    } else if (isTriggerRemovalLine(content)) {
+      return;
     } else if (isTriggerReleaseLine(content)) {
       if (scope.ambiguous) handleTriggerRelease(sender, content);
       return;
@@ -7762,7 +7822,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, TRIGGER_RELEASE, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -8777,6 +8837,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bi release you from (.+)$/,
         /\brelease (?:the )?trigger (.+)$/
       ];
+      TRIGGER_REMOVE_ALL = [
+        /\b(?:forget|remove|erase|delete) (?:every|all) (?:of )?(?:the |my |your )?triggers?\b/
+      ];
+      TRIGGER_REMOVE = [
+        /\b(?:forget|remove|erase|delete) (?:the |that |your )?trigger (?:word |phrase )?(.+)$/,
+        /\bthe trigger (.+?) is gone(?: now)?$/
+      ];
+      TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
       REINFORCE = [
         /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
         /\breinforce (?:that|the|your) triggers?\b/,
@@ -9524,10 +9592,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("never while they are under. Their safeword clears the after-waking ones."),
       dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
-      head("Firing and releasing one"),
+      head("Firing, releasing and removing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
       body(`"Missy, you are released from sleepy time" releases that one by name.`),
       dim("General release wording does nothing outside a trance."),
+      body(`"Missy, forget the trigger sleepy time" removes it for good.`),
+      body(`"Missy, forget every trigger I gave you" removes all of yours.`),
+      dim("Only the one who planted it; no trance needed. One holding them lets go first."),
       gap(),
       head("Triggers fade unless kept up"),
       body("A planted trigger loses strength over time and eventually goes; the"),
@@ -10926,7 +10997,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.3.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10993,7 +11064,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.3.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13195,7 +13266,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.2.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.3.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13216,7 +13287,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.2.2"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.3.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13288,14 +13359,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.2.2"})`);
+      info(`script loaded (v${"1.3.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.2.2",
+          version: "1.3.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13433,10 +13504,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.2.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.3.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.2.2";
+    page2.__ECHS_LOADED__ = "1.3.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

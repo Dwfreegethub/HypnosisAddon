@@ -20,6 +20,32 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-02 (v1.3.0 RC) — the hypnotist can remove a trigger they planted
+
+DW asked for it, installer only. Until now only the subject could delete a trigger
+(`/echs forgettrigger`); release undoes the effects but leaves the trigger to fire again, and a
+compulsion has no word to release by. `handleTriggerRemoval` (voice.ts), before trigger control so
+its bare "forget the trigger" cancel can't swallow "forget the trigger <word>":
+
+- **One:** "forget / remove / erase / delete the trigger <word>", "the trigger <word> is gone", and
+  "I take back <word>". The last only counts when it names one of theirs, so "I take back what I
+  said" stays conversation. Longest phrase first, their phrase triggers only.
+- **All:** "forget every trigger I gave you" / "forget all your triggers": every trigger they
+  installed, compulsions included. Never anyone else's.
+- **Gates:** installer only (`installedBy === sender`), even where her scope lets others fire it:
+  release is open because undoing can't hurt, deletion wipes out someone's work. Her name required.
+  No trance required: removing can only help her. Not through the Extreme lock's
+  forgettrigger refusal either, since the lock is about her escaping, not the planter withdrawing.
+- **Holding:** undone first (`undoTrigger`, which also cancels the queued paced steps), then
+  `forgetTrigger`, so nothing is stranded.
+- **Said (rule 5):** the hypnotist hears removed / removed N / nothing of yours by that name. That
+  last reads the same for someone else's word and for none, so no other hypnotist's word is
+  confirmed. The subject is told something is gone, never the word.
+- **Never fires:** a removal line is always claimed, and one not addressed to her ("Ella, forget the
+  trigger frozen") returns before firing, the same guard the release got in v1.2.2.
+
+Tests: new `test/trigger-remove.mjs`, 40 checks.
+
 ### Fixed 2026-11-02 (v1.2.2 RC) — "you are released from <trigger>" not always releasing
 
 DW: reports that the named release "is not stopping triggers always". Four causes, all reproduced

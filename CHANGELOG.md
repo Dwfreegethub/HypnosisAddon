@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.3.0 RC · 2 November 2026
+
+- **Hypnotists can take a trigger back.** Say *"Missy, forget the trigger sleepy time"* to remove
+  one you planted for good, or *"Missy, forget every trigger I gave you"* to remove all of yours,
+  including "when someone comes in" and "after you wake" ones. Only the person who planted a
+  trigger can remove it, and the subject doesn't need to be in trance. If it is holding them, it
+  lets go first. The subject is told something set in them is gone, but not the word.
+
 ## v1.2.2 RC · 2 November 2026
 
 - **"You are released from <trigger>" works every time.** If you had a "when someone comes in"
