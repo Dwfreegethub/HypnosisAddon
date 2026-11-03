@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.2.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.2.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5950,7 +5950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return collisionRefusalCount > COLLISION_REFUSAL_CAP;
   }
   function phraseAvailability(sender, phrase, isHolding) {
-    const existing = listTriggers();
+    const existing = listTriggers().filter((t) => !t.fireOn && !!t.phrase);
     const exact = existing.find((t) => t.phrase === phrase);
     if (exact) {
       if (exact.installedBy === sender) {
@@ -6202,7 +6202,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function triggersReleasableBy(speaker, normalisedText) {
     if (!normalisedText) return [];
-    const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+    const matching = listTriggers().filter((t) => !t.fireOn && !!t.phrase && normalisedText.includes(t.phrase)).sort((a, b) => b.phrase.length - a.phrase.length);
     if (speaker === Player?.MemberNumber) return matching;
     return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
   }
@@ -6838,11 +6838,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  function drainKey(trigger) {
+    return `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+  }
   function drainTriggerSteps(trigger, steps) {
     if (!steps.length) return;
     steps[0]();
     if (steps.length === 1) return;
-    const key = `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+    const key = drainKey(trigger);
     let i = 1;
     const tick = () => {
       steps[i++]();
@@ -7051,6 +7054,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return keys[0] ?? (Array.isArray(suggestion.permission) ? suggestion.permission[0] : suggestion.permission);
   }
+  function isTriggerReleaseLine(content) {
+    const text = normalize(content);
+    return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
+  }
   function undoTrigger(trigger) {
     for (const id of trigger.actions) {
       if (id.startsWith("touch:")) {
@@ -7062,6 +7069,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       SUGGESTIONS.find((s) => s.id === id)?.undo?.();
     }
     cancelTimer(timerKey(trigger));
+    cancelTimer(drainKey(trigger));
     clearActive(timerKey(trigger));
     saveForReconnect();
     log(`released trigger "${trigger.phrase}" (${trigger.actions.length} actions undone)`);
@@ -7159,10 +7167,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const trigger = triggersReleasableBy(sender, phrase)[0];
       if (!trigger) {
         log(`release asked for "${phrase}" but no trigger of theirs matches`);
+        if (isSessionActiveWith(sender) || listTriggers().some((t) => t.installedBy === sender))
+          tellHypnotist(sender, `[trigger] Nothing called "${phrase}" that you can release is planted in them. /echs triggers on their side lists what is.`);
         return true;
       }
+      const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
       undoTrigger(trigger);
-      tellPlayer("Whatever was holding you lets go.");
+      if (holding) {
+        tellPlayer("Whatever was holding you lets go.");
+        tellHypnotist(sender, "[trigger] Released. What it was holding lets go.");
+      } else {
+        tellHypnotist(sender, "[trigger] Released, but it was not holding them right now.");
+      }
       return true;
     }
     return false;
@@ -7675,6 +7691,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (handleCarryControl(sender, line)) return;
       if (handleTriggerRelease(sender, line)) return;
       if (handleReinforcement(sender, line)) return;
+    } else if (isTriggerReleaseLine(content)) {
+      if (scope.ambiguous) handleTriggerRelease(sender, content);
+      return;
     }
     if (handleTriggerFiring(sender, content)) return;
     if (line === null) {
@@ -10907,7 +10926,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10974,7 +10993,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13176,7 +13195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.2.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.2.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13197,7 +13216,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.2.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.2.2"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13269,14 +13288,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.2.1"})`);
+      info(`script loaded (v${"1.2.2"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.2.1",
+          version: "1.2.2",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13414,10 +13433,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.2.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.2.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.2.1";
+    page2.__ECHS_LOADED__ = "1.2.2";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
