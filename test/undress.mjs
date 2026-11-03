@@ -66,6 +66,30 @@ check("ignores accessories", undress.wornGarments(), ["Cloth", "Panties"]);
 undress.undress(Infinity);
 check("  and leaves them on", wearing().sort(), ["Glasses", "Hat", "Necklace"]);
 
+// --- BC's real slot names (v1.2.1) -----------------------------------------------------
+// Failure: "SuitTop" was in the list, which is no BC group, so an undershirt or bodysuit (BC's
+// "Suit") never came off, and neither did a jacket in ClothOuter (checked against R133).
+dress("Suit", "ClothOuter", "Corset", "Garters", "SocksLeft", "ClothAccessory");
+check("the suit, outerwear, corset, garters, one-sided socks and accessories count",
+	undress.wornGarments(), ["ClothOuter", "ClothAccessory", "Suit", "Corset", "Garters", "SocksLeft"]);
+check("  the jacket comes off first", undress.undress(1).removed, ["ClothOuter"]);
+check("  the suit is called an undershirt", undress.garmentWord("Suit"), "undershirt");
+dress("Socks", "Shoes");
+check("shoes come off before socks", undress.wornGarments(), ["Shoes", "Socks"]);
+
+// --- Echo's clothing slots ---------------------------------------------------------------
+// Echo (echo-clothing-ext) adds copies of BC's slots: "Cloth_笨笨蛋Luzi" is "Cloth 2", and so on.
+// Failure: a second top or skirt from Echo stays on after "strip", which is the bug DW asked about.
+dress("Panties", "Cloth_笨笨蛋Luzi", "ClothLower_笨笨笨蛋Luzi2", "Cloth", "Bra_笨笨蛋Luzi", "长袖子_Luzi", "Shoes_笨笨蛋Luzi",
+	"Necklace_笨笨蛋Luzi", "Hat_笨笨蛋Luzi", "Luzi_Jewelry_0");
+check("Echo's copies count as the slot they copy, after BC's own",
+	undress.wornGarments(), ["Cloth", "Cloth_笨笨蛋Luzi", "长袖子_Luzi", "ClothLower_笨笨笨蛋Luzi2", "Bra_笨笨蛋Luzi", "Panties", "Shoes_笨笨蛋Luzi"]);
+check("  and take BC's word for that slot", undress.garmentWord("ClothLower_笨笨笨蛋Luzi2"), "skirt");
+check("  Echo's long sleeves are sleeves", undress.garmentWord("长袖子_Luzi"), "sleeves");
+undress.undress(Infinity);
+// Failure: Echo's necklace, hat or jewellery copies are taken too. Strip leaves accessories alone.
+check("strip takes every Echo garment and leaves Echo's accessories", wearing().sort(), ["Hat_笨笨蛋Luzi", "Luzi_Jewelry_0", "Necklace_笨笨蛋Luzi"].sort());
+
 // --- what stops it ----------------------------------------------------------------------
 // Both of these are the doc's "physically impossible actions" rule: check feasibility
 // first, and say which obstacle it was rather than failing silently.

@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.2.1 RC · 2 November 2026
+
+- **"Strip" takes off everything it should.** Undershirts and bodysuits were never removed
+  before, and now they are. Jackets and hoodies, clothing accessories, corsets, garters and
+  single socks come off too. So do the extra clothing slots from the Echo clothing add-on
+  (*Cloth 2*, *Bottom 2*, *Bra 2*, long sleeves and the rest). Shoes now come off before socks.
+  Hats, glasses, masks and jewellery still stay on.
+
 ## v1.2.0 RC · 2 November 2026
 
 - **Stay under longer if you want to.** When a trance's 30 minutes are up, a box asks whether you

@@ -186,6 +186,8 @@ It ends with the trance, the release, or her safeword, and *"that will stay with
 | *"take everything off"* · *"strip"* | Undressing · **Entranced (40)** |
 | *“you can change your clothes”* · *“your clothes are yours again”* | — *release* |
 
+Undressing takes clothes off from the outside in: jacket, top, accessories, skirt, undershirt, leggings, corset, bra, panties, garters, shoes, socks, gloves. It also removes the extra clothing slots added by the Echo clothing add-on (*Cloth 2*, *Bottom 2*, long sleeves and so on). Hats, glasses, masks, jewellery, wings and tails stay on.
+
 ---
 
 ### Arousal and Orgasm — All Require Arousal & Orgasm · Entranced (40)

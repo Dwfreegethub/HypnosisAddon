@@ -20,6 +20,25 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-02 (v1.2.1 RC) — strip misses the suit, outerwear and Echo's slots
+
+DW asked that strip remove all Echo clothing. Checking `UNDRESS_ORDER` against the live R133
+`Assets/Female3DCG.js` (32 groups with `Clothing: true`) found a worse bug first. `"SuitTop"` is not
+a BC group, because the slot is `"Suit"`, so an undershirt or bodysuit was never removed. That is
+Eri's 09-24/10-02 "include the upper suit" feedback. Added `ClothOuter` (BC's own outerwear
+group), `ClothAccessory`, `Corset`, `Garters`, `SocksLeft` and `SocksRight`, and moved Shoes before
+Socks.
+
+Echo (`SugarChain-Studio/echo-clothing-ext`, `src/components/功能调整/复制身体区域.js`) registers
+copies of BC groups through `AssetManager.addCopyGroup(mirror, source)`, always named
+`<source>_<suffix>` (`Cloth_笨笨蛋Luzi`, `ClothLower_笨笨笨蛋Luzi2`, `Bra_笨笨蛋Luzi`...). `wornGarments()`
+now reads `Player.Appearance` and ranks each worn group by its prefix, so any copy of a stripped
+slot comes off right after BC's own, including copies Echo adds later. Copies of slots strip leaves
+alone (`Necklace_`, `Hat_`, `Mask_`, `Luzi_Jewelry_0`) stay on. Echo's one new clothing group that is
+not a copy, `长袖子_Luzi` (long sleeves), is mapped to Cloth by hand. Echo is being merged into
+BC, so its pieces may move into BC's own groups. Either way they are covered. Tests: 8 new in
+`test/undress.mjs`, which fail on the old list (22/30).
+
 ### Added 2026-11-02 (v1.2.0 RC) — "Stay under?" when the thirty minutes run out
 
 DW asked for it. The timeout used to end a trance outright, so a scene both people were enjoying
