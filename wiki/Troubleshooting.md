@@ -72,7 +72,7 @@ This is an intentional gate, not a bug. The suggestion requires a deeper trance 
 
 If an effect or restriction persists unexpectedly, escalate in this order:
 
-1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes.
+1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions end after 30 minutes unless you choose to stay under when asked.
 2. **Hypnotist Left the Room:** If the hypnotist leaves during a trance, the trance ends on its own 5 minutes after they went, unless they come back.
 3. **Release by Name:** The hypnotist who applied the effect can speak a targeted release phrase (e.g., *"Missy, you are released from sleepy time"*).
 4. **Use the Emergency Safeword:** Type `/echs safeword`. This instantly breaks trances, releases every trigger that is holding you, discards compulsions waiting for you to wake, and purges all lingering effects from any state.

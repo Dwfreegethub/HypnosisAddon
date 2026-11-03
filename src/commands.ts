@@ -37,6 +37,7 @@ import { describeCarry, releaseCarried } from "./carry";
 import { sendHiddenMessage } from "./messaging";
 import {
 	answerPrompt,
+	answerExtend,
 	giveTrust,
 	selfWake,
 	safeword,
@@ -452,6 +453,12 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Session",
 		Description: "Wake yourself, if the trance is shallow enough",
 		Action: () => selfWake(),
+	},
+	{
+		Tag: "stay",
+		group: "Session",
+		Description: "When your trance's 30 minutes are up and you are asked, stay under for another 30",
+		Action: () => answerExtend(true),
 	},
 	{
 		Tag: "safeword",

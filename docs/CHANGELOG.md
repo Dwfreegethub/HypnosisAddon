@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-02 (v1.2.0 RC) — "Stay under?" when the thirty minutes run out
+
+DW asked for it. The timeout used to end a trance outright, so a scene both people were enjoying
+was cut off at thirty minutes. Now `sessionTimer` calls `askToExtend()` instead of
+`expireSession("here")`. The trance holds, a box like the induction prompt asks (prompt.ts), and a
+60-second `extendTimer` runs. **Silence ends the trance**, exactly as the old timeout did. Staying
+under is something the subject chooses (rule: consent is the subject's), never what happens because
+they looked away or were AFK. A yes (`answerExtend(true)`, from the box or the new `/echs stay`)
+re-arms a fresh thirty minutes through the one `armSessionTimer()` that every way into trance now
+uses, and is asked again when that runs out. The hypnotist gets two `trigger-status` lines: one when
+the subject is asked, one if they stay. A no only wakes them early. `clearTimers()` takes the box down
+with the trance, so the safeword, a wake or the hypnotist leaving all end it.
+
+Not asked on the away path: a trance that ran out while logged out still ends on reconnect
+(`expireSession("away")`). A reload while the box is up does the same, because the saved deadline has
+passed. That's acceptable, since nobody was there to answer. Tests: `test/extend.mjs` (25), and
+`test/expiry.mjs` lets the question lapse before checking the ending.
+
 ### Changed 2026-11-01 (v1.1.1 RC) — "Stop following me" releases a follow
 
 DW asked for it: the natural thing to say had no pattern. `follow-release` gains

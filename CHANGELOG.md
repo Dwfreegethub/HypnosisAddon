@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.2.0 RC · 2 November 2026
+
+- **Stay under longer if you want to.** When a trance's 30 minutes are up, a box asks whether you
+  want to stay under for another 30. Click **Stay under** (or type `/echs stay`) to keep going, or
+  **Wake up** to end it. If you don't answer within a minute, you wake, just as before. The
+  hypnotist is told that you're being asked, and told if you choose to stay.
+
 ## v1.1.1 RC · 1 November 2026
 
 - **More ways to end a follow.** As well as *"you can leave"*, the hypnotist can now say

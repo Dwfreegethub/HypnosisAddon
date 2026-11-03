@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { answerPrompt, getPendingPrompt, SessionChoice } from "./session";
+import { answerPrompt, getPendingPrompt, SessionChoice, getPendingExtend, answerExtend } from "./session";
 
 // The in-room choice box for an induction attempt.
 //
@@ -94,6 +94,36 @@ function clickPrompt(): boolean {
 	return MouseIn(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT);
 }
 
+// --- "Stay under?" (v1.2.0) -----------------------------------------------------------------
+// The same panel, asked when the trance's thirty minutes run out. Two buttons, centred.
+
+const EXTEND_BUTTONS: { stay: boolean; label: string; hover: string; left: number }[] = [
+	{ stay: true, label: "Stay under", hover: "Another stretch of trance. You will be asked again when it is up.", left: 260 },
+	{ stay: false, label: "Wake up", hover: "Let the trance end now.", left: 540 },
+];
+
+function drawExtend(remainingMs: number, minutes: number): void {
+	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
+	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 4);
+	const centre = PANEL_LEFT + PANEL_WIDTH / 2;
+	const inner = PANEL_WIDTH - 40;
+	DrawTextFit(`Your trance has run its ${minutes} minutes.`, centre, PANEL_TOP + 55, inner, "Black");
+	DrawTextFit(`Stay under for another ${minutes}?`, centre, PANEL_TOP + 105, inner, "Black");
+	DrawTextFit(`${Math.ceil(remainingMs / 1000)}s — no answer wakes you.`, centre, PANEL_TOP + 175, inner, "Gray");
+	for (const b of EXTEND_BUTTONS) DrawButton(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, b.label, "White", "", b.hover);
+}
+
+function clickExtend(): boolean {
+	for (const b of EXTEND_BUTTONS) {
+		if (MouseIn(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT)) {
+			log(`extend box answered: ${b.stay ? "stay" : "wake"}`);
+			answerExtend(b.stay);
+			return true;
+		}
+	}
+	return MouseIn(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT);
+}
+
 export function installPrompt(modApi: any): void {
 	modApi.hookFunction(
 		"ChatRoomRun",
@@ -103,6 +133,8 @@ export function installPrompt(modApi: any): void {
 			// After next(), so the box paints over the room rather than under it.
 			const pending = getPendingPrompt();
 			if (pending) drawPrompt(pending.hypnotistName, pending.remainingMs, pending.descriptor);
+			const extend = getPendingExtend();
+			if (extend) drawExtend(extend.remainingMs, extend.minutes);
 			return result;
 		}) as any,
 	);
@@ -114,6 +146,7 @@ export function installPrompt(modApi: any): void {
 			// Before next(), so a click on the box is consumed instead of also reaching
 			// whatever the box is covering.
 			if (getPendingPrompt() && clickPrompt()) return undefined;
+			if (getPendingExtend() && clickExtend()) return undefined;
 			return next(args);
 		}) as any,
 	);
