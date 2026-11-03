@@ -24,18 +24,50 @@ import { heldByUs } from "./effects";
  * which is 32 groups and includes hats, glasses, jewelry and wings. Taken from the
  * SlaveParking bot's `HANDLER_UNDRESS_ORDER`, on DW's pointer — it is the same question
  * answered once already in this workspace, and being consistent with it is worth more than
- * a second opinion. Widening this later is one array. */
+ * a second opinion. Widening this later is one array.
+ *
+ * v1.2.1 (DW 2026-11-02, Eri's "strip misses outerwear and the upper suit"): checked against the
+ * live R133 Female3DCG.js. "SuitTop" was never a BC group. The slot is "Suit", so undershirts and
+ * bodysuits were never removed at all. Added BC's ClothOuter (jackets, hoodies), ClothAccessory,
+ * Corset, Garters and the one-sided socks. Shoes now come off before socks. Still not hats,
+ * glasses, jewellery, wings and the like. */
 const UNDRESS_ORDER = [
+	"ClothOuter",
 	"Cloth",
+	"ClothAccessory",
 	"ClothLower",
-	"SuitTop",
+	"Suit",
 	"SuitLower",
+	"Corset",
 	"Bra",
 	"Panties",
-	"Socks",
+	"Garters",
 	"Shoes",
+	"Socks",
+	"SocksLeft",
+	"SocksRight",
 	"Gloves",
 ] as const;
+
+/** Echo's clothing add-on (SugarChain-Studio/echo-clothing-ext, src/components/功能调整/复制身体区域.js)
+ * adds copies of BC's slots so two tops or two skirts can be worn at once: "Cloth_笨笨蛋Luzi"
+ * ("Cloth 2"), "Cloth_笨笨笨蛋Luzi2" ("Cloth 3"), "Bra_笨笨蛋Luzi" and so on. A copy is always
+ * named `<BC group>_<suffix>`, so any worn group whose prefix is a slot above counts as that slot
+ * and comes off right after it. Copies of slots we leave alone (Necklace_, Hat_, Mask_...) are
+ * still left alone. Its one new clothing slot that is not a copy, long sleeves, goes with the top. */
+const ECHO_EXTRA_SLOTS: Record<string, string> = { 长袖子_Luzi: "Cloth" };
+
+/** Which slot in UNDRESS_ORDER a worn group belongs to, or null if strip leaves it alone. */
+function slotOf(group: string): string | null {
+	if ((UNDRESS_ORDER as readonly string[]).includes(group)) return group;
+	if (ECHO_EXTRA_SLOTS[group]) return ECHO_EXTRA_SLOTS[group];
+	const cut = group.indexOf("_");
+	if (cut > 0) {
+		const base = group.slice(0, cut);
+		if ((UNDRESS_ORDER as readonly string[]).includes(base)) return base;
+	}
+	return null;
+}
 
 /** Why undressing cannot happen, or null if it can. A reason string rather than a boolean so
  * the caller can say WHICH obstacle stopped it — the same rule the rest of the codebase
@@ -73,31 +105,46 @@ export function undressBlockedReason(): string | null {
 
 /** What she is currently wearing, from the outside in. */
 export function wornGarments(): string[] {
-	return UNDRESS_ORDER.filter((g) => {
-		try {
-			return !!InventoryGet(Player, g);
-		} catch {
-			return false;
-		}
-	});
+	// Read off what is actually worn rather than asking InventoryGet slot by slot: Echo's copied
+	// slots are not in any list we could keep, and the worn items are the one place they all show.
+	const order = UNDRESS_ORDER as readonly string[];
+	const seen = new Set<string>();
+	const worn: { group: string; rank: number; copy: boolean }[] = [];
+	for (const item of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
+		const group: unknown = item?.Asset?.Group?.Name;
+		if (typeof group !== "string" || seen.has(group)) continue;
+		const slot = slotOf(group);
+		if (!slot) continue;
+		seen.add(group);
+		worn.push({ group, rank: order.indexOf(slot), copy: slot !== group });
+	}
+	// BC's own slot before Echo's copies of it; copies in the order they are worn.
+	return worn.sort((a, b) => a.rank - b.rank || Number(a.copy) - Number(b.copy)).map((w) => w.group);
 }
 
 /** A human word for a slot, for the flavor text. BC's own group names are not sayable —
  * "your ClothLower" is nobody's idea of hypnosis. */
 const GARMENT_WORDS: Record<string, string> = {
+	ClothOuter: "jacket",
 	Cloth: "top",
+	ClothAccessory: "accessories",
 	ClothLower: "skirt",
-	SuitTop: "undershirt",
+	Suit: "undershirt",
 	SuitLower: "leggings",
+	Corset: "corset",
 	Bra: "bra",
 	Panties: "panties",
+	Garters: "garters",
 	Socks: "socks",
+	SocksLeft: "sock",
+	SocksRight: "sock",
 	Shoes: "shoes",
 	Gloves: "gloves",
+	长袖子_Luzi: "sleeves",
 };
 
 export function garmentWord(group: string): string {
-	return GARMENT_WORDS[group] ?? "clothes";
+	return GARMENT_WORDS[group] ?? GARMENT_WORDS[slotOf(group) ?? ""] ?? "clothes";
 }
 
 export interface UndressResult {
