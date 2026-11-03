@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.1.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.2.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3418,8 +3418,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     };
   }
   function clearTimers() {
-    for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
-    promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
+    for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer, extendTimer]) if (t) clearTimeout(t);
+    promptTimer = windowTimer = sessionTimer = cooldownTimer = extendTimer = null;
+    extendAskUntil = 0;
     stopPresenceWatch();
   }
   function stopPresenceWatch() {
@@ -3523,6 +3524,59 @@ One of mods you are using is using an old version of SDK. It will work for now b
       },
       to
     );
+  }
+  function armSessionTimer(ms) {
+    if (sessionTimer) clearTimeout(sessionTimer);
+    sessionEndsAt = Date.now() + ms;
+    sessionTimer = setTimeout(askToExtend, ms);
+  }
+  function askToExtend() {
+    sessionTimer = null;
+    if (session.phase !== "Hypnotized") return;
+    extendAskUntil = Date.now() + EXTEND_ASK_MS;
+    if (extendTimer) clearTimeout(extendTimer);
+    extendTimer = setTimeout(() => {
+      extendTimer = null;
+      extendAskUntil = 0;
+      if (session.phase === "Hypnotized") expireSession("here");
+    }, EXTEND_ASK_MS);
+    notify(
+      `Your trance has run its ${TIMEOUT_MINUTES} minutes. Stay under for another ${TIMEOUT_MINUTES}? Choose on the box, or type /echs stay. If you don't answer, you wake. (${Math.round(EXTEND_ASK_MS / 1e3)}s)`
+    );
+    if (session.hypnotistId != null) {
+      sendHiddenMessage(
+        { type: "trigger-status", text: `[trance] ${TIMEOUT_MINUTES} minutes are up. They are being asked whether to stay under.` },
+        session.hypnotistId
+      );
+    }
+    log("session: time up, asking whether to extend");
+  }
+  function getPendingExtend() {
+    if (!extendAskUntil || session.phase !== "Hypnotized") return null;
+    return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: TIMEOUT_MINUTES };
+  }
+  function answerExtend(stay) {
+    if (!getPendingExtend()) {
+      notify("Nothing is asking whether you want to stay under right now.");
+      return;
+    }
+    if (extendTimer) clearTimeout(extendTimer);
+    extendTimer = null;
+    extendAskUntil = 0;
+    if (!stay) {
+      expireSession("here");
+      return;
+    }
+    armSessionTimer(SESSION_TIMEOUT_MS);
+    notify(`You let it keep you. Another ${TIMEOUT_MINUTES} minutes.`);
+    if (session.hypnotistId != null) {
+      sendHiddenMessage(
+        { type: "trigger-status", text: `[trance] They chose to stay under for another ${TIMEOUT_MINUTES} minutes.` },
+        session.hypnotistId
+      );
+    }
+    pushUpdate();
+    log("session: extended by the subject");
   }
   function expireSession(when) {
     endSession(
@@ -3804,8 +3858,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.min(full, earned);
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+    armSessionTimer(SESSION_TIMEOUT_MS);
     applyTranceState();
     startPresenceWatch();
   }
@@ -3889,8 +3942,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.max(0, Math.min(session.depth, earned));
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+    armSessionTimer(SESSION_TIMEOUT_MS);
     applyTranceState();
     startPresenceWatch();
     pushUpdate();
@@ -3917,8 +3969,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-    sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+    armSessionTimer(SESSION_TIMEOUT_MS);
     applyTranceState();
     startPresenceWatch();
     notify(`You drop straight under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
@@ -4368,8 +4419,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const remaining = (saved.sessionEndsAt || 0) - Date.now();
     if (sessionTimer) clearTimeout(sessionTimer);
     if (remaining > 0) {
-      sessionEndsAt = saved.sessionEndsAt;
-      sessionTimer = setTimeout(() => expireSession("here"), remaining);
+      armSessionTimer(remaining);
     } else {
       expireSession("away");
       return false;
@@ -4518,7 +4568,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
     });
   }
-  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, SESSION_TIMEOUT_MS, TIMEOUT_MINUTES, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, SESSION_TIMEOUT_MS, TIMEOUT_MINUTES, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
@@ -4547,6 +4597,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       COOLDOWN_MS = 10 * 6e4;
       SESSION_TIMEOUT_MS = 30 * 6e4;
       TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
+      EXTEND_ASK_MS = 6e4;
       RESISTANCE_FLOOR = 5;
       CHANCE_CEILING = 95;
       EXPERIENCE_WEIGHT = 0.2;
@@ -4581,6 +4632,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       windowTimer = null;
       sessionTimer = null;
       cooldownTimer = null;
+      extendAskUntil = 0;
+      extendTimer = null;
       hypnotistGoneSince = 0;
       presenceTimer = null;
       sessionEndsAt = 0;
@@ -9231,8 +9284,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("Getting out"),
       body("The Wake Up button \xB7 a spoken wake word \xB7 /echs wake while the"),
-      body("trance is still shallow \xB7 a 30-minute timeout \xB7 and /echs safeword,"),
-      body("which no setting and no suggestion can ever take away.")
+      body("trance is still shallow \xB7 the 30-minute timeout, which asks whether"),
+      body("you want to stay under (/echs stay) \xB7 and /echs safeword, which no"),
+      body("setting and no suggestion can ever take away.")
     ];
   }
   function vocabularyLines() {
@@ -10831,7 +10885,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -10898,7 +10952,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.1.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.2.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11725,6 +11779,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: () => selfWake()
         },
         {
+          Tag: "stay",
+          group: "Session",
+          Description: "When your trance's 30 minutes are up and you are asked, stay under for another 30",
+          Action: () => answerExtend(true)
+        },
+        {
           Tag: "safeword",
           group: "Session",
           Description: "Hard stop: clears the trance and every effect. Always works.",
@@ -12478,6 +12538,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return MouseIn(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2);
   }
+  function drawExtend(remainingMs, minutes) {
+    DrawRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "White");
+    DrawEmptyRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "Black", 4);
+    const centre = PANEL_LEFT2 + PANEL_WIDTH2 / 2;
+    const inner = PANEL_WIDTH2 - 40;
+    DrawTextFit(`Your trance has run its ${minutes} minutes.`, centre, PANEL_TOP2 + 55, inner, "Black");
+    DrawTextFit(`Stay under for another ${minutes}?`, centre, PANEL_TOP2 + 105, inner, "Black");
+    DrawTextFit(`${Math.ceil(remainingMs / 1e3)}s \u2014 no answer wakes you.`, centre, PANEL_TOP2 + 175, inner, "Gray");
+    for (const b of EXTEND_BUTTONS) DrawButton(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, b.label, "White", "", b.hover);
+  }
+  function clickExtend() {
+    for (const b of EXTEND_BUTTONS) {
+      if (MouseIn(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT)) {
+        log(`extend box answered: ${b.stay ? "stay" : "wake"}`);
+        answerExtend(b.stay);
+        return true;
+      }
+    }
+    return MouseIn(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2);
+  }
   function installPrompt(modApi2) {
     modApi2.hookFunction(
       "ChatRoomRun",
@@ -12486,6 +12566,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const result = next(args);
         const pending = getPendingPrompt();
         if (pending) drawPrompt(pending.hypnotistName, pending.remainingMs, pending.descriptor);
+        const extend = getPendingExtend();
+        if (extend) drawExtend(extend.remainingMs, extend.minutes);
         return result;
       })
     );
@@ -12494,11 +12576,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         if (getPendingPrompt() && clickPrompt()) return void 0;
+        if (getPendingExtend() && clickExtend()) return void 0;
         return next(args);
       })
     );
   }
-  var PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_GAP, FIRST_BUTTON_LEFT, CHOICES;
+  var PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_GAP, FIRST_BUTTON_LEFT, CHOICES, EXTEND_BUTTONS;
   var init_prompt = __esm({
     "src/prompt.ts"() {
       init_log();
@@ -12516,6 +12599,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { choice: "agree", label: "Agree", hover: "Let it happen. Much more likely to go under." },
         { choice: "ignore", label: "Ignore", hover: "Neither help nor resist. No bonus either way." },
         { choice: "fight", label: "Fight", hover: "Brace against it. Much more likely to stay clear." }
+      ];
+      EXTEND_BUTTONS = [
+        { stay: true, label: "Stay under", hover: "Another stretch of trance. You will be asked again when it is up.", left: 260 },
+        { stay: false, label: "Wake up", hover: "Let the trance end now.", left: 540 }
       ];
     }
   });
@@ -13067,7 +13154,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.1.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.2.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13088,7 +13175,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.1.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.2.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13160,14 +13247,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.1.1"})`);
+      info(`script loaded (v${"1.2.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.1.1",
+          version: "1.2.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13305,10 +13392,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.1.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.2.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.1.1";
+    page2.__ECHS_LOADED__ = "1.2.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

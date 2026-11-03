@@ -114,7 +114,7 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 | **Targeted Release** | *"Missy, you are released from [trigger]"* | Hypnotist clears a specific trigger's hold. |
 | **Master Toggle** | Untick **Hypnosis Enabled** | Completely disables the add-on from preferences (except during Extreme lock). |
 | **Early Extreme Exit** | **`/echs reset confirm`** | Breaks the Extreme progressive lock early; wipes all ECHS data back to factory defaults. |
-| **Session Timers** | 30-Minute Timeout | Trances end automatically after 30 minutes. |
+| **Session Timers** | 30-Minute Timeout | After 30 minutes you are asked whether to stay under for another 30. Only a yes from you extends it; no answer within a minute ends the trance. |
 | **Abandonment Timer** | 5-Minute Room Timer | Trance ends if the hypnotist leaves the room for over 5 minutes. |
 | **Trigger Timers** | Automatic | A fired trigger's effects wear off on their own countdown. |
 | **Induction Window** | 60 seconds | An unanswered induction prompt closes on its own. |

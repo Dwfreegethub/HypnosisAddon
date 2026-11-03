@@ -137,7 +137,7 @@ The safeword always works, in every one of these.
 
 ## 8. Tries and Waiting
 
-Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**.
+Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions tab). When they run out, they must wait **10 minutes** before trying you again. Every refusal is told to the hypnotist in chat, with how long to wait. A trance ends on its own after **30 minutes**, unless the subject chooses **Stay under** when asked, which gives another 30.
 
 **If the hypnotist leaves the room:**
 * **Before the induction lands:** it is given up if they are not back within about 30 seconds, or are gone when it would land. It does **not** use up one of their tries.

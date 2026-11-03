@@ -157,6 +157,10 @@ const induceAndExpire = (choice) => {
 	if (phase() !== "Hypnotized") throw new Error(`the ${choice} induction did not land (${phase()})`);
 	local = []; room = []; wire = [];
 	runTimeout();
+	// Since v1.2.0 the thirty minutes first ask whether to stay under (test/extend.mjs). Left
+	// unanswered, the trance ends exactly as before, and that ending is what this suite is about.
+	local = []; room = []; wire = [];
+	runTimeout(60_000);
 	return { local: [...local], room: [...room], ended: updates().at(-1) };
 };
 

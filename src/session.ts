@@ -133,6 +133,10 @@ const COOLDOWN_MS = 10 * 60_000;
 const SESSION_TIMEOUT_MS = 30 * 60_000;
 /** The timeout as players are told it, on both sides of the expiry announcement. */
 const TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 60_000);
+/** How long the "stay under?" box waits when the thirty minutes run out (v1.2.0, DW 2026-11-02).
+ * No answer ends the trance, as the timeout always did: staying under is something she chooses,
+ * never something that happens because she looked away. */
+const EXTEND_ASK_MS = 60_000;
 /** Floor and ceiling on the induction chance, so neither outcome is ever certain. The
  * floor is what an actively resisting stranger still leaves open: 5% per attempt, ~14%
  * across a session's three. DW's settled call; meant to become a player setting. */
@@ -319,6 +323,9 @@ let promptTimer: ReturnType<typeof setTimeout> | null = null;
 let windowTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionTimer: ReturnType<typeof setTimeout> | null = null;
 let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+/** The "stay under?" question: when it lapses, or 0 when nothing is being asked. */
+let extendAskUntil = 0;
+let extendTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** When the hypnotist was first noticed to be gone, or 0 while they are here. Wall-clock
  * rather than a countdown so a missed poll (a backgrounded tab throttles timers to once a
@@ -327,8 +334,9 @@ let hypnotistGoneSince = 0;
 let presenceTimer: ReturnType<typeof setInterval> | null = null;
 
 function clearTimers(): void {
-	for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer]) if (t) clearTimeout(t);
-	promptTimer = windowTimer = sessionTimer = cooldownTimer = null;
+	for (const t of [promptTimer, windowTimer, sessionTimer, cooldownTimer, extendTimer]) if (t) clearTimeout(t);
+	promptTimer = windowTimer = sessionTimer = cooldownTimer = extendTimer = null;
+	extendAskUntil = 0;
 	stopPresenceWatch();
 }
 
@@ -525,6 +533,69 @@ function refuse(to: number, reason: string): void {
  * while they were logged out and are only now being told. Both tell the hypnotist; only the
  * first is something the room could have watched happen. */
 type Expiry = "here" | "away";
+
+/** Start (or restart) the clock on a running trance. */
+function armSessionTimer(ms: number): void {
+	if (sessionTimer) clearTimeout(sessionTimer);
+	sessionEndsAt = Date.now() + ms;
+	sessionTimer = setTimeout(askToExtend, ms);
+}
+
+/** The thirty minutes are up, with her here to be asked (v1.2.0). The trance holds while the box
+ * is up; no answer ends it exactly as the timeout always has. */
+function askToExtend(): void {
+	sessionTimer = null;
+	if (session.phase !== "Hypnotized") return;
+	extendAskUntil = Date.now() + EXTEND_ASK_MS;
+	if (extendTimer) clearTimeout(extendTimer);
+	extendTimer = setTimeout(() => {
+		extendTimer = null;
+		extendAskUntil = 0;
+		if (session.phase === "Hypnotized") expireSession("here");
+	}, EXTEND_ASK_MS);
+	notify(
+		`Your trance has run its ${TIMEOUT_MINUTES} minutes. Stay under for another ${TIMEOUT_MINUTES}? ` +
+			`Choose on the box, or type /echs stay. If you don't answer, you wake. (${Math.round(EXTEND_ASK_MS / 1000)}s)`,
+	);
+	if (session.hypnotistId != null) {
+		sendHiddenMessage(
+			{ type: "trigger-status", text: `[trance] ${TIMEOUT_MINUTES} minutes are up. They are being asked whether to stay under.` },
+			session.hypnotistId,
+		);
+	}
+	log("session: time up, asking whether to extend");
+}
+
+/** The "stay under?" box, while it is up. Drives prompt.ts. */
+export function getPendingExtend(): { remainingMs: number; minutes: number } | null {
+	if (!extendAskUntil || session.phase !== "Hypnotized") return null;
+	return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: TIMEOUT_MINUTES };
+}
+
+/** Her answer: the box, or /echs stay (true). False wakes her now, as the timeout would have. */
+export function answerExtend(stay: boolean): void {
+	if (!getPendingExtend()) {
+		notify("Nothing is asking whether you want to stay under right now.");
+		return;
+	}
+	if (extendTimer) clearTimeout(extendTimer);
+	extendTimer = null;
+	extendAskUntil = 0;
+	if (!stay) {
+		expireSession("here");
+		return;
+	}
+	armSessionTimer(SESSION_TIMEOUT_MS);
+	notify(`You let it keep you. Another ${TIMEOUT_MINUTES} minutes.`);
+	if (session.hypnotistId != null) {
+		sendHiddenMessage(
+			{ type: "trigger-status", text: `[trance] They chose to stay under for another ${TIMEOUT_MINUTES} minutes.` },
+			session.hypnotistId,
+		);
+	}
+	pushUpdate();
+	log("session: extended by the subject");
+}
 
 /** The timeout, spoken on all three screens. See tranceExpiryLine() in flavor.ts. */
 function expireSession(when: Expiry): void {
@@ -1122,8 +1193,7 @@ function enterTrance(full: number, earned: number): void {
 	session.depthEarned = Math.min(full, earned);
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+	armSessionTimer(SESSION_TIMEOUT_MS);
 	applyTranceState();
 	// Keep asking. Presence was checked at the gate — but the trance now runs for up to thirty
 	// minutes, and the question "is anyone still here" has to be asked for all of it.
@@ -1273,8 +1343,7 @@ export function forceTrance(hypnotistId: number, full: number, earned: number): 
 	session.depthEarned = Math.max(0, Math.min(session.depth, earned));
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+	armSessionTimer(SESSION_TIMEOUT_MS);
 	applyTranceState();
 	// A forced trance is still a trance: if the bot that forced it leaves the testing room,
 	// it ends the same way a real one would rather than becoming the one path that strands
@@ -1321,8 +1390,7 @@ export function dropIntoTrance(hypnotistId: number, full: number, earned: number
 	session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	sessionEndsAt = Date.now() + SESSION_TIMEOUT_MS;
-	sessionTimer = setTimeout(() => expireSession("here"), SESSION_TIMEOUT_MS);
+	armSessionTimer(SESSION_TIMEOUT_MS);
 	// The trance defaults — freeze, silence, fade, whatever the subject accepted for being under —
 	// in the one call every other way into trance uses.
 	applyTranceState();
@@ -2207,8 +2275,7 @@ function restoreSavedSession(saved: SavedSession): boolean {
 	const remaining = (saved.sessionEndsAt || 0) - Date.now();
 	if (sessionTimer) clearTimeout(sessionTimer);
 	if (remaining > 0) {
-		sessionEndsAt = saved.sessionEndsAt;
-		sessionTimer = setTimeout(() => expireSession("here"), remaining);
+		armSessionTimer(remaining);
 	} else {
 		expireSession("away");
 		return false;
