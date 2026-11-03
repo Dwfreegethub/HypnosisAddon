@@ -2186,11 +2186,15 @@ const TRIGGER_STEP_JITTER_MS = 800;
  * floor cancels a half-drained sequence (endSession and totalStop both call clearAllTimers)
  * rather than leaving it running against a subject who is no longer under. Re-firing restarts it —
  * scheduleTimer replaces by key, so one trigger can never stack two drains. */
+function drainKey(trigger: Trigger): string {
+	return `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+}
+
 function drainTriggerSteps(trigger: Trigger, steps: (() => void)[]): void {
 	if (!steps.length) return;
 	steps[0]();
 	if (steps.length === 1) return;
-	const key = `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+	const key = drainKey(trigger);
 	let i = 1;
 	const tick = () => {
 		steps[i++]();
@@ -2535,6 +2539,11 @@ const TRIGGER_RELEASE = [
 	/\brelease (?:the )?trigger (.+)$/,
 ];
 
+export function isTriggerReleaseLine(content: string): boolean {
+	const text = normalize(content);
+	return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
+}
+
 /** Reverse everything a trigger applied. Shared by the named release, the timer, and
  * anything else that needs to let go — one path, so they can't drift apart. */
 function undoTrigger(trigger: Trigger): void {
@@ -2548,6 +2557,10 @@ function undoTrigger(trigger: Trigger): void {
 		SUGGESTIONS.find((s) => s.id === id)?.undo?.();
 	}
 	cancelTimer(timerKey(trigger));
+	// v1.2.2: and the steps not yet applied. A trigger's actions land one paced step at a time (a
+	// mantra is a step per repetition), and a release in the first seconds left the rest queued, so
+	// they landed AFTER "lets go" with nothing left to undo them, or she kept saying the mantra.
+	cancelTimer(drainKey(trigger));
 	clearActive(timerKey(trigger));
 	// The other direction: a released trigger left in the saved copy would be put back on by
 	// the next reload, restoring something that had already let go.
@@ -2711,12 +2724,24 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 		if (!match) continue;
 		const phrase = cleanPhrase(match[1]);
 		const trigger = triggersReleasableBy(sender, phrase)[0];
+		// v1.2.2: every outcome is said to the hypnotist (rule 5). This was console-only, so a
+		// misspelt or wrong name looked exactly like a release that worked. Only to someone who has
+		// planted in her or has her under, so a stray "you are released from homework" nags nobody.
 		if (!trigger) {
 			log(`release asked for "${phrase}" but no trigger of theirs matches`);
+			if (isSessionActiveWith(sender) || listTriggers().some((t) => t.installedBy === sender))
+				tellHypnotist(sender, `[trigger] Nothing called "${phrase}" that you can release is planted in them. /echs triggers on their side lists what is.`);
 			return true;
 		}
+		// Holding her, or still landing (its paced steps not all applied yet).
+		const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
 		undoTrigger(trigger);
-		tellPlayer("Whatever was holding you lets go.");
+		if (holding) {
+			tellPlayer("Whatever was holding you lets go.");
+			tellHypnotist(sender, "[trigger] Released. What it was holding lets go.");
+		} else {
+			tellHypnotist(sender, "[trigger] Released, but it was not holding them right now.");
+		}
 		return true;
 	}
 	return false;
@@ -3646,6 +3671,14 @@ export function handleSpokenLine(sender: number, content: string): void {
 		// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
 		// planted word and set the thing off in the middle of maintaining it.
 		if (handleReinforcement(sender, line)) return;
+	} else if (isTriggerReleaseLine(content)) {
+		// v1.2.2: a release line that was not cut down to us. Before this, it fell through to the
+		// firing below, which reads the whole line, so "you are released from frozen. Ella, kneel"
+		// (a clause no name claims, so the whole line is ambiguous) FIRED frozen again. Releasing
+		// can never harm her and needs no name, so an ambiguous line still releases; one addressed
+		// only to someone else ("Ella, you are released from frozen") does nothing to her.
+		if (scope.ambiguous) handleTriggerRelease(sender, content);
+		return;
 	}
 	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
 	// trigger is that it works outside a trance.

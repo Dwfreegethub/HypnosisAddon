@@ -12,6 +12,19 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.2.2 RC · 2 November 2026
+
+- **"You are released from <trigger>" works every time.** If you had a "when someone comes in"
+  or "after you wake" trigger, naming another trigger could let go of the wrong one, so the one
+  you named kept holding. Releasing a trigger in the first few seconds after it fired also let
+  the rest of it land anyway, or let a repeated phrase keep being said. Both are fixed.
+- **A release line never sets the trigger off.** Some release lines that mentioned more than one
+  person fired the trigger they named instead of releasing it.
+- **The hypnotist is told what happened.** After a release you hear whether it let go, whether it
+  wasn't holding them, or that nothing by that name is planted (for example, a typo).
+- **New trigger words can be planted next to a "when" trigger.** Having one planted made every new
+  trigger word get refused.
+
 ## v1.2.1 RC · 2 November 2026
 
 - **"Strip" takes off everything it should.** Undershirts and bodysuits were never removed

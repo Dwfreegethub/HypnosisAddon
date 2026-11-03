@@ -751,7 +751,10 @@ function collisionRateLimited(): boolean {
  * `isHolding` is passed in rather than imported: the "is it in effect" check lives in voice.ts
  * and importing it here would reverse the module dependency. */
 function phraseAvailability(sender: number, phrase: string, isHolding: (t: Trigger) => boolean): string | null {
-	const existing = listTriggers();
+	// Phrase triggers only. v1.2.2: a compulsion's phrase is "", which every word "includes", so one
+	// planted compulsion refused every new word ("Your own "" already overlaps this", or the vague
+	// "taken" refusal when someone else planted it). A compulsion has no word to collide with.
+	const existing = listTriggers().filter((t) => !t.fireOn && !!t.phrase);
 	const exact = existing.find((t) => t.phrase === phrase);
 	if (exact) {
 		if (exact.installedBy === sender) {
@@ -1143,7 +1146,13 @@ export function triggersFiredBy(speaker: number, normalisedText: string): Trigge
  * the duration timer, the safeword) must not be narrowed further than they already are. */
 export function triggersReleasableBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
-	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+	// v1.2.2 (DW 2026-11-02, "not stopping triggers always"): a compulsion has NO phrase, and
+	// "anything".includes("") is true, so a compulsion listed first was released in place of the
+	// trigger actually named, and the named one kept holding her. Phrase triggers only, and the
+	// longest phrase first, so "released from sleepy time" picks "sleepy time" over "sleep".
+	const matching = listTriggers()
+		.filter((t) => !t.fireOn && !!t.phrase && normalisedText.includes(t.phrase))
+		.sort((a, b) => b.phrase.length - a.phrase.length);
 	if (speaker === Player?.MemberNumber) return matching;
 	return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
 }

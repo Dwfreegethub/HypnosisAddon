@@ -20,6 +20,34 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-02 (v1.2.2 RC) — "you are released from <trigger>" not always releasing
+
+DW: reports that the named release "is not stopping triggers always". Four causes, all reproduced
+in the new `test/trigger-release.mjs` (10/26 on the old code, 26/26 now):
+
+1. **Compulsions matched every release.** A delayed compulsion is stored with `phrase: ""`, and
+   `triggersReleasableBy` used `text.includes(t.phrase)`, which is true for `""`. With a
+   compulsion earlier in the list (easy's arrival trigger is one), `[0]` was the compulsion: it was
+   "released", the subject was told "lets go", and the named trigger kept holding. Now phrase
+   triggers only, longest phrase first (so a pre-overlap-rule "sleep" can't shadow "sleepy time").
+2. **The paced drain outlived the release.** `drainTriggerSteps` applies actions 1.2 to 2 s apart
+   under `trigger-drain:<installer>:<key>`, and a mantra is one step per repetition. `undoTrigger`
+   cancelled the auto-release timer but not the drain, so a quick release let the remaining steps
+   land after it with nothing to undo them. `undoTrigger` now cancels the drain too.
+3. **An unscoped release line fell through to firing.** When `scopeToAddressee` returned
+   `text: null` (ambiguous, or addressed only to someone else), the release handler never ran and
+   `handleTriggerFiring` read the whole line, so the trigger word in it FIRED. A release line now
+   never fires: ambiguous ones release (releasing needs no name and can't harm), ones for someone
+   else do nothing.
+4. **Silent outcomes (rule 5).** No match was console-only, and "lets go" was told even when
+   nothing was holding. The hypnotist now hears released / not holding / nothing by that name (the
+   last only if they have planted in her or have her under). The subject hears "lets go" only when
+   something did.
+
+Found while writing the suite, same root cause as 1: `phraseAvailability` also compared against
+the compulsion's `""`, so one planted compulsion refused every new trigger word ("Your own ""
+already overlaps this", or the vague refusal if someone else planted it). Now phrase triggers only.
+
 ### Fixed 2026-11-02 (v1.2.1 RC) — strip misses the suit, outerwear and Echo's slots
 
 DW asked that strip remove all Echo clothing. Checking `UNDRESS_ORDER` against the live R133
