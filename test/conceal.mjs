@@ -150,9 +150,18 @@ session.safeword();
 check("safeword: the spent one-shot is gone too", storage.listTriggers().length, 0);
 check("  and the word shows, exactly as after a release", run(msg("ember glow!")), false);
 plantOnce();
+{
+	// The clock has to move: a hold counts as from before the trance only if it strictly is.
+	const started = Date.now();
+	while (Date.now() === started);
+}
 session.forceTrance(HYP, 80, 80);
 voice.handleSpokenLine(HYP, "Missy, wake up");
-check("an ordinary wake: gone too", storage.listTriggers().length, 0);
+// DW, 2026-11-05: a hold from before the trance outlives the wake, so it is still a trigger.
+check("an ordinary wake: it still holds her, so it stays", storage.listTriggers().length, 1);
+check("  and the word stays hidden", run(msg("ember glow!")), { msg: "...!" });
+voice.handleSpokenLine(HYP, "Missy you are released from ember glow");
+check("  once it lets go, it is gone", storage.listTriggers().length, 0);
 check("  and the word shows", run(msg("ember glow!")), false);
 // An expired trigger is not a trigger either, even before anything prunes it.
 storage.forgetAllTriggers();

@@ -20,6 +20,90 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-05 (v1.4.0 RC) — the beat, the pulse, the planted list, and holds across a wake
+
+Four items from the feedback list, each shaped by DW's answers the same day.
+
+**The beat (DW's "slight pauses after commands").** 2 to 5 seconds, the mean of three rolls so the
+edges are rare. `handleSpokenLine` splits at `landCommand`, and the WHOLE of that runs when the beat is
+up, so every gate answers for that moment: a permission revoked in the beat is refused, and no gate
+had to be written twice. Wake, release and the safeword do not wait. Three traps, each with a check:
+- *Order.* Two rolls could swap "kneel" and "stand", so each waits for the one before it.
+- *A release overtaking what it releases.* "You cannot move" then "you can move" would otherwise end
+  frozen, with nothing left to undo it. A release lands the queue first, then itself.
+- *Lines that act on the last command.* "That will stay with you" must find it applied, and a queued
+  command must not land inside a trigger that started recording. Those flush first (`isControlLine`).
+A wake or safeword clears the queue through `onTeardown` and the timer through `clearAllTimers`.
+Refusals wait too, since they come out of the same run. The suites run without the beat
+(`isUnitTestBundle`); the shipped build has it, testing room included. `setCommandPacing` turns it on
+for `test/command-pace.mjs`.
+
+**The pulse (JAX, 11-02).** `commandPulse`, on by default, with a colour on the Trance Defaults tab.
+A sine swell over a second, so it cannot flash. Refused commands do not pulse. It steps aside while BC
+darkens her screen, as the veil does. That tab now scrolls.
+
+**The planted list (Eri, 10-04).** `src/planted.ts`. The subject answers only about the asker's own
+triggers, in words, with a band and never the number. Notes on the hypnotist's client cover anyone
+not in the room, marked last known, and are only ever displayed (rule 1). No new message types:
+`messaging.ts` prints an unknown type as raw text on an older build, so the list rides on `state-query`,
+`state-response` and `trigger-status` as an extra field. Notes can go stale for someone who never
+returns, and there is no way to clear them short of a reset; capped at 50 subjects.
+
+**The panel (DW).** Movement, Clothing and Kneel buttons removed: testing leftovers. `remote-request`
+keeps a handler that does nothing, so an older hypnotist's press is not printed on the subject's screen.
+
+**Holds across a wake (Valerie, 10-31; DW's choice).** Reported as "tranced removes it"; what was
+actually found is that a trance carries a hold and the WAKE ended it. `onWakeKeep` reads holds before
+`endSession`'s total clear and restores them after, using the reconnect path (`restoreHold`), so the
+clear stays total. Only a hold that started before `hypnotizedAt`. Fired during the trance ends with
+it; a hold with no recorded start (after a reload) ends too, as before. A used-up one-shot is re-saved,
+because the teardown sweep deletes it. Known edge: a hold whose pose the hypnotist changed during the
+trance goes back on at the wake. The safeword and hard floor never ask. Not confirmed with Valerie.
+
+### Fixed 2026-11-05 (v1.4.0 RC) — a compulsion's refused pose stops telling the room
+
+easy (feedback, 11-01): a "when someone comes in" compulsion, every time, while tied up. `fireTrigger`
+announced `pose-blocked` on each arrival, a public emote, and the safeword leaves arrival triggers
+planted by design. A compulsion goes off with nobody asking, so the room has no reason to watch it
+fail. `tellPoseRefused` says so privately instead, once per compulsion per page load (rule 5), and
+names `/echs forgettrigger` unless the Extreme lock would refuse it. Scoped to `trigger.fireOn`: a word
+said aloud was aimed at her, so its refused pose stays public, as do spoken commands. A refused pose
+still counts as holding, as before, so forgettrigger waits for it to let go; the line says so.
+This matters more now, since under the lock nobody can remove such a trigger.
+
+### Changed 2026-11-05 (v1.4.0 RC) — DW's review of what Extreme does
+
+DW asked whether Extreme was extreme enough. What changed, each DW's answer in that review:
+
+- **Lock:** `/echs carry drop` refused. **Left open by choice:** `/echs forgettrust`, and the player
+  preferences a setup leaves alone (release on disconnect, show trigger words, hide trigger setup).
+- **Template:** trance clothing freeze on (replacing job2.md's "off until verbally commanded"),
+  chemical scope "both", toy mode "Everyone, except
+  blacklist". That last one means a stranger can put an Extreme subject straight under at Blank, so
+  the template's blurb now says so; the warning screen only covers the lock.
+- **Refused:** `/echs kneel` and `/echs stand`, which bypass every gate and would undo a pose a
+  hypnotist set.
+- **Hidden:** trust and experience on the Stats tab, `/echs chance`, `/echs skill`, `/echs gates`,
+  and the depth and progress in `/echs session`, which still says she is under. The tab stays
+  because it holds Export and Reset, and Reset is a documented way out. `/echs chance` is also a
+  hypnotist's tool, so an Extreme player loses it when hypnotizing others too.
+- **Trance length:** 60 minutes per "stay" while locked, read from the subject's own settings. The
+  expiry line on the hypnotist's client no longer names a number, since that client can't know it.
+- **Trigger decay stays "very slowly":** DW kept the 09-29 decision when offered "Never".
+
+**Under the lock, triggers can only be added. Reverses part of v1.3.0, at DW's request.** v1.3.0 let the planter's spoken removal through the
+lock, reasoning that the lock is about the subject escaping, not the planter withdrawing. Missy's
+feedback of 11-05 reported that against the earlier rule, and DW's call is that while locked nobody
+removes a trigger. `handleTriggerRemoval` refuses once it has found something of the sender's to
+remove, so "I take back what I said" stays conversation and a word that isn't theirs gets the same
+reply as ever, which keeps another hypnotist's word unconfirmed.
+
+Still working under the lock, on purpose: named release (lets go, stays planted), the safeword,
+and the automatic endings (fading at the very slow rate, one-shots being used up, the safeword
+discarding after-waking compulsions). A deeper planter can still override a word under the usual
+phrase-uniqueness rule. The Extreme warning now says it, since that is what the player is agreeing
+to. Consequence accepted: a planter who regrets a trigger cannot take it back until the lock ends.
+
 ### Added 2026-11-02 (v1.3.0 RC) — the hypnotist can remove a trigger they planted
 
 DW asked for it, installer only. Until now only the subject could delete a trigger

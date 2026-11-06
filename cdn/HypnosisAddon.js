@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.3.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.4.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -74,6 +74,9 @@
   }
   function isTestingMode() {
     return FORCE_TESTING || inTestingRoom();
+  }
+  function isUnitTestBundle() {
+    return FORCE_TESTING;
   }
   function inTestingRoom() {
     try {
@@ -488,6 +491,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
     MainCanvas.restore();
   }
+  function startCommandPulse(rgb, now = Date.now()) {
+    pulseStartedAt = now;
+    pulseRgb = rgb;
+  }
+  function drawCommandPulse(now = Date.now()) {
+    if (!pulseStartedAt) return;
+    const t = (now - pulseStartedAt) / PULSE_MS;
+    if (t >= 1 || t < 0) {
+      pulseStartedAt = 0;
+      return;
+    }
+    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+    const strength = Math.sin(Math.PI * t) * PULSE_PEAK;
+    MainCanvas.save();
+    for (let band = 0; band < PULSE_BANDS; band++) {
+      MainCanvas.fillStyle = `rgba(${pulseRgb}, ${strength * (PULSE_BANDS - band) / PULSE_BANDS})`;
+      const inset = band * PULSE_BAND_WIDTH;
+      const w = VEIL_WIDTH - 2 * inset;
+      const h = MainCanvasHeight - 2 * inset;
+      MainCanvas.fillRect(inset, inset, w, PULSE_BAND_WIDTH);
+      MainCanvas.fillRect(inset, MainCanvasHeight - inset - PULSE_BAND_WIDTH, w, PULSE_BAND_WIDTH);
+      MainCanvas.fillRect(inset, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+      MainCanvas.fillRect(VEIL_WIDTH - inset - PULSE_BAND_WIDTH, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+    }
+    MainCanvas.restore();
+  }
   function setSight(level2) {
     sightLevel = level2;
     refreshOwnEffects();
@@ -690,7 +719,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, PULSE_MS, PULSE_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -710,6 +739,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       walkingTrance = false;
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
+      PULSE_MS = 1e3;
+      PULSE_PEAK = 0.55;
+      PULSE_BANDS = 6;
+      PULSE_BAND_WIDTH = 7;
+      pulseStartedAt = 0;
+      pulseRgb = "";
       BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
       BLIND_GROUPS = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
       sightLevel = 0;
@@ -723,171 +758,538 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/suppression.ts
-  function setSuppressed(category, on) {
-    if (on) active.add(category);
-    else active.delete(category);
-  }
-  function isSuppressed(category) {
-    return active.has(category);
-  }
-  function setNumb(on) {
-    numb = on;
-  }
-  function isNumb() {
-    return numb;
-  }
-  function clearAllSuppression() {
-    active.clear();
-    numb = false;
-    hearing = null;
-  }
-  function setHearing(mode) {
-    hearing = mode;
-  }
-  function hearingMode() {
-    return hearing;
-  }
-  function hearsLine(sender, namesHer) {
-    if (!hearing || sender === Player?.MemberNumber) return true;
-    return hearing.kind === "voice" ? sender === hearing.member : namesHer;
-  }
-  function markUnheard(data) {
-    unheard.add(data);
-  }
-  function oocOnly(text) {
-    const spans = [];
-    let depth = 0;
-    let current = "";
-    for (const ch of String(text ?? "")) {
-      if (ch === "(") {
-        if (depth === 0) current = "";
-        depth++;
-        current += ch;
-      } else if (ch === ")" && depth > 0) {
-        current += ch;
-        depth--;
-        if (depth === 0) spans.push(current);
-      } else if (depth > 0) {
-        current += ch;
-      }
-    }
-    if (depth > 0 && current.length > 1) spans.push(current);
-    return spans.join(" ").trim();
-  }
-  function installHearingFilter(onHidden) {
-    if (typeof ChatRoomRegisterMessageHandler !== "function") {
-      warn("ChatRoomRegisterMessageHandler missing \u2014 hearing only one voice will not hide chat");
-      return;
-    }
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
-      Priority: 90,
-      Callback: (data, _sender, msg) => hearingFilter(data, msg, onHidden)
-    });
-    log("hearing filter registered at priority 90");
-  }
-  function hearingFilter(data, msg, onHidden) {
-    try {
-      if (!hearing || !data || !unheard.has(data)) return false;
-      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
-      const ooc = oocOnly(msg);
-      if (ooc) return { msg: ooc };
-      const now = Date.now();
-      if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
-        lastOthersFade = now;
-        onHidden(hearing);
-      }
-      return true;
-    } catch (err) {
-      warn("hearing filter failed:", err);
-      return false;
-    }
-  }
-  function resetOthersFade() {
-    lastOthersFade = 0;
-  }
-  function targetsPlayer(data, metadata) {
-    if (metadata?.TargetMemberNumber != null) return metadata.TargetMemberNumber === Player.MemberNumber;
-    return data?.Sender !== Player.MemberNumber && !!ChatRoomMessageInvolvesPlayer?.(data);
-  }
-  function isItemSlot(group, isRestraint) {
-    return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
-  }
-  function classify(data, metadata) {
-    if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
-    if (data?.Type !== "Action") return null;
-    const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
-    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
-    if (assets.length > 0) return "clothing";
-    const group = metadata?.FocusGroup;
-    if (group) return isItemSlot(group) ? "bondage" : "clothing";
-    const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
-    return tag ?? null;
-  }
-  function installSuppression() {
-    if (typeof ChatRoomRegisterMessageHandler !== "function") {
-      warn("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
-      return;
-    }
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: hide suppressed categories (after arousal, before display)",
-      Priority: 320,
-      Callback: (data, _sender, _msg, metadata) => {
-        try {
-          if (active.size === 0) return false;
-          const category = classify(data, metadata);
-          if (!category || !active.has(category)) return false;
-          if (!targetsPlayer(data, metadata)) return false;
-          log(`suppressed ${category} message:`, data?.Content);
-          return true;
-        } catch (err) {
-          warn("suppression handler failed:", err);
-          return false;
+  // node_modules/lz-string/libs/lz-string.js
+  var require_lz_string = __commonJS({
+    "node_modules/lz-string/libs/lz-string.js"(exports, module) {
+      var LZString = (function() {
+        var f = String.fromCharCode;
+        var keyStrBase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+        var keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+        var baseReverseDic = {};
+        function getBaseValue(alphabet, character) {
+          if (!baseReverseDic[alphabet]) {
+            baseReverseDic[alphabet] = {};
+            for (var i = 0; i < alphabet.length; i++) {
+              baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+            }
+          }
+          return baseReverseDic[alphabet][character];
         }
+        var LZString2 = {
+          compressToBase64: function(input) {
+            if (input == null) return "";
+            var res = LZString2._compress(input, 6, function(a) {
+              return keyStrBase64.charAt(a);
+            });
+            switch (res.length % 4) {
+              // To produce valid Base64
+              default:
+              // When could this happen ?
+              case 0:
+                return res;
+              case 1:
+                return res + "===";
+              case 2:
+                return res + "==";
+              case 3:
+                return res + "=";
+            }
+          },
+          decompressFromBase64: function(input) {
+            if (input == null) return "";
+            if (input == "") return null;
+            return LZString2._decompress(input.length, 32, function(index) {
+              return getBaseValue(keyStrBase64, input.charAt(index));
+            });
+          },
+          compressToUTF16: function(input) {
+            if (input == null) return "";
+            return LZString2._compress(input, 15, function(a) {
+              return f(a + 32);
+            }) + " ";
+          },
+          decompressFromUTF16: function(compressed) {
+            if (compressed == null) return "";
+            if (compressed == "") return null;
+            return LZString2._decompress(compressed.length, 16384, function(index) {
+              return compressed.charCodeAt(index) - 32;
+            });
+          },
+          //compress into uint8array (UCS-2 big endian format)
+          compressToUint8Array: function(uncompressed) {
+            var compressed = LZString2.compress(uncompressed);
+            var buf = new Uint8Array(compressed.length * 2);
+            for (var i = 0, TotalLen = compressed.length; i < TotalLen; i++) {
+              var current_value = compressed.charCodeAt(i);
+              buf[i * 2] = current_value >>> 8;
+              buf[i * 2 + 1] = current_value % 256;
+            }
+            return buf;
+          },
+          //decompress from uint8array (UCS-2 big endian format)
+          decompressFromUint8Array: function(compressed) {
+            if (compressed === null || compressed === void 0) {
+              return LZString2.decompress(compressed);
+            } else {
+              var buf = new Array(compressed.length / 2);
+              for (var i = 0, TotalLen = buf.length; i < TotalLen; i++) {
+                buf[i] = compressed[i * 2] * 256 + compressed[i * 2 + 1];
+              }
+              var result = [];
+              buf.forEach(function(c) {
+                result.push(f(c));
+              });
+              return LZString2.decompress(result.join(""));
+            }
+          },
+          //compress into a string that is already URI encoded
+          compressToEncodedURIComponent: function(input) {
+            if (input == null) return "";
+            return LZString2._compress(input, 6, function(a) {
+              return keyStrUriSafe.charAt(a);
+            });
+          },
+          //decompress from an output of compressToEncodedURIComponent
+          decompressFromEncodedURIComponent: function(input) {
+            if (input == null) return "";
+            if (input == "") return null;
+            input = input.replace(/ /g, "+");
+            return LZString2._decompress(input.length, 32, function(index) {
+              return getBaseValue(keyStrUriSafe, input.charAt(index));
+            });
+          },
+          compress: function(uncompressed) {
+            return LZString2._compress(uncompressed, 16, function(a) {
+              return f(a);
+            });
+          },
+          _compress: function(uncompressed, bitsPerChar, getCharFromInt) {
+            if (uncompressed == null) return "";
+            var i, value, context_dictionary = {}, context_dictionaryToCreate = {}, context_c = "", context_wc = "", context_w = "", context_enlargeIn = 2, context_dictSize = 3, context_numBits = 2, context_data = [], context_data_val = 0, context_data_position = 0, ii;
+            for (ii = 0; ii < uncompressed.length; ii += 1) {
+              context_c = uncompressed.charAt(ii);
+              if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
+                context_dictionary[context_c] = context_dictSize++;
+                context_dictionaryToCreate[context_c] = true;
+              }
+              context_wc = context_w + context_c;
+              if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
+                context_w = context_wc;
+              } else {
+                if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+                  if (context_w.charCodeAt(0) < 256) {
+                    for (i = 0; i < context_numBits; i++) {
+                      context_data_val = context_data_val << 1;
+                      if (context_data_position == bitsPerChar - 1) {
+                        context_data_position = 0;
+                        context_data.push(getCharFromInt(context_data_val));
+                        context_data_val = 0;
+                      } else {
+                        context_data_position++;
+                      }
+                    }
+                    value = context_w.charCodeAt(0);
+                    for (i = 0; i < 8; i++) {
+                      context_data_val = context_data_val << 1 | value & 1;
+                      if (context_data_position == bitsPerChar - 1) {
+                        context_data_position = 0;
+                        context_data.push(getCharFromInt(context_data_val));
+                        context_data_val = 0;
+                      } else {
+                        context_data_position++;
+                      }
+                      value = value >> 1;
+                    }
+                  } else {
+                    value = 1;
+                    for (i = 0; i < context_numBits; i++) {
+                      context_data_val = context_data_val << 1 | value;
+                      if (context_data_position == bitsPerChar - 1) {
+                        context_data_position = 0;
+                        context_data.push(getCharFromInt(context_data_val));
+                        context_data_val = 0;
+                      } else {
+                        context_data_position++;
+                      }
+                      value = 0;
+                    }
+                    value = context_w.charCodeAt(0);
+                    for (i = 0; i < 16; i++) {
+                      context_data_val = context_data_val << 1 | value & 1;
+                      if (context_data_position == bitsPerChar - 1) {
+                        context_data_position = 0;
+                        context_data.push(getCharFromInt(context_data_val));
+                        context_data_val = 0;
+                      } else {
+                        context_data_position++;
+                      }
+                      value = value >> 1;
+                    }
+                  }
+                  context_enlargeIn--;
+                  if (context_enlargeIn == 0) {
+                    context_enlargeIn = Math.pow(2, context_numBits);
+                    context_numBits++;
+                  }
+                  delete context_dictionaryToCreate[context_w];
+                } else {
+                  value = context_dictionary[context_w];
+                  for (i = 0; i < context_numBits; i++) {
+                    context_data_val = context_data_val << 1 | value & 1;
+                    if (context_data_position == bitsPerChar - 1) {
+                      context_data_position = 0;
+                      context_data.push(getCharFromInt(context_data_val));
+                      context_data_val = 0;
+                    } else {
+                      context_data_position++;
+                    }
+                    value = value >> 1;
+                  }
+                }
+                context_enlargeIn--;
+                if (context_enlargeIn == 0) {
+                  context_enlargeIn = Math.pow(2, context_numBits);
+                  context_numBits++;
+                }
+                context_dictionary[context_wc] = context_dictSize++;
+                context_w = String(context_c);
+              }
+            }
+            if (context_w !== "") {
+              if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+                if (context_w.charCodeAt(0) < 256) {
+                  for (i = 0; i < context_numBits; i++) {
+                    context_data_val = context_data_val << 1;
+                    if (context_data_position == bitsPerChar - 1) {
+                      context_data_position = 0;
+                      context_data.push(getCharFromInt(context_data_val));
+                      context_data_val = 0;
+                    } else {
+                      context_data_position++;
+                    }
+                  }
+                  value = context_w.charCodeAt(0);
+                  for (i = 0; i < 8; i++) {
+                    context_data_val = context_data_val << 1 | value & 1;
+                    if (context_data_position == bitsPerChar - 1) {
+                      context_data_position = 0;
+                      context_data.push(getCharFromInt(context_data_val));
+                      context_data_val = 0;
+                    } else {
+                      context_data_position++;
+                    }
+                    value = value >> 1;
+                  }
+                } else {
+                  value = 1;
+                  for (i = 0; i < context_numBits; i++) {
+                    context_data_val = context_data_val << 1 | value;
+                    if (context_data_position == bitsPerChar - 1) {
+                      context_data_position = 0;
+                      context_data.push(getCharFromInt(context_data_val));
+                      context_data_val = 0;
+                    } else {
+                      context_data_position++;
+                    }
+                    value = 0;
+                  }
+                  value = context_w.charCodeAt(0);
+                  for (i = 0; i < 16; i++) {
+                    context_data_val = context_data_val << 1 | value & 1;
+                    if (context_data_position == bitsPerChar - 1) {
+                      context_data_position = 0;
+                      context_data.push(getCharFromInt(context_data_val));
+                      context_data_val = 0;
+                    } else {
+                      context_data_position++;
+                    }
+                    value = value >> 1;
+                  }
+                }
+                context_enlargeIn--;
+                if (context_enlargeIn == 0) {
+                  context_enlargeIn = Math.pow(2, context_numBits);
+                  context_numBits++;
+                }
+                delete context_dictionaryToCreate[context_w];
+              } else {
+                value = context_dictionary[context_w];
+                for (i = 0; i < context_numBits; i++) {
+                  context_data_val = context_data_val << 1 | value & 1;
+                  if (context_data_position == bitsPerChar - 1) {
+                    context_data_position = 0;
+                    context_data.push(getCharFromInt(context_data_val));
+                    context_data_val = 0;
+                  } else {
+                    context_data_position++;
+                  }
+                  value = value >> 1;
+                }
+              }
+              context_enlargeIn--;
+              if (context_enlargeIn == 0) {
+                context_enlargeIn = Math.pow(2, context_numBits);
+                context_numBits++;
+              }
+            }
+            value = 2;
+            for (i = 0; i < context_numBits; i++) {
+              context_data_val = context_data_val << 1 | value & 1;
+              if (context_data_position == bitsPerChar - 1) {
+                context_data_position = 0;
+                context_data.push(getCharFromInt(context_data_val));
+                context_data_val = 0;
+              } else {
+                context_data_position++;
+              }
+              value = value >> 1;
+            }
+            while (true) {
+              context_data_val = context_data_val << 1;
+              if (context_data_position == bitsPerChar - 1) {
+                context_data.push(getCharFromInt(context_data_val));
+                break;
+              } else context_data_position++;
+            }
+            return context_data.join("");
+          },
+          decompress: function(compressed) {
+            if (compressed == null) return "";
+            if (compressed == "") return null;
+            return LZString2._decompress(compressed.length, 32768, function(index) {
+              return compressed.charCodeAt(index);
+            });
+          },
+          _decompress: function(length, resetValue, getNextValue) {
+            var dictionary = [], next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = "", result = [], i, w, bits, resb, maxpower, power, c, data = { val: getNextValue(0), position: resetValue, index: 1 };
+            for (i = 0; i < 3; i += 1) {
+              dictionary[i] = i;
+            }
+            bits = 0;
+            maxpower = Math.pow(2, 2);
+            power = 1;
+            while (power != maxpower) {
+              resb = data.val & data.position;
+              data.position >>= 1;
+              if (data.position == 0) {
+                data.position = resetValue;
+                data.val = getNextValue(data.index++);
+              }
+              bits |= (resb > 0 ? 1 : 0) * power;
+              power <<= 1;
+            }
+            switch (next = bits) {
+              case 0:
+                bits = 0;
+                maxpower = Math.pow(2, 8);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                c = f(bits);
+                break;
+              case 1:
+                bits = 0;
+                maxpower = Math.pow(2, 16);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                c = f(bits);
+                break;
+              case 2:
+                return "";
+            }
+            dictionary[3] = c;
+            w = c;
+            result.push(c);
+            while (true) {
+              if (data.index > length) {
+                return "";
+              }
+              bits = 0;
+              maxpower = Math.pow(2, numBits);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              switch (c = bits) {
+                case 0:
+                  bits = 0;
+                  maxpower = Math.pow(2, 8);
+                  power = 1;
+                  while (power != maxpower) {
+                    resb = data.val & data.position;
+                    data.position >>= 1;
+                    if (data.position == 0) {
+                      data.position = resetValue;
+                      data.val = getNextValue(data.index++);
+                    }
+                    bits |= (resb > 0 ? 1 : 0) * power;
+                    power <<= 1;
+                  }
+                  dictionary[dictSize++] = f(bits);
+                  c = dictSize - 1;
+                  enlargeIn--;
+                  break;
+                case 1:
+                  bits = 0;
+                  maxpower = Math.pow(2, 16);
+                  power = 1;
+                  while (power != maxpower) {
+                    resb = data.val & data.position;
+                    data.position >>= 1;
+                    if (data.position == 0) {
+                      data.position = resetValue;
+                      data.val = getNextValue(data.index++);
+                    }
+                    bits |= (resb > 0 ? 1 : 0) * power;
+                    power <<= 1;
+                  }
+                  dictionary[dictSize++] = f(bits);
+                  c = dictSize - 1;
+                  enlargeIn--;
+                  break;
+                case 2:
+                  return result.join("");
+              }
+              if (enlargeIn == 0) {
+                enlargeIn = Math.pow(2, numBits);
+                numBits++;
+              }
+              if (dictionary[c]) {
+                entry = dictionary[c];
+              } else {
+                if (c === dictSize) {
+                  entry = w + w.charAt(0);
+                } else {
+                  return null;
+                }
+              }
+              result.push(entry);
+              dictionary[dictSize++] = w + entry.charAt(0);
+              enlargeIn--;
+              w = entry;
+              if (enlargeIn == 0) {
+                enlargeIn = Math.pow(2, numBits);
+                numBits++;
+              }
+            }
+          }
+        };
+        return LZString2;
+      })();
+      if (typeof define === "function" && define.amd) {
+        define(function() {
+          return LZString;
+        });
+      } else if (typeof module !== "undefined" && module != null) {
+        module.exports = LZString;
+      } else if (typeof angular !== "undefined" && angular != null) {
+        angular.module("LZString", []).factory("LZString", function() {
+          return LZString;
+        });
       }
-    });
-    log("suppression handler registered at priority 320");
-    installNumbness();
-  }
-  function installNumbness() {
-    ChatRoomRegisterMessageHandler({
-      Description: "HypnosisAddon: numbness (skip arousal, leave the message alone)",
-      Priority: 205,
-      Callback: (data, sender, _msg, metadata) => {
-        try {
-          if (!numb) return false;
-          if (!metadata?.ActivityName) return false;
-          if (metadata?.TargetMemberNumber !== Player?.MemberNumber) return false;
-          if (sender?.MemberNumber === Player?.MemberNumber) return false;
-          log(`numb to ${metadata.ActivityName} \u2014 skipping arousal`);
-          return { skip: (h) => h?.Description === AROUSAL_HANDLER };
-        } catch (err) {
-          warn("numbness handler failed:", err);
-          return false;
-        }
-      }
-    });
-    const handlers3 = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
-    if (handlers3 && !handlers3.some((h) => h?.Description === AROUSAL_HANDLER)) {
-      warn(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
     }
-    log("numbness handler registered at priority 205");
+  });
+
+  // src/curve.ts
+  function valueFromCount(count, h) {
+    const n = Math.max(0, count);
+    return 100 * n / (n + h);
   }
-  var active, numb, hearing, unheard, OTHERS_FADE_GAP_MS, lastOthersFade, ACTION_TAGS, AROUSAL_HANDLER;
-  var init_suppression = __esm({
-    "src/suppression.ts"() {
+  function countFromValue(value, h) {
+    const v = Math.max(0, Math.min(99.9, value));
+    return h * v / (100 - v);
+  }
+  var H_TRUST, H_EXPERIENCE;
+  var init_curve = __esm({
+    "src/curve.ts"() {
+      H_TRUST = 25;
+      H_EXPERIENCE = 25;
+    }
+  });
+
+  // src/extreme.ts
+  function extremeLocked() {
+    return getExtremeLock() !== null;
+  }
+  function extremeExpired(now = Date.now()) {
+    const lock = getExtremeLock();
+    return !!lock && now >= lock.until;
+  }
+  function dateText(ms) {
+    return new Date(ms).toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric" });
+  }
+  function extremeBannerText(now = Date.now()) {
+    const lock = getExtremeLock();
+    if (!lock) return "";
+    return now >= lock.until ? "Read-only: your Extreme lock period has ended. Choose what happens next to unlock. /echs safeword always ends a trance." : `Read-only: Extreme lock until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
+  }
+  function extremeRefusal(now = Date.now()) {
+    const lock = getExtremeLock();
+    if (!lock) return "";
+    return now >= lock.until ? "Locked by Extreme: open your ECHS settings to choose whether to renew or unlock." : `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
+  }
+  function renewalPrompt() {
+    const lock = getExtremeLock();
+    if (!lock) return null;
+    return lock.stage === "trial" ? { title: `Your ${EXTREME_TRIAL_DAYS}-day Extreme trial has ended. How was your experience?`, unlock: "Return to editable settings", renew: `Commit to ${EXTREME_MONTH_DAYS} days` } : { title: `Your ${EXTREME_MONTH_DAYS}-day Extreme lock has expired. Continue for another ${EXTREME_MONTH_DAYS} days?`, unlock: "Unlock and edit settings", renew: `Renew for ${EXTREME_MONTH_DAYS} days` };
+  }
+  function answerRenewal(renew, now = Date.now()) {
+    if (renew) {
+      const lock = startExtremeLock("month", now);
+      log(`Extreme lock renewed until ${new Date(lock.until).toISOString()}`);
+      return `Extreme renewed for ${EXTREME_MONTH_DAYS} days, until ${dateText(lock.until)}.`;
+    }
+    clearExtremeLock();
+    log("Extreme lock ended by the player at renewal");
+    return "Extreme lock ended. Your settings are editable again, and nothing in them has changed.";
+  }
+  function startExtremeTrial(now = Date.now()) {
+    const lock = startExtremeLock("trial", now);
+    log(`Extreme trial lock until ${new Date(lock.until).toISOString()}`);
+    return `Extreme applied. Your settings are read-only until ${dateText(lock.until)}.`;
+  }
+  function exitExtreme() {
+    if (!extremeLocked()) return "No Extreme lock is set.";
+    clearExtremeLock();
+    log("Extreme lock ended by /echs exit_extreme");
+    return "Extreme lock ended. Your settings are editable again; trust, triggers and stats are untouched.";
+  }
+  var EXTREME_SESSION_MINUTES, EXTREME_WARNING;
+  var init_extreme = __esm({
+    "src/extreme.ts"() {
       init_log();
-      active = /* @__PURE__ */ new Set();
-      numb = false;
-      hearing = null;
-      unheard = /* @__PURE__ */ new WeakSet();
-      OTHERS_FADE_GAP_MS = 6e4;
-      lastOthersFade = 0;
-      ACTION_TAGS = {
-        ChangeClothes: "clothing"
-      };
-      AROUSAL_HANDLER = "Arousal processing";
+      init_storage();
+      EXTREME_SESSION_MINUTES = 60;
+      EXTREME_WARNING = [
+        `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
+        "/echs safeword always ends a trance, locked or not.",
+        "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
+        `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
+      ];
     }
   });
 
@@ -1470,479 +1872,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // node_modules/lz-string/libs/lz-string.js
-  var require_lz_string = __commonJS({
-    "node_modules/lz-string/libs/lz-string.js"(exports, module) {
-      var LZString = (function() {
-        var f = String.fromCharCode;
-        var keyStrBase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-        var keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
-        var baseReverseDic = {};
-        function getBaseValue(alphabet, character) {
-          if (!baseReverseDic[alphabet]) {
-            baseReverseDic[alphabet] = {};
-            for (var i = 0; i < alphabet.length; i++) {
-              baseReverseDic[alphabet][alphabet.charAt(i)] = i;
-            }
-          }
-          return baseReverseDic[alphabet][character];
-        }
-        var LZString2 = {
-          compressToBase64: function(input) {
-            if (input == null) return "";
-            var res = LZString2._compress(input, 6, function(a) {
-              return keyStrBase64.charAt(a);
-            });
-            switch (res.length % 4) {
-              // To produce valid Base64
-              default:
-              // When could this happen ?
-              case 0:
-                return res;
-              case 1:
-                return res + "===";
-              case 2:
-                return res + "==";
-              case 3:
-                return res + "=";
-            }
-          },
-          decompressFromBase64: function(input) {
-            if (input == null) return "";
-            if (input == "") return null;
-            return LZString2._decompress(input.length, 32, function(index) {
-              return getBaseValue(keyStrBase64, input.charAt(index));
-            });
-          },
-          compressToUTF16: function(input) {
-            if (input == null) return "";
-            return LZString2._compress(input, 15, function(a) {
-              return f(a + 32);
-            }) + " ";
-          },
-          decompressFromUTF16: function(compressed) {
-            if (compressed == null) return "";
-            if (compressed == "") return null;
-            return LZString2._decompress(compressed.length, 16384, function(index) {
-              return compressed.charCodeAt(index) - 32;
-            });
-          },
-          //compress into uint8array (UCS-2 big endian format)
-          compressToUint8Array: function(uncompressed) {
-            var compressed = LZString2.compress(uncompressed);
-            var buf = new Uint8Array(compressed.length * 2);
-            for (var i = 0, TotalLen = compressed.length; i < TotalLen; i++) {
-              var current_value = compressed.charCodeAt(i);
-              buf[i * 2] = current_value >>> 8;
-              buf[i * 2 + 1] = current_value % 256;
-            }
-            return buf;
-          },
-          //decompress from uint8array (UCS-2 big endian format)
-          decompressFromUint8Array: function(compressed) {
-            if (compressed === null || compressed === void 0) {
-              return LZString2.decompress(compressed);
-            } else {
-              var buf = new Array(compressed.length / 2);
-              for (var i = 0, TotalLen = buf.length; i < TotalLen; i++) {
-                buf[i] = compressed[i * 2] * 256 + compressed[i * 2 + 1];
-              }
-              var result = [];
-              buf.forEach(function(c) {
-                result.push(f(c));
-              });
-              return LZString2.decompress(result.join(""));
-            }
-          },
-          //compress into a string that is already URI encoded
-          compressToEncodedURIComponent: function(input) {
-            if (input == null) return "";
-            return LZString2._compress(input, 6, function(a) {
-              return keyStrUriSafe.charAt(a);
-            });
-          },
-          //decompress from an output of compressToEncodedURIComponent
-          decompressFromEncodedURIComponent: function(input) {
-            if (input == null) return "";
-            if (input == "") return null;
-            input = input.replace(/ /g, "+");
-            return LZString2._decompress(input.length, 32, function(index) {
-              return getBaseValue(keyStrUriSafe, input.charAt(index));
-            });
-          },
-          compress: function(uncompressed) {
-            return LZString2._compress(uncompressed, 16, function(a) {
-              return f(a);
-            });
-          },
-          _compress: function(uncompressed, bitsPerChar, getCharFromInt) {
-            if (uncompressed == null) return "";
-            var i, value, context_dictionary = {}, context_dictionaryToCreate = {}, context_c = "", context_wc = "", context_w = "", context_enlargeIn = 2, context_dictSize = 3, context_numBits = 2, context_data = [], context_data_val = 0, context_data_position = 0, ii;
-            for (ii = 0; ii < uncompressed.length; ii += 1) {
-              context_c = uncompressed.charAt(ii);
-              if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
-                context_dictionary[context_c] = context_dictSize++;
-                context_dictionaryToCreate[context_c] = true;
-              }
-              context_wc = context_w + context_c;
-              if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
-                context_w = context_wc;
-              } else {
-                if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
-                  if (context_w.charCodeAt(0) < 256) {
-                    for (i = 0; i < context_numBits; i++) {
-                      context_data_val = context_data_val << 1;
-                      if (context_data_position == bitsPerChar - 1) {
-                        context_data_position = 0;
-                        context_data.push(getCharFromInt(context_data_val));
-                        context_data_val = 0;
-                      } else {
-                        context_data_position++;
-                      }
-                    }
-                    value = context_w.charCodeAt(0);
-                    for (i = 0; i < 8; i++) {
-                      context_data_val = context_data_val << 1 | value & 1;
-                      if (context_data_position == bitsPerChar - 1) {
-                        context_data_position = 0;
-                        context_data.push(getCharFromInt(context_data_val));
-                        context_data_val = 0;
-                      } else {
-                        context_data_position++;
-                      }
-                      value = value >> 1;
-                    }
-                  } else {
-                    value = 1;
-                    for (i = 0; i < context_numBits; i++) {
-                      context_data_val = context_data_val << 1 | value;
-                      if (context_data_position == bitsPerChar - 1) {
-                        context_data_position = 0;
-                        context_data.push(getCharFromInt(context_data_val));
-                        context_data_val = 0;
-                      } else {
-                        context_data_position++;
-                      }
-                      value = 0;
-                    }
-                    value = context_w.charCodeAt(0);
-                    for (i = 0; i < 16; i++) {
-                      context_data_val = context_data_val << 1 | value & 1;
-                      if (context_data_position == bitsPerChar - 1) {
-                        context_data_position = 0;
-                        context_data.push(getCharFromInt(context_data_val));
-                        context_data_val = 0;
-                      } else {
-                        context_data_position++;
-                      }
-                      value = value >> 1;
-                    }
-                  }
-                  context_enlargeIn--;
-                  if (context_enlargeIn == 0) {
-                    context_enlargeIn = Math.pow(2, context_numBits);
-                    context_numBits++;
-                  }
-                  delete context_dictionaryToCreate[context_w];
-                } else {
-                  value = context_dictionary[context_w];
-                  for (i = 0; i < context_numBits; i++) {
-                    context_data_val = context_data_val << 1 | value & 1;
-                    if (context_data_position == bitsPerChar - 1) {
-                      context_data_position = 0;
-                      context_data.push(getCharFromInt(context_data_val));
-                      context_data_val = 0;
-                    } else {
-                      context_data_position++;
-                    }
-                    value = value >> 1;
-                  }
-                }
-                context_enlargeIn--;
-                if (context_enlargeIn == 0) {
-                  context_enlargeIn = Math.pow(2, context_numBits);
-                  context_numBits++;
-                }
-                context_dictionary[context_wc] = context_dictSize++;
-                context_w = String(context_c);
-              }
-            }
-            if (context_w !== "") {
-              if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
-                if (context_w.charCodeAt(0) < 256) {
-                  for (i = 0; i < context_numBits; i++) {
-                    context_data_val = context_data_val << 1;
-                    if (context_data_position == bitsPerChar - 1) {
-                      context_data_position = 0;
-                      context_data.push(getCharFromInt(context_data_val));
-                      context_data_val = 0;
-                    } else {
-                      context_data_position++;
-                    }
-                  }
-                  value = context_w.charCodeAt(0);
-                  for (i = 0; i < 8; i++) {
-                    context_data_val = context_data_val << 1 | value & 1;
-                    if (context_data_position == bitsPerChar - 1) {
-                      context_data_position = 0;
-                      context_data.push(getCharFromInt(context_data_val));
-                      context_data_val = 0;
-                    } else {
-                      context_data_position++;
-                    }
-                    value = value >> 1;
-                  }
-                } else {
-                  value = 1;
-                  for (i = 0; i < context_numBits; i++) {
-                    context_data_val = context_data_val << 1 | value;
-                    if (context_data_position == bitsPerChar - 1) {
-                      context_data_position = 0;
-                      context_data.push(getCharFromInt(context_data_val));
-                      context_data_val = 0;
-                    } else {
-                      context_data_position++;
-                    }
-                    value = 0;
-                  }
-                  value = context_w.charCodeAt(0);
-                  for (i = 0; i < 16; i++) {
-                    context_data_val = context_data_val << 1 | value & 1;
-                    if (context_data_position == bitsPerChar - 1) {
-                      context_data_position = 0;
-                      context_data.push(getCharFromInt(context_data_val));
-                      context_data_val = 0;
-                    } else {
-                      context_data_position++;
-                    }
-                    value = value >> 1;
-                  }
-                }
-                context_enlargeIn--;
-                if (context_enlargeIn == 0) {
-                  context_enlargeIn = Math.pow(2, context_numBits);
-                  context_numBits++;
-                }
-                delete context_dictionaryToCreate[context_w];
-              } else {
-                value = context_dictionary[context_w];
-                for (i = 0; i < context_numBits; i++) {
-                  context_data_val = context_data_val << 1 | value & 1;
-                  if (context_data_position == bitsPerChar - 1) {
-                    context_data_position = 0;
-                    context_data.push(getCharFromInt(context_data_val));
-                    context_data_val = 0;
-                  } else {
-                    context_data_position++;
-                  }
-                  value = value >> 1;
-                }
-              }
-              context_enlargeIn--;
-              if (context_enlargeIn == 0) {
-                context_enlargeIn = Math.pow(2, context_numBits);
-                context_numBits++;
-              }
-            }
-            value = 2;
-            for (i = 0; i < context_numBits; i++) {
-              context_data_val = context_data_val << 1 | value & 1;
-              if (context_data_position == bitsPerChar - 1) {
-                context_data_position = 0;
-                context_data.push(getCharFromInt(context_data_val));
-                context_data_val = 0;
-              } else {
-                context_data_position++;
-              }
-              value = value >> 1;
-            }
-            while (true) {
-              context_data_val = context_data_val << 1;
-              if (context_data_position == bitsPerChar - 1) {
-                context_data.push(getCharFromInt(context_data_val));
-                break;
-              } else context_data_position++;
-            }
-            return context_data.join("");
-          },
-          decompress: function(compressed) {
-            if (compressed == null) return "";
-            if (compressed == "") return null;
-            return LZString2._decompress(compressed.length, 32768, function(index) {
-              return compressed.charCodeAt(index);
-            });
-          },
-          _decompress: function(length, resetValue, getNextValue) {
-            var dictionary = [], next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = "", result = [], i, w, bits, resb, maxpower, power, c, data = { val: getNextValue(0), position: resetValue, index: 1 };
-            for (i = 0; i < 3; i += 1) {
-              dictionary[i] = i;
-            }
-            bits = 0;
-            maxpower = Math.pow(2, 2);
-            power = 1;
-            while (power != maxpower) {
-              resb = data.val & data.position;
-              data.position >>= 1;
-              if (data.position == 0) {
-                data.position = resetValue;
-                data.val = getNextValue(data.index++);
-              }
-              bits |= (resb > 0 ? 1 : 0) * power;
-              power <<= 1;
-            }
-            switch (next = bits) {
-              case 0:
-                bits = 0;
-                maxpower = Math.pow(2, 8);
-                power = 1;
-                while (power != maxpower) {
-                  resb = data.val & data.position;
-                  data.position >>= 1;
-                  if (data.position == 0) {
-                    data.position = resetValue;
-                    data.val = getNextValue(data.index++);
-                  }
-                  bits |= (resb > 0 ? 1 : 0) * power;
-                  power <<= 1;
-                }
-                c = f(bits);
-                break;
-              case 1:
-                bits = 0;
-                maxpower = Math.pow(2, 16);
-                power = 1;
-                while (power != maxpower) {
-                  resb = data.val & data.position;
-                  data.position >>= 1;
-                  if (data.position == 0) {
-                    data.position = resetValue;
-                    data.val = getNextValue(data.index++);
-                  }
-                  bits |= (resb > 0 ? 1 : 0) * power;
-                  power <<= 1;
-                }
-                c = f(bits);
-                break;
-              case 2:
-                return "";
-            }
-            dictionary[3] = c;
-            w = c;
-            result.push(c);
-            while (true) {
-              if (data.index > length) {
-                return "";
-              }
-              bits = 0;
-              maxpower = Math.pow(2, numBits);
-              power = 1;
-              while (power != maxpower) {
-                resb = data.val & data.position;
-                data.position >>= 1;
-                if (data.position == 0) {
-                  data.position = resetValue;
-                  data.val = getNextValue(data.index++);
-                }
-                bits |= (resb > 0 ? 1 : 0) * power;
-                power <<= 1;
-              }
-              switch (c = bits) {
-                case 0:
-                  bits = 0;
-                  maxpower = Math.pow(2, 8);
-                  power = 1;
-                  while (power != maxpower) {
-                    resb = data.val & data.position;
-                    data.position >>= 1;
-                    if (data.position == 0) {
-                      data.position = resetValue;
-                      data.val = getNextValue(data.index++);
-                    }
-                    bits |= (resb > 0 ? 1 : 0) * power;
-                    power <<= 1;
-                  }
-                  dictionary[dictSize++] = f(bits);
-                  c = dictSize - 1;
-                  enlargeIn--;
-                  break;
-                case 1:
-                  bits = 0;
-                  maxpower = Math.pow(2, 16);
-                  power = 1;
-                  while (power != maxpower) {
-                    resb = data.val & data.position;
-                    data.position >>= 1;
-                    if (data.position == 0) {
-                      data.position = resetValue;
-                      data.val = getNextValue(data.index++);
-                    }
-                    bits |= (resb > 0 ? 1 : 0) * power;
-                    power <<= 1;
-                  }
-                  dictionary[dictSize++] = f(bits);
-                  c = dictSize - 1;
-                  enlargeIn--;
-                  break;
-                case 2:
-                  return result.join("");
-              }
-              if (enlargeIn == 0) {
-                enlargeIn = Math.pow(2, numBits);
-                numBits++;
-              }
-              if (dictionary[c]) {
-                entry = dictionary[c];
-              } else {
-                if (c === dictSize) {
-                  entry = w + w.charAt(0);
-                } else {
-                  return null;
-                }
-              }
-              result.push(entry);
-              dictionary[dictSize++] = w + entry.charAt(0);
-              enlargeIn--;
-              w = entry;
-              if (enlargeIn == 0) {
-                enlargeIn = Math.pow(2, numBits);
-                numBits++;
-              }
-            }
-          }
-        };
-        return LZString2;
-      })();
-      if (typeof define === "function" && define.amd) {
-        define(function() {
-          return LZString;
-        });
-      } else if (typeof module !== "undefined" && module != null) {
-        module.exports = LZString;
-      } else if (typeof angular !== "undefined" && angular != null) {
-        angular.module("LZString", []).factory("LZString", function() {
-          return LZString;
-        });
-      }
-    }
-  });
-
-  // src/curve.ts
-  function valueFromCount(count, h) {
-    const n = Math.max(0, count);
-    return 100 * n / (n + h);
-  }
-  function countFromValue(value, h) {
-    const v = Math.max(0, Math.min(99.9, value));
-    return h * v / (100 - v);
-  }
-  var H_TRUST, H_EXPERIENCE;
-  var init_curve = __esm({
-    "src/curve.ts"() {
-      H_TRUST = 25;
-      H_EXPERIENCE = 25;
-    }
-  });
-
   // src/away.ts
   function noteActivity() {
     lastActivity = Date.now();
@@ -2181,6 +2110,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     }
   }
+  function onWakeKeep(keeper) {
+    wakeKeepers.add(keeper);
+  }
+  function captureWakeKeeps(hypnotizedAt) {
+    const restores = [];
+    for (const keeper of wakeKeepers) {
+      try {
+        const restore = keeper(hypnotizedAt);
+        if (restore) restores.push(restore);
+      } catch {
+      }
+    }
+    return restores;
+  }
   function onTotalStop(listener) {
     totalStopListeners.add(listener);
   }
@@ -2203,12 +2146,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     }
   }
-  var cleanups, wakeListeners, totalStopListeners;
+  var cleanups, wakeListeners, totalStopListeners, wakeKeepers;
   var init_teardown = __esm({
     "src/teardown.ts"() {
       cleanups = /* @__PURE__ */ new Set();
       wakeListeners = /* @__PURE__ */ new Set();
       totalStopListeners = /* @__PURE__ */ new Set();
+      wakeKeepers = /* @__PURE__ */ new Set();
     }
   });
 
@@ -2371,8 +2315,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return `${craft.Name ?? ""} | ${description}`;
   }
   function drugKindOf(craft) {
-    const text = craftText(craft);
-    for (const match of text.matchAll(TAG2)) {
+    const text2 = craftText(craft);
+    for (const match of text2.matchAll(TAG2)) {
       const word = match[1].toLowerCase();
       if (word === "relax" || word === "stimulate") return word;
     }
@@ -2515,6 +2459,312 @@ One of mods you are using is using an old version of SDK. It will work for now b
         relax: "A warm looseness spreads through you, and your guard slips a little.",
         stimulate: "A sharp, buzzing clarity sets in. Your mind feels harder to slip past."
       };
+    }
+  });
+
+  // src/suppression.ts
+  function setSuppressed(category, on) {
+    if (on) active.add(category);
+    else active.delete(category);
+  }
+  function isSuppressed(category) {
+    return active.has(category);
+  }
+  function setNumb(on) {
+    numb = on;
+  }
+  function isNumb() {
+    return numb;
+  }
+  function clearAllSuppression() {
+    active.clear();
+    numb = false;
+    hearing = null;
+  }
+  function setHearing(mode) {
+    hearing = mode;
+  }
+  function hearingMode() {
+    return hearing;
+  }
+  function hearsLine(sender, namesHer) {
+    if (!hearing || sender === Player?.MemberNumber) return true;
+    return hearing.kind === "voice" ? sender === hearing.member : namesHer;
+  }
+  function markUnheard(data) {
+    unheard.add(data);
+  }
+  function oocOnly(text2) {
+    const spans = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of String(text2 ?? "")) {
+      if (ch === "(") {
+        if (depth === 0) current = "";
+        depth++;
+        current += ch;
+      } else if (ch === ")" && depth > 0) {
+        current += ch;
+        depth--;
+        if (depth === 0) spans.push(current);
+      } else if (depth > 0) {
+        current += ch;
+      }
+    }
+    if (depth > 0 && current.length > 1) spans.push(current);
+    return spans.join(" ").trim();
+  }
+  function installHearingFilter(onHidden) {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 hearing only one voice will not hide chat");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: hear only one voice (before BC's deafness garble and the chat log)",
+      Priority: 90,
+      Callback: (data, _sender, msg) => hearingFilter(data, msg, onHidden)
+    });
+    log("hearing filter registered at priority 90");
+  }
+  function hearingFilter(data, msg, onHidden) {
+    try {
+      if (!hearing || !data || !unheard.has(data)) return false;
+      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+      const ooc = oocOnly(msg);
+      if (ooc) return { msg: ooc };
+      const now = Date.now();
+      if (now - lastOthersFade >= OTHERS_FADE_GAP_MS) {
+        lastOthersFade = now;
+        onHidden(hearing);
+      }
+      return true;
+    } catch (err) {
+      warn("hearing filter failed:", err);
+      return false;
+    }
+  }
+  function resetOthersFade() {
+    lastOthersFade = 0;
+  }
+  function targetsPlayer(data, metadata) {
+    if (metadata?.TargetMemberNumber != null) return metadata.TargetMemberNumber === Player.MemberNumber;
+    return data?.Sender !== Player.MemberNumber && !!ChatRoomMessageInvolvesPlayer?.(data);
+  }
+  function isItemSlot(group, isRestraint) {
+    return group?.Category === "Item" || !!isRestraint || !!group?.IsRestraint;
+  }
+  function classify(data, metadata) {
+    if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
+    if (data?.Type !== "Action") return null;
+    const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
+    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
+    if (assets.length > 0) return "clothing";
+    const group = metadata?.FocusGroup;
+    if (group) return isItemSlot(group) ? "bondage" : "clothing";
+    const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
+    return tag ?? null;
+  }
+  function installSuppression() {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") {
+      warn("ChatRoomRegisterMessageHandler missing \u2014 suppression not installed");
+      return;
+    }
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: hide suppressed categories (after arousal, before display)",
+      Priority: 320,
+      Callback: (data, _sender, _msg, metadata) => {
+        try {
+          if (active.size === 0) return false;
+          const category = classify(data, metadata);
+          if (!category || !active.has(category)) return false;
+          if (!targetsPlayer(data, metadata)) return false;
+          log(`suppressed ${category} message:`, data?.Content);
+          return true;
+        } catch (err) {
+          warn("suppression handler failed:", err);
+          return false;
+        }
+      }
+    });
+    log("suppression handler registered at priority 320");
+    installNumbness();
+  }
+  function installNumbness() {
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: numbness (skip arousal, leave the message alone)",
+      Priority: 205,
+      Callback: (data, sender, _msg, metadata) => {
+        try {
+          if (!numb) return false;
+          if (!metadata?.ActivityName) return false;
+          if (metadata?.TargetMemberNumber !== Player?.MemberNumber) return false;
+          if (sender?.MemberNumber === Player?.MemberNumber) return false;
+          log(`numb to ${metadata.ActivityName} \u2014 skipping arousal`);
+          return { skip: (h) => h?.Description === AROUSAL_HANDLER };
+        } catch (err) {
+          warn("numbness handler failed:", err);
+          return false;
+        }
+      }
+    });
+    const handlers3 = typeof ChatRoomMessageHandlers !== "undefined" ? ChatRoomMessageHandlers : null;
+    if (handlers3 && !handlers3.some((h) => h?.Description === AROUSAL_HANDLER)) {
+      warn(`WARNING: no handler named "${AROUSAL_HANDLER}" \u2014 numbness will not block arousal`);
+    }
+    log("numbness handler registered at priority 205");
+  }
+  var active, numb, hearing, unheard, OTHERS_FADE_GAP_MS, lastOthersFade, ACTION_TAGS, AROUSAL_HANDLER;
+  var init_suppression = __esm({
+    "src/suppression.ts"() {
+      init_log();
+      active = /* @__PURE__ */ new Set();
+      numb = false;
+      hearing = null;
+      unheard = /* @__PURE__ */ new WeakSet();
+      OTHERS_FADE_GAP_MS = 6e4;
+      lastOthersFade = 0;
+      ACTION_TAGS = {
+        ChangeClothes: "clothing"
+      };
+      AROUSAL_HANDLER = "Arousal processing";
+    }
+  });
+
+  // src/selftouch.ts
+  function beginCommandedActivity() {
+    commandInProgress = true;
+  }
+  function endCommandedActivity() {
+    commandInProgress = false;
+  }
+  function setBodyPartBlocked(word, groups, on) {
+    for (const g of groups) {
+      if (on) blockedGroups.set(g, word);
+      else blockedGroups.delete(g);
+    }
+  }
+  function setAllSelfTouchBlocked(on) {
+    blockAllSelfTouch = on;
+  }
+  function clearSelfTouchBlocks() {
+    blockedGroups.clear();
+    blockAllSelfTouch = false;
+  }
+  function selfTouchSnapshot() {
+    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
+  }
+  function restoreSelfTouch(snap) {
+    clearSelfTouchBlocks();
+    blockAllSelfTouch = !!snap?.all;
+    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
+  }
+  function describeSelfTouchBlocks() {
+    const parts = [...new Set(blockedGroups.values())];
+    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
+  }
+  function isSelfActivity(actor, acted) {
+    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
+  }
+  function groupNamesFor(targetGroup) {
+    const names = [targetGroup?.Name].filter(Boolean);
+    try {
+      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
+      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
+    } catch {
+    }
+    return names;
+  }
+  function installSelfTouch(modApi2) {
+    modApi2.hookFunction(
+      "ActivityRun",
+      10,
+      ((args, next) => {
+        try {
+          if (commandInProgress) return next(args);
+          if (!getFeatures().hypnoEnabled) return next(args);
+          const [actor, acted, targetGroup] = args;
+          if (isSelfActivity(actor, acted)) {
+            if (heldByUs("Freeze")) {
+              announce("selftouch-frozen");
+              return void 0;
+            }
+            if (blockAllSelfTouch) {
+              announce("selftouch-blocked");
+              return void 0;
+            }
+            for (const name of groupNamesFor(targetGroup)) {
+              const word = blockedGroups.get(name);
+              if (word) {
+                announceBodyPart(word);
+                return void 0;
+              }
+            }
+          }
+        } catch (err) {
+          warn("self-touch check failed:", err);
+        }
+        return next(args);
+      })
+    );
+    log("self-touch hook installed on ActivityRun");
+  }
+  var BODY_PARTS, blockedGroups, blockAllSelfTouch, commandInProgress;
+  var init_selftouch = __esm({
+    "src/selftouch.ts"() {
+      init_log();
+      init_flavor();
+      init_effects();
+      init_storage();
+      BODY_PARTS = {
+        breasts: ["ItemBreast", "ItemNipples"],
+        breast: ["ItemBreast", "ItemNipples"],
+        chest: ["ItemBreast", "ItemNipples"],
+        nipples: ["ItemNipples"],
+        nipple: ["ItemNipples"],
+        // The broad words cover the clitoris too; the specific ones don't reach back.
+        pussy: ["ItemVulva", "ItemVulvaPiercings"],
+        vulva: ["ItemVulva", "ItemVulvaPiercings"],
+        cunt: ["ItemVulva", "ItemVulvaPiercings"],
+        clit: ["ItemVulvaPiercings"],
+        clitoris: ["ItemVulvaPiercings"],
+        // Same two slots as above — see the note on ItemPenis not existing.
+        cock: ["ItemVulva", "ItemVulvaPiercings"],
+        penis: ["ItemVulva", "ItemVulvaPiercings"],
+        dick: ["ItemVulva", "ItemVulvaPiercings"],
+        tip: ["ItemVulvaPiercings"],
+        crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
+        butt: ["ItemButt"],
+        ass: ["ItemButt"],
+        bottom: ["ItemButt"],
+        mouth: ["ItemMouth"],
+        lips: ["ItemMouth"],
+        face: ["ItemHead"],
+        head: ["ItemHead"],
+        hair: ["ItemHead"],
+        ears: ["ItemEars"],
+        ear: ["ItemEars"],
+        nose: ["ItemNose"],
+        neck: ["ItemNeck"],
+        throat: ["ItemNeck"],
+        // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
+        legs: ["ItemLegs", "ItemFeet"],
+        leg: ["ItemLegs", "ItemFeet"],
+        thighs: ["ItemLegs"],
+        feet: ["ItemBoots"],
+        toes: ["ItemBoots"],
+        hands: ["ItemHands"],
+        arms: ["ItemArms"],
+        shoulders: ["ItemArms"],
+        belly: ["ItemPelvis", "ItemTorso"],
+        stomach: ["ItemPelvis", "ItemTorso"],
+        tummy: ["ItemPelvis", "ItemTorso"],
+        waist: ["ItemTorso"],
+        ribs: ["ItemTorso"],
+        hips: ["ItemPelvis"]
+      };
+      blockedGroups = /* @__PURE__ */ new Map();
+      blockAllSelfTouch = false;
+      commandInProgress = false;
     }
   });
 
@@ -2857,8 +3107,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return result;
     });
     modApi2.hookFunction("ChatRoomCanBeLeashedBy", 10, (args, next) => {
-      const [source, C] = args;
-      if (followActive && followTarget != null && source === followTarget && (C === Player || C?.IsPlayer?.()) && roomAllowsLeashing() && !isTrapped(C)) {
+      const [source2, C] = args;
+      if (followActive && followTarget != null && source2 === followTarget && (C === Player || C?.IsPlayer?.()) && roomAllowsLeashing() && !isTrapped(C)) {
         return true;
       }
       return next(args);
@@ -3541,11 +3791,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (session.phase === "Hypnotized") expireSession("here");
     }, EXTEND_ASK_MS);
     notify(
-      `Your trance has run its ${TIMEOUT_MINUTES} minutes. Stay under for another ${TIMEOUT_MINUTES}? Choose on the box, or type /echs stay. If you don't answer, you wake. (${Math.round(EXTEND_ASK_MS / 1e3)}s)`
+      `Your trance has run its ${timeoutMinutes()} minutes. Stay under for another ${timeoutMinutes()}? Choose on the box, or type /echs stay. If you don't answer, you wake. (${Math.round(EXTEND_ASK_MS / 1e3)}s)`
     );
     if (session.hypnotistId != null) {
       sendHiddenMessage(
-        { type: "trigger-status", text: `[trance] ${TIMEOUT_MINUTES} minutes are up. They are being asked whether to stay under.` },
+        { type: "trigger-status", text: `[trance] ${timeoutMinutes()} minutes are up. They are being asked whether to stay under.` },
         session.hypnotistId
       );
     }
@@ -3553,7 +3803,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function getPendingExtend() {
     if (!extendAskUntil || session.phase !== "Hypnotized") return null;
-    return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: TIMEOUT_MINUTES };
+    return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: timeoutMinutes() };
   }
   function answerExtend(stay) {
     if (!getPendingExtend()) {
@@ -3567,11 +3817,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       expireSession("here");
       return;
     }
-    armSessionTimer(SESSION_TIMEOUT_MS);
-    notify(`You let it keep you. Another ${TIMEOUT_MINUTES} minutes.`);
+    armSessionTimer(sessionTimeoutMs());
+    notify(`You let it keep you. Another ${timeoutMinutes()} minutes.`);
     if (session.hypnotistId != null) {
       sendHiddenMessage(
-        { type: "trigger-status", text: `[trance] They chose to stay under for another ${TIMEOUT_MINUTES} minutes.` },
+        { type: "trigger-status", text: `[trance] They chose to stay under for another ${timeoutMinutes()} minutes.` },
         session.hypnotistId
       );
     }
@@ -3580,7 +3830,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function expireSession(when) {
     endSession(
-      when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${TIMEOUT_MINUTES} minutes`,
+      when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${timeoutMinutes()} minutes`,
       false,
       when
     );
@@ -3589,6 +3839,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearTimers();
     const had = session.phase === "Hypnotized";
     const hypnotist = session.hypnotistId;
+    const keptThroughWake = had ? captureWakeKeeps(session.hypnotizedAt) : [];
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
     clearFollow();
@@ -3613,6 +3864,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } else if (!quiet) notify(had ? `You come out of trance. (${reason})` : `Hypnosis attempt ended. (${reason})`);
     const carried = carryThroughWake();
     if (carried && !quiet) notify(carried);
+    for (const restore of keptThroughWake) restore();
     if (had) runWake(hypnotist);
   }
   function arousalLevel() {
@@ -3671,8 +3923,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return `You trust ${name}. If they reach for you in the next ${TRUST_GIFT_MS / 6e4} minutes, you will go along with it without being asked.`;
   }
-  function noticeTrustLine(text, whisperTo) {
-    const t = text.toLowerCase().replace(/[‘’]/g, "'");
+  function noticeTrustLine(text2, whisperTo) {
+    const t = text2.toLowerCase().replace(/[‘’]/g, "'");
     if (!TRUST_LINE.test(t)) return null;
     if (/\?\s*$/.test(t)) return null;
     const others2 = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).filter(
@@ -3758,9 +4010,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function noteInductionLine(sender, content) {
     if (session.phase !== "InductionInProgress") return;
     if (!sender || sender !== session.hypnotistId) return;
-    const text = (content ?? "").trim();
-    if (text.length < RP_MIN_LENGTH) return;
-    const key = text.toLowerCase();
+    const text2 = (content ?? "").trim();
+    if (text2.length < RP_MIN_LENGTH) return;
+    const key = text2.toLowerCase();
     if (key === session.lastRpLine) return;
     session.lastRpLine = key;
     session.rpLines += 1;
@@ -3858,7 +4110,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.min(full, earned);
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    armSessionTimer(SESSION_TIMEOUT_MS);
+    armSessionTimer(sessionTimeoutMs());
     applyTranceState();
     startPresenceWatch();
   }
@@ -3942,7 +4194,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.max(0, Math.min(session.depth, earned));
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    armSessionTimer(SESSION_TIMEOUT_MS);
+    armSessionTimer(sessionTimeoutMs());
     applyTranceState();
     startPresenceWatch();
     pushUpdate();
@@ -3969,7 +4221,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
     setCurrentDepths(session.depth, session.depthEarned);
     session.hypnotizedAt = Date.now();
-    armSessionTimer(SESSION_TIMEOUT_MS);
+    armSessionTimer(sessionTimeoutMs());
     applyTranceState();
     startPresenceWatch();
     notify(`You drop straight under. (${tierLabel(tierOf(session.depth)).toLowerCase()})`);
@@ -4324,8 +4576,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (session.hypnotistId != null) bits.push(`hypnotist=${session.hypnotistId}`);
     if (session.choice) bits.push(`choice=${session.choice}`);
     if (session.attempts) bits.push(`attempts=${session.attempts}/${maxAttempts()}`);
-    if (session.phase === "Hypnotized") bits.push(`depth=${session.depth} (${depthBand(session.depth)})`);
-    if (session.phase === "AttemptFailed") bits.push(`progress=${session.progress.toFixed(1)}`);
+    if (session.phase === "Hypnotized" && !extremeLocked()) bits.push(`depth=${session.depth} (${depthBand(session.depth)})`);
+    if (session.phase === "AttemptFailed" && !extremeLocked()) bits.push(`progress=${session.progress.toFixed(1)}`);
     if (session.cooldownUntil > Date.now())
       bits.push(`cooldown=${Math.ceil((session.cooldownUntil - Date.now()) / 1e3)}s`);
     return `${bits.join(" ")} | ${lasting} | ${perms}`;
@@ -4383,7 +4635,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (message.refusedReason) return;
     if (message.ended !== "timeout" || message.phase !== "Idle") return;
     const name = findCharacterName(sender);
-    tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its ${TIMEOUT_MINUTES}-minute limit and has ended.`);
+    tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its time limit and has ended.`);
   }
   function requestAttempt(memberNumber) {
     sendHiddenMessage(
@@ -4508,8 +4760,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     registerHiddenHandler("test-note", (_sender, message) => {
       if (!isTestingMode()) return;
-      const text = typeof message.text === "string" ? message.text : "";
-      if (text) tellPlayer(text);
+      const text2 = typeof message.text === "string" ? message.text : "";
+      if (text2) tellPlayer(text2);
     });
     registerHiddenHandler("test-trance", (sender, message) => {
       const full = Number(message.depth ?? 80);
@@ -4568,10 +4820,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
     });
   }
-  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, SESSION_TIMEOUT_MS, TIMEOUT_MINUTES, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
+      init_extreme();
       init_notify();
       init_flavor();
       init_messaging();
@@ -4595,8 +4848,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       INDUCTION_WINDOW_MS = 6e4;
       maxAttempts = () => getMaxAttempts();
       COOLDOWN_MS = 10 * 6e4;
-      SESSION_TIMEOUT_MS = 30 * 6e4;
-      TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 6e4);
+      timeoutMinutes = () => extremeLocked() ? EXTREME_SESSION_MINUTES : 30;
+      sessionTimeoutMs = () => timeoutMinutes() * 6e4;
       EXTEND_ASK_MS = 6e4;
       RESISTANCE_FLOOR = 5;
       CHANCE_CEILING = 95;
@@ -4727,6 +4980,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tranceCannotMove: true,
       tranceCannotSpeak: true,
       tranceScreenFade: true,
+      commandPulse: true,
       roomSeesReactions: true,
       // The one trance default that starts off — see the note on the interface.
       tranceClothingFreeze: false
@@ -4784,6 +5038,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+    if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
+    if (s.plantedNotes !== void 0 && (typeof s.plantedNotes !== "object" || s.plantedNotes === null || Array.isArray(s.plantedNotes))) {
+      delete s.plantedNotes;
+    }
     if (s.extremeLockUntil !== void 0 && !(typeof s.extremeLockUntil === "number" && s.extremeLockUntil > 0)) {
       delete s.extremeLockUntil;
     }
@@ -5208,6 +5466,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     delete loadSettings().skillHonour;
     saveSettings();
   }
+  function getPulseColor() {
+    return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
+  }
+  function setPulseColor(key) {
+    if (PULSE_COLORS.some((c) => c.key === key)) loadSettings().pulseColor = key;
+    saveSettings();
+  }
+  function listPlantedNotes() {
+    return loadSettings().plantedNotes ?? {};
+  }
+  function savePlantedNote(subject, note) {
+    const settings = loadSettings();
+    const notes = { ...settings.plantedNotes ?? {} };
+    if (note) notes[subject] = note;
+    else delete notes[subject];
+    const oldestFirst = Object.keys(notes).sort((a, b) => notes[a].updatedAt - notes[b].updatedAt);
+    while (oldestFirst.length > MAX_PLANTED_SUBJECTS) delete notes[oldestFirst.shift()];
+    settings.plantedNotes = notes;
+    saveSettings();
+  }
   function getExtremeLock() {
     const s = loadSettings();
     return typeof s.extremeLockUntil === "number" ? { until: s.extremeLockUntil, stage: s.extremeLockStage ?? "trial" } : null;
@@ -5278,7 +5556,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, PULSE_COLORS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5377,6 +5655,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       DEFAULT_TOY_SCOPE = "lovers";
       OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
       cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      PULSE_COLORS = [
+        { key: "pink", label: "Pink", rgb: "255, 105, 180" },
+        { key: "purple", label: "Purple", rgb: "170, 90, 255" },
+        { key: "blue", label: "Blue", rgb: "80, 160, 255" },
+        { key: "white", label: "White", rgb: "255, 255, 255" }
+      ];
+      MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
       TRIGGER_LIFESPANS = [
@@ -5396,141 +5681,86 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/selftouch.ts
-  function beginCommandedActivity() {
-    commandInProgress = true;
+  // src/planted.ts
+  function registerPlantedSource(fn) {
+    source = fn;
   }
-  function endCommandedActivity() {
-    commandInProgress = false;
+  function plantedEntriesFor(hypnotist) {
+    return source(hypnotist).slice(0, MAX_PLANTED_ENTRIES);
   }
-  function setBodyPartBlocked(word, groups, on) {
-    for (const g of groups) {
-      if (on) blockedGroups.set(g, word);
-      else blockedGroups.delete(g);
-    }
+  function askPlanted(subject, now = Date.now()) {
+    askedAt.set(subject, now);
+    answered.delete(subject);
+    sendHiddenMessage({ type: "state-query", planted: true }, subject);
   }
-  function setAllSelfTouchBlocked(on) {
-    blockAllSelfTouch = on;
+  function receivePlanted(subject, name, raw, now = Date.now()) {
+    if (!Array.isArray(raw)) return;
+    answered.add(subject);
+    const triggers = raw.slice(0, MAX_PLANTED_ENTRIES).filter((e) => e && typeof e === "object").map((e) => ({
+      word: text(e.word, 100),
+      when: text(e.when, 100),
+      does: (Array.isArray(e.does) ? e.does : []).slice(0, 8).map((d) => text(d, 120)),
+      strength: text(e.strength, 60),
+      once: !!e.once,
+      holding: !!e.holding
+    }));
+    savePlantedNote(subject, triggers.length ? { name, updatedAt: now, triggers } : null);
+    log(`planted list from ${subject}: ${triggers.length} trigger(s)`);
   }
-  function clearSelfTouchBlocks() {
-    blockedGroups.clear();
-    blockAllSelfTouch = false;
+  function plantedStatus(subject, now = Date.now()) {
+    const asked = askedAt.get(subject) ?? 0;
+    if (asked && answered.has(subject)) return "live";
+    return asked && now - asked < PLANTED_ASK_MS ? "asking" : "last-known";
   }
-  function selfTouchSnapshot() {
-    return { all: blockAllSelfTouch, groups: [...blockedGroups.entries()] };
+  function plantedNote(subject) {
+    return listPlantedNotes()[subject] ?? null;
   }
-  function restoreSelfTouch(snap) {
-    clearSelfTouchBlocks();
-    blockAllSelfTouch = !!snap?.all;
-    for (const [group, word] of snap?.groups ?? []) blockedGroups.set(group, word);
+  function plantedSubjects() {
+    return Object.keys(listPlantedNotes()).map(Number);
   }
-  function describeSelfTouchBlocks() {
-    const parts = [...new Set(blockedGroups.values())];
-    return `${blockAllSelfTouch ? "all self-touch blocked; " : ""}${parts.length ? `parts: ${parts.join(", ")}` : "no parts blocked"}`;
+  function findPlantedSubject(token) {
+    const t = token.trim().toLowerCase();
+    if (!t) return null;
+    const notes = listPlantedNotes();
+    return Number(Object.keys(notes).find((id) => id === t || notes[id].name.toLowerCase() === t) ?? NaN) || null;
   }
-  function isSelfActivity(actor, acted) {
-    return !!actor?.IsPlayer?.() && !!acted?.IsPlayer?.();
+  function plantedTitle(entry) {
+    return entry.word ? `"${entry.word}"` : entry.when || "No word";
   }
-  function groupNamesFor(targetGroup) {
-    const names = [targetGroup?.Name].filter(Boolean);
-    try {
-      const mirrored = ActivityGetGroupOrMirror?.(Player?.AssetFamily ?? "Female3DCG", targetGroup?.Name);
-      if (mirrored?.Name && !names.includes(mirrored.Name)) names.push(mirrored.Name);
-    } catch {
-    }
-    return names;
+  function plantedState(entry) {
+    return [entry.strength, entry.once ? "works once" : "", entry.holding ? "holding them now" : ""].filter(Boolean).join(", ");
   }
-  function installSelfTouch(modApi2) {
-    modApi2.hookFunction(
-      "ActivityRun",
-      10,
-      ((args, next) => {
-        try {
-          if (commandInProgress) return next(args);
-          if (!getFeatures().hypnoEnabled) return next(args);
-          const [actor, acted, targetGroup] = args;
-          if (isSelfActivity(actor, acted)) {
-            if (heldByUs("Freeze")) {
-              announce("selftouch-frozen");
-              return void 0;
-            }
-            if (blockAllSelfTouch) {
-              announce("selftouch-blocked");
-              return void 0;
-            }
-            for (const name of groupNamesFor(targetGroup)) {
-              const word = blockedGroups.get(name);
-              if (word) {
-                announceBodyPart(word);
-                return void 0;
-              }
-            }
-          }
-        } catch (err) {
-          warn("self-touch check failed:", err);
-        }
-        return next(args);
-      })
-    );
-    log("self-touch hook installed on ActivityRun");
+  function dateText2(ms) {
+    return new Date(ms).toLocaleDateString(void 0, { month: "short", day: "numeric" });
   }
-  var BODY_PARTS, blockedGroups, blockAllSelfTouch, commandInProgress;
-  var init_selftouch = __esm({
-    "src/selftouch.ts"() {
+  function plantedHeading(subject, name, now = Date.now()) {
+    const note = plantedNote(subject);
+    const status = plantedStatus(subject, now);
+    if (status === "live") return note ? "They answered just now." : `They answered just now: nothing you planted is in ${name}.`;
+    if (status === "asking") return "Asking them\u2026";
+    return note ? `They did not answer, or are not here. Last known ${dateText2(note.updatedAt)}.` : `They did not answer, and you have no notes on ${name}.`;
+  }
+  function describePlanted(subject, fallbackName, now = Date.now()) {
+    const note = plantedNote(subject);
+    const name = note?.name ?? fallbackName;
+    const lines = [`${name} (#${subject}): ${plantedHeading(subject, name, now)}`];
+    (note?.triggers ?? []).forEach((t, i) => {
+      lines.push(`  ${i + 1}. ${plantedTitle(t)}: ${plantedState(t)}. ${t.does.join("; ")}.`);
+    });
+    return lines;
+  }
+  var PLANTED_ASK_MS, MAX_PLANTED_ENTRIES, source, askedAt, answered, text;
+  var init_planted = __esm({
+    "src/planted.ts"() {
       init_log();
-      init_flavor();
-      init_effects();
+      init_messaging();
       init_storage();
-      BODY_PARTS = {
-        breasts: ["ItemBreast", "ItemNipples"],
-        breast: ["ItemBreast", "ItemNipples"],
-        chest: ["ItemBreast", "ItemNipples"],
-        nipples: ["ItemNipples"],
-        nipple: ["ItemNipples"],
-        // The broad words cover the clitoris too; the specific ones don't reach back.
-        pussy: ["ItemVulva", "ItemVulvaPiercings"],
-        vulva: ["ItemVulva", "ItemVulvaPiercings"],
-        cunt: ["ItemVulva", "ItemVulvaPiercings"],
-        clit: ["ItemVulvaPiercings"],
-        clitoris: ["ItemVulvaPiercings"],
-        // Same two slots as above — see the note on ItemPenis not existing.
-        cock: ["ItemVulva", "ItemVulvaPiercings"],
-        penis: ["ItemVulva", "ItemVulvaPiercings"],
-        dick: ["ItemVulva", "ItemVulvaPiercings"],
-        tip: ["ItemVulvaPiercings"],
-        crotch: ["ItemVulva", "ItemVulvaPiercings", "ItemPelvis"],
-        butt: ["ItemButt"],
-        ass: ["ItemButt"],
-        bottom: ["ItemButt"],
-        mouth: ["ItemMouth"],
-        lips: ["ItemMouth"],
-        face: ["ItemHead"],
-        head: ["ItemHead"],
-        hair: ["ItemHead"],
-        ears: ["ItemEars"],
-        ear: ["ItemEars"],
-        nose: ["ItemNose"],
-        neck: ["ItemNeck"],
-        throat: ["ItemNeck"],
-        // "Legs" as spoken means the whole leg, so it takes both of BC's leg zones.
-        legs: ["ItemLegs", "ItemFeet"],
-        leg: ["ItemLegs", "ItemFeet"],
-        thighs: ["ItemLegs"],
-        feet: ["ItemBoots"],
-        toes: ["ItemBoots"],
-        hands: ["ItemHands"],
-        arms: ["ItemArms"],
-        shoulders: ["ItemArms"],
-        belly: ["ItemPelvis", "ItemTorso"],
-        stomach: ["ItemPelvis", "ItemTorso"],
-        tummy: ["ItemPelvis", "ItemTorso"],
-        waist: ["ItemTorso"],
-        ribs: ["ItemTorso"],
-        hips: ["ItemPelvis"]
-      };
-      blockedGroups = /* @__PURE__ */ new Map();
-      blockAllSelfTouch = false;
-      commandInProgress = false;
+      PLANTED_ASK_MS = 3e3;
+      MAX_PLANTED_ENTRIES = 30;
+      source = () => [];
+      askedAt = /* @__PURE__ */ new Map();
+      answered = /* @__PURE__ */ new Set();
+      text = (value, max) => typeof value === "string" ? value.slice(0, max) : "";
     }
   });
 
@@ -5620,75 +5850,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/extreme.ts
-  function extremeLocked() {
-    return getExtremeLock() !== null;
-  }
-  function extremeExpired(now = Date.now()) {
-    const lock = getExtremeLock();
-    return !!lock && now >= lock.until;
-  }
-  function dateText(ms) {
-    return new Date(ms).toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric" });
-  }
-  function extremeBannerText(now = Date.now()) {
-    const lock = getExtremeLock();
-    if (!lock) return "";
-    return now >= lock.until ? "Read-only: your Extreme lock period has ended. Choose what happens next to unlock. /echs safeword always ends a trance." : `Read-only: Extreme lock until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
-  }
-  function extremeRefusal(now = Date.now()) {
-    const lock = getExtremeLock();
-    if (!lock) return "";
-    return now >= lock.until ? "Locked by Extreme: open your ECHS settings to choose whether to renew or unlock." : `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
-  }
-  function renewalPrompt() {
-    const lock = getExtremeLock();
-    if (!lock) return null;
-    return lock.stage === "trial" ? { title: `Your ${EXTREME_TRIAL_DAYS}-day Extreme trial has ended. How was your experience?`, unlock: "Return to editable settings", renew: `Commit to ${EXTREME_MONTH_DAYS} days` } : { title: `Your ${EXTREME_MONTH_DAYS}-day Extreme lock has expired. Continue for another ${EXTREME_MONTH_DAYS} days?`, unlock: "Unlock and edit settings", renew: `Renew for ${EXTREME_MONTH_DAYS} days` };
-  }
-  function answerRenewal(renew, now = Date.now()) {
-    if (renew) {
-      const lock = startExtremeLock("month", now);
-      log(`Extreme lock renewed until ${new Date(lock.until).toISOString()}`);
-      return `Extreme renewed for ${EXTREME_MONTH_DAYS} days, until ${dateText(lock.until)}.`;
-    }
-    clearExtremeLock();
-    log("Extreme lock ended by the player at renewal");
-    return "Extreme lock ended. Your settings are editable again, and nothing in them has changed.";
-  }
-  function startExtremeTrial(now = Date.now()) {
-    const lock = startExtremeLock("trial", now);
-    log(`Extreme trial lock until ${new Date(lock.until).toISOString()}`);
-    return `Extreme applied. Your settings are read-only until ${dateText(lock.until)}.`;
-  }
-  function exitExtreme() {
-    if (!extremeLocked()) return "No Extreme lock is set.";
-    clearExtremeLock();
-    log("Extreme lock ended by /echs exit_extreme");
-    return "Extreme lock ended. Your settings are editable again; trust, triggers and stats are untouched.";
-  }
-  var EXTREME_WARNING;
-  var init_extreme = __esm({
-    "src/extreme.ts"() {
-      init_log();
-      init_storage();
-      EXTREME_WARNING = [
-        `Extreme locks your settings in read-only mode for ${EXTREME_TRIAL_DAYS} days. You will be able to view them, but not change them \u2014 that includes switching hypnosis off and removing planted triggers.`,
-        "/echs safeword always ends a trance, locked or not.",
-        "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
-        `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
-      ];
-    }
-  });
-
   // src/triggers.ts
-  function tellHypnotist(hypnotistId, text) {
-    sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
+  function tellHypnotist(hypnotistId, text2) {
+    sendHiddenMessage({ type: "trigger-status", text: text2 }, hypnotistId);
+  }
+  function tellHypnotistWithList(hypnotistId, text2) {
+    sendHiddenMessage({ type: "trigger-status", text: text2, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
   }
   function installTriggers() {
     registerHiddenHandler("trigger-status", (sender, message) => {
-      const text = typeof message.text === "string" ? message.text : "";
-      if (text) tellPlayer(text);
+      const text2 = typeof message.text === "string" ? message.text : "";
+      if (text2) tellPlayer(text2);
+      if (message.planted !== void 0) receivePlanted(sender, characterFor4(sender)?.Name ?? `#${sender}`, message.planted);
     });
     registerHiddenHandler("test-age", (sender, message) => {
       const days = Number(message.days ?? 1);
@@ -6055,9 +6228,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return "Something is being set aside in you. You let it happen.";
   }
-  function sayActionId(text, times) {
+  function sayActionId(text2, times) {
     const n = Math.max(1, Math.min(MAX_SAY_TIMES, Math.round(times) || 1));
-    return `${SAY_PREFIX}${n}:${text.slice(0, MAX_SAY_LENGTH)}`;
+    return `${SAY_PREFIX}${n}:${text2.slice(0, MAX_SAY_LENGTH)}`;
   }
   function parseSayAction(id) {
     if (!id.startsWith(SAY_PREFIX)) return null;
@@ -6065,9 +6238,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const colon = rest.indexOf(":");
     if (colon < 0) return null;
     const times = Number(rest.slice(0, colon));
-    const text = rest.slice(colon + 1);
-    if (!text || !Number.isInteger(times) || times < 1) return null;
-    return { times: Math.min(times, MAX_SAY_TIMES), text };
+    const text2 = rest.slice(colon + 1);
+    if (!text2 || !Number.isInteger(times) || times < 1) return null;
+    return { times: Math.min(times, MAX_SAY_TIMES), text: text2 };
   }
   function recordAction(id) {
     if (!recording) return null;
@@ -6168,7 +6341,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const count = trigger.actions.length;
     const options = describeOptions(trigger);
     log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
-    tellHypnotist(
+    tellHypnotistWithList(
       trigger.installedBy,
       `[trigger] SAVED ${recordingLabel()} \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` + (options ? `Options: ${options}. ` : "") + (condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) + (notes.length ? ` ${notes.join(" ")}` : "")
     );
@@ -6224,6 +6397,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_depth();
       init_messaging();
       init_teardown();
+      init_planted();
       MIN_PHRASE_LENGTH = 5;
       MAX_ACTIONS = 8;
       TRIGGER_DECAY_PER_DAY = {
@@ -6300,17 +6474,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/voice.ts
-  function normalize(text) {
-    return text.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\bcan'?t\b/g, "cannot").replace(/\bcan not\b/g, "cannot").replace(/\bdon'?t\b/g, "do not").replace(/\bwon'?t\b/g, "will not").replace(/\bmustn'?t\b/g, "must not").replace(/\bdoesn'?t\b/g, "does not").replace(/\bisn'?t\b/g, "is not").replace(/\baren'?t\b/g, "are not").replace(/\byou'?re\b/g, "you are").replace(/\byou'?ve\b/g, "you have").replace(/\bur\b/g, "your").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+  function pulse() {
+    if (!getFeatures().commandPulse) return;
+    startCommandPulse((PULSE_COLORS.find((c) => c.key === getPulseColor()) ?? PULSE_COLORS[0]).rgb);
+  }
+  function noteLanded(sender) {
+    noteSuggestionLanded(sender);
+    pulse();
+  }
+  function normalize(text2) {
+    return text2.toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\bcan'?t\b/g, "cannot").replace(/\bcan not\b/g, "cannot").replace(/\bdon'?t\b/g, "do not").replace(/\bwon'?t\b/g, "will not").replace(/\bmustn'?t\b/g, "must not").replace(/\bdoesn'?t\b/g, "does not").replace(/\bisn'?t\b/g, "is not").replace(/\baren'?t\b/g, "are not").replace(/\byou'?re\b/g, "you are").replace(/\byou'?ve\b/g, "you have").replace(/\bur\b/g, "your").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
   }
   function unstutter(content) {
     return String(content ?? "").replace(/(?<![\p{L}\p{N}'’-])(\p{L})(?:-\1)*-(?=\1)/giu, "");
   }
   function stripOOC(content) {
-    const text = String(content ?? "");
+    const text2 = String(content ?? "");
     let kept = "";
     let depth = 0;
-    for (const ch of text) {
+    for (const ch of text2) {
       if (ch === "(") {
         depth++;
         kept += " ";
@@ -6432,14 +6614,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     };
   }
-  function isSelfReferential(text) {
-    return /^(i|we)\b/.test(text) && !/\byou\b/.test(text);
+  function isSelfReferential(text2) {
+    return /^(i|we)\b/.test(text2) && !/\byou\b/.test(text2);
   }
   function mentionsAnyName(content, names) {
-    const text = normalize(content);
+    const text2 = normalize(content);
     const cleaned = names.map((n) => normalize(String(n ?? ""))).filter((n) => n.length > 0);
     if (cleaned.length === 0) return false;
-    return cleaned.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text));
+    return cleaned.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text2));
   }
   function playerOwnNames() {
     return [Player?.Name, Player?.Nickname].filter(Boolean);
@@ -6543,25 +6725,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return names;
   }
   function matchSuggestion(content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return null;
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return null;
     for (const suggestion of SUGGESTIONS) {
-      if (suggestion.unless?.some((p) => p.test(text))) continue;
-      if (suggestion.patterns.some((p) => p.test(text))) return suggestion.id;
+      if (suggestion.unless?.some((p) => p.test(text2))) continue;
+      if (suggestion.patterns.some((p) => p.test(text2))) return suggestion.id;
     }
     return null;
   }
   function matchBodyPartCommand(content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return null;
-    for (const re of SELF_RELEASE) if (re.test(text)) return { word: "yourself", groups: [], block: false, all: true };
-    for (const re of SELF_BLOCK) if (re.test(text)) return { word: "yourself", groups: [], block: true, all: true };
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return null;
+    for (const re of SELF_RELEASE) if (re.test(text2)) return { word: "yourself", groups: [], block: false, all: true };
+    for (const re of SELF_BLOCK) if (re.test(text2)) return { word: "yourself", groups: [], block: true, all: true };
     for (const [patterns, block] of [
       [PART_RELEASE, false],
       [PART_BLOCK, true]
     ]) {
       for (const re of patterns) {
-        const m = re.exec(text);
+        const m = re.exec(text2);
         const word = m?.[1];
         const groups = word ? BODY_PARTS[word] : void 0;
         if (groups) return { word, groups, block, all: false };
@@ -6616,10 +6798,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return { kind: "lifespan", ms: Math.round(amount * ms) };
   }
   function parseTriggerOption(content) {
-    const text = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-    if (!text) return null;
+    const text2 = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (!text2) return null;
     for (const { pattern, option } of OPTION_PATTERNS) {
-      const match = pattern.exec(text);
+      const match = pattern.exec(text2);
       if (match) return option(match);
     }
     return null;
@@ -6627,46 +6809,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function parseSayClause(raw) {
     const match = SAY_RAW.exec(raw);
     if (!match) return null;
-    let text = match[1];
+    let text2 = match[1];
     let times = 1;
-    const t = SAY_TIMES.exec(text);
+    const t = SAY_TIMES.exec(text2);
     if (t) {
       const word = (t[1] ?? t[2]).toLowerCase();
       times = /^\d+$/.test(word) ? Number(word) : SAY_TIME_WORDS[word] ?? 1;
-      text = text.slice(0, t.index);
+      text2 = text2.slice(0, t.index);
     }
     for (const name of playerOwnNames()) {
       const n = String(name).trim();
       if (!n) continue;
-      text = text.replace(new RegExp(`[,\\s]+${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[.!?]*$`, "i"), "");
+      text2 = text2.replace(new RegExp(`[,\\s]+${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[.!?]*$`, "i"), "");
     }
-    text = text.trim().replace(/^["“'‘]\s*(.*?)\s*["”'’]$/s, "$1").trim();
-    if (!text || NOT_WORDS.test(text)) return null;
-    return { text, times: Math.max(1, Math.min(5, times)) };
+    text2 = text2.trim().replace(/^["“'‘]\s*(.*?)\s*["”'’]$/s, "$1").trim();
+    if (!text2 || NOT_WORDS.test(text2)) return null;
+    return { text: text2, times: Math.max(1, Math.min(5, times)) };
   }
   function personCondition(content) {
     const c = parseCondition(content);
     return !!c && c.fireOn !== "wake";
   }
   function parseCondition(content) {
-    const text = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-    const after = (m2) => text.slice(m2.index + m2[0].length).replace(/^\s*(?:(?:and|then|so)\s+)*/, "").trim();
-    let m = COND_WAKE_DELAY.exec(text);
+    const text2 = content.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const after = (m2) => text2.slice(m2.index + m2[0].length).replace(/^\s*(?:(?:and|then|so)\s+)*/, "").trim();
+    let m = COND_WAKE_DELAY.exec(text2);
     if (m) {
       const option = lifespanOption(m);
       if (option?.kind !== "lifespan" || option.ms <= 0) return null;
       return { fireOn: "wake", delayMs: option.ms, rest: after(m) };
     }
-    m = COND_WAKE_NOW.exec(text);
+    m = COND_WAKE_NOW.exec(text2);
     if (m) return { fireOn: "wake", delayMs: 0, rest: after(m) };
-    m = COND_ARRIVE.exec(text);
+    m = COND_ARRIVE.exec(text2);
     if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
-    m = COND_SPEAK.exec(text);
+    m = COND_SPEAK.exec(text2);
     if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
     return null;
   }
-  function isRecordableAction(text) {
-    return !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+  function isRecordableAction(text2) {
+    return !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
   }
   function splitStartAtAction(content, start) {
     const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
@@ -6683,16 +6865,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return null;
   }
   function parseTriggerControl(content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return null;
-    if (TRIGGER_CANCEL.some((p) => p.test(text))) return { kind: "cancel" };
-    if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return null;
+    if (TRIGGER_CANCEL.some((p) => p.test(text2))) return { kind: "cancel" };
+    if (TRIGGER_COMMIT.some((p) => p.test(text2))) return { kind: "commit" };
     const option = parseTriggerOption(content);
     if (option) return { kind: "option", option };
     const condition = parseCondition(content);
     if (condition) return { kind: "condition", condition };
     for (const pattern of TRIGGER_START) {
-      const match = pattern.exec(text);
+      const match = pattern.exec(text2);
       if (!match) continue;
       const captured = match[1];
       const sayAt = SAY_NORM.exec(captured);
@@ -6714,8 +6896,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (split) return { kind: "start", phrase: cleanPhrase(normalize(split.head)), rest: split.rest };
       return { kind: "start", phrase: cleanPhrase(captured) };
     }
-    if (TRIGGER_DROP.some((p) => p.test(text))) return { kind: "drop" };
-    if (SAY_NORM.test(text)) {
+    if (TRIGGER_DROP.some((p) => p.test(text2))) return { kind: "drop" };
+    if (SAY_NORM.test(text2)) {
       const say = parseSayClause(content);
       if (say) return { kind: "say", ...say };
     }
@@ -6872,13 +7054,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function isForcedEcho(sender, content) {
     if (sender !== Player?.MemberNumber) return false;
-    const text = normalize(content);
-    const i = FORCED_ECHOES.indexOf(text);
+    const text2 = normalize(content);
+    const i = FORCED_ECHOES.indexOf(text2);
     if (i < 0) return false;
     FORCED_ECHOES.splice(i, 1);
     return true;
   }
-  function speakForSubject(text) {
+  function speakForSubject(text2) {
     if (!getFeatures().forcedSpeech || !getFeatures().hypnoEnabled) {
       log("forced speech dropped mid-pace \u2014 permission revoked");
       return;
@@ -6895,9 +7077,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     forcedLineTimes.push(now);
-    FORCED_ECHOES.push(normalize(text));
+    FORCED_ECHOES.push(normalize(text2));
     if (FORCED_ECHOES.length > 20) FORCED_ECHOES.shift();
-    const sent = withForcedSpeech(() => ChatRoomSendChatMessage(text));
+    const sent = withForcedSpeech(() => ChatRoomSendChatMessage(text2));
     if (sent === false) {
       FORCED_ECHOES.pop();
       forcedLineTimes.pop();
@@ -6905,7 +7087,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellPlayer("The words rise in you, but something stronger holds them back.");
       return;
     }
-    log(`spoke for the subject: ${text}`);
+    log(`spoke for the subject: ${text2}`);
   }
   function fireEventCompulsions(event, member) {
     if (isHypnotized()) return;
@@ -6945,6 +7127,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         warn("compulsion check failed:", err);
       }
     }, COMPULSION_POLL_MS);
+  }
+  function tellPoseRefused(trigger) {
+    log(`compulsion: pose refused (${describeCondition(trigger)})`);
+    if (poseRefusalTold.has(trigger.key)) return;
+    poseRefusalTold.add(trigger.key);
+    tellPlayer(
+      "Something set in you tries to move you, but your body will not go there." + (extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger removes one once it has let go.")
+    );
   }
   function fireTrigger(trigger, speaker) {
     if (!triggersArmed()) {
@@ -7034,14 +7224,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
         continue;
       }
       holding++;
-      steps.push(() => announce(suggestion.run(speaker) || suggestion.id));
+      steps.push(() => {
+        const outcome = suggestion.run(speaker) || suggestion.id;
+        if (outcome === "pose-blocked" && trigger.fireOn) tellPoseRefused(trigger);
+        else announce(outcome);
+      });
     }
     log(
       `trigger "${trigger.phrase}" firing ${steps.length} step(s) \u2014 ${holding} holding, ${compels} compel \u2014 at strength ${strength}${tooWeak ? ` (${tooWeak} too weak)` : ""}`
     );
     noteTriggerFired(trigger);
+    if (steps.length || trigger.actions.includes(DROP_ACTION)) pulse();
     if (holding) {
       markActive(timerKey(trigger));
+      holdStartedAt.set(timerKey(trigger), Date.now());
       scheduleAutoRelease(trigger);
       saveForReconnect();
     }
@@ -7055,20 +7251,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return keys[0] ?? (Array.isArray(suggestion.permission) ? suggestion.permission[0] : suggestion.permission);
   }
   function isTriggerReleaseLine(content) {
-    const text = normalize(content);
-    return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
+    const text2 = normalize(content);
+    return !!text2 && TRIGGER_RELEASE.some((p) => p.test(text2));
   }
   function parseTriggerRemoval(content) {
-    const text = normalize(content);
-    if (!text) return null;
-    if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+    const text2 = normalize(content);
+    if (!text2) return null;
+    if (TRIGGER_REMOVE_ALL.some((p) => p.test(text2))) return { kind: "all" };
     for (const pattern of TRIGGER_REMOVE) {
-      const match = pattern.exec(text);
+      const match = pattern.exec(text2);
       if (!match) continue;
       const phrase = cleanPhrase(match[1]);
       if (phrase) return { kind: "one", phrase };
     }
-    const back = TRIGGER_TAKE_BACK.exec(text);
+    const back = TRIGGER_TAKE_BACK.exec(text2);
     const backPhrase = back ? cleanPhrase(back[1]) : "";
     if (backPhrase) return { kind: "one", phrase: backPhrase, soft: true };
     return null;
@@ -7091,8 +7287,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         tellHypnotist(sender, "[trigger] Nothing you planted is in them.");
         return true;
       }
+      if (extremeLocked()) {
+        tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+        return true;
+      }
       const held2 = mine.map(removeTrigger).filter(Boolean).length;
-      tellHypnotist(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
+      tellHypnotistWithList(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
       tellPlayer(held2 ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
       return true;
     }
@@ -7106,8 +7306,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
       return true;
     }
+    if (extremeLocked()) {
+      tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+      return true;
+    }
     const held = removeTrigger(trigger);
-    tellHypnotist(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+    tellHypnotistWithList(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
     tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
     return true;
   }
@@ -7215,10 +7419,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trigger "${trigger.phrase}" will release itself in ${minutes} min`);
   }
   function handleTriggerRelease(sender, content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return false;
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return false;
     for (const pattern of TRIGGER_RELEASE) {
-      const match = pattern.exec(text);
+      const match = pattern.exec(text2);
       if (!match) continue;
       const phrase = cleanPhrase(match[1]);
       const trigger = triggersReleasableBy(sender, phrase)[0];
@@ -7241,8 +7445,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return false;
   }
   function handleReinforcement(sender, content) {
-    const text = normalize(content);
-    if (!REINFORCE.some((p) => p.test(text))) return false;
+    const text2 = normalize(content);
+    if (!REINFORCE.some((p) => p.test(text2))) return false;
     if (!getFeatures().triggerControl) {
       tellHypnotist(sender, '[trigger] Refused \u2014 they have not enabled "Triggers".');
       return true;
@@ -7261,8 +7465,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function isDeepeningLine(content) {
-    const text = normalize(content);
-    return DEEPEN.some((p) => p.test(text)) && !DEEPEN_NEGATED.test(text);
+    const text2 = normalize(content);
+    return DEEPEN.some((p) => p.test(text2)) && !DEEPEN_NEGATED.test(text2);
   }
   function handleDeepening(sender, line) {
     if (!isDeepeningLine(line)) return false;
@@ -7281,6 +7485,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const r = tryDeepen(sender);
     switch (r.kind) {
       case "deeper":
+        pulse();
         announce("deepen");
         tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
         break;
@@ -7322,12 +7527,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   }
   function handleTriggerFiring(sender, content) {
-    const text = normalize(content);
-    if (!text) return false;
+    const text2 = normalize(content);
+    if (!text2) return false;
     if (isForcedEcho(sender, content)) return false;
     if (rereadingRest) return false;
     fireEventCompulsions("speak", sender);
-    const matched = triggersFiredBy(sender, text);
+    const matched = triggersFiredBy(sender, text2);
     if (!matched.length) return false;
     for (const trigger of matched) {
       if (installerHasSession(trigger)) {
@@ -7356,18 +7561,47 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     SUGGESTIONS.find((s) => s.id === id)?.undo?.();
   }
+  function holdRecord(t) {
+    return { key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) };
+  }
+  function restoreHold(saved) {
+    const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
+    if (!trigger) {
+      log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
+      return;
+    }
+    for (const id of saved.actions) {
+      try {
+        applyActionById(id);
+      } catch (err) {
+        warn(`recovery: could not re-apply "${id}":`, err);
+      }
+    }
+    markActive(saved.key);
+    const remaining = saved.until ? saved.until - Date.now() : 0;
+    if (remaining > 0) {
+      scheduleTimer(saved.key, remaining, () => {
+        undoTrigger(trigger);
+        tellPlayer("Whatever was holding you loosens on its own.");
+      });
+    }
+    saveForReconnect();
+    log(
+      `recovery: trigger "${trigger.phrase}" restored with ${remaining > 0 ? `${Math.round(remaining / 6e4)} min left` : "no clock"}`
+    );
+  }
   function handleCarryControl(sender, content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return false;
-    if (CARRY_CANCEL.some((p) => p.test(text))) {
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return false;
+    if (CARRY_CANCEL.some((p) => p.test(text2))) {
       if (!isCarrierOf(sender)) return false;
       if (releaseCarried("the hypnotist took it back")) {
         tellPlayer("Whatever was going to stay with you doesn't.");
       }
       return true;
     }
-    const all = CARRY_ALL.some((p) => p.test(text));
-    if (!all && !CARRY_LAST.some((p) => p.test(text))) return false;
+    const all = CARRY_ALL.some((p) => p.test(text2));
+    if (!all && !CARRY_LAST.some((p) => p.test(text2))) return false;
     if (!isSessionActiveWith(sender) || !mentionsAnyName(content, playerOwnNames())) return false;
     const wanted = all ? appliedSuggestions() : lastApplied();
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
@@ -7377,15 +7611,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function isWakeLine(content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return false;
-    return WAKE_PATTERNS.some((p) => p.test(text));
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return false;
+    return WAKE_PATTERNS.some((p) => p.test(text2));
   }
   function handleWalkingTrance(sender, content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text)) return false;
-    const wantsEnter = WALK_ENTER_PATTERNS.some((p) => p.test(text));
-    const wantsLeave = isWalkingTrance() && WALK_LEAVE_PATTERNS.some((p) => p.test(text));
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2)) return false;
+    const wantsEnter = WALK_ENTER_PATTERNS.some((p) => p.test(text2));
+    const wantsLeave = isWalkingTrance() && WALK_LEAVE_PATTERNS.some((p) => p.test(text2));
     if (!wantsEnter && !wantsLeave) return false;
     if (!hasLiveSessionWith(sender)) {
       log(`heard a walking-trance line from ${sender} but they have no session with you`);
@@ -7396,10 +7630,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     if (wantsEnter && !isWalkingTrance()) {
-      if (!enterWalkingTrance()) log(`walking-trance enter from ${sender} ignored \u2014 not under`);
+      if (enterWalkingTrance()) pulse();
+      else log(`walking-trance enter from ${sender} ignored \u2014 not under`);
       return true;
     }
-    leaveWalkingTrance();
+    if (leaveWalkingTrance()) pulse();
     return true;
   }
   function handleWakeLine(sender, content) {
@@ -7439,7 +7674,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (cmd.all) setAllSelfTouchBlocked(cmd.block);
     else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
-    noteSuggestionLanded(sender);
+    noteLanded(sender);
     const actionId = cmd.all ? "touch:all" : `touch:${cmd.word}`;
     if (cmd.block) {
       noteApplied(actionId);
@@ -7461,17 +7696,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return Math.max(1, Math.min(MAX_TOUCH_TIMES, n));
   }
   function matchActivityCommand(content) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2) || COMMAND_NEGATION.test(text2)) return null;
     const times = repeatCount(content);
     const withTimes = (cmd) => times > 1 ? { ...cmd, times } : cmd;
-    if (GENITAL_SELF.test(text)) return withTimes({ kind: "genital" });
-    if (VAGUE_SELF.test(text)) return withTimes({ kind: "vague" });
+    if (GENITAL_SELF.test(text2)) return withTimes({ kind: "genital" });
+    if (VAGUE_SELF.test(text2)) return withTimes({ kind: "vague" });
     const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
     for (const v of ACTIVITY_VERBS) {
-      if (!v.re.test(text)) continue;
+      if (!v.re.test(text2)) continue;
       for (const word of words) {
-        if (new RegExp(`\\byour ${word}\\b`).test(text)) return withTimes({ kind: "part", activity: v.activity, word });
+        if (new RegExp(`\\byour ${word}\\b`).test(text2)) return withTimes({ kind: "part", activity: v.activity, word });
       }
     }
     return null;
@@ -7578,7 +7813,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     tellPlayer("Your body does it without waiting for you to decide.");
-    noteSuggestionLanded(sender);
+    noteLanded(sender);
     repeatTouch(sender, cmd.times, () => runCommandedActivity(activity, groups) != null);
     return true;
   }
@@ -7611,8 +7846,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function matchTargetedActivityCommand(content, roster) {
-    const text = normalize(content);
-    if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
+    const text2 = normalize(content);
+    if (!text2 || isSelfReferential(text2) || COMMAND_NEGATION.test(text2)) return null;
     const names = [...new Set(roster.map((n) => normalize(String(n ?? ""))).filter((n) => n && n !== "me" && n !== "my"))].sort((a, b) => b.length - a.length);
     const part = `(${Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length).join("|")})`;
     const hit = (rest, lead) => {
@@ -7623,7 +7858,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
     };
     for (const v of ACTIVITY_VERBS) {
-      for (const m of text.matchAll(new RegExp(`${v.re.source} (.+)$`, "g"))) {
+      for (const m of text2.matchAll(new RegExp(`${v.re.source} (.+)$`, "g"))) {
         const rest = m[m.length - 1];
         if (/^feel\b/.test(m[0])) continue;
         const mine = new RegExp(`^my ${part}\\b`).exec(rest);
@@ -7733,6 +7968,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log(`commanded ${cmd.activity} on ${target.MemberNumber}'s ${landed}`);
     tellPlayer("Your body moves to them without waiting for you to decide.");
+    pulse();
     return true;
   }
   function handleSpokenLine(sender, content) {
@@ -7740,6 +7976,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
       return;
     }
+    if (commandQueue.length && !rereadingRest && isControlLine(content)) flushCommands();
     if (!rereadingRest && personCondition(content) && handleTriggerControl(sender, content)) return;
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
     const line = scope.text;
@@ -7768,6 +8005,59 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (handleWakeLine(sender, line)) return;
+    if (shouldPace(sender, line)) {
+      enqueueCommand(sender, line);
+      return;
+    }
+    if (commandQueue.length && isReleaseLine(line)) flushCommands();
+    landCommand(sender, line);
+  }
+  function commandDelayMs(roll = Math.random) {
+    return COMMAND_MIN_MS + COMMAND_SPREAD_MS * (roll() + roll() + roll()) / 3;
+  }
+  function isReleaseLine(line) {
+    const id = matchSuggestion(line);
+    if (id && SUGGESTIONS.find((s) => s.id === id)?.release) return true;
+    const part = matchBodyPartCommand(line);
+    return !!part && !part.block;
+  }
+  function shouldPace(sender, line) {
+    if (!commandPacing || rereadingRest || isRecording()) return false;
+    if (!isSessionActiveWith(sender) || !mentionsAnyName(line, playerOwnNames())) return false;
+    return !isReleaseLine(line);
+  }
+  function enqueueCommand(sender, line) {
+    const now = Date.now();
+    const last = commandQueue[commandQueue.length - 1]?.due ?? 0;
+    commandQueue.push({ sender, line, due: Math.max(now + commandDelayMs(), last + COMMAND_GAP_MS) });
+    if (commandQueue.length === 1) scheduleNextCommand();
+  }
+  function scheduleNextCommand() {
+    const next = commandQueue[0];
+    if (!next) return;
+    scheduleTimer(COMMAND_PACE_TIMER, Math.max(0, next.due - Date.now()), () => {
+      landNextCommand();
+      scheduleNextCommand();
+    });
+  }
+  function landNextCommand() {
+    const next = commandQueue.shift();
+    if (!next) return;
+    try {
+      landCommand(next.sender, next.line);
+    } catch (err) {
+      warn("a waiting command failed:", err);
+    }
+  }
+  function flushCommands() {
+    cancelTimer(COMMAND_PACE_TIMER);
+    while (commandQueue.length) landNextCommand();
+  }
+  function isControlLine(content) {
+    const text2 = normalize(content);
+    return !!parseTriggerControl(content) || [...CARRY_LAST, ...CARRY_ALL, ...CARRY_CANCEL].some((p) => p.test(text2));
+  }
+  function landCommand(sender, line) {
     if (handleWalkingTrance(sender, line)) return;
     if (handleDeepening(sender, line)) return;
     if (handleBodyPartLine(sender, line)) return;
@@ -7801,7 +8091,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`matched suggestion "${id}" in: ${line}`);
     const outcome = suggestion.run(sender) || id;
     if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
-    else noteSuggestionLanded(sender);
+    else noteLanded(sender);
     if (Array.isArray(suggestion.permission) && !suggestion.release) {
       const { applied: applied2, skipped } = reachableCategories(suggestion.permission, features);
       if (skipped.length && applied2.length) {
@@ -7822,10 +8112,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, COMMAND_GAP_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
+      init_planted();
+      init_teardown();
       init_effects();
       init_suppression();
       init_selftouch();
@@ -8832,6 +9124,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       FORCED_ECHOES = [];
       COMPULSION_POLL_MS = 5e3;
       compulsionPoll = null;
+      holdStartedAt = /* @__PURE__ */ new Map();
+      poseRefusalTold = /* @__PURE__ */ new Set();
       TRIGGER_RELEASE = [
         /\byou are released from (.+)$/,
         /\bi release you from (.+)$/,
@@ -8845,6 +9139,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bthe trigger (.+?) is gone(?: now)?$/
       ];
       TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
+      EXTREME_REMOVAL_REFUSED = '[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" still lets go of one holding them.';
       REINFORCE = [
         /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
         /\breinforce (?:that|the|your) triggers?\b/,
@@ -8879,34 +9174,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bnothing stays with you\b/
       ];
       registerCarryHandlers(applyActionById, undoActionById);
-      registerTriggerRecovery(
-        () => listTriggers().filter((t) => isActive(timerKey(t))).map((t) => ({ key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) })),
-        (saved) => {
-          const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
-          if (!trigger) {
-            log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
-            return;
+      registerTriggerRecovery(() => listTriggers().filter((t) => isActive(timerKey(t))).map(holdRecord), restoreHold);
+      onWakeKeep((hypnotizedAt) => {
+        const kept = listTriggers().filter((t) => isActive(timerKey(t)) && (holdStartedAt.get(timerKey(t)) ?? Infinity) < hypnotizedAt);
+        if (!kept.length) return;
+        const records = kept.map((t) => ({ trigger: t, saved: holdRecord(t) }));
+        return () => {
+          for (const { trigger, saved } of records) {
+            if (!listTriggers().includes(trigger)) saveTrigger(trigger);
+            restoreHold(saved);
           }
-          for (const id of saved.actions) {
-            try {
-              applyActionById(id);
-            } catch (err) {
-              warn(`recovery: could not re-apply "${id}":`, err);
-            }
-          }
-          markActive(saved.key);
-          const remaining = saved.until ? saved.until - Date.now() : 0;
-          if (remaining > 0) {
-            scheduleTimer(saved.key, remaining, () => {
-              undoTrigger(trigger);
-              tellPlayer("Whatever was holding you loosens on its own.");
-            });
-          }
-          saveForReconnect();
-          log(
-            `recovery: trigger "${trigger.phrase}" restored with ${remaining > 0 ? `${Math.round(remaining / 6e4)} min left` : "no clock"}`
-          );
-        }
+          tellPlayer("You wake, but what held you before the trance still holds.");
+        };
+      });
+      registerPlantedSource(
+        (hypnotist) => listTriggers().filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0).slice(0, MAX_PLANTED_ENTRIES).map((t) => {
+          const now = triggerStrength(t);
+          return {
+            word: t.phrase,
+            when: t.fireOn ? describeCondition(t) : "",
+            does: t.actions.map(describeAction),
+            strength: now < TRIGGER_GHOST_THRESHOLD ? "a vague pull only" : now >= t.plantedDepth ? "full strength" : `fading, reaches ${tierLabel(tierOf(now))}`,
+            once: !!t.oneShot,
+            holding: isTriggerInEffect(t)
+          };
+        })
       );
       WAKE_PATTERNS = [
         // Bare "wake" included: DW tried "Missy wake" and nothing happened. Guarded against
@@ -8980,6 +9272,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
       namesOf = (c) => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
+      COMMAND_PACE_TIMER = "command-pace";
+      COMMAND_MIN_MS = 2e3;
+      COMMAND_SPREAD_MS = 3e3;
+      COMMAND_GAP_MS = 500;
+      commandQueue = [];
+      commandPacing = !isUnitTestBundle();
+      onTeardown(() => {
+        cancelTimer(COMMAND_PACE_TIMER);
+        commandQueue = [];
+      });
     }
   });
 
@@ -9024,23 +9326,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
-  function drawLeftText(text, x, y, color = "Black") {
+  function drawLeftText(text2, x, y, color = "Black") {
     MainCanvas.save();
     MainCanvas.textAlign = "left";
-    DrawText(text, x, y, color, "Gray");
+    DrawText(text2, x, y, color, "Gray");
     MainCanvas.restore();
   }
-  function drawLeftTextFit(text, x, y, maxWidth, color = "Black") {
+  function drawLeftTextFit(text2, x, y, maxWidth, color = "Black") {
     MainCanvas.save();
     MainCanvas.textAlign = "left";
     let size = 36;
     const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
     MainCanvas.font = font(size);
-    while (size > 22 && MainCanvas.measureText(text).width > maxWidth) {
+    while (size > 22 && MainCanvas.measureText(text2).width > maxWidth) {
       size -= 2;
       MainCanvas.font = font(size);
     }
-    let out = text;
+    let out = text2;
     if (MainCanvas.measureText(out).width > maxWidth) {
       while (out.length > 1 && MainCanvas.measureText(`${out}\u2026`).width > maxWidth) out = out.slice(0, -1);
       out = `${out}\u2026`;
@@ -9050,7 +9352,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.fillText(out, x, y);
     MainCanvas.restore();
   }
-  function drawLeftTextWrap(text, x, yCentre, maxWidth, maxHeight, color = "Black", maxSize = 32, minSize = 18) {
+  function drawLeftTextWrap(text2, x, yCentre, maxWidth, maxHeight, color = "Black", maxSize = 32, minSize = 18) {
     MainCanvas.save();
     const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
     const pitch = (n) => Math.round(n * 1.2);
@@ -9058,7 +9360,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let lines = [];
     for (; ; size -= 2) {
       MainCanvas.font = font(size);
-      lines = wrapToWidth(text, maxWidth);
+      lines = wrapToWidth(text2, maxWidth);
       if (lines.length * pitch(size) <= maxHeight || size - 2 < minSize) break;
     }
     const room = Math.max(1, Math.floor(maxHeight / pitch(size)));
@@ -9076,10 +9378,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.restore();
     return { size, lines };
   }
-  function wrapToWidth(text, maxWidth) {
+  function wrapToWidth(text2, maxWidth) {
     const out = [];
     let line = "";
-    for (const w of text.split(/\s+/).filter(Boolean)) {
+    for (const w of text2.split(/\s+/).filter(Boolean)) {
       const trial = line ? `${line} ${w}` : w;
       if (!line || MainCanvas.measureText(trial).width <= maxWidth) line = trial;
       else {
@@ -9090,13 +9392,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (line) out.push(line);
     return out.length ? out : [""];
   }
-  function drawSmallText(text, x, y, size, color = "Black") {
+  function drawSmallText(text2, x, y, size, color = "Black") {
     MainCanvas.save();
     MainCanvas.textAlign = "left";
     MainCanvas.textBaseline = "middle";
     MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(size) : `${size}px arial`;
     MainCanvas.fillStyle = color;
-    MainCanvas.fillText(text, x, y);
+    MainCanvas.fillText(text2, x, y);
     MainCanvas.restore();
   }
   function drawTabsAndPanel(names, activeIndex) {
@@ -9130,10 +9432,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function lineBand(size) {
     return Math.round(size * 1.34);
   }
-  function wrapText(text, size) {
+  function wrapText(text2, size) {
     MainCanvas.save();
     MainCanvas.font = helpFont(size);
-    const words = text.split(/\s+/).filter(Boolean);
+    const words = text2.split(/\s+/).filter(Boolean);
     const out = [];
     let line = "";
     for (const w of words) {
@@ -9393,9 +9695,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("Getting out"),
       body("The Wake Up button \xB7 a spoken wake word \xB7 /echs wake while the"),
-      body("trance is still shallow \xB7 the 30-minute timeout, which asks whether"),
-      body("you want to stay under (/echs stay) \xB7 and /echs safeword, which no"),
-      body("setting and no suggestion can ever take away.")
+      body("trance is still shallow \xB7 the timeout (30 minutes, 60 under an Extreme"),
+      body("lock), which asks whether to stay under (/echs stay) \xB7 and"),
+      body("/echs safeword, which no setting and no suggestion can ever take away.")
     ];
   }
   function vocabularyLines() {
@@ -9599,6 +9901,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, forget the trigger sleepy time" removes it for good.`),
       body(`"Missy, forget every trigger I gave you" removes all of yours.`),
       dim("Only the one who planted it; no trance needed. One holding them lets go first."),
+      dim("Refused while they are under an Extreme lock: triggers can only be added then."),
+      body("/echs planted [name], or Planted triggers on the panel, lists what you planted."),
       gap(),
       head("Triggers fade unless kept up"),
       body("A planted trigger loses strength over time and eventually goes; the"),
@@ -9714,9 +10018,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       open = false;
       activeTab = 0;
       page = 0;
-      head = (text) => ({ text, style: "head" });
-      body = (text) => ({ text });
-      dim = (text) => ({ text, style: "dim" });
+      head = (text2) => ({ text: text2, style: "head" });
+      body = (text2) => ({ text: text2 });
+      dim = (text2) => ({ text: text2, style: "dim" });
       gap = () => ({ text: "", style: "gap" });
       TABS = [
         { name: "Start Here", blurb: "The loop, both sides of it, and every way out.", lines: startedLines },
@@ -9747,7 +10051,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (cfg.allDepths === void 0) clearDepthOverrides();
     else for (const gate of DEPTH_GATES) setDepthOverride(gate.key, cfg.allDepths);
-    setChemicalScope("arousal");
+    setChemicalScope(cfg.chemicalScope ?? "arousal");
     setChemicalReach("illusionControl", !!cfg.openChemical);
     setChemicalReach("triggerControl", !!cfg.openChemical);
     resetSkillHonour();
@@ -10062,7 +10366,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         {
           key: "extreme",
           name: "Extreme",
-          blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
+          blurb: "Everything on, no questions asked: anyone not on your blacklist can put you straight under. Locks your settings for a week, then 30 days at a time if you choose.",
           config: {
             hypnoEnabled: true,
             features: [
@@ -10087,12 +10391,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
               "carryForward",
               "lockedWhileHypnotized"
             ],
+            trance: { tranceClothingFreeze: true },
             allDepths: 20,
             deepest: "blank",
             openChemical: true,
+            chemicalScope: "both",
             stance: "agree",
             toyMode: true,
-            toyScope: "whitelist",
+            toyScope: "notblack",
             drop: "unlimited",
             away: "keep",
             triggerScope: "notblack",
@@ -10737,12 +11043,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return;
       }
       navigator.clipboard?.readText().then(
-        (text) => {
+        (text2) => {
           if (settingsLocked()) {
             notifyLocal(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
             return;
           }
-          const result = importSettings(text);
+          const result = importSettings(text2);
           notifyLocal(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
         },
         () => notifyLocal("Could not read the clipboard \u2014 use /echs import <blob> instead.")
@@ -10924,6 +11230,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (detail) drawLeftText(detail, STAT_DETAIL_X, y, "Gray");
     };
     drawDecayControl();
+    if (extremeLocked()) {
+      drawLeftTextFit("Your Extreme lock hides these numbers until it ends.", STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
+      drawDataButtons();
+      return;
+    }
     line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
     line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
     const rows = trustStatRows();
@@ -10997,7 +11308,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.3.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11064,7 +11375,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.3.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11334,7 +11645,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -11411,8 +11722,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceScreenFade", label: "Screen Fade" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
-            { key: "releaseOnDisconnect", label: "Release everything if you disconnect" }
-          ]
+            { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
+            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" }
+          ],
+          scrollExtra: {
+            height: attemptControlHeight,
+            draw: (top, width) => drawCycle(PULSE_COLOR_CONTROL, top, width, settingsLocked()),
+            click: (top) => {
+              if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
+              if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+              return true;
+            }
+          }
         },
         {
           name: "Awareness",
@@ -11526,6 +11847,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ATTEMPT_CAPTION_HEIGHT = 44;
       ATTEMPT_CAPTION_GAP = 8;
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+      PULSE_COLOR_CONTROL = {
+        label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
+        caption: () => getFeatures().commandPulse ? "A soft glow around the room view. Only you see it." : "The pulse is off, so this does nothing until you tick the box above.",
+        tooltip: "The colour of the pulse",
+        cycle: () => {
+          const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
+          setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+        }
+      };
       PERMISSION_CYCLES = [
         {
           label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
@@ -11799,8 +12129,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       reply("Not available \u2014 join the Hypno Testing room to use the test bot.");
       return;
     }
-    const text = (args ?? "").trim();
-    if (!text) {
+    const text2 = (args ?? "").trim();
+    if (!text2) {
       reply("Usage: /echs bot <command> \u2014 e.g. /echs bot next, /echs bot run 2, /echs bot ok.");
       reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
       return;
@@ -11813,10 +12143,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
       return;
     }
-    sendHiddenMessage({ type: "test-command", text }, target);
+    sendHiddenMessage({ type: "test-command", text: text2 }, target);
     const name = findCharacter(target)?.Name ?? `#${target}`;
-    reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
-    log(`/echs bot -> ${target}: ${text}`);
+    reply(`Sent "${text2}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
+    log(`/echs bot -> ${target}: ${text2}`);
   }
   function commandHelp() {
     return COMMANDS.map((c) => ({
@@ -11845,6 +12175,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       init_recovery();
       init_extreme();
+      init_planted();
       init_menu();
       init_depth();
       suppressNextAction = false;
@@ -11893,7 +12224,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         {
           Tag: "stay",
           group: "Session",
-          Description: "When your trance's 30 minutes are up and you are asked, stay under for another 30",
+          Description: "When your trance's time is up and you are asked, stay under for as long again",
           Action: () => answerExtend(true)
         },
         {
@@ -11943,6 +12274,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Diagnostics",
           Description: "Kneel directly, bypassing matching, permissions and session",
           Action: () => {
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
             setSuggestedPose("Kneel");
             reply(
               `pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
@@ -11954,6 +12289,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Diagnostics",
           Description: "Stand directly, bypassing matching, permissions and session",
           Action: () => {
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
             setSuggestedPose(null);
             reply(
               `pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
@@ -12224,6 +12563,42 @@ One of mods you are using is using an old version of SDK. It will work for now b
           }
         },
         {
+          // A hypnotist's own list (planted.ts). Whoever is in the room is asked first, which takes a
+          // moment, so the answer is printed once they have had time to reply.
+          Tag: "planted",
+          group: "Session",
+          args: "[name|number]",
+          Description: "List the triggers you planted in someone, or in everyone you have notes on",
+          Action: (args) => {
+            const token = wholeName(args);
+            const here = new Set(others().map((c) => c.MemberNumber));
+            let subjects;
+            if (token) {
+              const id = findPlantedSubject(token) ?? resolveTarget(token)?.id ?? null;
+              if (id == null) {
+                reply(`No one here, and nobody in your notes, matches "${token}".`);
+                return;
+              }
+              subjects = [id];
+            } else {
+              subjects = plantedSubjects();
+              if (!subjects.length) {
+                reply("You have no notes on any planted triggers yet. A trigger is noted when it is saved.");
+                return;
+              }
+            }
+            const nameOf2 = (id) => resolveTarget(String(id))?.name ?? `#${id}`;
+            const print = () => subjects.forEach((id) => describePlanted(id, nameOf2(id)).forEach(reply));
+            const asking = subjects.filter((id) => here.has(id));
+            if (!asking.length) {
+              print();
+              return;
+            }
+            asking.forEach((id) => askPlanted(id));
+            setTimeout(print, PLANTED_ASK_MS);
+          }
+        },
+        {
           Tag: "storage",
           group: "Diagnostics",
           Description: "Where settings loaded from, and what each source holds",
@@ -12257,6 +12632,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Diagnostics",
           Description: "Show your own hypnotist skill, and how it is read",
           Action: () => {
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
             const v = skillValue();
             reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
             reply("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
@@ -12297,6 +12676,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           args: "[name|number]",
           Description: "Show the induction chance for each choice against someone",
           Action: (args) => {
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
             const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
             if (target) describeChances(target.id).forEach(reply);
           }
@@ -12359,6 +12742,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Show what is set to outlive the trance, or drop it",
           Action: (args) => {
             if (firstWord(args).toLowerCase() === "drop") {
+              if (extremeLocked()) {
+                reply(extremeRefusal());
+                return;
+              }
               reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
               return;
             }
@@ -12591,6 +12978,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Diagnostics",
           Description: "Show every depth gate, what it needs, and whether you are deep enough now",
           Action: () => {
+            if (extremeLocked()) {
+              reply(extremeRefusal());
+              return;
+            }
             const full = currentDepth();
             const earned = currentDepthEarned();
             reply(
@@ -12720,44 +13111,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/remote.ts
-  function featureTop(index) {
-    return FIRST_FEATURE_TOP + index * FEATURE_SPACING;
-  }
   function presenceOf(memberNumber) {
-    if (knownState.has(memberNumber) || getSessionView(memberNumber)) return "present";
+    if (repliedToProbe.has(memberNumber) || getSessionView(memberNumber)) return "present";
     const asked = probedAt.get(memberNumber);
     if (asked == null) return "waiting";
     return Date.now() - asked < PROBE_TIMEOUT_MS ? "waiting" : "absent";
-  }
-  function isPermitted(state, feature) {
-    if (!state || !state.hypnoEnabled) return false;
-    return !!state[feature.permission];
   }
   function getViewedOtherCharacter() {
     const C = InformationSheetSelection;
     if (!C || typeof C.IsPlayer === "function" && C.IsPlayer()) return null;
     return C;
   }
-  function featureUnlocked(view, state, feature) {
-    return view?.phase === "Hypnotized" && isPermitted(state, feature);
-  }
-  function drawFeatureButton(index, feature, target) {
-    const state = knownState.get(target.MemberNumber);
-    const view = getSessionView(target.MemberNumber);
-    const unlocked = featureUnlocked(view, state, feature);
-    const label = !state ? `${feature.applyLabel} (checking\u2026)` : feature.isActive(target) ? feature.releaseLabel : feature.applyLabel;
-    const tooltip = !state ? "Waiting for their status" : view?.phase !== "Hypnotized" ? "Requires an active session" : isPermitted(state, feature) ? "" : "Not permitted";
-    DrawButton(
-      FEATURE_BUTTON_LEFT,
-      featureTop(index),
-      FEATURE_BUTTON_WIDTH,
-      FEATURE_BUTTON_HEIGHT,
-      label,
-      unlocked ? "White" : "#ddd",
-      "",
-      tooltip,
-      !unlocked
-    );
+  function findCharacterName2(member) {
+    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c) => c?.MemberNumber === member)?.Name ?? `#${member}`;
   }
   function seconds(ms) {
     return Math.ceil(ms / 1e3);
@@ -12813,6 +13179,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawHelp("Erotic Chat Hypnosis Suite (ECHS) \u2014 help");
       return;
     }
+    if (plantedOpen) {
+      drawPlantedPage(target);
+      return;
+    }
     if (presenceOf(target.MemberNumber) === "absent") {
       drawAbsent(target);
       return;
@@ -12832,7 +13202,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       session2.tooltip,
       !session2.enabled
     );
-    FEATURES.forEach((feature, i) => drawFeatureButton(i, feature, target));
+    DrawButton(
+      FEATURE_BUTTON_LEFT,
+      PLANTED_BUTTON_TOP,
+      FEATURE_BUTTON_WIDTH,
+      FEATURE_BUTTON_HEIGHT,
+      "Planted triggers",
+      "White",
+      "",
+      "What you planted in them, and how it stands"
+    );
     DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
     DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
   }
@@ -12854,21 +13233,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else requestInduction(target.MemberNumber);
     return true;
   }
-  function clickFeatureButton(index, feature, target) {
-    if (!MouseIn(FEATURE_BUTTON_LEFT, featureTop(index), FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
-    const state = knownState.get(target.MemberNumber);
-    if (!featureUnlocked(getSessionView(target.MemberNumber), state, feature)) {
-      log(`${feature.key} locked for ${target.MemberNumber} (no session, or not permitted), ignoring click`);
-      return true;
-    }
-    const active2 = feature.isActive(target);
-    sendHiddenMessage({ type: "remote-request", feature: feature.key, enable: !active2 }, target.MemberNumber);
-    log(`sent remote request (${feature.key}, enable=${!active2}) to ${target.MemberNumber}`);
-    return true;
-  }
   function clickSubscreen(target) {
     if (isHelpOpen()) {
       clickHelp();
+      return;
+    }
+    if (plantedOpen) {
+      clickPlantedPage(target);
       return;
     }
     if (MouseIn(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
@@ -12884,68 +13255,77 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (clickSessionButton(target)) return;
-    FEATURES.some((feature, i) => clickFeatureButton(i, feature, target));
+    if (MouseIn(FEATURE_BUTTON_LEFT, PLANTED_BUTTON_TOP, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) {
+      plantedOpen = true;
+      plantedPage2 = 0;
+      askPlanted(target.MemberNumber);
+    }
+  }
+  function plantedPageCount2(target) {
+    const count = plantedNote(target.MemberNumber)?.triggers.length ?? 0;
+    return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE2));
+  }
+  function drawPlantedPage(target) {
+    const name = target?.Name ?? "them";
+    const note = plantedNote(target.MemberNumber);
+    const triggers = note?.triggers ?? [];
+    DrawText(`What you planted in ${name}`, MainCanvasWidth / 2, 170, "Black");
+    DrawText(plantedHeading(target.MemberNumber, name), MainCanvasWidth / 2, STATUS_LINE_Y, "Gray");
+    const pages = plantedPageCount2(target);
+    if (plantedPage2 >= pages) plantedPage2 = pages - 1;
+    const start = plantedPage2 * PLANTED_ROWS_PER_PAGE2;
+    triggers.slice(start, start + PLANTED_ROWS_PER_PAGE2).forEach((t, i) => {
+      const top = PLANTED_FIRST_ROW_Y + i * PLANTED_ROW_HEIGHT2;
+      drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t)}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
+      drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
+      drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
+    });
+    if (pages > 1) {
+      DrawButton(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Prev", plantedPage2 === 0 ? "#ddd" : "White", "", "", plantedPage2 === 0);
+      DrawButton(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Next", plantedPage2 >= pages - 1 ? "#ddd" : "White", "", "", plantedPage2 >= pages - 1);
+      DrawText(`${plantedPage2 + 1} / ${pages}`, MainCanvasWidth / 2, PLANTED_NAV_TOP + PLANTED_NAV_HEIGHT / 2, "Gray");
+    }
+    DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back to the panel");
+  }
+  function clickPlantedPage(target) {
+    if (MouseIn(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
+      plantedOpen = false;
+      return;
+    }
+    const pages = plantedPageCount2(target);
+    if (pages <= 1) return;
+    if (MouseIn(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT) && plantedPage2 > 0) plantedPage2--;
+    if (MouseIn(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT) && plantedPage2 < pages - 1) plantedPage2++;
   }
   function openRemoteFor(target) {
     activeTarget = target;
+    plantedOpen = false;
     probeRemote(target);
   }
   function probeRemote(target) {
-    knownState.delete(target.MemberNumber);
+    repliedToProbe.delete(target.MemberNumber);
     probedAt.set(target.MemberNumber, Date.now());
-    sendHiddenMessage({ type: "state-query" }, target.MemberNumber);
+    askPlanted(target.MemberNumber);
     querySession(target.MemberNumber);
   }
   function installRemote(modApi2) {
-    registerHiddenHandler("state-query", (sender) => {
-      const features = getFeatures();
+    registerHiddenHandler("state-query", (sender, message) => {
       sendHiddenMessage(
         {
           type: "state-response",
-          hypnoEnabled: features.hypnoEnabled,
-          movementRestriction: features.movementRestriction,
-          clothingRestriction: features.clothingRestriction,
-          postureControl: features.postureControl
+          hypnoEnabled: getFeatures().hypnoEnabled,
+          // Theirs only, and only if they asked. See planted.ts.
+          ...message.planted ? { planted: plantedEntriesFor(sender) } : {}
         },
         sender
       );
     });
     registerHiddenHandler("state-response", (sender, message) => {
-      knownState.set(sender, {
-        hypnoEnabled: !!message.hypnoEnabled,
-        movementRestriction: !!message.movementRestriction,
-        clothingRestriction: !!message.clothingRestriction,
-        postureControl: !!message.postureControl
-      });
+      repliedToProbe.add(sender);
+      if (message.planted !== void 0) receivePlanted(sender, findCharacterName2(sender), message.planted);
     });
     registerHiddenHandler("remote-request", (sender, message) => {
-      const feature = FEATURES.find((f) => f.key === message.feature);
-      if (!feature) return;
-      const enable = !!message.enable;
-      if (!enable) {
-        feature.release();
-        announce(feature.releaseFlavor);
-        return;
-      }
-      const features = getFeatures();
-      if (!features.hypnoEnabled) {
-        log(`remote request (${feature.key}) from ${sender} denied \u2014 Hypnosis Enabled is off`);
-        return;
-      }
-      if (!isPermitted(features, feature)) {
-        log(`remote request (${feature.key}) from ${sender} denied \u2014 not permitted`);
-        return;
-      }
-      if (!isSessionActiveWith(sender)) {
-        log(`remote request (${feature.key}) from ${sender} denied \u2014 no active session with them`);
-        return;
-      }
-      log(`remote request (${feature.key}) from ${sender} honored`);
-      if (feature.apply() === false) {
-        announce("pose-blocked");
-        return;
-      }
-      announce(feature.applyFlavor);
+      log(`ignored a remote-request (${String(message.feature)}) from ${sender}: an older build's button`);
     });
     modApi2.hookFunction(
       "InformationSheetRun",
@@ -12993,6 +13373,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ((_args, next) => {
         if (activeTarget) {
           activeTarget = null;
+          plantedOpen = false;
           closeHelp();
           return;
         }
@@ -13000,16 +13381,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
-  var ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, FIRST_FEATURE_TOP, FEATURE_SPACING, STATUS_LINE_Y, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, FEATURES, knownState, PROBE_TIMEOUT_MS, probedAt;
+  var ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
       init_icon();
       init_messaging();
       init_storage();
-      init_effects();
-      init_flavor();
       init_help();
+      init_panel();
+      init_planted();
       init_session();
       ICON_LEFT = 90;
       ICON_TOP = 130;
@@ -13023,53 +13404,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
       FEATURE_BUTTON_WIDTH = 500;
       FEATURE_BUTTON_HEIGHT = 90;
       SESSION_BUTTON_TOP = 290;
-      FIRST_FEATURE_TOP = 430;
-      FEATURE_SPACING = 115;
+      PLANTED_BUTTON_TOP = 430;
       STATUS_LINE_Y = 245;
+      PLANTED_LEFT = 250;
+      PLANTED_WIDTH = 1400;
+      PLANTED_TITLE_WIDTH = 620;
+      PLANTED_FIRST_ROW_Y = 320;
+      PLANTED_ROW_HEIGHT2 = 105;
+      PLANTED_ROWS_PER_PAGE2 = 5;
+      PLANTED_NAV_TOP = 860;
+      PLANTED_NAV_WIDTH = 160;
+      PLANTED_NAV_HEIGHT = 60;
+      PLANTED_PREV_LEFT = 700;
+      PLANTED_NEXT_LEFT = 1140;
       ABSENT_LINE_Y = 380;
       RETRY_LEFT = 700;
       RETRY_TOP = 470;
       RETRY_WIDTH = 300;
       RETRY_HEIGHT = 80;
       activeTarget = null;
-      FEATURES = [
-        {
-          key: "movement",
-          permission: "movementRestriction",
-          applyLabel: "Apply Movement Restriction",
-          releaseLabel: "Release Movement Restriction",
-          isActive: (t) => !!t.HasEffect?.("Freeze"),
-          apply: () => applyEffect("Freeze"),
-          release: () => removeEffect("Freeze"),
-          applyFlavor: "movement-block",
-          releaseFlavor: "movement-release"
-        },
-        {
-          key: "clothing",
-          permission: "clothingRestriction",
-          applyLabel: "Apply Clothing Restriction",
-          releaseLabel: "Release Clothing Restriction",
-          isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
-          apply: () => applyEffect("BlockWardrobe"),
-          release: () => removeEffect("BlockWardrobe"),
-          applyFlavor: "clothing-block",
-          releaseFlavor: "clothing-release"
-        },
-        {
-          key: "posture",
-          permission: "postureControl",
-          applyLabel: "Kneel",
-          releaseLabel: "Stand",
-          // Not HasEffect — IsKneeling() reads PoseMapping.BodyLower, which is derived from
-          // the synced ActivePose, so it's readable for anyone we can see.
-          isActive: (t) => !!t.IsKneeling?.(),
-          apply: () => setSuggestedPose("Kneel"),
-          release: () => setSuggestedPose(null, "stance"),
-          applyFlavor: "kneel",
-          releaseFlavor: "stand"
-        }
-      ];
-      knownState = /* @__PURE__ */ new Map();
+      repliedToProbe = /* @__PURE__ */ new Set();
+      plantedOpen = false;
+      plantedPage2 = 0;
       PROBE_TIMEOUT_MS = 3e3;
       probedAt = /* @__PURE__ */ new Map();
     }
@@ -13096,13 +13452,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const body2 = parts.join("[^a-z]+");
     return strict ? `(?<![a-z])${body2}(?![a-z])` : body2;
   }
-  function concealPhrases(text, phrases) {
+  function concealPhrases(text2, phrases) {
     const sorted = phrases.slice().sort((a, b) => b.phrase.length - a.phrase.length);
-    let out = text;
+    let out = text2;
     for (const { phrase, strict } of sorted) {
-      const source = phrasePattern(phrase, strict);
-      if (!source) continue;
-      out = out.replace(new RegExp(source, "gi"), "...");
+      const source2 = phrasePattern(phrase, strict);
+      if (!source2) continue;
+      out = out.replace(new RegExp(source2, "gi"), "...");
     }
     return out;
   }
@@ -13266,7 +13622,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.3.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13287,7 +13643,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.3.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.4.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13359,14 +13715,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.3.0"})`);
+      info(`script loaded (v${"1.4.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.3.0",
+          version: "1.4.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13476,6 +13832,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ((args, next) => {
             const result = next(args);
             drawTranceVeil();
+            drawCommandPulse();
             return result;
           })
         );
@@ -13504,10 +13861,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.3.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.3.0";
+    page2.__ECHS_LOADED__ = "1.4.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

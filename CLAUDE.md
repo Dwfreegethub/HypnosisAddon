@@ -38,7 +38,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
 
 1. **Subject-authoritative.** Every cross-player action is a request; the subject's client alone decides, from its own settings. Never trust the hypnotist's client for permissions, depth, session state, or whether a suggestion matched.
 2. **The safeword always works.** `/echs safeword` clears everything from any state. No feature, trigger or lock may reach it. Unticking *Hypnosis Enabled* is the same floor and shares the same teardown (`hardFloorStop()`). **One exception, DW's decision (2026-09-29, job2.md §5.4), from v0.99.0:**
-   - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All and `/echs forgettrigger` are refused.
+   - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All, `/echs forgettrigger` and the planter's spoken removal are refused: triggers can only be added (DW, 2026-11-05).
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
    - Never mention `exit_extreme` in help, the wiki or changelogs.

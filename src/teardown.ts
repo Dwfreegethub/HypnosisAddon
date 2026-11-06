@@ -27,6 +27,27 @@ export function runWake(hypnotistId: number | null): void {
 	}
 }
 
+const wakeKeepers = new Set<(hypnotizedAt: number) => (() => void) | void>();
+
+/** Asked BEFORE an ordinary wake clears everything, while what is holding her can still be read.
+ * What the keeper returns runs AFTER the clear, to put back what should outlive the trance. Not asked
+ * on the safeword or the hard floor, which clear everything and mean it. */
+export function onWakeKeep(keeper: (hypnotizedAt: number) => (() => void) | void): void {
+	wakeKeepers.add(keeper);
+}
+export function captureWakeKeeps(hypnotizedAt: number): (() => void)[] {
+	const restores: (() => void)[] = [];
+	for (const keeper of wakeKeepers) {
+		try {
+			const restore = keeper(hypnotizedAt);
+			if (restore) restores.push(restore);
+		} catch {
+			// As runWake: nothing here may break a wake. At worst the hold ends, as it used to.
+		}
+	}
+	return restores;
+}
+
 /** Run on the safeword and the hard floor only. Nothing that was waiting for a wake may go off
  * after someone has said stop (rule 2). */
 export function onTotalStop(listener: () => void): void {

@@ -97,6 +97,8 @@ export interface SetupConfig {
 	triggerDecay?: DecayRate;
 	/** Let arousal reach the illusion and planting triggers (the earned-only shortcut). */
 	openChemical?: boolean;
+	/** What may push her deeper besides trust. Absent: arousal only, the default. */
+	chemicalScope?: string;
 }
 
 /** Write a whole configuration to storage. The one place templates and the questions converge, so
@@ -113,7 +115,7 @@ export function applySetup(cfg: SetupConfig): void {
 	if (cfg.allDepths === undefined) clearDepthOverrides();
 	else for (const gate of DEPTH_GATES) setDepthOverride(gate.key, cfg.allDepths);
 
-	setChemicalScope("arousal");
+	setChemicalScope(cfg.chemicalScope ?? "arousal");
 	setChemicalReach("illusionControl", !!cfg.openChemical);
 	setChemicalReach("triggerControl", !!cfg.openChemical);
 	resetSkillHonour();
@@ -180,7 +182,7 @@ export const PRESETS: Preset[] = [
 	{
 		key: "extreme",
 		name: "Extreme",
-		blurb: "Everything on, easy to reach, no questions asked. Locks your settings read-only for a week, then 30 days at a time if you choose.",
+		blurb: "Everything on, no questions asked: anyone not on your blacklist can put you straight under. Locks your settings for a week, then 30 days at a time if you choose.",
 		config: {
 			hypnoEnabled: true,
 			features: [
@@ -205,12 +207,14 @@ export const PRESETS: Preset[] = [
 				"carryForward",
 				"lockedWhileHypnotized",
 			],
+			trance: { tranceClothingFreeze: true },
 			allDepths: 20,
 			deepest: "blank",
 			openChemical: true,
+			chemicalScope: "both",
 			stance: "agree",
 			toyMode: true,
-			toyScope: "whitelist",
+			toyScope: "notblack",
 			drop: "unlimited",
 			away: "keep",
 			triggerScope: "notblack",

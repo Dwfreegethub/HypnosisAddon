@@ -16,6 +16,9 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 **Recent highlights:**
+* **Commands sink in:** a spoken command takes hold 2 to 5 seconds after it is said, with a soft pulse you can colour or switch off on the Trance Defaults tab. See **[What to Say](What-to-Say)**.
+* **What you planted:** hypnotists can list their triggers with `/echs planted <name>` or the **Planted triggers** button on the spiral panel. See **[Commands](Commands)**.
+* **A stronger Extreme:** while locked, triggers can only be added, the numbers are hidden and trances run 60 minutes. See **[The Extreme lock](Settings-Reference#the-extreme-lock)**.
 * **1.0 Release Candidate:** your chat line and settings title read **v1.0.0 RC**, and every help line and message now says `/echs`.
 * **Drinks and cigarettes:** a crafted drink or cigarette tagged `[echs:relax]` or `[echs:stimulate]` makes you easier or harder to hypnotize for a while. Opt in on the Depth tab. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**.
 * **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.

@@ -51,6 +51,7 @@ import {
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
+import { askPlanted, describePlanted, findPlantedSubject, plantedSubjects, PLANTED_ASK_MS } from "./planted";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import {
 	DEPTH_GATES,
@@ -457,7 +458,7 @@ const COMMANDS: HypnoCommand[] = [
 	{
 		Tag: "stay",
 		group: "Session",
-		Description: "When your trance's 30 minutes are up and you are asked, stay under for another 30",
+		Description: "When your trance's time is up and you are asked, stay under for as long again",
 		Action: () => answerExtend(true),
 	},
 	{
@@ -509,6 +510,12 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Kneel directly, bypassing matching, permissions and session",
 		Action: () => {
+			// This and /echs stand bypass everything, so under the Extreme lock they would undo a
+			// pose a hypnotist set (DW, 2026-11-05). The safeword still clears one.
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			setSuggestedPose("Kneel");
 			reply(
 				`pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} ` +
@@ -521,6 +528,10 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Stand directly, bypassing matching, permissions and session",
 		Action: () => {
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			setSuggestedPose(null);
 			reply(
 				`pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} ` +
@@ -832,6 +843,42 @@ const COMMANDS: HypnoCommand[] = [
 		},
 	},
 	{
+		// A hypnotist's own list (planted.ts). Whoever is in the room is asked first, which takes a
+		// moment, so the answer is printed once they have had time to reply.
+		Tag: "planted",
+		group: "Session",
+		args: "[name|number]",
+		Description: "List the triggers you planted in someone, or in everyone you have notes on",
+		Action: (args: string) => {
+			const token = wholeName(args);
+			const here = new Set(others().map((c: any) => c.MemberNumber as number));
+			let subjects: number[];
+			if (token) {
+				const id = findPlantedSubject(token) ?? resolveTarget(token)?.id ?? null;
+				if (id == null) {
+					reply(`No one here, and nobody in your notes, matches "${token}".`);
+					return;
+				}
+				subjects = [id];
+			} else {
+				subjects = plantedSubjects();
+				if (!subjects.length) {
+					reply("You have no notes on any planted triggers yet. A trigger is noted when it is saved.");
+					return;
+				}
+			}
+			const nameOf = (id: number) => resolveTarget(String(id))?.name ?? `#${id}`;
+			const print = () => subjects.forEach((id) => describePlanted(id, nameOf(id)).forEach(reply));
+			const asking = subjects.filter((id) => here.has(id));
+			if (!asking.length) {
+				print();
+				return;
+			}
+			asking.forEach((id) => askPlanted(id));
+			setTimeout(print, PLANTED_ASK_MS);
+		},
+	},
+	{
 		Tag: "storage",
 		group: "Diagnostics",
 		Description: "Where settings loaded from, and what each source holds",
@@ -865,6 +912,11 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Show your own hypnotist skill, and how it is read",
 		Action: () => {
+			// The Extreme lock hides the numbers (DW, 2026-11-05; declared-skill-proposal §8).
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			const v = skillValue();
 			reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
 			reply("It travels with each induction you attempt. How much of it lands is the other person's setting — you are never told.");
@@ -907,6 +959,11 @@ const COMMANDS: HypnoCommand[] = [
 		args: "[name|number]",
 		Description: "Show the induction chance for each choice against someone",
 		Action: (args: string) => {
+			// The Extreme lock hides the numbers, as /echs skill above.
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
 			if (target) describeChances(target.id).forEach(reply);
 		},
@@ -975,6 +1032,11 @@ const COMMANDS: HypnoCommand[] = [
 		Description: "Show what is set to outlive the trance, or drop it",
 		Action: (args: string) => {
 			if (firstWord(args).toLowerCase() === "drop") {
+				// Refused under the Extreme lock (DW, 2026-11-05). The safeword still clears it.
+				if (extremeLocked()) {
+					reply(extremeRefusal());
+					return;
+				}
 				reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
 				return;
 			}
@@ -1244,6 +1306,11 @@ const COMMANDS: HypnoCommand[] = [
 		group: "Diagnostics",
 		Description: "Show every depth gate, what it needs, and whether you are deep enough now",
 		Action: () => {
+			// The Extreme lock hides the numbers, as /echs skill.
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
 			const full = currentDepth();
 			const earned = currentDepthEarned();
 			reply(

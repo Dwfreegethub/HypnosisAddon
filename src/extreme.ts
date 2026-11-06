@@ -9,11 +9,19 @@ import { getExtremeLock, startExtremeLock, clearExtremeLock, EXTREME_TRIAL_DAYS,
 //  - While locked, Hypnosis Enabled cannot be unticked. This CHANGES CLAUDE.md rule 2 for the length
 //    of the lock (DW, 2026-09-29). The safeword still always ends a trance.
 //  - Purge and Clear All on the Planted tab are locked too.
+//  - While locked, triggers can only be added. That includes the planter's own spoken removal
+//    (DW, 2026-11-05, reversing v1.3.0). Releasing a hold and the safeword are not removal.
 //  - Ways out early: /echs reset confirm (wipes everything), switching ECHS off in the userscript
 //    manager, and the undocumented /echs exit_extreme (unlocks, keeps everything).
 //  - When a period runs out the settings STAY read-only until the player answers the prompt.
+//  - While locked (DW, 2026-11-05): /echs carry drop, /echs kneel and /echs stand are refused; the
+//    Stats numbers, /echs chance, /echs skill, /echs gates and the depth in /echs session are hidden;
+//    a trance runs 60 minutes per "stay", not 30. No answer still wakes her.
 //
-// A leaf: storage only, so menu.ts and commands.ts can both read it without a cycle.
+// A leaf: storage only, so menu.ts, commands.ts and session.ts can all read it without a cycle.
+
+/** How long a trance runs under the lock, before she is asked whether to stay under. */
+export const EXTREME_SESSION_MINUTES = 60;
 
 /** Is the Extreme lock holding the settings? True while it runs AND after it runs out until the
  * player answers, which is what "stays read-only until they choose" means. */
@@ -51,7 +59,7 @@ export function extremeRefusal(now: number = Date.now()): string {
 
 /** The warning shown before Extreme is applied, one paragraph per entry. */
 export const EXTREME_WARNING: string[] = [
-	`Extreme locks your settings in read-only mode for ${EXTREME_TRIAL_DAYS} days. You will be able to view them, but not change them — that includes switching hypnosis off and removing planted triggers.`,
+	`Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
 	"/echs safeword always ends a trance, locked or not.",
 	"To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
 	`After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`,

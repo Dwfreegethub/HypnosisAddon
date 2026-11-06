@@ -290,6 +290,48 @@ export function drawTranceVeil(): void {
 	MainCanvas.restore();
 }
 
+// --- The command pulse (v1.4.0, JAX 2026-11-02, DW 2026-11-05) -----------------------------------
+// A soft glow around the edge of the room view when a command lands or a trigger fires. A slow swell
+// and fade with no hard edge in time, so it never flashes. Over the same rect as the veil, and for
+// the same reason steps aside while BC is darkening her screen: she cannot see, so nothing shows.
+const PULSE_MS = 1000;
+const PULSE_PEAK = 0.55;
+const PULSE_BANDS = 6;
+const PULSE_BAND_WIDTH = 7;
+let pulseStartedAt = 0;
+let pulseRgb = "";
+
+/** Start a pulse in this colour ("r, g, b"), restarting one already showing. */
+export function startCommandPulse(rgb: string, now: number = Date.now()): void {
+	pulseStartedAt = now;
+	pulseRgb = rgb;
+}
+
+/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded. */
+export function drawCommandPulse(now: number = Date.now()): void {
+	if (!pulseStartedAt) return;
+	const t = (now - pulseStartedAt) / PULSE_MS;
+	if (t >= 1 || t < 0) {
+		pulseStartedAt = 0;
+		return;
+	}
+	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+	const strength = Math.sin(Math.PI * t) * PULSE_PEAK;
+	MainCanvas.save();
+	for (let band = 0; band < PULSE_BANDS; band++) {
+		// Each band further in is fainter, so the glow has no inner edge.
+		MainCanvas.fillStyle = `rgba(${pulseRgb}, ${(strength * (PULSE_BANDS - band)) / PULSE_BANDS})`;
+		const inset = band * PULSE_BAND_WIDTH;
+		const w = VEIL_WIDTH - 2 * inset;
+		const h = MainCanvasHeight - 2 * inset;
+		MainCanvas.fillRect(inset, inset, w, PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(inset, MainCanvasHeight - inset - PULSE_BAND_WIDTH, w, PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(inset, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(VEIL_WIDTH - inset - PULSE_BAND_WIDTH, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+	}
+	MainCanvas.restore();
+}
+
 // --- Sight (v0.93.0, DW 2026-09-26) -------------------------------------------------------------
 //
 // "You cannot see", in BC's own three levels: 1 dim (screen at 30%), 2 very dark (15%), 3 black.

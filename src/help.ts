@@ -103,9 +103,9 @@ function startedLines(): HelpLine[] {
 		gap(),
 		head("Getting out"),
 		body("The Wake Up button · a spoken wake word · /echs wake while the"),
-		body("trance is still shallow · the 30-minute timeout, which asks whether"),
-		body("you want to stay under (/echs stay) · and /echs safeword, which no"),
-		body("setting and no suggestion can ever take away."),
+		body("trance is still shallow · the timeout (30 minutes, 60 under an Extreme"),
+		body("lock), which asks whether to stay under (/echs stay) · and"),
+		body("/echs safeword, which no setting and no suggestion can ever take away."),
 	];
 }
 
@@ -317,6 +317,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, forget the trigger sleepy time" removes it for good.`),
 		body(`"Missy, forget every trigger I gave you" removes all of yours.`),
 		dim("Only the one who planted it; no trance needed. One holding them lets go first."),
+		dim("Refused while they are under an Extreme lock: triggers can only be added then."),
+		body("/echs planted [name], or Planted triggers on the panel, lists what you planted."),
 		gap(),
 		head("Triggers fade unless kept up"),
 		body("A planted trigger loses strength over time and eventually goes; the"),

@@ -1,4 +1,5 @@
 import { log, isTestingMode } from "./log";
+import { extremeLocked, EXTREME_SESSION_MINUTES } from "./extreme";
 import { tellPlayer } from "./notify";
 import {
 	announceInductionBegin,
@@ -29,7 +30,7 @@ import {
 	describeRelationship,
 } from "./trust";
 import { clearAllTimers, timerDeadline } from "./timers";
-import { runTeardown, runWake, runTotalStop } from "./teardown";
+import { runTeardown, runWake, runTotalStop, captureWakeKeeps } from "./teardown";
 import { countedDrugLevel } from "./drugs";
 import {
 	tierOf,
@@ -130,10 +131,11 @@ const INDUCTION_WINDOW_MS = 60_000;
  * should honour what it says then. See storage.ts for the stored form. */
 const maxAttempts = () => getMaxAttempts();
 const COOLDOWN_MS = 10 * 60_000;
-const SESSION_TIMEOUT_MS = 30 * 60_000;
-/** The timeout as players are told it, on both sides of the expiry announcement. */
-const TIMEOUT_MINUTES = Math.round(SESSION_TIMEOUT_MS / 60_000);
-/** How long the "stay under?" box waits when the thirty minutes run out (v1.2.0, DW 2026-11-02).
+/** How long a trance runs before she is asked whether to stay under. Longer under her own Extreme
+ * lock (DW, 2026-11-05). Read from her settings on her client, so the hypnotist has no say in it. */
+const timeoutMinutes = (): number => (extremeLocked() ? EXTREME_SESSION_MINUTES : 30);
+const sessionTimeoutMs = (): number => timeoutMinutes() * 60_000;
+/** How long the "stay under?" box waits when the time runs out (v1.2.0, DW 2026-11-02).
  * No answer ends the trance, as the timeout always did: staying under is something she chooses,
  * never something that happens because she looked away. */
 const EXTEND_ASK_MS = 60_000;
@@ -554,12 +556,12 @@ function askToExtend(): void {
 		if (session.phase === "Hypnotized") expireSession("here");
 	}, EXTEND_ASK_MS);
 	notify(
-		`Your trance has run its ${TIMEOUT_MINUTES} minutes. Stay under for another ${TIMEOUT_MINUTES}? ` +
+		`Your trance has run its ${timeoutMinutes()} minutes. Stay under for another ${timeoutMinutes()}? ` +
 			`Choose on the box, or type /echs stay. If you don't answer, you wake. (${Math.round(EXTEND_ASK_MS / 1000)}s)`,
 	);
 	if (session.hypnotistId != null) {
 		sendHiddenMessage(
-			{ type: "trigger-status", text: `[trance] ${TIMEOUT_MINUTES} minutes are up. They are being asked whether to stay under.` },
+			{ type: "trigger-status", text: `[trance] ${timeoutMinutes()} minutes are up. They are being asked whether to stay under.` },
 			session.hypnotistId,
 		);
 	}
@@ -569,7 +571,7 @@ function askToExtend(): void {
 /** The "stay under?" box, while it is up. Drives prompt.ts. */
 export function getPendingExtend(): { remainingMs: number; minutes: number } | null {
 	if (!extendAskUntil || session.phase !== "Hypnotized") return null;
-	return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: TIMEOUT_MINUTES };
+	return { remainingMs: Math.max(0, extendAskUntil - Date.now()), minutes: timeoutMinutes() };
 }
 
 /** Her answer: the box, or /echs stay (true). False wakes her now, as the timeout would have. */
@@ -585,11 +587,11 @@ export function answerExtend(stay: boolean): void {
 		expireSession("here");
 		return;
 	}
-	armSessionTimer(SESSION_TIMEOUT_MS);
-	notify(`You let it keep you. Another ${TIMEOUT_MINUTES} minutes.`);
+	armSessionTimer(sessionTimeoutMs());
+	notify(`You let it keep you. Another ${timeoutMinutes()} minutes.`);
 	if (session.hypnotistId != null) {
 		sendHiddenMessage(
-			{ type: "trigger-status", text: `[trance] They chose to stay under for another ${TIMEOUT_MINUTES} minutes.` },
+			{ type: "trigger-status", text: `[trance] They chose to stay under for another ${timeoutMinutes()} minutes.` },
 			session.hypnotistId,
 		);
 	}
@@ -600,7 +602,7 @@ export function answerExtend(stay: boolean): void {
 /** The timeout, spoken on all three screens. See tranceExpiryLine() in flavor.ts. */
 function expireSession(when: Expiry): void {
 	endSession(
-		when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${TIMEOUT_MINUTES} minutes`,
+		when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${timeoutMinutes()} minutes`,
 		false,
 		when,
 	);
@@ -610,6 +612,8 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	clearTimers();
 	const had = session.phase === "Hypnotized";
 	const hypnotist = session.hypnotistId;
+	// Read now, while what is holding her still can be. Put back at the end, after the clear.
+	const keptThroughWake = had ? captureWakeKeeps(session.hypnotizedAt) : [];
 	// Everything a session could have applied comes off together — a session ending must
 	// never leave an effect stranded with no way to reach it.
 	removeEffect("Freeze");
@@ -655,6 +659,7 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	// by carving exceptions into the one function that guarantees a clean exit.
 	const carried = carryThroughWake();
 	if (carried && !quiet) notify(carried);
+	for (const restore of keptThroughWake) restore();
 	// An ordinary end of a TRANCE (not of an attempt) arms delayed compulsions the hypnotist left
 	// for "after you wake" — triggers.ts. Last, so nothing above can clear what it arms; the arming
 	// is a stored due time, not a timer, so clearAllTimers could not have taken it anyway.
@@ -1193,7 +1198,7 @@ function enterTrance(full: number, earned: number): void {
 	session.depthEarned = Math.min(full, earned);
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	armSessionTimer(SESSION_TIMEOUT_MS);
+	armSessionTimer(sessionTimeoutMs());
 	applyTranceState();
 	// Keep asking. Presence was checked at the gate — but the trance now runs for up to thirty
 	// minutes, and the question "is anyone still here" has to be asked for all of it.
@@ -1343,7 +1348,7 @@ export function forceTrance(hypnotistId: number, full: number, earned: number): 
 	session.depthEarned = Math.max(0, Math.min(session.depth, earned));
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	armSessionTimer(SESSION_TIMEOUT_MS);
+	armSessionTimer(sessionTimeoutMs());
 	applyTranceState();
 	// A forced trance is still a trance: if the bot that forced it leaves the testing room,
 	// it ends the same way a real one would rather than becoming the one path that strands
@@ -1390,7 +1395,7 @@ export function dropIntoTrance(hypnotistId: number, full: number, earned: number
 	session.depthEarned = Math.max(0, Math.min(session.depth, Math.round(earned)));
 	setCurrentDepths(session.depth, session.depthEarned);
 	session.hypnotizedAt = Date.now();
-	armSessionTimer(SESSION_TIMEOUT_MS);
+	armSessionTimer(sessionTimeoutMs());
 	// The trance defaults — freeze, silence, fade, whatever the subject accepted for being under —
 	// in the one call every other way into trance uses.
 	applyTranceState();
@@ -2042,8 +2047,9 @@ export function describeSession(): string {
 	if (session.hypnotistId != null) bits.push(`hypnotist=${session.hypnotistId}`);
 	if (session.choice) bits.push(`choice=${session.choice}`);
 	if (session.attempts) bits.push(`attempts=${session.attempts}/${maxAttempts()}`);
-	if (session.phase === "Hypnotized") bits.push(`depth=${session.depth} (${depthBand(session.depth)})`);
-	if (session.phase === "AttemptFailed") bits.push(`progress=${session.progress.toFixed(1)}`);
+	// The Extreme lock hides the numbers (DW, 2026-11-05): she still sees that she is under.
+	if (session.phase === "Hypnotized" && !extremeLocked()) bits.push(`depth=${session.depth} (${depthBand(session.depth)})`);
+	if (session.phase === "AttemptFailed" && !extremeLocked()) bits.push(`progress=${session.progress.toFixed(1)}`);
 	if (session.cooldownUntil > Date.now())
 		bits.push(`cooldown=${Math.ceil((session.cooldownUntil - Date.now()) / 1000)}s`);
 	return `${bits.join(" ")} | ${lasting} | ${perms}`;
@@ -2210,7 +2216,8 @@ function reportExpiryToHypnotist(sender: number, message: Record<string, any>): 
 	if (message.refusedReason) return;
 	if (message.ended !== "timeout" || message.phase !== "Idle") return;
 	const name = findCharacterName(sender);
-	tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its ${TIMEOUT_MINUTES}-minute limit and has ended.`);
+	// No number: this runs on the hypnotist's client, and the length is set by the subject's lock.
+	tellPlayer(`${hypnotistExpiryFlavor(name)} The trance reached its time limit and has ended.`);
 }
 
 export function requestAttempt(memberNumber: number): void {

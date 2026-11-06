@@ -431,6 +431,9 @@ export interface FeatureToggles {
 	 * present that you are running this, and describes fairly intimate behaviour while it
 	 * does so. */
 	roomSeesReactions: boolean;
+	/** A soft glow around the room view when a spoken command lands or a trigger fires (JAX,
+	 * 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
+	commandPulse: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *
 	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
@@ -506,6 +509,11 @@ interface HypnoAddonSettings {
 	 * Absent = no lock. Only ever written by confirming the new wizard's Extreme warning: builds
 	 * before v0.99.0 never recorded which preset was chosen, so nobody is locked by upgrading. */
 	extremeLockUntil?: number;
+	/** The command pulse's colour, one of PULSE_COLORS. Absent means the default. */
+	pulseColor?: string;
+	/** A hypnotist's own notes on the triggers they planted, by subject's member number (v1.4.0).
+	 * Only ever displayed: the subject's client alone decides what is really planted (rule 1). */
+	plantedNotes?: Record<string, PlantedNote>;
 	/** Which period is running: the first-week "trial", or a 30-day "month". */
 	extremeLockStage?: "trial" | "month";
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
@@ -569,6 +577,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
+		commandPulse: true,
 		roomSeesReactions: true,
 		// The one trance default that starts off — see the note on the interface.
 		tranceClothingFreeze: false,
@@ -654,6 +663,10 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	// A lock with no valid end is no lock: dropped, never invented.
+	if (s.pulseColor !== undefined && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
+	if (s.plantedNotes !== undefined && (typeof s.plantedNotes !== "object" || s.plantedNotes === null || Array.isArray(s.plantedNotes))) {
+		delete s.plantedNotes;
+	}
 	if (s.extremeLockUntil !== undefined && !(typeof s.extremeLockUntil === "number" && s.extremeLockUntil > 0)) {
 		delete s.extremeLockUntil;
 	}
@@ -1340,6 +1353,55 @@ export function setToyScope(key: string): void {
 /** Back to the code default, stored as absence (the sparse rule), for the wizard's templates. */
 export function resetSkillHonour(): void {
 	delete loadSettings().skillHonour;
+	saveSettings();
+}
+
+// --- The command pulse's colour (v1.4.0) --------------------------------------------------------
+export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
+	{ key: "pink", label: "Pink", rgb: "255, 105, 180" },
+	{ key: "purple", label: "Purple", rgb: "170, 90, 255" },
+	{ key: "blue", label: "Blue", rgb: "80, 160, 255" },
+	{ key: "white", label: "White", rgb: "255, 255, 255" },
+];
+export function getPulseColor(): string {
+	return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
+}
+export function setPulseColor(key: string): void {
+	if (PULSE_COLORS.some((c) => c.key === key)) loadSettings().pulseColor = key;
+	saveSettings();
+}
+
+// --- A hypnotist's notes on what they planted (v1.4.0) -------------------------------------------
+export interface PlantedEntry {
+	/** The trigger word; empty for a compulsion, which has `when` instead. */
+	word: string;
+	when: string;
+	does: string[];
+	/** In words, never the number: a hypnotist only ever gets the band. */
+	strength: string;
+	once: boolean;
+	holding: boolean;
+}
+export interface PlantedNote {
+	name: string;
+	updatedAt: number;
+	triggers: PlantedEntry[];
+}
+/** Notes on this many subjects at most; the longest unseen goes first. */
+const MAX_PLANTED_SUBJECTS = 50;
+
+export function listPlantedNotes(): Record<string, PlantedNote> {
+	return loadSettings().plantedNotes ?? {};
+}
+/** Replace what we know about one subject. Nothing planted any more means no note at all. */
+export function savePlantedNote(subject: number, note: PlantedNote | null): void {
+	const settings = loadSettings();
+	const notes = { ...(settings.plantedNotes ?? {}) };
+	if (note) notes[subject] = note;
+	else delete notes[subject];
+	const oldestFirst = Object.keys(notes).sort((a, b) => notes[a].updatedAt - notes[b].updatedAt);
+	while (oldestFirst.length > MAX_PLANTED_SUBJECTS) delete notes[oldestFirst.shift()!];
+	settings.plantedNotes = notes;
 	saveSettings();
 }
 
