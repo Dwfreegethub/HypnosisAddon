@@ -20,6 +20,18 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-05 (v1.4.3 RC) — an earned-depth refusal shows the full depth too
+
+DW's report: "could not get them past 44", with "sink deeper" at Blank. No ceiling or code path holds
+anyone at 44, and a simulation from 44 got past it. The likely reading is this refusal: `depthRefusal`
+named only the earned depth, which deepening never raises (decided v0.95.0, and DW kept it: triggers
+need earned trust). So the number stayed at 44 however deep she went. Not confirmed against DW's test.
+
+Now, when they differ: "at 90 [Blank] but only 44 [Entranced] earned". Equal, it reads as before. The
+trigger refusal also loses its second sentence, "Take them deeper first; arousal does not count toward
+this one", at DW's say: deepening cannot satisfy it, it repeated the arousal clause, and it is probably
+what sent DW to "sink deeper". The rest of the wording is unchanged at DW's request.
+
 ### Changed 2026-11-05 (v1.4.2 RC) — a slower pulse, and her own colour for it
 
 DW, after seeing v1.4.1 live: 1.4s was still a little fast, so 1.8s. A command landing during a pulse

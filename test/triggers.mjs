@@ -90,6 +90,8 @@ depth.setCurrentDepths(80, 30);
 triggers.beginRecording(HYP, "GameBot", "sleepy");
 check("arousal cannot buy a trigger", triggers.isRecording(), false);
 check("  and says why", /arousal does not count/.test(lastToHypnotist()), true);
+// DW, 2026-11-05: deepening cannot raise earned depth. Failure: the refusal sends them back to try it.
+check("  and does not tell them to take her deeper", /Take them deeper/.test(lastToHypnotist()), false);
 
 // --- record and commit ---
 depth.setCurrentDepths(80, 80);
