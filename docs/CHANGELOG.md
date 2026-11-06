@@ -20,6 +20,17 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-05 (v1.4.2 RC) — a slower pulse, and her own colour for it
+
+DW, after seeing v1.4.1 live: 1.4s was still a little fast, so 1.8s. A command landing during a pulse
+gets none of its own for that much longer, which the beat's spacing makes rare but not impossible.
+
+Custom colours in BC's hex codes. Checked against R132 `CommonIsColor`: #RGB and #RRGGBB, plus up to 8
+digits with `allowAlpha`, which is what `ColorPicker.js` copies for an item with opacity. So a pasted
+code works, with its alpha dropped since the pulse sets its own strength. `parsePulseHex` is the only
+way in, on typing and on load, because the result goes into a canvas colour string. A refused code
+says so and stays in the box to correct (rule 5). The saved colour survives picking another one.
+
 ### Fixed 2026-11-05 (v1.4.1 RC) — the pulse could not be seen
 
 DW's first live look: the trance screen "changed color a little bit", with no pulse to see. It was

@@ -206,7 +206,7 @@ check("  in pink by default", /255, 105, 180/.test(fills[0] ?? ""), true);
 // asked how big or how strong it was. Failure: these numbers drift back to something invisible.
 {
 	rects = [];
-	effects.drawCommandPulse(now + 700); // the peak
+	effects.drawCommandPulse(now + 900); // the peak
 	const view = rects.find((r) => r.left === 0 && r.top === 0 && r.width >= 1000 && r.height >= 1000);
 	const ring = rects.filter((r) => r !== view);
 	const left = ring.filter((r) => r.left < 500 && r.height > r.width);
@@ -219,19 +219,21 @@ check("  in pink by default", /255, 105, 180/.test(fills[0] ?? ""), true);
 	// Failure: a hard edge inside the glow, which reads as a box rather than a glow.
 	const alphas = left.sort((a, b) => a.left - b.left).map((r) => r.alpha);
 	check("  it falls away inward", alphas.every((a, i) => i === 0 || a < alphas[i - 1]), true);
-	// Long enough to catch from across the screen. Failure: it is back to a blink.
+	// DW, 2026-11-05: 1.8 seconds. Failure: it is back to a blink, or it hangs on.
 	rects = [];
-	effects.drawCommandPulse(now + 1200);
-	check("  still showing after a second", rects.length > 0, true);
+	effects.drawCommandPulse(now + 1700);
+	check("  still showing at 1.7 seconds", rects.length > 0, true);
 }
 // A second command mid-pulse. Failure: it drops to nothing in one frame, which is a flash.
 storage.setPulseColor("blue");
 say("Missy, stand");
 fills = [];
-effects.drawCommandPulse(now + 700);
+effects.drawCommandPulse(now + 900);
 check("  a command mid-pulse leaves it to finish", /255, 105, 180/.test(fills[0] ?? ""), true);
 storage.setPulseColor("pink");
-pulseDone();
+rects = [];
+effects.drawCommandPulse(now + 1801);
+check("  gone by 1.8 seconds", rects.length, 0);
 check("  and it ends", pulsing(), false);
 storage.setFeature("postureControl", false);
 say("Missy, kneel");
@@ -251,6 +253,44 @@ dark = 0.5;
 check("nothing shows while she is blind", pulsing(), false);
 dark = 1;
 pulseDone();
+
+// Her own colour, in the hex codes BC uses (DW, 2026-11-05). Failure: a code BC's picker gives is
+// refused, or junk reaches the canvas's colour string.
+const hex = storage.parsePulseHex;
+check("#RRGGBB", hex("#00ff80"), "#00FF80");
+check("#RGB, as R132 CommonIsColor expands it", hex("#f0a"), "#FF00AA");
+check("with BC's alpha, which is dropped", hex("#11223344"), "#112233");
+check("the # may be left off", hex("00ff80"), "#00FF80");
+check("spaces around it are fine", hex("  #00FF80 "), "#00FF80");
+for (const bad of ["", "pink", "#12", "#1234", "#12345", "#1234567", "#GGGGGG", "#00ff80; color:red", "rgb(1,2,3)"]) {
+	check(`refused: "${bad}"`, hex(bad), null);
+}
+check("a refused code changes nothing", [storage.setPulseCustom("nope"), storage.getPulseCustom()], [null, storage.DEFAULT_PULSE_CUSTOM]);
+check("a good one is kept", storage.setPulseCustom("#00ff80"), "#00FF80");
+storage.setPulseColor("custom");
+check("it becomes r, g, b", storage.getPulseRgb(), "0, 255, 128");
+say("Missy, kneel");
+// Failure: the setting is saved and the pulse ignores it.
+check("the pulse uses it", pulsing() && /rgba\(0, 255, 128, /.test(fills[0] ?? ""), true);
+pulseDone();
+storage.setPulseColor("blue");
+check("another colour still works", storage.getPulseRgb(), "80, 160, 255");
+storage.setPulseColor("custom");
+check("  and going back finds hers", storage.getPulseCustom(), "#00FF80");
+{
+	const exported = storage.exportSettings();
+	const lz = (await import("lz-string")).default;
+	const blob = (extra) => lz.compressToBase64(JSON.stringify({ version: "1.4.0", trust: [], experience: 0, features: { hypnoEnabled: true }, ...extra }));
+	// Failure: junk in a saved blob survives the load and reaches the canvas's colour string.
+	for (const junk of ["red); background: url(x", 12, "#GGGGGG", { a: 1 }]) {
+		storage.importSettings(blob({ pulseColor: "custom", pulseCustom: junk }));
+		check(`junk in a blob is dropped: ${JSON.stringify(junk)}`, storage.getPulseCustom(), storage.DEFAULT_PULSE_CUSTOM);
+	}
+	storage.importSettings(blob({ pulseColor: "custom", pulseCustom: "#abc" }));
+	check("a short code in a blob is tidied", storage.getPulseRgb(), "170, 187, 204");
+	check("it travels in an export", storage.importSettings(exported).ok, true);
+	check("  and comes back", storage.getPulseCustom(), "#00FF80");
+}
 storage.setPulseColor("pink");
 
 const plantHold = (phrase, action = "movement-block") => {

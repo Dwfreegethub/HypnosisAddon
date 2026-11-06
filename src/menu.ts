@@ -55,6 +55,8 @@ import {
 	nextAwayStance,
 	getPulseColor,
 	setPulseColor,
+	getPulseCustom,
+	setPulseCustom,
 	PULSE_COLORS,
 	TOY_SCOPES,
 	getToyMode,
@@ -246,14 +248,15 @@ const TABS: Tab[] = [
 			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
 		],
 		scrollExtra: {
-			height: attemptControlHeight,
-			draw: (top, width) => drawCycle(PULSE_COLOR_CONTROL, top, width, settingsLocked()),
+			height: pulseControlsHeight,
+			draw: drawPulseControls,
 			click: (top) => {
 				if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
 				// Consumed either way: a locked button must not cycle.
 				if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
 				return true;
 			},
+			hide: removePulseHexInput,
 		},
 	},
 	{
@@ -658,15 +661,82 @@ const labelOf = (list: { key: string; label: string }[], key: string) => list.fi
 const PULSE_COLOR_CONTROL: CycleControl = {
 	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
 	caption: () =>
-		getFeatures().commandPulse
-			? "A glow and a wash of colour over the room view. Only you see it."
-			: "The pulse is off, so this does nothing until you tick the box above.",
+		!getFeatures().commandPulse
+			? "The pulse is off, so this does nothing until you tick the box above."
+			: getPulseColor() === "custom"
+				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
+				: "A glow and a wash of colour over the room view. Only you see it.",
 	tooltip: "The colour of the pulse",
 	cycle: () => {
 		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
 		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+		pulseHexError = "";
 	},
 };
+
+// The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes
+// do, when it loses focus or on Enter, and refuses out loud rather than quietly keeping the old colour.
+const PULSE_HEX_ID = "HypnosisAddonPulseHex";
+const PULSE_HEX_LABEL_WIDTH = 200;
+const PULSE_HEX_WIDTH = 220;
+const PULSE_SWATCH_SIZE = 50;
+/** Why the last code typed was refused, or empty. */
+let pulseHexError = "";
+
+function removePulseHexInput(): void {
+	if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
+}
+
+function pulseControlsHeight(): number {
+	return attemptControlHeight() + (getPulseColor() === "custom" ? CYCLE_GAP + attemptControlHeight() : 0);
+}
+
+function drawPulseControls(top: number, width: number): void {
+	const locked = settingsLocked();
+	drawCycle(PULSE_COLOR_CONTROL, top, width, locked);
+	if (getPulseColor() !== "custom") {
+		removePulseHexInput();
+		return;
+	}
+	const at = top + attemptControlHeight() + CYCLE_GAP;
+	const inputLeft = BOX_LEFT + PULSE_HEX_LABEL_WIDTH + 20;
+	drawLeftTextFit("Colour code:", BOX_LEFT, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_LABEL_WIDTH, locked ? "Gray" : "Black");
+	DrawRect(inputLeft + PULSE_HEX_WIDTH + 20, at + (ATTEMPT_BUTTON_HEIGHT - PULSE_SWATCH_SIZE) / 2, PULSE_SWATCH_SIZE, PULSE_SWATCH_SIZE, getPulseCustom());
+	drawLeftTextWrap(
+		pulseHexError || "For example #FF69B4. Saves when you click away or press Enter.",
+		BOX_LEFT,
+		at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		pulseHexError ? "#a00000" : locked ? "Gray" : "#555",
+	);
+	// A DOM element, which the scroll area's clip cannot hide. As the toy mode dropdown.
+	if (at < rowScroll.top || at + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
+		removePulseHexInput();
+		return;
+	}
+	let element = document.getElementById(PULSE_HEX_ID) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(PULSE_HEX_ID, "text", getPulseCustom(), 9);
+		element.addEventListener("blur", function (this: HTMLInputElement) {
+			// Again here, not only through `disabled`: a box focused before a lock began can blur after.
+			if (settingsLocked()) return;
+			const saved = setPulseCustom(this.value);
+			pulseHexError = saved ? "" : `"${this.value.trim().slice(0, 12)}" is not a colour code, so your colour is unchanged. Try one like #FF69B4.`;
+			if (saved) {
+				this.value = saved;
+				log(`pulse colour now ${saved}`);
+			}
+		});
+		element.addEventListener("keydown", function (this: HTMLInputElement, event: KeyboardEvent) {
+			if (event.key === "Enter") this.blur();
+		});
+	}
+	// Not while she is typing in it, and not over a refused code she may want to correct.
+	if (document.activeElement !== element && !pulseHexError) element.value = getPulseCustom();
+	element.disabled = locked;
+	ElementPosition(PULSE_HEX_ID, inputLeft + PULSE_HEX_WIDTH / 2, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
 
 const PERMISSION_CYCLES: CycleControl[] = [
 	{
@@ -1266,12 +1336,12 @@ const DECAY_CAPTION_Y = 858;
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...DEPTH_INPUT_IDS];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 	removeDepthInputs();
@@ -1291,6 +1361,7 @@ function syncTabControls(tabName: string): void {
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
 	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+	if (tabName !== "Trance Defaults") removePulseHexInput();
 	if (tabName !== "Depth") removeDepthInputs();
 }
 

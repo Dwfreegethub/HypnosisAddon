@@ -18,7 +18,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseColor, PULSE_COLORS, FeatureToggles, PlantedEntry, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, FeatureToggles, PlantedEntry, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -104,7 +104,7 @@ import {
 /** The command pulse, if she wants it: a command landed or a trigger fired. */
 function pulse(): void {
 	if (!getFeatures().commandPulse) return;
-	startCommandPulse((PULSE_COLORS.find((c) => c.key === getPulseColor()) ?? PULSE_COLORS[0]).rgb);
+	startCommandPulse(getPulseRgb());
 }
 
 /** A spoken command took: tell the session, and pulse. */
