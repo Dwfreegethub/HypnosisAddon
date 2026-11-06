@@ -42,7 +42,8 @@ globalThis.ChatRoomSendChatMessage = () => true;
 let dark = 1;
 globalThis.CharacterGetDarkFactor = () => dark;
 let fills = [];
-globalThis.MainCanvas = { save() {}, restore() {}, fillStyle: "", fillRect() { fills.push(this.fillStyle); } };
+let rects = [];
+globalThis.MainCanvas = { save() {}, restore() {}, fillStyle: "", fillRect(left, top, width, height) { fills.push(this.fillStyle); rects.push({ left, top, width, height, alpha: Number(/, ([\d.e-]+)\)$/.exec(this.fillStyle)?.[1] ?? 0) }); } };
 globalThis.MainCanvasHeight = 1000;
 
 // Held timers on a controllable clock: run what comes due as time moves on.
@@ -200,8 +201,36 @@ check("  in pink by default", /255, 105, 180/.test(fills[0] ?? ""), true);
 	const alpha = (s) => Number(/, ([\d.]+)\)$/.exec(s)?.[1] ?? 0);
 	// Failure: a hard flash. It has to swell.
 	check("  it swells, so it never flashes", alpha(faint[0]) < alpha(peak[0]) / 2, true);
-	check("  and its peak stays soft", alpha(peak[0]) <= 0.55, true);
 }
+// Whether it can be SEEN. v1.4.0 ran and nobody could see it: every check above passed, because none
+// asked how big or how strong it was. Failure: these numbers drift back to something invisible.
+{
+	rects = [];
+	effects.drawCommandPulse(now + 700); // the peak
+	const view = rects.find((r) => r.left === 0 && r.top === 0 && r.width >= 1000 && r.height >= 1000);
+	const ring = rects.filter((r) => r !== view);
+	const left = ring.filter((r) => r.left < 500 && r.height > r.width);
+	const glowWidth = Math.max(...left.map((r) => r.left + r.width));
+	check("  a wash of colour covers the whole view", !!view, true);
+	check("    light enough to see through", view && view.alpha >= 0.1 && view.alpha <= 0.3, true);
+	check("  the glow is at least 100 pixels wide", glowWidth >= 100, true);
+	check("  and strong at the edge", Math.max(...ring.map((r) => r.alpha)) >= 0.7, true);
+	check("  it stays over the room, off the chat", rects.every((r) => r.left + r.width <= 1003), true);
+	// Failure: a hard edge inside the glow, which reads as a box rather than a glow.
+	const alphas = left.sort((a, b) => a.left - b.left).map((r) => r.alpha);
+	check("  it falls away inward", alphas.every((a, i) => i === 0 || a < alphas[i - 1]), true);
+	// Long enough to catch from across the screen. Failure: it is back to a blink.
+	rects = [];
+	effects.drawCommandPulse(now + 1200);
+	check("  still showing after a second", rects.length > 0, true);
+}
+// A second command mid-pulse. Failure: it drops to nothing in one frame, which is a flash.
+storage.setPulseColor("blue");
+say("Missy, stand");
+fills = [];
+effects.drawCommandPulse(now + 700);
+check("  a command mid-pulse leaves it to finish", /255, 105, 180/.test(fills[0] ?? ""), true);
+storage.setPulseColor("pink");
 pulseDone();
 check("  and it ends", pulsing(), false);
 storage.setFeature("postureControl", false);

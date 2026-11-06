@@ -431,8 +431,8 @@ export interface FeatureToggles {
 	 * present that you are running this, and describes fairly intimate behaviour while it
 	 * does so. */
 	roomSeesReactions: boolean;
-	/** A soft glow around the room view when a spoken command lands or a trigger fires (JAX,
-	 * 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
+	/** A glow and a light wash of colour over the room view when a spoken command lands or a trigger
+	 * fires (JAX, 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
 	commandPulse: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *

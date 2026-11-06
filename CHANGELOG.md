@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.4.1 RC · 5 November 2026
+
+- **The command pulse is easy to see now.** It was too faint to notice. It's now a wide glow around
+  the room view with a light wash of colour across it, and it lasts a little longer. You can still
+  change its colour or turn it off on the Trance Defaults tab.
+
 ## v1.4.0 RC · 5 November 2026
 
 The Extreme setup and lock are stronger. Your safeword works as always, and anyone already on an
