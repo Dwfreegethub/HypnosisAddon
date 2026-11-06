@@ -659,7 +659,7 @@ const PULSE_COLOR_CONTROL: CycleControl = {
 	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
 	caption: () =>
 		getFeatures().commandPulse
-			? "A soft glow around the room view. Only you see it."
+			? "A glow and a wash of colour over the room view. Only you see it."
 			: "The pulse is off, so this does nothing until you tick the box above.",
 	tooltip: "The colour of the pulse",
 	cycle: () => {

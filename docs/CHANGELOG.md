@@ -20,6 +20,18 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-05 (v1.4.1 RC) — the pulse could not be seen
+
+DW's first live look: the trance screen "changed color a little bit", with no pulse to see. It was
+running. It was too small: a 42px ring out of a 2000px canvas, 55% only in its outer 7px, over half
+strength for about 0.7s, pale through the 30% white veil, and on the far side of the screen from the
+chat. Set low to avoid flashing, and too low. The suite passed because it asked whether fills
+happened and how they swelled, never how big or strong they were; it now pins both.
+
+DW chose the glow plus a tint: 120px wide with a squared falloff, peak 0.8, 1.4s, and a 0.18 wash over
+the whole view at the peak. Still a sine swell. A command mid-pulse no longer restarts it: that dropped
+it to nothing in one frame, a real flash, and a stronger pulse would have made it obvious.
+
 ### Added 2026-11-05 (v1.4.0 RC) — the beat, the pulse, the planted list, and holds across a wake
 
 Four items from the feedback list, each shaped by DW's answers the same day.

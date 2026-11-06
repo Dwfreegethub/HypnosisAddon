@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.4.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.4.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -392,7 +392,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log(`Emoticon effect allow-list patched after ${tries} retries`);
       } else if (tries >= 60) {
         clearInterval(timer);
-        log("gave up patching Emoticon effect allow-list \u2014 BC assets never appeared");
+        log("gave up patching Emoticon effect allow-list \xE2\u20AC\u201D BC assets never appeared");
       }
     }, 500);
   }
@@ -433,7 +433,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
     if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
     if (landed) ours[group] = pose;
-    else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
+    else log(`pose: ${group} \xE2\u2020\u2019 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
     return landed;
   }
   function suggestedPose() {
@@ -492,6 +492,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.restore();
   }
   function startCommandPulse(rgb, now = Date.now()) {
+    if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
     pulseStartedAt = now;
     pulseRgb = rgb;
   }
@@ -503,10 +504,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
-    const strength = Math.sin(Math.PI * t) * PULSE_PEAK;
+    const swell = Math.sin(Math.PI * t);
+    const strength = swell * PULSE_PEAK;
     MainCanvas.save();
+    MainCanvas.fillStyle = `rgba(${pulseRgb}, ${swell * PULSE_TINT_PEAK})`;
+    MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
     for (let band = 0; band < PULSE_BANDS; band++) {
-      MainCanvas.fillStyle = `rgba(${pulseRgb}, ${strength * (PULSE_BANDS - band) / PULSE_BANDS})`;
+      const falloff = (PULSE_BANDS - band) / PULSE_BANDS;
+      MainCanvas.fillStyle = `rgba(${pulseRgb}, ${strength * falloff * falloff})`;
       const inset = band * PULSE_BAND_WIDTH;
       const w = VEIL_WIDTH - 2 * inset;
       const h = MainCanvasHeight - 2 * inset;
@@ -674,14 +679,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       (_b = item.Property).Effect ?? (_b.Effect = []);
       if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
     } else {
-      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
+      warn(`no Emoticon item found on ${Player?.Name ?? "player"} \xE2\u20AC\u201D ${effectName} holds on this client only`);
     }
     refreshOwnEffects();
     if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
     if (effectName === "Freeze") noteHeldPose();
     const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
     if (!landed) {
-      warn(`${effectName} applied but BC does not report it \u2014 ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+      warn(`${effectName} applied but BC does not report it \xE2\u20AC\u201D ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
       OWN_EFFECTS.delete(effectName);
       const effects = findEmoticonItem(Player)?.Property?.Effect;
       const at = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
@@ -719,7 +724,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, PULSE_MS, PULSE_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -739,10 +744,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       walkingTrance = false;
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
-      PULSE_MS = 1e3;
-      PULSE_PEAK = 0.55;
-      PULSE_BANDS = 6;
-      PULSE_BAND_WIDTH = 7;
+      PULSE_MS = 1400;
+      PULSE_PEAK = 0.8;
+      PULSE_TINT_PEAK = 0.18;
+      PULSE_BANDS = 12;
+      PULSE_BAND_WIDTH = 10;
       pulseStartedAt = 0;
       pulseRgb = "";
       BLIND_EFFECTS = { 1: "BlindLight", 2: "BlindNormal", 3: "BlindHeavy" };
@@ -11308,7 +11314,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11375,7 +11381,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11849,7 +11855,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
       PULSE_COLOR_CONTROL = {
         label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => getFeatures().commandPulse ? "A soft glow around the room view. Only you see it." : "The pulse is off, so this does nothing until you tick the box above.",
+        caption: () => getFeatures().commandPulse ? "A glow and a wash of colour over the room view. Only you see it." : "The pulse is off, so this does nothing until you tick the box above.",
         tooltip: "The colour of the pulse",
         cycle: () => {
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
@@ -13622,7 +13628,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13643,7 +13649,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.4.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.4.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13715,14 +13721,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.4.0"})`);
+      info(`script loaded (v${"1.4.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.4.0",
+          version: "1.4.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13861,10 +13867,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.4.0";
+    page2.__ECHS_LOADED__ = "1.4.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
