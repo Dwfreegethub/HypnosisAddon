@@ -12,6 +12,43 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.4.0 RC · 5 November 2026
+
+The Extreme setup and lock are stronger. Your safeword works as always, and anyone already on an
+Extreme lock keeps the settings they chose; only the lock's own rules below change for them.
+
+- **Under the Extreme lock, triggers can only be added.** New ones can still be planted, but the
+  hypnotist who planted one can no longer remove it until the lock ends, and they are told why when
+  they try. They can still release one that is holding you.
+- **Trances last longer under the lock.** You are asked whether to stay under after 60 minutes
+  instead of 30, and staying gives another 60. If you don't answer, you still wake.
+- **Carried suggestions stay under the lock.** `/echs carry drop` is refused.
+- **The numbers are hidden under the lock.** Trust and experience leave the Stats tab,
+  `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under
+  without saying how deep.
+- **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused under the lock.
+- **Choosing the Extreme setup now also** lets anyone not on your blacklist put you straight under,
+  counts drinks and cigarettes as well as arousal, and freezes your view of your clothes in trance.
+
+For everyone:
+
+- **Commands take a moment to land.** A spoken command now takes hold 2 to 5 seconds after it is
+  said, like words sinking in, always in the order they were said. Waking, releasing and the
+  safeword never wait.
+- **A pulse when a command lands.** A soft glow around the room view when a command takes hold or a
+  trigger fires, so your eyes have something to follow. It's on by default; you can turn it off or
+  change its colour on the Trance Defaults tab.
+- **Hypnotists can list what they planted.** `/echs planted <name>`, or the new **Planted triggers**
+  button on someone's spiral panel, shows the triggers you put in them, how they stand and what
+  they do. Someone not in the room shows your last notes on them.
+- **The spiral panel is simpler.** It now has the hypnotize or wake button and the new list. The old
+  Movement, Clothing and Kneel buttons were left over from testing and are gone; say it instead.
+- **A trance no longer cuts a trigger short.** If a trigger was holding you when you went under, it
+  now keeps holding after you wake and finishes its time. Your safeword still clears everything.
+- **A "when someone comes in" trigger no longer announces you when you're tied up.** If bondage
+  stops the pose it asks for, the room used to see you try every single time. Now the room sees
+  nothing, and you are told once, privately, along with how to remove it.
+
 ## v1.3.0 RC · 2 November 2026
 
 - **Hypnotists can take a trigger back.** Say *"Missy, forget the trigger sleepy time"* to remove

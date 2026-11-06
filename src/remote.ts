@@ -2,16 +2,15 @@ import { log } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { getFeatures } from "./storage";
-import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
-import { announce, FlavorKey } from "./flavor";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
+import { drawLeftTextFit } from "./panel";
+import { askPlanted, receivePlanted, plantedEntriesFor, plantedNote, plantedHeading, plantedTitle, plantedState } from "./planted";
 import {
 	getSessionView,
 	countdownRemaining,
 	requestInduction,
 	requestWake,
 	querySession,
-	isSessionActiveWith,
 	SessionView,
 } from "./session";
 
@@ -22,8 +21,6 @@ import {
 // open. InformationSheetRun/Click/Exit all take zero arguments — they read the
 // module-level `InformationSheetSelection` global directly rather than receiving the
 // viewed character as a parameter (verified against the live client, not assumed).
-
-export type RemoteFeature = "movement" | "clothing" | "posture";
 
 // LSCG draws its own remote icon at DrawButton(90, 60, 60, 60, ...) on this same screen
 // — ours sits directly below it, same size, small gap. ADJUST-ME if it doesn't line up:
@@ -49,9 +46,20 @@ const FEATURE_BUTTON_LEFT = 400;
 const FEATURE_BUTTON_WIDTH = 500;
 const FEATURE_BUTTON_HEIGHT = 90;
 const SESSION_BUTTON_TOP = 290;
-const FIRST_FEATURE_TOP = 430;
-const FEATURE_SPACING = 115;
+const PLANTED_BUTTON_TOP = 430;
 const STATUS_LINE_Y = 245;
+
+const PLANTED_LEFT = 250;
+const PLANTED_WIDTH = 1400;
+const PLANTED_TITLE_WIDTH = 620;
+const PLANTED_FIRST_ROW_Y = 320;
+const PLANTED_ROW_HEIGHT = 105;
+const PLANTED_ROWS_PER_PAGE = 5;
+const PLANTED_NAV_TOP = 860;
+const PLANTED_NAV_WIDTH = 160;
+const PLANTED_NAV_HEIGHT = 60;
+const PLANTED_PREV_LEFT = 700;
+const PLANTED_NEXT_LEFT = 1140;
 
 /** The "they don't have it" panel: a line of explanation and a way to ask again, in case
  * they installed it while you were looking at them. */
@@ -63,93 +71,14 @@ const RETRY_HEIGHT = 80;
 
 let activeTarget: any = null;
 
-interface RemoteState {
-	hypnoEnabled: boolean;
-	movementRestriction: boolean;
-	clothingRestriction: boolean;
-	postureControl: boolean;
-}
+/** Who has answered since we last asked. There's no automatic way to know who runs ECHS, confirmed
+ * in Character.js: CharacterLoadOnline never copies ExtensionSettings for anyone but the account's
+ * own data. So opening the panel asks. */
+const repliedToProbe = new Set<number>();
 
-// FeatureToggles (storage.ts, our own local settings) and RemoteState (above, someone
-// else's settings as last reported to us) happen to share this same shape — one
-// function checks either, since "is this feature permitted" means the same thing for
-// both, just read from a different source.
-type PermissionSource = {
-	hypnoEnabled: boolean;
-	movementRestriction: boolean;
-	clothingRestriction: boolean;
-	postureControl: boolean;
-};
-
-/** One row of the panel. Posture is the reason this is a table rather than a pair of
- * if/elses: it isn't an effect at all, so "is it currently on" and "turn it on" differ
- * per feature and can't be derived from a single effect name any more. */
-interface FeatureDef {
-	key: RemoteFeature;
-	permission: keyof PermissionSource;
-	applyLabel: string;
-	releaseLabel: string;
-	/** Read on the VIEWER's client, off synced character data. */
-	isActive: (target: any) => boolean;
-	/** Run on the SUBJECT's client when a request is honored. Returns false when it ran and
-	 * did not take — a pose bondage refused. */
-	apply: () => void | boolean;
-	release: () => void;
-	/** Shared with the spoken-suggestion path, so a button and the equivalent spoken line
-	 * are indistinguishable from the subject's side. */
-	applyFlavor: FlavorKey;
-	releaseFlavor: FlavorKey;
-}
-
-const FEATURES: FeatureDef[] = [
-	{
-		key: "movement",
-		permission: "movementRestriction",
-		applyLabel: "Apply Movement Restriction",
-		releaseLabel: "Release Movement Restriction",
-		isActive: (t) => !!t.HasEffect?.("Freeze"),
-		apply: () => applyEffect("Freeze"),
-		release: () => removeEffect("Freeze"),
-		applyFlavor: "movement-block",
-		releaseFlavor: "movement-release",
-	},
-	{
-		key: "clothing",
-		permission: "clothingRestriction",
-		applyLabel: "Apply Clothing Restriction",
-		releaseLabel: "Release Clothing Restriction",
-		isActive: (t) => !!t.HasEffect?.("BlockWardrobe"),
-		apply: () => applyEffect("BlockWardrobe"),
-		release: () => removeEffect("BlockWardrobe"),
-		applyFlavor: "clothing-block",
-		releaseFlavor: "clothing-release",
-	},
-	{
-		key: "posture",
-		permission: "postureControl",
-		applyLabel: "Kneel",
-		releaseLabel: "Stand",
-		// Not HasEffect — IsKneeling() reads PoseMapping.BodyLower, which is derived from
-		// the synced ActivePose, so it's readable for anyone we can see.
-		isActive: (t) => !!t.IsKneeling?.(),
-		apply: () => setSuggestedPose("Kneel"),
-		release: () => setSuggestedPose(null, "stance"),
-		applyFlavor: "kneel",
-		releaseFlavor: "stand",
-	},
-];
-
-function featureTop(index: number): number {
-	return FIRST_FEATURE_TOP + index * FEATURE_SPACING;
-}
-
-// Populated by asking the target directly when we open their panel. There's no
-// automatic sync of another character's permission settings to gray out against —
-// confirmed in Character.js: CharacterLoadOnline never copies ExtensionSettings for
-// anyone but the account's own data, only the separate (and here, unused)
-// OnlineSharedSettings field is shared automatically. So we ask on demand instead of
-// trying to keep every room member's state pre-synced.
-const knownState = new Map<number, RemoteState>();
+/** The planted-triggers page, in place of the panel while it is open. */
+let plantedOpen = false;
+let plantedPage = 0;
 
 // --- Presence probe -------------------------------------------------------------------
 // The H icon draws on every player's sheet, because there is no way to know who is running
@@ -171,15 +100,10 @@ export type Presence = "waiting" | "present" | "absent";
  * that only exist in this add-on, so either arriving is proof. A late reply flips this back
  * to "present" on the next frame: the timeout is a display decision, never a lockout. */
 export function presenceOf(memberNumber: number): Presence {
-	if (knownState.has(memberNumber) || getSessionView(memberNumber)) return "present";
+	if (repliedToProbe.has(memberNumber) || getSessionView(memberNumber)) return "present";
 	const asked = probedAt.get(memberNumber);
 	if (asked == null) return "waiting";
 	return Date.now() - asked < PROBE_TIMEOUT_MS ? "waiting" : "absent";
-}
-
-function isPermitted(state: PermissionSource | undefined, feature: FeatureDef): boolean {
-	if (!state || !state.hypnoEnabled) return false;
-	return !!state[feature.permission];
 }
 
 function getViewedOtherCharacter(): any {
@@ -188,40 +112,8 @@ function getViewedOtherCharacter(): any {
 	return C;
 }
 
-/** Feature buttons are session-scoped: outside an established trance they do nothing at
- * all, per the design doc ("locked until a session is successfully established"). Both
- * conditions have to hold, and the subject re-checks both itself before acting. */
-function featureUnlocked(view: SessionView | undefined, state: RemoteState | undefined, feature: FeatureDef): boolean {
-	return view?.phase === "Hypnotized" && isPermitted(state, feature);
-}
-
-function drawFeatureButton(index: number, feature: FeatureDef, target: any): void {
-	const state = knownState.get(target.MemberNumber);
-	const view = getSessionView(target.MemberNumber);
-	const unlocked = featureUnlocked(view, state, feature);
-	const label = !state
-		? `${feature.applyLabel} (checking…)`
-		: feature.isActive(target)
-			? feature.releaseLabel
-			: feature.applyLabel;
-	const tooltip = !state
-		? "Waiting for their status"
-		: view?.phase !== "Hypnotized"
-			? "Requires an active session"
-			: isPermitted(state, feature)
-				? ""
-				: "Not permitted";
-	DrawButton(
-		FEATURE_BUTTON_LEFT,
-		featureTop(index),
-		FEATURE_BUTTON_WIDTH,
-		FEATURE_BUTTON_HEIGHT,
-		label,
-		unlocked ? "White" : "#ddd",
-		"",
-		tooltip,
-		!unlocked,
-	);
+function findCharacterName(member: number): string {
+	return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c: any) => c?.MemberNumber === member)?.Name ?? `#${member}`;
 }
 
 function seconds(ms: number): number {
@@ -291,6 +183,10 @@ function drawSubscreen(target: any): void {
 		drawHelp("Erotic Chat Hypnosis Suite (ECHS) — help");
 		return;
 	}
+	if (plantedOpen) {
+		drawPlantedPage(target);
+		return;
+	}
 	if (presenceOf(target.MemberNumber) === "absent") {
 		drawAbsent(target);
 		return;
@@ -310,7 +206,16 @@ function drawSubscreen(target: any): void {
 		session.tooltip,
 		!session.enabled,
 	);
-	FEATURES.forEach((feature, i) => drawFeatureButton(i, feature, target));
+	DrawButton(
+		FEATURE_BUTTON_LEFT,
+		PLANTED_BUTTON_TOP,
+		FEATURE_BUTTON_WIDTH,
+		FEATURE_BUTTON_HEIGHT,
+		"Planted triggers",
+		"White",
+		"",
+		"What you planted in them, and how it stands",
+	);
 	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back");
 	DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
 }
@@ -339,22 +244,13 @@ function clickSessionButton(target: any): boolean {
 	return true;
 }
 
-function clickFeatureButton(index: number, feature: FeatureDef, target: any): boolean {
-	if (!MouseIn(FEATURE_BUTTON_LEFT, featureTop(index), FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
-	const state = knownState.get(target.MemberNumber);
-	if (!featureUnlocked(getSessionView(target.MemberNumber), state, feature)) {
-		log(`${feature.key} locked for ${target.MemberNumber} (no session, or not permitted), ignoring click`);
-		return true;
-	}
-	const active = feature.isActive(target);
-	sendHiddenMessage({ type: "remote-request", feature: feature.key, enable: !active }, target.MemberNumber);
-	log(`sent remote request (${feature.key}, enable=${!active}) to ${target.MemberNumber}`);
-	return true;
-}
-
 function clickSubscreen(target: any): void {
 	if (isHelpOpen()) {
 		clickHelp();
+		return;
+	}
+	if (plantedOpen) {
+		clickPlantedPage(target);
 		return;
 	}
 	if (MouseIn(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
@@ -370,86 +266,96 @@ function clickSubscreen(target: any): void {
 		return;
 	}
 	if (clickSessionButton(target)) return;
-	FEATURES.some((feature, i) => clickFeatureButton(i, feature, target));
+	if (MouseIn(FEATURE_BUTTON_LEFT, PLANTED_BUTTON_TOP, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) {
+		plantedOpen = true;
+		plantedPage = 0;
+		askPlanted(target.MemberNumber);
+	}
+}
+
+function plantedPageCount(target: any): number {
+	const count = plantedNote(target.MemberNumber)?.triggers.length ?? 0;
+	return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE));
+}
+
+/** The list a hypnotist opens from the panel: one trigger to a row, its word or condition first,
+ * how it stands beside that, and what it does under it. */
+function drawPlantedPage(target: any): void {
+	const name = target?.Name ?? "them";
+	const note = plantedNote(target.MemberNumber);
+	const triggers = note?.triggers ?? [];
+	DrawText(`What you planted in ${name}`, MainCanvasWidth / 2, 170, "Black");
+	DrawText(plantedHeading(target.MemberNumber, name), MainCanvasWidth / 2, STATUS_LINE_Y, "Gray");
+	const pages = plantedPageCount(target);
+	if (plantedPage >= pages) plantedPage = pages - 1;
+	const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+	triggers.slice(start, start + PLANTED_ROWS_PER_PAGE).forEach((t, i) => {
+		const top = PLANTED_FIRST_ROW_Y + i * PLANTED_ROW_HEIGHT;
+		drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t)}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
+		drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
+		drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
+	});
+	if (pages > 1) {
+		DrawButton(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Prev", plantedPage === 0 ? "#ddd" : "White", "", "", plantedPage === 0);
+		DrawButton(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Next", plantedPage >= pages - 1 ? "#ddd" : "White", "", "", plantedPage >= pages - 1);
+		DrawText(`${plantedPage + 1} / ${pages}`, MainCanvasWidth / 2, PLANTED_NAV_TOP + PLANTED_NAV_HEIGHT / 2, "Gray");
+	}
+	DrawButton(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "", "White", "Icons/Exit.png", "Back to the panel");
+}
+
+function clickPlantedPage(target: any): void {
+	if (MouseIn(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
+		plantedOpen = false;
+		return;
+	}
+	const pages = plantedPageCount(target);
+	if (pages <= 1) return;
+	if (MouseIn(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT) && plantedPage > 0) plantedPage--;
+	if (MouseIn(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT) && plantedPage < pages - 1) plantedPage++;
 }
 
 function openRemoteFor(target: any): void {
 	activeTarget = target;
+	plantedOpen = false;
 	probeRemote(target);
 }
 
 /** Ask both questions and start the clock. Split out so the Retry button can re-ask
  * without reopening the panel. */
 export function probeRemote(target: any): void {
-	knownState.delete(target.MemberNumber);
+	repliedToProbe.delete(target.MemberNumber);
 	probedAt.set(target.MemberNumber, Date.now());
-	// Two independent asks: permissions (what they allow at all) and session state (what's
-	// currently possible). Neither is inferable from the other.
-	sendHiddenMessage({ type: "state-query" }, target.MemberNumber);
+	// Two independent asks: are they running ECHS at all, and what session state are they in.
+	// Asks for the planted list as it goes, so the panel's button opens on something current.
+	askPlanted(target.MemberNumber);
 	querySession(target.MemberNumber);
 }
 
 export function installRemote(modApi: any): void {
 	// --- Incoming message handling: this client as the SUBJECT being remoted ---
 
-	registerHiddenHandler("state-query", (sender) => {
-		const features = getFeatures();
+	registerHiddenHandler("state-query", (sender, message) => {
 		sendHiddenMessage(
 			{
 				type: "state-response",
-				hypnoEnabled: features.hypnoEnabled,
-				movementRestriction: features.movementRestriction,
-				clothingRestriction: features.clothingRestriction,
-				postureControl: features.postureControl,
+				hypnoEnabled: getFeatures().hypnoEnabled,
+				// Theirs only, and only if they asked. See planted.ts.
+				...(message.planted ? { planted: plantedEntriesFor(sender) } : {}),
 			},
 			sender,
 		);
 	});
 
 	registerHiddenHandler("state-response", (sender, message) => {
-		knownState.set(sender, {
-			hypnoEnabled: !!message.hypnoEnabled,
-			movementRestriction: !!message.movementRestriction,
-			clothingRestriction: !!message.clothingRestriction,
-			postureControl: !!message.postureControl,
-		});
+		repliedToProbe.add(sender);
+		if (message.planted !== undefined) receivePlanted(sender, findCharacterName(sender), message.planted);
 	});
 
+	// The panel's Movement, Clothing and Kneel buttons are gone (DW, 2026-11-05). A hypnotist still on
+	// an older build can send this. Ignored quietly: with no handler, messaging.ts would print it on
+	// the subject's screen as raw text.
 	registerHiddenHandler("remote-request", (sender, message) => {
-		const feature = FEATURES.find((f) => f.key === message.feature);
-		if (!feature) return;
-		const enable = !!message.enable;
-		if (!enable) {
-			// Releasing is always honored regardless of permission state — consent can
-			// make it harder to restrict someone, never harder to release them.
-			feature.release();
-			// Flavor rather than "N releases you" — the sender is unambiguous during a
-			// session, and it's still in the console for testing.
-			announce(feature.releaseFlavor);
-			return;
-		}
-		const features = getFeatures();
-		if (!features.hypnoEnabled) {
-			log(`remote request (${feature.key}) from ${sender} denied — Hypnosis Enabled is off`);
-			return;
-		}
-		if (!isPermitted(features, feature)) {
-			log(`remote request (${feature.key}) from ${sender} denied — not permitted`);
-			return;
-		}
-		// The session gate, re-checked here rather than trusting the sender's UI to have
-		// grayed the button out — a modified client can send this whenever it likes.
-		if (!isSessionActiveWith(sender)) {
-			log(`remote request (${feature.key}) from ${sender} denied — no active session with them`);
-			return;
-		}
-		log(`remote request (${feature.key}) from ${sender} honored`);
-		// Rule 5: a pose can be refused by bondage, and announcing it anyway would be a lie.
-		if (feature.apply() === false) {
-			announce("pose-blocked");
-			return;
-		}
-		announce(feature.applyFlavor);
+		log(`ignored a remote-request (${String(message.feature)}) from ${sender}: an older build's button`);
 	});
 
 	// --- Information Sheet hooks: this client as the VIEWER ---
@@ -509,6 +415,7 @@ export function installRemote(modApi: any): void {
 		((_args: [], next: (args?: any) => void) => {
 			if (activeTarget) {
 				activeTarget = null;
+				plantedOpen = false;
 				closeHelp();
 				return;
 			}

@@ -19,6 +19,7 @@ import { allowedByLadder } from "./ladder";
 import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { onTeardown, onWake, onTotalStop } from "./teardown";
+import { plantedEntriesFor, receivePlanted } from "./planted";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
  *
@@ -31,11 +32,18 @@ export function tellHypnotist(hypnotistId: number, text: string): void {
 	sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
 }
 
+/** The same, when what they planted just changed: their list goes along, for their notes
+ * (planted.ts says why it rides on this message). */
+export function tellHypnotistWithList(hypnotistId: number, text: string): void {
+	sendHiddenMessage({ type: "trigger-status", text, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+}
+
 /** The hypnotist's side: show status their subject sent us. */
 export function installTriggers(): void {
 	registerHiddenHandler("trigger-status", (sender, message) => {
 		const text = typeof message.text === "string" ? message.text : "";
 		if (text) tellPlayer(text);
+		if (message.planted !== undefined) receivePlanted(sender, characterFor(sender)?.Name ?? `#${sender}`, message.planted);
 	});
 
 	// TESTING ONLY. Registered unconditionally — it has to already exist when you enter the
@@ -1064,7 +1072,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	const count = trigger.actions.length;
 	const options = describeOptions(trigger);
 	log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
-	tellHypnotist(
+	tellHypnotistWithList(
 		trigger.installedBy,
 		`[trigger] SAVED ${recordingLabel()} — ${count} action(s): ${trigger.actions.join(", ")}. ` +
 			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +

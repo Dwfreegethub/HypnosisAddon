@@ -122,6 +122,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 | **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
+| **Pulse when a command lands or a trigger fires** | On | A soft glow around the room view for about a second, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, picks Pink, Purple, Blue or White. |
 | **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
 
 ---
@@ -200,7 +201,7 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 | **Hypnotist Only** | Nothing — hypnosis is off, so nobody can hypnotize you | (auto-answer set to Fight, in case you turn hypnosis back on) | — | Off |
 | **Light / Safe** | Movement, Posture. A trance never silences you (Cannot Speak off) | Yes | Yielding | Off |
 | **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers and whitelist |
-| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal may reach triggers and the illusion. Toy mode for Owner, Lovers and whitelist; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
+| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, the clothing freeze in trance, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal and drugs both count, and arousal may reach triggers and the illusion. Toy mode for everyone except your blacklist, so a stranger can put you straight under; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
 
 **The five questions** cover your role (Hypnotist only, or Subject/both), how attempts are handled (always ask, toy mode for owner and lovers, or agree to all), what physical commands you allow, what can be done to your senses and awareness, and how triggers work. Your answer about physical commands also sets how far "sink deeper" can take you (Yielding, Entranced or Deep). The questions never lock anything.
 
@@ -208,6 +209,11 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 
 Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **Cancel**. Once confirmed:
 * For **7 days** your settings are **read-only**. You can still open every tab and read them, under a yellow banner showing the end date. You cannot change anything — including switching Hypnosis Enabled off, re-running setup, importing a backup, or removing planted triggers (Purge and Clear All).
+* **Triggers can only be added.** New ones can still be planted, but nobody can remove one until the lock ends, not even the hypnotist who planted it. A hypnotist can still release one that is holding you, and it stays planted. Triggers still fade very slowly unless reinforced.
+* **Carried suggestions stay.** `/echs carry drop` is refused.
+* **Trances run longer.** A trance runs 60 minutes before you are asked whether to stay under, and each *Stay under* gives another 60. If you don't answer, you still wake.
+* **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset stay on that tab.
+* **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused.
 * When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
 * **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off wherever you load it from: FUSAM's Addon Manager, or your userscript manager. Export still works, so you can keep a backup.
 

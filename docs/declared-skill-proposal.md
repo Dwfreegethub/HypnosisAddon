@@ -852,6 +852,15 @@ becomes a second safeword, and one that can be used mid-scene without ever admit
 >
 > **The design goal, in one line — DW: extreme should feel more like real life.**
 
+**Built since this was parked (see `src/extreme.ts`, `src/wizard.ts`):** the lock itself (v0.99.0),
+and from DW's review of 2026-11-05 (v1.4.0): triggers can only be added while locked, `/echs carry
+drop`, `/echs kneel` and `/echs stand` are refused, trust and experience on the Stats tab plus
+`/echs chance`, `/echs skill`, `/echs gates` and the depth in `/echs session` are hidden, and a trance
+runs 60 minutes per "stay". The same review opened toy mode to everyone except
+the blacklist, counted drugs, turned on the trance clothing freeze, and **kept** trigger decay at
+"very slowly" and `/echs forgettrust` open. The delayed safeword below was **not** built: the
+safeword is untouched (CLAUDE.md rule 2).
+
 **Status: early notes. This is not a spec and must not be read as one.** It is the questions, the
 interactions with what is already decided, and the places where the answer is not actually open.
 

@@ -83,12 +83,12 @@ check("  every depth gate at 20 (DW)", depth.DEPTH_GATES.every((g) => storage.ge
 check("  sink deeper stops at Blank", storage.getDeepestTier(), "blank");
 check("  arousal opened to the illusion and triggers", [storage.getChemicalReach("illusionControl"), storage.getChemicalReach("triggerControl")], [true, true]);
 check("  agrees without asking", storage.getDefaultStance(), "agree");
-check("  toy mode on, for owner, lovers and whitelist", [storage.getToyMode(), storage.getToyScope()], [true, "whitelist"]);
+check("  toy mode on, for everyone except the blacklist (DW, 2026-11-05)", [storage.getToyMode(), storage.getToyScope()], [true, "notblack"]);
 check("  drop triggers unlimited", storage.getDropMode(), "unlimited");
 check("  away: keep my answer", storage.getAwayStance(), "keep");
 check("  triggers from everyone but the blacklist", storage.getTriggerScope(), "notblack");
 check("  triggers fade very slowly (DW, deliberate)", storage.getTriggerDecayRate(), "veryslow");
-check("  Clothes Look Unchanged stays OFF", on("tranceClothingFreeze"), false);
+check("  Clothes Look Unchanged ON (DW, 2026-11-05, replacing job2.md's OFF)", on("tranceClothingFreeze"), true);
 check("  Silence OOC stays OFF", on("blockOOC"), false);
 check("  applying the settings alone starts NO lock", storage.getExtremeLock(), null);
 

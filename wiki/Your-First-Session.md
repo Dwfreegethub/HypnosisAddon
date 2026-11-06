@@ -37,7 +37,7 @@ Hypnotists get **two attempts by default** before a 10-minute cooldown engages (
 Once they are under, deliver suggestions using ordinary chat dialogue:
 > *"Missy, you cannot move."*
 
-If permissions and depth gates align on their end, the suggestion executes. **Include their character name**, or whisper the line to them — suggestions require addressing the target directly, and a whisper already does.
+If permissions and depth gates align on their end, the suggestion takes hold after a beat of 2 to 5 seconds, as the words sink in. Waking them, and telling them they are free of something, never waits. **Include their character name**, or whisper the line to them — suggestions require addressing the target directly, and a whisper already does.
 
 ---
 

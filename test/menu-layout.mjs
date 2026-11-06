@@ -357,9 +357,25 @@ openTab(3); frame(); // Awareness: four rows
 check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScope, false);
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
-openTab(2); frame(); // Trance Defaults: seven rows, once two columns
+openTab(2); frame(); // Trance Defaults: eight rows and the pulse colour, once two columns
 check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).size, 1);
-check("  and fits without scrolling", !!down(), false);
+{
+	check("  the pulse has its tick box", rowLabels().some((t) => /Pulse when a command lands/.test(t.text)), true);
+	// Failure: it can't be reached, or clicks where it isn't. Scrolled to the end, as a player would.
+	for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
+	const colour = () => buttons.find((b) => /^Pulse colour:/.test(b.label));
+	check("  its colour button is reachable", colour()?.label, "Pulse colour: Pink");
+	check("  and inside the panel", colour().top + colour().height <= PANEL_BOTTOM, true);
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  a click moves to the next colour", [colour().label, storage.getPulseColor()], ["Pulse colour: Purple", "purple"]);
+	storage.startExtremeLock("trial");
+	frame();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	// Failure: a read-only screen changed a setting.
+	check("  locked, it does not cycle", storage.getPulseColor(), "purple");
+	storage.clearExtremeLock();
+	storage.setPulseColor("pink");
+}
 openTab(4); frame(); // Triggers
 check("Triggers' rows stop above its dropdowns at 630", boxes[0].clip.top + boxes[0].clip.height <= 630, true);
 // Five rows since v0.87.0 (whole-words matching): four fit above the dropdowns, and the list
@@ -429,6 +445,28 @@ check("  and a scroll bar reaches the fifth", !!down(), true);
 	check("  a click on empty panel space changes nothing", [storage.listTriggers().length, storage.getFeatures().hypnoEnabled], [1, true]);
 	storage.forgetAllTriggers();
 	storage.setFeature("hypnoEnabled", false);
+}
+// The Extreme lock hides the Stats numbers (DW, 2026-11-05), but not the way out on the same tab.
+{
+	storage.addInteractions(2001, "Ella", 10);
+	frame();
+	const adv = buttons.find((b) => b.label.startsWith("Advanced"));
+	clickAt(adv.left + 5, adv.top + 5); frame();
+	const statsTab = buttons.find((b) => b.label === "Stats");
+	check("Stats: the tab is offered", !!statsTab, true);
+	clickAt(statsTab.left + 5, statsTab.top + 5); frame();
+	check("Stats: unlocked, trust and experience show", [texts.some((x) => /Ella/.test(x.text)), texts.some((x) => x.text === "Experience")], [true, true]);
+	storage.startExtremeLock("trial");
+	frame();
+	// Failure: the numbers are still on screen under the lock.
+	check("Stats: locked, trust and experience are gone", [texts.some((x) => /Ella/.test(x.text)), texts.some((x) => x.text === "Experience")], [false, false]);
+	check("  and it says why", texts.some((x) => /Extreme lock hides/.test(x.text)), true);
+	// Failure: hiding the numbers took the documented way out with it.
+	check("  Reset is still there", buttons.some((b) => /^Reset/.test(b.label)), true);
+	storage.clearExtremeLock();
+	storage.forgetTrust(2001);
+	const hide = buttons.find((b) => b.label === "Hide advanced");
+	clickAt(hide.left + 5, hide.top + 5);
 }
 // The wheel listener outlives the list: it must not scroll it while something else is drawn.
 // Probed through the help page, because closing help (unlike changing tab) keeps the offset.

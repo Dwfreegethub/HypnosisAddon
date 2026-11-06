@@ -53,6 +53,9 @@ import {
 	getAwayStance,
 	setAwayStance,
 	nextAwayStance,
+	getPulseColor,
+	setPulseColor,
+	PULSE_COLORS,
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
@@ -240,7 +243,18 @@ const TABS: Tab[] = [
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
+			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
 		],
+		scrollExtra: {
+			height: attemptControlHeight,
+			draw: (top, width) => drawCycle(PULSE_COLOR_CONTROL, top, width, settingsLocked()),
+			click: (top) => {
+				if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
+				// Consumed either way: a locked button must not cycle.
+				if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+				return true;
+			},
+		},
 	},
 	{
 		name: "Awareness",
@@ -639,6 +653,20 @@ interface CycleControl {
 	cycle: () => void;
 }
 const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
+
+/** On the Trance Defaults tab, under the pulse's tick box. */
+const PULSE_COLOR_CONTROL: CycleControl = {
+	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
+	caption: () =>
+		getFeatures().commandPulse
+			? "A soft glow around the room view. Only you see it."
+			: "The pulse is off, so this does nothing until you tick the box above.",
+	tooltip: "The colour of the pulse",
+	cycle: () => {
+		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
+		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+	},
+};
 
 const PERMISSION_CYCLES: CycleControl[] = [
 	{
@@ -1438,6 +1466,13 @@ function drawStats(): void {
 	};
 
 	drawDecayControl();
+	// The Extreme lock hides the numbers (DW, 2026-11-05). The tab stays, because it holds Export
+	// and Reset, and Reset is a documented way out of the lock.
+	if (extremeLocked()) {
+		drawLeftTextFit("Your Extreme lock hides these numbers until it ends.", STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
+		drawDataButtons();
+		return;
+	}
 	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
 	line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
 

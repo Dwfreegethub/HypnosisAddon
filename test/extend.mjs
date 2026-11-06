@@ -117,6 +117,30 @@ session.safeword();
 check("the safeword takes the box down", session.getPendingExtend(), null);
 check("  and its countdown", live(ASK).length, 0);
 
+// --- 6: under an Extreme lock a trance runs 60 minutes (DW, 2026-11-05) ---------------------------
+const SIXTY = 60 * 60_000;
+storage.startExtremeLock("trial", now);
+under();
+// Failure: the lock changed nothing, so the clock is still thirty.
+check("locked: a sixty-minute clock runs", [live(SIXTY).length, live(THIRTY).length], [1, 0]);
+fire(SIXTY);
+check("locked: she is asked at sixty", session.getPendingExtend()?.minutes, 60);
+check("  and told sixty", local.some((l) => /run its 60 minutes\. Stay under for another 60/.test(l)), true);
+check("  the hypnotist is told sixty", toHyp().some((t) => /^\[trance\] 60 minutes are up/.test(t)), true);
+session.answerExtend(true);
+check("locked: 'stay' gives a fresh sixty", live(SIXTY).length, 1);
+fire(SIXTY);
+fire(ASK);
+// Failure: the lock turned silence into a yes.
+check("locked: no answer still wakes her", phase(), "Idle");
+under();
+session.safeword();
+check("locked: the safeword still ends it", phase(), "Idle");
+check("  and its clock", live(SIXTY).length, 0);
+storage.clearExtremeLock();
+under();
+check("unlocked: thirty again", [live(THIRTY).length, live(SIXTY).length], [1, 0]);
+
 session.safeword();
 console.log(`extend: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

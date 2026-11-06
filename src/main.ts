@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, heldByUs } from "./effects";
+import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, drawCommandPulse, heldByUs } from "./effects";
 import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -280,6 +280,7 @@ safely("screen-fade hook", () => {
 		((args: [number], next: (args: [number]) => any) => {
 			const result = next(args);
 			drawTranceVeil();
+			drawCommandPulse();
 			return result;
 		}) as any,
 	);

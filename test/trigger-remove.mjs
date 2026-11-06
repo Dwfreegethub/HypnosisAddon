@@ -180,6 +180,49 @@ check("'I take back what I said' removes nothing and says nothing", [!!find("fro
 voice.handleSpokenLine(HYP, "Missy, I take back frozen");
 check("'I take back frozen' removes it", find("frozen"), undefined);
 
+// --- 6. the Extreme lock: triggers can be added, not removed (DW, 2026-11-05) -----------------------
+reset();
+plant("frozen");
+plantArrival(HYP);
+storage.startExtremeLock("trial");
+toHyp = []; said = [];
+voice.handleSpokenLine(HYP, "Missy, forget the trigger frozen");
+drainPaced();
+// Failure: the planter deleted one through her lock (v1.3.0 allowed this).
+check("locked: the planter cannot remove one", !!find("frozen"), true);
+check("  the hypnotist is told why (rule 5)", /Extreme lock/.test(hypHeard()), true);
+check("  the refused line does not fire it", holding("frozen"), false);
+toHyp = [];
+voice.handleSpokenLine(HYP, "Missy, forget every trigger I gave you");
+check("locked: nor every one", storage.listTriggers().length, 2);
+check("  told why", /Extreme lock/.test(hypHeard()), true);
+toHyp = [];
+voice.handleSpokenLine(HYP, "Missy, I take back frozen");
+check("locked: nor by the soft form", !!find("frozen"), true);
+check("  she is told nothing is gone", said.some((l) => /is gone/.test(l)), false);
+toHyp = [];
+voice.handleSpokenLine(HYP, "Missy, I take back what I said");
+// Failure: ordinary conversation answered with a refusal.
+check("locked: conversation still says nothing", hypHeard(), "");
+voice.handleSpokenLine(HYP, "Missy, forget the trigger nosuchword");
+// Failure: the lock message confirming or hiding what the unlocked reply says.
+check("locked: a word that isn't theirs gets the usual reply", /Nothing of yours called "nosuchword"/.test(hypHeard()), true);
+// Failure: the lock stopped new ones too, or stopped a release.
+plant("glowing");
+check("locked: a new trigger can still be planted", !!find("glowing"), true);
+check("setup: frozen holds her", fireAndCheck("frozen"), true);
+voice.handleSpokenLine(HYP, "Missy, you are released from frozen");
+drainPaced();
+check("locked: a release still lets go", holding("frozen"), false);
+check("  and it stays planted", !!find("frozen"), true);
+check("setup: frozen holds her again", fireAndCheck("frozen"), true);
+session.safeword();
+check("locked: the safeword still lets go", holding("frozen"), false);
+storage.clearExtremeLock();
+toHyp = [];
+voice.handleSpokenLine(HYP, "Missy, forget the trigger frozen");
+check("unlocked: removal works again", find("frozen"), undefined);
+
 reset();
 console.log(`trigger-remove: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
