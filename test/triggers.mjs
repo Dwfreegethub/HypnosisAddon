@@ -92,6 +92,16 @@ check("arousal cannot buy a trigger", triggers.isRecording(), false);
 check("  and says why", /arousal does not count/.test(lastToHypnotist()), true);
 // DW, 2026-11-05: deepening cannot raise earned depth. Failure: the refusal sends them back to try it.
 check("  and does not tell them to take her deeper", /Take them deeper/.test(lastToHypnotist()), false);
+// DW, 2026-11-05: opened to arousal, the gate reads full depth, so going deeper does help.
+// Failure: a hypnotist who could get there is told nothing about how.
+storage.setChemicalReach("triggerControl", true);
+depth.setCurrentDepths(30, 30);
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "sleepy");
+check("opened to arousal, too shallow: refused", triggers.isRecording(), false);
+check("  and told to take her deeper", /Take them deeper first\.$/.test(lastToHypnotist()), true);
+check("  not told arousal does not count, which would be false", /arousal does not count/.test(lastToHypnotist()), false);
+storage.setChemicalReach("triggerControl", false);
 
 // --- record and commit ---
 depth.setCurrentDepths(80, 80);
@@ -587,6 +597,24 @@ sentToHypnotist = [];
 triggers.beginRecording(HYP, "GameBot", "dead on arrival");
 check("planting below the ghost line is refused", triggers.isRecording(), false);
 check("  and the hypnotist is told it would be a ghost", /ghost|faint/i.test(lastToHypnotist()), true);
+// Which advice is true depends on which depth it would be planted at (DW, 2026-11-05). Failure:
+// told to take her deeper when that changes nothing, or not told when it would work.
+check("  earned-only: not told to take her deeper", /Take them deeper/.test(lastToHypnotist()), false);
+check("  told what would help", /earned depth.*more trust and a new induction/.test(lastToHypnotist()), true);
+storage.setChemicalReach("triggerControl", true);
+storage.setDepthOverride("triggerControl", 8);
+depth.setCurrentDepths(9, 3); // earned misses the gate, so it plants at full depth: deeper would help
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "dead on arrival");
+check("opened to arousal, planted at full depth: refused as a ghost", /ghost/.test(lastToHypnotist()), true);
+check("  and told to take her deeper", /Take them deeper first\.$/.test(lastToHypnotist()), true);
+depth.setCurrentDepths(40, 9); // opened, but earned clears the gate, so it plants at earned depth
+sentToHypnotist = [];
+triggers.beginRecording(HYP, "GameBot", "dead on arrival");
+check("opened to arousal, planted at earned depth: refused as a ghost", /ghost/.test(lastToHypnotist()), true);
+check("  and not told to take her deeper, which would change nothing", /Take them deeper/.test(lastToHypnotist()), false);
+storage.setChemicalReach("triggerControl", false);
+storage.setDepthOverride("triggerControl", "drifting");
 // Just above the threshold it plants — shallow, but able to fire.
 depth.setCurrentDepths(15, 15);
 triggers.beginRecording(HYP, "GameBot", "faint but alive");

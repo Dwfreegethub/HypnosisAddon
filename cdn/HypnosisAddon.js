@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.4.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.4.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -2255,6 +2255,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const have = effectiveEarnedOnly(key) ? earned : full;
     return have >= requiredDepth(key);
   }
+  function deeperHint(key) {
+    return effectiveEarnedOnly(key) ? "" : " Take them deeper first.";
+  }
   function depthRefusal(key, full = currentDepth(), earned = currentDepthEarned()) {
     if (depthAllows(key, full, earned)) return null;
     const earnedGate = effectiveEarnedOnly(key);
@@ -3536,7 +3539,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!features.carryForward) return { refusal: `They have not enabled "Suggestions that outlive the trance".` };
     const refusal = depthRefusal("carryForward");
     if (refusal)
-      return { refusal: `Making a suggestion outlive the trance ${refusal}. Take them deeper first.` };
+      return { refusal: `Making a suggestion outlive the trance ${refusal}.${deeperHint("carryForward")}` };
     if (!wanted.length)
       return { refusal: "Nothing to keep \u2014 give the suggestion first, then say it stays with them." };
     if (carrier !== null && carrier !== sender) releaseCarried("someone else took over");
@@ -6230,7 +6233,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const refusal = depthRefusal("triggerControl");
     if (refusal) {
       log(`trigger plant refused: ${refusal}`);
-      return refuse2(`[trigger] Refused \u2014 planting a trigger ${refusal}.`);
+      return refuse2(`[trigger] Refused \u2014 planting a trigger ${refusal}.${deeperHint("triggerControl")}`);
     }
     if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
       return refuse2(`[trigger] Refused \u2014 "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
@@ -6240,7 +6243,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (plantedDepth < TRIGGER_GHOST_THRESHOLD) {
       log(`trigger plant refused: would be born a ghost at depth ${plantedDepth}`);
       return refuse2(
-        `[trigger] Refused \u2014 at this depth a trigger is too faint to ever fire (it would be a ghost). Take them deeper first.`
+        `[trigger] Refused \u2014 at this depth a trigger is too faint to ever fire (it would be a ghost). ` + (plantedChemical ? "Take them deeper first." : "It would be planted at their earned depth, so going deeper will not help: that takes more trust and a new induction.")
       );
     }
     const unavailable = condition ? null : phraseAvailability(hypnotistId, phrase, isHolding);
@@ -11394,7 +11397,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.4"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11461,7 +11464,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.4"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13715,7 +13718,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.4"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13736,7 +13739,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.4.3"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.4.4"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13808,14 +13811,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.4.3"})`);
+      info(`script loaded (v${"1.4.4"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.4.3",
+          version: "1.4.4",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13954,10 +13957,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.4"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.4.3";
+    page2.__ECHS_LOADED__ = "1.4.4";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
