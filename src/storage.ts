@@ -157,6 +157,9 @@ export type RelationKind = "none" | "friend" | "lover" | "owner";
 export interface TrustEntry {
 	memberId: number;
 	memberName: string;
+	/** Their account name, when it was seen, because `memberName` holds the nickname they go by.
+	 * So the Stats tab's search can find someone by either after they have left (Senge, 2026-10-20). */
+	accountName?: string;
 	/** Interaction COUNT, not a 0-100 value — see curve.ts for why. Derive the trust
 	 * value with `trustWith()`; never store one. */
 	interactions: number;
@@ -930,7 +933,7 @@ function isRealName(name: string): boolean {
 
 /** Add (or with a negative delta, remove) interactions. The only way trust moves —
  * conversation, the induction accelerator and decay all come through here. */
-export function addInteractions(memberId: number, memberName: string, delta: number): TrustEntry {
+export function addInteractions(memberId: number, memberName: string, delta: number, accountName?: string): TrustEntry {
 	const settings = loadSettings();
 	let entry = settings.trust.find((t) => t.memberId === memberId);
 	if (!entry) {
@@ -939,6 +942,7 @@ export function addInteractions(memberId: number, memberName: string, delta: num
 	}
 	entry.interactions = Math.max(0, entry.interactions + delta);
 	if (isRealName(memberName)) entry.memberName = memberName;
+	if (accountName) entry.accountName = accountName;
 	entry.lastUpdated = Date.now();
 	saveSettings();
 	return entry;

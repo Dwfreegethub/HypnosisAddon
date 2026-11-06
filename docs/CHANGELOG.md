@@ -20,6 +20,28 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-05 (v1.5.0 RC) — trust list search and a [x] on each row
+
+Senge and Eri asked for a search; Valerie for a button instead of typing `/echs forgettrust`.
+
+**Search.** A trust entry stored one name: the nickname if there was one. So an account name could not
+be found once they left. `accountName` is now stored beside it whenever the character can be read, and
+the match also reads the live character. An older entry for someone absent has only the one name until
+they are next seen. It filters as typed and works while locked, since it is reading, as paging is.
+
+**[x].** Two clicks within 5 seconds, as Clear All, because it cannot be undone and the buttons stack
+one above the other. Draw and click both read `statRowsOnPage`, so a row's button cannot act on anyone
+else on a filtered or later page. Disabled by `settingsLocked`, though `/echs forgettrust` is left open
+under the Extreme lock, as DW chose in v1.4.0: the screen is read-only, the command was kept. Under
+that lock the rows are hidden, and the click is refused too, since an undrawn button keeps its
+coordinates.
+
+**Also repaired: garbled characters in `effects.ts`.** A throwaway test step in the v1.4.1 work rewrote
+the file through PowerShell 5.1's `Get-Content -Raw`, which reads UTF-8 with no BOM as Windows-1252, so
+every non-ASCII character became mojibake. It reached `dev` unnoticed in 29 lines: comments, and two
+console-only log messages, so no player saw it. Repeating the step on `menu.ts` here broke the title
+test, which is how it was found. Confirmed clean by diffing against the last version before it.
+
 ### Fixed 2026-11-05 (v1.4.4 RC) — "take them deeper" only where deepening helps
 
 DW: check whether they are earned-only or allow arousal, and pick the best message. `deeperHint` reads

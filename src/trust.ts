@@ -8,6 +8,7 @@ import {
 	listTrustRaw,
 	getRelationshipOverride,
 	RelationKind,
+	TrustEntry,
 } from "./storage";
 import { H_TRUST, valueFromCount } from "./curve";
 
@@ -66,7 +67,7 @@ export function noteConversation(sender: number, senderName: string, directed: b
 	if (now - last < RATE_LIMIT_MS) return;
 	lastCounted.set(sender, now);
 	const gain = directed ? DIRECTED_MULTIPLIER : 1;
-	const entry = addInteractions(sender, senderName, gain);
+	const entry = addInteractions(sender, senderName, gain, characterFor(sender)?.Name);
 	log(
 		`trust +${gain} with ${trustEntryLabel(entry)} (${directed ? "directed" : "ambient"}) → ` +
 			`${entry.interactions.toFixed(1)} interactions = ${valueFromCount(entry.interactions, H_TRUST).toFixed(1)}`,
@@ -83,7 +84,7 @@ export function noteInductionAttempt(): void {
 /** Called additionally when an induction succeeds. Both halves of the accelerator: trust
  * with that specific hypnotist, and the deeper practice of actually going under. */
 export function noteInductionSuccess(hypnotistId: number, hypnotistName: string): void {
-	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS);
+	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS, characterFor(hypnotistId)?.Name);
 	const exp = addExperience(INDUCTION_EXPERIENCE);
 	log(
 		`induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${trustEntryLabel(entry)} → ` +
@@ -98,6 +99,7 @@ export function noteDeepenSuccess(): void {
 }
 
 export interface TrustStatRow {
+	memberId: number;
 	name: string;
 	/** 0-100 value, already formatted. */
 	trust: string;
@@ -229,11 +231,25 @@ export function describeRelationship(memberId: number): string {
 	return `${kind}${pretend} — floor ${r.floor}, reaches ${r.reaches.join(", ")}`;
 }
 
-export function trustStatRows(): TrustStatRow[] {
+/** Does this entry answer to what was typed in the Stats tab's search? Any part of the name they go
+ * by, their account name, or their member number, whichever case. Reads the character as well as the
+ * stored names, so someone in the room is found by both before trust has moved since this was added.
+ * An older entry for someone absent has only the one name stored until they are next seen. */
+export function trustEntryMatches(t: TrustEntry, query: string): boolean {
+	const q = query.trim().toLowerCase();
+	if (!q) return true;
+	const C = characterFor(t.memberId);
+	return [C?.Nickname, C?.Name, t.memberName, t.accountName, String(t.memberId)].some(
+		(field) => typeof field === "string" && field.toLowerCase().includes(q),
+	);
+}
+
+export function trustStatRows(query: string = ""): TrustStatRow[] {
 	return listTrust()
-		.slice()
+		.filter((t) => trustEntryMatches(t, query))
 		.sort((a, b) => b.interactions - a.interactions)
 		.map((t) => ({
+			memberId: t.memberId,
 			name: trustEntryLabel(t),
 			trust: trustWith(t.memberId).toFixed(1),
 			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastUpdated)}`,

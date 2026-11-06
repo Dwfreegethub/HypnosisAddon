@@ -32,7 +32,7 @@ function findEmoticonItem(character: any): any {
  * *viewer* silently dropped it, leaving HasEffect() false for them forever. That's what
  * made the remote panel's buttons never flip to "Release".
  *
- * Patching the asset is safe for the room at large â€” the sanitize-and-correct path in
+ * Patching the asset is safe for the room at large — the sanitize-and-correct path in
  * ServerAppearanceLoadFromBundle only rebroadcasts for `C.IsPlayer()`, so players without
  * this add-on drop the effect from their local copy without correcting it back for anyone. */
 export function ensureEffectsAllowed(): boolean {
@@ -66,7 +66,7 @@ export function installEffectAllowList(): void {
 			log(`Emoticon effect allow-list patched after ${tries} retries`);
 		} else if (tries >= 60) {
 			clearInterval(timer);
-			log("gave up patching Emoticon effect allow-list â€” BC assets never appeared");
+			log("gave up patching Emoticon effect allow-list — BC assets never appeared");
 		}
 	}, 500);
 }
@@ -120,7 +120,7 @@ function currentPoses(): string[] {
 }
 
 /** Set (or with null, clear) one group of the player's pose, following BC's own kneel/stand
- * sequence from ChatRoom.js: CharacterSetActivePose only changes the pose locally â€” the room
+ * sequence from ChatRoom.js: CharacterSetActivePose only changes the pose locally — the room
  * is told separately via ChatRoomCharacterPoseUpdate. Only the pose goes to the room, not the
  * whole appearance.
  *
@@ -134,7 +134,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	// 2026-09-26), so the PoseSetActive hold lets these through.
 	// THE COMMAND WINS OVER OUR OWN FREEZE (v0.92.3), as it already does for undressing. Other
 	// add-ons (WCE, LSCG) hook PoseSetActive AFTER our hold and can refuse to pose a character
-	// who is frozen â€” and since v0.90.2 our Freeze really is on her, so DW found the hypnotist's
+	// who is frozen — and since v0.90.2 our Freeze really is on her, so DW found the hypnotist's
 	// spoken pose commands refused. For the moment of our own change, OUR Freeze is left out of
 	// her effects (the CharacterGetEffects hook reads ownPoseChange) and BC's cache rebuilt, so
 	// whatever asks sees her as a real restraint would leave her. A real restraint's Freeze stays.
@@ -166,12 +166,12 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
 	if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
 	if (landed) ours[group] = pose;
-	else log(`pose: ${group} â†’ ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
+	else log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
 	return landed;
 }
 
 /** The poses suggestions put the player in and that are still in place, or null. Saved
- * across a reconnect so that waking still knows it has something to undo â€” Player.ActivePose
+ * across a reconnect so that waking still knows it has something to undo — Player.ActivePose
  * itself survives on the server, but the knowledge that WE set it does not. */
 export function suggestedPose(): string[] | null {
 	const now = currentPoses();
@@ -187,7 +187,7 @@ export function restoreSuggestedPose(saved: string | string[] | null | undefined
 }
 
 /** Undo the poses a suggestion put the player in, one group or both. Deliberately leaves a
- * pose they chose themselves alone â€” ending a session shouldn't yank someone out of their own
+ * pose they chose themselves alone — ending a session shouldn't yank someone out of their own
  * kneel, and one they have since changed out of is theirs now. With `only`, clears the group
  * only while that exact pose is the one a suggestion set. */
 export function clearSuggestedPose(group?: PoseGroup, only?: string): void {
@@ -202,7 +202,7 @@ export function clearSuggestedPose(group?: PoseGroup, only?: string): void {
 }
 
 // --- Trance states -------------------------------------------------------------------
-// Unlike Freeze/BlockWardrobe these are NOT BC effects â€” they're purely local to this
+// Unlike Freeze/BlockWardrobe these are NOT BC effects — they're purely local to this
 // client, enforced by hooks in main.ts. Nothing about them syncs, and nothing about them
 // is visible to anyone else. Kept here so session.ts and voice.ts can both reach them
 // without importing each other.
@@ -211,15 +211,15 @@ let speechBlocked = false;
 /** Opacity of the trance veil, 0 = off. */
 let screenFade = 0;
 
-/** The design doc asks for "a soft white or grey veil at ~30% opacity â€” dreamlike without
+/** The design doc asks for "a soft white or grey veil at ~30% opacity — dreamlike without
  * cutting off visual context". Player-adjustable later. */
 export const TRANCE_FADE_OPACITY = 0.3;
 /** Walking trance: the same veil dropped to near-nothing. Still under, still parsing
- * suggestions, but ambulatory â€” so the fade thins to a hint rather than lifting, and the
+ * suggestions, but ambulatory — so the fade thins to a hint rather than lifting, and the
  * movement lock comes off. The doc's "~5-10% opacity (near-invisible)". */
 export const WALKING_FADE_OPACITY = 0.08;
 
-/** Whether the subject is in walking trance right now. Local-only, like the fade â€” nobody
+/** Whether the subject is in walking trance right now. Local-only, like the fade — nobody
  * else can see it, which is the point: to the room the subject looks awake. */
 let walkingTrance = false;
 export function setWalkingTrance(on: boolean): void {
@@ -264,7 +264,7 @@ export function getScreenFade(): number {
 /** The part of the canvas the trance veil covers: the chat room's character half, x 0-1003
  * by the full height. That is the rect BC's own ChatRoomDrawArousalOverlay fills (verified
  * for prompt.ts against Screens/Online/ChatRoom/ChatRoom.js), so the veil lies over the
- * bodies and nothing else â€” the room's menu buttons, the chat log and any dialog on the
+ * bodies and nothing else — the room's menu buttons, the chat log and any dialog on the
  * right half stay clear. */
 export const VEIL_WIDTH = 1003;
 
@@ -272,7 +272,7 @@ export const VEIL_WIDTH = 1003;
  * room has drawn, so it is only ever painted on the chat room screen.
  *
  * It used to paint after DrawProcess across the whole canvas, which put a white wash over
- * every menu, the settings screens, the wardrobe and BC's own dialogs â€” whatever was on
+ * every menu, the settings screens, the wardrobe and BC's own dialogs — whatever was on
  * screen. The design asked for a veil over the scene, not over the game.
  *
  * It steps aside while BC is darkening her screen for blindness (v0.93.1, DW: "the black and white
@@ -350,8 +350,8 @@ export function drawCommandPulse(now: number = Date.now()): void {
 // "You cannot see", in BC's own three levels: 1 dim (screen at 30%), 2 very dark (15%), 3 black.
 // DW: link into BC's blindness and never override its limits. Verified against R132 Character.js:
 // Player.GetBlindLevel() counts BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects asked
-// about ItemHead, ItemHood, ItemNeck and ItemDevices ONLY â€” so an effect on our Emoticon carrier is
-// never counted â€” and then clamps to 2 when her Sensory Deprivation setting is Light, else to 3. So
+// about ItemHead, ItemHood, ItemNeck and ItemDevices ONLY — so an effect on our Emoticon carrier is
+// never counted — and then clamps to 2 when her Sensory Deprivation setting is Light, else to 3. So
 // our CharacterGetEffects hook adds the level's effect when, and only when, BC asks about those
 // groups: BC's own clamp still applies, and everything BC does with blindness (the dark screen,
 // Blind Adjacent, Blind Disable Examine, name hiding under her SensDep setting, map sight range,
@@ -380,7 +380,7 @@ export function clearTranceStates(): void {
 	speechBlocked = false;
 	screenFade = 0;
 	if (sightLevel) setSight(0);
-	// Walking trance is a MODE of a trance, so it cannot outlive one â€” every exit path that
+	// Walking trance is a MODE of a trance, so it cannot outlive one — every exit path that
 	// clears the veil clears this too, or a woken subject would keep a flag saying they are
 	// still walking under.
 	walkingTrance = false;
@@ -389,7 +389,7 @@ export function clearTranceStates(): void {
 // --- Our effects, held by US, not only by the item (v0.90.2) ----------------------------------
 //
 // Found live by DW, 2026-09-26: "you cannot move" printed its flavour and did nothing. The Emoticon
-// item's whole Property had been replaced with {} within seconds of our write â€” not by BC (its
+// item's whole Property had been replaced with {} within seconds of our write — not by BC (its
 // validator would have filtered the Effect array, not emptied the Property; our allow-list patch
 // was verified in place), but by one of the ~20 other add-ons DW runs, several of which rewrite
 // appearance or expressions. So the item cannot be the only place our effects live.
@@ -424,12 +424,12 @@ function reassertItemEffects(): boolean {
 // --- Held still (v0.91.0, DW 2026-09-26) ------------------------------------------------------
 //
 // BC's own Freeze is weak: it blocks the Leave button and makes standing<->kneeling a struggle, and
-// nothing else â€” arms and same-category poses stay free, and in a map room it only slows walking
+// nothing else — arms and same-category poses stay free, and in a map room it only slows walking
 // (ChatRoomMapViewCanEnterTile, R132: `!Player.CanWalk()` multiplies the time by 6). DW wanted
 // "you cannot move" to mean what it says: held in the pose and the place she is in.
 //
 // While OUR Freeze is on (the spoken suggestion, a trigger, or the trance's own Cannot Move
-// default â€” DW: yes to all three):
+// default — DW: yes to all three):
 //   - her own pose changes are refused (PoseSetActive hook). Our calls pass (ownPoseChange), so the
 //     hypnotist's spoken pose commands still move her (DW: yes);
 //   - another player changing her pose is undone on her client and re-synced (DW: no to others);
@@ -495,7 +495,7 @@ function restoreHeldPose(held: string[]): void {
  * the item before our appearance goes to the room. Called once from main.ts. */
 export function installEffectHooks(modApi: any): void {
 	// Her own pose change, from any of BC's paths (pose menu, kneel/stand button, the struggle
-	// mini-game) â€” all end in PoseSetActive (R132 Pose.js).
+	// mini-game) — all end in PoseSetActive (R132 Pose.js).
 	//
 	// AND the deprecated alias CharacterSetActivePose (v0.92.5). In BC it only calls PoseSetActive
 	// (R132 Character.js), but WCE's animation engine hooks both names and never calls on, so a call
@@ -538,7 +538,7 @@ export function installEffectHooks(modApi: any): void {
 	// PoseCanChangeUnaidedStatus for every pose it could go to (R132 ChatRoom.js): NEVER draws it
 	// "Blocked" and ChatRoomToggleKneel then does nothing at all, which is how DW's frog-tie cuffs
 	// behave. BC's own Freeze only gives ALWAYS_WITH_STRUGGLE ("Limited"): the mini-game runs, and its
-	// success posts "stands up" to the room BEFORE asking for the pose â€” so our refusal left the room
+	// success posts "stands up" to the room BEFORE asking for the pose — so our refusal left the room
 	// told something that did not happen. Held still, every pose she is not already in answers NEVER.
 	// BC's CanKneel reads the same status, so everything that asks "can she kneel" agrees.
 	modApi.hookFunction("PoseCanChangeUnaidedStatus", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
@@ -550,7 +550,7 @@ export function installEffectHooks(modApi: any): void {
 	});
 	// THE SAFETY NET. Every way her pose reaches the room ends in ServerSend("ChatRoomCharacterPoseUpdate")
 	// (R132: the pose menu's _ClickButton, ChatRoomToggleKneel). If something changed her pose
-	// without PoseSetActive â€” or got round the hook above â€” the held pose goes back before the room
+	// without PoseSetActive — or got round the hook above — the held pose goes back before the room
 	// hears otherwise. Our own changes pass: after, because they moved heldPose; and DURING, because
 	// another add-on may send the pose itself before setSuggestedPose has moved heldPose (v0.92.5,
 	// DW's live trace: WCE's animation engine applies and sends a queued pose at once, and this net
@@ -581,7 +581,7 @@ export function installEffectHooks(modApi: any): void {
 		}
 		if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
 		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
-		// During our own pose change (setSuggestedPose): our Freeze is lifted â€” ours only. A Freeze
+		// During our own pose change (setSuggestedPose): our Freeze is lifted — ours only. A Freeze
 		// from any other item is a real restraint and stays; so does every other effect we hold.
 		if (ownPoseChange > 0 && OWN_EFFECTS.has("Freeze")) {
 			const realFreeze = (C.Appearance ?? []).some(
@@ -628,7 +628,7 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 		item.Property.Effect ??= [];
 		if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
 	} else {
-		warn(`no Emoticon item found on ${Player?.Name ?? "player"} â€” ${effectName} holds on this client only`);
+		warn(`no Emoticon item found on ${Player?.Name ?? "player"} — ${effectName} holds on this client only`);
 	}
 	refreshOwnEffects();
 	if (ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") ChatRoomCharacterUpdate(Player);
@@ -637,7 +637,7 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 	// Where BC has no effect cache to ask (outside the game), trust our own record.
 	const landed = typeof Player?.HasEffect === "function" && Array.isArray(Player?.Effect) ? Player.HasEffect(effectName) : true;
 	if (!landed) {
-		warn(`${effectName} applied but BC does not report it â€” ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
+		warn(`${effectName} applied but BC does not report it — ${effectsHooked ? "hook installed" : "hook NOT installed"}`);
 		// Take it back off everywhere: a freeze the room can see but she does not have would be a
 		// second, quieter lie on top of the first.
 		OWN_EFFECTS.delete(effectName);
@@ -667,10 +667,10 @@ function refreshOwnEffects(): void {
 }
 
 /** Is this effect one WE put on, as opposed to a real item doing the same thing? Reads our
- * own Emoticon carrier rather than Character.HasEffect, which cannot tell the difference â€”
+ * own Emoticon carrier rather than Character.HasEffect, which cannot tell the difference —
  * and the difference matters whenever we are about to narrate something, since describing a
  * player's actual chastity belt as hypnosis would be both wrong and confusing. */
-/** Does the Emoticon ITEM itself carry this effect right now â€” what the room sees? Separate from
+/** Does the Emoticon ITEM itself carry this effect right now — what the room sees? Separate from
  * hasOwnEffect, which also counts our own record: code that repairs the item after another add-on
  * wiped it has to ask about the item alone. */
 export function itemCarriesEffect(effectName: string): boolean {
@@ -679,13 +679,13 @@ export function itemCarriesEffect(effectName: string): boolean {
 
 //
 // Our record OR the item: the item alone is not enough (other add-ons wipe it), and our record alone
-// is not enough either â€” after a reload the record starts empty while the server hands back an item
+// is not enough either — after a reload the record starts empty while the server hands back an item
 // still carrying a Freeze we put on before, and recovery has to be able to see that.
 export function hasOwnEffect(effectName: string): boolean {
 	return OWN_EFFECTS.has(effectName) || !!findEmoticonItem(Player)?.Property?.Effect?.includes(effectName);
 }
 
-/** Did THIS client put this effect on â€” our own record only, never the item (v0.100.4)?
+/** Did THIS client put this effect on — our own record only, never the item (v0.100.4)?
  *
  * The Emoticon item is shared ground. We patch its allow-list on every client, so any add-on that
  * writes "Freeze" there keeps it, and hasOwnEffect above cannot tell that from ours. That is right
