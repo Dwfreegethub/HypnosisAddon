@@ -16,7 +16,7 @@ import {
 } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { allowedByLadder } from "./ladder";
-import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
+import { depthRefusal, deeperHint, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { onTeardown, onWake, onTotalStop } from "./teardown";
 import { plantedEntriesFor, receivePlanted } from "./planted";
@@ -861,7 +861,7 @@ export function beginRecording(
 	const refusal = depthRefusal("triggerControl");
 	if (refusal) {
 		log(`trigger plant refused: ${refusal}`);
-		return refuse(`[trigger] Refused — planting a trigger ${refusal}.`);
+		return refuse(`[trigger] Refused — planting a trigger ${refusal}.${deeperHint("triggerControl")}`);
 	}
 	if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
@@ -877,13 +877,18 @@ export function beginRecording(
 	// ghost threshold it is born dead — it can never fire more than a vague pull. That only
 	// happens when the triggerControl depth gate has been set low enough to plant at Drifting;
 	// refuse it here rather than silently save something that will never work. DW hit exactly this
-	// (planted at 0, fired nothing but flavour), 2026-09-15. Same "take them deeper" shape as the
-	// depth refusal above.
+	// (planted at 0, fired nothing but flavour), 2026-09-15.
+	//
+	// The advice follows which depth it would be planted at (DW, 2026-11-05). Only a chemical plant
+	// reads full depth, which "sink deeper" can raise. Whether the feature is opened to arousal does
+	// not settle it: opened, with earned clearing the gate, it still plants at earned.
 	if (plantedDepth < TRIGGER_GHOST_THRESHOLD) {
 		log(`trigger plant refused: would be born a ghost at depth ${plantedDepth}`);
 		return refuse(
 			`[trigger] Refused — at this depth a trigger is too faint to ever fire (it would be a ghost). ` +
-				"Take them deeper first.",
+				(plantedChemical
+					? "Take them deeper first."
+					: "It would be planted at their earned depth, so going deeper will not help: that takes more trust and a new induction."),
 		);
 	}
 	// Uniqueness last, once we know the plant is otherwise allowed. Refusal wording is

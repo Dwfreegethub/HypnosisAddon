@@ -20,6 +20,17 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-05 (v1.4.4 RC) — "take them deeper" only where deepening helps
+
+DW: check whether they are earned-only or allow arousal, and pick the best message. `deeperHint` reads
+`effectiveEarnedOnly`, so the trigger refusal gets its advice back when opened to arousal (v1.4.3 removed
+it for everyone, which was wrong there), and the carry refusal, always earned-only, never gets it.
+
+The "too faint" refusal needs more than that setting. Opened to arousal, with earned depth clearing the
+gate, a trigger still plants at earned depth, so `plantedChemical` decides: it says what a plant would
+actually read. Its earned wording is new: it says going deeper will not help, and that more trust and a
+new induction will.
+
 ### Fixed 2026-11-05 (v1.4.3 RC) — an earned-depth refusal shows the full depth too
 
 DW's report: "could not get them past 44", with "sink deeper" at Blank. No ceiling or code path holds

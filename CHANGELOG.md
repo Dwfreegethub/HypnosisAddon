@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.4.4 RC · 5 November 2026
+
+- **Refusals only tell you to go deeper when that would help.** "Take them deeper first" now shows
+  only if the subject has opened that feature to arousal, where going deeper counts. For anything
+  that goes by earned depth, it no longer sends you off to try "sink deeper".
+
 ## v1.4.3 RC · 5 November 2026
 
 - **Clearer refusal for triggers, carried suggestions and the clothing illusion.** These go by how
