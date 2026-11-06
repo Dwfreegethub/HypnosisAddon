@@ -861,10 +861,7 @@ export function beginRecording(
 	const refusal = depthRefusal("triggerControl");
 	if (refusal) {
 		log(`trigger plant refused: ${refusal}`);
-		return refuse(
-			`[trigger] Refused — planting a trigger ${refusal}. ` +
-				"Take them deeper first; arousal does not count toward this one.",
-		);
+		return refuse(`[trigger] Refused — planting a trigger ${refusal}.`);
 	}
 	if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);

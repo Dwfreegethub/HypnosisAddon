@@ -57,8 +57,17 @@ check("  and the illusion", depth.depthAllows("illusionControl", 80, 80), true);
 check("refusal names number and tier", /^needs 60 \[Deep\], at 20 \[Yielding\]/.test(depth.depthRefusal("triggerControl", 20, 20) ?? ""), true);
 check("  and rounds where she is down, not up", /at 39 \[Yielding\]/.test(depth.depthRefusal("followControl", 39.6, 39.6) ?? ""), true);
 check("  and names the earned rule", /arousal does not count/.test(depth.depthRefusal("triggerControl", 80, 20) ?? ""), true);
-check("  session refusals do not", /arousal does not count/.test(depth.depthRefusal("movementRestriction", 10, 10) ?? ""), false);
-check("no refusal when it is reachable", depth.depthRefusal("movementRestriction", 30, 30), null);
+// DW, 2026-11-05. Failure: "at 44" while she is really at 90, which reads as deepening not working.
+check("  deeper than earned: says both",
+	depth.depthRefusal("triggerControl", 90, 44),
+	"needs 60 [Deep], at 90 [Blank] but only 44 [Entranced] earned — arousal does not count toward this one");
+check("  all of it earned: says it once",
+	depth.depthRefusal("triggerControl", 44, 44),
+	"needs 60 [Deep], at 44 [Entranced] earned — arousal does not count toward this one");
+check("  rounds both down, so 44.6 of 44.6 is not two numbers",
+	depth.depthRefusal("triggerControl", 44.6, 44.2),
+	"needs 60 [Deep], at 44 [Entranced] earned — arousal does not count toward this one");
+check("  session refusals do not", /arousal does not count/.test(depth.depthRefusal("movementRestriction", 10, 10) ?? ""), false);check("no refusal when it is reachable", depth.depthRefusal("movementRestriction", 30, 30), null);
 
 // --- nothing is reachable with no trance ----------------------------------------------------
 // Depth 0 is the honest answer outside a session, and every gated feature needs one.

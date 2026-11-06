@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.4.3 RC · 5 November 2026
+
+- **Clearer refusal for triggers, carried suggestions and the clothing illusion.** These go by how
+  deep someone's trust has earned, not how deep they are now. When the two differ, the refusal now
+  shows both, for example *"at 90 [Blank] but only 44 [Entranced] earned"*.
+
 ## v1.4.2 RC · 5 November 2026
 
 - **The command pulse is slower**, about two seconds from start to finish.
