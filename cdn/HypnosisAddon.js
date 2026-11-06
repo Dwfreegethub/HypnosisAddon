@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.4.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.4.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -744,7 +744,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       walkingTrance = false;
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
-      PULSE_MS = 1400;
+      PULSE_MS = 1800;
       PULSE_PEAK = 0.8;
       PULSE_TINT_PEAK = 0.18;
       PULSE_BANDS = 12;
@@ -5045,6 +5045,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
     if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
+    if (s.pulseCustom !== void 0) {
+      const hex = typeof s.pulseCustom === "string" ? parsePulseHex(s.pulseCustom) : null;
+      if (hex) s.pulseCustom = hex;
+      else delete s.pulseCustom;
+    }
     if (s.plantedNotes !== void 0 && (typeof s.plantedNotes !== "object" || s.plantedNotes === null || Array.isArray(s.plantedNotes))) {
       delete s.plantedNotes;
     }
@@ -5479,6 +5484,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (PULSE_COLORS.some((c) => c.key === key)) loadSettings().pulseColor = key;
     saveSettings();
   }
+  function parsePulseHex(value) {
+    const m = /^#?([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec((value ?? "").trim());
+    if (!m) return null;
+    const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1].slice(0, 6);
+    return `#${hex.toUpperCase()}`;
+  }
+  function getPulseCustom() {
+    return loadSettings().pulseCustom ?? DEFAULT_PULSE_CUSTOM;
+  }
+  function setPulseCustom(value) {
+    const hex = parsePulseHex(value);
+    if (!hex) return null;
+    loadSettings().pulseCustom = hex;
+    saveSettings();
+    return hex;
+  }
+  function getPulseRgb() {
+    const key = getPulseColor();
+    if (key !== "custom") return (PULSE_COLORS.find((c) => c.key === key) ?? PULSE_COLORS[0]).rgb;
+    const hex = getPulseCustom().slice(1);
+    return [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(", ");
+  }
   function listPlantedNotes() {
     return loadSettings().plantedNotes ?? {};
   }
@@ -5562,7 +5589,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, PULSE_COLORS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5665,8 +5692,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "pink", label: "Pink", rgb: "255, 105, 180" },
         { key: "purple", label: "Purple", rgb: "170, 90, 255" },
         { key: "blue", label: "Blue", rgb: "80, 160, 255" },
-        { key: "white", label: "White", rgb: "255, 255, 255" }
+        { key: "white", label: "White", rgb: "255, 255, 255" },
+        /** Whatever hex code she typed: see getPulseCustom. */
+        { key: "custom", label: "Custom", rgb: "" }
       ];
+      DEFAULT_PULSE_CUSTOM = "#FF69B4";
       MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
@@ -6482,7 +6512,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/voice.ts
   function pulse() {
     if (!getFeatures().commandPulse) return;
-    startCommandPulse((PULSE_COLORS.find((c) => c.key === getPulseColor()) ?? PULSE_COLORS[0]).rgb);
+    startCommandPulse(getPulseRgb());
   }
   function noteLanded(sender) {
     noteSuggestionLanded(sender);
@@ -10681,6 +10711,55 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked ? "Gray" : "#555"
     );
   }
+  function removePulseHexInput() {
+    if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
+  }
+  function pulseControlsHeight() {
+    return attemptControlHeight() + (getPulseColor() === "custom" ? CYCLE_GAP + attemptControlHeight() : 0);
+  }
+  function drawPulseControls(top, width) {
+    const locked = settingsLocked();
+    drawCycle(PULSE_COLOR_CONTROL, top, width, locked);
+    if (getPulseColor() !== "custom") {
+      removePulseHexInput();
+      return;
+    }
+    const at = top + attemptControlHeight() + CYCLE_GAP;
+    const inputLeft = BOX_LEFT + PULSE_HEX_LABEL_WIDTH + 20;
+    drawLeftTextFit("Colour code:", BOX_LEFT, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_LABEL_WIDTH, locked ? "Gray" : "Black");
+    DrawRect(inputLeft + PULSE_HEX_WIDTH + 20, at + (ATTEMPT_BUTTON_HEIGHT - PULSE_SWATCH_SIZE) / 2, PULSE_SWATCH_SIZE, PULSE_SWATCH_SIZE, getPulseCustom());
+    drawLeftTextWrap(
+      pulseHexError || "For example #FF69B4. Saves when you click away or press Enter.",
+      BOX_LEFT,
+      at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      pulseHexError ? "#a00000" : locked ? "Gray" : "#555"
+    );
+    if (at < rowScroll.top || at + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
+      removePulseHexInput();
+      return;
+    }
+    let element = document.getElementById(PULSE_HEX_ID);
+    if (!element) {
+      element = ElementCreateInput(PULSE_HEX_ID, "text", getPulseCustom(), 9);
+      element.addEventListener("blur", function() {
+        if (settingsLocked()) return;
+        const saved = setPulseCustom(this.value);
+        pulseHexError = saved ? "" : `"${this.value.trim().slice(0, 12)}" is not a colour code, so your colour is unchanged. Try one like #FF69B4.`;
+        if (saved) {
+          this.value = saved;
+          log(`pulse colour now ${saved}`);
+        }
+      });
+      element.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") this.blur();
+      });
+    }
+    if (document.activeElement !== element && !pulseHexError) element.value = getPulseCustom();
+    element.disabled = locked;
+    ElementPosition(PULSE_HEX_ID, inputLeft + PULSE_HEX_WIDTH / 2, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+  }
   function inductionsHeight() {
     return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
   }
@@ -11089,10 +11168,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
   }
   function ownedControlIds() {
-    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...DEPTH_INPUT_IDS];
   }
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
     removeDepthInputs();
@@ -11106,6 +11185,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
     if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+    if (tabName !== "Trance Defaults") removePulseHexInput();
     if (tabName !== "Depth") removeDepthInputs();
   }
   function drawDecayControl() {
@@ -11314,7 +11394,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11381,7 +11461,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.4.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11651,7 +11731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -11732,13 +11812,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" }
           ],
           scrollExtra: {
-            height: attemptControlHeight,
-            draw: (top, width) => drawCycle(PULSE_COLOR_CONTROL, top, width, settingsLocked()),
+            height: pulseControlsHeight,
+            draw: drawPulseControls,
             click: (top) => {
               if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
               if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
               return true;
-            }
+            },
+            hide: removePulseHexInput
           }
         },
         {
@@ -11855,13 +11936,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
       PULSE_COLOR_CONTROL = {
         label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => getFeatures().commandPulse ? "A glow and a wash of colour over the room view. Only you see it." : "The pulse is off, so this does nothing until you tick the box above.",
+        caption: () => !getFeatures().commandPulse ? "The pulse is off, so this does nothing until you tick the box above." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "A glow and a wash of colour over the room view. Only you see it.",
         tooltip: "The colour of the pulse",
         cycle: () => {
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
           setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+          pulseHexError = "";
         }
       };
+      PULSE_HEX_ID = "HypnosisAddonPulseHex";
+      PULSE_HEX_LABEL_WIDTH = 200;
+      PULSE_HEX_WIDTH = 220;
+      PULSE_SWATCH_SIZE = 50;
+      pulseHexError = "";
       PERMISSION_CYCLES = [
         {
           label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
@@ -13628,7 +13715,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.4.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13649,7 +13736,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.4.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.4.2"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13721,14 +13808,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.4.1"})`);
+      info(`script loaded (v${"1.4.2"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.4.1",
+          version: "1.4.2",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -13867,10 +13954,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.4.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.4.1";
+    page2.__ECHS_LOADED__ = "1.4.2";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

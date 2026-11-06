@@ -122,7 +122,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 | **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
-| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about a second and a half, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, picks Pink, Purple, Blue or White. |
+| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, picks Pink, Purple, Blue, White or **Custom**. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter. |
 | **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
 
 ---

@@ -298,7 +298,8 @@ export function drawTranceVeil(): void {
 //
 // v1.4.1, DW: the first version (42px wide, peak 0.55, one second) ran and nobody could see it. It
 // has to read through the 30% white veil and from across the screen, with her eyes on the chat.
-const PULSE_MS = 1400;
+// v1.4.2, DW: 1.4 seconds was still a little fast.
+const PULSE_MS = 1800;
 const PULSE_PEAK = 0.8;
 /** The wash across the whole view at the pulse's peak. Light enough to see the characters through. */
 const PULSE_TINT_PEAK = 0.18;

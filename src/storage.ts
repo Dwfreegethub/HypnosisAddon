@@ -511,6 +511,9 @@ interface HypnoAddonSettings {
 	extremeLockUntil?: number;
 	/** The command pulse's colour, one of PULSE_COLORS. Absent means the default. */
 	pulseColor?: string;
+	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
+	 * another, so going back finds it. */
+	pulseCustom?: string;
 	/** A hypnotist's own notes on the triggers they planted, by subject's member number (v1.4.0).
 	 * Only ever displayed: the subject's client alone decides what is really planted (rule 1). */
 	plantedNotes?: Record<string, PlantedNote>;
@@ -664,6 +667,12 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	// A lock with no valid end is no lock: dropped, never invented.
 	if (s.pulseColor !== undefined && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
+	// Read back into the canvas's colour string, so an imported blob must not bring junk with it.
+	if (s.pulseCustom !== undefined) {
+		const hex = typeof s.pulseCustom === "string" ? parsePulseHex(s.pulseCustom) : null;
+		if (hex) s.pulseCustom = hex;
+		else delete s.pulseCustom;
+	}
 	if (s.plantedNotes !== undefined && (typeof s.plantedNotes !== "object" || s.plantedNotes === null || Array.isArray(s.plantedNotes))) {
 		delete s.plantedNotes;
 	}
@@ -1362,13 +1371,49 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "purple", label: "Purple", rgb: "170, 90, 255" },
 	{ key: "blue", label: "Blue", rgb: "80, 160, 255" },
 	{ key: "white", label: "White", rgb: "255, 255, 255" },
+	/** Whatever hex code she typed: see getPulseCustom. */
+	{ key: "custom", label: "Custom", rgb: "" },
 ];
+export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
 export function getPulseColor(): string {
 	return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
 }
 export function setPulseColor(key: string): void {
 	if (PULSE_COLORS.some((c) => c.key === key)) loadSettings().pulseColor = key;
 	saveSettings();
+}
+
+/** A hex code in the forms BC uses, as "#RRGGBB", or null if it isn't one. R132 CommonIsColor takes
+ * #RGB and #RRGGBB, and with allowAlpha up to 8 digits, which is what BC's colour picker copies when an
+ * item has opacity. So a code copied from there works: its alpha is dropped, as the pulse sets its own
+ * strength. Its own check rather than BC's so storage needs no game global. The # may be left off. */
+export function parsePulseHex(value: string): string | null {
+	const m = /^#?([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec((value ?? "").trim());
+	if (!m) return null;
+	const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1].slice(0, 6);
+	return `#${hex.toUpperCase()}`;
+}
+
+export function getPulseCustom(): string {
+	return loadSettings().pulseCustom ?? DEFAULT_PULSE_CUSTOM;
+}
+
+/** Save a typed code. Returns what was saved, or null if it was refused and nothing changed. */
+export function setPulseCustom(value: string): string | null {
+	const hex = parsePulseHex(value);
+	if (!hex) return null;
+	loadSettings().pulseCustom = hex;
+	saveSettings();
+	return hex;
+}
+
+/** The pulse's colour as "r, g, b", for the canvas. */
+export function getPulseRgb(): string {
+	const key = getPulseColor();
+	if (key !== "custom") return (PULSE_COLORS.find((c) => c.key === key) ?? PULSE_COLORS[0]).rgb;
+	const hex = getPulseCustom().slice(1);
+	return [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(", ");
 }
 
 // --- A hypnotist's notes on what they planted (v1.4.0) -------------------------------------------

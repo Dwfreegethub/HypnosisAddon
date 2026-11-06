@@ -52,7 +52,7 @@ globalThis.PreferenceSubscreenExtensionsClear = () => {};
 const elements = {};
 globalThis.document = { getElementById: (id) => elements[id] ?? null };
 globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false });
-globalThis.ElementCreateInput = (id) => (elements[id] = { value: "", disabled: false, addEventListener() {}, setAttribute() {} });
+globalThis.ElementCreateInput = (id, _type, value = "") => (elements[id] = { value, disabled: false, listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, setAttribute() {} });
 globalThis.ElementCreateDropdown = (id, _options, onChange) => (elements[id] = { selectedIndex: 0, disabled: false, onChange, addEventListener() {}, setAttribute() {} });
 /** Where each DOM control was last put, centre and size, in canvas coordinates. */
 const placed = {};
@@ -374,6 +374,57 @@ check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).siz
 	// Failure: a read-only screen changed a setting.
 	check("  locked, it does not cycle", storage.getPulseColor(), "purple");
 	storage.clearExtremeLock();
+
+	// Custom: a typed hex code, in a real DOM box, which only exists while it is wanted.
+	const HEX = "HypnosisAddonPulseHex";
+	const blur = () => elements[HEX].listeners.blur.call(elements[HEX]);
+	const toEnd = () => { for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); } };
+	frame();
+	check("  no hex box for a named colour", !!elements[HEX], false);
+	storage.setPulseColor("white");
+	frame();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  Custom comes after White", [colour().label, storage.getPulseColor()], ["Pulse colour: Custom", "custom"]);
+	toEnd();
+	// Failure: the box is missing, or drawn outside the panel where it can't be used.
+	check("  the hex box appears, with her colour in it", elements[HEX]?.value, storage.DEFAULT_PULSE_CUSTOM);
+	const box = placed[HEX];
+	check("  and sits inside the panel", box && box.y + box.h / 2 <= PANEL_BOTTOM && box.x + box.w / 2 <= PANEL_RIGHT, true);
+	// Failure: the box, which is DOM and ignores the canvas clip, overlaps the colour button.
+	check("  clear of the colour button", box && box.y - box.h / 2 >= colour().top + colour().height, true);
+	check("  and fits under the button with its caption", texts.some((t) => /For example #FF69B4/.test(t.text)), true);
+	elements[HEX].value = "#00ff80";
+	blur();
+	check("  a good code is saved, tidied", [storage.getPulseCustom(), elements[HEX].value], ["#00FF80", "#00FF80"]);
+	elements[HEX].value = "banana";
+	blur();
+	frame();
+	// Failure: a typo quietly does nothing (rule 5).
+	check("  a bad code changes nothing", storage.getPulseCustom(), "#00FF80");
+	check("  and says so", texts.some((t) => /"banana" is not a colour code/.test(t.text)), true);
+	check("  and stays in the box to correct", elements[HEX].value, "banana");
+	elements[HEX].value = "#123456";
+	blur();
+	frame();
+	check("  fixing it clears the complaint", texts.some((t) => /is not a colour code/.test(t.text)), false);
+	storage.startExtremeLock("trial");
+	frame();
+	check("  locked: the box is disabled", elements[HEX].disabled, true);
+	elements[HEX].value = "#ABCDEF";
+	blur();
+	// Failure: a box focused before the lock began saves through it.
+	check("  locked: a blur saves nothing", storage.getPulseCustom(), "#123456");
+	storage.clearExtremeLock();
+	frame();
+	check("  back from the lock, it shows what is saved", elements[HEX].value, "#123456");
+	openTab(0); frame();
+	// Failure: the box floats over the next tab.
+	check("  another tab: the box goes", !!elements[HEX], false);
+	openTab(2); frame();
+	toEnd();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  past Custom, back to Pink, and the box goes", [storage.getPulseColor(), !!elements[HEX]], ["pink", false]);
+	storage.setPulseCustom(storage.DEFAULT_PULSE_CUSTOM);
 	storage.setPulseColor("pink");
 }
 openTab(4); frame(); // Triggers

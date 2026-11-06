@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.4.2 RC · 5 November 2026
+
+- **The command pulse is slower**, about two seconds from start to finish.
+- **Pick your own pulse colour.** On the Trance Defaults tab, **Pulse colour** now has a **Custom**
+  choice, with a box for a hex colour code like `#FF69B4`, the kind the game's colour picker uses.
+
 ## v1.4.1 RC · 5 November 2026
 
 - **The command pulse is easy to see now.** It was too faint to notice. It's now a wide glow around
