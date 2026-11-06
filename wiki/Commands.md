@@ -87,7 +87,7 @@ The **Planted triggers** button on their profile's spiral panel shows the same l
 | `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
 | `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
 | `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
-| `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. |
+| `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. The **[x]** on the Stats tab does the same. |
 
 ---
 

@@ -33,6 +33,8 @@ check("no character, no name", trust.displayNameOf(undefined), "");
 // --- what is stored -----------------------------------------------------------------------------
 trust.noteConversation(REI, trust.trustNameFor(REI), true);
 check("a conversation stores the nickname", storage.getTrust(REI)?.memberName, "Rei");
+// Failure: someone with a nickname can't be found by account name once they have left.
+check("  and the account name beside it", storage.getTrust(REI)?.accountName, "ReiAccount");
 // Failure: the roster could not resolve them and the old fallback wrote "#111" over "Rei".
 storage.addInteractions(REI, "#111", 1);
 check("a bare number never overwrites a stored name", storage.getTrust(REI)?.memberName, "Rei");

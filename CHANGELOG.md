@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.5.0 RC · 5 November 2026
+
+- **Search your trust list.** The Stats tab now has a **Find** box. Type part of someone's nickname,
+  account name or member number and the list narrows as you type. Someone you last saw before this
+  update can only be found by the one name saved for them, until you next see them.
+- **Remove someone from the list with a click.** Each person on the Stats tab now has an **[x]**. It
+  asks first, and a second click deletes their trust for good.
+
 ## v1.4.4 RC · 5 November 2026
 
 - **Refusals only tell you to go deeper when that would help.** "Take them deeper first" now shows
