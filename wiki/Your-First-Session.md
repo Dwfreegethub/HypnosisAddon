@@ -24,7 +24,7 @@ The spiral icon is visible on every player's profile card because client-side ex
 The target receives a private induction dialog offering three choices: **Agree**, **Ignore**, or **Fight**. You are never told which option they picked. Silence for 60 seconds automatically defaults to Ignore.
 
 ### Step 3: Use the Induction Window
-You have a 60-second window while the prompt is active. This window is designed for roleplay, and roleplaying during it genuinely impacts the outcome: every line you speak adds to your induction roll up to a built-in cap.
+You have a window of up to 60 seconds (the subject can set it as short as 10) once the induction begins. This window is designed for roleplay, and roleplaying during it genuinely impacts the outcome: every line you speak adds to your induction roll up to a built-in cap.
 
 ### Step 4: The Induction Roll
 When the window closes, the subject's client calculates the roll:
@@ -79,7 +79,7 @@ If the attempt succeeds, your client enters a trance state. The roll only decide
 ### Answering Ahead of Time
 On the Inductions tab you can answer every induction before it happens: **Agree**, **Ignore** or **Fight**, with no box. The hypnotist is never told which. If you are away from the keyboard (10 minutes with no key, click or touch), your *When I'm away* setting decides: turn them away (the default), treat it as Ignore, or keep your answer.
 
-**Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (your owner and lovers by default, or wider, the same choices as trigger scope), an induction puts you straight under to your *"sink deeper"* limit, with no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
+**Toy mode**, on the same tab, is for when you want to be put under with no roll at all: for the people you choose (your owner and lovers by default, or wider, the same choices as trigger scope), an induction puts you under to your *"sink deeper"* limit once your induction time has run, with no roll and no attempt limit. That includes triggers, if your limit is Deep or deeper. It follows your *When I'm away* setting too, and the safeword always works.
 
 ### Step 3: Receiving Suggestions
 When a spoken suggestion passes all checks, your client applies the effect and displays a private notification in brackets. If a suggestion is blocked, the *hypnotist* receives private diagnostic feedback explaining which gate stopped it, preventing scene confusion.

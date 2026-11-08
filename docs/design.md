@@ -237,6 +237,14 @@ scenarios* for what each scenario proves.
 | 15 — Reinforcement & decay | Triggers weaken with disuse, hold better the deeper they were planted, and are refreshed by a re-induction; strength is their effective depth when they fire |
 | 16 — Vertical tabs | Both canvas panels moved their tabs to the left edge, which lifts the ceiling from six tabs to nine and gives the panel back the band above it |
 
+**The ECHS icon over players (v1.7.0, DW 2026-11-08; Biker, Lianne).** A spiral over each ECHS player
+in a room, version on hover. Decided: **on by default** ("Show others that I run ECHS", her own
+switch, rule 1: off, her client still answers the panel but says not to draw it); **the viewer
+chooses where** (top row, below on the left, off), because a clash depends on the viewer's add-ons;
+default **x 228-258 of the top row**, the only slot no FUSAM add-on uses
+(`docs/addon-icon-survey.md`); found through `state-query`/`state-response`, never a new type;
+hidden by BC's own hide-icons button. `src/badge.ts`.
+
 **Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while a session is on you". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. **The lock covers the whole session, not only the trance** (v0.65.1): the prompt, the roleplay window and the misses between attempts are all locked, so a permission cannot be granted to someone mid-attempt and the attempt limit cannot be moved to hand them another try. The cooldown after a spent run is not locked — there is nothing left to protect against. **Import is locked with them** (v0.84.3), from the Data tab button and `/hypno import` alike, because it replaces every toggle at once without ending anything; Export (read-only) and Reset (ends the session before it wipes, Known Bug #4) stay open. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
 A second tab holds the **trance defaults** — cannot move / cannot speak / screen fade, all ON by default, plus *Clothes Look Unchanged* (off, deliberately: the other three are things you feel, this one makes your own screen tell you something untrue) and *Others See Your Reactions* (on). A third holds **awareness** (what you can be made not to notice), a fourth **triggers** (planting, carry-forward, firing your own, showing the words, scope, duration), and a fifth is read-only **stats**. A **"?" button on both this screen and the remote panel** opens a five-tab help screen generated from the pattern library and command list themselves, so it cannot fall behind them.
@@ -1027,6 +1035,13 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     the risk"), so triggers can be planted when her ceiling is Deep or deeper. With the ceiling
     at Never, it lands as a sure Agree would. Not counted as practice or trust. It follows the
     away setting too (Ignore there means an ordinary Ignore induction, not toy mode).
+    **Since v1.6.0 (DW, 2026-11-08) toy mode is not instant:** it runs the same induction window
+    as any other, with the same room line and the same countdown on the hypnotist's panel, and
+    lands when it ends. Agree/Ignore/Fight mid-window change nothing and she is told so; a
+    hypnotist who leaves lapses it; the safeword ends it. Reason: DW's script_test B.1 note, the
+    hypnotist could tell toy mode by its landing at once. **Induction time** is her setting on the
+    same tab, for every induction: 60 / 45 / 30 / 20 / 10 seconds, default and maximum 60, minimum
+    10 (DW chose 10 over 0 so that toy mode always shows an induction).
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in

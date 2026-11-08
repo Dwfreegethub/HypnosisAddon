@@ -34,9 +34,13 @@ globalThis.setTimeout = (fn, ms) => pending.push({ fn, ms });
 globalThis.clearTimeout = (id) => { if (typeof id === "number" && pending[id - 1]) pending[id - 1].fn = null; };
 globalThis.setInterval = () => 0;
 globalThis.clearInterval = () => {};
+/** End the open induction window. Its length is her setting since v1.6.0, so it is matched to that:
+ * a window of any other length would mean the setting was not used. */
+let windowSeconds = 60;
+const windowOpen = () => pending.some((t) => t.fn && t.ms === windowSeconds * 1000);
 const runRoll = () => {
 	for (let i = pending.length - 1; i >= 0; i--) {
-		if (pending[i].fn && pending[i].ms === 60_000) { const fn = pending[i].fn; pending[i].fn = null; fn(); return; }
+		if (pending[i].fn && pending[i].ms === windowSeconds * 1000) { const fn = pending[i].fn; pending[i].fn = null; fn(); return; }
 	}
 	throw new Error("no induction window open");
 };
@@ -225,18 +229,31 @@ attempt();
 check("toy mode is for Owner and Lovers by default: a stranger gets the box", boxUp(), true);
 reset({ relation: "lover" });
 attempt();
-check("a lover: straight under, no box", [phase(), boxUp()], ["Hypnotized", false]);
+// v1.6.0 (DW, from script_test B.1): toy mode runs the induction window like anyone. Failure: it
+// lands at once, which is what let the hypnotist tell it was toy mode.
+check("a lover: no box, and an induction runs first", [phase(), boxUp(), session.isHypnotized()], ["InductionInProgress", false, false]);
+check("  her own 60 seconds", windowOpen(), true);
+check("  she is told when she goes under, and that the safeword stops it", said.some((s) => /toy mode\. You go under in 60 seconds\. \/echs safeword stops it/.test(s)), true);
+said = [];
+session.answerPrompt("fight");
+// Rule 5: fighting changes nothing in toy mode, so she must not be told it does.
+check("  fighting mid-window: told it takes her anyway", said.some((s) => /takes you whatever you do/.test(s)), true);
+check("  and nothing else said", said.some((s) => /brace against it/.test(s)), false);
+runRoll();
+check("  when it ends: under, no roll", [phase(), boxUp()], ["Hypnotized", false]);
 check("  to the top of her ceiling (Entranced), full and earned", [depth.currentDepth(), depth.currentDepthEarned()], [59, 59]);
 check("  no attempt spent", attempts(), "0");
 check("  she is told it was toy mode", said.some((s) => /toy mode/.test(s)), true);
 storage.setDeepestTier("blank");
 reset({ relation: "lover" });
 attempt();
+runRoll();
 check("a Blank ceiling lands at 95, the landing cap", depth.currentDepth(), 95);
 storage.setDeepestTier("never");
 reset({ relation: "lover" });
 Math.random = () => 0;
 attempt();
+runRoll();
 check("'Never deeper': a sure Agree, 20 + 20 - 9, held at 40", depth.currentDepth(), 40);
 storage.setDeepestTier("entranced");
 // No cooldown: spend both tries with it off, then turn it on.
@@ -251,7 +268,9 @@ runRoll();
 check("two misses: cooling down", phase(), "CooldownRequired");
 storage.setToyMode(true);
 attempt();
-check("  toy mode ignores the cooldown", phase(), "Hypnotized");
+check("  toy mode ignores the cooldown", phase(), "InductionInProgress");
+runRoll();
+check("  and lands", phase(), "Hypnotized");
 storage.setToyScope("owner");
 reset({ relation: "lover" });
 attempt();
@@ -264,7 +283,8 @@ check("Owner, Lovers and whitelist: a stranger not on it gets the box", boxUp(),
 whitelist = [REI];
 reset();
 attempt(REI);
-check("  on her whitelist: straight under", phase(), "Hypnotized");
+runRoll();
+check("  on her whitelist: under, no box", phase(), "Hypnotized");
 whitelist = [];
 storage.setToyScope("notblack");
 blacklist = [REI];
@@ -274,12 +294,14 @@ check("everyone except blacklist: blacklisted gets the box", boxUp(), true);
 blacklist = [];
 reset();
 attempt(REI);
-check("  anyone else: straight under", phase(), "Hypnotized");
+runRoll();
+check("  anyone else: under, no box", phase(), "Hypnotized");
 storage.setToyScope("everyone");
 reset();
 attempt(REI);
+runRoll();
 check("everyone, no exceptions: a stranger too", phase(), "Hypnotized");
-check("/hypno chance says so", session.describeChances(REI).some((l) => /toy mode: on for everyone, no exceptions — they would put you straight under/.test(l)), true);
+check("/echs chance says so", session.describeChances(REI).some((l) => /toy mode: on for everyone, no exceptions — they would put you under, no roll, after your 60s induction/.test(l)), true);
 reset();
 clock += 10 * 60_000;
 attempt(REI);
@@ -290,8 +312,49 @@ check("away, set to Ignore: no toy mode, an ordinary Ignore", [phase(), choice()
 storage.setAwayStance("refuse");
 reset();
 attempt(REI);
+runRoll();
 session.safeword();
 check("the safeword ends a toy-mode trance", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
+// Rule 2. Failure: the safeword said mid-window, and she goes under anyway when it would have ended.
+reset();
+attempt(REI);
+const waiting = pending.filter((t) => t.fn && t.ms === 60_000).at(-1);
+session.safeword();
+if (waiting?.fn) waiting.fn();
+check("the safeword mid-window: she never goes under", [session.isHypnotized(), depth.currentDepth()], [false, 0]);
+
+// --- her induction time (v1.6.0, DW 2026-11-08) --------------------------------------------------------------
+// Failure: a window of any length but hers, a value outside 10-60, or the hypnotist's countdown
+// still starting from a minute.
+check("induction time defaults to 60", storage.getInductionSeconds(), 60);
+check("  steps 60, 45, 30, 20, 10, then back to 60", [60, 45, 30, 20, 10].map((v) => storage.nextInductionSeconds(v)), [45, 30, 20, 10, 60]);
+check("  clamped into 10-60", [storage.setInductionSeconds(5), storage.setInductionSeconds(90), storage.setInductionSeconds(30)], [10, 60, 30]);
+windowSeconds = 30;
+reset();
+attempt(REI);
+check("toy mode at 30: a 30 second window", windowOpen(), true);
+check("  /echs chance says 30", session.describeChances(REI).some((l) => /after your 30s induction/.test(l)), true);
+runRoll();
+check("  then under", phase(), "Hypnotized");
+storage.setToyMode(false);
+reset();
+wire = [];
+attempt(REI);
+session.answerPrompt("agree");
+check("an ordinary induction at 30: a 30 second window", windowOpen(), true);
+const shown = wire.map((w) => JSON.parse(w)).map((d) => d.Dictionary?.[0]?.message).filter((m) => m && m.windowRemaining > 0).at(-1);
+check("  the hypnotist's countdown starts at 30", shown?.windowRemaining, 30_000);
+clock += 12_000;
+wire = [];
+session.answerPrompt("fight");
+incoming(REI, { type: "session-query" });
+const later = wire.map((w) => JSON.parse(w)).map((d) => d.Dictionary?.[0]?.message).filter((m) => m && m.windowRemaining > 0).at(-1);
+// Failure: every update restarts the hypnotist's countdown at the full length.
+check("  12 seconds on, it shows 18 left", later?.windowRemaining ?? "no update sent", 18_000);
+runRoll();
+storage.setInductionSeconds(60);
+windowSeconds = 60;
+storage.setToyMode(true);
 storage.setToyMode(false);
 storage.setToyScope("lovers");
 

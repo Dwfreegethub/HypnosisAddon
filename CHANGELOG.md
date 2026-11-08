@@ -12,6 +12,40 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.7.3 RC · 8 November 2026
+
+- **A smaller label on the ECHS spiral.** Hovering it now shows just the ECHS version, in small
+  text, without the person's name, since the spiral is already over them.
+
+## v1.7.2 RC · 8 November 2026
+
+- **BCT users: the ECHS spiral follows BCT's "icons only on hover" setting.** With it on, the spiral
+  shows only while your mouse is over the top of a character, like every other icon there.
+  `/echs icons` now says so when that is why you can't see it.
+
+## v1.7.1 RC · 8 November 2026
+
+- **If the ECHS spiral doesn't show, `/echs icons` says why.** It reports whether the spiral is being
+  drawn on your screen, your two icon settings, and which players in the room ECHS has heard from.
+
+## v1.7.0 RC · 8 November 2026
+
+- **See who else runs ECHS.** In a room, a small spiral now shows over each player who runs ECHS.
+  Hover it to see their name and ECHS version. It sits in a gap between Bondage Club's own icons
+  and other add-ons' icons; Bondage Club's hide-icons button hides it too.
+- **Your choice, both ways.** On the Trance Defaults tab, **Show others that I run ECHS** (on unless
+  you untick it) decides whether others see yours, and **ECHS icons over others** decides where you
+  see theirs: in the top row, below it on the left if another add-on's icon covers it, or not at all.
+
+## v1.6.0 RC · 8 November 2026
+
+- **Choose how long an induction takes.** The Inductions tab has a new **Induction time** setting:
+  60 seconds (the usual), 45, 30, 20 or 10. It is how long anyone gets to put you under before it
+  lands or misses, and the hypnotist's countdown shows your time.
+- **Toy mode now takes an induction too.** Instead of dropping you at once, it runs your induction
+  time first, so to the hypnotist and the room it looks like any other induction. Then you go under
+  with no roll, as before. The safeword stops it at any point.
+
 ## v1.5.2 RC · 8 November 2026
 
 - **Commands said together take hold one at a time.** Say two or three commands in a row and each

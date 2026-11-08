@@ -437,6 +437,9 @@ export interface FeatureToggles {
 	/** A glow and a light wash of colour over the room view when a spoken command lands or a trigger
 	 * fires (JAX, 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
 	commandPulse: boolean;
+	/** Let other ECHS players see a spiral over you in a room (v1.7.0; Biker, Lianne; DW 2026-11-08:
+	 * on by default). Off, your client still answers their panel, but says not to draw the icon. */
+	showEchsIcon: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *
 	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
@@ -507,6 +510,9 @@ interface HypnoAddonSettings {
 	awayStance?: string;
 	toyMode?: boolean;
 	toyScope?: string;
+	/** How long an induction runs before it lands or misses, in seconds (v1.6.0, DW 2026-11-08).
+	 * One of INDUCTION_TIMES; absent means DEFAULT_INDUCTION_SECONDS. Toy mode uses it too. */
+	inductionSeconds?: number;
 	/** The Extreme progressive lock (v0.99.0, job2.md §4): settings are read-only until this
 	 * wall-clock time, and stay read-only after it until the player answers the renewal prompt.
 	 * Absent = no lock. Only ever written by confirming the new wizard's Extreme warning: builds
@@ -514,6 +520,8 @@ interface HypnoAddonSettings {
 	extremeLockUntil?: number;
 	/** The command pulse's colour, one of PULSE_COLORS. Absent means the default. */
 	pulseColor?: string;
+	/** Where she sees OTHER players' ECHS icons, one of ECHS_ICON_SPOTS (v1.7.0). Absent means "top". */
+	echsIconSpot?: string;
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -584,6 +592,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
 		commandPulse: true,
+		showEchsIcon: true,
 		roomSeesReactions: true,
 		// The one trance default that starts off — see the note on the interface.
 		tranceClothingFreeze: false,
@@ -666,6 +675,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.defaultStance !== undefined && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
 	if (s.awayStance !== undefined && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
 	if (s.toyMode !== undefined && typeof s.toyMode !== "boolean") delete s.toyMode;
+	if (s.inductionSeconds !== undefined && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	// A lock with no valid end is no lock: dropped, never invented.
@@ -1347,6 +1357,33 @@ export function setAwayStance(key: string): void {
 export function nextAwayStance(current: string): string {
 	return cycle(AWAY_STANCES, current);
 }
+/** The induction lengths she can pick (v1.6.0, DW 2026-11-08): 60 is the default and the most,
+ * 10 the least, so even toy mode always shows an induction rather than landing at once. */
+export const INDUCTION_TIMES: readonly number[] = [60, 45, 30, 20, 10];
+export const DEFAULT_INDUCTION_SECONDS = 60;
+export const MIN_INDUCTION_SECONDS = 10;
+
+export function getInductionSeconds(): number {
+	const v = loadSettings().inductionSeconds;
+	return typeof v === "number" && Number.isFinite(v)
+		? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(v)))
+		: DEFAULT_INDUCTION_SECONDS;
+}
+/** Clamped into 10-60 rather than refused, as the trigger duration is. Returns what was saved. */
+export function setInductionSeconds(seconds: number): number {
+	const value = Number.isFinite(seconds) ? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(seconds))) : DEFAULT_INDUCTION_SECONDS;
+	const s = loadSettings();
+	if (value === DEFAULT_INDUCTION_SECONDS) delete s.inductionSeconds;
+	else s.inductionSeconds = value;
+	saveSettings();
+	return value;
+}
+/** The next step down the list, wrapping from 10 back to 60. A value off the list goes to 60. */
+export function nextInductionSeconds(current: number): number {
+	const i = INDUCTION_TIMES.indexOf(current);
+	return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
+}
+
 export function getToyMode(): boolean {
 	return loadSettings().toyMode === true;
 }
@@ -1379,6 +1416,24 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "custom", label: "Custom", rgb: "" },
 ];
 export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+/** Where the ECHS icon goes over other players (v1.7.0). The viewer's choice, because a clash
+ * depends on which add-ons the VIEWER runs (docs/addon-icon-survey.md). */
+export const ECHS_ICON_SPOTS: { key: string; label: string }[] = [
+	{ key: "top", label: "Top row" },
+	{ key: "left", label: "Below, on the left" },
+	{ key: "off", label: "Off" },
+];
+export function getEchsIconSpot(): string {
+	const v = loadSettings().echsIconSpot;
+	return ECHS_ICON_SPOTS.some((s) => s.key === v) ? (v as string) : "top";
+}
+export function setEchsIconSpot(key: string): void {
+	const s = loadSettings();
+	if (key === "top") delete s.echsIconSpot;
+	else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+	saveSettings();
+}
 
 export function getPulseColor(): string {
 	return loadSettings().pulseColor ?? PULSE_COLORS[0].key;

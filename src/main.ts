@@ -13,6 +13,7 @@ import { installAwayWatch } from "./away";
 import { installSuppression, installHearingFilter, hearsLine, markUnheard } from "./suppression";
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
+import { installBadge } from "./badge";
 import { installTriggers } from "./triggers";
 import { installDrugs } from "./drugs";
 import { installSelfTouch } from "./selftouch";
@@ -320,6 +321,7 @@ safely("orgasm denial hooks", () => installDenial(modApi));
 // "follow me", with no leash item, and has a hypnotist's ECHS call their followers on a room
 // change. Both halves live in follow.ts.
 safely("follow-leash hook", () => installFollow(modApi));
+safely("ECHS icon over players", () => installBadge(modApi));
 
 safely("/echs command registration", installCommands);
 safely("preference menu registration", installMenu);

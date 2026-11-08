@@ -49,7 +49,7 @@ For a worked example of these phrases used in a live scene, see [A Sample Sessio
 
 ## Induction and Deepening — Say Anything You Like
 
-**Nothing you say during the induction window has to match a rigid pattern.** The 60-second window following an induction attempt is dedicated to roleplay, and *every line you speak improves the roll outcome*, regardless of the exact words used. Set the scene, describe a swinging pendulum, count backwards — it all counts toward depth.
+**Nothing you say during the induction window has to match a rigid pattern.** The window following an induction attempt (60 seconds, unless the subject has set it shorter; your countdown shows it) is dedicated to roleplay, and *every line you speak improves the roll outcome*, regardless of the exact words used. Set the scene, describe a swinging pendulum, count backwards — it all counts toward depth.
 
 The pattern library below is strictly for triggering **effects**, not for building atmosphere. You do not need specific phrasing just to speak hypnotically.
 

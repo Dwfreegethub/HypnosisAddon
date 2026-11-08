@@ -59,9 +59,15 @@ import {
 	getPulseCustom,
 	setPulseCustom,
 	PULSE_COLORS,
+	ECHS_ICON_SPOTS,
+	getEchsIconSpot,
+	setEchsIconSpot,
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
+	getInductionSeconds,
+	setInductionSeconds,
+	nextInductionSeconds,
 	getToyScope,
 	setToyScope,
 } from "./storage";
@@ -247,15 +253,27 @@ const TABS: Tab[] = [
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
 			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
+			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
 		scrollExtra: {
-			height: pulseControlsHeight,
-			draw: drawPulseControls,
+			height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			draw: (top, width) => {
+				drawPulseControls(top, width);
+				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
+				drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+			},
 			click: (top) => {
-				if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
-				// Consumed either way: a locked button must not cycle.
-				if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
-				return true;
+				if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+					// Consumed either way: a locked button must not cycle.
+					if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+					return true;
+				}
+				if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+					ICON_SPOT_CONTROL.cycle();
+					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+					return true;
+				}
+				return false;
 			},
 			hide: removePulseHexInput,
 		},
@@ -692,6 +710,20 @@ const PULSE_COLOR_CONTROL: CycleControl = {
 	},
 };
 
+/** Where other players' ECHS icons are drawn (v1.7.0). Last on the Trance Defaults tab. */
+const ICON_SPOT_CONTROL: CycleControl = {
+	label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
+	caption: () =>
+		getEchsIconSpot() === "off"
+			? "You see no spiral over anyone. Others still see yours, if the box above is ticked."
+			: "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
+	tooltip: "Where the spiral over other ECHS players goes, or none",
+	cycle: () => {
+		const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
+		setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
+	},
+};
+
 // The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes
 // do, when it loses focus or on Enter, and refuses out loud rather than quietly keeping the old colour.
 const PULSE_HEX_ID = "HypnosisAddonPulseHex";
@@ -758,6 +790,16 @@ function drawPulseControls(top: number, width: number): void {
 
 const PERMISSION_CYCLES: CycleControl[] = [
 	{
+		// v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
+		label: () => `Induction time: ${getInductionSeconds()} seconds`,
+		caption: () =>
+			getInductionSeconds() >= 60
+				? "How long someone has to put you under before it lands or misses. Toy mode waits it too."
+				: "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
+		tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
+		cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds())),
+	},
+	{
 		label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
 		caption: () =>
 			getDefaultStance() === "prompt"
@@ -781,9 +823,9 @@ const PERMISSION_CYCLES: CycleControl[] = [
 		label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
 		caption: () =>
 			getToyMode()
-				? "No roll: they put you straight under to your \"sink deeper\" limit, triggers included."
+				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers included."
 				: "Every induction rolls as usual.",
-		tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+		tooltip: "Let the people below put you under with no roll and no limit on tries",
 		cycle: () => setToyMode(!getToyMode()),
 	},
 ];

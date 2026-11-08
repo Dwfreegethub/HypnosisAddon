@@ -51,6 +51,7 @@ import {
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
+import { describeIcons } from "./badge";
 import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import {
@@ -878,6 +879,12 @@ const COMMANDS: HypnoCommand[] = [
 			asking.forEach((id) => askPlanted(id));
 			setTimeout(print, PLANTED_ASK_MS);
 		},
+	},
+	{
+		Tag: "icons",
+		group: "Diagnostics",
+		Description: "Why the spiral over ECHS players is or isn't showing on your screen",
+		Action: () => describeIcons().forEach(reply),
 	},
 	{
 		Tag: "storage",

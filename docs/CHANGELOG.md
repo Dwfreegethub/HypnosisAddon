@@ -20,6 +20,98 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-08 (v1.7.3 RC) — the spiral's hover label: version only, small
+
+DW, after seeing it live: a smaller font, and no name, since the icon is already over the person.
+Now `ECHS v<version>` (or `ECHS (older version)`) at a fixed 20 px, in a box sized to the text.
+Drawn with `DrawText` under a saved and restored `MainCanvas.font`, because BC's `DrawTextFit`
+(R133 Drawing.js:990) starts at 36 px and only shrinks to fit the width.
+
+### Fixed 2026-11-08 (v1.7.2 RC) — /echs icons names BCT's hover setting
+
+The cause of DW's missing spiral: BCT's "all icons only on hover" (`Player.BCT.bctSettings.
+allIconOnlyShowOnHover`), which `patchFunction`s BC's `ChatRoomHideIconState == SHOW_ALL` check in
+`ChatRoomCharacterViewDrawOverlay` to need the mouse over the top 70 px of a character. BC then
+never calls `ChatRoomDrawCharacterStatusIcons`, so our hook never runs. BCT's own hearts are drawn
+from its separate overlay hook, outside that check, which is why some icons still showed. Hypno
+Helper, without that setting, saw the spirals. Decided: honour it, since it is the player's own
+choice to hide every icon until hover; `/echs icons` now names it, reading BCT's setting only, and
+the wiki says so. No change to drawing.
+
+### Fixed 2026-11-08 (v1.7.1 RC) — the icon says why it isn't showing
+
+DW's first live look at v1.7.0 (`Capture.PNG`, Missy and another player on 1.7.0): no spiral over
+either, **including Missy's own**, which needs no message from anyone, so the drawing itself was not
+happening. Reading found no cause: the hook and settings check out, the bundle is right, the mod SDK
+allows several hooks from one mod, and the live game, **R133**, still calls
+`ChatRoomDrawCharacterStatusIcons` from `ChatRoomCharacterViewDrawOverlay` with `DrawCircle`,
+`DrawImageResize`, `DrawRect` and `DrawTextFit` intact (fetched from the live server: the local
+clone is still R132, and `git pull` fails with a connection reset).
+
+What did stand out is that the draw hook **swallowed every error** (rule 5), and `installBadge` put
+three hooks behind one `safely()`, so a throw on the first would have left the draw hook missing
+without a word on screen. Now each hook is installed and recorded on its own, the last drawing
+error is kept with its time, and `/echs icons` reports: which hooks took, how many times BC asked us
+to draw and how many times we drew, the last error, why a frame was skipped, both settings, BC's
+icon state, the game version, and who in the room has answered. No behaviour change otherwise.
+
+### Added 2026-11-08 (v1.7.0 RC) — the ECHS icon over players
+
+Biker asked twice (10-22, 11-02) and Lianne once (11-07) for a sign over ECHS players. DW's worry was
+landing on another add-on's icon, since each add-on picks its own spot and there is no registry.
+
+**Where.** Every add-on in FUSAM's manifest (45) was downloaded as served and searched for what it
+draws over characters; 22 draw something. The full map is `docs/addon-icon-survey.md`. The top row
+is BC's own icons at 30-190 and 310-430, with BCT, Secret Prison, MBCHC and BC+ on the left and
+WCE, MoonCE, BCX, LSCG, Echo and BC Neko on the right. **x 228-258 is the one slot nobody uses**,
+between BC+ (to 226) and WCE's text (from about 260). The second choice, below the row on the far
+left (x 10-50, y 45-85), is also empty. DW's decisions: default on; the spiral; the viewer picks the
+spot (Top row / Below, on the left / Off), because a clash depends on which add-ons the viewer runs.
+KikiLink, which lets its badge be dragged, is the same idea taken further.
+
+**Who.** `state-query` and `state-response` now carry `version` and `showIcon`. On a new room this
+client asks the whole room once (the same room at most once a minute); everyone answers the asker,
+and the ask itself tells them about us. Someone who arrives on an older build never asks, so after
+4 s unheard they are asked directly. An older build's messages carry no `showIcon` and count as
+showing it. The room-wide ask comes back to the sender and is now ignored there (`remote.ts`).
+
+**Rule 1.** "Show others that I run ECHS" is hers: off, her client still answers (the hypnotist's
+panel needs to know ECHS is running) but says not to draw it, and changing it re-tells the room.
+The spot is a display choice that changes nothing about her, so the Extreme lock does not grey it.
+
+**Drawing.** After BC's `ChatRoomDrawCharacterStatusIcons`, which BC only calls while every icon is
+shown, so BC's hide-icons button hides ours too. A light disc behind the spiral, 30 at room scale.
+
+**Tests.** `test/echs-icon.mjs`, 29 checks. Three deliberate mutations of the built code (wrong
+slot, ignoring `showIcon`, answering our own ask) each fail it.
+
+### Added 2026-11-08 (v1.6.0 RC) — induction time, and toy mode takes one
+
+DW's note on `script_test.md` B.1 (v1.5.0): in toy mode there was no pause, so the hypnotist could
+tell. DW's decisions (2026-11-08): toy mode runs an induction; its length is a setting; the setting
+applies to **every** induction, not only toy mode; default and maximum 60 s, minimum 10 s (not 0, so
+toy mode never looks instant).
+
+**Setting.** `inductionSeconds` in storage, sparse (absent = 60), one of 60/45/30/20/10 on a
+click-to-cycle row at the top of the Inductions tab's answer-for-me rows (a typed box would have been
+another DOM control to hide and show inside the scroll area). `getInductionSeconds()` clamps anything
+else into 10-60, so an import with an odd value still lands somewhere sane. Read when the window
+opens and fixed for that window. Locked by the Extreme lock like its neighbours; the templates
+leave it at 60.
+
+**Toy mode.** `toyInduction` now marks the session `toy` and opens the ordinary window
+(`beginInductionWindow`: the presence gate, the room line, the presence watch). `runInductionRoll`
+lands it via `toyLand` instead of rolling. A choice typed mid-window is answered "it takes you
+whatever you do" (rule 5) rather than "you brace against it", which would have been a lie.
+
+**Countdown.** `session-update` sent `windowRemaining: 60000` on every push during a window, so any
+mid-window update restarted the hypnotist's countdown at a minute. It now sends the time really left
+(`windowEndsAt`), which a shorter window needed anyway.
+
+**Tests.** `induction.mjs` matches the window to the setting (so a window of the wrong length fails),
+adds the safeword mid-window, the fight message, the steps and clamp, and the countdown at 30 s and
+12 s in. `menu-layout.mjs` scrolls each of the five rows into view, since they no longer all fit.
+
 ### Fixed 2026-11-08 (v1.5.2 RC) — each command's beat follows the last; a stale "just now"
 
 Both from DW's live run of `script_test.md` on v1.5.1.

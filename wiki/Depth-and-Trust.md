@@ -46,7 +46,7 @@ Since v0.97, **how deep you go depends on who the hypnotist is to you**, not on 
 
 **Going deeper once under:** A hypnotist can say *"Missy, sink deeper"* to take you further, as a roll, at most once a minute and only after a suggestion of theirs has landed. Shallow, one success goes a long way; already deep, only a little. Your Inductions tab's *"Sink deeper" stops at* setting is how far it can go (Entranced unless you change it, or off). It never raises earned depth. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
-**Answering for yourself, and toy mode:** You can answer every induction ahead of time, choose what happens while you are away from the keyboard, and let the people you choose put you straight under with no roll. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
+**Answering for yourself, and toy mode:** You can answer every induction ahead of time, choose what happens while you are away from the keyboard, and let the people you choose put you under with no roll. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
 Want to see exactly where you and a partner stand? Type:
 

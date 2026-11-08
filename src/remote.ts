@@ -1,6 +1,7 @@
 import { log } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
+import { notePeer, presenceFields } from "./badge";
 import { getFeatures } from "./storage";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import { drawLeftTextFit } from "./panel";
@@ -335,10 +336,15 @@ export function installRemote(modApi: any): void {
 	// --- Incoming message handling: this client as the SUBJECT being remoted ---
 
 	registerHiddenHandler("state-query", (sender, message) => {
+		// Our own room-wide ask (badge.ts) comes back to us too. Nothing to answer.
+		if (sender === Player?.MemberNumber) return;
+		// Whoever asks runs ECHS (badge.ts). A room-wide ask is answered to the asker alone.
+		notePeer(sender, message);
 		sendHiddenMessage(
 			{
 				type: "state-response",
 				hypnoEnabled: getFeatures().hypnoEnabled,
+				...presenceFields(),
 				// Theirs only, and only if they asked. See planted.ts.
 				...(message.planted ? { planted: plantedEntriesFor(sender) } : {}),
 			},
@@ -348,6 +354,7 @@ export function installRemote(modApi: any): void {
 
 	registerHiddenHandler("state-response", (sender, message) => {
 		repliedToProbe.add(sender);
+		notePeer(sender, message);
 		if (message.planted !== undefined) receivePlanted(sender, findCharacterName(sender), message.planted);
 	});
 

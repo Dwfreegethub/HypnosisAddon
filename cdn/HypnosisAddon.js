@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.5.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.7.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3696,6 +3696,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/session.ts
+  function inductionWindowMs() {
+    return getInductionSeconds() * 1e3;
+  }
   function freshSession() {
     return {
       phase: "Idle",
@@ -3714,6 +3717,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       promptExpiresAt: 0,
       rpLines: 0,
       lastRpLine: "",
+      windowEndsAt: 0,
+      toy: false,
       honouredSkill: 0
     };
   }
@@ -3801,7 +3806,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         progressBand: session.phase === "AttemptFailed" ? progressBand(session.progress) : null,
         depthBand: session.phase === "Hypnotized" ? depthBand(session.depth) : null,
         cooldownRemaining: Math.max(0, session.cooldownUntil - now),
-        windowRemaining: session.phase === "InductionInProgress" ? INDUCTION_WINDOW_MS : 0,
+        windowRemaining: session.phase === "InductionInProgress" ? Math.max(0, session.windowEndsAt - now) : 0,
         refusedReason: refusedReason ?? null,
         ended: ended ?? null
       },
@@ -4122,6 +4127,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lapseInduction("left before it could land");
       return;
     }
+    if (session.toy) {
+      toyLand();
+      return;
+    }
     const choice = session.choice ?? "ignore";
     const chance = inductionChance(session.hypnotistId, choice);
     const roll = Math.random() * 100;
@@ -4186,6 +4195,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function toyInduction(who) {
     session.choice = "agree";
+    session.toy = true;
+    notify(`${who} reaches for you, and you let it take you: toy mode. You go under in ${getInductionSeconds()} seconds. /echs safeword stops it.`);
+    beginInductionWindow();
+    log(`toy mode: ${who} [${session.hypnotistId}] started, landing in ${getInductionSeconds()}s`);
+  }
+  function toyLand() {
+    const who = hypnotistLabel();
     const key = getDeepestTier();
     let full, earned;
     if (key === "never") {
@@ -4196,7 +4212,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       full = earned = Math.min(LANDED_DEPTH_MAX, ceilingDepth(TIER_ORDER.indexOf(key)));
     }
     enterTrance(full, earned);
-    notify(`${who} reaches for you, and you are theirs at once. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
+    notify(`You are theirs. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
     announceTranceEnter();
     pushUpdate();
     persistState();
@@ -4207,7 +4223,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const lines = [];
     if (getToyMode()) {
       lines.push(
-        `  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} \u2014 ` + (toyModeFor(memberId) ? "they would put you straight under, no roll" : "not for them")
+        `  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} \u2014 ` + (toyModeFor(memberId) ? `they would put you under, no roll, after your ${getInductionSeconds()}s induction` : "not for them")
       );
     }
     if (getDefaultStance() !== "prompt") lines.push(`  your auto-answer: ${label(DEFAULT_STANCES, getDefaultStance())}`);
@@ -4497,7 +4513,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.rpLines = 0;
     session.lastRpLine = "";
     if (windowTimer) clearTimeout(windowTimer);
-    windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
+    const windowMs = inductionWindowMs();
+    session.windowEndsAt = Date.now() + windowMs;
+    windowTimer = setTimeout(runInductionRoll, windowMs);
     startPresenceWatch();
     pushUpdate();
   }
@@ -4537,6 +4555,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (session.phase === "InductionInProgress") {
+      if (session.toy) {
+        notify("Toy mode: it takes you whatever you do now. /echs safeword stops it.");
+        return;
+      }
       session.choice = choice;
       notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
       return;
@@ -4870,7 +4892,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
     });
   }
-  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var PROMPT_TIMEOUT_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
@@ -4895,7 +4917,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_effects();
       init_follow();
       PROMPT_TIMEOUT_MS = 6e4;
-      INDUCTION_WINDOW_MS = 6e4;
       maxAttempts = () => getMaxAttempts();
       COOLDOWN_MS = 10 * 6e4;
       timeoutMinutes = () => extremeLocked() ? EXTREME_SESSION_MINUTES : 30;
@@ -5031,6 +5052,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tranceCannotSpeak: true,
       tranceScreenFade: true,
       commandPulse: true,
+      showEchsIcon: true,
       roomSeesReactions: true,
       // The one trance default that starts off — see the note on the interface.
       tranceClothingFreeze: false
@@ -5086,6 +5108,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.defaultStance !== void 0 && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
     if (s.awayStance !== void 0 && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
     if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
+    if (s.inductionSeconds !== void 0 && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
     if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
@@ -5504,6 +5527,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function nextAwayStance(current) {
     return cycle(AWAY_STANCES, current);
   }
+  function getInductionSeconds() {
+    const v = loadSettings().inductionSeconds;
+    return typeof v === "number" && Number.isFinite(v) ? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(v))) : DEFAULT_INDUCTION_SECONDS;
+  }
+  function setInductionSeconds(seconds2) {
+    const value = Number.isFinite(seconds2) ? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(seconds2))) : DEFAULT_INDUCTION_SECONDS;
+    const s = loadSettings();
+    if (value === DEFAULT_INDUCTION_SECONDS) delete s.inductionSeconds;
+    else s.inductionSeconds = value;
+    saveSettings();
+    return value;
+  }
+  function nextInductionSeconds(current) {
+    const i = INDUCTION_TIMES.indexOf(current);
+    return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
+  }
   function getToyMode() {
     return loadSettings().toyMode === true;
   }
@@ -5520,6 +5559,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function resetSkillHonour() {
     delete loadSettings().skillHonour;
+    saveSettings();
+  }
+  function getEchsIconSpot() {
+    const v = loadSettings().echsIconSpot;
+    return ECHS_ICON_SPOTS.some((s) => s.key === v) ? v : "top";
+  }
+  function setEchsIconSpot(key) {
+    const s = loadSettings();
+    if (key === "top") delete s.echsIconSpot;
+    else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
     saveSettings();
   }
   function getPulseColor() {
@@ -5634,7 +5683,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5733,6 +5782,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       DEFAULT_TOY_SCOPE = "lovers";
       OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
       cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      INDUCTION_TIMES = [60, 45, 30, 20, 10];
+      DEFAULT_INDUCTION_SECONDS = 60;
+      MIN_INDUCTION_SECONDS = 10;
       PULSE_COLORS = [
         { key: "pink", label: "Pink", rgb: "255, 105, 180" },
         { key: "purple", label: "Purple", rgb: "170, 90, 255" },
@@ -5742,6 +5794,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "custom", label: "Custom", rgb: "" }
       ];
       DEFAULT_PULSE_CUSTOM = "#FF69B4";
+      ECHS_ICON_SPOTS = [
+        { key: "top", label: "Top row" },
+        { key: "left", label: "Below, on the left" },
+        { key: "off", label: "Off" }
+      ];
       MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
@@ -7946,8 +8003,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (/^feel\b/.test(m[0])) continue;
         const mine = new RegExp(`^my ${part}\\b`).exec(rest);
         if (mine) return { activity: v.activity, target: "me", word: mine[1] };
-        const me = hit(rest, "me");
-        if (me) return { activity: v.activity, target: "me", ...me };
+        const me2 = hit(rest, "me");
+        if (me2) return { activity: v.activity, target: "me", ...me2 };
         for (const n of names) {
           const got = hit(rest, n);
           if (got) return { activity: v.activity, target: n, ...got };
@@ -9398,6 +9455,168 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/badge.ts
+  function me() {
+    return typeof Player === "object" ? Player?.MemberNumber : void 0;
+  }
+  function presenceFields() {
+    return { version: "1.7.3", showIcon: getFeatures().showEchsIcon !== false };
+  }
+  function notePeer(sender, message) {
+    if (sender === me()) return;
+    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
+    const known = peers.get(sender);
+    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+  }
+  function announce2() {
+    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
+    lastAnnounceAt = Date.now();
+    announcedShow = getFeatures().showEchsIcon !== false;
+    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
+    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
+  }
+  function onRoomSync() {
+    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
+    if (key !== roomKey) {
+      roomKey = key;
+      peers.clear();
+      askedAfterJoin.clear();
+      announce2();
+      return;
+    }
+    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
+  }
+  function onMemberJoin(member) {
+    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
+    askedAfterJoin.add(member);
+    setTimeout(() => {
+      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
+    }, ARRIVAL_ASK_MS);
+  }
+  function isInRoom(member) {
+    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
+  }
+  function iconFor(C) {
+    if (!C || typeof C.MemberNumber !== "number") return null;
+    if (C.MemberNumber === me()) {
+      return getFeatures().showEchsIcon !== false ? { version: "1.7.3", show: true } : null;
+    }
+    const peer = peers.get(C.MemberNumber);
+    return peer && peer.show ? peer : null;
+  }
+  function drawIcon(C, charX, charY, zoom) {
+    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
+    const spot = ICON_SPOTS[getEchsIconSpot()];
+    if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
+    if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");
+    const peer = iconFor(C);
+    if (!peer) return;
+    diag.drawn++;
+    const size = ICON_SIZE * zoom;
+    const x = charX + spot.x * zoom;
+    const y = charY + spot.y * zoom;
+    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
+    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
+    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
+      const text2 = `ECHS ${peer.version ? `v${peer.version}` : "(older version)"}`;
+      MainCanvas.save();
+      MainCanvas.font = CommonGetFont(HOVER_FONT_SIZE);
+      MainCanvas.textAlign = "center";
+      MainCanvas.textBaseline = "middle";
+      const w = Math.ceil(MainCanvas.measureText(text2).width) + 16;
+      const h = HOVER_FONT_SIZE + 10;
+      const cx = x + size / 2;
+      DrawRect(cx - w / 2, y + size + 4, w, h, "rgba(0, 0, 0, 0.75)");
+      DrawText(text2, cx, y + size + 4 + h / 2, "White");
+      MainCanvas.restore();
+    }
+  }
+  function hook(modApi2, name, priority, fn) {
+    try {
+      modApi2.hookFunction(name, priority, fn);
+      diag.hooked.push(name);
+    } catch (err) {
+      diag.hookFailed.push(`${name}: ${String(err?.message ?? err).slice(0, 120)}`);
+    }
+  }
+  function bctHoverOnly() {
+    try {
+      return Player?.BCT?.bctSettings?.allIconOnlyShowOnHover === true;
+    } catch {
+      return false;
+    }
+  }
+  function describeIcons() {
+    const lines = [];
+    lines.push(`ECHS icons: hooked ${diag.hooked.join(", ") || "nothing"}${diag.hookFailed.length ? `; FAILED ${diag.hookFailed.join("; ")}` : ""}.`);
+    lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
+    if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1e3)}s ago: ${diag.lastError}`);
+    if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
+    if (bctHoverOnly()) lines.push("BCT is set to show icons only on hover, so the spiral shows only while your mouse is over the top of a character. That setting is in BCT's own settings.");
+    lines.push(
+      `Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. BC icons shown: ${typeof ChatRoomHideIconState === "number" ? ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})` : "unknown"}. Game ${typeof GameVersion === "string" ? GameVersion : "?"}.`
+    );
+    const here = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.filter((c) => c?.MemberNumber !== me()) : [];
+    if (!here.length) lines.push("Nobody else is in the room.");
+    for (const c of here) {
+      const p = peers.get(c.MemberNumber);
+      lines.push(`  ${c.Nickname || c.Name} (#${c.MemberNumber}): ${p ? `ECHS ${p.version ? `v${p.version}` : "(older)"}${p.show ? "" : ", chose to hide it"}` : "not heard from (no ECHS, or not answered yet)"}`);
+    }
+    return lines;
+  }
+  function installBadge(modApi2) {
+    hook(modApi2, "ChatRoomSync", 10, (args, next) => {
+      const result = next(args);
+      try {
+        onRoomSync();
+      } catch (err) {
+        log("ECHS icon: room sync failed", err);
+      }
+      return result;
+    });
+    hook(modApi2, "ChatRoomSyncMemberJoin", 10, (args, next) => {
+      const result = next(args);
+      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
+      return result;
+    });
+    hook(modApi2, "ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
+      const result = next(args);
+      diag.calls++;
+      try {
+        const [C, x, y, zoom] = args;
+        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
+        else diag.lastSkip = `BC passed no position (${typeof x}, ${typeof y})`;
+      } catch (err) {
+        diag.lastError = String(err?.stack ?? err).slice(0, 300);
+        diag.lastErrorAt = Date.now();
+      }
+      return result;
+    });
+  }
+  var ICON_SPOTS, ICON_SIZE, HOVER_FONT_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, diag, ARRIVAL_ASK_MS;
+  var init_badge = __esm({
+    "src/badge.ts"() {
+      init_log();
+      init_messaging();
+      init_storage();
+      init_icon();
+      ICON_SPOTS = {
+        top: { x: 228, y: 2 },
+        left: { x: 15, y: 50 }
+      };
+      ICON_SIZE = 30;
+      HOVER_FONT_SIZE = 20;
+      peers = /* @__PURE__ */ new Map();
+      roomKey = "";
+      lastAnnounceAt = 0;
+      announcedShow = null;
+      askedAfterJoin = /* @__PURE__ */ new Set();
+      REANNOUNCE_MS = 6e4;
+      diag = { hooked: [], hookFailed: [], calls: 0, drawn: 0, lastError: "", lastErrorAt: 0, lastSkip: "" };
+      ARRIVAL_ASK_MS = 4e3;
+    }
+  });
+
   // src/panel.ts
   function tabTop(index) {
     return PANEL_TOP + index * (TAB_HEIGHT + TAB_GAP);
@@ -9902,7 +10121,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("with no key, click or touch you count as away, and your away"),
       body("setting decides: turn them away (the default), Ignore, or keep it."),
       body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
-      body('you straight under to your "sink deeper" limit: no roll, no tries.'),
+      body('you under to your "sink deeper" limit when the induction time is up:'),
+      body("no roll, no tries. Induction time (60 seconds, or as low as 10) is"),
+      body("how long every induction runs, toy mode's too."),
       dim("Toy mode reaches triggers too. The safeword always works."),
       gap(),
       head("Their skill, and whether you believe it"),
@@ -11501,7 +11722,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11568,7 +11789,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11843,7 +12064,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -11921,15 +12142,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
             { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
-            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" }
+            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
+            { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
           ],
           scrollExtra: {
-            height: pulseControlsHeight,
-            draw: drawPulseControls,
+            height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+            draw: (top, width) => {
+              drawPulseControls(top, width);
+              drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+            },
             click: (top) => {
-              if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
-              if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
-              return true;
+              if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+                if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+                return true;
+              }
+              if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+                ICON_SPOT_CONTROL.cycle();
+                log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+                return true;
+              }
+              return false;
             },
             hide: removePulseHexInput
           }
@@ -12068,12 +12300,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
           pulseHexError = "";
         }
       };
+      ICON_SPOT_CONTROL = {
+        label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
+        caption: () => getEchsIconSpot() === "off" ? "You see no spiral over anyone. Others still see yours, if the box above is ticked." : "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
+        tooltip: "Where the spiral over other ECHS players goes, or none",
+        cycle: () => {
+          const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
+          setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
+        }
+      };
       PULSE_HEX_ID = "HypnosisAddonPulseHex";
       PULSE_HEX_LABEL_WIDTH = 200;
       PULSE_HEX_WIDTH = 220;
       PULSE_SWATCH_SIZE = 50;
       pulseHexError = "";
       PERMISSION_CYCLES = [
+        {
+          // v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
+          label: () => `Induction time: ${getInductionSeconds()} seconds`,
+          caption: () => getInductionSeconds() >= 60 ? "How long someone has to put you under before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
+          tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
+          cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds()))
+        },
         {
           label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
           caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
@@ -12088,8 +12336,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
-          caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
-          tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+          caption: () => getToyMode() ? 'No roll: when your induction time is up, you go under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
+          tooltip: "Let the people below put you under with no roll and no limit on tries",
           cycle: () => setToyMode(!getToyMode())
         }
       ];
@@ -12392,6 +12640,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       init_recovery();
       init_extreme();
+      init_badge();
       init_planted();
       init_menu();
       init_depth();
@@ -12815,6 +13064,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
             asking.forEach((id) => askPlanted(id));
             setTimeout(print, PLANTED_ASK_MS);
           }
+        },
+        {
+          Tag: "icons",
+          group: "Diagnostics",
+          Description: "Why the spiral over ECHS players is or isn't showing on your screen",
+          Action: () => describeIcons().forEach(reply)
         },
         {
           Tag: "storage",
@@ -13528,10 +13783,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function installRemote(modApi2) {
     registerHiddenHandler("state-query", (sender, message) => {
+      if (sender === Player?.MemberNumber) return;
+      notePeer(sender, message);
       sendHiddenMessage(
         {
           type: "state-response",
           hypnoEnabled: getFeatures().hypnoEnabled,
+          ...presenceFields(),
           // Theirs only, and only if they asked. See planted.ts.
           ...message.planted ? { planted: plantedEntriesFor(sender) } : {}
         },
@@ -13540,6 +13798,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     registerHiddenHandler("state-response", (sender, message) => {
       repliedToProbe.add(sender);
+      notePeer(sender, message);
       if (message.planted !== void 0) receivePlanted(sender, findCharacterName2(sender), message.planted);
     });
     registerHiddenHandler("remote-request", (sender, message) => {
@@ -13556,14 +13815,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         next([]);
         const C = getViewedOtherCharacter();
         if (C) {
-          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
+          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
           if (SPIRAL_ICON) {
             DrawImageResize(
               SPIRAL_ICON,
               ICON_LEFT + ICON_INSET,
               ICON_TOP + ICON_INSET,
-              ICON_SIZE - 2 * ICON_INSET,
-              ICON_SIZE - 2 * ICON_INSET
+              ICON_SIZE2 - 2 * ICON_INSET,
+              ICON_SIZE2 - 2 * ICON_INSET
             );
           }
         }
@@ -13578,7 +13837,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         const C = getViewedOtherCharacter();
-        if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE)) {
+        if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2)) {
           openRemoteFor(C);
           return;
         }
@@ -13599,12 +13858,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
-  var ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
+  var ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
       init_icon();
       init_messaging();
+      init_badge();
       init_storage();
       init_help();
       init_panel();
@@ -13612,7 +13872,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       ICON_LEFT = 90;
       ICON_TOP = 130;
-      ICON_SIZE = 60;
+      ICON_SIZE2 = 60;
       ICON_INSET = 8;
       SUB_EXIT_LEFT = 1815;
       SUB_EXIT_TOP = 75;
@@ -13840,7 +14100,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.5.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13861,7 +14121,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.5.2"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.7.3"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13924,6 +14184,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_suppression();
       init_conceal();
       init_follow();
+      init_badge();
       init_triggers();
       init_drugs();
       init_selftouch();
@@ -13933,14 +14194,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.5.2"})`);
+      info(`script loaded (v${"1.7.3"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.5.2",
+          version: "1.7.3",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14066,6 +14327,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("self-touch hook", () => installSelfTouch(modApi));
       safely("orgasm denial hooks", () => installDenial(modApi));
       safely("follow-leash hook", () => installFollow(modApi));
+      safely("ECHS icon over players", () => installBadge(modApi));
       safely("/echs command registration", installCommands);
       safely("preference menu registration", installMenu);
       safely("remote (Information Sheet) registration", () => installRemote(modApi));
@@ -14079,10 +14341,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.5.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.5.2";
+    page2.__ECHS_LOADED__ = "1.7.3";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
