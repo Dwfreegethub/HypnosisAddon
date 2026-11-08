@@ -20,6 +20,13 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-08 (v1.7.3 RC) — the spiral's hover label: version only, small
+
+DW, after seeing it live: a smaller font, and no name, since the icon is already over the person.
+Now `ECHS v<version>` (or `ECHS (older version)`) at a fixed 20 px, in a box sized to the text.
+Drawn with `DrawText` under a saved and restored `MainCanvas.font`, because BC's `DrawTextFit`
+(R133 Drawing.js:990) starts at 36 px and only shrinks to fit the width.
+
 ### Fixed 2026-11-08 (v1.7.2 RC) — /echs icons names BCT's hover setting
 
 The cause of DW's missing spiral: BCT's "all icons only on hover" (`Player.BCT.bctSettings.
