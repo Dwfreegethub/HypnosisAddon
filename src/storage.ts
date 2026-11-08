@@ -437,6 +437,9 @@ export interface FeatureToggles {
 	/** A glow and a light wash of colour over the room view when a spoken command lands or a trigger
 	 * fires (JAX, 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
 	commandPulse: boolean;
+	/** Let other ECHS players see a spiral over you in a room (v1.7.0; Biker, Lianne; DW 2026-11-08:
+	 * on by default). Off, your client still answers their panel, but says not to draw the icon. */
+	showEchsIcon: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *
 	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
@@ -517,6 +520,8 @@ interface HypnoAddonSettings {
 	extremeLockUntil?: number;
 	/** The command pulse's colour, one of PULSE_COLORS. Absent means the default. */
 	pulseColor?: string;
+	/** Where she sees OTHER players' ECHS icons, one of ECHS_ICON_SPOTS (v1.7.0). Absent means "top". */
+	echsIconSpot?: string;
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -587,6 +592,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
 		commandPulse: true,
+		showEchsIcon: true,
 		roomSeesReactions: true,
 		// The one trance default that starts off — see the note on the interface.
 		tranceClothingFreeze: false,
@@ -1410,6 +1416,24 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "custom", label: "Custom", rgb: "" },
 ];
 export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+/** Where the ECHS icon goes over other players (v1.7.0). The viewer's choice, because a clash
+ * depends on which add-ons the VIEWER runs (docs/addon-icon-survey.md). */
+export const ECHS_ICON_SPOTS: { key: string; label: string }[] = [
+	{ key: "top", label: "Top row" },
+	{ key: "left", label: "Below, on the left" },
+	{ key: "off", label: "Off" },
+];
+export function getEchsIconSpot(): string {
+	const v = loadSettings().echsIconSpot;
+	return ECHS_ICON_SPOTS.some((s) => s.key === v) ? (v as string) : "top";
+}
+export function setEchsIconSpot(key: string): void {
+	const s = loadSettings();
+	if (key === "top") delete s.echsIconSpot;
+	else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+	saveSettings();
+}
 
 export function getPulseColor(): string {
 	return loadSettings().pulseColor ?? PULSE_COLORS[0].key;

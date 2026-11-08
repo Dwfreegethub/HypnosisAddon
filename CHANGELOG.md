@@ -12,6 +12,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.7.0 RC · 8 November 2026
+
+- **See who else runs ECHS.** In a room, a small spiral now shows over each player who runs ECHS.
+  Hover it to see their name and ECHS version. It sits in a gap between Bondage Club's own icons
+  and other add-ons' icons; Bondage Club's hide-icons button hides it too.
+- **Your choice, both ways.** On the Trance Defaults tab, **Show others that I run ECHS** (on unless
+  you untick it) decides whether others see yours, and **ECHS icons over others** decides where you
+  see theirs: in the top row, below it on the left if another add-on's icon covers it, or not at all.
+
 ## v1.6.0 RC · 8 November 2026
 
 - **Choose how long an induction takes.** The Inductions tab has a new **Induction time** setting:

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.6.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.7.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5052,6 +5052,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tranceCannotSpeak: true,
       tranceScreenFade: true,
       commandPulse: true,
+      showEchsIcon: true,
       roomSeesReactions: true,
       // The one trance default that starts off — see the note on the interface.
       tranceClothingFreeze: false
@@ -5560,6 +5561,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     delete loadSettings().skillHonour;
     saveSettings();
   }
+  function getEchsIconSpot() {
+    const v = loadSettings().echsIconSpot;
+    return ECHS_ICON_SPOTS.some((s) => s.key === v) ? v : "top";
+  }
+  function setEchsIconSpot(key) {
+    const s = loadSettings();
+    if (key === "top") delete s.echsIconSpot;
+    else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+    saveSettings();
+  }
   function getPulseColor() {
     return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
   }
@@ -5672,7 +5683,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5783,6 +5794,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "custom", label: "Custom", rgb: "" }
       ];
       DEFAULT_PULSE_CUSTOM = "#FF69B4";
+      ECHS_ICON_SPOTS = [
+        { key: "top", label: "Top row" },
+        { key: "left", label: "Below, on the left" },
+        { key: "off", label: "Off" }
+      ];
       MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
@@ -7987,8 +8003,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (/^feel\b/.test(m[0])) continue;
         const mine = new RegExp(`^my ${part}\\b`).exec(rest);
         if (mine) return { activity: v.activity, target: "me", word: mine[1] };
-        const me = hit(rest, "me");
-        if (me) return { activity: v.activity, target: "me", ...me };
+        const me2 = hit(rest, "me");
+        if (me2) return { activity: v.activity, target: "me", ...me2 };
         for (const n of names) {
           const got = hit(rest, n);
           if (got) return { activity: v.activity, target: n, ...got };
@@ -11544,7 +11560,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.6.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11611,7 +11627,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.6.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -11886,7 +11902,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -11964,15 +11980,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
             { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
-            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" }
+            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
+            { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
           ],
           scrollExtra: {
-            height: pulseControlsHeight,
-            draw: drawPulseControls,
+            height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+            draw: (top, width) => {
+              drawPulseControls(top, width);
+              drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+            },
             click: (top) => {
-              if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
-              if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
-              return true;
+              if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+                if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+                return true;
+              }
+              if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+                ICON_SPOT_CONTROL.cycle();
+                log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+                return true;
+              }
+              return false;
             },
             hide: removePulseHexInput
           }
@@ -12109,6 +12136,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
           setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
           pulseHexError = "";
+        }
+      };
+      ICON_SPOT_CONTROL = {
+        label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
+        caption: () => getEchsIconSpot() === "off" ? "You see no spiral over anyone. Others still see yours, if the box above is ticked." : "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
+        tooltip: "Where the spiral over other ECHS players goes, or none",
+        cycle: () => {
+          const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
+          setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
         }
       };
       PULSE_HEX_ID = "HypnosisAddonPulseHex";
@@ -13378,6 +13414,120 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/badge.ts
+  function me() {
+    return typeof Player === "object" ? Player?.MemberNumber : void 0;
+  }
+  function presenceFields() {
+    return { version: "1.7.0", showIcon: getFeatures().showEchsIcon !== false };
+  }
+  function notePeer(sender, message) {
+    if (sender === me()) return;
+    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
+    const known = peers.get(sender);
+    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+  }
+  function announce2() {
+    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
+    lastAnnounceAt = Date.now();
+    announcedShow = getFeatures().showEchsIcon !== false;
+    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
+    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
+  }
+  function onRoomSync() {
+    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
+    if (key !== roomKey) {
+      roomKey = key;
+      peers.clear();
+      askedAfterJoin.clear();
+      announce2();
+      return;
+    }
+    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
+  }
+  function onMemberJoin(member) {
+    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
+    askedAfterJoin.add(member);
+    setTimeout(() => {
+      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
+    }, ARRIVAL_ASK_MS);
+  }
+  function isInRoom(member) {
+    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
+  }
+  function iconFor(C) {
+    if (!C || typeof C.MemberNumber !== "number") return null;
+    if (C.MemberNumber === me()) {
+      return getFeatures().showEchsIcon !== false ? { version: "1.7.0", show: true } : null;
+    }
+    const peer = peers.get(C.MemberNumber);
+    return peer && peer.show ? peer : null;
+  }
+  function drawIcon(C, charX, charY, zoom) {
+    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
+    const spot = ICON_SPOTS[getEchsIconSpot()];
+    if (!spot || !SPIRAL_ICON) return;
+    const peer = iconFor(C);
+    if (!peer) return;
+    const size = ICON_SIZE * zoom;
+    const x = charX + spot.x * zoom;
+    const y = charY + spot.y * zoom;
+    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
+    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
+    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
+      const name = String(C.Nickname || C.Name || `#${C.MemberNumber}`);
+      const text2 = `${name}: ECHS ${peer.version ? `v${peer.version}` : "(an older version)"}`;
+      DrawRect(x + size / 2 - 150, y + size + 6, 300, 40, "rgba(0, 0, 0, 0.75)");
+      DrawTextFit(text2, x + size / 2, y + size + 26, 290, "White");
+    }
+  }
+  function installBadge(modApi2) {
+    modApi2.hookFunction("ChatRoomSync", 10, (args, next) => {
+      const result = next(args);
+      try {
+        onRoomSync();
+      } catch (err) {
+        log("ECHS icon: room sync failed", err);
+      }
+      return result;
+    });
+    modApi2.hookFunction("ChatRoomSyncMemberJoin", 10, (args, next) => {
+      const result = next(args);
+      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
+      return result;
+    });
+    modApi2.hookFunction("ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
+      const result = next(args);
+      try {
+        const [C, x, y, zoom] = args;
+        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
+      } catch {
+      }
+      return result;
+    });
+  }
+  var ICON_SPOTS, ICON_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, ARRIVAL_ASK_MS;
+  var init_badge = __esm({
+    "src/badge.ts"() {
+      init_log();
+      init_messaging();
+      init_storage();
+      init_icon();
+      ICON_SPOTS = {
+        top: { x: 228, y: 2 },
+        left: { x: 15, y: 50 }
+      };
+      ICON_SIZE = 30;
+      peers = /* @__PURE__ */ new Map();
+      roomKey = "";
+      lastAnnounceAt = 0;
+      announcedShow = null;
+      askedAfterJoin = /* @__PURE__ */ new Set();
+      REANNOUNCE_MS = 6e4;
+      ARRIVAL_ASK_MS = 4e3;
+    }
+  });
+
   // src/remote.ts
   function presenceOf(memberNumber) {
     if (repliedToProbe.has(memberNumber) || getSessionView(memberNumber)) return "present";
@@ -13578,10 +13728,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function installRemote(modApi2) {
     registerHiddenHandler("state-query", (sender, message) => {
+      if (sender === Player?.MemberNumber) return;
+      notePeer(sender, message);
       sendHiddenMessage(
         {
           type: "state-response",
           hypnoEnabled: getFeatures().hypnoEnabled,
+          ...presenceFields(),
           // Theirs only, and only if they asked. See planted.ts.
           ...message.planted ? { planted: plantedEntriesFor(sender) } : {}
         },
@@ -13590,6 +13743,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     registerHiddenHandler("state-response", (sender, message) => {
       repliedToProbe.add(sender);
+      notePeer(sender, message);
       if (message.planted !== void 0) receivePlanted(sender, findCharacterName2(sender), message.planted);
     });
     registerHiddenHandler("remote-request", (sender, message) => {
@@ -13606,14 +13760,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         next([]);
         const C = getViewedOtherCharacter();
         if (C) {
-          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
+          DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
           if (SPIRAL_ICON) {
             DrawImageResize(
               SPIRAL_ICON,
               ICON_LEFT + ICON_INSET,
               ICON_TOP + ICON_INSET,
-              ICON_SIZE - 2 * ICON_INSET,
-              ICON_SIZE - 2 * ICON_INSET
+              ICON_SIZE2 - 2 * ICON_INSET,
+              ICON_SIZE2 - 2 * ICON_INSET
             );
           }
         }
@@ -13628,7 +13782,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         const C = getViewedOtherCharacter();
-        if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE)) {
+        if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2)) {
           openRemoteFor(C);
           return;
         }
@@ -13649,12 +13803,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
-  var ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
+  var ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
       init_icon();
       init_messaging();
+      init_badge();
       init_storage();
       init_help();
       init_panel();
@@ -13662,7 +13817,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       ICON_LEFT = 90;
       ICON_TOP = 130;
-      ICON_SIZE = 60;
+      ICON_SIZE2 = 60;
       ICON_INSET = 8;
       SUB_EXIT_LEFT = 1815;
       SUB_EXIT_TOP = 75;
@@ -13890,7 +14045,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.6.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13911,7 +14066,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.6.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.7.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13974,6 +14129,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_suppression();
       init_conceal();
       init_follow();
+      init_badge();
       init_triggers();
       init_drugs();
       init_selftouch();
@@ -13983,14 +14139,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.6.0"})`);
+      info(`script loaded (v${"1.7.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.6.0",
+          version: "1.7.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14116,6 +14272,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("self-touch hook", () => installSelfTouch(modApi));
       safely("orgasm denial hooks", () => installDenial(modApi));
       safely("follow-leash hook", () => installFollow(modApi));
+      safely("ECHS icon over players", () => installBadge(modApi));
       safely("/echs command registration", installCommands);
       safely("preference menu registration", installMenu);
       safely("remote (Information Sheet) registration", () => installRemote(modApi));
@@ -14129,10 +14286,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.6.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.6.0";
+    page2.__ECHS_LOADED__ = "1.7.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

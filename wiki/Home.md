@@ -16,6 +16,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 **Recent highlights:**
+* **See who else runs ECHS:** a small spiral over each ECHS player in the room, with their version on hover. You choose whether others see yours, and where you see theirs, on the Trance Defaults tab.
 * **Commands sink in:** a spoken command takes hold 2 to 5 seconds after it is said, with a pulse of colour you can change or switch off on the Trance Defaults tab. See **[What to Say](What-to-Say)**.
 * **What you planted:** hypnotists can list their triggers with `/echs planted <name>` or the **Planted triggers** button on the spiral panel. See **[Commands](Commands)**.
 * **A stronger Extreme:** while locked, triggers can only be added, the numbers are hidden and trances run 60 minutes. See **[The Extreme lock](Settings-Reference#the-extreme-lock)**.
