@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-08 (v1.5.1 RC) — a pose bondage blocks is refused, not queued
+
+DW's live run of `script_test.md` D2 (leg binder, "when I come back, you will kneel"): the room was
+told Missy knelt on each arrival, she could not, and she knelt when the binder came off.
+
+**Cause.** BC's `PoseSetActive` (R132 `Pose.js:201`) writes `ActivePose` with no check of what is
+worn. What is drawn is decided afterwards by `PoseRefresh`, which filters `ActivePose` through every
+item's `AllowActivePose` into `PoseMapping`. `setSuggestedPose` judged "landed" by `ActivePose`, so
+every known pose landed, the success line went out, and the wish sat in `ActivePose` until the item
+that blocked it was removed. The v1.4.0 refusal path (easy's report) never ran live for the same
+reason; the test stub modelled BC as ignoring a blocked pose, which BC does not do.
+
+**Fix.** Ask BC's `PoseAvailable` before writing, and judge the result by `PoseMapping`; if it is
+not drawn, put `ActivePose` back before anything goes to the room. `PoseAvailable`, not
+`PoseCanChangeUnaided`: the latter also refuses for Freeze and the owner's BlockChangePose rule, and
+a spoken command moving a held-still subject is settled (DW, 2026-09-26). The stub in
+`test/compulsion-refused.mjs` now behaves as BC does; on the old code it fails 10 of 19.
+
 ### Added 2026-11-05 (v1.5.0 RC) — trust list search and a [x] on each row
 
 Senge and Eri asked for a search; Valerie for a button instead of typing `/echs forgettrust`.

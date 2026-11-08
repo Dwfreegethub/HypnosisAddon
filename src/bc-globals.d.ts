@@ -82,6 +82,10 @@ declare const InformationSheetSelection: any;
 // Only sets the pose locally — the room is told separately via
 // ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose }).
 declare function CharacterSetActivePose(character: any, poseName: string | null, forceChange?: boolean): void;
+/** R132 Pose.js:155. Reads only C.AllowedActivePoseMapping (what the worn items allow). */
+declare function PoseAvailable(character: any, category: string, poseName: string): boolean;
+/** R132 Pose.js: every pose BC knows, by name. */
+declare const PoseRecord: Record<string, { Name: string; Category: string }> | undefined;
 // BC's own message-handler extension point (ChatRoom.js). Priority decides where in the
 // pipeline the callback runs. Three return shapes, all three used here:
 //   true       stop processing entirely — the message never renders

@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.5.1 RC · 8 November 2026
+
+- **A pose your bondage blocks no longer happens behind your back.** If you were told to kneel (or
+  to take any other pose) while tied in something that stops it, the room could be told you knelt
+  when you hadn't, and then you would drop to your knees the moment the restraint came off. Now the
+  command simply doesn't land. A trigger that goes off by itself tells only you, once; a command
+  someone says aloud shows the room you trying and failing.
+
 ## v1.5.0 RC · 5 November 2026
 
 - **Search your trust list.** The Stats tab now has a **Find** box. Type part of someone's nickname,
