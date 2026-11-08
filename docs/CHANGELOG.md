@@ -20,6 +20,36 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-08 (v1.7.0 RC) — the ECHS icon over players
+
+Biker asked twice (10-22, 11-02) and Lianne once (11-07) for a sign over ECHS players. DW's worry was
+landing on another add-on's icon, since each add-on picks its own spot and there is no registry.
+
+**Where.** Every add-on in FUSAM's manifest (45) was downloaded as served and searched for what it
+draws over characters; 22 draw something. The full map is `docs/addon-icon-survey.md`. The top row
+is BC's own icons at 30-190 and 310-430, with BCT, Secret Prison, MBCHC and BC+ on the left and
+WCE, MoonCE, BCX, LSCG, Echo and BC Neko on the right. **x 228-258 is the one slot nobody uses**,
+between BC+ (to 226) and WCE's text (from about 260). The second choice, below the row on the far
+left (x 10-50, y 45-85), is also empty. DW's decisions: default on; the spiral; the viewer picks the
+spot (Top row / Below, on the left / Off), because a clash depends on which add-ons the viewer runs.
+KikiLink, which lets its badge be dragged, is the same idea taken further.
+
+**Who.** `state-query` and `state-response` now carry `version` and `showIcon`. On a new room this
+client asks the whole room once (the same room at most once a minute); everyone answers the asker,
+and the ask itself tells them about us. Someone who arrives on an older build never asks, so after
+4 s unheard they are asked directly. An older build's messages carry no `showIcon` and count as
+showing it. The room-wide ask comes back to the sender and is now ignored there (`remote.ts`).
+
+**Rule 1.** "Show others that I run ECHS" is hers: off, her client still answers (the hypnotist's
+panel needs to know ECHS is running) but says not to draw it, and changing it re-tells the room.
+The spot is a display choice that changes nothing about her, so the Extreme lock does not grey it.
+
+**Drawing.** After BC's `ChatRoomDrawCharacterStatusIcons`, which BC only calls while every icon is
+shown, so BC's hide-icons button hides ours too. A light disc behind the spiral, 30 at room scale.
+
+**Tests.** `test/echs-icon.mjs`, 29 checks. Three deliberate mutations of the built code (wrong
+slot, ignoring `showIcon`, answering our own ask) each fail it.
+
 ### Added 2026-11-08 (v1.6.0 RC) — induction time, and toy mode takes one
 
 DW's note on `script_test.md` B.1 (v1.5.0): in toy mode there was no pause, so the hypnotist could

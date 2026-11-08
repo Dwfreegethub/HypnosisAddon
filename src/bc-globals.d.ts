@@ -39,6 +39,8 @@ declare function DrawTextFit(text: string, x: number, y: number, width: number, 
 // draw the chrome with DrawButton and the icon with this.
 declare function DrawImageResize(source: string, x: number, y: number, width: number, height: number): boolean;
 declare function MouseIn(left: number, top: number, width: number, height: number): boolean;
+/** R132 Drawing.js:1336. */
+declare function DrawCircle(centerX: number, centerY: number, radius: number, lineWidth: number, lineColor: string, fillColor: string, canvas?: any): void;
 declare const MouseX: number;
 declare const MouseY: number;
 declare const MainCanvas: CanvasRenderingContext2D;
