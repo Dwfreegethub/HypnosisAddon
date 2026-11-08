@@ -40,6 +40,13 @@ export function askPlanted(subject: number, now: number = Date.now()): void {
 	sendHiddenMessage({ type: "state-query", planted: true }, subject);
 }
 
+/** They are not here to ask (v1.5.2). An answer from an earlier ask must not be shown as current:
+ * DW's J.4, "They answered just now" for someone who had left the room. */
+export function forgetAsked(subject: number): void {
+	askedAt.delete(subject);
+	answered.delete(subject);
+}
+
 const text = (value: unknown, max: number): string => (typeof value === "string" ? value.slice(0, max) : "");
 
 /** Hypnotist side: a list arrived. It came over the wire, so it is cleaned before it is kept. */

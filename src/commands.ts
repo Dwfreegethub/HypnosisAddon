@@ -51,7 +51,7 @@ import {
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
-import { askPlanted, describePlanted, findPlantedSubject, plantedSubjects, PLANTED_ASK_MS } from "./planted";
+import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import {
 	DEPTH_GATES,
@@ -870,6 +870,7 @@ const COMMANDS: HypnoCommand[] = [
 			const nameOf = (id: number) => resolveTarget(String(id))?.name ?? `#${id}`;
 			const print = () => subjects.forEach((id) => describePlanted(id, nameOf(id)).forEach(reply));
 			const asking = subjects.filter((id) => here.has(id));
+			subjects.filter((id) => !here.has(id)).forEach(forgetAsked);
 			if (!asking.length) {
 				print();
 				return;

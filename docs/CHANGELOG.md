@@ -20,6 +20,23 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-08 (v1.5.2 RC) — each command's beat follows the last; a stale "just now"
+
+Both from DW's live run of `script_test.md` on v1.5.1.
+
+**G.1, the beat.** `enqueueCommand` set `due = max(now + delay, lastDue + 500 ms)`, so a second command
+said during the first one's beat counted its own 2 to 5 s from when it was said, and often landed
+half a second after the first. DW: "it would look more natural from when the last command finished."
+Now `due = max(now, lastDue) + delay`: every command gets a full beat after the one before it. Three
+commands said together can take up to 15 s to land; a wake, a release or the safeword still cuts
+in at once, and a control line ("that will stay with you") still flushes the queue.
+
+**J.4, the heading.** `planted.ts` kept `askedAt` and `answered` per subject indefinitely. After one
+`/echs planted Missy` while she was here, asking again once she had left skipped the ask (correctly)
+and then read the old answer as current: "They answered just now." `forgetAsked` now clears both for
+anyone not in the room before the list is printed, so it reads "Last known <date>". The suite asked
+"not here" before "here", which is the order that hides it; it now does both.
+
 ### Fixed 2026-11-08 (v1.5.1 RC) — a pose bondage blocks is refused, not queued
 
 DW's live run of `script_test.md` D2 (leg binder, "when I come back, you will kneel"): the room was
