@@ -147,6 +147,14 @@ function hook(modApi: any, name: string, priority: number, fn: (args: any[], nex
 	}
 }
 
+function bctHoverOnly(): boolean {
+	try {
+		return (Player as any)?.BCT?.bctSettings?.allIconOnlyShowOnHover === true;
+	} catch {
+		return false;
+	}
+}
+
 /** /echs icons: why a spiral is or is not showing, on this screen. */
 export function describeIcons(): string[] {
 	const lines: string[] = [];
@@ -154,6 +162,10 @@ export function describeIcons(): string[] {
 	lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
 	if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1000)}s ago: ${diag.lastError}`);
 	if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
+	// BCT can draw the whole icon row only while the mouse is over the top of a character, by
+	// patching BC's check (DW's v1.7.0 run: the spiral was missing for exactly this reason). That is
+	// BCT doing what she asked, so it is named here rather than drawn around. Reads its setting only.
+	if (bctHoverOnly()) lines.push("BCT is set to show icons only on hover, so the spiral shows only while your mouse is over the top of a character. That setting is in BCT's own settings.");
 	lines.push(
 		`Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. ` +
 			`BC icons shown: ${typeof ChatRoomHideIconState === "number" ? (ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})`) : "unknown"}. ` +

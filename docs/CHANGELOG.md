@@ -20,6 +20,17 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-08 (v1.7.2 RC) — /echs icons names BCT's hover setting
+
+The cause of DW's missing spiral: BCT's "all icons only on hover" (`Player.BCT.bctSettings.
+allIconOnlyShowOnHover`), which `patchFunction`s BC's `ChatRoomHideIconState == SHOW_ALL` check in
+`ChatRoomCharacterViewDrawOverlay` to need the mouse over the top 70 px of a character. BC then
+never calls `ChatRoomDrawCharacterStatusIcons`, so our hook never runs. BCT's own hearts are drawn
+from its separate overlay hook, outside that check, which is why some icons still showed. Hypno
+Helper, without that setting, saw the spirals. Decided: honour it, since it is the player's own
+choice to hide every icon until hover; `/echs icons` now names it, reading BCT's setting only, and
+the wiki says so. No change to drawing.
+
 ### Fixed 2026-11-08 (v1.7.1 RC) — the icon says why it isn't showing
 
 DW's first live look at v1.7.0 (`Capture.PNG`, Missy and another player on 1.7.0): no spiral over
