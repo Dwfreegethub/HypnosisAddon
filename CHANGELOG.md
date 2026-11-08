@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.5.2 RC · 8 November 2026
+
+- **Commands said together take hold one at a time.** Say two or three commands in a row and each
+  now waits its own 2 to 5 seconds after the one before it lands, instead of landing almost on top
+  of it.
+- **The planted list no longer says someone "answered just now" when they have left.** Ask about
+  someone who isn't in the room and the list is marked as the last one you were given, with its date.
+
 ## v1.5.1 RC · 8 November 2026
 
 - **A pose your bondage blocks no longer happens behind your back.** If you were told to kneel (or

@@ -124,6 +124,23 @@ for (let i = 0; i < 200; i++) {
 }
 check("two commands never swap, however the rolls fall", wrongOrder, 0);
 
+// Each beat starts when the one before lands (DW's G.1 note on v1.5.1). Failure: the second lands
+// within a second of the first, because its beat was counted from when it was said.
+let tooClose = 0;
+for (let i = 0; i < 50; i++) {
+	under();
+	say("Missy, spread your legs");
+	say("Missy, kneel");
+	let first = -1, second = -1;
+	for (let t = 0; t <= SOON; t += 50) {
+		advance(50);
+		if (first < 0 && Player.ActivePose[0] === "Spread") first = t;
+		if (second < 0 && Player.ActivePose[0] === "Kneel") second = t;
+	}
+	if (first < 0 || second < 0 || second - first < 1950) tooClose++;
+}
+check("the second waits its own beat after the first lands", tooClose, 0);
+
 // A wake and the safeword. Failure: a command lands after she was told to stop (rule 2).
 under();
 say("Missy, kneel");

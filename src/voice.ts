@@ -3936,14 +3936,17 @@ export function handleSpokenLine(sender: number, content: string): void {
 // IN ORDER, ALWAYS. "Kneel" then "stand" must not swap because of two random rolls, so each waits
 // at least for the one before it.
 //
+// EACH BEAT STARTS WHEN THE ONE BEFORE LANDS (v1.5.2, DW's G.1 note on v1.5.1). It used to count from
+// when the line was said, with only half a second after the one before, so two commands said close
+// together landed almost at once. Now a command said while another is waiting gets its own full
+// 2 to 5 seconds after that one lands, which reads as one instruction sinking in, then the next.
+//
 // Lines that act on what was just said cannot wait for it, or be overtaken by it: "that will stay
 // with you" has to find the suggestion already applied, and a command still waiting when a trigger
 // starts recording would be recorded into it. Those land what is queued first (isControlLine).
 const COMMAND_PACE_TIMER = "command-pace";
 const COMMAND_MIN_MS = 2000;
 const COMMAND_SPREAD_MS = 3000;
-/** The least gap between two commands in a row. */
-const COMMAND_GAP_MS = 500;
 
 let commandQueue: { sender: number; line: string; due: number }[] = [];
 let commandPacing = !isUnitTestBundle();
@@ -3974,8 +3977,9 @@ function shouldPace(sender: number, line: string): boolean {
 
 function enqueueCommand(sender: number, line: string): void {
 	const now = Date.now();
-	const last = commandQueue[commandQueue.length - 1]?.due ?? 0;
-	commandQueue.push({ sender, line, due: Math.max(now + commandDelayMs(), last + COMMAND_GAP_MS) });
+	// From when the one still waiting lands, or from now if nothing is waiting.
+	const from = Math.max(now, commandQueue[commandQueue.length - 1]?.due ?? 0);
+	commandQueue.push({ sender, line, due: from + commandDelayMs() });
 	if (commandQueue.length === 1) scheduleNextCommand();
 }
 

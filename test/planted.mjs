@@ -163,6 +163,16 @@ const live = local.join(" | ");
 check("their answer replaces the notes", [/new word/.test(live), /ember glow/.test(live)], [true, false]);
 check("  and is marked current", /answered just now/.test(live), true);
 check("  with how it stands", /fading, reaches Yielding, works once, holding them now/.test(live), true);
+// Then they leave and are asked about again (DW's J.4 on v1.5.1, in that order).
+ChatRoomCharacter = ChatRoomCharacter.filter((c) => c.MemberNumber !== SUBJECT);
+sent = [];
+const gone = run("Ella");
+// Failure: the answer from while they were here is still called current.
+check("left after answering: not 'just now'", /answered just now/.test(gone), false);
+check("  marked last known", /Last known/.test(gone), true);
+check("  with the list they gave", /new word/.test(gone), true);
+check("  and nobody was asked", sent.length, 0);
+ChatRoomCharacter.push({ MemberNumber: SUBJECT, Name: "Ella" });
 // They stop answering.
 sent = [];
 pendingTimers.length = 0;

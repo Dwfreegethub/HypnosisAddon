@@ -7,7 +7,7 @@
 > **1.0 Release Candidate**  
 > ECHS is at its 1.0 release candidate. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
 
-**This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold. A command lands after a beat of 2 to 5 seconds, in the order you said them; waking and releasing never wait.
+**This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold. A command lands after a beat of 2 to 5 seconds, in the order you said them. Say several together and each gets its own beat after the one before lands, so they take hold one at a time. Waking and releasing never wait.
 
 For a worked example of these phrases used in a live scene, see [A Sample Session](Sample-Session).
 
