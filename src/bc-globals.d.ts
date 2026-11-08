@@ -3,6 +3,10 @@
 declare const ServerSocket: any;
 declare const Player: any;
 declare const ChatRoomCharacter: any[];
+/** R133 ChatRoom.js:278. 0 = every icon shown. */
+declare const ChatRoomHideIconState: number;
+/** R133 Game.js:4. */
+declare const GameVersion: string;
 // The current chat room's server data, or null when not in a room. `.Name` is the room name.
 declare const ChatRoomData: { Name?: string } | null;
 // BC's shared asset definitions. Item.Asset points into this array, so mutating an entry

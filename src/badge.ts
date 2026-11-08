@@ -38,6 +38,9 @@ let announcedShow: boolean | null = null;
 /** Asks sent to someone who arrived, so an older build that never asks the room is still found. */
 const askedAfterJoin = new Set<number>();
 const REANNOUNCE_MS = 60_000;
+// What /echs icons reports (v1.7.1, after DW saw no icon at all on v1.7.0). Rule 5: the draw hook
+// used to swallow every error, which made a broken icon and a missing one look the same.
+const diag = { hooked: [] as string[], hookFailed: [] as string[], calls: 0, drawn: 0, lastError: "", lastErrorAt: 0, lastSkip: "" };
 const ARRIVAL_ASK_MS = 4000;
 
 function me(): number | undefined {
@@ -113,9 +116,11 @@ export function drawIcon(C: any, charX: number, charY: number, zoom: number): vo
 	// character's frame only, so it costs one comparison a frame.
 	if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce();
 	const spot = ICON_SPOTS[getEchsIconSpot()];
-	if (!spot || !SPIRAL_ICON) return;
+	if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
+	if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");
 	const peer = iconFor(C);
 	if (!peer) return;
+	diag.drawn++;
 	const size = ICON_SIZE * zoom;
 	const x = charX + spot.x * zoom;
 	const y = charY + spot.y * zoom;
@@ -131,8 +136,40 @@ export function drawIcon(C: any, charX: number, charY: number, zoom: number): vo
 	}
 }
 
+/** Hook one BC function, and remember whether it took, for /echs icons. One failing must not stop
+ * the others: before, a throw on the first left the draw hook uninstalled without a word. */
+function hook(modApi: any, name: string, priority: number, fn: (args: any[], next: (a: any[]) => any) => any): void {
+	try {
+		modApi.hookFunction(name, priority, fn);
+		diag.hooked.push(name);
+	} catch (err) {
+		diag.hookFailed.push(`${name}: ${String((err as any)?.message ?? err).slice(0, 120)}`);
+	}
+}
+
+/** /echs icons: why a spiral is or is not showing, on this screen. */
+export function describeIcons(): string[] {
+	const lines: string[] = [];
+	lines.push(`ECHS icons: hooked ${diag.hooked.join(", ") || "nothing"}${diag.hookFailed.length ? `; FAILED ${diag.hookFailed.join("; ")}` : ""}.`);
+	lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
+	if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1000)}s ago: ${diag.lastError}`);
+	if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
+	lines.push(
+		`Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. ` +
+			`BC icons shown: ${typeof ChatRoomHideIconState === "number" ? (ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})`) : "unknown"}. ` +
+			`Game ${typeof GameVersion === "string" ? GameVersion : "?"}.`,
+	);
+	const here = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.filter((c: any) => c?.MemberNumber !== me()) : [];
+	if (!here.length) lines.push("Nobody else is in the room.");
+	for (const c of here) {
+		const p = peers.get(c.MemberNumber);
+		lines.push(`  ${c.Nickname || c.Name} (#${c.MemberNumber}): ${p ? `ECHS ${p.version ? `v${p.version}` : "(older)"}${p.show ? "" : ", chose to hide it"}` : "not heard from (no ECHS, or not answered yet)"}`);
+	}
+	return lines;
+}
+
 export function installBadge(modApi: any): void {
-	modApi.hookFunction("ChatRoomSync", 10, (args: any[], next: (a: any[]) => any) => {
+	hook(modApi, "ChatRoomSync", 10, (args: any[], next: (a: any[]) => any) => {
 		const result = next(args);
 		try {
 			onRoomSync();
@@ -141,19 +178,23 @@ export function installBadge(modApi: any): void {
 		}
 		return result;
 	});
-	modApi.hookFunction("ChatRoomSyncMemberJoin", 10, (args: any[], next: (a: any[]) => any) => {
+	hook(modApi, "ChatRoomSyncMemberJoin", 10, (args: any[], next: (a: any[]) => any) => {
 		const result = next(args);
 		onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
 		return result;
 	});
 	// After BC's own icons, so ours is drawn over nothing of theirs (it sits in their gap anyway).
-	modApi.hookFunction("ChatRoomDrawCharacterStatusIcons", 0, (args: any[], next: (a: any[]) => any) => {
+	hook(modApi, "ChatRoomDrawCharacterStatusIcons", 0, (args: any[], next: (a: any[]) => any) => {
 		const result = next(args);
+		diag.calls++;
 		try {
 			const [C, x, y, zoom] = args;
 			if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
-		} catch {
-			// A drawing fault must never break BC's room drawing; the icon just doesn't show this frame.
+			else diag.lastSkip = `BC passed no position (${typeof x}, ${typeof y})`;
+		} catch (err) {
+			// A drawing fault must never break BC's room drawing, but it is kept for /echs icons.
+			diag.lastError = String((err as any)?.stack ?? err).slice(0, 300);
+			diag.lastErrorAt = Date.now();
 		}
 		return result;
 	});

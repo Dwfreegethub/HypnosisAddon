@@ -12,6 +12,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.7.1 RC · 8 November 2026
+
+- **If the ECHS spiral doesn't show, `/echs icons` says why.** It reports whether the spiral is being
+  drawn on your screen, your two icon settings, and which players in the room ECHS has heard from.
+
 ## v1.7.0 RC · 8 November 2026
 
 - **See who else runs ECHS.** In a room, a small spiral now shows over each player who runs ECHS.
