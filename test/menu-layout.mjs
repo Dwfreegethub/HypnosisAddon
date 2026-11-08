@@ -52,7 +52,7 @@ globalThis.PreferenceSubscreenExtensionsClear = () => {};
 const elements = {};
 globalThis.document = { getElementById: (id) => elements[id] ?? null };
 globalThis.ElementCreateDropdown = (id) => (elements[id] = { selectedIndex: 0, disabled: false });
-globalThis.ElementCreateInput = (id) => (elements[id] = { value: "", disabled: false, addEventListener() {}, setAttribute() {} });
+globalThis.ElementCreateInput = (id, _type, value = "") => (elements[id] = { value, disabled: false, listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, setAttribute() {} });
 globalThis.ElementCreateDropdown = (id, _options, onChange) => (elements[id] = { selectedIndex: 0, disabled: false, onChange, addEventListener() {}, setAttribute() {} });
 /** Where each DOM control was last put, centre and size, in canvas coordinates. */
 const placed = {};
@@ -66,7 +66,10 @@ globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, s
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
 globalThis.ChatRoomData = null;
 
-const { menu, storage, panel } = await import("./harness-bundle.mjs");
+let localLines = [];
+globalThis.ChatRoomSendLocal = (m) => localLines.push(String(m));
+const lastLocal = () => localLines[localLines.length - 1] ?? "";
+const { menu, storage, panel, session } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -357,9 +360,76 @@ openTab(3); frame(); // Awareness: four rows
 check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScope, false);
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
-openTab(2); frame(); // Trance Defaults: seven rows, once two columns
+openTab(2); frame(); // Trance Defaults: eight rows and the pulse colour, once two columns
 check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).size, 1);
-check("  and fits without scrolling", !!down(), false);
+{
+	check("  the pulse has its tick box", rowLabels().some((t) => /Pulse when a command lands/.test(t.text)), true);
+	// Failure: it can't be reached, or clicks where it isn't. Scrolled to the end, as a player would.
+	for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
+	const colour = () => buttons.find((b) => /^Pulse colour:/.test(b.label));
+	check("  its colour button is reachable", colour()?.label, "Pulse colour: Pink");
+	check("  and inside the panel", colour().top + colour().height <= PANEL_BOTTOM, true);
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  a click moves to the next colour", [colour().label, storage.getPulseColor()], ["Pulse colour: Purple", "purple"]);
+	storage.startExtremeLock("trial");
+	frame();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	// Failure: a read-only screen changed a setting.
+	check("  locked, it does not cycle", storage.getPulseColor(), "purple");
+	storage.clearExtremeLock();
+
+	// Custom: a typed hex code, in a real DOM box, which only exists while it is wanted.
+	const HEX = "HypnosisAddonPulseHex";
+	const blur = () => elements[HEX].listeners.blur.call(elements[HEX]);
+	const toEnd = () => { for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); } };
+	frame();
+	check("  no hex box for a named colour", !!elements[HEX], false);
+	storage.setPulseColor("white");
+	frame();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  Custom comes after White", [colour().label, storage.getPulseColor()], ["Pulse colour: Custom", "custom"]);
+	toEnd();
+	// Failure: the box is missing, or drawn outside the panel where it can't be used.
+	check("  the hex box appears, with her colour in it", elements[HEX]?.value, storage.DEFAULT_PULSE_CUSTOM);
+	const box = placed[HEX];
+	check("  and sits inside the panel", box && box.y + box.h / 2 <= PANEL_BOTTOM && box.x + box.w / 2 <= PANEL_RIGHT, true);
+	// Failure: the box, which is DOM and ignores the canvas clip, overlaps the colour button.
+	check("  clear of the colour button", box && box.y - box.h / 2 >= colour().top + colour().height, true);
+	check("  and fits under the button with its caption", texts.some((t) => /For example #FF69B4/.test(t.text)), true);
+	elements[HEX].value = "#00ff80";
+	blur();
+	check("  a good code is saved, tidied", [storage.getPulseCustom(), elements[HEX].value], ["#00FF80", "#00FF80"]);
+	elements[HEX].value = "banana";
+	blur();
+	frame();
+	// Failure: a typo quietly does nothing (rule 5).
+	check("  a bad code changes nothing", storage.getPulseCustom(), "#00FF80");
+	check("  and says so", texts.some((t) => /"banana" is not a colour code/.test(t.text)), true);
+	check("  and stays in the box to correct", elements[HEX].value, "banana");
+	elements[HEX].value = "#123456";
+	blur();
+	frame();
+	check("  fixing it clears the complaint", texts.some((t) => /is not a colour code/.test(t.text)), false);
+	storage.startExtremeLock("trial");
+	frame();
+	check("  locked: the box is disabled", elements[HEX].disabled, true);
+	elements[HEX].value = "#ABCDEF";
+	blur();
+	// Failure: a box focused before the lock began saves through it.
+	check("  locked: a blur saves nothing", storage.getPulseCustom(), "#123456");
+	storage.clearExtremeLock();
+	frame();
+	check("  back from the lock, it shows what is saved", elements[HEX].value, "#123456");
+	openTab(0); frame();
+	// Failure: the box floats over the next tab.
+	check("  another tab: the box goes", !!elements[HEX], false);
+	openTab(2); frame();
+	toEnd();
+	clickAt(colour().left + 5, colour().top + 5); frame();
+	check("  past Custom, back to Pink, and the box goes", [storage.getPulseColor(), !!elements[HEX]], ["pink", false]);
+	storage.setPulseCustom(storage.DEFAULT_PULSE_CUSTOM);
+	storage.setPulseColor("pink");
+}
 openTab(4); frame(); // Triggers
 check("Triggers' rows stop above its dropdowns at 630", boxes[0].clip.top + boxes[0].clip.height <= 630, true);
 // Five rows since v0.87.0 (whole-words matching): four fit above the dropdowns, and the list
@@ -429,6 +499,156 @@ check("  and a scroll bar reaches the fifth", !!down(), true);
 	check("  a click on empty panel space changes nothing", [storage.listTriggers().length, storage.getFeatures().hypnoEnabled], [1, true]);
 	storage.forgetAllTriggers();
 	storage.setFeature("hypnoEnabled", false);
+}
+// The Extreme lock hides the Stats numbers (DW, 2026-11-05), but not the way out on the same tab.
+{
+	storage.addInteractions(2001, "Ella", 10);
+	frame();
+	const adv = buttons.find((b) => b.label.startsWith("Advanced"));
+	clickAt(adv.left + 5, adv.top + 5); frame();
+	const statsTab = buttons.find((b) => b.label === "Stats");
+	check("Stats: the tab is offered", !!statsTab, true);
+	clickAt(statsTab.left + 5, statsTab.top + 5); frame();
+	check("Stats: unlocked, trust and experience show", [texts.some((x) => /Ella/.test(x.text)), texts.some((x) => x.text === "Experience")], [true, true]);
+	storage.startExtremeLock("trial");
+	frame();
+	// Failure: the numbers are still on screen under the lock.
+	check("Stats: locked, trust and experience are gone", [texts.some((x) => /Ella/.test(x.text)), texts.some((x) => x.text === "Experience")], [false, false]);
+	check("  and it says why", texts.some((x) => /Extreme lock hides/.test(x.text)), true);
+	// Failure: hiding the numbers took the documented way out with it.
+	check("  Reset is still there", buttons.some((b) => /^Reset/.test(b.label)), true);
+	storage.clearExtremeLock();
+	storage.forgetTrust(2001);
+
+	// The trust list: search (Senge, Eri) and a [x] on each row (Valerie).
+	const SEARCH = "HypnosisAddonTrustSearch";
+	frame();
+	check("nobody at all: no search box", !!elements[SEARCH], false);
+	// Nine people, so two pages. Interactions set the order: Person 1 first.
+	for (let i = 1; i <= 9; i++) storage.addInteractions(3000 + i, `Person ${i}`, 100 - i, `Account${i}`);
+	const type = (text) => { elements[SEARCH].value = text; elements[SEARCH].listeners.input.call(elements[SEARCH]); frame(); };
+	const shown = () => texts.map((t) => t.text).filter((t) => /\(#\d+\)$/.test(t));
+	const xs = () => buttons.filter((b) => b.label === "[x]" || b.label === "Sure?");
+	const clickX = (i) => { const b = xs()[i]; clickAt(b.left + 5, b.top + 5); frame(); };
+	const held = () => storage.listTrust().map((t) => t.memberId - 3000).sort((a, b) => a - b);
+	frame();
+	check("search: the box appears", !!elements[SEARCH], true);
+	const searchBox = placed[SEARCH];
+	check("  inside the panel", searchBox.x + searchBox.w / 2 <= PANEL_RIGHT && searchBox.x - searchBox.w / 2 >= panel.PANEL_LEFT, true);
+	check("  and clear of the first row and the experience line", [searchBox.y - searchBox.h / 2 >= 290 + 18, searchBox.y + searchBox.h / 2 <= 370 - 17], [true, true]);
+	check("  the whole first page shows", shown().length, 7);
+	check("  every row has a [x]", xs().length, 7);
+	// Failure: the detail text runs under the button.
+	const firstX = xs()[0];
+	const detail = texts.find((t) => /interactions/.test(t.text) && Math.abs(t.top + t.height / 2 - (firstX.top + firstX.height / 2)) < 2);
+	check("  the [x] is clear of the row's detail", !!detail && detail.left + detail.width <= firstX.left, true);
+	check("  and inside the panel", firstX.left + firstX.width <= PANEL_RIGHT, true);
+	check("  the rows of [x]s do not touch", xs()[0].top + xs()[0].height <= xs()[1].top, true);
+	type("person 8");
+	// Failure: the list ignores the box, or case matters.
+	check("by the name they go by, any case", shown(), ["Person 8 (#3008)"]);
+	type("account3");
+	check("by account name, though they left", shown(), ["Person 3 (#3003)"]);
+	type("3005");
+	check("by member number", shown(), ["Person 5 (#3005)"]);
+	type("erso");
+	check("part of a name will do, and pages", shown().length, 7);
+	globalThis.ChatRoomCharacter = [Player, { MemberNumber: 3002, Name: "LiveAccount", Nickname: "LiveNick" }];
+	type("liveaccount");
+	check("someone in the room by their live account name", shown(), ["LiveNick (#3002)"]);
+	type("livenick");
+	check("  and live nickname", shown(), ["LiveNick (#3002)"]);
+	delete globalThis.ChatRoomCharacter;
+	type("zzz");
+	check("no match: says so", texts.some((t) => /Nobody here matches "zzz"/.test(t.text)), true);
+	check("  and keeps the box to fix it", !!elements[SEARCH], true);
+	check("  and no [x]", xs().length, 0);
+	type("");
+	check("cleared: everyone again", shown().length, 7);
+
+	// Paged, and the search resets to page 1. Failure: stuck on an empty page 2.
+	const next = () => buttons.find((b) => b.label === "Next");
+	clickAt(next().left + 5, next().top + 5); frame();
+	check("page 2 shows the rest", shown(), ["Person 8 (#3008)", "Person 9 (#3009)"]);
+	type("person 1");
+	check("searching from page 2 goes back to the first", shown(), ["Person 1 (#3001)"]);
+	type("");
+
+	// The [x]. Failure: one click deletes, or it deletes someone other than the row it is on.
+	const before = held();
+	clickX(1);
+	check("[x]: the first click deletes nothing", held(), before);
+	check("  and asks", xs().map((b) => b.label).slice(0, 3), ["[x]", "Sure?", "[x]"]);
+	clickX(2);
+	check("clicking another row moves the question", xs().map((b) => b.label).slice(0, 3), ["[x]", "[x]", "Sure?"]);
+	check("  and still deletes nothing", held(), before);
+	const realNow = Date.now;
+	const later = realNow() + 6000;
+	Date.now = () => later;
+	frame();
+	check("after five seconds it stops asking", xs()[2].label, "[x]");
+	clickX(2);
+	check("  and a late second click only asks again", [held(), xs()[2].label], [before, "Sure?"]);
+	Date.now = realNow;
+	clickX(1);
+	clickX(1);
+	check("two clicks delete that person, and only them", held(), [1, 3, 4, 5, 6, 7, 8, 9]);
+	check("  and it is said", /Forgot Person 2 \(#3002\)/.test(lastLocal()), true);
+	// The dangerous case: a filtered list on a later page, where the slot and the person differ.
+	type("person");
+	clickAt(next().left + 5, next().top + 5); frame();
+	check("setup: page 2 of a search, one person", shown(), ["Person 9 (#3009)"]);
+	clickX(0);
+	clickX(0);
+	check("page 2 of a search deletes the person drawn there", held(), [1, 3, 4, 5, 6, 7, 8]);
+	type("person 6");
+	clickX(0);
+	clickX(0);
+	check("a filtered row deletes the person drawn there", held(), [1, 3, 4, 5, 7, 8]);
+	type("");
+	check("the list closes up after", shown().length, 6);
+
+	// Locked. Failure: a read-only screen deletes someone, or search stops working.
+	const lockedAt = held();
+	storage.setFeature("lockedWhileHypnotized", true);
+	storage.setFeature("hypnoEnabled", true);
+	globalThis.ServerSend ??= () => {};
+	globalThis.ServerPlayerIsInChatRoom ??= () => false;
+	session.forceTrance(1234, 60, 60);
+	frame();
+	check("setup: the session lock is really on", menu.settingsLocked(), true);
+	clickX(0);
+	clickX(0);
+	check("session lock: the [x] deletes nothing", held(), lockedAt);
+	check("  and does not ask", xs()[0].label, "[x]");
+	type("person 7");
+	check("  searching still works, it is only reading", shown(), ["Person 7 (#3007)"]);
+	type("");
+	session.safeword();
+	storage.setFeature("lockedWhileHypnotized", false);
+	storage.setFeature("hypnoEnabled", false);
+	frame();
+	const whereX = xs()[0];
+	storage.startExtremeLock("trial");
+	frame();
+	check("Extreme lock: no names, no box", [shown(), !!elements[SEARCH]], [[], false]);
+	check("  and no [x]", xs().length, 0);
+	clickAt(whereX.left + 5, whereX.top + 5); frame();
+	clickAt(whereX.left + 5, whereX.top + 5); frame();
+	// Failure: an invisible button still deletes from under the lock.
+	check("  a click where it was deletes nothing", held(), lockedAt);
+	storage.clearExtremeLock();
+	frame();
+	check("the box goes off the tab", (() => { openTab(0); frame(); return !!elements[SEARCH]; })(), false);
+	const adv2 = buttons.find((b) => b.label === "Hide advanced");
+	check("setup: still in advanced", !!adv2, true);
+	const statsAgain = buttons.find((b) => b.label === "Stats");
+	clickAt(statsAgain.left + 5, statsAgain.top + 5); frame();
+	check("  and comes back on it", !!elements[SEARCH], true);
+	for (const id of lockedAt) storage.forgetTrust(3000 + id);
+	frame();
+	const hide = buttons.find((b) => b.label === "Hide advanced");
+	clickAt(hide.left + 5, hide.top + 5);
 }
 // The wheel listener outlives the list: it must not scroll it while something else is drawn.
 // Probed through the help page, because closing help (unlike changing tab) keeps the offset.

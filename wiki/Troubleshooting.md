@@ -11,7 +11,7 @@
 
 ## Quick Diagnostic: "I Said Something and Nothing Happened"
 
-Run this checklist in order:
+**First, give it a few seconds.** A spoken command takes 2 to 5 seconds to land, on purpose, and a refusal is told to the hypnotist at that same moment. Then run this checklist in order:
 
 | # | Check | If not |
 |---|---|---|
@@ -24,7 +24,7 @@ Run this checklist in order:
 * **Permission gate:** Is the feature enabled on the subject's client? `/echs session` shows which categories are granted.
 * **Session gate:** Is there an active trance with *that specific hypnotist*? Suggestions are bound to the partner who conducted the induction, not to any trance in general.
 * **Name gate:** Did the speaker use the subject's exact name or nickname? A whisper to the subject needs no name. Test with `/echs match <phrase>`.
-* **Depth gate:** Is the subject deep enough? `/echs gates` compares current depth with each feature's threshold. A phrase can match perfectly and still fail here.
+* **Depth gate:** Is the subject deep enough? `/echs gates` compares current depth with each feature's threshold, unless the subject is under an Extreme lock, which refuses it. A phrase can match perfectly and still fail here.
 
 **The hypnotist receives private chat feedback saying which gate blocked the command.** If the hypnotist got no feedback at all, the line did not match the parser's dictionary.
 
@@ -45,7 +45,7 @@ If so, the script is running properly — **it simply starts completely turned o
 Since v0.83.0 ECHS downloads its newest version each time the game opens, and this time it could not reach either place it downloads from. Refresh the page. If the note keeps coming back, report it and say which Bondage Club address you play on.
 
 **If there is no spiral icon on your player profile card and nothing in the browser console:**  
-The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting.
+The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting. If you load ECHS through FUSAM, open the **Addon Manager** and check that ECHS is set to **stable** (or **dev**) and not **None**.
 
 ---
 
@@ -72,7 +72,7 @@ This is an intentional gate, not a bug. The suggestion requires a deeper trance 
 
 If an effect or restriction persists unexpectedly, escalate in this order:
 
-1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions expire after 30 minutes.
+1. **Wait It Out:** Most standard effects wear off automatically on timers, and trance sessions end after 30 minutes (60 under an Extreme lock) unless you choose to stay under when asked.
 2. **Hypnotist Left the Room:** If the hypnotist leaves during a trance, the trance ends on its own 5 minutes after they went, unless they come back.
 3. **Release by Name:** The hypnotist who applied the effect can speak a targeted release phrase (e.g., *"Missy, you are released from sleepy time"*).
 4. **Use the Emergency Safeword:** Type `/echs safeword`. This instantly breaks trances, releases every trigger that is holding you, discards compulsions waiting for you to wake, and purges all lingering effects from any state.

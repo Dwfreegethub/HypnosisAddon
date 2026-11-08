@@ -122,6 +122,7 @@ Defines baseline states that engage automatically when an induction succeeds, be
 | **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
+| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, picks Pink, Purple, Blue, White or **Custom**. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter. |
 | **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
 
 ---
@@ -181,7 +182,9 @@ Purge and Clear All are not affected by the session lock: removing something pla
 
 Accessible via the **Advanced** toggle below the tabs:
 
-* **Trust & Experience Records:** Read-only breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*.
+* **Find:** A search box beside the trust list. Type any part of someone's nickname, account name or member number and the list narrows as you type. Someone who was last seen before this box existed can only be found by the one name that was stored for them, until you next see them.
+* **[x]:** Deletes that person's trust, the same as `/echs forgettrust`. It asks first: the button reads *Sure?* for 5 seconds, and a second click deletes. It cannot be undone. Greyed out while your settings are locked.
+* **Trust & Experience Records:** A breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*.
 * **Trust fades when you don't see someone:** How fast trust fades without contact (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*).
 * **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#10-data--backup).
 
@@ -200,7 +203,7 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 | **Hypnotist Only** | Nothing — hypnosis is off, so nobody can hypnotize you | (auto-answer set to Fight, in case you turn hypnosis back on) | — | Off |
 | **Light / Safe** | Movement, Posture. A trance never silences you (Cannot Speak off) | Yes | Yielding | Off |
 | **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers and whitelist |
-| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal may reach triggers and the illusion. Toy mode for Owner, Lovers and whitelist; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
+| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, the clothing freeze in trance, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal and drugs both count, and arousal may reach triggers and the illusion. Toy mode for everyone except your blacklist, so a stranger can put you straight under; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
 
 **The five questions** cover your role (Hypnotist only, or Subject/both), how attempts are handled (always ask, toy mode for owner and lovers, or agree to all), what physical commands you allow, what can be done to your senses and awareness, and how triggers work. Your answer about physical commands also sets how far "sink deeper" can take you (Yielding, Entranced or Deep). The questions never lock anything.
 
@@ -208,8 +211,13 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 
 Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **Cancel**. Once confirmed:
 * For **7 days** your settings are **read-only**. You can still open every tab and read them, under a yellow banner showing the end date. You cannot change anything — including switching Hypnosis Enabled off, re-running setup, importing a backup, or removing planted triggers (Purge and Clear All).
+* **Triggers can only be added.** New ones can still be planted, but nobody can remove one until the lock ends, not even the hypnotist who planted it. A hypnotist can still release one that is holding you, and it stays planted. Triggers still fade very slowly unless reinforced.
+* **Carried suggestions stay.** `/echs carry drop` is refused.
+* **Trances run longer.** A trance runs 60 minutes before you are asked whether to stay under, and each *Stay under* gives another 60. If you don't answer, you still wake.
+* **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset stay on that tab.
+* **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused.
 * When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
-* **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it). Export still works, so you can keep a backup.
+* **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off wherever you load it from: FUSAM's Addon Manager, or your userscript manager. Export still works, so you can keep a backup.
 
 ---
 

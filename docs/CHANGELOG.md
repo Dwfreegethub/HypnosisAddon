@@ -20,6 +20,297 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-08 (v1.5.2 RC) — each command's beat follows the last; a stale "just now"
+
+Both from DW's live run of `script_test.md` on v1.5.1.
+
+**G.1, the beat.** `enqueueCommand` set `due = max(now + delay, lastDue + 500 ms)`, so a second command
+said during the first one's beat counted its own 2 to 5 s from when it was said, and often landed
+half a second after the first. DW: "it would look more natural from when the last command finished."
+Now `due = max(now, lastDue) + delay`: every command gets a full beat after the one before it. Three
+commands said together can take up to 15 s to land; a wake, a release or the safeword still cuts
+in at once, and a control line ("that will stay with you") still flushes the queue.
+
+**J.4, the heading.** `planted.ts` kept `askedAt` and `answered` per subject indefinitely. After one
+`/echs planted Missy` while she was here, asking again once she had left skipped the ask (correctly)
+and then read the old answer as current: "They answered just now." `forgetAsked` now clears both for
+anyone not in the room before the list is printed, so it reads "Last known <date>". The suite asked
+"not here" before "here", which is the order that hides it; it now does both.
+
+### Fixed 2026-11-08 (v1.5.1 RC) — a pose bondage blocks is refused, not queued
+
+DW's live run of `script_test.md` D2 (leg binder, "when I come back, you will kneel"): the room was
+told Missy knelt on each arrival, she could not, and she knelt when the binder came off.
+
+**Cause.** BC's `PoseSetActive` (R132 `Pose.js:201`) writes `ActivePose` with no check of what is
+worn. What is drawn is decided afterwards by `PoseRefresh`, which filters `ActivePose` through every
+item's `AllowActivePose` into `PoseMapping`. `setSuggestedPose` judged "landed" by `ActivePose`, so
+every known pose landed, the success line went out, and the wish sat in `ActivePose` until the item
+that blocked it was removed. The v1.4.0 refusal path (easy's report) never ran live for the same
+reason; the test stub modelled BC as ignoring a blocked pose, which BC does not do.
+
+**Fix.** Ask BC's `PoseAvailable` before writing, and judge the result by `PoseMapping`; if it is
+not drawn, put `ActivePose` back before anything goes to the room. `PoseAvailable`, not
+`PoseCanChangeUnaided`: the latter also refuses for Freeze and the owner's BlockChangePose rule, and
+a spoken command moving a held-still subject is settled (DW, 2026-09-26). The stub in
+`test/compulsion-refused.mjs` now behaves as BC does; on the old code it fails 10 of 19.
+
+### Added 2026-11-05 (v1.5.0 RC) — trust list search and a [x] on each row
+
+Senge and Eri asked for a search; Valerie for a button instead of typing `/echs forgettrust`.
+
+**Search.** A trust entry stored one name: the nickname if there was one. So an account name could not
+be found once they left. `accountName` is now stored beside it whenever the character can be read, and
+the match also reads the live character. An older entry for someone absent has only the one name until
+they are next seen. It filters as typed and works while locked, since it is reading, as paging is.
+
+**[x].** Two clicks within 5 seconds, as Clear All, because it cannot be undone and the buttons stack
+one above the other. Draw and click both read `statRowsOnPage`, so a row's button cannot act on anyone
+else on a filtered or later page. Disabled by `settingsLocked`, though `/echs forgettrust` is left open
+under the Extreme lock, as DW chose in v1.4.0: the screen is read-only, the command was kept. Under
+that lock the rows are hidden, and the click is refused too, since an undrawn button keeps its
+coordinates.
+
+**Also repaired: garbled characters in `effects.ts`.** A throwaway test step in the v1.4.1 work rewrote
+the file through PowerShell 5.1's `Get-Content -Raw`, which reads UTF-8 with no BOM as Windows-1252, so
+every non-ASCII character became mojibake. It reached `dev` unnoticed in 29 lines: comments, and two
+console-only log messages, so no player saw it. Repeating the step on `menu.ts` here broke the title
+test, which is how it was found. Confirmed clean by diffing against the last version before it.
+
+### Fixed 2026-11-05 (v1.4.4 RC) — "take them deeper" only where deepening helps
+
+DW: check whether they are earned-only or allow arousal, and pick the best message. `deeperHint` reads
+`effectiveEarnedOnly`, so the trigger refusal gets its advice back when opened to arousal (v1.4.3 removed
+it for everyone, which was wrong there), and the carry refusal, always earned-only, never gets it.
+
+The "too faint" refusal needs more than that setting. Opened to arousal, with earned depth clearing the
+gate, a trigger still plants at earned depth, so `plantedChemical` decides: it says what a plant would
+actually read. Its earned wording is new: it says going deeper will not help, and that more trust and a
+new induction will.
+
+### Fixed 2026-11-05 (v1.4.3 RC) — an earned-depth refusal shows the full depth too
+
+DW's report: "could not get them past 44", with "sink deeper" at Blank. No ceiling or code path holds
+anyone at 44, and a simulation from 44 got past it. The likely reading is this refusal: `depthRefusal`
+named only the earned depth, which deepening never raises (decided v0.95.0, and DW kept it: triggers
+need earned trust). So the number stayed at 44 however deep she went. Not confirmed against DW's test.
+
+Now, when they differ: "at 90 [Blank] but only 44 [Entranced] earned". Equal, it reads as before. The
+trigger refusal also loses its second sentence, "Take them deeper first; arousal does not count toward
+this one", at DW's say: deepening cannot satisfy it, it repeated the arousal clause, and it is probably
+what sent DW to "sink deeper". The rest of the wording is unchanged at DW's request.
+
+### Changed 2026-11-05 (v1.4.2 RC) — a slower pulse, and her own colour for it
+
+DW, after seeing v1.4.1 live: 1.4s was still a little fast, so 1.8s. A command landing during a pulse
+gets none of its own for that much longer, which the beat's spacing makes rare but not impossible.
+
+Custom colours in BC's hex codes. Checked against R132 `CommonIsColor`: #RGB and #RRGGBB, plus up to 8
+digits with `allowAlpha`, which is what `ColorPicker.js` copies for an item with opacity. So a pasted
+code works, with its alpha dropped since the pulse sets its own strength. `parsePulseHex` is the only
+way in, on typing and on load, because the result goes into a canvas colour string. A refused code
+says so and stays in the box to correct (rule 5). The saved colour survives picking another one.
+
+### Fixed 2026-11-05 (v1.4.1 RC) — the pulse could not be seen
+
+DW's first live look: the trance screen "changed color a little bit", with no pulse to see. It was
+running. It was too small: a 42px ring out of a 2000px canvas, 55% only in its outer 7px, over half
+strength for about 0.7s, pale through the 30% white veil, and on the far side of the screen from the
+chat. Set low to avoid flashing, and too low. The suite passed because it asked whether fills
+happened and how they swelled, never how big or strong they were; it now pins both.
+
+DW chose the glow plus a tint: 120px wide with a squared falloff, peak 0.8, 1.4s, and a 0.18 wash over
+the whole view at the peak. Still a sine swell. A command mid-pulse no longer restarts it: that dropped
+it to nothing in one frame, a real flash, and a stronger pulse would have made it obvious.
+
+### Added 2026-11-05 (v1.4.0 RC) — the beat, the pulse, the planted list, and holds across a wake
+
+Four items from the feedback list, each shaped by DW's answers the same day.
+
+**The beat (DW's "slight pauses after commands").** 2 to 5 seconds, the mean of three rolls so the
+edges are rare. `handleSpokenLine` splits at `landCommand`, and the WHOLE of that runs when the beat is
+up, so every gate answers for that moment: a permission revoked in the beat is refused, and no gate
+had to be written twice. Wake, release and the safeword do not wait. Three traps, each with a check:
+- *Order.* Two rolls could swap "kneel" and "stand", so each waits for the one before it.
+- *A release overtaking what it releases.* "You cannot move" then "you can move" would otherwise end
+  frozen, with nothing left to undo it. A release lands the queue first, then itself.
+- *Lines that act on the last command.* "That will stay with you" must find it applied, and a queued
+  command must not land inside a trigger that started recording. Those flush first (`isControlLine`).
+A wake or safeword clears the queue through `onTeardown` and the timer through `clearAllTimers`.
+Refusals wait too, since they come out of the same run. The suites run without the beat
+(`isUnitTestBundle`); the shipped build has it, testing room included. `setCommandPacing` turns it on
+for `test/command-pace.mjs`.
+
+**The pulse (JAX, 11-02).** `commandPulse`, on by default, with a colour on the Trance Defaults tab.
+A sine swell over a second, so it cannot flash. Refused commands do not pulse. It steps aside while BC
+darkens her screen, as the veil does. That tab now scrolls.
+
+**The planted list (Eri, 10-04).** `src/planted.ts`. The subject answers only about the asker's own
+triggers, in words, with a band and never the number. Notes on the hypnotist's client cover anyone
+not in the room, marked last known, and are only ever displayed (rule 1). No new message types:
+`messaging.ts` prints an unknown type as raw text on an older build, so the list rides on `state-query`,
+`state-response` and `trigger-status` as an extra field. Notes can go stale for someone who never
+returns, and there is no way to clear them short of a reset; capped at 50 subjects.
+
+**The panel (DW).** Movement, Clothing and Kneel buttons removed: testing leftovers. `remote-request`
+keeps a handler that does nothing, so an older hypnotist's press is not printed on the subject's screen.
+
+**Holds across a wake (Valerie, 10-31; DW's choice).** Reported as "tranced removes it"; what was
+actually found is that a trance carries a hold and the WAKE ended it. `onWakeKeep` reads holds before
+`endSession`'s total clear and restores them after, using the reconnect path (`restoreHold`), so the
+clear stays total. Only a hold that started before `hypnotizedAt`. Fired during the trance ends with
+it; a hold with no recorded start (after a reload) ends too, as before. A used-up one-shot is re-saved,
+because the teardown sweep deletes it. Known edge: a hold whose pose the hypnotist changed during the
+trance goes back on at the wake. The safeword and hard floor never ask. Not confirmed with Valerie.
+
+### Fixed 2026-11-05 (v1.4.0 RC) — a compulsion's refused pose stops telling the room
+
+easy (feedback, 11-01): a "when someone comes in" compulsion, every time, while tied up. `fireTrigger`
+announced `pose-blocked` on each arrival, a public emote, and the safeword leaves arrival triggers
+planted by design. A compulsion goes off with nobody asking, so the room has no reason to watch it
+fail. `tellPoseRefused` says so privately instead, once per compulsion per page load (rule 5), and
+names `/echs forgettrigger` unless the Extreme lock would refuse it. Scoped to `trigger.fireOn`: a word
+said aloud was aimed at her, so its refused pose stays public, as do spoken commands. A refused pose
+still counts as holding, as before, so forgettrigger waits for it to let go; the line says so.
+This matters more now, since under the lock nobody can remove such a trigger.
+
+### Changed 2026-11-05 (v1.4.0 RC) — DW's review of what Extreme does
+
+DW asked whether Extreme was extreme enough. What changed, each DW's answer in that review:
+
+- **Lock:** `/echs carry drop` refused. **Left open by choice:** `/echs forgettrust`, and the player
+  preferences a setup leaves alone (release on disconnect, show trigger words, hide trigger setup).
+- **Template:** trance clothing freeze on (replacing job2.md's "off until verbally commanded"),
+  chemical scope "both", toy mode "Everyone, except
+  blacklist". That last one means a stranger can put an Extreme subject straight under at Blank, so
+  the template's blurb now says so; the warning screen only covers the lock.
+- **Refused:** `/echs kneel` and `/echs stand`, which bypass every gate and would undo a pose a
+  hypnotist set.
+- **Hidden:** trust and experience on the Stats tab, `/echs chance`, `/echs skill`, `/echs gates`,
+  and the depth and progress in `/echs session`, which still says she is under. The tab stays
+  because it holds Export and Reset, and Reset is a documented way out. `/echs chance` is also a
+  hypnotist's tool, so an Extreme player loses it when hypnotizing others too.
+- **Trance length:** 60 minutes per "stay" while locked, read from the subject's own settings. The
+  expiry line on the hypnotist's client no longer names a number, since that client can't know it.
+- **Trigger decay stays "very slowly":** DW kept the 09-29 decision when offered "Never".
+
+**Under the lock, triggers can only be added. Reverses part of v1.3.0, at DW's request.** v1.3.0 let the planter's spoken removal through the
+lock, reasoning that the lock is about the subject escaping, not the planter withdrawing. Missy's
+feedback of 11-05 reported that against the earlier rule, and DW's call is that while locked nobody
+removes a trigger. `handleTriggerRemoval` refuses once it has found something of the sender's to
+remove, so "I take back what I said" stays conversation and a word that isn't theirs gets the same
+reply as ever, which keeps another hypnotist's word unconfirmed.
+
+Still working under the lock, on purpose: named release (lets go, stays planted), the safeword,
+and the automatic endings (fading at the very slow rate, one-shots being used up, the safeword
+discarding after-waking compulsions). A deeper planter can still override a word under the usual
+phrase-uniqueness rule. The Extreme warning now says it, since that is what the player is agreeing
+to. Consequence accepted: a planter who regrets a trigger cannot take it back until the lock ends.
+
+### Added 2026-11-02 (v1.3.0 RC) — the hypnotist can remove a trigger they planted
+
+DW asked for it, installer only. Until now only the subject could delete a trigger
+(`/echs forgettrigger`); release undoes the effects but leaves the trigger to fire again, and a
+compulsion has no word to release by. `handleTriggerRemoval` (voice.ts), before trigger control so
+its bare "forget the trigger" cancel can't swallow "forget the trigger <word>":
+
+- **One:** "forget / remove / erase / delete the trigger <word>", "the trigger <word> is gone", and
+  "I take back <word>". The last only counts when it names one of theirs, so "I take back what I
+  said" stays conversation. Longest phrase first, their phrase triggers only.
+- **All:** "forget every trigger I gave you" / "forget all your triggers": every trigger they
+  installed, compulsions included. Never anyone else's.
+- **Gates:** installer only (`installedBy === sender`), even where her scope lets others fire it:
+  release is open because undoing can't hurt, deletion wipes out someone's work. Her name required.
+  No trance required: removing can only help her. Not through the Extreme lock's
+  forgettrigger refusal either, since the lock is about her escaping, not the planter withdrawing.
+- **Holding:** undone first (`undoTrigger`, which also cancels the queued paced steps), then
+  `forgetTrigger`, so nothing is stranded.
+- **Said (rule 5):** the hypnotist hears removed / removed N / nothing of yours by that name. That
+  last reads the same for someone else's word and for none, so no other hypnotist's word is
+  confirmed. The subject is told something is gone, never the word.
+- **Never fires:** a removal line is always claimed, and one not addressed to her ("Ella, forget the
+  trigger frozen") returns before firing, the same guard the release got in v1.2.2.
+
+Tests: new `test/trigger-remove.mjs`, 40 checks.
+
+### Fixed 2026-11-02 (v1.2.2 RC) — "you are released from <trigger>" not always releasing
+
+DW: reports that the named release "is not stopping triggers always". Four causes, all reproduced
+in the new `test/trigger-release.mjs` (10/26 on the old code, 26/26 now):
+
+1. **Compulsions matched every release.** A delayed compulsion is stored with `phrase: ""`, and
+   `triggersReleasableBy` used `text.includes(t.phrase)`, which is true for `""`. With a
+   compulsion earlier in the list (easy's arrival trigger is one), `[0]` was the compulsion: it was
+   "released", the subject was told "lets go", and the named trigger kept holding. Now phrase
+   triggers only, longest phrase first (so a pre-overlap-rule "sleep" can't shadow "sleepy time").
+2. **The paced drain outlived the release.** `drainTriggerSteps` applies actions 1.2 to 2 s apart
+   under `trigger-drain:<installer>:<key>`, and a mantra is one step per repetition. `undoTrigger`
+   cancelled the auto-release timer but not the drain, so a quick release let the remaining steps
+   land after it with nothing to undo them. `undoTrigger` now cancels the drain too.
+3. **An unscoped release line fell through to firing.** When `scopeToAddressee` returned
+   `text: null` (ambiguous, or addressed only to someone else), the release handler never ran and
+   `handleTriggerFiring` read the whole line, so the trigger word in it FIRED. A release line now
+   never fires: ambiguous ones release (releasing needs no name and can't harm), ones for someone
+   else do nothing.
+4. **Silent outcomes (rule 5).** No match was console-only, and "lets go" was told even when
+   nothing was holding. The hypnotist now hears released / not holding / nothing by that name (the
+   last only if they have planted in her or have her under). The subject hears "lets go" only when
+   something did.
+
+Found while writing the suite, same root cause as 1: `phraseAvailability` also compared against
+the compulsion's `""`, so one planted compulsion refused every new trigger word ("Your own ""
+already overlaps this", or the vague refusal if someone else planted it). Now phrase triggers only.
+
+### Fixed 2026-11-02 (v1.2.1 RC) — strip misses the suit, outerwear and Echo's slots
+
+DW asked that strip remove all Echo clothing. Checking `UNDRESS_ORDER` against the live R133
+`Assets/Female3DCG.js` (32 groups with `Clothing: true`) found a worse bug first. `"SuitTop"` is not
+a BC group, because the slot is `"Suit"`, so an undershirt or bodysuit was never removed. That is
+Eri's 09-24/10-02 "include the upper suit" feedback. Added `ClothOuter` (BC's own outerwear
+group), `ClothAccessory`, `Corset`, `Garters`, `SocksLeft` and `SocksRight`, and moved Shoes before
+Socks.
+
+Echo (`SugarChain-Studio/echo-clothing-ext`, `src/components/功能调整/复制身体区域.js`) registers
+copies of BC groups through `AssetManager.addCopyGroup(mirror, source)`, always named
+`<source>_<suffix>` (`Cloth_笨笨蛋Luzi`, `ClothLower_笨笨笨蛋Luzi2`, `Bra_笨笨蛋Luzi`...). `wornGarments()`
+now reads `Player.Appearance` and ranks each worn group by its prefix, so any copy of a stripped
+slot comes off right after BC's own, including copies Echo adds later. Copies of slots strip leaves
+alone (`Necklace_`, `Hat_`, `Mask_`, `Luzi_Jewelry_0`) stay on. Echo's one new clothing group that is
+not a copy, `长袖子_Luzi` (long sleeves), is mapped to Cloth by hand. Echo is being merged into
+BC, so its pieces may move into BC's own groups. Either way they are covered. Tests: 8 new in
+`test/undress.mjs`, which fail on the old list (22/30).
+
+### Added 2026-11-02 (v1.2.0 RC) — "Stay under?" when the thirty minutes run out
+
+DW asked for it. The timeout used to end a trance outright, so a scene both people were enjoying
+was cut off at thirty minutes. Now `sessionTimer` calls `askToExtend()` instead of
+`expireSession("here")`. The trance holds, a box like the induction prompt asks (prompt.ts), and a
+60-second `extendTimer` runs. **Silence ends the trance**, exactly as the old timeout did. Staying
+under is something the subject chooses (rule: consent is the subject's), never what happens because
+they looked away or were AFK. A yes (`answerExtend(true)`, from the box or the new `/echs stay`)
+re-arms a fresh thirty minutes through the one `armSessionTimer()` that every way into trance now
+uses, and is asked again when that runs out. The hypnotist gets two `trigger-status` lines: one when
+the subject is asked, one if they stay. A no only wakes them early. `clearTimers()` takes the box down
+with the trance, so the safeword, a wake or the hypnotist leaving all end it.
+
+Not asked on the away path: a trance that ran out while logged out still ends on reconnect
+(`expireSession("away")`). A reload while the box is up does the same, because the saved deadline has
+passed. That's acceptable, since nobody was there to answer. Tests: `test/extend.mjs` (25), and
+`test/expiry.mjs` lets the question lapse before checking the ending.
+
+### Changed 2026-11-01 (v1.1.1 RC) — "Stop following me" releases a follow
+
+DW asked for it: the natural thing to say had no pattern. `follow-release` gains
+`(stop|quit|cease) following (me)`, `(do not|don't) follow me`, `no (more|longer) following (me)`,
+and `need to` beside `have to` in "you don't have to follow me". "Don't follow me" contains "follow
+me", so it relies on the release being listed before `follow-block`, as every release is. "Keep
+following me" matches nothing, and is tested to stay that way.
+
+**The walking-trance clash.** While walking, `WALK_LEAVE_PATTERNS` takes any line with a bare
+`stop` and returns her to full trance, consuming the line, so "stop following me" would have
+left walking trance and kept the follow on. That pattern is now `stop` not followed by
+"following". `test/follow.mjs` checks it, and was seen to fail with the old pattern.
+
 ### Changed 2026-11-01 (v1.1.0 RC) — Follow / leash rebuilt on LSCG's technique: no leash item, no Hold Leash
 
 **Reported broken by a tester, 2026-11-01.** The v0.77.0 design was never given the two-account run

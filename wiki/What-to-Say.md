@@ -7,7 +7,7 @@
 > **1.0 Release Candidate**  
 > ECHS is at its 1.0 release candidate. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
 
-**This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold.
+**This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold. A command lands after a beat of 2 to 5 seconds, in the order you said them. Say several together and each gets its own beat after the one before lands, so they take hold one at a time. Waking and releasing never wait.
 
 For a worked example of these phrases used in a live scene, see [A Sample Session](Sample-Session).
 
@@ -110,7 +110,7 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 | *"relax your arms"* · *"arms at your sides"* | — *release* (arms only) |
 | *“you can move again”* · *“your body is your own”* | — *release* |
 | *"follow me"* · *"stay close"* · *"heel"* | Follow / Leash · **Entranced (40)** |
-| *“you can leave”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
+| *“you can leave”* · *“stop following me”* · *“don't follow me”* · *“you don't have to follow me”* · *“you are free to go”* | — *release* |
 
 **Poses come in two groups, legs and arms,** and one never undoes the other: *"kneel"* then *"hands behind your back"* leaves the subject kneeling with hands clasped. A pose that bondage prevents does not happen, and the room sees the subject try and fail rather than a line claiming it worked. *"On all fours"* and *"lie down"* are whole-body poses, so they take the arms with them. Bondage Club has no sitting or crossed-arms pose, so *"sit"* and *"cross your arms"* do nothing.
 
@@ -185,6 +185,8 @@ It ends with the trance, the release, or her safeword, and *"that will stay with
 | *"take something off"* · *"undress"* | Undressing · **Entranced (40)** |
 | *"take everything off"* · *"strip"* | Undressing · **Entranced (40)** |
 | *“you can change your clothes”* · *“your clothes are yours again”* | — *release* |
+
+Undressing takes clothes off from the outside in: jacket, top, accessories, skirt, undershirt, leggings, corset, bra, panties, garters, shoes, socks, gloves. It also removes the extra clothing slots added by the Echo clothing add-on (*Cloth 2*, *Bottom 2*, long sleeves and so on). Hats, glasses, masks, jewellery, wings and tails stay on.
 
 ---
 

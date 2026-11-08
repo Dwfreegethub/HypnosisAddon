@@ -106,6 +106,12 @@ export function isTestingMode(): boolean {
 	return FORCE_TESTING || inTestingRoom();
 }
 
+/** Is this the unit-test bundle? Only for what would otherwise make every suite wait on real time:
+ * the spoken-command delay, which the shipped build, testing room included, always has. */
+export function isUnitTestBundle(): boolean {
+	return FORCE_TESTING;
+}
+
 /** The room half of isTestingMode, without the harness override. */
 function inTestingRoom(): boolean {
 	try {

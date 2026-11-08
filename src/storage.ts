@@ -157,6 +157,9 @@ export type RelationKind = "none" | "friend" | "lover" | "owner";
 export interface TrustEntry {
 	memberId: number;
 	memberName: string;
+	/** Their account name, when it was seen, because `memberName` holds the nickname they go by.
+	 * So the Stats tab's search can find someone by either after they have left (Senge, 2026-10-20). */
+	accountName?: string;
 	/** Interaction COUNT, not a 0-100 value — see curve.ts for why. Derive the trust
 	 * value with `trustWith()`; never store one. */
 	interactions: number;
@@ -431,6 +434,9 @@ export interface FeatureToggles {
 	 * present that you are running this, and describes fairly intimate behaviour while it
 	 * does so. */
 	roomSeesReactions: boolean;
+	/** A glow and a light wash of colour over the room view when a spoken command lands or a trigger
+	 * fires (JAX, 2026-11-02; DW 2026-11-05): something for the eyes to follow besides text. Hers alone. */
+	commandPulse: boolean;
 	/** Freeze-frame the subject's own view of their clothes on entering trance.
 	 *
 	 * DELIBERATELY OFF by default, unlike the three above. Those three are things the
@@ -506,6 +512,14 @@ interface HypnoAddonSettings {
 	 * Absent = no lock. Only ever written by confirming the new wizard's Extreme warning: builds
 	 * before v0.99.0 never recorded which preset was chosen, so nobody is locked by upgrading. */
 	extremeLockUntil?: number;
+	/** The command pulse's colour, one of PULSE_COLORS. Absent means the default. */
+	pulseColor?: string;
+	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
+	 * another, so going back finds it. */
+	pulseCustom?: string;
+	/** A hypnotist's own notes on the triggers they planted, by subject's member number (v1.4.0).
+	 * Only ever displayed: the subject's client alone decides what is really planted (rule 1). */
+	plantedNotes?: Record<string, PlantedNote>;
 	/** Which period is running: the first-week "trial", or a 30-day "month". */
 	extremeLockStage?: "trial" | "month";
 	/** First-launch starter offer: absent = new (show it), "applied" = show the undo, "done" =
@@ -569,6 +583,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
+		commandPulse: true,
 		roomSeesReactions: true,
 		// The one trance default that starts off — see the note on the interface.
 		tranceClothingFreeze: false,
@@ -654,6 +669,16 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	// A lock with no valid end is no lock: dropped, never invented.
+	if (s.pulseColor !== undefined && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
+	// Read back into the canvas's colour string, so an imported blob must not bring junk with it.
+	if (s.pulseCustom !== undefined) {
+		const hex = typeof s.pulseCustom === "string" ? parsePulseHex(s.pulseCustom) : null;
+		if (hex) s.pulseCustom = hex;
+		else delete s.pulseCustom;
+	}
+	if (s.plantedNotes !== undefined && (typeof s.plantedNotes !== "object" || s.plantedNotes === null || Array.isArray(s.plantedNotes))) {
+		delete s.plantedNotes;
+	}
 	if (s.extremeLockUntil !== undefined && !(typeof s.extremeLockUntil === "number" && s.extremeLockUntil > 0)) {
 		delete s.extremeLockUntil;
 	}
@@ -908,7 +933,7 @@ function isRealName(name: string): boolean {
 
 /** Add (or with a negative delta, remove) interactions. The only way trust moves —
  * conversation, the induction accelerator and decay all come through here. */
-export function addInteractions(memberId: number, memberName: string, delta: number): TrustEntry {
+export function addInteractions(memberId: number, memberName: string, delta: number, accountName?: string): TrustEntry {
 	const settings = loadSettings();
 	let entry = settings.trust.find((t) => t.memberId === memberId);
 	if (!entry) {
@@ -917,6 +942,7 @@ export function addInteractions(memberId: number, memberName: string, delta: num
 	}
 	entry.interactions = Math.max(0, entry.interactions + delta);
 	if (isRealName(memberName)) entry.memberName = memberName;
+	if (accountName) entry.accountName = accountName;
 	entry.lastUpdated = Date.now();
 	saveSettings();
 	return entry;
@@ -1340,6 +1366,91 @@ export function setToyScope(key: string): void {
 /** Back to the code default, stored as absence (the sparse rule), for the wizard's templates. */
 export function resetSkillHonour(): void {
 	delete loadSettings().skillHonour;
+	saveSettings();
+}
+
+// --- The command pulse's colour (v1.4.0) --------------------------------------------------------
+export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
+	{ key: "pink", label: "Pink", rgb: "255, 105, 180" },
+	{ key: "purple", label: "Purple", rgb: "170, 90, 255" },
+	{ key: "blue", label: "Blue", rgb: "80, 160, 255" },
+	{ key: "white", label: "White", rgb: "255, 255, 255" },
+	/** Whatever hex code she typed: see getPulseCustom. */
+	{ key: "custom", label: "Custom", rgb: "" },
+];
+export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+export function getPulseColor(): string {
+	return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
+}
+export function setPulseColor(key: string): void {
+	if (PULSE_COLORS.some((c) => c.key === key)) loadSettings().pulseColor = key;
+	saveSettings();
+}
+
+/** A hex code in the forms BC uses, as "#RRGGBB", or null if it isn't one. R132 CommonIsColor takes
+ * #RGB and #RRGGBB, and with allowAlpha up to 8 digits, which is what BC's colour picker copies when an
+ * item has opacity. So a code copied from there works: its alpha is dropped, as the pulse sets its own
+ * strength. Its own check rather than BC's so storage needs no game global. The # may be left off. */
+export function parsePulseHex(value: string): string | null {
+	const m = /^#?([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec((value ?? "").trim());
+	if (!m) return null;
+	const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1].slice(0, 6);
+	return `#${hex.toUpperCase()}`;
+}
+
+export function getPulseCustom(): string {
+	return loadSettings().pulseCustom ?? DEFAULT_PULSE_CUSTOM;
+}
+
+/** Save a typed code. Returns what was saved, or null if it was refused and nothing changed. */
+export function setPulseCustom(value: string): string | null {
+	const hex = parsePulseHex(value);
+	if (!hex) return null;
+	loadSettings().pulseCustom = hex;
+	saveSettings();
+	return hex;
+}
+
+/** The pulse's colour as "r, g, b", for the canvas. */
+export function getPulseRgb(): string {
+	const key = getPulseColor();
+	if (key !== "custom") return (PULSE_COLORS.find((c) => c.key === key) ?? PULSE_COLORS[0]).rgb;
+	const hex = getPulseCustom().slice(1);
+	return [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(", ");
+}
+
+// --- A hypnotist's notes on what they planted (v1.4.0) -------------------------------------------
+export interface PlantedEntry {
+	/** The trigger word; empty for a compulsion, which has `when` instead. */
+	word: string;
+	when: string;
+	does: string[];
+	/** In words, never the number: a hypnotist only ever gets the band. */
+	strength: string;
+	once: boolean;
+	holding: boolean;
+}
+export interface PlantedNote {
+	name: string;
+	updatedAt: number;
+	triggers: PlantedEntry[];
+}
+/** Notes on this many subjects at most; the longest unseen goes first. */
+const MAX_PLANTED_SUBJECTS = 50;
+
+export function listPlantedNotes(): Record<string, PlantedNote> {
+	return loadSettings().plantedNotes ?? {};
+}
+/** Replace what we know about one subject. Nothing planted any more means no note at all. */
+export function savePlantedNote(subject: number, note: PlantedNote | null): void {
+	const settings = loadSettings();
+	const notes = { ...(settings.plantedNotes ?? {}) };
+	if (note) notes[subject] = note;
+	else delete notes[subject];
+	const oldestFirst = Object.keys(notes).sort((a, b) => notes[a].updatedAt - notes[b].updatedAt);
+	while (oldestFirst.length > MAX_PLANTED_SUBJECTS) delete notes[oldestFirst.shift()!];
+	settings.plantedNotes = notes;
 	saveSettings();
 }
 

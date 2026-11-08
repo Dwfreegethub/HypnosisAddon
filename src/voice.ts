@@ -1,8 +1,11 @@
-import { log, warn, isTestingMode } from "./log";
+import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
+import { registerPlantedSource, MAX_PLANTED_ENTRIES } from "./planted";
+import { onTeardown, onWakeKeep } from "./teardown";
 import {
 	applyEffect,
 	removeEffect,
 	heldByUs,
+	startCommandPulse,
 	setSuggestedPose,
 	clearSuggestedPose,
 	poseGroupOf,
@@ -15,7 +18,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, listTriggers, updateTriggers, FeatureToggles, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, FeatureToggles, PlantedEntry, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -74,6 +77,7 @@ import {
 	triggersArmed,
 	installerHasSession,
 	tellHypnotist,
+	tellHypnotistWithList,
 	triggerStrength,
 	describeStrength,
 	pruneFadedTriggers,
@@ -96,6 +100,18 @@ import {
 	dueCompulsions,
 	describeCondition,
 } from "./triggers";
+
+/** The command pulse, if she wants it: a command landed or a trigger fired. */
+function pulse(): void {
+	if (!getFeatures().commandPulse) return;
+	startCommandPulse(getPulseRgb());
+}
+
+/** A spoken command took: tell the session, and pulse. */
+function noteLanded(sender: number): void {
+	noteSuggestionLanded(sender);
+	pulse();
+}
 
 // Natural-language suggestion parsing — the design doc's "free-form primary, /suggest as
 // fallback" approach, in stub form with three suggestions.
@@ -772,7 +788,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// collide with the orgasm "come" family, which is listed earlier and would swallow it.
 	{
 		id: "follow-release",
-		examples: ["you can leave", "you don't have to follow me", "you are free to go"],
+		examples: ["you can leave", "stop following me", "you don't have to follow me", "you are free to go"],
 		release: true,
 		releaseOf: "follow-block",
 		permission: "followControl",
@@ -780,7 +796,12 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (?:can|may) (?:leave|go)(?: now| freely)?\b/,
 			/\byou are (?:free|allowed) to (?:leave|go|wander|walk away)\b/,
 			/\byou (?:can|may) (?:walk away|wander off|go your own way)\b/,
-			/\byou (?:do not|don't) have to (?:follow|stay)(?: me| close| near)?\b/,
+			/\byou (?:do not|don't) (?:have|need) to (?:follow|stay)(?: me| close| near)?\b/,
+			// "Stop following me" and its kin (v1.1.1, DW). "Don't follow me" contains "follow me",
+			// which is why the release has to stay listed before the block.
+			/\b(?:stop|quit|cease) following(?: me)?\b/,
+			/\b(?:do not|don't) follow me\b/,
+			/\bno (?:more|longer) following(?: me)?\b/,
 			/\byou no longer (?:have to|need to) (?:follow|stay near me|stay close)\b/,
 			/\bstay (?:wherever|where) you (?:like|want|please)\b/,
 		],
@@ -2181,11 +2202,15 @@ const TRIGGER_STEP_JITTER_MS = 800;
  * floor cancels a half-drained sequence (endSession and totalStop both call clearAllTimers)
  * rather than leaving it running against a subject who is no longer under. Re-firing restarts it —
  * scheduleTimer replaces by key, so one trigger can never stack two drains. */
+function drainKey(trigger: Trigger): string {
+	return `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+}
+
 function drainTriggerSteps(trigger: Trigger, steps: (() => void)[]): void {
 	if (!steps.length) return;
 	steps[0]();
 	if (steps.length === 1) return;
-	const key = `trigger-drain:${trigger.installedBy}:${trigger.key}`;
+	const key = drainKey(trigger);
 	let i = 1;
 	const tick = () => {
 		steps[i++]();
@@ -2346,6 +2371,26 @@ export function installCompulsions(): void {
 	}, COMPULSION_POLL_MS);
 }
 
+/** When each trigger now holding her took hold. Only for the wake rule (onWakeKeep below), so it
+ * need not survive a reload: a hold with no time recorded ends at the wake, as all of them used to. */
+const holdStartedAt = new Map<string, number>();
+
+/** Compulsions already told about a refused pose since the page loaded. Not saved: hearing it again
+ * after a reload does no harm, and it is one more thing that could go stale. */
+const poseRefusalTold = new Set<string>();
+
+/** A compulsion's pose refused by bondage: said privately, and once per compulsion (rule 5, without
+ * a public line on every arrival). Offers the removal only where it would work. */
+function tellPoseRefused(trigger: Trigger): void {
+	log(`compulsion: pose refused (${describeCondition(trigger)})`);
+	if (poseRefusalTold.has(trigger.key)) return;
+	poseRefusalTold.add(trigger.key);
+	tellPlayer(
+		"Something set in you tries to move you, but your body will not go there." +
+			(extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger removes one once it has let go."),
+	);
+}
+
 function fireTrigger(trigger: Trigger, speaker: number): void {
 	if (!triggersArmed()) {
 		log(`trigger "${trigger.phrase}" matched but triggers aren't armed`);
@@ -2481,7 +2526,13 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			continue;
 		}
 		holding++;
-		steps.push(() => announce(suggestion.run(speaker) || suggestion.id));
+		steps.push(() => {
+			const outcome = suggestion.run(speaker) || suggestion.id;
+			// A word someone said aloud was aimed at her, so the room may watch her try. A compulsion
+			// goes off with nobody asking, as often as people come and go (easy, 2026-11-01).
+			if (outcome === "pose-blocked" && trigger.fireOn) tellPoseRefused(trigger);
+			else announce(outcome);
+		});
 	}
 	log(
 		`trigger "${trigger.phrase}" firing ${steps.length} step(s) — ${holding} holding, ${compels} compel — ` +
@@ -2493,8 +2544,10 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	// A holding action grips the subject, so it arms the auto-release even though it is applied on
 	// a paced tick — the few seconds of drain is nothing against a release measured in minutes,
 	// and a teardown clears the drain and the release together. A compel holds nothing.
+	if (steps.length || trigger.actions.includes(DROP_ACTION)) pulse();
 	if (holding) {
 		markActive(timerKey(trigger));
+		holdStartedAt.set(timerKey(trigger), Date.now());
 		scheduleAutoRelease(trigger);
 		// Written down NOW. A trigger normally fires with no trance running, so no session
 		// transition will ever save it, and a reload with nothing saved treats its Freeze as an
@@ -2530,6 +2583,123 @@ const TRIGGER_RELEASE = [
 	/\brelease (?:the )?trigger (.+)$/,
 ];
 
+export function isTriggerReleaseLine(content: string): boolean {
+	const text = normalize(content);
+	return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
+}
+
+// --- The hypnotist removing a trigger they planted (v1.3.0, DW 2026-11-02) ---------------------
+// Release undoes what a trigger is doing now; this deletes it, so it never fires again. Until now
+// only the subject could (`/echs forgettrigger`), so a hypnotist who regretted one, or whose
+// "when anyone comes in" kept going off, had no way to take it back.
+//
+// ONLY THE ONE WHO PLANTED IT. Releasing is open to anyone her scope lets fire it, because undoing
+// can't hurt her; deleting is wiping out someone else's work, which is theirs alone (DW's call).
+// No trance needed: taking a trigger away can only help her, and making the hypnotist put her
+// under again just to remove it would be the wrong way round. Her name is needed, as for anything
+// spoken to her that changes what is in her. A trigger holding her lets go first, then goes.
+const TRIGGER_REMOVE_ALL = [
+	/\b(?:forget|remove|erase|delete) (?:every|all) (?:of )?(?:the |my |your )?triggers?\b/,
+];
+const TRIGGER_REMOVE = [
+	/\b(?:forget|remove|erase|delete) (?:the |that |your )?trigger (?:word |phrase )?(.+)$/,
+	/\bthe trigger (.+?) is gone(?: now)?$/,
+];
+/** Only a removal when it names one of their triggers: "I take back what I said" is conversation. */
+const TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
+
+export type TriggerRemoval = { kind: "all" } | { kind: "one"; phrase: string; soft?: boolean } | null;
+
+/** Pure: what removal, if any, this line asks for. A captured phrase that is only her name ("forget
+ * the trigger, Missy") is no removal, so it can still cancel a trigger being set up. */
+export function parseTriggerRemoval(content: string): TriggerRemoval {
+	const text = normalize(content);
+	if (!text) return null;
+	if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+	for (const pattern of TRIGGER_REMOVE) {
+		const match = pattern.exec(text);
+		if (!match) continue;
+		const phrase = cleanPhrase(match[1]);
+		if (phrase) return { kind: "one", phrase };
+	}
+	const back = TRIGGER_TAKE_BACK.exec(text);
+	const backPhrase = back ? cleanPhrase(back[1]) : "";
+	if (backPhrase) return { kind: "one", phrase: backPhrase, soft: true };
+	return null;
+}
+
+/** Undo (if it is holding or still landing) and delete. Returns whether it was holding. */
+function removeTrigger(trigger: Trigger): boolean {
+	const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
+	undoTrigger(trigger);
+	forgetTrigger(trigger.key);
+	log(`trigger "${trigger.phrase || trigger.key}" removed by its installer ${trigger.installedBy}`);
+	return holding;
+}
+
+/** Told to a planter whose removal the subject's Extreme lock refused (rule 5). Only ever said when
+ * they named a trigger of their own, so it confirms nobody else's word. */
+const EXTREME_REMOVAL_REFUSED =
+	'[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" still lets go of one holding them.';
+
+function handleTriggerRemoval(sender: number, line: string): boolean {
+	const parsed = parseTriggerRemoval(line);
+	if (!parsed) return false;
+	if (!mentionsAnyName(line, playerOwnNames())) return false;
+	// The subject is not their own installer here; her way is /echs forgettrigger.
+	if (sender === Player?.MemberNumber) return false;
+	const mine = listTriggers().filter((t) => t.installedBy === sender);
+	if (parsed.kind === "all") {
+		if (!mine.length) {
+			tellHypnotist(sender, "[trigger] Nothing you planted is in them.");
+			return true;
+		}
+		// While locked, triggers can only be added: the planter's removal is refused too (DW,
+		// 2026-11-05, reversing v1.3.0). The safeword and a named release still let go of a hold.
+		if (extremeLocked()) {
+			tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+			return true;
+		}
+		const held = mine.map(removeTrigger).filter(Boolean).length;
+		tellHypnotistWithList(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held ? " What was holding them lets go." : ""}`);
+		tellPlayer(held ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
+		return true;
+	}
+	// Longest phrase first, as the release does. Their phrase triggers only: a compulsion has no word.
+	const trigger = mine
+		.filter((t) => !t.fireOn && !!t.phrase && parsed.phrase.includes(t.phrase))
+		.sort((a, b) => b.phrase.length - a.phrase.length)[0];
+	if (!trigger) {
+		// "I take back what I said" names no trigger of theirs: ordinary conversation, let it through.
+		if (parsed.soft) return false;
+		// "Forget the trigger <the one being set up>" still means cancel it: let the line through.
+		if (isRecording()) return false;
+		// Same words whether it is someone else's trigger or none at all, so another hypnotist's
+		// word is never confirmed. Still claimed: a removal line must not go on to FIRE the word.
+		// Her name was said, so this is no stranger's passing remark; told always.
+		tellHypnotist(
+			sender,
+			`[trigger] Nothing of yours called "${parsed.phrase}" is planted in them. For one with no word ("when someone comes in"), say "forget every trigger I gave you".`,
+		);
+		return true;
+	}
+	if (extremeLocked()) {
+		tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+		return true;
+	}
+	const held = removeTrigger(trigger);
+	tellHypnotistWithList(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+	tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
+	return true;
+}
+
+/** A removal line that must never go on to fire the word it names. The soft "I take back" form
+ * is left out: it is only a removal when it matched. */
+export function isTriggerRemovalLine(content: string): boolean {
+	const parsed = parseTriggerRemoval(content);
+	return parsed !== null && !(parsed.kind === "one" && parsed.soft);
+}
+
 /** Reverse everything a trigger applied. Shared by the named release, the timer, and
  * anything else that needs to let go — one path, so they can't drift apart. */
 function undoTrigger(trigger: Trigger): void {
@@ -2543,6 +2713,10 @@ function undoTrigger(trigger: Trigger): void {
 		SUGGESTIONS.find((s) => s.id === id)?.undo?.();
 	}
 	cancelTimer(timerKey(trigger));
+	// v1.2.2: and the steps not yet applied. A trigger's actions land one paced step at a time (a
+	// mantra is a step per repetition), and a release in the first seconds left the rest queued, so
+	// they landed AFTER "lets go" with nothing left to undo them, or she kept saying the mantra.
+	cancelTimer(drainKey(trigger));
 	clearActive(timerKey(trigger));
 	// The other direction: a released trigger left in the saved copy would be put back on by
 	// the next reload, restoring something that had already let go.
@@ -2706,12 +2880,24 @@ function handleTriggerRelease(sender: number, content: string): boolean {
 		if (!match) continue;
 		const phrase = cleanPhrase(match[1]);
 		const trigger = triggersReleasableBy(sender, phrase)[0];
+		// v1.2.2: every outcome is said to the hypnotist (rule 5). This was console-only, so a
+		// misspelt or wrong name looked exactly like a release that worked. Only to someone who has
+		// planted in her or has her under, so a stray "you are released from homework" nags nobody.
 		if (!trigger) {
 			log(`release asked for "${phrase}" but no trigger of theirs matches`);
+			if (isSessionActiveWith(sender) || listTriggers().some((t) => t.installedBy === sender))
+				tellHypnotist(sender, `[trigger] Nothing called "${phrase}" that you can release is planted in them. /echs triggers on their side lists what is.`);
 			return true;
 		}
+		// Holding her, or still landing (its paced steps not all applied yet).
+		const holding = isTriggerInEffect(trigger) || timerDeadline(drainKey(trigger)) > 0;
 		undoTrigger(trigger);
-		tellPlayer("Whatever was holding you lets go.");
+		if (holding) {
+			tellPlayer("Whatever was holding you lets go.");
+			tellHypnotist(sender, "[trigger] Released. What it was holding lets go.");
+		} else {
+			tellHypnotist(sender, "[trigger] Released, but it was not holding them right now.");
+		}
 		return true;
 	}
 	return false;
@@ -2790,6 +2976,7 @@ function handleDeepening(sender: number, line: string): boolean {
 	const r = tryDeepen(sender);
 	switch (r.kind) {
 		case "deeper":
+			pulse();
 			announce("deepen");
 			tellHypnotist(sender, `[deepen] It takes. They are ${r.band}.`);
 			break;
@@ -2921,42 +3108,85 @@ registerCarryHandlers(applyActionById, undoActionById);
 // reconnect, regardless of the five-minute session window and regardless of whether the
 // hypnotist ever comes back. Dropping and rejoining must not be a way to reset every clock
 // currently holding you.
-registerTriggerRecovery(
-	() =>
-		listTriggers()
-			.filter((t) => isActive(timerKey(t)))
-			.map((t) => ({ key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) })),
-	(saved: SavedTrigger) => {
-		const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
-		if (!trigger) {
-			log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
-			return;
+function holdRecord(t: Trigger): SavedTrigger {
+	return { key: timerKey(t), actions: t.actions, until: timerDeadline(timerKey(t)) };
+}
+
+/** Put a trigger's hold back, on the time it had left. Shared by a reconnect and a wake. */
+function restoreHold(saved: SavedTrigger): void {
+	const trigger = listTriggers().find((t) => timerKey(t) === saved.key);
+	if (!trigger) {
+		log(`recovery: trigger ${saved.key} no longer exists, nothing to restore`);
+		return;
+	}
+	for (const id of saved.actions) {
+		try {
+			applyActionById(id);
+		} catch (err) {
+			warn(`recovery: could not re-apply "${id}":`, err);
 		}
-		for (const id of saved.actions) {
-			try {
-				applyActionById(id);
-			} catch (err) {
-				warn(`recovery: could not re-apply "${id}":`, err);
-			}
+	}
+	markActive(saved.key);
+	// until === 0 is the duration-0 case: applied, with no clock, until released deliberately.
+	const remaining = saved.until ? saved.until - Date.now() : 0;
+	if (remaining > 0) {
+		scheduleTimer(saved.key, remaining, () => {
+			undoTrigger(trigger);
+			tellPlayer("Whatever was holding you loosens on its own.");
+		});
+	}
+	// Re-saved, which also re-arms the heartbeat: otherwise the copy on disk is the one read
+	// at startup and goes stale — a second reload after this trigger lets go would put it
+	// back on again.
+	saveForReconnect();
+	log(
+		`recovery: trigger "${trigger.phrase}" restored with ` +
+			`${remaining > 0 ? `${Math.round(remaining / 60_000)} min left` : "no clock"}`,
+	);
+}
+
+registerTriggerRecovery(() => listTriggers().filter((t) => isActive(timerKey(t))).map(holdRecord), restoreHold);
+
+// A HOLD FROM BEFORE THE TRANCE OUTLIVES THE WAKE (Valerie, 2026-10-31; DW 2026-11-05). A trance
+// carries such a hold along, but an ordinary wake clears everything, so a trigger with time left
+// stopped early because of a trance that had nothing to do with it. It now finishes its time.
+// A hold from a trigger fired DURING the trance still ends with it. The safeword never asks this.
+onWakeKeep((hypnotizedAt) => {
+	const kept = listTriggers().filter((t) => isActive(timerKey(t)) && (holdStartedAt.get(timerKey(t)) ?? Infinity) < hypnotizedAt);
+	if (!kept.length) return;
+	const records = kept.map((t) => ({ trigger: t, saved: holdRecord(t) }));
+	return () => {
+		for (const { trigger, saved } of records) {
+			// A used-up one-shot is swept at teardown because nothing should be holding by then. This
+			// one is, and undoTrigger removes it when it lets go.
+			if (!listTriggers().includes(trigger)) saveTrigger(trigger);
+			restoreHold(saved);
 		}
-		markActive(saved.key);
-		// until === 0 is the duration-0 case: applied, with no clock, until released deliberately.
-		const remaining = saved.until ? saved.until - Date.now() : 0;
-		if (remaining > 0) {
-			scheduleTimer(saved.key, remaining, () => {
-				undoTrigger(trigger);
-				tellPlayer("Whatever was holding you loosens on its own.");
-			});
-		}
-		// Re-saved, which also re-arms the heartbeat: otherwise the copy on disk is the one read
-		// at startup and goes stale — a second reload after this trigger lets go would put it
-		// back on again.
-		saveForReconnect();
-		log(
-			`recovery: trigger "${trigger.phrase}" restored with ` +
-				`${remaining > 0 ? `${Math.round(remaining / 60_000)} min left` : "no clock"}`,
-		);
-	},
+		tellPlayer("You wake, but what held you before the trance still holds.");
+	};
+});
+
+// The hypnotist's list (planted.ts): theirs only, in words, and a band rather than the number.
+registerPlantedSource((hypnotist): PlantedEntry[] =>
+	listTriggers()
+		.filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0)
+		.slice(0, MAX_PLANTED_ENTRIES)
+		.map((t) => {
+			const now = triggerStrength(t);
+			return {
+				word: t.phrase,
+				when: t.fireOn ? describeCondition(t) : "",
+				does: t.actions.map(describeAction),
+				strength:
+					now < TRIGGER_GHOST_THRESHOLD
+						? "a vague pull only"
+						: now >= t.plantedDepth
+							? "full strength"
+							: `fading, reaches ${tierLabel(tierOf(now))}`,
+				once: !!t.oneShot,
+				holding: isTriggerInEffect(t),
+			};
+		}),
 );
 
 /** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".
@@ -3035,7 +3265,8 @@ const WALK_ENTER_PATTERNS = [
 const WALK_LEAVE_PATTERNS = [
 	/\bbe still\b/,
 	/\bbe frozen\b/,
-	/\bstop\b/,
+	// Not "stop following me": that releases the follow, and leaving walking trance would eat it.
+	/\bstop\b(?! following)/,
 	/\b(?:stand|hold|stay) still\b/,
 	/\bstay put\b/,
 	/\bstillness\b/,
@@ -3065,10 +3296,11 @@ function handleWalkingTrance(sender: number, content: string): boolean {
 	// full trance, so if we are already walking this falls through to leave, which is correct —
 	// nothing about "walk with me" should re-freeze someone already walking.
 	if (wantsEnter && !isWalkingTrance()) {
-		if (!enterWalkingTrance()) log(`walking-trance enter from ${sender} ignored — not under`);
+		if (enterWalkingTrance()) pulse();
+		else log(`walking-trance enter from ${sender} ignored — not under`);
 		return true;
 	}
-	leaveWalkingTrance();
+	if (leaveWalkingTrance()) pulse();
 	return true;
 }
 
@@ -3117,7 +3349,7 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 	}
 	if (cmd.all) setAllSelfTouchBlocked(cmd.block);
 	else setBodyPartBlocked(cmd.word, cmd.groups, cmd.block);
-	noteSuggestionLanded(sender);
+	noteLanded(sender);
 	const actionId = cmd.all ? "touch:all" : `touch:${cmd.word}`;
 	if (cmd.block) {
 		noteApplied(actionId);
@@ -3366,7 +3598,7 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		return true;
 	}
 	tellPlayer("Your body does it without waiting for you to decide.");
-	noteSuggestionLanded(sender);
+	noteLanded(sender);
 	repeatTouch(sender, cmd.times, () => runCommandedActivity(activity, groups) != null);
 	return true;
 }
@@ -3599,6 +3831,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 	}
 	log(`commanded ${cmd.activity} on ${target.MemberNumber}'s ${landed}`);
 	tellPlayer("Your body moves to them without waiting for you to decide.");
+	pulse();
 	return true;
 }
 
@@ -3610,6 +3843,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 		log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
 		return;
 	}
+	if (commandQueue.length && !rereadingRest && isControlLine(content)) flushCommands();
 	// ADDRESSEE SCOPING, BEFORE ANY MATCHER READS THE LINE. "Missy, cum. Ella, kneel." used to
 	// reach both clients whole: each saw its own name, each matched the whole line, and both
 	// ran whichever suggestion sits earlier in SUGGESTIONS — so one command was lost and the
@@ -3629,6 +3863,9 @@ export function handleSpokenLine(sender: number, content: string): void {
 	const line = scope.text;
 
 	if (line !== null) {
+		// Removing one of theirs (v1.3.0) before trigger control, whose "forget the trigger" cancel
+		// would otherwise swallow "forget the trigger sleepy time".
+		if (handleTriggerRemoval(sender, line)) return;
 		// Trigger control first, so "remember trigger" can't be read as anything else.
 		if (handleTriggerControl(sender, line)) return;
 		// Then carry control, before anything that could read "this will stay with you" as a
@@ -3640,6 +3877,18 @@ export function handleSpokenLine(sender: number, content: string): void {
 		// Reinforcement before firing: "let that trigger settle deeper" could otherwise contain a
 		// planted word and set the thing off in the middle of maintaining it.
 		if (handleReinforcement(sender, line)) return;
+	} else if (isTriggerRemovalLine(content)) {
+		// v1.3.0: the same rule for removal. Not addressed to her, so it removes nothing of hers,
+		// and the word it names must not fire either.
+		return;
+	} else if (isTriggerReleaseLine(content)) {
+		// v1.2.2: a release line that was not cut down to us. Before this, it fell through to the
+		// firing below, which reads the whole line, so "you are released from frozen. Ella, kneel"
+		// (a clause no name claims, so the whole line is ambiguous) FIRED frozen again. Releasing
+		// can never harm her and needs no name, so an ambiguous line still releases; one addressed
+		// only to someone else ("Ella, you are released from frozen") does nothing to her.
+		if (scope.ambiguous) handleTriggerRelease(sender, content);
+		return;
 	}
 	// Then firing — deliberately BEFORE the session gate below, since the whole point of a
 	// trigger is that it works outside a trance.
@@ -3666,6 +3915,113 @@ export function handleSpokenLine(sender: number, content: string): void {
 	}
 
 	if (handleWakeLine(sender, line)) return;
+	if (shouldPace(sender, line)) {
+		enqueueCommand(sender, line);
+		return;
+	}
+	// A release never waits, and lands after whatever was said before it, not before.
+	if (commandQueue.length && isReleaseLine(line)) flushCommands();
+	landCommand(sender, line);
+}
+
+// --- The beat after a command (v1.4.0, DW 2026-11-05) ----------------------------------------------
+// Every spoken command takes 2 to 5 seconds to land, with the edges less common, so it reads as the
+// words sinking in rather than a bot replying. Wake, release and the safeword never wait.
+//
+// Nothing is decided when the line is heard: the whole of landCommand runs when the beat is up, so
+// every gate (session, permission, depth, her name) answers for that moment. A permission revoked in
+// the beat is refused. A wake or safeword clears the queue (onTeardown below) and its timer
+// (clearAllTimers), so nothing lands afterwards.
+//
+// IN ORDER, ALWAYS. "Kneel" then "stand" must not swap because of two random rolls, so each waits
+// at least for the one before it.
+//
+// EACH BEAT STARTS WHEN THE ONE BEFORE LANDS (v1.5.2, DW's G.1 note on v1.5.1). It used to count from
+// when the line was said, with only half a second after the one before, so two commands said close
+// together landed almost at once. Now a command said while another is waiting gets its own full
+// 2 to 5 seconds after that one lands, which reads as one instruction sinking in, then the next.
+//
+// Lines that act on what was just said cannot wait for it, or be overtaken by it: "that will stay
+// with you" has to find the suggestion already applied, and a command still waiting when a trigger
+// starts recording would be recorded into it. Those land what is queued first (isControlLine).
+const COMMAND_PACE_TIMER = "command-pace";
+const COMMAND_MIN_MS = 2000;
+const COMMAND_SPREAD_MS = 3000;
+
+let commandQueue: { sender: number; line: string; due: number }[] = [];
+let commandPacing = !isUnitTestBundle();
+
+/** The suites run with no beat, or every one of them would have to wait on it. */
+export function setCommandPacing(on: boolean): void {
+	commandPacing = on;
+}
+
+/** 2 to 5 seconds. The mean of three rolls, so the middle is common and the edges are not. */
+export function commandDelayMs(roll: () => number = Math.random): number {
+	return COMMAND_MIN_MS + (COMMAND_SPREAD_MS * (roll() + roll() + roll())) / 3;
+}
+
+function isReleaseLine(line: string): boolean {
+	const id = matchSuggestion(line);
+	if (id && SUGGESTIONS.find((s) => s.id === id)?.release) return true;
+	const part = matchBodyPartCommand(line);
+	return !!part && !part.block;
+}
+
+function shouldPace(sender: number, line: string): boolean {
+	if (!commandPacing || rereadingRest || isRecording()) return false;
+	// No session and no name both end in a log line. Nothing to wait for.
+	if (!isSessionActiveWith(sender) || !mentionsAnyName(line, playerOwnNames())) return false;
+	return !isReleaseLine(line);
+}
+
+function enqueueCommand(sender: number, line: string): void {
+	const now = Date.now();
+	// From when the one still waiting lands, or from now if nothing is waiting.
+	const from = Math.max(now, commandQueue[commandQueue.length - 1]?.due ?? 0);
+	commandQueue.push({ sender, line, due: from + commandDelayMs() });
+	if (commandQueue.length === 1) scheduleNextCommand();
+}
+
+function scheduleNextCommand(): void {
+	const next = commandQueue[0];
+	if (!next) return;
+	scheduleTimer(COMMAND_PACE_TIMER, Math.max(0, next.due - Date.now()), () => {
+		landNextCommand();
+		scheduleNextCommand();
+	});
+}
+
+function landNextCommand(): void {
+	const next = commandQueue.shift();
+	if (!next) return;
+	try {
+		landCommand(next.sender, next.line);
+	} catch (err) {
+		warn("a waiting command failed:", err);
+	}
+}
+
+/** Land everything waiting, in order, now. */
+function flushCommands(): void {
+	cancelTimer(COMMAND_PACE_TIMER);
+	while (commandQueue.length) landNextCommand();
+}
+
+/** Would this line act on what was just said? See the note above. Only asked while one is waiting. */
+function isControlLine(content: string): boolean {
+	const text = normalize(content);
+	return !!parseTriggerControl(content) || [...CARRY_LAST, ...CARRY_ALL, ...CARRY_CANCEL].some((p) => p.test(text));
+}
+
+// A wake or the safeword: what was still waiting never lands.
+onTeardown(() => {
+	cancelTimer(COMMAND_PACE_TIMER);
+	commandQueue = [];
+});
+
+/** Everything from here on is what a hypnotist's spoken command does. */
+function landCommand(sender: number, line: string): void {
 	// After wake (so "come back to me" wakes rather than walks) and before the matcher (so the
 	// leave phrases can pre-empt the movement suggestion while walking).
 	if (handleWalkingTrance(sender, line)) return;
@@ -3752,7 +4108,7 @@ export function handleSpokenLine(sender: number, content: string): void {
 	// is why it returns a key rather than a boolean.
 	const outcome = suggestion.run(sender) || id;
 	if (outcome !== id) tellHypnotist(sender, `[suggestion] "${id}" matched but did not land: ${outcome}.`);
-	else noteSuggestionLanded(sender);
+	else noteLanded(sender);
 	// A PARTIAL SUCCESS IS ITS OWN OUTCOME TOO. The broad awareness line applies whichever of
 	// its three categories are permitted and deep enough, and used to say nothing about the
 	// rest — so a hypnotist who said "you will not notice" with only touches ticked was told

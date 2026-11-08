@@ -70,6 +70,8 @@ depth.setCurrentDepths(80, 30);
 const chemical = carry.carryThese(HYP, "GameBot", carry.lastApplied());
 check("arousal cannot buy it either", !!chemical.refusal, true);
 check("  and says arousal does not count", /arousal does not count/.test(chemical.refusal ?? ""), true);
+// Carry-forward is always earned-only, so deepening can never help. Failure: it says to try.
+check("  and does not tell them to take her deeper", /Take them deeper/.test(chemical.refusal ?? ""), false);
 check("  still nothing held", carry.carriedIds(), []);
 depth.setCurrentDepths(80, 80);
 

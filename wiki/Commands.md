@@ -28,6 +28,13 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 
 You are told the attempt went out; what happens next is the other player's choice, made privately on their own client. `/echs chance <name>` (under Diagnostics) shows your odds first.
 
+| Command | What It Does |
+|---|---|
+| **`/echs planted <name>`** | **Lists the triggers you planted in that player:** the word or what it waits for, how it stands, and what it does. If they are in the room they are asked and answer with what is still there; if not, you see your own notes, marked *last known*. You never see anyone else's triggers. |
+| `/echs planted` | The same for everyone you have notes on. |
+
+The **Planted triggers** button on their profile's spiral panel shows the same list.
+
 ---
 
 ## Session — Usable From Any State
@@ -39,6 +46,7 @@ You are told the attempt went out; what happens next is the other player's choic
 | `/echs trust <name>` | Give a hypnotist your trust: their next induction within 5 minutes skips the prompt and goes ahead as Agree, with your trust in them counting as at least 65 for that one induction. Saying *"I trust you, <name>"* in the room does the same. | Letting someone you know take you under without the prompt. |
 | `/echs fight` | Resist — significantly lowers their roll, and it lands shallower. Typed while under, you push back at once and fight going deeper for the rest of the trance; a deepening that misses may bring you back up (or awake). At most one push a minute. | Actively struggling against the induction without clicking. |
 | `/echs wake` | Wake yourself, if the trance is shallow enough. | Attempting to shake off a light trance. A deep trance will refuse and inform you. |
+| `/echs stay` | When your trance's 30 minutes (60 under an Extreme lock) are up, you are asked whether to stay under for as long again. This says yes, the same as **Stay under** on the box. | Answering from the wardrobe or another screen where the box doesn't show. No answer within a minute wakes you. |
 | **`/echs safeword`** | **Hard stop. Clears the active trance and every lingering effect. Always works.** | Any time, under any condition, from any state. |
 | `/echs effects` | Lists everything currently affecting you, and what would survive a reconnect. | Checking *"Why can't I do that?"* or diagnosing persistent states. |
 | `/echs session` | Displays your active session state and which permissions are granted. | Checking *"Why didn't that suggestion land?"* |
@@ -57,15 +65,15 @@ You are told the attempt went out; what happens next is the other player's choic
 | Command | What It Does | When You Would Use It |
 |---|---|---|
 | `/echs match <phrase>` | Reports what that phrase would trigger, or why it failed. | Quickly diagnosing whether phrasing was invalid or a permission/depth gate blocked it. Reports the name gate separately. |
-| `/echs chance [name]` | Displays the calculated induction probability for each response against a target. | Deciding whether an attempt is mathematically viable or tuning trust. |
-| `/echs gates` | Lists every depth gate, its threshold, and whether you are deep enough right now. | Checking *"How deep do I need to be for this to work?"* |
+| `/echs chance [name]` | Displays the calculated induction probability for each response against a target. Refused during your own Extreme lock. | Deciding whether an attempt is mathematically viable or tuning trust. |
+| `/echs gates` | Lists every depth gate, its threshold, and whether you are deep enough right now. Refused during your Extreme lock. | Checking *"How deep do I need to be for this to work?"* |
 | `/echs triggers` | Says how many triggers are planted in you, who planted each one, and how strong it still is. Flags any currently holding you. | A quick look without learning what they do. |
 | `/echs triggers <number>` | Shows that one trigger in full: what it does, its options, and what a compulsion is waiting for. | Choosing to see what a trigger does. (The trigger word shows only if you ticked *Show trigger words*). |
-| `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. | Reviewing or clearing lingering suggestions before waking. |
-| `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. | Reviewing your induction experience and progression. |
+| `/echs carry [drop]` | Shows suggestions configured to survive the trance, or drops them immediately. Dropping is refused during your Extreme lock. | Reviewing or clearing lingering suggestions before waking. |
+| `/echs skill` | Displays your own hypnotist skill rating and how the client calculates it. Refused during your Extreme lock. | Reviewing your induction experience and progression. |
 | `/echs storage` | Reports where settings loaded from and what each data source holds. | Troubleshooting settings persistence or storage migration issues. |
 | `/echs debug [on|off]` | Switches the add-on's routine browser-console lines on or off, for this browser only. Off by default; always on in the Hypno Testing room. With nothing after it, it flips the setting. | When you've been asked for console output with a bug report. The lines are filed under the console's *Verbose* (Chrome) or *Debug* (Firefox) level. |
-| `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. `stand` resets the legs only, the same as the spoken command. | Verifying that BC's native posture API is responding correctly. |
+| `/echs kneel` · `/echs stand` | Directly poses your character, bypassing matching, permissions, and sessions. `stand` resets the legs only, the same as the spoken command. Refused during your Extreme lock. | Verifying that BC's native posture API is responding correctly. |
 
 ---
 
@@ -79,7 +87,7 @@ You are told the attempt went out; what happens next is the other player's choic
 | `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
 | `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
 | `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
-| `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. |
+| `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. The **[x]** on the Stats tab does the same. |
 
 ---
 

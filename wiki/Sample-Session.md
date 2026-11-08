@@ -86,7 +86,7 @@ Elena speaks normally in room chat. No slash commands are required.
 
 > **Elena:** Missy, you cannot move.
 
-**Missy sees** *(one of several)*:
+After a beat of 2 to 5 seconds, as the words sink in, **Missy sees** *(one of several)*, with a pulse of colour over her view:
 
 [Your body simply stops listening to you.]
 [You tell your legs to move. Nothing happens.]

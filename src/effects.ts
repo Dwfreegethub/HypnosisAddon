@@ -125,8 +125,20 @@ function currentPoses(): string[] {
  * whole appearance.
  *
  * Returns whether it took. Rule 5: bondage can refuse a pose, and so can a name BC does not
- * know, and before this the add-on announced the kneel either way. */
+ * know, and before this the add-on announced the kneel either way.
+ *
+ * BONDAGE IS ASKED FIRST (v1.5.1). BC's PoseSetActive writes ActivePose WITHOUT checking any item
+ * (R132 Pose.js:201); what is drawn is worked out afterwards by PoseRefresh, which filters ActivePose
+ * through each item's AllowActivePose into Player.PoseMapping. So ActivePose always "took", the
+ * room was told she knelt in a leg binder, and the kneel waited in ActivePose until the binder came
+ * off and she knelt then (DW's live run of script_test D2, 2026-11-08). We now ask BC's own
+ * PoseAvailable before writing, and judge "landed" by what is drawn, not by what was asked for. */
 export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGroupOf(pose ?? "") ?? "stance"): boolean {
+	const target = pose ?? (group === "arms" ? "BaseUpper" : "BaseLower");
+	if (!poseAllowedByItems(target)) {
+		log(`pose: ${group} → ${pose ?? "neutral"} refused by items; AllowedActivePoseMapping=${JSON.stringify(Player?.AllowedActivePoseMapping)}`);
+		return false;
+	}
 	const before = currentPoses();
 	const otherGroup: PoseGroup = group === "stance" ? "arms" : "stance";
 	const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
@@ -154,20 +166,60 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 		ownPoseChange--;
 		if (liftOwnFreeze) refreshOwnEffects();
 	}
+	const after = currentPoses();
+	// Judged by what is DRAWN (PoseMapping, rebuilt synchronously by CharacterRefresh inside
+	// PoseSetActive), falling back to ActivePose where there is no mapping to read.
+	const shown = drawnPoses() ?? after;
+	// Cleared means nothing but the group's neutral is left in it.
+	const landed = pose !== null
+		? after.includes(pose) && shown.includes(pose)
+		: !shown.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+	if (!landed) {
+		// Asked for but not drawn: take the request back, so it does not wait in ActivePose and
+		// land later, when the item that blocked it comes off. Nothing has gone to the room yet.
+		if (!samePoses(after, before)) {
+			Player.ActivePose = before;
+			if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+		}
+		log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping=${JSON.stringify(Player?.PoseMapping)}`);
+		return false;
+	}
 	// The hold now holds her HERE. Before the room is told, so the ServerSend guard knows this one.
 	noteHeldPose();
 	if (ServerPlayerIsInChatRoom()) {
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 	}
-	const after = currentPoses();
-	// Cleared means nothing but the group's neutral is left in it.
-	const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
 	// Losing the other group is expected when a whole-body pose is involved on either side.
 	const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
 	if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
-	if (landed) ours[group] = pose;
-	else log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
-	return landed;
+	ours[group] = pose;
+	return true;
+}
+
+/** BC's pose category for one of ours: PoseRecord where BC has it, else from our own groups. */
+function poseCategory(pose: string): string {
+	const rec = typeof PoseRecord === "object" && PoseRecord ? PoseRecord[pose] : undefined;
+	if (rec && typeof rec.Category === "string") return rec.Category;
+	if (FULL_BODY_POSES.includes(pose)) return "BodyFull";
+	return poseGroupOf(pose) === "arms" ? "BodyUpper" : "BodyLower";
+}
+
+/** Do her items allow this pose at all? BC's PoseAvailable (R132 Pose.js:155), which only reads
+ * AllowedActivePoseMapping, the intersection of every worn item's AllowActivePose. Deliberately NOT
+ * PoseCanChangeUnaided: that also refuses for Freeze and the owner's BlockChangePose rule, and a
+ * spoken command moves a held-still subject (DW, 2026-09-26). What bondage cannot draw, it cannot. */
+function poseAllowedByItems(pose: string): boolean {
+	const category = poseCategory(pose);
+	if (typeof PoseAvailable === "function") return !!PoseAvailable(Player, category, pose);
+	const list = Player?.AllowedActivePoseMapping?.[category];
+	return !Array.isArray(list) || list.includes(pose);
+}
+
+/** The poses BC is drawing her in (Player.PoseMapping values), or null where there is none to read. */
+function drawnPoses(): string[] | null {
+	const m = Player?.PoseMapping;
+	if (!m || typeof m !== "object") return null;
+	return Object.values(m).filter((x: unknown): x is string => typeof x === "string");
 }
 
 /** The poses suggestions put the player in and that are still in place, or null. Saved
@@ -287,6 +339,61 @@ export function drawTranceVeil(): void {
 	MainCanvas.save();
 	MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
 	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+	MainCanvas.restore();
+}
+
+// --- The command pulse (v1.4.0, JAX 2026-11-02, DW 2026-11-05) -----------------------------------
+// A glow around the edge of the room view and a light wash of colour across it, when a command lands
+// or a trigger fires. A slow swell and fade with no hard edge in time, so it never flashes. Over the
+// same rect as the veil, and for the same reason steps aside while BC is darkening her screen: she
+// cannot see, so nothing shows.
+//
+// v1.4.1, DW: the first version (42px wide, peak 0.55, one second) ran and nobody could see it. It
+// has to read through the 30% white veil and from across the screen, with her eyes on the chat.
+// v1.4.2, DW: 1.4 seconds was still a little fast.
+const PULSE_MS = 1800;
+const PULSE_PEAK = 0.8;
+/** The wash across the whole view at the pulse's peak. Light enough to see the characters through. */
+const PULSE_TINT_PEAK = 0.18;
+const PULSE_BANDS = 12;
+const PULSE_BAND_WIDTH = 10;
+let pulseStartedAt = 0;
+let pulseRgb = "";
+
+/** Start a pulse in this colour ("r, g, b"). One already showing is left to finish: restarting it
+ * would drop it to nothing in a single frame, which is the flash this is built not to have. */
+export function startCommandPulse(rgb: string, now: number = Date.now()): void {
+	if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
+	pulseStartedAt = now;
+	pulseRgb = rgb;
+}
+
+/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded. */
+export function drawCommandPulse(now: number = Date.now()): void {
+	if (!pulseStartedAt) return;
+	const t = (now - pulseStartedAt) / PULSE_MS;
+	if (t >= 1 || t < 0) {
+		pulseStartedAt = 0;
+		return;
+	}
+	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+	const swell = Math.sin(Math.PI * t);
+	const strength = swell * PULSE_PEAK;
+	MainCanvas.save();
+	MainCanvas.fillStyle = `rgba(${pulseRgb}, ${swell * PULSE_TINT_PEAK})`;
+	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+	for (let band = 0; band < PULSE_BANDS; band++) {
+		// Each band further in is fainter, and falls away faster, so the glow has no inner edge.
+		const falloff = (PULSE_BANDS - band) / PULSE_BANDS;
+		MainCanvas.fillStyle = `rgba(${pulseRgb}, ${strength * falloff * falloff})`;
+		const inset = band * PULSE_BAND_WIDTH;
+		const w = VEIL_WIDTH - 2 * inset;
+		const h = MainCanvasHeight - 2 * inset;
+		MainCanvas.fillRect(inset, inset, w, PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(inset, MainCanvasHeight - inset - PULSE_BAND_WIDTH, w, PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(inset, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+		MainCanvas.fillRect(VEIL_WIDTH - inset - PULSE_BAND_WIDTH, inset + PULSE_BAND_WIDTH, PULSE_BAND_WIDTH, h - 2 * PULSE_BAND_WIDTH);
+	}
 	MainCanvas.restore();
 }
 

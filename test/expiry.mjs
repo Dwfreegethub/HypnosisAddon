@@ -157,6 +157,10 @@ const induceAndExpire = (choice) => {
 	if (phase() !== "Hypnotized") throw new Error(`the ${choice} induction did not land (${phase()})`);
 	local = []; room = []; wire = [];
 	runTimeout();
+	// Since v1.2.0 the thirty minutes first ask whether to stay under (test/extend.mjs). Left
+	// unanswered, the trance ends exactly as before, and that ending is what this suite is about.
+	local = []; room = []; wire = [];
+	runTimeout(60_000);
 	return { local: [...local], room: [...room], ended: updates().at(-1) };
 };
 
@@ -212,7 +216,7 @@ let out = update({ phase: "Idle", ended: "timeout" });
 check("a timeout reaches the hypnotist's log", out.length, 1);
 check("  naming the subject", /GameBot/.test(out[0] ?? ""), true);
 check("  from the hypnotist's pool", drain(() => flavor.hypnotistExpiryFlavor("GameBot")).some((l) => unbracket(out[0]).startsWith(l)), true);
-check("  saying it was the time limit", /30-minute limit/.test(out[0] ?? ""), true);
+check("  saying it was the time limit", /reached its time limit/.test(out[0] ?? ""), true);
 check("  and nothing about the choice", CHOICE_WORDS.test(out[0] ?? ""), false);
 check("  nor how deep they were", /deep|light|under\b/i.test((out[0] ?? "").replace(/^.*?(The trance reached)/, "$1")), false);
 check("a later re-query says nothing", update({ phase: "Idle" }).length, 0);

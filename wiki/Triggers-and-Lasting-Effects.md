@@ -146,6 +146,7 @@ Whatever follows the condition on the same line is recorded, just as on its own 
 
 * **Never while you are under:** a compulsion only goes off after the trance is over.
 * **Once by default:** it is used up when it fires, unless the hypnotist says *"it works every time"*.
+* **If you are bound and can't take the pose:** the room is told nothing, however often it goes off. You are told privately, once, and how to remove it.
 * **The clock keeps running:** a compulsion timed from waking keeps counting while you are logged off, and goes off soon after you are back in a room if its time has passed.
 * **Only that hypnotist's trance starts the clock:** waking from someone else's trance does not.
 * **Your safeword clears them:** any compulsion waiting for you to wake is discarded by `/echs safeword`. Compulsions waiting for a person are kept, as ordinary triggers are.
@@ -175,7 +176,10 @@ A hypnotist can ask for a narrower or wider scope for one trigger while planting
 
 ## 7. Releasing a Trigger
 
-* **Specific Release by Name:** Saying *"Missy, you are released from sleepy time"* releases that specific trigger immediately, working inside or outside of trance.
+* **Specific Release by Name:** Saying *"Missy, you are released from sleepy time"* releases that specific trigger immediately, working inside or outside of trance. The hypnotist is told whether it let go, whether it was not holding them, or that nothing by that name is planted, which usually means a typo. A "when someone comes in" or "after you wake" trigger has no word, so it cannot be released this way: the hypnotist who planted it can remove it with *"forget every trigger I gave you"*, or the subject with `/echs forgettrigger <number>`.
+* **Removing a Trigger for Good:** The hypnotist who planted a trigger can delete it, so it never fires again: *"Missy, forget the trigger sleepy time"* (or *"the trigger sleepy time is gone"*, or *"I take back sleepy time"*). *"Missy, forget every trigger I gave you"* removes all of theirs at once, including "when someone comes in" and "after you wake" triggers, which have no word to name. Only the person who planted it can do this, and no trance is needed. If the trigger is holding you at the time, it lets go first. The subject is told something set in them is gone, never the word. While the subject's [Extreme lock](Settings-Reference#the-extreme-lock) is on, this is refused and the hypnotist is told why: triggers can be added then, but not removed.
+* **Your List of What You Planted:** `/echs planted <name>`, or **Planted triggers** on their spiral panel, lists the triggers you planted in someone, how they stand and what they do. See [Commands](Commands).
+* **A Trance Doesn't End It:** A trigger holding you when you go under carries on through the trance. When you wake, it still holds and finishes the time it had left. One fired during the trance ends when you wake. The safeword clears both.
 * **Trance-Only General Releases:** Broad release phrasing (*"you are awake"*, *"wake up"*) applies only to active trance sessions and does not release dormant or fired triggers outside of a session.
 
 ---

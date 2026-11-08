@@ -110,11 +110,12 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 |---|---|---|
 | **Emergency Safeword** | **`/echs safeword`** | Universal hard stop. Bypasses all mutes and freezes. Purges trance, active triggers, and waking compulsions. |
 | **Self-Waking** | **`/echs wake`** | Pulls yourself out of a *shallow* trance. Refuses if deep. |
-| **Hypnotist Wake** | Spoken (*"wake up"*, *"you are awake"*, *"come back to me"*) or the **Wake Up** button | Hypnotist commands wake immediately without gates. |
+| **Hypnotist Wake** | Spoken (*"wake up"*, *"you are awake"*, *"come back to me"*) or the **Wake Up** button | Hypnotist commands wake immediately without gates. A trigger that was holding you before the trance keeps holding until its time is up; the safeword clears it. |
 | **Targeted Release** | *"Missy, you are released from [trigger]"* | Hypnotist clears a specific trigger's hold. |
+| **Hypnotist Removal** | *"Missy, forget the trigger [trigger]"* or *"Missy, forget every trigger I gave you"* | The hypnotist who planted it deletes it for good. Only theirs; works outside trance. Refused during Extreme lock. |
 | **Master Toggle** | Untick **Hypnosis Enabled** | Completely disables the add-on from preferences (except during Extreme lock). |
 | **Early Extreme Exit** | **`/echs reset confirm`** | Breaks the Extreme progressive lock early; wipes all ECHS data back to factory defaults. |
-| **Session Timers** | 30-Minute Timeout | Trances end automatically after 30 minutes. |
+| **Session Timers** | 30-Minute Timeout | After 30 minutes (60 under an Extreme lock) you are asked whether to stay under for as long again. Only a yes from you extends it; no answer within a minute ends the trance. |
 | **Abandonment Timer** | 5-Minute Room Timer | Trance ends if the hypnotist leaves the room for over 5 minutes. |
 | **Trigger Timers** | Automatic | A fired trigger's effects wear off on their own countdown. |
 | **Induction Window** | 60 seconds | An unanswered induction prompt closes on its own. |
@@ -122,7 +123,7 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 > ⚠️ **Purge / Clear Refusal:** `/echs forgettrigger` and **Purge** on the Planted tab **refuse to delete a trigger while that specific trigger is actively holding you**. **Clear All** (and `/echs forgettrigger all`) will not run while any trigger is holding you or a session is running, and asks you to confirm before removing anything. Use `/echs safeword` instead for an immediate clean break.
 
 ### The one lock you can choose: Extreme
-Choosing the **Extreme** setup template, and confirming its warning, makes your settings read-only for 7 days, then 30 days at a time if you choose to renew. It is never permanent, and it is the only thing that can stop you unticking Hypnosis Enabled or removing a planted trigger. While it is on, `/echs safeword` still works exactly as above, `/echs reset confirm` ends the lock early (erasing all your trust, triggers and stats along with your settings), and you can always switch ECHS off in your userscript manager. See [Settings Reference](Settings-Reference#the-extreme-lock).
+Choosing the **Extreme** setup template, and confirming its warning, makes your settings read-only for 7 days, then 30 days at a time if you choose to renew. It is never permanent, and it is the only thing that can stop you unticking Hypnosis Enabled or removing a planted trigger. While it is on, new triggers can still be planted, but neither you nor the person who planted one can remove it. `/echs safeword` still works exactly as above, `/echs reset confirm` ends the lock early (erasing all your trust, triggers and stats along with your settings), and you can always switch ECHS off in your userscript manager. See [Settings Reference](Settings-Reference#the-extreme-lock).
 
 ---
 

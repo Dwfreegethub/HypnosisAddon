@@ -18,7 +18,7 @@ globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
 globalThis.setInterval = () => 0;
 
-const { storage, wizard, extreme, menu, voice, commands } = await import("./harness-bundle.mjs");
+const { storage, wizard, extreme, menu, voice, commands, session } = await import("./harness-bundle.mjs");
 commands.installCommands();
 
 let pass = 0, fail = 0;
@@ -67,6 +67,25 @@ check("  but reading it still works", /Triggers fade:/.test(run("triggerdecay"))
 check("locked: /echs import refuses", /Locked by Extreme until /.test(run("import", "anything")), true);
 check("locked: /echs export still works", /Copy the line below/.test(run("export")), true);
 check("locked: the wizard cannot be reached (Setup is gated on settingsLocked)", menu.settingsLocked(), true);
+// DW, 2026-11-05. Failure: the subject sheds a carried suggestion through the lock.
+check("locked: /echs carry drop refuses", /Locked by Extreme until /.test(run("carry", "drop")), true);
+check("  but reading what is carried still works", /Locked by Extreme/.test(run("carry")), false);
+// Failure: the numbers are still a command away.
+check("locked: /echs chance refuses", /Locked by Extreme until /.test(run("chance", "Missys Helper")), true);
+check("locked: /echs skill refuses", /Locked by Extreme until /.test(run("skill")), true);
+check("locked: /echs gates refuses", /Locked by Extreme until /.test(run("gates")), true);
+// Failure: a direct pose gets round the lock, undoing what a hypnotist set.
+check("locked: /echs stand refuses", /Locked by Extreme until /.test(run("stand")), true);
+check("locked: /echs kneel refuses", /Locked by Extreme until /.test(run("kneel")), true);
+// Failure: the depth is still one command away. Forced under so there is a depth to hide.
+session.forceTrance(HELPER, 60, 60);
+check("locked: /echs session still says she is under", /session: Hypnotized/.test(run("session")), true);
+check("  but not how deep", /depth=/.test(run("session")), false);
+session.safeword();
+// What Extreme sets. Failure: "everything on" isn't.
+check("Extreme: clothing freeze on in trance", storage.getFeatures().tranceClothingFreeze, true);
+check("Extreme: drugs count as well as arousal", storage.getChemicalScope(), "both");
+check("Extreme: toy mode for everyone except the blacklist", storage.getToyScope(), "notblack");
 
 // --- the safeword ends a trance but not the lock ---------------------------------------------------
 run("safeword");
@@ -83,6 +102,18 @@ check("  Extreme's settings kept", storage.getFeatures().compelTouchOthers, true
 check("  trust kept", storage.listTrust().length, 1);
 check("  triggers kept", storage.listTriggers().length, 1);
 check("exit_extreme with no lock says so", runTop("exit_extreme"), "No Extreme lock is set.");
+// Failure: the lock's refusals outlive it.
+check("no lock: /echs carry drop answers", /Locked by Extreme/.test(run("carry", "drop")), false);
+check("no lock: /echs skill shows the number", /Your skill reads/.test(run("skill")), true);
+check("no lock: /echs gates answers", /Locked by Extreme/.test(run("gates")), false);
+session.forceTrance(HELPER, 60, 60);
+check("no lock: /echs session shows the depth", /depth=60/.test(run("session")), true);
+session.safeword();
+// Failure: Extreme's changes leaked into a template that never asked for them.
+wizard.applyPreset("balanced");
+check("Balanced: clothing freeze stays off", storage.getFeatures().tranceClothingFreeze, false);
+check("Balanced: drugs do not count", storage.getChemicalScope(), "arousal");
+wizard.applyPreset("extreme");
 check("bare /echs still prints the summary", /\/(hypno|echs)/.test(runTop("")), true);
 
 // --- the 7-day trial runs out --------------------------------------------------------------------

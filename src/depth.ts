@@ -268,6 +268,13 @@ export function depthAllows(
 	return have >= requiredDepth(key);
 }
 
+/** The advice after a depth refusal, only where it is true (DW, 2026-11-05). "Sink deeper" raises full
+ * depth and never earned, so it helps a feature that reads full depth and does nothing for one that
+ * reads earned. Empty, or a sentence with its leading space, to go straight after the refusal. */
+export function deeperHint(key: keyof FeatureToggles): string {
+	return effectiveEarnedOnly(key) ? "" : " Take them deeper first.";
+}
+
 /** Why a feature is out of reach, phrased for a log line or a hypnotist's panel. Null when
  * it is reachable. */
 export function depthRefusal(
@@ -278,8 +285,12 @@ export function depthRefusal(
 	if (depthAllows(key, full, earned)) return null;
 	const earnedGate = effectiveEarnedOnly(key);
 	const have = Math.floor(earnedGate ? earned : full);
+	// Both numbers when they differ (DW, 2026-11-05): "at 44" alone, with her really at 90, reads as
+	// "sink deeper" not working, when deepening only ever moves the full depth.
+	const whole = Math.floor(full);
+	const where = earnedGate && whole > have ? `${depthLabel(whole)} but only ${depthLabel(have)}` : depthLabel(have);
 	return (
-		`needs ${depthLabel(requiredDepth(key))}, at ${depthLabel(have)}` +
+		`needs ${depthLabel(requiredDepth(key))}, at ${where}` +
 		`${earnedGate ? " earned — arousal does not count toward this one" : ""}`
 	);
 }

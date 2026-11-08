@@ -1,7 +1,7 @@
 import { log, warn } from "./log";
 import { tellPlayer } from "./notify";
 import { getFeatures, getTriggerDuration } from "./storage";
-import { depthRefusal } from "./depth";
+import { depthRefusal, deeperHint } from "./depth";
 import { scheduleTimer, cancelTimer } from "./timers";
 
 // Carry-forward: suggestions given under trance that survive waking.
@@ -151,7 +151,7 @@ export function carryThese(sender: number, name: string, wanted: string[]): { su
 	// neither may be bought with arousal — the structural rule, not a tunable one.
 	const refusal = depthRefusal("carryForward");
 	if (refusal)
-		return { refusal: `Making a suggestion outlive the trance ${refusal}. Take them deeper first.` };
+		return { refusal: `Making a suggestion outlive the trance ${refusal}.${deeperHint("carryForward")}` };
 	if (!wanted.length)
 		return { refusal: "Nothing to keep — give the suggestion first, then say it stays with them." };
 

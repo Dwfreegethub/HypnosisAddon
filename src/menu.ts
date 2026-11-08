@@ -13,6 +13,7 @@ import {
 	resetSettings,
 	getTriggerScope,
 	forgetTrigger,
+	forgetTrust,
 	forgetAllTriggers,
 	setTriggerScope,
 	getTriggerLifespan,
@@ -53,6 +54,11 @@ import {
 	getAwayStance,
 	setAwayStance,
 	nextAwayStance,
+	getPulseColor,
+	setPulseColor,
+	getPulseCustom,
+	setPulseCustom,
+	PULSE_COLORS,
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
@@ -240,7 +246,19 @@ const TABS: Tab[] = [
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
+			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
 		],
+		scrollExtra: {
+			height: pulseControlsHeight,
+			draw: drawPulseControls,
+			click: (top) => {
+				if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
+				// Consumed either way: a locked button must not cycle.
+				if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
+				return true;
+			},
+			hide: removePulseHexInput,
+		},
 	},
 	{
 		name: "Awareness",
@@ -359,6 +377,23 @@ const PAGE_PREV_LEFT = BOX_LEFT;
 const PAGE_NEXT_LEFT = BOX_LEFT + 130;
 /** Which page of the trust list is showing. Reset whenever the screen opens. */
 let statPage = 0;
+
+// The search box, beside the list's header, clear of its short "detail" (Senge, Eri). And a [x] at the
+// end of each row (Valerie), which is why the detail column now has an edge to fit inside.
+const TRUST_SEARCH_ID = "HypnosisAddonTrustSearch";
+const TRUST_SEARCH_LABEL_X = BOX_LEFT + 760;
+const TRUST_SEARCH_LEFT = BOX_LEFT + 850;
+const TRUST_SEARCH_WIDTH = 380;
+const TRUST_SEARCH_HEIGHT = 40;
+const STAT_FORGET_WIDTH = 90;
+const STAT_FORGET_HEIGHT = 34;
+const STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - STAT_FORGET_WIDTH - 10;
+const STAT_DETAIL_MAX = STAT_FORGET_LEFT - STAT_DETAIL_X - 12;
+/** What is typed in the search. Reset whenever the screen opens. */
+let trustSearch = "";
+/** The member number whose [x] has been clicked once, and until when that counts. */
+let statForgetArmed = 0;
+let statForgetArmedUntil = 0;
 
 // Export / Import / Reset, along the bottom of the Stats tab.
 const DATA_BUTTON_TOP = 740;
@@ -639,6 +674,87 @@ interface CycleControl {
 	cycle: () => void;
 }
 const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
+
+/** On the Trance Defaults tab, under the pulse's tick box. */
+const PULSE_COLOR_CONTROL: CycleControl = {
+	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
+	caption: () =>
+		!getFeatures().commandPulse
+			? "The pulse is off, so this does nothing until you tick the box above."
+			: getPulseColor() === "custom"
+				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
+				: "A glow and a wash of colour over the room view. Only you see it.",
+	tooltip: "The colour of the pulse",
+	cycle: () => {
+		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
+		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+		pulseHexError = "";
+	},
+};
+
+// The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes
+// do, when it loses focus or on Enter, and refuses out loud rather than quietly keeping the old colour.
+const PULSE_HEX_ID = "HypnosisAddonPulseHex";
+const PULSE_HEX_LABEL_WIDTH = 200;
+const PULSE_HEX_WIDTH = 220;
+const PULSE_SWATCH_SIZE = 50;
+/** Why the last code typed was refused, or empty. */
+let pulseHexError = "";
+
+function removePulseHexInput(): void {
+	if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
+}
+
+function pulseControlsHeight(): number {
+	return attemptControlHeight() + (getPulseColor() === "custom" ? CYCLE_GAP + attemptControlHeight() : 0);
+}
+
+function drawPulseControls(top: number, width: number): void {
+	const locked = settingsLocked();
+	drawCycle(PULSE_COLOR_CONTROL, top, width, locked);
+	if (getPulseColor() !== "custom") {
+		removePulseHexInput();
+		return;
+	}
+	const at = top + attemptControlHeight() + CYCLE_GAP;
+	const inputLeft = BOX_LEFT + PULSE_HEX_LABEL_WIDTH + 20;
+	drawLeftTextFit("Colour code:", BOX_LEFT, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_LABEL_WIDTH, locked ? "Gray" : "Black");
+	DrawRect(inputLeft + PULSE_HEX_WIDTH + 20, at + (ATTEMPT_BUTTON_HEIGHT - PULSE_SWATCH_SIZE) / 2, PULSE_SWATCH_SIZE, PULSE_SWATCH_SIZE, getPulseCustom());
+	drawLeftTextWrap(
+		pulseHexError || "For example #FF69B4. Saves when you click away or press Enter.",
+		BOX_LEFT,
+		at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		pulseHexError ? "#a00000" : locked ? "Gray" : "#555",
+	);
+	// A DOM element, which the scroll area's clip cannot hide. As the toy mode dropdown.
+	if (at < rowScroll.top || at + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
+		removePulseHexInput();
+		return;
+	}
+	let element = document.getElementById(PULSE_HEX_ID) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(PULSE_HEX_ID, "text", getPulseCustom(), 9);
+		element.addEventListener("blur", function (this: HTMLInputElement) {
+			// Again here, not only through `disabled`: a box focused before a lock began can blur after.
+			if (settingsLocked()) return;
+			const saved = setPulseCustom(this.value);
+			pulseHexError = saved ? "" : `"${this.value.trim().slice(0, 12)}" is not a colour code, so your colour is unchanged. Try one like #FF69B4.`;
+			if (saved) {
+				this.value = saved;
+				log(`pulse colour now ${saved}`);
+			}
+		});
+		element.addEventListener("keydown", function (this: HTMLInputElement, event: KeyboardEvent) {
+			if (event.key === "Enter") this.blur();
+		});
+	}
+	// Not while she is typing in it, and not over a refused code she may want to correct.
+	if (document.activeElement !== element && !pulseHexError) element.value = getPulseCustom();
+	element.disabled = locked;
+	ElementPosition(PULSE_HEX_ID, inputLeft + PULSE_HEX_WIDTH / 2, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
 
 const PERMISSION_CYCLES: CycleControl[] = [
 	{
@@ -1238,12 +1354,12 @@ const DECAY_CAPTION_Y = 858;
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, ...DEPTH_INPUT_IDS];
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 	removeDepthInputs();
@@ -1262,7 +1378,9 @@ function syncTabControls(tabName: string): void {
 		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
 	}
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
+	if (tabName !== "Stats") removeTrustSearch();
 	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
+	if (tabName !== "Trance Defaults") removePulseHexInput();
 	if (tabName !== "Depth") removeDepthInputs();
 }
 
@@ -1423,7 +1541,58 @@ function drawScopeControl(locked: boolean): void {
 }
 
 function statPageCount(): number {
-	return Math.max(1, Math.ceil(trustStatRows().length / STAT_ROWS_PER_PAGE));
+	return Math.max(1, Math.ceil(trustStatRows(trustSearch).length / STAT_ROWS_PER_PAGE));
+}
+
+/** The rows showing on this page of the list, as filtered. Draw and click both read this, so the
+ * [x] on a row can never act on someone other than the person drawn beside it. */
+function statRowsOnPage(): ReturnType<typeof trustStatRows> {
+	const start = statPage * STAT_ROWS_PER_PAGE;
+	return trustStatRows(trustSearch).slice(start, start + STAT_ROWS_PER_PAGE);
+}
+
+function statForgetTop(slot: number): number {
+	return STAT_FIRST_ROW_Y + slot * STAT_LINE_HEIGHT - STAT_FORGET_HEIGHT / 2;
+}
+
+/** A click on a row's [x], if that is where it landed: the first arms it, a second within 5 seconds
+ * deletes. Two clicks because this cannot be undone, and the buttons sit one above the other. */
+function clickStatForget(): boolean {
+	const rows = statRowsOnPage();
+	const slot = rows.findIndex((_, i) => MouseIn(STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT));
+	if (slot < 0) return false;
+	if (settingsLocked()) return true;
+	const row = rows[slot];
+	if (statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil) {
+		statForgetArmed = 0;
+		forgetTrust(row.memberId);
+		notifyLocal(`Forgot ${row.name}.`);
+		return true;
+	}
+	statForgetArmed = row.memberId;
+	statForgetArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
+	return true;
+}
+
+function removeTrustSearch(): void {
+	if (document.getElementById(TRUST_SEARCH_ID)) ElementRemove(TRUST_SEARCH_ID);
+}
+
+/** The search box: filters as it is typed, and works while the settings are locked, because finding
+ * someone is reading, not editing. The same reasoning as paging. */
+function drawTrustSearch(): void {
+	drawLeftTextFit("Find:", TRUST_SEARCH_LABEL_X, STAT_HEADER_Y, TRUST_SEARCH_LEFT - TRUST_SEARCH_LABEL_X - 10, "Black");
+	let element = document.getElementById(TRUST_SEARCH_ID) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(TRUST_SEARCH_ID, "text", trustSearch, 40);
+		element.placeholder = "Name or number";
+		element.addEventListener("input", function (this: HTMLInputElement) {
+			trustSearch = this.value;
+			statPage = 0;
+			statForgetArmed = 0;
+		});
+	}
+	ElementPosition(TRUST_SEARCH_ID, TRUST_SEARCH_LEFT + TRUST_SEARCH_WIDTH / 2, STAT_HEADER_Y, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT);
 }
 
 /** Paged rather than a pick-one dropdown, deliberately. The ranking IS the information —
@@ -1434,25 +1603,50 @@ function drawStats(): void {
 	const line = (y: number, name: string, value: string, detail: string, color = "Black") => {
 		drawLeftTextFit(name, STAT_NAME_X, y, STAT_NAME_MAX, color);
 		if (value) drawLeftText(value, STAT_VALUE_X, y, color);
-		if (detail) drawLeftText(detail, STAT_DETAIL_X, y, "Gray");
+		if (detail) drawLeftTextFit(detail, STAT_DETAIL_X, y, STAT_DETAIL_MAX, "Gray");
 	};
 
 	drawDecayControl();
+	// The Extreme lock hides the numbers (DW, 2026-11-05). The tab stays, because it holds Export
+	// and Reset, and Reset is a documented way out of the lock.
+	if (extremeLocked()) {
+		removeTrustSearch();
+		drawLeftTextFit("Your Extreme lock hides these numbers until it ends.", STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
+		drawDataButtons();
+		return;
+	}
 	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
 	line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
 
-	const rows = trustStatRows();
-	if (!rows.length) {
+	// Nobody at all, and there is nothing to search. A search with no matches keeps its box.
+	if (!trustStatRows().length) {
+		removeTrustSearch();
 		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, STAT_FIRST_ROW_Y, "Gray");
+		drawDataButtons();
+		return;
+	}
+	drawTrustSearch();
+	const rows = trustStatRows(trustSearch);
+	if (!rows.length) {
+		drawLeftTextFit(`Nobody here matches "${trustSearch.trim()}".`, STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
 		drawDataButtons();
 		return;
 	}
 
 	const pages = statPageCount();
 	if (statPage >= pages) statPage = pages - 1;
-	const start = statPage * STAT_ROWS_PER_PAGE;
-	rows.slice(start, start + STAT_ROWS_PER_PAGE).forEach((row, i) => {
+	const locked = settingsLocked();
+	statRowsOnPage().forEach((row, i) => {
 		line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
+		const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
+		tipButton(
+			STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT,
+			armed ? "Sure?" : "[x]",
+			locked ? "#ddd" : armed ? "#ffb3b3" : "White",
+			"",
+			locked ? lockedTip() : armed ? "Click again to delete this person's trust. It cannot be undone." : "Forget this person: deletes their trust",
+			locked,
+		);
 	});
 
 	if (pages > 1) {
@@ -1806,6 +2000,8 @@ export function installMenu(): void {
 		load: () => {
 			activeTab = 0;
 			statPage = 0;
+			trustSearch = "";
+			statForgetArmed = 0;
 			plantedPage = 0;
 			plantedDetail = 0;
 			clearAllArmedUntil = 0;
@@ -1895,12 +2091,17 @@ export function installMenu(): void {
 			if (tab.clickExtra?.()) return;
 			// Data buttons live on the Stats tab, which has no rows.
 			if (tabs[activeTab].render) {
+				// Not under the Extreme lock, where the rows are not drawn: an invisible button still
+				// has coordinates.
+				if (!extremeLocked() && clickStatForget()) return;
 				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
 					statPage = Math.max(0, statPage - 1);
+					statForgetArmed = 0;
 					return;
 				}
 				if (MouseIn(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
 					statPage = Math.min(statPageCount() - 1, statPage + 1);
+					statForgetArmed = 0;
 					return;
 				}
 				for (let i = 0; i < DATA_BUTTONS.length; i++) {

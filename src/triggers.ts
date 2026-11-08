@@ -16,9 +16,10 @@ import {
 } from "./storage";
 import { isSessionActiveWith } from "./session";
 import { allowedByLadder } from "./ladder";
-import { depthRefusal, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
+import { depthRefusal, deeperHint, depthAllows, currentDepth, currentDepthEarned, tierOf, tierLabel } from "./depth";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { onTeardown, onWake, onTotalStop } from "./teardown";
+import { plantedEntriesFor, receivePlanted } from "./planted";
 
 /** Setup feedback goes to the HYPNOTIST, not the subject.
  *
@@ -31,11 +32,18 @@ export function tellHypnotist(hypnotistId: number, text: string): void {
 	sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
 }
 
+/** The same, when what they planted just changed: their list goes along, for their notes
+ * (planted.ts says why it rides on this message). */
+export function tellHypnotistWithList(hypnotistId: number, text: string): void {
+	sendHiddenMessage({ type: "trigger-status", text, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+}
+
 /** The hypnotist's side: show status their subject sent us. */
 export function installTriggers(): void {
 	registerHiddenHandler("trigger-status", (sender, message) => {
 		const text = typeof message.text === "string" ? message.text : "";
 		if (text) tellPlayer(text);
+		if (message.planted !== undefined) receivePlanted(sender, characterFor(sender)?.Name ?? `#${sender}`, message.planted);
 	});
 
 	// TESTING ONLY. Registered unconditionally — it has to already exist when you enter the
@@ -751,7 +759,10 @@ function collisionRateLimited(): boolean {
  * `isHolding` is passed in rather than imported: the "is it in effect" check lives in voice.ts
  * and importing it here would reverse the module dependency. */
 function phraseAvailability(sender: number, phrase: string, isHolding: (t: Trigger) => boolean): string | null {
-	const existing = listTriggers();
+	// Phrase triggers only. v1.2.2: a compulsion's phrase is "", which every word "includes", so one
+	// planted compulsion refused every new word ("Your own "" already overlaps this", or the vague
+	// "taken" refusal when someone else planted it). A compulsion has no word to collide with.
+	const existing = listTriggers().filter((t) => !t.fireOn && !!t.phrase);
 	const exact = existing.find((t) => t.phrase === phrase);
 	if (exact) {
 		if (exact.installedBy === sender) {
@@ -850,10 +861,7 @@ export function beginRecording(
 	const refusal = depthRefusal("triggerControl");
 	if (refusal) {
 		log(`trigger plant refused: ${refusal}`);
-		return refuse(
-			`[trigger] Refused — planting a trigger ${refusal}. ` +
-				"Take them deeper first; arousal does not count toward this one.",
-		);
+		return refuse(`[trigger] Refused — planting a trigger ${refusal}.${deeperHint("triggerControl")}`);
 	}
 	if (!condition && phrase.length < MIN_PHRASE_LENGTH) {
 		return refuse(`[trigger] Refused — "${phrase}" is too short; a trigger phrase must be at least ${MIN_PHRASE_LENGTH} characters.`);
@@ -869,13 +877,18 @@ export function beginRecording(
 	// ghost threshold it is born dead — it can never fire more than a vague pull. That only
 	// happens when the triggerControl depth gate has been set low enough to plant at Drifting;
 	// refuse it here rather than silently save something that will never work. DW hit exactly this
-	// (planted at 0, fired nothing but flavour), 2026-09-15. Same "take them deeper" shape as the
-	// depth refusal above.
+	// (planted at 0, fired nothing but flavour), 2026-09-15.
+	//
+	// The advice follows which depth it would be planted at (DW, 2026-11-05). Only a chemical plant
+	// reads full depth, which "sink deeper" can raise. Whether the feature is opened to arousal does
+	// not settle it: opened, with earned clearing the gate, it still plants at earned.
 	if (plantedDepth < TRIGGER_GHOST_THRESHOLD) {
 		log(`trigger plant refused: would be born a ghost at depth ${plantedDepth}`);
 		return refuse(
 			`[trigger] Refused — at this depth a trigger is too faint to ever fire (it would be a ghost). ` +
-				"Take them deeper first.",
+				(plantedChemical
+					? "Take them deeper first."
+					: "It would be planted at their earned depth, so going deeper will not help: that takes more trust and a new induction."),
 		);
 	}
 	// Uniqueness last, once we know the plant is otherwise allowed. Refusal wording is
@@ -1061,7 +1074,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	const count = trigger.actions.length;
 	const options = describeOptions(trigger);
 	log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
-	tellHypnotist(
+	tellHypnotistWithList(
 		trigger.installedBy,
 		`[trigger] SAVED ${recordingLabel()} — ${count} action(s): ${trigger.actions.join(", ")}. ` +
 			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +
@@ -1143,7 +1156,13 @@ export function triggersFiredBy(speaker: number, normalisedText: string): Trigge
  * the duration timer, the safeword) must not be narrowed further than they already are. */
 export function triggersReleasableBy(speaker: number, normalisedText: string): Trigger[] {
 	if (!normalisedText) return [];
-	const matching = listTriggers().filter((t) => normalisedText.includes(t.phrase));
+	// v1.2.2 (DW 2026-11-02, "not stopping triggers always"): a compulsion has NO phrase, and
+	// "anything".includes("") is true, so a compulsion listed first was released in place of the
+	// trigger actually named, and the named one kept holding her. Phrase triggers only, and the
+	// longest phrase first, so "released from sleepy time" picks "sleepy time" over "sleep".
+	const matching = listTriggers()
+		.filter((t) => !t.fireOn && !!t.phrase && normalisedText.includes(t.phrase))
+		.sort((a, b) => b.phrase.length - a.phrase.length);
 	if (speaker === Player?.MemberNumber) return matching;
 	return matching.filter((t) => t.installedBy === speaker || speakerAllowedByScope(speaker, effectiveScope(t)));
 }

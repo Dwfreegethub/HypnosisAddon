@@ -12,6 +12,134 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.5.2 RC · 8 November 2026
+
+- **Commands said together take hold one at a time.** Say two or three commands in a row and each
+  now waits its own 2 to 5 seconds after the one before it lands, instead of landing almost on top
+  of it.
+- **The planted list no longer says someone "answered just now" when they have left.** Ask about
+  someone who isn't in the room and the list is marked as the last one you were given, with its date.
+
+## v1.5.1 RC · 8 November 2026
+
+- **A pose your bondage blocks no longer happens behind your back.** If you were told to kneel (or
+  to take any other pose) while tied in something that stops it, the room could be told you knelt
+  when you hadn't, and then you would drop to your knees the moment the restraint came off. Now the
+  command simply doesn't land. A trigger that goes off by itself tells only you, once; a command
+  someone says aloud shows the room you trying and failing.
+
+## v1.5.0 RC · 5 November 2026
+
+- **Search your trust list.** The Stats tab now has a **Find** box. Type part of someone's nickname,
+  account name or member number and the list narrows as you type. Someone you last saw before this
+  update can only be found by the one name saved for them, until you next see them.
+- **Remove someone from the list with a click.** Each person on the Stats tab now has an **[x]**. It
+  asks first, and a second click deletes their trust for good.
+
+## v1.4.4 RC · 5 November 2026
+
+- **Refusals only tell you to go deeper when that would help.** "Take them deeper first" now shows
+  only if the subject has opened that feature to arousal, where going deeper counts. For anything
+  that goes by earned depth, it no longer sends you off to try "sink deeper".
+
+## v1.4.3 RC · 5 November 2026
+
+- **Clearer refusal for triggers, carried suggestions and the clothing illusion.** These go by how
+  deep someone's trust has earned, not how deep they are now. When the two differ, the refusal now
+  shows both, for example *"at 90 [Blank] but only 44 [Entranced] earned"*.
+
+## v1.4.2 RC · 5 November 2026
+
+- **The command pulse is slower**, about two seconds from start to finish.
+- **Pick your own pulse colour.** On the Trance Defaults tab, **Pulse colour** now has a **Custom**
+  choice, with a box for a hex colour code like `#FF69B4`, the kind the game's colour picker uses.
+
+## v1.4.1 RC · 5 November 2026
+
+- **The command pulse is easy to see now.** It was too faint to notice. It's now a wide glow around
+  the room view with a light wash of colour across it, and it lasts a little longer. You can still
+  change its colour or turn it off on the Trance Defaults tab.
+
+## v1.4.0 RC · 5 November 2026
+
+The Extreme setup and lock are stronger. Your safeword works as always, and anyone already on an
+Extreme lock keeps the settings they chose; only the lock's own rules below change for them.
+
+- **Under the Extreme lock, triggers can only be added.** New ones can still be planted, but the
+  hypnotist who planted one can no longer remove it until the lock ends, and they are told why when
+  they try. They can still release one that is holding you.
+- **Trances last longer under the lock.** You are asked whether to stay under after 60 minutes
+  instead of 30, and staying gives another 60. If you don't answer, you still wake.
+- **Carried suggestions stay under the lock.** `/echs carry drop` is refused.
+- **The numbers are hidden under the lock.** Trust and experience leave the Stats tab,
+  `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under
+  without saying how deep.
+- **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused under the lock.
+- **Choosing the Extreme setup now also** lets anyone not on your blacklist put you straight under,
+  counts drinks and cigarettes as well as arousal, and freezes your view of your clothes in trance.
+
+For everyone:
+
+- **Commands take a moment to land.** A spoken command now takes hold 2 to 5 seconds after it is
+  said, like words sinking in, always in the order they were said. Waking, releasing and the
+  safeword never wait.
+- **A pulse when a command lands.** A soft glow around the room view when a command takes hold or a
+  trigger fires, so your eyes have something to follow. It's on by default; you can turn it off or
+  change its colour on the Trance Defaults tab.
+- **Hypnotists can list what they planted.** `/echs planted <name>`, or the new **Planted triggers**
+  button on someone's spiral panel, shows the triggers you put in them, how they stand and what
+  they do. Someone not in the room shows your last notes on them.
+- **The spiral panel is simpler.** It now has the hypnotize or wake button and the new list. The old
+  Movement, Clothing and Kneel buttons were left over from testing and are gone; say it instead.
+- **A trance no longer cuts a trigger short.** If a trigger was holding you when you went under, it
+  now keeps holding after you wake and finishes its time. Your safeword still clears everything.
+- **A "when someone comes in" trigger no longer announces you when you're tied up.** If bondage
+  stops the pose it asks for, the room used to see you try every single time. Now the room sees
+  nothing, and you are told once, privately, along with how to remove it.
+
+## v1.3.0 RC · 2 November 2026
+
+- **Hypnotists can take a trigger back.** Say *"Missy, forget the trigger sleepy time"* to remove
+  one you planted for good, or *"Missy, forget every trigger I gave you"* to remove all of yours,
+  including "when someone comes in" and "after you wake" ones. Only the person who planted a
+  trigger can remove it, and the subject doesn't need to be in trance. If it is holding them, it
+  lets go first. The subject is told something set in them is gone, but not the word.
+
+## v1.2.2 RC · 2 November 2026
+
+- **"You are released from <trigger>" works every time.** If you had a "when someone comes in"
+  or "after you wake" trigger, naming another trigger could let go of the wrong one, so the one
+  you named kept holding. Releasing a trigger in the first few seconds after it fired also let
+  the rest of it land anyway, or let a repeated phrase keep being said. Both are fixed.
+- **A release line never sets the trigger off.** Some release lines that mentioned more than one
+  person fired the trigger they named instead of releasing it.
+- **The hypnotist is told what happened.** After a release you hear whether it let go, whether it
+  wasn't holding them, or that nothing by that name is planted (for example, a typo).
+- **New trigger words can be planted next to a "when" trigger.** Having one planted made every new
+  trigger word get refused.
+
+## v1.2.1 RC · 2 November 2026
+
+- **"Strip" takes off everything it should.** Undershirts and bodysuits were never removed
+  before, and now they are. Jackets and hoodies, clothing accessories, corsets, garters and
+  single socks come off too. So do the extra clothing slots from the Echo clothing add-on
+  (*Cloth 2*, *Bottom 2*, *Bra 2*, long sleeves and the rest). Shoes now come off before socks.
+  Hats, glasses, masks and jewellery still stay on.
+
+## v1.2.0 RC · 2 November 2026
+
+- **Stay under longer if you want to.** When a trance's 30 minutes are up, a box asks whether you
+  want to stay under for another 30. Click **Stay under** (or type `/echs stay`) to keep going, or
+  **Wake up** to end it. If you don't answer within a minute, you wake, just as before. The
+  hypnotist is told that you're being asked, and told if you choose to stay.
+
+## v1.1.1 RC · 1 November 2026
+
+- **More ways to end a follow.** As well as *"you can leave"*, the hypnotist can now say
+  *"stop following me"*, *"quit following me"*, *"don't follow me"*, *"no more following"* or
+  *"you don't need to follow me"*. *"Stop following me"* also works during a walking trance, where
+  a plain *"stop"* still brings the subject back to full trance.
+
 ## v1.1.0 RC · 1 November 2026
 
 - **Follow works now, with no leash needed.** When a hypnotist says *"follow me"* and it lands,
