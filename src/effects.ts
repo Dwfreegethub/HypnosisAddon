@@ -125,8 +125,20 @@ function currentPoses(): string[] {
  * whole appearance.
  *
  * Returns whether it took. Rule 5: bondage can refuse a pose, and so can a name BC does not
- * know, and before this the add-on announced the kneel either way. */
+ * know, and before this the add-on announced the kneel either way.
+ *
+ * BONDAGE IS ASKED FIRST (v1.5.1). BC's PoseSetActive writes ActivePose WITHOUT checking any item
+ * (R132 Pose.js:201); what is drawn is worked out afterwards by PoseRefresh, which filters ActivePose
+ * through each item's AllowActivePose into Player.PoseMapping. So ActivePose always "took", the
+ * room was told she knelt in a leg binder, and the kneel waited in ActivePose until the binder came
+ * off and she knelt then (DW's live run of script_test D2, 2026-11-08). We now ask BC's own
+ * PoseAvailable before writing, and judge "landed" by what is drawn, not by what was asked for. */
 export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGroupOf(pose ?? "") ?? "stance"): boolean {
+	const target = pose ?? (group === "arms" ? "BaseUpper" : "BaseLower");
+	if (!poseAllowedByItems(target)) {
+		log(`pose: ${group} → ${pose ?? "neutral"} refused by items; AllowedActivePoseMapping=${JSON.stringify(Player?.AllowedActivePoseMapping)}`);
+		return false;
+	}
 	const before = currentPoses();
 	const otherGroup: PoseGroup = group === "stance" ? "arms" : "stance";
 	const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
@@ -154,20 +166,60 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 		ownPoseChange--;
 		if (liftOwnFreeze) refreshOwnEffects();
 	}
+	const after = currentPoses();
+	// Judged by what is DRAWN (PoseMapping, rebuilt synchronously by CharacterRefresh inside
+	// PoseSetActive), falling back to ActivePose where there is no mapping to read.
+	const shown = drawnPoses() ?? after;
+	// Cleared means nothing but the group's neutral is left in it.
+	const landed = pose !== null
+		? after.includes(pose) && shown.includes(pose)
+		: !shown.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+	if (!landed) {
+		// Asked for but not drawn: take the request back, so it does not wait in ActivePose and
+		// land later, when the item that blocked it comes off. Nothing has gone to the room yet.
+		if (!samePoses(after, before)) {
+			Player.ActivePose = before;
+			if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+		}
+		log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping=${JSON.stringify(Player?.PoseMapping)}`);
+		return false;
+	}
 	// The hold now holds her HERE. Before the room is told, so the ServerSend guard knows this one.
 	noteHeldPose();
 	if (ServerPlayerIsInChatRoom()) {
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 	}
-	const after = currentPoses();
-	// Cleared means nothing but the group's neutral is left in it.
-	const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
 	// Losing the other group is expected when a whole-body pose is involved on either side.
 	const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
 	if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
-	if (landed) ours[group] = pose;
-	else log(`pose: ${group} → ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
-	return landed;
+	ours[group] = pose;
+	return true;
+}
+
+/** BC's pose category for one of ours: PoseRecord where BC has it, else from our own groups. */
+function poseCategory(pose: string): string {
+	const rec = typeof PoseRecord === "object" && PoseRecord ? PoseRecord[pose] : undefined;
+	if (rec && typeof rec.Category === "string") return rec.Category;
+	if (FULL_BODY_POSES.includes(pose)) return "BodyFull";
+	return poseGroupOf(pose) === "arms" ? "BodyUpper" : "BodyLower";
+}
+
+/** Do her items allow this pose at all? BC's PoseAvailable (R132 Pose.js:155), which only reads
+ * AllowedActivePoseMapping, the intersection of every worn item's AllowActivePose. Deliberately NOT
+ * PoseCanChangeUnaided: that also refuses for Freeze and the owner's BlockChangePose rule, and a
+ * spoken command moves a held-still subject (DW, 2026-09-26). What bondage cannot draw, it cannot. */
+function poseAllowedByItems(pose: string): boolean {
+	const category = poseCategory(pose);
+	if (typeof PoseAvailable === "function") return !!PoseAvailable(Player, category, pose);
+	const list = Player?.AllowedActivePoseMapping?.[category];
+	return !Array.isArray(list) || list.includes(pose);
+}
+
+/** The poses BC is drawing her in (Player.PoseMapping values), or null where there is none to read. */
+function drawnPoses(): string[] | null {
+	const m = Player?.PoseMapping;
+	if (!m || typeof m !== "object") return null;
+	return Object.values(m).filter((x: unknown): x is string => typeof x === "string");
 }
 
 /** The poses suggestions put the player in and that are still in place, or null. Saved

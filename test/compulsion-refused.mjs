@@ -7,18 +7,30 @@
 //   3. Under the Extreme lock the line does not offer a removal that would be refused.
 //   4. A pose that lands is still seen, and a word someone said aloud still shows her trying.
 const HYP = 246108, REI = 999;
-let refuse = new Set();
-globalThis.CharacterSetActivePose = (C, pose) => {
-	if (pose === null) { C.ActivePose = []; return; }
-	if (refuse.has(pose)) return; // BC ignoring a pose bondage blocks
-	C.ActivePose = [pose];
+// BC as it really is (R132 Pose.js), which the old stub got wrong and so passed while the live
+// game failed (DW, script_test D2, 2026-11-08): PoseSetActive writes ActivePose WHATEVER is worn,
+// and only PoseRefresh decides what is drawn (PoseMapping), from AllowedActivePoseMapping.
+//   refuse  - poses the worn item's AllowActivePose leaves out (BC's PoseAvailable sees them)
+//   hidden  - poses not drawn although PoseAvailable says yes (another add-on, an item's SetPose):
+//             only the check of what is drawn afterwards can catch these
+let refuse = new Set(), hidden = new Set();
+const LOWER = ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "BaseLower"];
+const redraw = (C) => {
+	const lower = C.ActivePose.find((p) => LOWER.includes(p) && !refuse.has(p) && !hidden.has(p));
+	C.PoseMapping = { BodyLower: lower ?? "BaseLower", BodyUpper: "BaseUpper" };
 };
+globalThis.CharacterSetActivePose = (C, pose) => {
+	C.ActivePose = pose === null ? [] : [pose];
+	redraw(C);
+};
+globalThis.CharacterRefresh = (C) => redraw(C);
 const emoticon = { Asset: { Name: "Emoticon", AllowEffect: ["Freeze", "DenialMode", "BlockWardrobe"] }, Property: { Effect: [] } };
 globalThis.CurrentTime = 1_000_000;
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", AssetFamily: "Female3DCG", ExtensionSettings: {},
 	Appearance: [emoticon], Effect: [], ActivePose: [],
 	ArousalSettings: { Active: "Hybrid", Progress: 0, OrgasmTimer: 0 },
+	get AllowedActivePoseMapping() { return refuse.size ? { BodyLower: LOWER.filter((p) => !refuse.has(p)) } : {}; },
 	IsPlayer: () => true,
 	HasEffect(e) { return this.Effect.includes(e); },
 };
@@ -79,7 +91,8 @@ const reset = () => {
 	timers.clearAllTimers();
 	storage.forgetAllTriggers();
 	Player.ActivePose = [];
-	refuse = new Set();
+	refuse = new Set(); hidden = new Set();
+	redraw(Player);
 	room = []; local = [];
 };
 const arrive = () => { voice.noteArrival(REI); drainPaced(); };
@@ -140,6 +153,30 @@ voice.handleSpokenLine(HYP, "ember glow");
 drainPaced();
 // Failure: a word said aloud lost the room's view of her trying, which the fix never meant to touch.
 check("a spoken word refused: the room still sees her try", blockedInRoom(), 1);
+
+// --- the leg binder comes off (D2.5 live: once unbound she was kneeling) --------------------------
+reset();
+plantWhen({ fireOn: "arrive", watchName: "*" });
+refuse.add("Kneel");
+arrive();
+refuse = new Set();
+redraw(Player);
+// Failure: the refused kneel was left waiting in ActivePose and lands when the binder comes off.
+check("unbound: the refused kneel was not left waiting", Player.ActivePose, []);
+check("  and she is drawn standing", Player.PoseMapping.BodyLower, "BaseLower");
+
+// --- not drawn although BC said the pose was available ------------------------------------------
+reset();
+plantWhen({ fireOn: "arrive", watchName: "*" });
+// Its own key: a compulsion's key is the millisecond it was planted, and two plantings in one
+// millisecond would share the "told once".
+storage.listTriggers().at(-1).key += ":hidden";
+hidden.add("Kneel");
+arrive();
+// Failure: D2.3 live, "landed" read off ActivePose, so the room was told she knelt.
+check("not drawn: the room is told nothing", blockedInRoom(), 0);
+check("  she is told privately", toldPrivately().length, 1);
+check("  and the request is taken back", Player.ActivePose, []);
 
 reset();
 console.log(`compulsion-refused: ${pass}/${pass + fail} passed`);

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.5.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.5.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -407,6 +407,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof p === "string" && p ? [p] : [];
   }
   function setSuggestedPose(pose, group = poseGroupOf(pose ?? "") ?? "stance") {
+    const target = pose ?? (group === "arms" ? "BaseUpper" : "BaseLower");
+    if (!poseAllowedByItems(target)) {
+      log(`pose: ${group} \u2192 ${pose ?? "neutral"} refused by items; AllowedActivePoseMapping=${JSON.stringify(Player?.AllowedActivePoseMapping)}`);
+      return false;
+    }
     const before = currentPoses();
     const otherGroup = group === "stance" ? "arms" : "stance";
     const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
@@ -424,17 +429,42 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ownPoseChange--;
       if (liftOwnFreeze) refreshOwnEffects();
     }
+    const after = currentPoses();
+    const shown = drawnPoses() ?? after;
+    const landed = pose !== null ? after.includes(pose) && shown.includes(pose) : !shown.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
+    if (!landed) {
+      if (!samePoses(after, before)) {
+        Player.ActivePose = before;
+        if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
+      }
+      log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping=${JSON.stringify(Player?.PoseMapping)}`);
+      return false;
+    }
     noteHeldPose();
     if (ServerPlayerIsInChatRoom()) {
       ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
     }
-    const after = currentPoses();
-    const landed = pose !== null ? after.includes(pose) : !after.some((p) => POSE_GROUPS[group].includes(p) && !p.startsWith("Base"));
     const lost = keep.filter((p) => !after.includes(p) && !FULL_BODY_POSES.includes(p));
     if (lost.length && !FULL_BODY_POSES.includes(pose ?? "")) warn(`pose: setting ${group} to ${pose ?? "neutral"} also lost ${lost.join(", ")}`);
-    if (landed) ours[group] = pose;
-    else log(`pose: ${group} \u2192 ${pose ?? "neutral"} did not take; ActivePose=${JSON.stringify(Player?.ActivePose)}`);
-    return landed;
+    ours[group] = pose;
+    return true;
+  }
+  function poseCategory(pose) {
+    const rec = typeof PoseRecord === "object" && PoseRecord ? PoseRecord[pose] : void 0;
+    if (rec && typeof rec.Category === "string") return rec.Category;
+    if (FULL_BODY_POSES.includes(pose)) return "BodyFull";
+    return poseGroupOf(pose) === "arms" ? "BodyUpper" : "BodyLower";
+  }
+  function poseAllowedByItems(pose) {
+    const category = poseCategory(pose);
+    if (typeof PoseAvailable === "function") return !!PoseAvailable(Player, category, pose);
+    const list = Player?.AllowedActivePoseMapping?.[category];
+    return !Array.isArray(list) || list.includes(pose);
+  }
+  function drawnPoses() {
+    const m = Player?.PoseMapping;
+    if (!m || typeof m !== "object") return null;
+    return Object.values(m).filter((x) => typeof x === "string");
   }
   function suggestedPose() {
     const now = currentPoses();
@@ -11468,7 +11498,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11535,7 +11565,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13806,7 +13836,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.5.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.5.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13827,7 +13857,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.5.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.5.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13899,14 +13929,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.5.0"})`);
+      info(`script loaded (v${"1.5.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.5.0",
+          version: "1.5.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14045,10 +14075,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.5.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.5.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.5.0";
+    page2.__ECHS_LOADED__ = "1.5.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
