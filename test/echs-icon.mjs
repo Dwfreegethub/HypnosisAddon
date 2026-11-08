@@ -149,5 +149,22 @@ badgeHooks.ChatRoomSyncMemberJoin([{ SourceMemberNumber: HYP }], () => undefined
 pendingTimers.filter((t) => t.live && t.ms === 4000).forEach((t) => { t.live = false; t.fn(); });
 check("  heard from already: not asked again", sent.filter((m) => m.type === "state-query" && m.to === HYP).length, 0);
 
+// --- 7. /echs icons (v1.7.1, after DW saw no icon on v1.7.0) --------------------------------------
+// Failure: rule 5. A drawing error vanished, so a broken icon and a missing one looked the same.
+let report = badge.describeIcons().join(" | ");
+check("/echs icons: which hooks took", /hooked ChatRoomSync, ChatRoomSyncMemberJoin, ChatRoomDrawCharacterStatusIcons/.test(report), true);
+check("  how often it was asked to draw, and drew", /Drawn [1-9]\d* times in [1-9]\d* calls/.test(report), true);
+check("  who in the room it has heard from", /Old \(#555\): not heard from/.test(report) || /Late \(#888\)/.test(report), true);
+const realCircle = globalThis.DrawCircle;
+globalThis.DrawCircle = () => { throw new Error("canvas gone"); };
+const bcResult = badgeHooks.ChatRoomDrawCharacterStatusIcons([Player, 0, 0, 1], () => "bc drew");
+globalThis.DrawCircle = realCircle;
+check("a drawing error does not break BC's own drawing", bcResult, "bc drew");
+check("  and /echs icons reports it", /Last drawing error, \d+s ago: Error: canvas gone/.test(badge.describeIcons().join(" | ")), true);
+storage.setEchsIconSpot("off");
+draw(hyp);
+check("  and says when the setting is why", /Not drawn because your ECHS icons setting is Off/.test(badge.describeIcons().join(" | ")), true);
+storage.setEchsIconSpot("top");
+
 console.log(`echs-icon: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

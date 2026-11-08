@@ -20,6 +20,23 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-08 (v1.7.1 RC) — the icon says why it isn't showing
+
+DW's first live look at v1.7.0 (`Capture.PNG`, Missy and another player on 1.7.0): no spiral over
+either, **including Missy's own**, which needs no message from anyone, so the drawing itself was not
+happening. Reading found no cause: the hook and settings check out, the bundle is right, the mod SDK
+allows several hooks from one mod, and the live game, **R133**, still calls
+`ChatRoomDrawCharacterStatusIcons` from `ChatRoomCharacterViewDrawOverlay` with `DrawCircle`,
+`DrawImageResize`, `DrawRect` and `DrawTextFit` intact (fetched from the live server: the local
+clone is still R132, and `git pull` fails with a connection reset).
+
+What did stand out is that the draw hook **swallowed every error** (rule 5), and `installBadge` put
+three hooks behind one `safely()`, so a throw on the first would have left the draw hook missing
+without a word on screen. Now each hook is installed and recorded on its own, the last drawing
+error is kept with its time, and `/echs icons` reports: which hooks took, how many times BC asked us
+to draw and how many times we drew, the last error, why a frame was skipped, both settings, BC's
+icon state, the game version, and who in the room has answered. No behaviour change otherwise.
+
 ### Added 2026-11-08 (v1.7.0 RC) — the ECHS icon over players
 
 Biker asked twice (10-22, 11-02) and Lianne once (11-07) for a sign over ECHS players. DW's worry was

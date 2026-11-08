@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.7.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.7.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -9455,6 +9455,152 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/badge.ts
+  function me() {
+    return typeof Player === "object" ? Player?.MemberNumber : void 0;
+  }
+  function presenceFields() {
+    return { version: "1.7.1", showIcon: getFeatures().showEchsIcon !== false };
+  }
+  function notePeer(sender, message) {
+    if (sender === me()) return;
+    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
+    const known = peers.get(sender);
+    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+  }
+  function announce2() {
+    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
+    lastAnnounceAt = Date.now();
+    announcedShow = getFeatures().showEchsIcon !== false;
+    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
+    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
+  }
+  function onRoomSync() {
+    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
+    if (key !== roomKey) {
+      roomKey = key;
+      peers.clear();
+      askedAfterJoin.clear();
+      announce2();
+      return;
+    }
+    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
+  }
+  function onMemberJoin(member) {
+    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
+    askedAfterJoin.add(member);
+    setTimeout(() => {
+      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
+    }, ARRIVAL_ASK_MS);
+  }
+  function isInRoom(member) {
+    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
+  }
+  function iconFor(C) {
+    if (!C || typeof C.MemberNumber !== "number") return null;
+    if (C.MemberNumber === me()) {
+      return getFeatures().showEchsIcon !== false ? { version: "1.7.1", show: true } : null;
+    }
+    const peer = peers.get(C.MemberNumber);
+    return peer && peer.show ? peer : null;
+  }
+  function drawIcon(C, charX, charY, zoom) {
+    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
+    const spot = ICON_SPOTS[getEchsIconSpot()];
+    if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
+    if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");
+    const peer = iconFor(C);
+    if (!peer) return;
+    diag.drawn++;
+    const size = ICON_SIZE * zoom;
+    const x = charX + spot.x * zoom;
+    const y = charY + spot.y * zoom;
+    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
+    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
+    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
+      const name = String(C.Nickname || C.Name || `#${C.MemberNumber}`);
+      const text2 = `${name}: ECHS ${peer.version ? `v${peer.version}` : "(an older version)"}`;
+      DrawRect(x + size / 2 - 150, y + size + 6, 300, 40, "rgba(0, 0, 0, 0.75)");
+      DrawTextFit(text2, x + size / 2, y + size + 26, 290, "White");
+    }
+  }
+  function hook(modApi2, name, priority, fn) {
+    try {
+      modApi2.hookFunction(name, priority, fn);
+      diag.hooked.push(name);
+    } catch (err) {
+      diag.hookFailed.push(`${name}: ${String(err?.message ?? err).slice(0, 120)}`);
+    }
+  }
+  function describeIcons() {
+    const lines = [];
+    lines.push(`ECHS icons: hooked ${diag.hooked.join(", ") || "nothing"}${diag.hookFailed.length ? `; FAILED ${diag.hookFailed.join("; ")}` : ""}.`);
+    lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
+    if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1e3)}s ago: ${diag.lastError}`);
+    if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
+    lines.push(
+      `Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. BC icons shown: ${typeof ChatRoomHideIconState === "number" ? ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})` : "unknown"}. Game ${typeof GameVersion === "string" ? GameVersion : "?"}.`
+    );
+    const here = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.filter((c) => c?.MemberNumber !== me()) : [];
+    if (!here.length) lines.push("Nobody else is in the room.");
+    for (const c of here) {
+      const p = peers.get(c.MemberNumber);
+      lines.push(`  ${c.Nickname || c.Name} (#${c.MemberNumber}): ${p ? `ECHS ${p.version ? `v${p.version}` : "(older)"}${p.show ? "" : ", chose to hide it"}` : "not heard from (no ECHS, or not answered yet)"}`);
+    }
+    return lines;
+  }
+  function installBadge(modApi2) {
+    hook(modApi2, "ChatRoomSync", 10, (args, next) => {
+      const result = next(args);
+      try {
+        onRoomSync();
+      } catch (err) {
+        log("ECHS icon: room sync failed", err);
+      }
+      return result;
+    });
+    hook(modApi2, "ChatRoomSyncMemberJoin", 10, (args, next) => {
+      const result = next(args);
+      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
+      return result;
+    });
+    hook(modApi2, "ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
+      const result = next(args);
+      diag.calls++;
+      try {
+        const [C, x, y, zoom] = args;
+        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
+        else diag.lastSkip = `BC passed no position (${typeof x}, ${typeof y})`;
+      } catch (err) {
+        diag.lastError = String(err?.stack ?? err).slice(0, 300);
+        diag.lastErrorAt = Date.now();
+      }
+      return result;
+    });
+  }
+  var ICON_SPOTS, ICON_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, diag, ARRIVAL_ASK_MS;
+  var init_badge = __esm({
+    "src/badge.ts"() {
+      init_log();
+      init_messaging();
+      init_storage();
+      init_icon();
+      ICON_SPOTS = {
+        top: { x: 228, y: 2 },
+        left: { x: 15, y: 50 }
+      };
+      ICON_SIZE = 30;
+      peers = /* @__PURE__ */ new Map();
+      roomKey = "";
+      lastAnnounceAt = 0;
+      announcedShow = null;
+      askedAfterJoin = /* @__PURE__ */ new Set();
+      REANNOUNCE_MS = 6e4;
+      diag = { hooked: [], hookFailed: [], calls: 0, drawn: 0, lastError: "", lastErrorAt: 0, lastSkip: "" };
+      ARRIVAL_ASK_MS = 4e3;
+    }
+  });
+
   // src/panel.ts
   function tabTop(index) {
     return PANEL_TOP + index * (TAB_HEIGHT + TAB_GAP);
@@ -11560,7 +11706,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11627,7 +11773,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12478,6 +12624,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       init_recovery();
       init_extreme();
+      init_badge();
       init_planted();
       init_menu();
       init_depth();
@@ -12901,6 +13048,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
             asking.forEach((id) => askPlanted(id));
             setTimeout(print, PLANTED_ASK_MS);
           }
+        },
+        {
+          Tag: "icons",
+          group: "Diagnostics",
+          Description: "Why the spiral over ECHS players is or isn't showing on your screen",
+          Action: () => describeIcons().forEach(reply)
         },
         {
           Tag: "storage",
@@ -13411,120 +13564,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { stay: true, label: "Stay under", hover: "Another stretch of trance. You will be asked again when it is up.", left: 260 },
         { stay: false, label: "Wake up", hover: "Let the trance end now.", left: 540 }
       ];
-    }
-  });
-
-  // src/badge.ts
-  function me() {
-    return typeof Player === "object" ? Player?.MemberNumber : void 0;
-  }
-  function presenceFields() {
-    return { version: "1.7.0", showIcon: getFeatures().showEchsIcon !== false };
-  }
-  function notePeer(sender, message) {
-    if (sender === me()) return;
-    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
-    const known = peers.get(sender);
-    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
-  }
-  function announce2() {
-    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
-    lastAnnounceAt = Date.now();
-    announcedShow = getFeatures().showEchsIcon !== false;
-    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
-    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
-  }
-  function onRoomSync() {
-    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
-    if (key !== roomKey) {
-      roomKey = key;
-      peers.clear();
-      askedAfterJoin.clear();
-      announce2();
-      return;
-    }
-    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
-  }
-  function onMemberJoin(member) {
-    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
-    askedAfterJoin.add(member);
-    setTimeout(() => {
-      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
-    }, ARRIVAL_ASK_MS);
-  }
-  function isInRoom(member) {
-    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
-  }
-  function iconFor(C) {
-    if (!C || typeof C.MemberNumber !== "number") return null;
-    if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.7.0", show: true } : null;
-    }
-    const peer = peers.get(C.MemberNumber);
-    return peer && peer.show ? peer : null;
-  }
-  function drawIcon(C, charX, charY, zoom) {
-    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
-    const spot = ICON_SPOTS[getEchsIconSpot()];
-    if (!spot || !SPIRAL_ICON) return;
-    const peer = iconFor(C);
-    if (!peer) return;
-    const size = ICON_SIZE * zoom;
-    const x = charX + spot.x * zoom;
-    const y = charY + spot.y * zoom;
-    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
-    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
-    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
-      const name = String(C.Nickname || C.Name || `#${C.MemberNumber}`);
-      const text2 = `${name}: ECHS ${peer.version ? `v${peer.version}` : "(an older version)"}`;
-      DrawRect(x + size / 2 - 150, y + size + 6, 300, 40, "rgba(0, 0, 0, 0.75)");
-      DrawTextFit(text2, x + size / 2, y + size + 26, 290, "White");
-    }
-  }
-  function installBadge(modApi2) {
-    modApi2.hookFunction("ChatRoomSync", 10, (args, next) => {
-      const result = next(args);
-      try {
-        onRoomSync();
-      } catch (err) {
-        log("ECHS icon: room sync failed", err);
-      }
-      return result;
-    });
-    modApi2.hookFunction("ChatRoomSyncMemberJoin", 10, (args, next) => {
-      const result = next(args);
-      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
-      return result;
-    });
-    modApi2.hookFunction("ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
-      const result = next(args);
-      try {
-        const [C, x, y, zoom] = args;
-        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
-      } catch {
-      }
-      return result;
-    });
-  }
-  var ICON_SPOTS, ICON_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, ARRIVAL_ASK_MS;
-  var init_badge = __esm({
-    "src/badge.ts"() {
-      init_log();
-      init_messaging();
-      init_storage();
-      init_icon();
-      ICON_SPOTS = {
-        top: { x: 228, y: 2 },
-        left: { x: 15, y: 50 }
-      };
-      ICON_SIZE = 30;
-      peers = /* @__PURE__ */ new Map();
-      roomKey = "";
-      lastAnnounceAt = 0;
-      announcedShow = null;
-      askedAfterJoin = /* @__PURE__ */ new Set();
-      REANNOUNCE_MS = 6e4;
-      ARRIVAL_ASK_MS = 4e3;
     }
   });
 
@@ -14045,7 +14084,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14066,7 +14105,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.7.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.7.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14139,14 +14178,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.7.0"})`);
+      info(`script loaded (v${"1.7.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.7.0",
+          version: "1.7.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14286,10 +14325,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.7.0";
+    page2.__ECHS_LOADED__ = "1.7.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
