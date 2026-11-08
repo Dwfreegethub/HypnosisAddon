@@ -33,11 +33,17 @@ globalThis.setTimeout = (fn, ms = 0) => { pendingTimers.push({ fn, ms, live: tru
 globalThis.clearTimeout = () => {};
 globalThis.setInterval = () => 0;
 globalThis.clearInterval = () => {};
-let images = [], texts = [];
+let images = [], texts = [], fonts = [];
 globalThis.DrawImageResize = (src, x, y, w, h) => { images.push({ src, x, y, w, h }); return true; };
 globalThis.DrawCircle = () => {};
 globalThis.DrawRect = () => {};
 globalThis.DrawTextFit = (text) => texts.push(String(text));
+globalThis.DrawText = (text) => { texts.push(String(text)); fonts.push(MainCanvas.font); };
+globalThis.CommonGetFont = (size) => `${size}px Arial`;
+globalThis.MainCanvas = { font: "36px Arial", textAlign: "center", textBaseline: "middle", _stack: [],
+	save() { this._stack.push([this.font, this.textAlign, this.textBaseline]); },
+	restore() { [this.font, this.textAlign, this.textBaseline] = this._stack.pop(); },
+	measureText(t) { return { width: t.length * 10 }; } };
 globalThis.MouseX = -1;
 globalThis.MouseY = -1;
 globalThis.MouseIn = (l, t, w, h) => MouseX >= l && MouseX <= l + w && MouseY >= t && MouseY <= t + h;
@@ -76,7 +82,10 @@ check("an ECHS player who answers gets the spiral", drawn.length, 1);
 check("  in the top row's free slot, scaled by the zoom", [drawn[0]?.x, drawn[0]?.y, drawn[0]?.w], [1000 + 228 * 0.5 + 15 * 0.12, 2 * 0.5 + 15 * 0.12, 15 * 0.76]);
 MouseX = 1000 + 228 * 0.5 + 5; MouseY = 2 * 0.5 + 5;
 draw(hyp);
-check("  hovering it shows whose and the version", texts.some((t) => t === "Missys Helper: ECHS v1.7.0"), true);
+// DW 2026-11-08: the version only, small. Failure: the name is back, or BC's 36px text.
+check("  hovering it shows the version, without the name", texts, ["ECHS v1.7.0"]);
+check("  in a small font", fonts, ["20px Arial"]);
+check("  and the canvas font is put back afterwards", MainCanvas.font, "36px Arial");
 MouseX = MouseY = -1;
 draw(hyp);
 check("  and not without the mouse on it", texts.length, 0);
@@ -84,7 +93,7 @@ deliver(OLD, { type: "state-response", hypnoEnabled: true });
 check("an older build, with no version or choice: shown", draw({ MemberNumber: OLD, Name: "Old" }).length, 1);
 MouseX = 1000 + 228 * 0.5 + 5; MouseY = 2 * 0.5 + 5;
 draw({ MemberNumber: OLD, Name: "Old" });
-check("  as an older version", texts.some((t) => /Old: ECHS \(an older version\)/.test(t)), true);
+check("  as an older version", texts, ["ECHS (older version)"]);
 MouseX = MouseY = -1;
 check("someone we never heard from: no icon", draw({ MemberNumber: 4242, Name: "Plain" }).length, 0);
 

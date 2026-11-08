@@ -29,6 +29,8 @@ export const ICON_SPOTS: Record<string, { x: number; y: number }> = {
 	left: { x: 15, y: 50 },
 };
 export const ICON_SIZE = 30;
+/** The hover text, in canvas pixels. BC's own text is 36. */
+export const HOVER_FONT_SIZE = 20;
 
 type Peer = { version: string; show: boolean };
 const peers = new Map<number, Peer>();
@@ -128,11 +130,19 @@ export function drawIcon(C: any, charX: number, charY: number, zoom: number): vo
 	DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
 	DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
 	if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
-		// Nickname first, as BC shows it; read straight off the character, as trust.ts does.
-		const name = String(C.Nickname || C.Name || `#${C.MemberNumber}`);
-		const text = `${name}: ECHS ${peer.version ? `v${peer.version}` : "(an older version)"}`;
-		DrawRect(x + size / 2 - 150, y + size + 6, 300, 40, "rgba(0, 0, 0, 0.75)");
-		DrawTextFit(text, x + size / 2, y + size + 26, 290, "White");
+		// Just the version, small (DW, 2026-11-08): the icon is already over the person, so their
+		// name said nothing. A fixed size, because BC's DrawTextFit only shrinks from 36 to fit.
+		const text = `ECHS ${peer.version ? `v${peer.version}` : "(older version)"}`;
+		MainCanvas.save();
+		MainCanvas.font = CommonGetFont(HOVER_FONT_SIZE);
+		MainCanvas.textAlign = "center";
+		MainCanvas.textBaseline = "middle";
+		const w = Math.ceil(MainCanvas.measureText(text).width) + 16;
+		const h = HOVER_FONT_SIZE + 10;
+		const cx = x + size / 2;
+		DrawRect(cx - w / 2, y + size + 4, w, h, "rgba(0, 0, 0, 0.75)");
+		DrawText(text, cx, y + size + 4 + h / 2, "White");
+		MainCanvas.restore();
 	}
 }
 

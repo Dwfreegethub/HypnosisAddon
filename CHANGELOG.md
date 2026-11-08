@@ -12,6 +12,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.7.3 RC · 8 November 2026
+
+- **A smaller label on the ECHS spiral.** Hovering it now shows just the ECHS version, in small
+  text, without the person's name, since the spiral is already over them.
+
 ## v1.7.2 RC · 8 November 2026
 
 - **BCT users: the ECHS spiral follows BCT's "icons only on hover" setting.** With it on, the spiral
