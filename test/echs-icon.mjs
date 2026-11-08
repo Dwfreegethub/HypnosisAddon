@@ -165,6 +165,11 @@ storage.setEchsIconSpot("off");
 draw(hyp);
 check("  and says when the setting is why", /Not drawn because your ECHS icons setting is Off/.test(badge.describeIcons().join(" | ")), true);
 storage.setEchsIconSpot("top");
+// BCT's "icons only on hover" (DW's v1.7.0 run). Failure: the reason goes unnamed.
+check("BCT's hover setting off: not mentioned", /BCT/.test(badge.describeIcons().join(" | ")), false);
+Player.BCT = { bctSettings: { allIconOnlyShowOnHover: true } };
+check("  on: named as the reason", /BCT is set to show icons only on hover/.test(badge.describeIcons().join(" | ")), true);
+delete Player.BCT;
 
 console.log(`echs-icon: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

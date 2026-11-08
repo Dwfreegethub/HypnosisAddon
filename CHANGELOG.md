@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.7.2 RC · 8 November 2026
+
+- **BCT users: the ECHS spiral follows BCT's "icons only on hover" setting.** With it on, the spiral
+  shows only while your mouse is over the top of a character, like every other icon there.
+  `/echs icons` now says so when that is why you can't see it.
+
 ## v1.7.1 RC · 8 November 2026
 
 - **If the ECHS spiral doesn't show, `/echs icons` says why.** It reports whether the spiral is being
