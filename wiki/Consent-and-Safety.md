@@ -97,7 +97,7 @@ Being worked up lowers resistance: it helps an induction land and takes you some
 
 ### Answering Ahead of Time & Toy Mode
 * **Automatic Answer:** Configure on the **Inductions tab** to answer *Agree*, *Ignore*, or *Fight* without a dialog box.
-* **Toy Mode:** Configured on the **Inductions tab**. Puts you straight under to your *"sink deeper"* limit with no roll for selected partners. This counts as earned depth.
+* **Toy Mode:** Configured on the **Inductions tab**. Puts you under to your *"sink deeper"* limit with no roll for selected partners, once your induction time (60 seconds, or as low as 10) has run. This counts as earned depth.
 * **Away Mode:** After 10 minutes with no key, click or touch, inductions are turned away by default and the hypnotist is told you are away. You are told who tried when you come back.
 
 ---

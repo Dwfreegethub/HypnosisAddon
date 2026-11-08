@@ -102,11 +102,12 @@ What others may do to you. Everything here is off until you turn it on.
 How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.
 
 * **Attempts before they must wait:** 2 or 3 attempts before a 10-minute cooldown (default: 2).
+* **Induction time:** *60 · 45 · 30 · 20 · 10 seconds* (default: *60*). How long every induction runs before it lands or misses, toy mode's included. The hypnotist's countdown shows it. Shorter leaves less time for their roleplay to count.
 * **When someone tries to hypnotize me:** *Ask me · Agree · Ignore · Fight* (default: *Ask me*). Anything but *Ask me* answers every induction for you with no box; the hypnotist is never told which.
 * **When I'm away:** *Refuse · Ignore · Keep my answer* (default: *Refuse*). Away means 10 minutes with no key, click or touch. Applies to the answer above and to toy mode, never to *Ask me*.
-* **Toy mode:** *Off · On* (default: *Off*). No roll: an induction puts you straight under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
+* **Toy mode:** *Off · On* (default: *Off*). No roll: when your induction time is up, you go under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
 * **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and whitelist · Owner, Lovers, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, whitelist, blacklist and Dominant reputation, exactly as for triggers.
-* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you straight here. See [What to Say](What-to-Say#going-deeper-mid-trance).
+* **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
 ---
 
@@ -203,7 +204,7 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 | **Hypnotist Only** | Nothing — hypnosis is off, so nobody can hypnotize you | (auto-answer set to Fight, in case you turn hypnosis back on) | — | Off |
 | **Light / Safe** | Movement, Posture. A trance never silences you (Cannot Speak off) | Yes | Yielding | Off |
 | **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers and whitelist |
-| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, the clothing freeze in trance, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal and drugs both count, and arousal may reach triggers and the illusion. Toy mode for everyone except your blacklist, so a stranger can put you straight under; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
+| **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, the clothing freeze in trance, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal and drugs both count, and arousal may reach triggers and the illusion. Toy mode for everyone except your blacklist, so a stranger can put you under with no roll; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
 
 **The five questions** cover your role (Hypnotist only, or Subject/both), how attempts are handled (always ask, toy mode for owner and lovers, or agree to all), what physical commands you allow, what can be done to your senses and awareness, and how triggers work. Your answer about physical commands also sets how far "sink deeper" can take you (Yielding, Entranced or Deep). The questions never lock anything.
 

@@ -68,13 +68,13 @@ Here, you can choose one of four starting templates, each applied with one click
 
 Or answer five short questions instead (your role, how attempts are handled, what physical commands you allow, your senses, and triggers). Every page has a **Cancel** button that changes nothing. You can re-run setup or change any setting by hand afterward, outside an active session.
 
-### Instant Trance: Toy Mode
+### No Roll: Toy Mode
 If you prefer hands-free play with an owner or partner without seeing induction confirmation boxes:
 1. Open **Preferences → Extensions → ECHS Hypnosis → Inductions**.
 2. Set **Toy mode** to **On**.
 3. Choose who it applies to under **Toy mode is for** (default *Owner and Lovers*; it can widen to *Owner, Lovers and whitelist* or further).
 
-When an authorized partner attempts an induction, **no prompt box appears**. You slip immediately into trance down to your configured *"Sink deeper" stops at* ceiling. Your safeword (`/echs safeword`) always works. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
+When an authorized partner attempts an induction, **no prompt box appears**. The induction runs for your **Induction time** (60 seconds unless you shorten it, as low as 10, on the same tab), then you go under to your configured *"Sink deeper" stops at* ceiling, with no roll. To the hypnotist it looks like any other induction. Your safeword (`/echs safeword`) always works. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
 ### Initiating Hypnosis via Profiles
 Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 

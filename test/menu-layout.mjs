@@ -272,28 +272,43 @@ openTab(1); frame();
 
 	MouseX = iarea.left + 200; MouseY = iarea.top + 100;
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
-	const starts = ["When someone tries to hypnotize me:", "When I'm away:", "Toy mode:", '"Sink deeper" stops at:'];
-	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
-	check("  the four cycle buttons are drawn, at the end", found.map((b) => !!b), [true, true, true, true]);
-	check("  wholly in view", found.every((b) => b && inside(b, iarea)), true);
-	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
-	const read = () => [storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getDeepestTier(), storage.getToyScope()];
-	const changed = found.map((b) => {
+	const starts = ["Induction time:", "When someone tries to hypnotize me:", "When I'm away:", "Toy mode:", '"Sink deeper" stops at:'];
+	// Five rows and a dropdown no longer fit the area at once (v1.6.0), so each button is scrolled
+	// into view before it is checked and clicked. Failure: a button that can never be wholly seen.
+	const buttonFor = (start) => buttons.find((b) => b.label.startsWith(start));
+	const scrollToButton = (start) => {
+		for (let i = 0; i < 40; i++) wheel(-100);
+		frame();
+		for (let i = 0; i < 40 && !(buttonFor(start) && inside(buttonFor(start), iarea)); i++) { wheel(50); frame(); }
+		return buttonFor(start);
+	};
+	const read = () => [storage.getInductionSeconds(), storage.getDefaultStance(), storage.getAwayStance(), storage.getToyMode(), storage.getDeepestTier(), storage.getToyScope()];
+	const seen = [];
+	const changed = starts.map((start) => {
+		const b = scrollToButton(start);
+		seen.push(!!b && inside(b, iarea));
 		const was = read();
-		clickAt(b.left + b.width / 2, b.top + b.height / 2);
+		if (b) clickAt(b.left + b.width / 2, b.top + b.height / 2);
 		return read().map((v, i) => v !== was[i]);
 	});
+	check("  the five cycle buttons can each be scrolled wholly into view", seen, [true, true, true, true, true]);
+	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
+	const found = starts.map((s) => buttons.find((b) => b.label.startsWith(s)));
+	check("  in order, none overlapping", found.every((b, i) => i === 0 || b.top >= found[i - 1].top + found[i - 1].height), true);
 	check("  each changes its own setting and no other", changed, [
-		[true, false, false, false, false],
-		[false, true, false, false, false],
-		[false, false, true, false, false],
-		[false, false, false, true, false],
+		[true, false, false, false, false, false],
+		[false, true, false, false, false, false],
+		[false, false, true, false, false, false],
+		[false, false, false, true, false, false],
+		[false, false, false, false, true, false],
 	]);
+	// Failure: the induction time button stepped somewhere other than 60 -> 45.
+	check("  the induction time steps down from 60 to 45", storage.getInductionSeconds(), 45);
 	const toy = elements.HypnosisAddonToyScope;
 	const at = placed.HypnosisAddonToyScope;
 	check("who toy mode is for is a dropdown", !!toy, true);
 	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, iarea)), true);
-	check("  between the toy mode and sink deeper buttons", !!at && at.y - at.h / 2 >= found[2].top + found[2].height && at.y + at.h / 2 <= found[3].top, true);
+	check("  between the toy mode and sink deeper buttons", !!at && at.y - at.h / 2 >= found[3].top + found[3].height && at.y + at.h / 2 <= found[4].top, true);
 	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
 	toy.selectedIndex = 5;
 	toy.onChange.call(toy);
@@ -304,7 +319,9 @@ openTab(1); frame();
 	for (let i = 0; i < 40; i++) wheel(-100);
 	frame();
 	const label = texts.find((t) => t.text === "Toy mode is for:");
-	const rowInView = !!label && label.top >= iarea.top && label.top + label.height <= iarea.top + iarea.height;
+	// The row is the dropdown's own 44px, centred on the label, not the label text's height.
+	const rowTop = label ? label.top + label.height / 2 - 22 : 0;
+	const rowInView = !!label && rowTop >= iarea.top && rowTop + 44 <= iarea.top + iarea.height;
 	check("  at the top, present exactly when its row is in view", !!elements.HypnosisAddonToyScope, rowInView);
 	for (let i = 0; i < 40; i++) { wheel(100); frame(); }
 	check("  and present at the end, where it is in view", !!elements.HypnosisAddonToyScope, true);

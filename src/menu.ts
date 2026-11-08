@@ -62,6 +62,9 @@ import {
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
+	getInductionSeconds,
+	setInductionSeconds,
+	nextInductionSeconds,
 	getToyScope,
 	setToyScope,
 } from "./storage";
@@ -758,6 +761,16 @@ function drawPulseControls(top: number, width: number): void {
 
 const PERMISSION_CYCLES: CycleControl[] = [
 	{
+		// v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
+		label: () => `Induction time: ${getInductionSeconds()} seconds`,
+		caption: () =>
+			getInductionSeconds() >= 60
+				? "How long someone has to put you under before it lands or misses. Toy mode waits it too."
+				: "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
+		tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
+		cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds())),
+	},
+	{
 		label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
 		caption: () =>
 			getDefaultStance() === "prompt"
@@ -781,9 +794,9 @@ const PERMISSION_CYCLES: CycleControl[] = [
 		label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
 		caption: () =>
 			getToyMode()
-				? "No roll: they put you straight under to your \"sink deeper\" limit, triggers included."
+				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers included."
 				: "Every induction rolls as usual.",
-		tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+		tooltip: "Let the people below put you under with no roll and no limit on tries",
 		cycle: () => setToyMode(!getToyMode()),
 	},
 ];

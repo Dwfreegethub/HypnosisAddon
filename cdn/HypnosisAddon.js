@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.5.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.6.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3696,6 +3696,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/session.ts
+  function inductionWindowMs() {
+    return getInductionSeconds() * 1e3;
+  }
   function freshSession() {
     return {
       phase: "Idle",
@@ -3714,6 +3717,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       promptExpiresAt: 0,
       rpLines: 0,
       lastRpLine: "",
+      windowEndsAt: 0,
+      toy: false,
       honouredSkill: 0
     };
   }
@@ -3801,7 +3806,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         progressBand: session.phase === "AttemptFailed" ? progressBand(session.progress) : null,
         depthBand: session.phase === "Hypnotized" ? depthBand(session.depth) : null,
         cooldownRemaining: Math.max(0, session.cooldownUntil - now),
-        windowRemaining: session.phase === "InductionInProgress" ? INDUCTION_WINDOW_MS : 0,
+        windowRemaining: session.phase === "InductionInProgress" ? Math.max(0, session.windowEndsAt - now) : 0,
         refusedReason: refusedReason ?? null,
         ended: ended ?? null
       },
@@ -4122,6 +4127,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lapseInduction("left before it could land");
       return;
     }
+    if (session.toy) {
+      toyLand();
+      return;
+    }
     const choice = session.choice ?? "ignore";
     const chance = inductionChance(session.hypnotistId, choice);
     const roll = Math.random() * 100;
@@ -4186,6 +4195,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function toyInduction(who) {
     session.choice = "agree";
+    session.toy = true;
+    notify(`${who} reaches for you, and you let it take you: toy mode. You go under in ${getInductionSeconds()} seconds. /echs safeword stops it.`);
+    beginInductionWindow();
+    log(`toy mode: ${who} [${session.hypnotistId}] started, landing in ${getInductionSeconds()}s`);
+  }
+  function toyLand() {
+    const who = hypnotistLabel();
     const key = getDeepestTier();
     let full, earned;
     if (key === "never") {
@@ -4196,7 +4212,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       full = earned = Math.min(LANDED_DEPTH_MAX, ceilingDepth(TIER_ORDER.indexOf(key)));
     }
     enterTrance(full, earned);
-    notify(`${who} reaches for you, and you are theirs at once. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
+    notify(`You are theirs. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
     announceTranceEnter();
     pushUpdate();
     persistState();
@@ -4207,7 +4223,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const lines = [];
     if (getToyMode()) {
       lines.push(
-        `  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} \u2014 ` + (toyModeFor(memberId) ? "they would put you straight under, no roll" : "not for them")
+        `  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} \u2014 ` + (toyModeFor(memberId) ? `they would put you under, no roll, after your ${getInductionSeconds()}s induction` : "not for them")
       );
     }
     if (getDefaultStance() !== "prompt") lines.push(`  your auto-answer: ${label(DEFAULT_STANCES, getDefaultStance())}`);
@@ -4497,7 +4513,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     session.rpLines = 0;
     session.lastRpLine = "";
     if (windowTimer) clearTimeout(windowTimer);
-    windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
+    const windowMs = inductionWindowMs();
+    session.windowEndsAt = Date.now() + windowMs;
+    windowTimer = setTimeout(runInductionRoll, windowMs);
     startPresenceWatch();
     pushUpdate();
   }
@@ -4537,6 +4555,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (session.phase === "InductionInProgress") {
+      if (session.toy) {
+        notify("Toy mode: it takes you whatever you do now. /echs safeword stops it.");
+        return;
+      }
       session.choice = choice;
       notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
       return;
@@ -4870,7 +4892,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
     });
   }
-  var PROMPT_TIMEOUT_MS, INDUCTION_WINDOW_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var PROMPT_TIMEOUT_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
@@ -4895,7 +4917,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_effects();
       init_follow();
       PROMPT_TIMEOUT_MS = 6e4;
-      INDUCTION_WINDOW_MS = 6e4;
       maxAttempts = () => getMaxAttempts();
       COOLDOWN_MS = 10 * 6e4;
       timeoutMinutes = () => extremeLocked() ? EXTREME_SESSION_MINUTES : 30;
@@ -5086,6 +5107,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.defaultStance !== void 0 && !DEFAULT_STANCES.some((r) => r.key === s.defaultStance)) delete s.defaultStance;
     if (s.awayStance !== void 0 && !AWAY_STANCES.some((r) => r.key === s.awayStance)) delete s.awayStance;
     if (s.toyMode !== void 0 && typeof s.toyMode !== "boolean") delete s.toyMode;
+    if (s.inductionSeconds !== void 0 && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
     if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
@@ -5504,6 +5526,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function nextAwayStance(current) {
     return cycle(AWAY_STANCES, current);
   }
+  function getInductionSeconds() {
+    const v = loadSettings().inductionSeconds;
+    return typeof v === "number" && Number.isFinite(v) ? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(v))) : DEFAULT_INDUCTION_SECONDS;
+  }
+  function setInductionSeconds(seconds2) {
+    const value = Number.isFinite(seconds2) ? Math.max(MIN_INDUCTION_SECONDS, Math.min(DEFAULT_INDUCTION_SECONDS, Math.round(seconds2))) : DEFAULT_INDUCTION_SECONDS;
+    const s = loadSettings();
+    if (value === DEFAULT_INDUCTION_SECONDS) delete s.inductionSeconds;
+    else s.inductionSeconds = value;
+    saveSettings();
+    return value;
+  }
+  function nextInductionSeconds(current) {
+    const i = INDUCTION_TIMES.indexOf(current);
+    return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
+  }
   function getToyMode() {
     return loadSettings().toyMode === true;
   }
@@ -5634,7 +5672,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5733,6 +5771,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       DEFAULT_TOY_SCOPE = "lovers";
       OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
       cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      INDUCTION_TIMES = [60, 45, 30, 20, 10];
+      DEFAULT_INDUCTION_SECONDS = 60;
+      MIN_INDUCTION_SECONDS = 10;
       PULSE_COLORS = [
         { key: "pink", label: "Pink", rgb: "255, 105, 180" },
         { key: "purple", label: "Purple", rgb: "170, 90, 255" },
@@ -9902,7 +9943,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("with no key, click or touch you count as away, and your away"),
       body("setting decides: turn them away (the default), Ignore, or keep it."),
       body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
-      body('you straight under to your "sink deeper" limit: no roll, no tries.'),
+      body('you under to your "sink deeper" limit when the induction time is up:'),
+      body("no roll, no tries. Induction time (60 seconds, or as low as 10) is"),
+      body("how long every induction runs, toy mode's too."),
       dim("Toy mode reaches triggers too. The safeword always works."),
       gap(),
       head("Their skill, and whether you believe it"),
@@ -11501,7 +11544,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.6.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11568,7 +11611,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.5.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.6.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12075,6 +12118,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       pulseHexError = "";
       PERMISSION_CYCLES = [
         {
+          // v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
+          label: () => `Induction time: ${getInductionSeconds()} seconds`,
+          caption: () => getInductionSeconds() >= 60 ? "How long someone has to put you under before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
+          tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
+          cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds()))
+        },
+        {
           label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
           caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
           tooltip: "Answer the induction box for you, every time",
@@ -12088,8 +12138,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
-          caption: () => getToyMode() ? 'No roll: they put you straight under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
-          tooltip: "Let the people below put you under at once, with no roll and no limit on tries",
+          caption: () => getToyMode() ? 'No roll: when your induction time is up, you go under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
+          tooltip: "Let the people below put you under with no roll and no limit on tries",
           cycle: () => setToyMode(!getToyMode())
         }
       ];
@@ -13840,7 +13890,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.5.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.6.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -13861,7 +13911,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.5.2"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.6.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -13933,14 +13983,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.5.2"})`);
+      info(`script loaded (v${"1.6.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.5.2",
+          version: "1.6.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14079,10 +14129,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.5.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.6.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.5.2";
+    page2.__ECHS_LOADED__ = "1.6.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

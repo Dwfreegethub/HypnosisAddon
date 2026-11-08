@@ -17,6 +17,7 @@ import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
 	getSkillHonour, skillValue, addSkill, getDeepestTier,
 	getDefaultStance, getAwayStance, getToyMode, getToyScope, TOY_SCOPES, DEFAULT_STANCES, AWAY_STANCES,
+	getInductionSeconds,
 } from "./storage";
 import { isAway, idleMinutes } from "./away";
 import { allowedByLadder } from "./ladder";
@@ -122,8 +123,14 @@ const PROMPT_TIMEOUT_MS = 60_000;
  * development so an induction could be exercised repeatedly without a minute of dead time
  * per attempt — but ten seconds is far too short to actually roleplay an induction, which
  * is the entire point of this window, and it is now also the window the RP bonus is earned
- * in. Three substantive lines in ten seconds is typing speed, not roleplay. */
-const INDUCTION_WINDOW_MS = 60_000;
+ * in. Three substantive lines in ten seconds is typing speed, not roleplay.
+ *
+ * HER SETTING SINCE v1.6.0 (DW, 2026-11-08): 60, 45, 30, 20 or 10 seconds, default and most 60
+ * (storage.getInductionSeconds). DW chose 10 as the floor knowing the above: it is her choice to
+ * make a short one. Read when the window opens and fixed for that window. */
+function inductionWindowMs(): number {
+	return getInductionSeconds() * 1000;
+}
 /** How many attempts one hypnotist gets before the cooldown. A SETTING now, not a constant
  * — design.md decided "default 2, with 3 available as a player setting" and the code kept
  * the old 3. Read through the function at every use rather than captured into a local: it
@@ -291,6 +298,11 @@ interface SubjectSession {
 	rpLines: number;
 	/** The last line counted, so the same one pasted repeatedly cannot farm the bonus. */
 	lastRpLine: string;
+	/** When the running induction window ends, so the hypnotist's countdown starts from what is
+	 * really left (her induction time, v1.6.0) rather than from a fixed minute. */
+	windowEndsAt: number;
+	/** This induction is toy mode's (v1.6.0): it runs the same window, then lands with no roll. */
+	toy: boolean;
 	/** The hypnotist's skill AS THIS SUBJECT'S CLIENT CHOSE TO HONOUR IT — claimed value run
 	 * through the honour rung, 0-100, fixed when the attempt arrives. Zero means "no read on
 	 * them" (rung Ignore, or a stranger on rung Trusted). Drives the roll and the prompt
@@ -316,6 +328,8 @@ function freshSession(): SubjectSession {
 		promptExpiresAt: 0,
 		rpLines: 0,
 		lastRpLine: "",
+		windowEndsAt: 0,
+		toy: false,
 		honouredSkill: 0,
 	};
 }
@@ -503,7 +517,7 @@ function pushUpdate(refusedReason?: string, ended?: EndedHow): void {
 			progressBand: session.phase === "AttemptFailed" ? progressBand(session.progress) : null,
 			depthBand: session.phase === "Hypnotized" ? depthBand(session.depth) : null,
 			cooldownRemaining: Math.max(0, session.cooldownUntil - now),
-			windowRemaining: session.phase === "InductionInProgress" ? INDUCTION_WINDOW_MS : 0,
+			windowRemaining: session.phase === "InductionInProgress" ? Math.max(0, session.windowEndsAt - now) : 0,
 			refusedReason: refusedReason ?? null,
 			ended: ended ?? null,
 		},
@@ -1141,6 +1155,12 @@ function runInductionRoll(): void {
 		lapseInduction("left before it could land");
 		return;
 	}
+	// Toy mode ran the same window as anyone (v1.6.0), so the hypnotist and the room see an
+	// ordinary induction. Now it lands, with no roll, exactly as it used to at once.
+	if (session.toy) {
+		toyLand();
+		return;
+	}
 
 	const choice = session.choice ?? "ignore";
 	const chance = inductionChance(session.hypnotistId, choice);
@@ -1248,9 +1268,23 @@ function answerWithoutAsking(memberId: number): Answer {
 /** Toy mode: no box, no roll, no attempt limit. She lands at her "sink deeper" ceiling, full and
  * earned alike (DW: "Player accepts the risk"). Set to "Never deeper", there is no ceiling to snap
  * to, so it lands as a sure Agree would, without the roll. Not counted as practice or trust:
- * nothing was attempted, the same as a trigger drop. */
+ * nothing was attempted, the same as a trigger drop.
+ *
+ * NOT AT ONCE SINCE v1.6.0 (DW, 2026-11-08, from his note on script_test B.1: the hypnotist could
+ * tell toy mode by its landing instantly). It runs her induction time first, the same window and
+ * the same countdown an ordinary induction shows, and lands when it ends (toyLand, from
+ * runInductionRoll). The window's own gates still apply: a hypnotist who leaves lapses it, and
+ * the safeword or a wake ends it. */
 function toyInduction(who: string): void {
 	session.choice = "agree";
+	session.toy = true;
+	notify(`${who} reaches for you, and you let it take you: toy mode. You go under in ${getInductionSeconds()} seconds. /echs safeword stops it.`);
+	beginInductionWindow();
+	log(`toy mode: ${who} [${session.hypnotistId}] started, landing in ${getInductionSeconds()}s`);
+}
+
+function toyLand(): void {
+	const who = hypnotistLabel();
 	const key = getDeepestTier();
 	let full: number, earned: number;
 	if (key === "never") {
@@ -1261,7 +1295,7 @@ function toyInduction(who: string): void {
 		full = earned = Math.min(LANDED_DEPTH_MAX, ceilingDepth(TIER_ORDER.indexOf(key as DepthTier)));
 	}
 	enterTrance(full, earned);
-	notify(`${who} reaches for you, and you are theirs at once. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
+	notify(`You are theirs. (${tierLabel(tierOf(session.depth)).toLowerCase()}, toy mode)`);
 	announceTranceEnter();
 	pushUpdate();
 	persistState();
@@ -1275,7 +1309,7 @@ function describeStanceSettings(memberId: number): string[] {
 	if (getToyMode()) {
 		lines.push(
 			`  toy mode: on for ${label(TOY_SCOPES, getToyScope()).toLowerCase()} — ` +
-				(toyModeFor(memberId) ? "they would put you straight under, no roll" : "not for them"),
+				(toyModeFor(memberId) ? `they would put you under, no roll, after your ${getInductionSeconds()}s induction` : "not for them"),
 		);
 	}
 	if (getDefaultStance() !== "prompt") lines.push(`  your auto-answer: ${label(DEFAULT_STANCES, getDefaultStance())}`);
@@ -1839,7 +1873,9 @@ function beginInductionWindow(): void {
 	session.rpLines = 0;
 	session.lastRpLine = "";
 	if (windowTimer) clearTimeout(windowTimer);
-	windowTimer = setTimeout(runInductionRoll, INDUCTION_WINDOW_MS);
+	const windowMs = inductionWindowMs();
+	session.windowEndsAt = Date.now() + windowMs;
+	windowTimer = setTimeout(runInductionRoll, windowMs);
 	startPresenceWatch();
 	pushUpdate();
 }
@@ -1900,6 +1936,11 @@ export function answerPrompt(raw: string): void {
 	// Mid-window: her mind changes before the roll. Mostly for auto-stance (v0.97.0), which answers
 	// before she has seen anything; private, as the first answer was.
 	if (session.phase === "InductionInProgress") {
+		// Toy mode has no roll for a change of heart to move (rule 5: say so, don't pretend).
+		if (session.toy) {
+			notify("Toy mode: it takes you whatever you do now. /echs safeword stops it.");
+			return;
+		}
 		session.choice = choice;
 		notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
 		return;
