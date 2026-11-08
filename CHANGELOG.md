@@ -12,6 +12,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.6.0 RC · 8 November 2026
+
+- **Choose how long an induction takes.** The Inductions tab has a new **Induction time** setting:
+  60 seconds (the usual), 45, 30, 20 or 10. It is how long anyone gets to put you under before it
+  lands or misses, and the hypnotist's countdown shows your time.
+- **Toy mode now takes an induction too.** Instead of dropping you at once, it runs your induction
+  time first, so to the hypnotist and the room it looks like any other induction. Then you go under
+  with no roll, as before. The safeword stops it at any point.
+
 ## v1.5.2 RC · 8 November 2026
 
 - **Commands said together take hold one at a time.** Say two or three commands in a row and each

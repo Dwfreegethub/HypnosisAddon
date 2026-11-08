@@ -1027,6 +1027,13 @@ Idle → AttemptMade → InductionInProgress → [Success] Hypnotized → Waking
     the risk"), so triggers can be planted when her ceiling is Deep or deeper. With the ceiling
     at Never, it lands as a sure Agree would. Not counted as practice or trust. It follows the
     away setting too (Ignore there means an ordinary Ignore induction, not toy mode).
+    **Since v1.6.0 (DW, 2026-11-08) toy mode is not instant:** it runs the same induction window
+    as any other, with the same room line and the same countdown on the hypnotist's panel, and
+    lands when it ends. Agree/Ignore/Fight mid-window change nothing and she is told so; a
+    hypnotist who leaves lapses it; the safeword ends it. Reason: DW's script_test B.1 note, the
+    hypnotist could tell toy mode by its landing at once. **Induction time** is her setting on the
+    same tab, for every induction: 60 / 45 / 30 / 20 / 10 seconds, default and maximum 60, minimum
+    10 (DW chose 10 over 0 so that toy mode always shows an induction).
 - Running a second induction on an already-trusting subject should be faster/easier than the first
 
 > **Related:** the tiers themselves, the relationship depth floors and the modifiers are all in

@@ -20,6 +20,33 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-08 (v1.6.0 RC) — induction time, and toy mode takes one
+
+DW's note on `script_test.md` B.1 (v1.5.0): in toy mode there was no pause, so the hypnotist could
+tell. DW's decisions (2026-11-08): toy mode runs an induction; its length is a setting; the setting
+applies to **every** induction, not only toy mode; default and maximum 60 s, minimum 10 s (not 0, so
+toy mode never looks instant).
+
+**Setting.** `inductionSeconds` in storage, sparse (absent = 60), one of 60/45/30/20/10 on a
+click-to-cycle row at the top of the Inductions tab's answer-for-me rows (a typed box would have been
+another DOM control to hide and show inside the scroll area). `getInductionSeconds()` clamps anything
+else into 10-60, so an import with an odd value still lands somewhere sane. Read when the window
+opens and fixed for that window. Locked by the Extreme lock like its neighbours; the templates
+leave it at 60.
+
+**Toy mode.** `toyInduction` now marks the session `toy` and opens the ordinary window
+(`beginInductionWindow`: the presence gate, the room line, the presence watch). `runInductionRoll`
+lands it via `toyLand` instead of rolling. A choice typed mid-window is answered "it takes you
+whatever you do" (rule 5) rather than "you brace against it", which would have been a lie.
+
+**Countdown.** `session-update` sent `windowRemaining: 60000` on every push during a window, so any
+mid-window update restarted the hypnotist's countdown at a minute. It now sends the time really left
+(`windowEndsAt`), which a shorter window needed anyway.
+
+**Tests.** `induction.mjs` matches the window to the setting (so a window of the wrong length fails),
+adds the safeword mid-window, the fight message, the steps and clamp, and the countdown at 30 s and
+12 s in. `menu-layout.mjs` scrolls each of the five rows into view, since they no longer all fit.
+
 ### Fixed 2026-11-08 (v1.5.2 RC) — each command's beat follows the last; a stale "just now"
 
 Both from DW's live run of `script_test.md` on v1.5.1.
