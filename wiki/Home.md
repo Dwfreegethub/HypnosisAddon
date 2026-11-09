@@ -15,7 +15,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
-**Recent highlights:**
+**Recent highlights** (every update, newest first, is in **[What's New](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)**):
 * **See who else runs ECHS:** a small spiral over each ECHS player in the room, with their version on hover. You choose whether others see yours, and where you see theirs, on the Trance Defaults tab.
 * **Commands sink in:** a spoken command takes hold 2 to 5 seconds after it is said, with a pulse of colour you can change or switch off on the Trance Defaults tab. See **[What to Say](What-to-Say)**.
 * **What you planted:** hypnotists can list their triggers with `/echs planted <name>` or the **Planted triggers** button on the spiral panel. See **[Commands](Commands)**.
@@ -63,6 +63,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | **[Settings Reference](Settings-Reference)** | Every preference tab and what each toggle actually does. |
 | **[Commands](Commands)** | Slash command reference (`/echs`). |
 | **[Troubleshooting](Troubleshooting)** | "Nothing happened" and how to sort out common snags. |
+| **[What's New](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)** | Every update in plain words, newest first, and how to check which version you have. |
 
 ---
 
