@@ -12,6 +12,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.8.0 RC · 8 November 2026
+
+- **Friends can fire your triggers.** A new choice, *Owner, Lovers and friends*, sits between Lovers
+  and whitelist in who can fire your triggers, and in who toy mode is for. It reads your BC friend
+  list. The whitelist choice and the ones above it now include your friends too.
+- **If you had chosen whitelist, check it.** So that nobody's choice quietly grows, anyone set to
+  whitelist (for triggers or for toy mode) has been moved to the new friends choice. Pick whitelist
+  again on the Triggers or Inductions tab if you want it back.
+- A hypnotist planting a trigger can now say *"your friends can use it"*.
+
 ## v1.7.3 RC · 8 November 2026
 
 - **A smaller label on the ECHS spiral.** Hovering it now shows just the ECHS version, in small

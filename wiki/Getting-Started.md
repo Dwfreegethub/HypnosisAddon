@@ -72,7 +72,7 @@ Or answer five short questions instead (your role, how attempts are handled, wha
 If you prefer hands-free play with an owner or partner without seeing induction confirmation boxes:
 1. Open **Preferences → Extensions → ECHS Hypnosis → Inductions**.
 2. Set **Toy mode** to **On**.
-3. Choose who it applies to under **Toy mode is for** (default *Owner and Lovers*; it can widen to *Owner, Lovers and whitelist* or further).
+3. Choose who it applies to under **Toy mode is for** (default *Owner and Lovers*; it can widen to *Owner, Lovers and friends* or further).
 
 When an authorized partner attempts an induction, **no prompt box appears**. The induction runs for your **Induction time** (60 seconds unless you shorten it, as low as 10, on the same tab), then you go under to your configured *"Sink deeper" stops at* ceiling, with no roll. To the hypnotist it looks like any other induction. Your safeword (`/echs safeword`) always works. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 

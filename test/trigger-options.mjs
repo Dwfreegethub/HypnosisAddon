@@ -79,6 +79,8 @@ for (const [line, want] of [
 	["Missy, no matter who says it", scope("everyone")],
 	["Missy, your owner can use it too", scope("owner")],
 	["Missy, your lovers may also use it", scope("lovers")],
+	["Missy, your friends can use it too", scope("friends")],
+	["Missy, your friend may also fire it", scope("friends")],
 	["Missy, only I can use it", scope("hypnotist")],
 	["Missy, it only works for me", scope("hypnotist")],
 	["Missy, only when I say it", scope("hypnotist")],

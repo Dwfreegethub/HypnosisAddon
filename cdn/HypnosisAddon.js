@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.7.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.8.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1952,6 +1952,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (scope === "owner") return false;
     if (C.IsLoverOfCharacter?.(Player)) return true;
     if (scope === "lovers") return false;
+    const friend = typeof Player?.HasOnFriendlist === "function" ? Player.HasOnFriendlist(C) : Player?.FriendList?.includes?.(memberId);
+    if (friend) return true;
+    if (scope === "friends") return false;
     if (Player?.HasOnWhitelist?.(C)) return true;
     if (scope === "whitelist") return false;
     try {
@@ -5066,6 +5069,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       skill: 0,
       triggers: [],
       triggerScope: "hypnotist",
+      // A new or reset save already has the Friends rung, so nothing it later chooses is moved.
+      friendsRung: true,
       triggerDurationMinutes: 5,
       triggerLifespanMinutes: 0,
       dropTriggers: "off",
@@ -5111,6 +5116,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.inductionSeconds !== void 0 && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+    if (s.friendsRung !== true) {
+      if (s.triggerScope === "whitelist") s.triggerScope = "friends";
+      if (s.toyScope === "whitelist") s.toyScope = "friends";
+      s.friendsRung = true;
+    }
     if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
     if (s.pulseCustom !== void 0) {
       const hex = typeof s.pulseCustom === "string" ? parsePulseHex(s.pulseCustom) : null;
@@ -5723,6 +5733,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "hypnotist",
         "owner",
         "lovers",
+        "friends",
         "whitelist",
         "dominants",
         "notblack",
@@ -5774,13 +5785,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       TOY_SCOPES = [
         { key: "owner", label: "Owner only" },
         { key: "lovers", label: "Owner and Lovers" },
-        { key: "whitelist", label: "Owner, Lovers and whitelist" },
-        { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+        { key: "friends", label: "Owner, Lovers and friends" },
+        { key: "whitelist", label: "Owner, Lovers, friends and whitelist" },
+        { key: "dominants", label: "Owner, Lovers, friends, whitelist & Dominants" },
         { key: "notblack", label: "Everyone, except blacklist" },
         { key: "everyone", label: "Everyone, no exceptions" }
       ];
       DEFAULT_TOY_SCOPE = "lovers";
-      OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+      OLD_TOY_SCOPES = { lover: "lovers", friend: "friends", anyone: "everyone" };
       cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
       INDUCTION_TIMES = [60, 45, 30, 20, 10];
       DEFAULT_INDUCTION_SECONDS = 60;
@@ -6605,8 +6617,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "hypnotist", label: "Hypnotist only" },
         { key: "owner", label: "Hypnotist and Owner" },
         { key: "lovers", label: "Hypnotist, Owner and Lovers" },
-        { key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
-        { key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
+        { key: "friends", label: "Hypnotist, Owner, Lovers and friends" },
+        { key: "whitelist", label: "Hypnotist, Owner, Lovers, friends and whitelist" },
+        { key: "dominants", label: "Hypnotist, Owner, Lovers, friends, whitelist & Dominants" },
         { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
         { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
       ];
@@ -9231,6 +9244,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
         ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "lovers" }) })),
         ...[
+          String.raw`\byour friends? (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "friends" }) })),
+        ...[
           String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
           String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
           String.raw`\bonly (?:from|in) my voice\b`,
@@ -9460,7 +9476,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.7.3", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.8.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9499,7 +9515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.7.3", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.8.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -10507,7 +10523,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       has("sightControl") && "sight, hearing and not noticing things",
       has("triggerControl") && (has("carryForward") ? "triggers, drops, made to speak and lasting suggestions" : "triggers")
     ].filter(Boolean);
-    const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers and whitelist";
+    const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers, friends and whitelist";
     return [
       `Allowed: ${allowed.join("; ")}.`,
       `When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
@@ -10752,7 +10768,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           title: "How should triggers and lasting suggestions work?",
           options: [
             { value: "none", label: "None \u2014 nothing outlives the trance" },
-            { value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+            { value: "standard", label: "Triggers, from my owner, lovers, friends and whitelist" },
             { value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" }
           ]
         }
@@ -11722,7 +11738,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.8.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11789,7 +11805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.8.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14100,7 +14116,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.8.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14121,7 +14137,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.7.3"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.8.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14194,14 +14210,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.7.3"})`);
+      info(`script loaded (v${"1.8.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.7.3",
+          version: "1.8.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14341,10 +14357,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.8.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.7.3";
+    page2.__ECHS_LOADED__ = "1.8.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
