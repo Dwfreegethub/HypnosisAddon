@@ -1,7 +1,7 @@
 import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
-import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates, setSight } from "./effects";
+import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, getScreenFade, clearTranceStates, setSight } from "./effects";
 import {
 	getFeatures,
 	setFeature,
@@ -59,6 +59,10 @@ import {
 	getPulseCustom,
 	setPulseCustom,
 	PULSE_COLORS,
+	SCREEN_EFFECTS,
+	getScreenEffect,
+	setScreenEffect,
+	getSpiralStrength,
 	ECHS_ICON_SPOTS,
 	getEchsIconSpot,
 	setEchsIconSpot,
@@ -248,8 +252,6 @@ const TABS: Tab[] = [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
-			{ key: "tranceScreenFade", label: "Screen Fade" },
-			{ key: "tranceSpiral", label: "Screen Fade as a turning spiral" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -257,26 +259,33 @@ const TABS: Tab[] = [
 			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
 		scrollExtra: {
-			height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			// The screen effect first (v1.9.1), then the pulse colour, then where others' icons go.
+			height: () => screenEffectSlot() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
 			draw: (top, width) => {
-				drawPulseControls(top, width);
+				drawScreenEffectControl(top, width, settingsLocked());
+				const pulseTop = top + screenEffectSlot();
+				drawPulseControls(pulseTop, width);
 				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
-				drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+				drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
 			},
 			click: (top) => {
-				if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+				const pulseTop = top + screenEffectSlot();
+				if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					// Consumed either way: a locked button must not cycle.
 					if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
 					return true;
 				}
-				if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+				if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					ICON_SPOT_CONTROL.cycle();
 					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
 					return true;
 				}
 				return false;
 			},
-			hide: removePulseHexInput,
+			hide: () => {
+				removePulseHexInput();
+				removeScreenEffectControl();
+			},
 		},
 	},
 	{
@@ -694,12 +703,77 @@ interface CycleControl {
 }
 const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
 
+// The screen effect (v1.9.1, DW 2026-11-08): one dropdown for what was the Screen Fade tick box and
+// v1.9.0's spiral tick box, which only worked together. None, the grey fade, or the spiral at three
+// strengths. A DOM <select>, shown only while wholly in view, as the toy mode dropdown is.
+const SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
+const SCREEN_EFFECT_LABEL_WIDTH = 250;
+const SCREEN_EFFECT_WIDTH = 400;
+/** The dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
+function screenEffectSlot(): number {
+	return attemptControlHeight() + CYCLE_GAP;
+}
+
+function removeScreenEffectControl(): void {
+	if (document.getElementById(SCREEN_EFFECT_ID)) ElementRemove(SCREEN_EFFECT_ID);
+}
+
+function screenEffectCaption(): string {
+	const e = getScreenEffect();
+	if (e === "none") return "Nothing over your screen while you are under.";
+	if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
+	return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+}
+
+function drawScreenEffectControl(top: number, width: number, locked: boolean): void {
+	drawLeftTextFit("Screen effect:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_LABEL_WIDTH, locked ? "Gray" : "Black");
+	drawLeftTextWrap(
+		screenEffectCaption(),
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+	let element = document.getElementById(SCREEN_EFFECT_ID) as HTMLSelectElement | null;
+	if (!inView) {
+		if (element) ElementRemove(SCREEN_EFFECT_ID);
+		return;
+	}
+	if (!element) {
+		element = ElementCreateDropdown(
+			SCREEN_EFFECT_ID,
+			SCREEN_EFFECTS.map((e) => e.label),
+			function () {
+				// Again here, not only through `disabled`: a lock can begin while it is open.
+				if (settingsLocked()) return;
+				const was = getScreenEffect();
+				setScreenEffect(SCREEN_EFFECTS[this.selectedIndex]?.key ?? "fade");
+				const now = getScreenEffect();
+				log(`screen effect: ${was} -> ${now}`);
+				// None takes the fade off at once, as unticking Screen Fade did.
+				if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
+				// From None mid-trance there is no fade to draw yet (rule 5: say so).
+				else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
+					tellPlayer("Your screen effect starts with your next trance.");
+			},
+		);
+	}
+	// Re-synced every frame: an import or a reset changes it underneath us.
+	const index = SCREEN_EFFECTS.findIndex((e) => e.key === getScreenEffect());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	const left = BOX_LEFT + SCREEN_EFFECT_LABEL_WIDTH + 20;
+	ElementPosition(SCREEN_EFFECT_ID, left + SCREEN_EFFECT_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
+
 /** On the Trance Defaults tab, under the pulse's tick box. */
 const PULSE_COLOR_CONTROL: CycleControl = {
 	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
 	caption: () =>
-		!getFeatures().commandPulse && !getFeatures().tranceSpiral
-			? "The pulse and the spiral are off, so this does nothing until you tick one above."
+		!getFeatures().commandPulse && !getSpiralStrength()
+			? "The pulse is off and there is no spiral, so this does nothing until you choose one."
 			: getPulseColor() === "custom"
 				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
 				: "The pulse, and the trance spiral if it is on. Only you see them.",
@@ -1397,12 +1471,12 @@ const DECAY_CAPTION_Y = 858;
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 	removeDepthInputs();
@@ -1423,7 +1497,10 @@ function syncTabControls(tabName: string): void {
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
 	if (tabName !== "Stats") removeTrustSearch();
 	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-	if (tabName !== "Trance Defaults") removePulseHexInput();
+	if (tabName !== "Trance Defaults") {
+		removePulseHexInput();
+		removeScreenEffectControl();
+	}
 	if (tabName !== "Depth") removeDepthInputs();
 }
 
@@ -2238,10 +2315,6 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);
-			break;
-		case "tranceSpiral":
-			// Rule 5: the spiral is a way of drawing the fade, so with the fade off it would show nothing.
-			if (enabled && !getFeatures().tranceScreenFade) tellPlayer("The trance spiral shows only while Screen Fade is ticked too.");
 			break;
 		case "selfTouchControl":
 			if (!enabled) clearSelfTouchBlocks();

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.9.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.9.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -516,10 +516,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawTranceVeil(opts = {}) {
     if (screenFade <= 0) return false;
     if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
-    if (opts.spiral && opts.rgb) {
+    if (opts.spiral && opts.spiral > 0 && opts.rgb) {
       const sprite = spiralSprite(opts.rgb);
       if (sprite) {
-        drawSpiral(sprite, opts.now ?? Date.now());
+        drawSpiral(sprite, opts.spiral, opts.now ?? Date.now());
         return true;
       }
       if (!spiralFailNoted) {
@@ -565,30 +565,35 @@ One of mods you are using is using an old version of SDK. It will work for now b
     spiralCache = { rgb, canvas };
     return canvas;
   }
-  function spiralAlpha(now) {
-    return Math.min(1, screenFade * SPIRAL_ALPHA_PER_FADE + pulseSwell(now) * SPIRAL_PULSE_BOOST);
+  function spiralFlash(now) {
+    if (!spiralFlashAt) return 0;
+    const dt = now - spiralFlashAt;
+    if (dt < 0 || dt >= SPIRAL_FLASH_RISE_MS + SPIRAL_FLASH_FALL_MS) return 0;
+    if (dt < SPIRAL_FLASH_RISE_MS) return dt / SPIRAL_FLASH_RISE_MS;
+    const left = 1 - (dt - SPIRAL_FLASH_RISE_MS) / SPIRAL_FLASH_FALL_MS;
+    return left * left;
   }
-  function drawSpiral(sprite, now) {
+  function spiralAlpha(strength, now) {
+    const base = strength * (screenFade / TRANCE_FADE_OPACITY);
+    return Math.min(1, base + spiralFlash(now) * SPIRAL_FLASH_BOOST);
+  }
+  function drawSpiral(sprite, strength, now) {
     const angle = now % SPIRAL_TURN_MS / SPIRAL_TURN_MS * 2 * Math.PI;
     MainCanvas.save();
     MainCanvas.beginPath();
     MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
     MainCanvas.clip();
-    MainCanvas.globalAlpha = spiralAlpha(now);
+    MainCanvas.globalAlpha = spiralAlpha(strength, now);
     MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
     MainCanvas.rotate(angle);
     MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
     MainCanvas.restore();
   }
   function startCommandPulse(rgb, now = Date.now()) {
+    spiralFlashAt = now;
     if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
     pulseStartedAt = now;
     pulseRgb = rgb;
-  }
-  function pulseSwell(now) {
-    if (!pulseStartedAt) return 0;
-    const t = (now - pulseStartedAt) / PULSE_MS;
-    return t >= 1 || t < 0 ? 0 : Math.sin(Math.PI * t);
   }
   function drawCommandPulse(now = Date.now(), spiralShowing = false) {
     if (!pulseStartedAt) return;
@@ -819,7 +824,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHA_PER_FADE, SPIRAL_PULSE_BOOST, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -840,8 +845,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
       SPIRAL_TURN_MS = 12e3;
-      SPIRAL_ALPHA_PER_FADE = 1.2;
-      SPIRAL_PULSE_BOOST = 0.3;
+      SPIRAL_ALPHAS = { light: 0.15, medium: 0.25, heavy: 0.36 };
+      SPIRAL_FLASH_BOOST = 0.35;
+      SPIRAL_FLASH_RISE_MS = 60;
+      SPIRAL_FLASH_FALL_MS = 450;
+      spiralFlashAt = 0;
       SPIRAL_SPRITE_SIZE = 1024;
       SPIRAL_ARMS = 3;
       SPIRAL_TURNS = 3.5;
@@ -5128,7 +5136,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tranceCannotMove: true,
       tranceCannotSpeak: true,
       tranceScreenFade: true,
-      tranceSpiral: false,
       commandPulse: true,
       showEchsIcon: true,
       roomSeesReactions: true,
@@ -5173,6 +5180,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (typeof stored[key] === "boolean") merged[key] = stored[key];
     }
     s.features = merged;
+    if (stored.tranceSpiral === true && s.spiralStrength === void 0) s.spiralStrength = "medium";
+    if (s.spiralStrength !== void 0 && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
     s.experience ?? (s.experience = 0);
     s.triggers ?? (s.triggers = []);
     s.triggerScope ?? (s.triggerScope = "hypnotist");
@@ -5646,6 +5655,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
     delete loadSettings().skillHonour;
     saveSettings();
   }
+  function getScreenEffect() {
+    const s = loadSettings();
+    if (!s.features.tranceScreenFade) return "none";
+    return s.spiralStrength && SPIRAL_STRENGTHS.includes(s.spiralStrength) ? s.spiralStrength : "fade";
+  }
+  function getSpiralStrength() {
+    const e = getScreenEffect();
+    return SPIRAL_STRENGTHS.includes(e) ? e : "";
+  }
+  function setScreenEffect(key) {
+    if (!SCREEN_EFFECTS.some((e) => e.key === key)) return;
+    const s = loadSettings();
+    s.features.tranceScreenFade = key !== "none";
+    if (SPIRAL_STRENGTHS.includes(key)) s.spiralStrength = key;
+    else delete s.spiralStrength;
+    saveSettings();
+  }
   function getEchsIconSpot() {
     const v = loadSettings().echsIconSpot;
     return ECHS_ICON_SPOTS.some((s) => s.key === v) ? v : "top";
@@ -5768,7 +5794,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5881,6 +5907,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "custom", label: "Custom", rgb: "" }
       ];
       DEFAULT_PULSE_CUSTOM = "#FF69B4";
+      SPIRAL_STRENGTHS = ["light", "medium", "heavy"];
+      SCREEN_EFFECTS = [
+        { key: "none", label: "None" },
+        { key: "fade", label: "Grey fade" },
+        { key: "light", label: "Spiral, light" },
+        { key: "medium", label: "Spiral, medium" },
+        { key: "heavy", label: "Spiral, heavy" }
+      ];
       ECHS_ICON_SPOTS = [
         { key: "top", label: "Top row" },
         { key: "left", label: "Below, on the left" },
@@ -9551,7 +9585,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.9.0", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.9.1", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9590,7 +9624,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.9.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.9.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -11069,6 +11103,56 @@ One of mods you are using is using an old version of SDK. It will work for now b
       locked ? "Gray" : "#555"
     );
   }
+  function screenEffectSlot() {
+    return attemptControlHeight() + CYCLE_GAP;
+  }
+  function removeScreenEffectControl() {
+    if (document.getElementById(SCREEN_EFFECT_ID)) ElementRemove(SCREEN_EFFECT_ID);
+  }
+  function screenEffectCaption() {
+    const e = getScreenEffect();
+    if (e === "none") return "Nothing over your screen while you are under.";
+    if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
+    return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+  }
+  function drawScreenEffectControl(top, width, locked) {
+    drawLeftTextFit("Screen effect:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_LABEL_WIDTH, locked ? "Gray" : "Black");
+    drawLeftTextWrap(
+      screenEffectCaption(),
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+    const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+    let element = document.getElementById(SCREEN_EFFECT_ID);
+    if (!inView) {
+      if (element) ElementRemove(SCREEN_EFFECT_ID);
+      return;
+    }
+    if (!element) {
+      element = ElementCreateDropdown(
+        SCREEN_EFFECT_ID,
+        SCREEN_EFFECTS.map((e) => e.label),
+        function() {
+          if (settingsLocked()) return;
+          const was = getScreenEffect();
+          setScreenEffect(SCREEN_EFFECTS[this.selectedIndex]?.key ?? "fade");
+          const now = getScreenEffect();
+          log(`screen effect: ${was} -> ${now}`);
+          if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
+          else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
+            tellPlayer("Your screen effect starts with your next trance.");
+        }
+      );
+    }
+    const index = SCREEN_EFFECTS.findIndex((e) => e.key === getScreenEffect());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    const left = BOX_LEFT + SCREEN_EFFECT_LABEL_WIDTH + 20;
+    ElementPosition(SCREEN_EFFECT_ID, left + SCREEN_EFFECT_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+  }
   function removePulseHexInput() {
     if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
   }
@@ -11526,10 +11610,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
   }
   function ownedControlIds() {
-    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
   }
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
     removeDepthInputs();
@@ -11544,7 +11628,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
     if (tabName !== "Stats") removeTrustSearch();
     if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-    if (tabName !== "Trance Defaults") removePulseHexInput();
+    if (tabName !== "Trance Defaults") {
+      removePulseHexInput();
+      removeScreenEffectControl();
+    }
     if (tabName !== "Depth") removeDepthInputs();
   }
   function drawDecayControl() {
@@ -11813,7 +11900,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11880,7 +11967,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12124,9 +12211,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       case "tranceScreenFade":
         if (!enabled) setScreenFade(0);
         break;
-      case "tranceSpiral":
-        if (enabled && !getFeatures().tranceScreenFade) tellPlayer("The trance spiral shows only while Screen Fade is ticked too.");
-        break;
       case "selfTouchControl":
         if (!enabled) clearSelfTouchBlocks();
         break;
@@ -12158,7 +12242,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, SCREEN_EFFECT_LABEL_WIDTH, SCREEN_EFFECT_WIDTH, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -12232,8 +12316,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceCannotMove", label: "Cannot Move" },
             { key: "tranceCannotSpeak", label: "Cannot Speak" },
             { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
-            { key: "tranceScreenFade", label: "Screen Fade" },
-            { key: "tranceSpiral", label: "Screen Fade as a turning spiral" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
             { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -12241,24 +12323,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
           ],
           scrollExtra: {
-            height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+            // The screen effect first (v1.9.1), then the pulse colour, then where others' icons go.
+            height: () => screenEffectSlot() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
             draw: (top, width) => {
-              drawPulseControls(top, width);
-              drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+              drawScreenEffectControl(top, width, settingsLocked());
+              const pulseTop = top + screenEffectSlot();
+              drawPulseControls(pulseTop, width);
+              drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
             },
             click: (top) => {
-              if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+              const pulseTop = top + screenEffectSlot();
+              if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
                 if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
                 return true;
               }
-              if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+              if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
                 ICON_SPOT_CONTROL.cycle();
                 log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
                 return true;
               }
               return false;
             },
-            hide: removePulseHexInput
+            hide: () => {
+              removePulseHexInput();
+              removeScreenEffectControl();
+            }
           }
         },
         {
@@ -12385,9 +12474,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ATTEMPT_CAPTION_HEIGHT = 44;
       ATTEMPT_CAPTION_GAP = 8;
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+      SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
+      SCREEN_EFFECT_LABEL_WIDTH = 250;
+      SCREEN_EFFECT_WIDTH = 400;
       PULSE_COLOR_CONTROL = {
         label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => !getFeatures().commandPulse && !getFeatures().tranceSpiral ? "The pulse and the spiral are off, so this does nothing until you tick one above." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse, and the trance spiral if it is on. Only you see them.",
+        caption: () => !getFeatures().commandPulse && !getSpiralStrength() ? "The pulse is off and there is no spiral, so this does nothing until you choose one." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse, and the trance spiral if it is on. Only you see them.",
         tooltip: "The colour of the pulse and the trance spiral",
         cycle: () => {
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
@@ -14195,7 +14287,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.9.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.9.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14216,7 +14308,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.9.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.9.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14289,14 +14381,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.9.0"})`);
+      info(`script loaded (v${"1.9.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.9.0",
+          version: "1.9.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14406,7 +14498,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ((args, next) => {
             const result = next(args);
             const now = Date.now();
-            const spiral = drawTranceVeil({ spiral: getFeatures().tranceSpiral === true, rgb: getPulseRgb(), now });
+            const spiral = drawTranceVeil({ spiral: SPIRAL_ALPHAS[getSpiralStrength()] ?? 0, rgb: getPulseRgb(), now });
             drawCommandPulse(now, spiral);
             return result;
           })
@@ -14437,10 +14529,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.9.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.9.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.9.0";
+    page2.__ECHS_LOADED__ = "1.9.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

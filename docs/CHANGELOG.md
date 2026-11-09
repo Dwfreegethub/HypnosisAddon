@@ -20,6 +20,30 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-08 (v1.9.1 RC) — the screen effect choice, three strengths, a real flash
+
+DW, after seeing v1.9.0: "a little too dark still... Light, med and heavy"; the command's swell
+should be "more sudden, more of a flash"; and since the spiral only worked with Screen Fade ticked,
+"a selector box that has none, fade, and the 3 spiral options" instead of two tick boxes.
+
+- **One choice, two stored values.** `features.tranceScreenFade` stays the switch (None is off), so
+  session.ts, the wizard, recovery and every suite that reads it are untouched; the spiral is a
+  sparse `spiralStrength` (absent means the grey fade). `getScreenEffect`/`setScreenEffect` are
+  the only place the two meet. The `tranceSpiral` feature key is gone; `normalise` reads it from
+  the stored blob before reconciling features drops it, and a ticked one becomes Medium.
+- **Strengths.** `SPIRAL_ALPHAS` light 0.15, medium 0.25, heavy 0.36 (v1.9.0's only value), each
+  scaled by the fade in proportion, so walking trance thins every strength the same way.
+- **The flash.** Its own curve, not the glow's: linear up in 60 ms, then down as the square of what
+  is left over 450 ms, so it falls fastest first. It restarts on every command, unlike the glow,
+  which refuses to restart mid-swell because a drop to nothing would itself be a flash.
+- **The menu.** A DOM dropdown at the top of the controls under the rows, in the toy mode
+  dropdown's pattern: shown only while wholly in view, removed off its tab and on every exit. None
+  takes the fade off at once (the old untick path); turning an effect on from None mid-trance
+  says it starts with the next trance (rule 5), since there is no fade running to draw.
+
+`test/trance-spiral.mjs` is 55 checks. Five mutations fail it: a slow rise, one fixed strength, no
+re-flash, no migration, and None not turning the fade off. `menu-layout` drives the dropdown.
+
 ### Added 2026-11-08 (v1.9.0 RC) — the trance spiral
 
 JAX (11-02) asked for a spiral screen overlay. DW, after LSCG's spiral got stuck on Missy's screen:

@@ -248,7 +248,12 @@ hidden by BC's own hide-icons button. `src/badge.ts`.
 **The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
 choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces
 the grey veil, and a landed command swells the spiral (+0.3 opacity at the peak of the same 1.8 s
-swell) instead of the edge glow, so the two never show at once. Same rect as the veil, same
+swell) instead of the edge glow, so the two never show at once. **v1.9.1, DW after seeing it:** one
+strength was too dark, so three (light 0.15, medium 0.25, heavy 0.36, the old one); the swell
+became a flash (up in 60 ms, gone in 450, re-flashing on every command); and the two tick boxes,
+which only worked together, became one *Screen effect* dropdown: None, Grey fade, and the three
+spirals. Stored as the existing `tranceScreenFade` switch plus a sparse `spiralStrength`, so every
+place that already reads the fade switch is unchanged; v1.9.0's ticked spiral becomes Medium. Same rect as the veil, same
 step-aside while BC darkens her screen, built once per colour on an offscreen canvas. With no
 canvas it falls back to the grey veil and says so. Technique reference only (rule 7): LSCG's hypno
 spiral overlay, which DW ran into on 11-08; drawn here from scratch. BC's own VR headset spiral was

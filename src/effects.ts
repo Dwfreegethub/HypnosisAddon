@@ -333,13 +333,13 @@ export const VEIL_WIDTH = 1003;
  * so it covers our sight suggestions and a real blindfold alike, and follows BC's own exceptions
  * (photo mode, VR avatars): wherever BC does not darken, the veil stays. It returns by itself the
  * frame her sight comes back. */
-export function drawTranceVeil(opts: { spiral?: boolean; rgb?: string; now?: number } = {}): boolean {
+export function drawTranceVeil(opts: { spiral?: number; rgb?: string; now?: number } = {}): boolean {
 	if (screenFade <= 0) return false;
 	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
-	if (opts.spiral && opts.rgb) {
+	if (opts.spiral && opts.spiral > 0 && opts.rgb) {
 		const sprite = spiralSprite(opts.rgb);
 		if (sprite) {
-			drawSpiral(sprite, opts.now ?? Date.now());
+			drawSpiral(sprite, opts.spiral, opts.now ?? Date.now());
 			return true;
 		}
 		// No canvas to build it on: the grey veil instead, and said once (rule 5).
@@ -357,16 +357,27 @@ export function drawTranceVeil(opts: { spiral?: boolean; rgb?: string; now?: num
 
 // --- The trance spiral (v1.9.0, JAX 2026-11-02, DW 2026-11-08) ---------------------------------
 // Her choice, off by default: while the fade is on, a slowly turning spiral in her pulse colour
-// takes the grey veil's place, and a landed command swells the spiral instead of glowing at the
+// takes the grey veil's place, and a landed command flashes the spiral instead of glowing at the
 // edge. Technique reference only (rule 7): LSCG's hypno spiral overlay, a turning spiral drawn
 // over the screen with a strength that follows a level. Nothing of its code; drawn here from
 // scratch. Same rect as the veil, and the same step-aside while BC darkens her screen.
+//
+// v1.9.1, DW after seeing it: v1.9.0's one strength (0.36) was "a little too dark", so three to
+// choose from, and the command's swell became a flash: "more sudden, more of a flash and less of a
+// fade in and out". One sharp flash per command, never repeating on its own.
 /** One turn, in ms. Slow, so it drifts rather than spins. */
 export const SPIRAL_TURN_MS = 12_000;
-/** The spiral's opacity for a given fade: the trance fade (0.3) gives 0.36, walking (0.08) about 0.1. */
-export const SPIRAL_ALPHA_PER_FADE = 1.2;
-/** How much brighter it gets at the peak of a command's swell. A swell, never a flash. */
-export const SPIRAL_PULSE_BOOST = 0.3;
+/** The spiral's opacity in a full trance, per strength; a walking trance thins it in proportion,
+ * as it thins the veil. Heavy is v1.9.0's only strength. */
+export const SPIRAL_ALPHAS: Record<string, number> = { light: 0.15, medium: 0.25, heavy: 0.36 };
+/** How much brighter the spiral gets at the peak of a command's flash. */
+export const SPIRAL_FLASH_BOOST = 0.35;
+/** The flash: up in this long... */
+export const SPIRAL_FLASH_RISE_MS = 60;
+/** ...and gone again in this long, falling fastest at first. */
+export const SPIRAL_FLASH_FALL_MS = 450;
+/** When the last command landed, for the flash. Unlike the glow, a second command re-flashes. */
+let spiralFlashAt = 0;
 const SPIRAL_SPRITE_SIZE = 1024;
 const SPIRAL_ARMS = 3;
 const SPIRAL_TURNS = 3.5;
@@ -410,17 +421,28 @@ function spiralSprite(rgb: string): any {
 	return canvas;
 }
 
-function spiralAlpha(now: number): number {
-	return Math.min(1, screenFade * SPIRAL_ALPHA_PER_FADE + pulseSwell(now) * SPIRAL_PULSE_BOOST);
+/** 0 to 1: how much of the flash is showing. 0 when none, at once to 1, then quickly back to 0. */
+function spiralFlash(now: number): number {
+	if (!spiralFlashAt) return 0;
+	const dt = now - spiralFlashAt;
+	if (dt < 0 || dt >= SPIRAL_FLASH_RISE_MS + SPIRAL_FLASH_FALL_MS) return 0;
+	if (dt < SPIRAL_FLASH_RISE_MS) return dt / SPIRAL_FLASH_RISE_MS;
+	const left = 1 - (dt - SPIRAL_FLASH_RISE_MS) / SPIRAL_FLASH_FALL_MS;
+	return left * left;
 }
 
-function drawSpiral(sprite: any, now: number): void {
+function spiralAlpha(strength: number, now: number): number {
+	const base = strength * (screenFade / TRANCE_FADE_OPACITY);
+	return Math.min(1, base + spiralFlash(now) * SPIRAL_FLASH_BOOST);
+}
+
+function drawSpiral(sprite: any, strength: number, now: number): void {
 	const angle = ((now % SPIRAL_TURN_MS) / SPIRAL_TURN_MS) * 2 * Math.PI;
 	MainCanvas.save();
 	MainCanvas.beginPath();
 	MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
 	MainCanvas.clip();
-	MainCanvas.globalAlpha = spiralAlpha(now);
+	MainCanvas.globalAlpha = spiralAlpha(strength, now);
 	MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
 	MainCanvas.rotate(angle);
 	MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
@@ -431,6 +453,7 @@ function drawSpiral(sprite: any, now: number): void {
 export function resetSpiralForTests(): void {
 	spiralCache = null;
 	spiralFailNoted = false;
+	spiralFlashAt = 0;
 }
 
 // --- The command pulse (v1.4.0, JAX 2026-11-02, DW 2026-11-05) -----------------------------------
@@ -454,20 +477,15 @@ let pulseRgb = "";
 /** Start a pulse in this colour ("r, g, b"). One already showing is left to finish: restarting it
  * would drop it to nothing in a single frame, which is the flash this is built not to have. */
 export function startCommandPulse(rgb: string, now: number = Date.now()): void {
+	// The spiral's flash restarts on every command: it is a flash, so a new one is no drop.
+	spiralFlashAt = now;
 	if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
 	pulseStartedAt = now;
 	pulseRgb = rgb;
 }
 
-/** How far through its swell the pulse is: 0 at either end and when none is showing, 1 at the peak. */
-function pulseSwell(now: number): number {
-	if (!pulseStartedAt) return 0;
-	const t = (now - pulseStartedAt) / PULSE_MS;
-	return t >= 1 || t < 0 ? 0 : Math.sin(Math.PI * t);
-}
-
 /** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded.
- * `spiralShowing`: the trance spiral drew this frame and carries the pulse itself as a swell, so
+ * `spiralShowing`: the trance spiral drew this frame and carries the command itself as a flash, so
  * the edge glow and wash stay off (DW, 2026-11-08). */
 export function drawCommandPulse(now: number = Date.now(), spiralShowing = false): void {
 	if (!pulseStartedAt) return;

@@ -1,9 +1,9 @@
-// The trance spiral (v1.9.0; JAX 2026-11-02, DW 2026-11-08).
+// The trance spiral (v1.9.0; JAX 2026-11-02, DW 2026-11-08) and the screen effect choice (v1.9.1).
 //
-// Her choice, off by default. While the fade is on, a slowly turning spiral in her pulse colour
-// takes the grey veil's place, and a landed command swells the spiral instead of the edge glow.
-// Driven for real against a recording canvas; the main.ts wiring is read off its source, as
-// test/veil.mjs does, because main.ts runs its hooks at import.
+// Her choice, off by default. One "Screen effect" choice: None, the grey fade, or the spiral at
+// light, medium or heavy. The spiral turns slowly in her pulse colour where the grey veil was, and a
+// landed command flashes it instead of the edge glow. Driven for real against a recording canvas;
+// the main.ts and menu wiring is read off their source, as test/veil.mjs does.
 import { readFileSync } from "node:fs";
 
 let calls = [];
@@ -59,22 +59,57 @@ const near = (label, got, want) => {
 	if (!ok) console.log(`  FAIL ${label}: want ${want}, got ${got}`);
 };
 const PINK = "255, 105, 180";
+const { light: LIGHT, medium: MEDIUM, heavy: HEAVY } = effects.SPIRAL_ALPHAS;
 const frame = (opts) => { calls = []; return effects.drawTranceVeil(opts); };
 const named = (n) => calls.filter((c) => c.name === n);
 const lastAlpha = () => named("alpha").at(-1)?.args[0];
+const spiralAt = (strength, now) => { frame({ spiral: strength, rgb: PINK, now }); return lastAlpha(); };
 
-// --- off by default --------------------------------------------------------------------------
+// --- the choice: None, the grey fade, three spirals -------------------------------------------
 // Failure looks like: a moving picture over the screen for someone who never asked for one.
-check("off by default", storage.getFeatures().tranceSpiral, false);
+check("the grey fade by default", storage.getScreenEffect(), "fade");
+check("  so no spiral strength", storage.getSpiralStrength(), "");
+check("five choices, in order", storage.SCREEN_EFFECTS.map((e) => e.key), ["none", "fade", "light", "medium", "heavy"]);
+storage.setScreenEffect("medium");
+check("choosing a spiral keeps the fade on underneath", [storage.getScreenEffect(), storage.getFeatures().tranceScreenFade, storage.getSpiralStrength()], ["medium", true, "medium"]);
+storage.setScreenEffect("none");
+check("None turns the fade off", [storage.getScreenEffect(), storage.getFeatures().tranceScreenFade, storage.getSpiralStrength()], ["none", false, ""]);
+storage.setScreenEffect("heavy");
+check("  and a spiral from None turns it back on", [storage.getScreenEffect(), storage.getFeatures().tranceScreenFade], ["heavy", true]);
+storage.setScreenEffect("fade");
+check("the grey fade drops the spiral", [storage.getScreenEffect(), storage.getSpiralStrength()], ["fade", ""]);
+storage.setScreenEffect("rainbow");
+check("a bad choice changes nothing", storage.getScreenEffect(), "fade");
+// DW: v1.9.0's strength was "a little too dark". Failure: light no lighter than v1.9.0's 0.36.
+check("strengths rise light to heavy", LIGHT < MEDIUM && MEDIUM < HEAVY, true);
+check("  and light is well under v1.9.0's 0.36", LIGHT <= 0.2, true);
 
-// --- spiral off: the grey veil, exactly as before ---------------------------------------------
+// v1.9.0 (dev only) saved a tick box. Failure: someone who ticked it loses the spiral on upgrade.
+{
+	const lz = (await import("lz-string")).default;
+	const old = JSON.parse(lz.decompressFromBase64(storage.exportSettings()));
+	delete old.spiralStrength;
+	old.features.tranceSpiral = true;
+	old.features.tranceScreenFade = true;
+	storage.importSettings(lz.compressToBase64(JSON.stringify(old)));
+	check("v1.9.0's ticked spiral becomes Medium", storage.getScreenEffect(), "medium");
+	check("  and the old key is not kept", "tranceSpiral" in storage.getFeatures(), false);
+	old.features.tranceSpiral = false;
+	storage.importSettings(lz.compressToBase64(JSON.stringify(old)));
+	check("  unticked stays the grey fade", storage.getScreenEffect(), "fade");
+	old.spiralStrength = "blinding";
+	storage.importSettings(lz.compressToBase64(JSON.stringify(old)));
+	check("  a junk strength is dropped", storage.getScreenEffect(), "fade");
+}
+
+// --- no spiral: the grey veil, exactly as before -----------------------------------------------
 effects.setScreenFade(effects.TRANCE_FADE_OPACITY);
-check("spiral off: reports no spiral", frame({ spiral: false, rgb: PINK, now: 0 }), false);
+check("no spiral: reports none", frame({ spiral: 0, rgb: PINK, now: 0 }), false);
 check("  the white veil is painted", named("fillRect").map((c) => c.style), ["rgba(255, 255, 255, 0.3)"]);
 check("  and no image", named("drawImage").length, 0);
 
-// --- spiral on: the spiral instead of the grey -------------------------------------------------
-check("spiral on: reports the spiral", frame({ spiral: true, rgb: PINK, now: 0 }), true);
+// --- a spiral: instead of the grey ------------------------------------------------------------
+check("a spiral: reports it", frame({ spiral: MEDIUM, rgb: PINK, now: 0 }), true);
 // Failure: the grey still under it (DW: "you would not see the slightly gray out screen").
 check("  no grey veil", named("fillRect").length, 0);
 check("  one spiral drawn", named("drawImage").length, 1);
@@ -82,21 +117,21 @@ check("  clipped to the room half, never the chat", named("rect")[0]?.args, [0, 
 check("  about the room's centre", named("translate")[0]?.args, [effects.VEIL_WIDTH / 2, 500]);
 const img = named("drawImage")[0]?.args;
 check("  big enough to reach every corner", img && img[3] / 2 >= Math.hypot(effects.VEIL_WIDTH / 2, 500), true);
-near("  at the trance strength", lastAlpha(), 0.3 * effects.SPIRAL_ALPHA_PER_FADE);
 check("  balanced save/restore, so nothing leaks into BC's drawing", named("save").length === named("restore").length, true);
 check("  drawn in her pulse colour", strokeStyle, `rgb(${PINK})`);
 check("  as real bands (many strokes)", strokes > 300, true);
-
-// Walking trance thins it, as it thins the veil.
+near("light at its strength", spiralAt(LIGHT, 0), LIGHT);
+near("medium at its strength", spiralAt(MEDIUM, 0), MEDIUM);
+near("heavy at its strength", spiralAt(HEAVY, 0), HEAVY);
+// Walking trance thins it in proportion, as it thins the veil.
 effects.setScreenFade(effects.WALKING_FADE_OPACITY);
-frame({ spiral: true, rgb: PINK, now: 0 });
-near("walking trance: thinner", lastAlpha(), 0.08 * effects.SPIRAL_ALPHA_PER_FADE);
+near("walking trance: thinner, in proportion", spiralAt(MEDIUM, 0), MEDIUM * (effects.WALKING_FADE_OPACITY / effects.TRANCE_FADE_OPACITY));
 effects.setScreenFade(effects.TRANCE_FADE_OPACITY);
 
 // --- it turns, slowly ------------------------------------------------------------------------
-frame({ spiral: true, rgb: PINK, now: 0 });
+frame({ spiral: MEDIUM, rgb: PINK, now: 0 });
 const a0 = named("rotate")[0]?.args[0];
-frame({ spiral: true, rgb: PINK, now: effects.SPIRAL_TURN_MS / 4 });
+frame({ spiral: MEDIUM, rgb: PINK, now: effects.SPIRAL_TURN_MS / 4 });
 const a1 = named("rotate")[0]?.args[0];
 near("a quarter turn in a quarter of the turn time", a1 - a0, Math.PI / 2);
 // Failure: a spin fast enough to be uncomfortable to watch.
@@ -104,58 +139,69 @@ check("  no faster than a turn every 8 seconds", effects.SPIRAL_TURN_MS >= 8000,
 
 // --- built once per colour, not every frame ----------------------------------------------------
 const before = built;
-for (let i = 0; i < 30; i++) frame({ spiral: true, rgb: PINK, now: i * 16 });
+for (let i = 0; i < 30; i++) frame({ spiral: MEDIUM, rgb: PINK, now: i * 16 });
 check("thirty frames build nothing new", built, before);
-frame({ spiral: true, rgb: "80, 160, 255", now: 0 });
+frame({ spiral: MEDIUM, rgb: "80, 160, 255", now: 0 });
 check("a new colour builds once", [built - before, strokeStyle], [1, "rgb(80, 160, 255)"]);
-frame({ spiral: true, rgb: PINK, now: 0 });
+frame({ spiral: MEDIUM, rgb: PINK, now: 0 });
 
-// --- a landed command swells the spiral, and the edge glow stays off ---------------------------
+// --- a landed command flashes the spiral, and the edge glow stays off ---------------------------
+// DW (v1.9.1): "more sudden... more of a flash and less of a fade in and out".
 const t0 = 100_000;
+const RISE = effects.SPIRAL_FLASH_RISE_MS, FALL = effects.SPIRAL_FLASH_FALL_MS, BOOST = effects.SPIRAL_FLASH_BOOST;
 effects.startCommandPulse(PINK, t0);
-frame({ spiral: true, rgb: PINK, now: t0 + 900 }); // the peak of the 1.8 s swell
-near("at the pulse's peak it is brighter", lastAlpha(), 0.3 * effects.SPIRAL_ALPHA_PER_FADE + effects.SPIRAL_PULSE_BOOST);
-frame({ spiral: true, rgb: PINK, now: t0 + 50 });
-check("  it swells, never flashes", lastAlpha() < 0.3 * effects.SPIRAL_ALPHA_PER_FADE + effects.SPIRAL_PULSE_BOOST / 2, true);
+near("at the flash's peak it is brighter", spiralAt(MEDIUM, t0 + RISE), MEDIUM + BOOST);
+// Failure: back to a slow swell. It must be up almost at once and gone in about half a second.
+check("  it is up within a tenth of a second", RISE <= 100, true);
+check("  and gone within about half a second", RISE + FALL <= 600, true);
+check("  most of the way up at half the rise", spiralAt(MEDIUM, t0 + RISE / 2) >= MEDIUM + BOOST / 2 - 1e-9, true);
+check("  falls fastest first: under a third left at a third of the fall", spiralAt(MEDIUM, t0 + RISE + FALL / 3) - MEDIUM < BOOST / 2, true);
+near("  back to its strength once the flash is over", spiralAt(MEDIUM, t0 + RISE + FALL), MEDIUM);
+// The flash peak is a real change on every strength: noticeable, never blinding.
+check("  heavy's flash stays see-through", HEAVY + BOOST < 0.8, true);
+// A second command re-flashes, even while the glow's own 1.8 s pulse is still running.
+effects.startCommandPulse(PINK, t0 + 700);
+near("a second command flashes again", spiralAt(MEDIUM, t0 + 700 + RISE), MEDIUM + BOOST);
 calls = [];
 effects.drawCommandPulse(t0 + 900, true);
-// Failure: both at once, the glow at the edge and the spiral swelling.
-check("  with the spiral showing, no edge glow or wash", named("fillRect").length, 0);
+// Failure: both at once, the glow at the edge and the spiral flashing.
+check("with the spiral showing, no edge glow or wash", named("fillRect").length, 0);
 calls = [];
 effects.drawCommandPulse(t0 + 900, false);
 check("  without it, the edge glow as before", named("fillRect").length > 0, true);
-calls = [];
-effects.drawCommandPulse(t0 + 2000, true);
-frame({ spiral: true, rgb: PINK, now: t0 + 2000 });
-near("  and after it, back to the trance strength", lastAlpha(), 0.3 * effects.SPIRAL_ALPHA_PER_FADE);
+effects.drawCommandPulse(t0 + 5000, false);
 
 // --- blind: nothing, as for the veil ----------------------------------------------------------
 dark = 0.15;
-check("while BC darkens her screen: no spiral", [frame({ spiral: true, rgb: PINK, now: 0 }), calls.length], [false, 0]);
+check("while BC darkens her screen: no spiral", [frame({ spiral: MEDIUM, rgb: PINK, now: 0 }), calls.length], [false, 0]);
 dark = 1;
 
 // --- awake: nothing -------------------------------------------------------------------------
 effects.clearTranceStates();
-check("awake: nothing at all", [frame({ spiral: true, rgb: PINK, now: 0 }), calls.length], [false, 0]);
+check("awake: nothing at all", [frame({ spiral: MEDIUM, rgb: PINK, now: 0 }), calls.length], [false, 0]);
 
-// --- no canvas to build on: the plain fade, said once ------------------------------------------
+// --- no canvas to build on: the plain fade -----------------------------------------------------
 effects.resetSpiralForTests();
 const doc = globalThis.document;
 delete globalThis.document;
 effects.setScreenFade(effects.TRANCE_FADE_OPACITY);
-check("no canvas: reports no spiral", frame({ spiral: true, rgb: PINK, now: 0 }), false);
+check("no canvas: reports no spiral", frame({ spiral: MEDIUM, rgb: PINK, now: 0 }), false);
 check("  and falls back to the grey veil rather than nothing", named("fillRect").map((c) => c.style), ["rgba(255, 255, 255, 0.3)"]);
 globalThis.document = doc;
 effects.clearTranceStates();
 
 // --- the wiring in main.ts and the menu --------------------------------------------------------
-// Failure: main.ts never passes her setting, or the pulse is not told the spiral drew.
+// Failure: main.ts never passes her strength, or the pulse is not told the spiral drew.
 const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-check("main.ts passes her setting and colour", /drawTranceVeil\(\{\s*spiral:\s*getFeatures\(\)\.tranceSpiral === true,\s*rgb:\s*getPulseRgb\(\)/.test(main), true);
+check("main.ts passes her strength and colour", /drawTranceVeil\(\{\s*spiral:\s*SPIRAL_ALPHAS\[getSpiralStrength\(\)\] \?\? 0,\s*rgb:\s*getPulseRgb\(\)/.test(main), true);
 check("  and tells the pulse whether the spiral drew", /const spiral = drawTranceVeil\([\s\S]{0,120}drawCommandPulse\(now, spiral\)/.test(main), true);
 const menu = readFileSync(new URL("../src/menu.ts", import.meta.url), "utf8");
-check("the menu has the tick box", /key: "tranceSpiral", label: "Screen Fade as a turning spiral"/.test(menu), true);
-check("  and says so when it would show nothing", /case "tranceSpiral":[\s\S]{0,300}tranceScreenFade\) tellPlayer\(/.test(menu), true);
+// DW: "instead of a check box we can have a selector box". Failure: either tick box is still there.
+check("the menu has no Screen Fade tick box", /key: "tranceScreenFade"/.test(menu), false);
+check("  nor v1.9.0's spiral tick box", /key: "tranceSpiral"/.test(menu), false);
+check("  but a dropdown of the five", /ElementCreateDropdown\(\s*SCREEN_EFFECT_ID,\s*SCREEN_EFFECTS\.map/.test(menu), true);
+check("  removed off its tab and on every exit", (menu.match(/SCREEN_EFFECT_ID/g) ?? []).length >= 6 && /removeScreenEffectControl\(\);\s*\}/.test(menu), true);
+check("  None takes the fade off at once", /now === "none" && was !== "none"\) onToggle\("tranceScreenFade", false\)/.test(menu), true);
 
 console.log(`trance-spiral: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
