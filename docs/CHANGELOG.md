@@ -20,6 +20,27 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-08 (v1.9.0 RC) — the trance spiral
+
+JAX (11-02) asked for a spiral screen overlay. DW, after LSCG's spiral got stuck on Missy's screen:
+a spiral over the screen while hypnotized, with no grey fade under it, and the spiral flashing a
+little when a command lands instead of the glow at the edge. Built as a way of drawing the fade
+(`tranceSpiral`, off by default, needs `tranceScreenFade`) rather than a separate effect, so it
+inherits everything the fade already gets right: the walking-trance thinning, recovery across a
+reload, the step-aside while BC darkens her screen, and clearing on every exit path.
+
+`drawTranceVeil` now takes her setting and colour from `main.ts` (effects.ts stays a leaf) and
+returns whether the spiral drew; `drawCommandPulse` is told, and skips its glow and wash when it
+did. The swell itself is one shared curve, so the spiral and the glow brighten on the same timing.
+The spiral is three arms, 3.5 turns, built once per colour on a 1024 px offscreen canvas and drawn
+rotated and clipped to the room half; ticking it with the fade off says why nothing shows (rule 5).
+BC's VR headset spiral was looked at first: a still background, only while blind, and it hides the
+room, so it was not the model. LSCG's overlay was the technique reference (rule 7), no code taken.
+
+`test/trance-spiral.mjs` (32): off by default, no grey under it, the rect, strength, turning speed,
+one build per colour, the swell with no edge glow, blind and awake, the no-canvas fallback, and
+the wiring. Dropping the spiral draw, the swell, or the glow suppression each fails it.
+
 ### Added 2026-11-08 (v1.8.0 RC) — a Friends rung on the scope ladder
 
 Lianne (11-07) asked for friends to be able to fire planted triggers; DW put the rung between

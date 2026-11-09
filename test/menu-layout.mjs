@@ -380,7 +380,11 @@ check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Ch
 openTab(2); frame(); // Trance Defaults: eight rows and the pulse colour, once two columns
 check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).size, 1);
 {
-	check("  the pulse has its tick box", rowLabels().some((t) => /Pulse when a command lands/.test(t.text)), true);
+	// v1.9.0 added the spiral row, so the pulse row may be below the fold: scroll to it as a player would.
+	const pulseRow = () => rowLabels().some((t) => /Pulse when a command lands/.test(t.text));
+	for (let i = 0; i < 30 && !pulseRow() && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
+	check("  the pulse has its tick box", pulseRow(), true);
+	check("  and the spiral has its own", rowLabels().some((t) => /Screen Fade as a turning spiral/.test(t.text)) || (() => { for (let i = 0; i < 30 && up(); i++) { clickAt(up().left + 5, up().top + 5); frame(); } return rowLabels().some((t) => /Screen Fade as a turning spiral/.test(t.text)); })(), true);
 	// Failure: it can't be reached, or clicks where it isn't. Scrolled to the end, as a player would.
 	for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
 	const colour = () => buttons.find((b) => /^Pulse colour:/.test(b.label));

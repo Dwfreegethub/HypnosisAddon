@@ -30,7 +30,7 @@ import {
 	asAddressed,
 } from "./voice";
 import { noteConversation, displayNameOf } from "./trust";
-import { getFeatures } from "./storage";
+import { getFeatures, getPulseRgb } from "./storage";
 import { setRoomVoice, installRoomLineGuard, tellPlayer } from "./notify";
 import { startStartupBanner, showLoadedToast } from "./welcome";
 
@@ -280,8 +280,10 @@ safely("screen-fade hook", () => {
 		9,
 		((args: [number], next: (args: [number]) => any) => {
 			const result = next(args);
-			drawTranceVeil();
-			drawCommandPulse();
+			const now = Date.now();
+			// The trance spiral (v1.9.0) is her choice; it takes the veil's place and carries the pulse.
+			const spiral = drawTranceVeil({ spiral: getFeatures().tranceSpiral === true, rgb: getPulseRgb(), now });
+			drawCommandPulse(now, spiral);
 			return result;
 		}) as any,
 	);

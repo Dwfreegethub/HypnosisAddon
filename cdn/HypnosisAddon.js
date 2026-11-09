@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.8.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.9.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -513,12 +513,71 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function getScreenFade() {
     return screenFade;
   }
-  function drawTranceVeil() {
-    if (screenFade <= 0) return;
-    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+  function drawTranceVeil(opts = {}) {
+    if (screenFade <= 0) return false;
+    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
+    if (opts.spiral && opts.rgb) {
+      const sprite = spiralSprite(opts.rgb);
+      if (sprite) {
+        drawSpiral(sprite, opts.now ?? Date.now());
+        return true;
+      }
+      if (!spiralFailNoted) {
+        spiralFailNoted = true;
+        warn("trance spiral: could not build the spiral image, showing the plain fade instead");
+      }
+    }
     MainCanvas.save();
     MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
     MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+    MainCanvas.restore();
+    return false;
+  }
+  function spiralSprite(rgb) {
+    if (spiralCache?.rgb === rgb) return spiralCache.canvas;
+    if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = SPIRAL_SPRITE_SIZE;
+    const ctx = canvas.getContext?.("2d");
+    if (!ctx) return null;
+    const c = SPIRAL_SPRITE_SIZE / 2;
+    const end = SPIRAL_TURNS * 2 * Math.PI;
+    const grow = c / end;
+    ctx.strokeStyle = `rgb(${rgb})`;
+    ctx.lineCap = "round";
+    for (let arm = 0; arm < SPIRAL_ARMS; arm++) {
+      const offset = arm * 2 * Math.PI / SPIRAL_ARMS;
+      let px = c;
+      let py = c;
+      for (let t = 0.3; t <= end; t += 0.04) {
+        const r = grow * t;
+        const x = c + r * Math.cos(t + offset);
+        const y = c + r * Math.sin(t + offset);
+        ctx.lineWidth = 2 + r * 0.16;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        px = x;
+        py = y;
+      }
+    }
+    spiralCache = { rgb, canvas };
+    return canvas;
+  }
+  function spiralAlpha(now) {
+    return Math.min(1, screenFade * SPIRAL_ALPHA_PER_FADE + pulseSwell(now) * SPIRAL_PULSE_BOOST);
+  }
+  function drawSpiral(sprite, now) {
+    const angle = now % SPIRAL_TURN_MS / SPIRAL_TURN_MS * 2 * Math.PI;
+    MainCanvas.save();
+    MainCanvas.beginPath();
+    MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+    MainCanvas.clip();
+    MainCanvas.globalAlpha = spiralAlpha(now);
+    MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
+    MainCanvas.rotate(angle);
+    MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
     MainCanvas.restore();
   }
   function startCommandPulse(rgb, now = Date.now()) {
@@ -526,13 +585,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
     pulseStartedAt = now;
     pulseRgb = rgb;
   }
-  function drawCommandPulse(now = Date.now()) {
+  function pulseSwell(now) {
+    if (!pulseStartedAt) return 0;
+    const t = (now - pulseStartedAt) / PULSE_MS;
+    return t >= 1 || t < 0 ? 0 : Math.sin(Math.PI * t);
+  }
+  function drawCommandPulse(now = Date.now(), spiralShowing = false) {
     if (!pulseStartedAt) return;
     const t = (now - pulseStartedAt) / PULSE_MS;
     if (t >= 1 || t < 0) {
       pulseStartedAt = 0;
       return;
     }
+    if (spiralShowing) return;
     if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
     const swell = Math.sin(Math.PI * t);
     const strength = swell * PULSE_PEAK;
@@ -754,7 +819,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHA_PER_FADE, SPIRAL_PULSE_BOOST, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -774,6 +839,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       walkingTrance = false;
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
+      SPIRAL_TURN_MS = 12e3;
+      SPIRAL_ALPHA_PER_FADE = 1.2;
+      SPIRAL_PULSE_BOOST = 0.3;
+      SPIRAL_SPRITE_SIZE = 1024;
+      SPIRAL_ARMS = 3;
+      SPIRAL_TURNS = 3.5;
+      SPIRAL_RADIUS = 720;
+      spiralCache = null;
+      spiralFailNoted = false;
       PULSE_MS = 1800;
       PULSE_PEAK = 0.8;
       PULSE_TINT_PEAK = 0.18;
@@ -5054,6 +5128,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tranceCannotMove: true,
       tranceCannotSpeak: true,
       tranceScreenFade: true,
+      tranceSpiral: false,
       commandPulse: true,
       showEchsIcon: true,
       roomSeesReactions: true,
@@ -9476,7 +9551,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.8.0", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.9.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9515,7 +9590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.8.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.9.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -11738,7 +11813,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.8.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11805,7 +11880,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.8.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.9.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12049,6 +12124,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       case "tranceScreenFade":
         if (!enabled) setScreenFade(0);
         break;
+      case "tranceSpiral":
+        if (enabled && !getFeatures().tranceScreenFade) tellPlayer("The trance spiral shows only while Screen Fade is ticked too.");
+        break;
       case "selfTouchControl":
         if (!enabled) clearSelfTouchBlocks();
         break;
@@ -12155,6 +12233,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceCannotSpeak", label: "Cannot Speak" },
             { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
             { key: "tranceScreenFade", label: "Screen Fade" },
+            { key: "tranceSpiral", label: "Screen Fade as a turning spiral" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
             { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -12308,8 +12387,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
       PULSE_COLOR_CONTROL = {
         label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => !getFeatures().commandPulse ? "The pulse is off, so this does nothing until you tick the box above." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "A glow and a wash of colour over the room view. Only you see it.",
-        tooltip: "The colour of the pulse",
+        caption: () => !getFeatures().commandPulse && !getFeatures().tranceSpiral ? "The pulse and the spiral are off, so this does nothing until you tick one above." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse, and the trance spiral if it is on. Only you see them.",
+        tooltip: "The colour of the pulse and the trance spiral",
         cycle: () => {
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
           setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
@@ -14116,7 +14195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.8.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.9.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14137,7 +14216,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.8.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.9.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14210,14 +14289,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.8.0"})`);
+      info(`script loaded (v${"1.9.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.8.0",
+          version: "1.9.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14326,8 +14405,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           9,
           ((args, next) => {
             const result = next(args);
-            drawTranceVeil();
-            drawCommandPulse();
+            const now = Date.now();
+            const spiral = drawTranceVeil({ spiral: getFeatures().tranceSpiral === true, rgb: getPulseRgb(), now });
+            drawCommandPulse(now, spiral);
             return result;
           })
         );
@@ -14357,10 +14437,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.8.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.9.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.8.0";
+    page2.__ECHS_LOADED__ = "1.9.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

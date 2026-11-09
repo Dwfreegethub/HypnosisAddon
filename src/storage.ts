@@ -425,6 +425,10 @@ export interface FeatureToggles {
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
 	tranceScreenFade: boolean;
+	/** The fade as a slowly turning spiral in her pulse colour, instead of the grey veil, and a landed
+	 * command swells it instead of the edge glow (v1.9.0; JAX 11-02, DW 2026-11-08). Off by default:
+	 * moving pictures over the screen are hers to ask for. Needs tranceScreenFade. */
+	tranceSpiral: boolean;
 	/** Whether the room sees your reactions, as emotes.
 	 *
 	 * On by default: without it the add-on narrates a great deal that nobody but you can
@@ -598,6 +602,7 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
+		tranceSpiral: false,
 		commandPulse: true,
 		showEchsIcon: true,
 		roomSeesReactions: true,

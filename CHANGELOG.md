@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.9.0 RC · 8 November 2026
+
+- **A spiral instead of the grey fade.** Tick *Screen Fade as a turning spiral* on the Trance
+  Defaults tab and, while you are under, a spiral in your pulse colour turns slowly over the room
+  instead of the grey wash. When a command lands it swells brighter for a moment, in place of the
+  glow at the edge of the screen. It is off unless you turn it on, and only you see it.
+
 ## v1.8.0 RC · 8 November 2026
 
 - **Friends can fire your triggers.** A new choice, *Owner, Lovers and friends*, sits between Lovers

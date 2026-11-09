@@ -249,6 +249,7 @@ const TABS: Tab[] = [
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
 			{ key: "tranceScreenFade", label: "Screen Fade" },
+			{ key: "tranceSpiral", label: "Screen Fade as a turning spiral" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -697,12 +698,12 @@ const labelOf = (list: { key: string; label: string }[], key: string) => list.fi
 const PULSE_COLOR_CONTROL: CycleControl = {
 	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
 	caption: () =>
-		!getFeatures().commandPulse
-			? "The pulse is off, so this does nothing until you tick the box above."
+		!getFeatures().commandPulse && !getFeatures().tranceSpiral
+			? "The pulse and the spiral are off, so this does nothing until you tick one above."
 			: getPulseColor() === "custom"
 				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
-				: "A glow and a wash of colour over the room view. Only you see it.",
-	tooltip: "The colour of the pulse",
+				: "The pulse, and the trance spiral if it is on. Only you see them.",
+	tooltip: "The colour of the pulse and the trance spiral",
 	cycle: () => {
 		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
 		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
@@ -2237,6 +2238,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);
+			break;
+		case "tranceSpiral":
+			// Rule 5: the spiral is a way of drawing the fade, so with the fade off it would show nothing.
+			if (enabled && !getFeatures().tranceScreenFade) tellPlayer("The trance spiral shows only while Screen Fade is ticked too.");
 			break;
 		case "selfTouchControl":
 			if (!enabled) clearSelfTouchBlocks();
