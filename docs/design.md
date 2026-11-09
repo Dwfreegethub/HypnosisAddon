@@ -245,6 +245,17 @@ default **x 228-258 of the top row**, the only slot no FUSAM add-on uses
 (`docs/addon-icon-survey.md`); found through `state-query`/`state-response`, never a new type;
 hidden by BC's own hide-icons button. `src/badge.ts`.
 
+**Friends on the scope ladder (v1.8.0, DW 2026-11-08; Lianne 11-07).** A *Friends* rung between
+Lovers and whitelist, on both the trigger scope and who toy mode is for (they share
+`allowedByLadder`, `src/ladder.ts`). Read from BC's own friend list (`Player.HasOnFriendlist`,
+R133). It is a ladder, so whitelist and Dominants now include friends; the blacklist still wins, as
+it does for the whitelist. Decided: **a save made before the rung that says "whitelist" moves down
+to "friends", once** (marked by `friendsRung`), so nobody's circle widens without their choosing;
+someone who wants their whitelist back picks it again. Dominants is left where it is: that rung
+already lets in anyone near the player's Dominant reputation, and moving it down would take far more
+away than adding friends gives. The setup wizard's "standard" triggers still choose whitelist, which
+now names friends.
+
 **Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while a session is on you". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. **The lock covers the whole session, not only the trance** (v0.65.1): the prompt, the roleplay window and the misses between attempts are all locked, so a permission cannot be granted to someone mid-attempt and the attempt limit cannot be moved to hand them another try. The cooldown after a spent run is not locked — there is nothing left to protect against. **Import is locked with them** (v0.84.3), from the Data tab button and `/hypno import` alike, because it replaces every toggle at once without ending anything; Export (read-only) and Reset (ends the session before it wipes, Known Bug #4) stay open. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
 A second tab holds the **trance defaults** — cannot move / cannot speak / screen fade, all ON by default, plus *Clothes Look Unchanged* (off, deliberately: the other three are things you feel, this one makes your own screen tell you something untrue) and *Others See Your Reactions* (on). A third holds **awareness** (what you can be made not to notice), a fourth **triggers** (planting, carry-forward, firing your own, showing the words, scope, duration), and a fifth is read-only **stats**. A **"?" button on both this screen and the remote panel** opens a five-tab help screen generated from the pattern library and command list themselves, so it cannot fall behind them.

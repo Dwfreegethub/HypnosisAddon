@@ -310,7 +310,7 @@ openTab(1); frame();
 	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, iarea)), true);
 	check("  between the toy mode and sink deeper buttons", !!at && at.y - at.h / 2 >= found[3].top + found[3].height && at.y + at.h / 2 <= found[4].top, true);
 	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
-	toy.selectedIndex = 5;
+	toy.selectedIndex = storage.TOY_SCOPES.length - 1; // the last rung: Everyone
 	toy.onChange.call(toy);
 	check("  choosing saves it", storage.getToyScope(), "everyone");
 	// The tab is short, so at the top the dropdown may still be in view. The rule is that it exists

@@ -241,6 +241,7 @@ export type TriggerScope =
 	| "hypnotist"
 	| "owner"
 	| "lovers"
+	| "friends"
 	| "whitelist"
 	| "dominants"
 	| "notblack"
@@ -253,6 +254,7 @@ export const TRIGGER_SCOPE_KEYS: TriggerScope[] = [
 	"hypnotist",
 	"owner",
 	"lovers",
+	"friends",
 	"whitelist",
 	"dominants",
 	"notblack",
@@ -510,6 +512,11 @@ interface HypnoAddonSettings {
 	awayStance?: string;
 	toyMode?: boolean;
 	toyScope?: string;
+	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
+	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
+	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
+	 * 2026-11-08). The mark is what stops a later, deliberate choice of whitelist being moved again. */
+	friendsRung?: boolean;
 	/** How long an induction runs before it lands or misses, in seconds (v1.6.0, DW 2026-11-08).
 	 * One of INDUCTION_TIMES; absent means DEFAULT_INDUCTION_SECONDS. Toy mode uses it too. */
 	inductionSeconds?: number;
@@ -607,6 +614,8 @@ function defaultSettings(): HypnoAddonSettings {
 		skill: 0,
 		triggers: [],
 		triggerScope: "hypnotist",
+		// A new or reset save already has the Friends rung, so nothing it later chooses is moved.
+		friendsRung: true,
 		triggerDurationMinutes: 5,
 		triggerLifespanMinutes: 0,
 		dropTriggers: "off",
@@ -678,6 +687,11 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.inductionSeconds !== undefined && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+	if (s.friendsRung !== true) {
+		if (s.triggerScope === "whitelist") s.triggerScope = "friends";
+		if (s.toyScope === "whitelist") s.toyScope = "friends";
+		s.friendsRung = true;
+	}
 	// A lock with no valid end is no lock: dropped, never invented.
 	if (s.pulseColor !== undefined && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
 	// Read back into the canvas's colour string, so an imported blob must not bring junk with it.
@@ -1324,15 +1338,16 @@ export const DEFAULT_AWAY_STANCE = "refuse";
 export const TOY_SCOPES: { key: TriggerScope; label: string }[] = [
 	{ key: "owner", label: "Owner only" },
 	{ key: "lovers", label: "Owner and Lovers" },
-	{ key: "whitelist", label: "Owner, Lovers and whitelist" },
-	{ key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+	{ key: "friends", label: "Owner, Lovers and friends" },
+	{ key: "whitelist", label: "Owner, Lovers, friends and whitelist" },
+	{ key: "dominants", label: "Owner, Lovers, friends, whitelist & Dominants" },
 	{ key: "notblack", label: "Everyone, except blacklist" },
 	{ key: "everyone", label: "Everyone, no exceptions" },
 ];
 export const DEFAULT_TOY_SCOPE: TriggerScope = "lovers";
-/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends had no rung on the
- * ladder; the whitelist is the nearest. */
-const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends has had its own
+ * rung since v1.8.0. */
+const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "friends", anyone: "everyone" };
 
 const cycle = (list: { key: string }[], current: string): string =>
 	list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;

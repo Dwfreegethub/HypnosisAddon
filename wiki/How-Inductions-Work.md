@@ -130,7 +130,7 @@ All on the **Inductions** tab. See [Settings Reference](Settings-Reference#2-ind
   * *Keep my answer*: being away changes nothing.
 * **Induction time** (60 seconds by default; 45, 30, 20 or 10): how long every induction runs before it lands or misses. The hypnotist's countdown shows your time, and their roleplay counts only within it.
 * **Toy mode** (off by default): for the people you choose, an induction runs your induction time and then puts you **under to your "sink deeper" limit**, with no box, no roll and no attempt limit. To the hypnotist and the room it looks like any other induction. Typing Agree, Ignore or Fight while it runs changes nothing; the safeword stops it. It counts as earned depth, so if your limit is Deep or Blank, that includes triggers. If your limit is *Never deeper*, it still takes without a roll, as if you had agreed.
-* **Toy mode is for:** the same choices as trigger scope: *Owner only*, *Owner and Lovers* (default), adding your whitelist, adding Dominants, *Everyone except blacklist*, or *Everyone*.
+* **Toy mode is for:** the same choices as trigger scope: *Owner only*, *Owner and Lovers* (default), adding your friends, adding your whitelist, adding Dominants, *Everyone except blacklist*, or *Everyone*.
 
 The safeword always works, in every one of these.
 

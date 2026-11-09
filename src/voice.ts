@@ -1807,6 +1807,9 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 		String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "lovers" }) })),
 	...[
+		String.raw`\byour friends? (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "friends" }) })),
+	...[
 		String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
 		String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
 		String.raw`\bonly (?:from|in) my voice\b`,

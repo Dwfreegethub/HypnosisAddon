@@ -20,6 +20,28 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-08 (v1.8.0 RC) — a Friends rung on the scope ladder
+
+Lianne (11-07) asked for friends to be able to fire planted triggers; DW put the rung between
+Lovers and whitelist. One ladder serves trigger scope and toy mode, so both gained it. Friendship is
+BC's own (`Player.HasOnFriendlist`, R133 Character.js, through `CharacterIsOnList`), with
+`Player.FriendList` as the fallback that `trust.ts` already reads. Checked after Lovers and after
+the blacklist, so a blacklisted friend is refused, the same as a blacklisted whitelist member.
+
+Because rungs are cumulative, adding friends below whitelist widens every save already on
+whitelist, including the setup wizard's "Balanced" and "standard triggers" answers. DW chose to move
+those saves down to the new rung rather than widen them silently: `normalise` moves a stored
+`triggerScope` or `toyScope` of "whitelist" to "friends" once, and marks the save `friendsRung` so a
+later deliberate whitelist is never moved again. New and reset saves carry the mark from
+`defaultSettings`. An old export imported later is moved on the way in, which is right: it was made
+when whitelist meant no friends. Dominants is not moved (design.md has why). v0.97's never-released
+`friend` toy key now maps to the new rung instead of to whitelist.
+
+Spoken: *"your friends can use it"* asks for the rung for one trigger, capped by her setting as
+every scope phrase is. `test/scope.mjs` covers the rung on every level, the blacklisted friend, the
+FriendList fallback and the move (both mutations, dropping the friend check and dropping the move,
+fail it); `test/trigger-options.mjs` the phrase.
+
 ### Changed 2026-11-08 (v1.7.3 RC) — the spiral's hover label: version only, small
 
 DW, after seeing it live: a smaller font, and no name, since the icon is already over the person.
