@@ -245,6 +245,16 @@ default **x 228-258 of the top row**, the only slot no FUSAM add-on uses
 (`docs/addon-icon-survey.md`); found through `state-query`/`state-response`, never a new type;
 hidden by BC's own hide-icons button. `src/badge.ts`.
 
+**The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
+choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces
+the grey veil, and a landed command swells the spiral (+0.3 opacity at the peak of the same 1.8 s
+swell) instead of the edge glow, so the two never show at once. Same rect as the veil, same
+step-aside while BC darkens her screen, built once per colour on an offscreen canvas. With no
+canvas it falls back to the grey veil and says so. Technique reference only (rule 7): LSCG's hypno
+spiral overlay, which DW ran into on 11-08; drawn here from scratch. BC's own VR headset spiral was
+looked at and not used: it is a still background image that only shows while the wearer is blind,
+and it replaces the room. `src/effects.ts`.
+
 **Friends on the scope ladder (v1.8.0, DW 2026-11-08; Lianne 11-07).** A *Friends* rung between
 Lovers and whitelist, on both the trigger scope and who toy mode is for (they share
 `allowedByLadder`, `src/ladder.ts`). Read from BC's own friend list (`Player.HasOnFriendlist`,

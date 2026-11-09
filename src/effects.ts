@@ -333,13 +333,104 @@ export const VEIL_WIDTH = 1003;
  * so it covers our sight suggestions and a real blindfold alike, and follows BC's own exceptions
  * (photo mode, VR avatars): wherever BC does not darken, the veil stays. It returns by itself the
  * frame her sight comes back. */
-export function drawTranceVeil(): void {
-	if (screenFade <= 0) return;
-	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+export function drawTranceVeil(opts: { spiral?: boolean; rgb?: string; now?: number } = {}): boolean {
+	if (screenFade <= 0) return false;
+	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
+	if (opts.spiral && opts.rgb) {
+		const sprite = spiralSprite(opts.rgb);
+		if (sprite) {
+			drawSpiral(sprite, opts.now ?? Date.now());
+			return true;
+		}
+		// No canvas to build it on: the grey veil instead, and said once (rule 5).
+		if (!spiralFailNoted) {
+			spiralFailNoted = true;
+			warn("trance spiral: could not build the spiral image, showing the plain fade instead");
+		}
+	}
 	MainCanvas.save();
 	MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
 	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
 	MainCanvas.restore();
+	return false;
+}
+
+// --- The trance spiral (v1.9.0, JAX 2026-11-02, DW 2026-11-08) ---------------------------------
+// Her choice, off by default: while the fade is on, a slowly turning spiral in her pulse colour
+// takes the grey veil's place, and a landed command swells the spiral instead of glowing at the
+// edge. Technique reference only (rule 7): LSCG's hypno spiral overlay, a turning spiral drawn
+// over the screen with a strength that follows a level. Nothing of its code; drawn here from
+// scratch. Same rect as the veil, and the same step-aside while BC darkens her screen.
+/** One turn, in ms. Slow, so it drifts rather than spins. */
+export const SPIRAL_TURN_MS = 12_000;
+/** The spiral's opacity for a given fade: the trance fade (0.3) gives 0.36, walking (0.08) about 0.1. */
+export const SPIRAL_ALPHA_PER_FADE = 1.2;
+/** How much brighter it gets at the peak of a command's swell. A swell, never a flash. */
+export const SPIRAL_PULSE_BOOST = 0.3;
+const SPIRAL_SPRITE_SIZE = 1024;
+const SPIRAL_ARMS = 3;
+const SPIRAL_TURNS = 3.5;
+/** Half the drawn size: past the corners of the 1003 x 1000 view from its centre (about 707). */
+export const SPIRAL_RADIUS = 720;
+let spiralCache: { rgb: string; canvas: any } | null = null;
+let spiralFailNoted = false;
+
+/** The spiral in this colour, built once per colour. Null if there is no canvas to build it on. */
+function spiralSprite(rgb: string): any {
+	if (spiralCache?.rgb === rgb) return spiralCache.canvas;
+	if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
+	const canvas: any = document.createElement("canvas");
+	canvas.width = canvas.height = SPIRAL_SPRITE_SIZE;
+	const ctx = canvas.getContext?.("2d");
+	if (!ctx) return null;
+	const c = SPIRAL_SPRITE_SIZE / 2;
+	const end = SPIRAL_TURNS * 2 * Math.PI;
+	const grow = c / end;
+	ctx.strokeStyle = `rgb(${rgb})`;
+	ctx.lineCap = "round";
+	for (let arm = 0; arm < SPIRAL_ARMS; arm++) {
+		const offset = (arm * 2 * Math.PI) / SPIRAL_ARMS;
+		let px = c;
+		let py = c;
+		for (let t = 0.3; t <= end; t += 0.04) {
+			const r = grow * t;
+			const x = c + r * Math.cos(t + offset);
+			const y = c + r * Math.sin(t + offset);
+			// Thicker further out, so the arms read as bands, not threads.
+			ctx.lineWidth = 2 + r * 0.16;
+			ctx.beginPath();
+			ctx.moveTo(px, py);
+			ctx.lineTo(x, y);
+			ctx.stroke();
+			px = x;
+			py = y;
+		}
+	}
+	spiralCache = { rgb, canvas };
+	return canvas;
+}
+
+function spiralAlpha(now: number): number {
+	return Math.min(1, screenFade * SPIRAL_ALPHA_PER_FADE + pulseSwell(now) * SPIRAL_PULSE_BOOST);
+}
+
+function drawSpiral(sprite: any, now: number): void {
+	const angle = ((now % SPIRAL_TURN_MS) / SPIRAL_TURN_MS) * 2 * Math.PI;
+	MainCanvas.save();
+	MainCanvas.beginPath();
+	MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+	MainCanvas.clip();
+	MainCanvas.globalAlpha = spiralAlpha(now);
+	MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
+	MainCanvas.rotate(angle);
+	MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
+	MainCanvas.restore();
+}
+
+/** Tests only. */
+export function resetSpiralForTests(): void {
+	spiralCache = null;
+	spiralFailNoted = false;
 }
 
 // --- The command pulse (v1.4.0, JAX 2026-11-02, DW 2026-11-05) -----------------------------------
@@ -368,14 +459,24 @@ export function startCommandPulse(rgb: string, now: number = Date.now()): void {
 	pulseRgb = rgb;
 }
 
-/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded. */
-export function drawCommandPulse(now: number = Date.now()): void {
+/** How far through its swell the pulse is: 0 at either end and when none is showing, 1 at the peak. */
+function pulseSwell(now: number): number {
+	if (!pulseStartedAt) return 0;
+	const t = (now - pulseStartedAt) / PULSE_MS;
+	return t >= 1 || t < 0 ? 0 : Math.sin(Math.PI * t);
+}
+
+/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded.
+ * `spiralShowing`: the trance spiral drew this frame and carries the pulse itself as a swell, so
+ * the edge glow and wash stay off (DW, 2026-11-08). */
+export function drawCommandPulse(now: number = Date.now(), spiralShowing = false): void {
 	if (!pulseStartedAt) return;
 	const t = (now - pulseStartedAt) / PULSE_MS;
 	if (t >= 1 || t < 0) {
 		pulseStartedAt = 0;
 		return;
 	}
+	if (spiralShowing) return;
 	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
 	const swell = Math.sin(Math.PI * t);
 	const strength = swell * PULSE_PEAK;
