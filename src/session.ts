@@ -83,6 +83,7 @@ import {
 	TRANCE_FADE_OPACITY,
 } from "./effects";
 import { clearFollow } from "./follow";
+import { applyTranceEyes, restoreTranceEyes } from "./eyes";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -635,6 +636,7 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
@@ -1693,6 +1695,8 @@ function applyTranceState(): void {
 	// the ones they were wearing when they lost track — not whatever they had on at some
 	// arbitrary later point.
 	if (f.tranceClothingFreeze) freezeAppearance();
+	// After the snapshot, so her own frozen view keeps the eyes she went under with.
+	applyTranceEyes();
 	log(
 		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} ` +
 			`fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`,
@@ -2048,6 +2052,7 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();

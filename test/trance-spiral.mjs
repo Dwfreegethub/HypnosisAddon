@@ -199,8 +199,8 @@ const menu = readFileSync(new URL("../src/menu.ts", import.meta.url), "utf8");
 // DW: "instead of a check box we can have a selector box". Failure: either tick box is still there.
 check("the menu has no Screen Fade tick box", /key: "tranceScreenFade"/.test(menu), false);
 check("  nor v1.9.0's spiral tick box", /key: "tranceSpiral"/.test(menu), false);
-check("  but a dropdown of the five", /ElementCreateDropdown\(\s*SCREEN_EFFECT_ID,\s*SCREEN_EFFECTS\.map/.test(menu), true);
-check("  removed off its tab and on every exit", (menu.match(/SCREEN_EFFECT_ID/g) ?? []).length >= 6 && /removeScreenEffectControl\(\);\s*\}/.test(menu), true);
+check("  but a dropdown of the five", /id: SCREEN_EFFECT_ID,\s*label: "Screen effect:",\s*options: SCREEN_EFFECTS,/.test(menu), true);
+check("  removed off its tab and on every exit", (menu.match(/\.\.\.TRANCE_DROPDOWN_IDS/g) ?? []).length >= 2 && (menu.match(/removeTranceDropdowns\(\);/g) ?? []).length >= 2, true);
 check("  None takes the fade off at once", /now === "none" && was !== "none"\) onToggle\("tranceScreenFade", false\)/.test(menu), true);
 
 console.log(`trance-spiral: ${pass}/${pass + fail} passed`);
