@@ -235,7 +235,7 @@ Carry-forward suggestions allow active trance commands to persist after waking:
 
 ### Constraints
 * **Natural speech ordering:** The carry command applies to the most recently delivered suggestion, allowing natural roleplay phrasing.
-* **Trance defaults never carry:** Automatic session defaults (*Cannot Move*, *Cannot Speak*, *Screen Fade*) **can never be carried past waking**. You will always wake with movement and speech restored. Making a physical restriction persistent requires delivering it deliberately as a spoken command first.
+* **Trance defaults never carry:** Automatic session defaults (*Cannot Move*, *Cannot Speak*, the *Screen effect*) **can never be carried past waking**. You will always wake with movement and speech restored. Making a physical restriction persistent requires delivering it deliberately as a spoken command first.
 * **Releasing carried suggestions:** The hypnotist who applied a carried suggestion can release it at any time using standard release phrasing.
 
 ---

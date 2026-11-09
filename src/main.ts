@@ -2,7 +2,7 @@ import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
 import { handleIncomingHidden } from "./messaging";
 import { installCommands, consumeSuppressFlag } from "./commands";
-import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, drawCommandPulse, heldByUs } from "./effects";
+import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, drawCommandPulse, heldByUs, SPIRAL_ALPHAS } from "./effects";
 import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
@@ -30,7 +30,7 @@ import {
 	asAddressed,
 } from "./voice";
 import { noteConversation, displayNameOf } from "./trust";
-import { getFeatures, getPulseRgb } from "./storage";
+import { getFeatures, getPulseRgb, getSpiralStrength } from "./storage";
 import { setRoomVoice, installRoomLineGuard, tellPlayer } from "./notify";
 import { startStartupBanner, showLoadedToast } from "./welcome";
 
@@ -282,7 +282,7 @@ safely("screen-fade hook", () => {
 			const result = next(args);
 			const now = Date.now();
 			// The trance spiral (v1.9.0) is her choice; it takes the veil's place and carries the pulse.
-			const spiral = drawTranceVeil({ spiral: getFeatures().tranceSpiral === true, rgb: getPulseRgb(), now });
+			const spiral = drawTranceVeil({ spiral: SPIRAL_ALPHAS[getSpiralStrength()] ?? 0, rgb: getPulseRgb(), now });
 			drawCommandPulse(now, spiral);
 			return result;
 		}) as any,

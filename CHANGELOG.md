@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.9.1 RC · 8 November 2026
+
+- **Screen effect is now one choice.** On the Trance Defaults tab, *Screen Fade* and the spiral tick
+  box are replaced by a **Screen effect** dropdown: *None*, *Grey fade*, or the spiral at *light*,
+  *medium* or *heavy*. If you had ticked the spiral, you now have the medium one.
+- **The spiral is lighter to start with, and flashes.** Light and medium are paler than before
+  (heavy is the old strength). A command now gives the spiral a quick flash instead of a slow swell.
+
 ## v1.9.0 RC · 8 November 2026
 
 - **A spiral instead of the grey fade.** Tick *Screen Fade as a turning spiral* on the Trance

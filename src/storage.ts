@@ -425,10 +425,6 @@ export interface FeatureToggles {
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
 	tranceScreenFade: boolean;
-	/** The fade as a slowly turning spiral in her pulse colour, instead of the grey veil, and a landed
-	 * command swells it instead of the edge glow (v1.9.0; JAX 11-02, DW 2026-11-08). Off by default:
-	 * moving pictures over the screen are hers to ask for. Needs tranceScreenFade. */
-	tranceSpiral: boolean;
 	/** Whether the room sees your reactions, as emotes.
 	 *
 	 * On by default: without it the add-on narrates a great deal that nobody but you can
@@ -516,6 +512,11 @@ interface HypnoAddonSettings {
 	awayStance?: string;
 	toyMode?: boolean;
 	toyScope?: string;
+	/** The fade drawn as a turning spiral, at this strength (v1.9.1): one of SPIRAL_STRENGTHS. Absent
+	 * means the plain grey fade. Only drawn while features.tranceScreenFade is on; the two together are
+	 * the Trance Defaults tab's one "Screen effect" choice (getScreenEffect). Off by default: moving
+	 * pictures over the screen are hers to ask for. */
+	spiralStrength?: string;
 	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
 	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
 	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
@@ -602,7 +603,6 @@ function defaultFeatures(): FeatureToggles {
 		tranceCannotMove: true,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
-		tranceSpiral: false,
 		commandPulse: true,
 		showEchsIcon: true,
 		roomSeesReactions: true,
@@ -666,6 +666,10 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 		if (typeof stored[key] === "boolean") merged[key] = stored[key];
 	}
 	s.features = merged;
+	// v1.9.0 (dev only) stored the spiral as a tick box, which the reconcile above just dropped. Read
+	// it from what was stored: ticked becomes Medium, since DW found v1.9.0's one strength too dark.
+	if ((stored as any).tranceSpiral === true && s.spiralStrength === undefined) s.spiralStrength = "medium";
+	if (s.spiralStrength !== undefined && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
 	s.experience ??= 0;
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
@@ -1436,6 +1440,36 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "custom", label: "Custom", rgb: "" },
 ];
 export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+/** The spiral's strengths (v1.9.1). Their opacities are effects.ts's SPIRAL_ALPHAS. */
+export const SPIRAL_STRENGTHS = ["light", "medium", "heavy"];
+/** What the screen does in a trance (v1.9.1, DW: "a selector box that has none, fade, and the 3
+ * spiral options"). One choice over two stored values: the fade switch, and the spiral strength. */
+export const SCREEN_EFFECTS: { key: string; label: string }[] = [
+	{ key: "none", label: "None" },
+	{ key: "fade", label: "Grey fade" },
+	{ key: "light", label: "Spiral, light" },
+	{ key: "medium", label: "Spiral, medium" },
+	{ key: "heavy", label: "Spiral, heavy" },
+];
+export function getScreenEffect(): string {
+	const s = loadSettings();
+	if (!s.features.tranceScreenFade) return "none";
+	return s.spiralStrength && SPIRAL_STRENGTHS.includes(s.spiralStrength) ? s.spiralStrength : "fade";
+}
+/** The spiral strength to draw, or "" for the plain fade (or none). */
+export function getSpiralStrength(): string {
+	const e = getScreenEffect();
+	return SPIRAL_STRENGTHS.includes(e) ? e : "";
+}
+export function setScreenEffect(key: string): void {
+	if (!SCREEN_EFFECTS.some((e) => e.key === key)) return;
+	const s = loadSettings();
+	s.features.tranceScreenFade = key !== "none";
+	if (SPIRAL_STRENGTHS.includes(key)) s.spiralStrength = key;
+	else delete s.spiralStrength;
+	saveSettings();
+}
 
 /** Where the ECHS icon goes over other players (v1.7.0). The viewer's choice, because a clash
  * depends on which add-ons the VIEWER runs (docs/addon-icon-survey.md). */

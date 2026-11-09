@@ -72,7 +72,7 @@ This time, Missy clicks **Agree**, adding a significant bonus to the calculation
 
 The depth tier reported in brackets (*drifting, yielding, entranced, deep,* or *blank*) comes from Missy's trust in the hypnotist, their relationship, the hypnotist's skill, her arousal and her answer, give or take a few points. The roll only decided that it landed.
 
-Missy's configured **trance defaults** engage immediately. By default, these apply *cannot move*, *cannot speak*, and the **screen fade** (a soft white veil over her game view). All three defaults are adjustable on her Trance Defaults tab.
+Missy's configured **trance defaults** engage immediately. By default, these apply *cannot move*, *cannot speak*, and the **screen fade** (a soft white veil over her game view, or a turning spiral if she chose one). All three defaults are adjustable on her Trance Defaults tab.
 
 **The room sees** *(one of several)*:
 

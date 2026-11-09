@@ -283,7 +283,7 @@ Every trigger, including a compulsion or one named and filled on a single line (
 | *"Missy, all of this stays with you"* | Keeps everything active. |
 | *"Missy, forget what I said"* | Takes it back. |
 
-The automatic trance defaults (Cannot Move, Cannot Speak, Screen Fade) never carry, so she always wakes with her movement and voice back. Hearing is not carried either.
+The automatic trance defaults (Cannot Move, Cannot Speak, the screen effect) never carry, so she always wakes with her movement and voice back. Hearing is not carried either.
 
 ---
 

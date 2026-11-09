@@ -384,7 +384,18 @@ check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).siz
 	const pulseRow = () => rowLabels().some((t) => /Pulse when a command lands/.test(t.text));
 	for (let i = 0; i < 30 && !pulseRow() && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
 	check("  the pulse has its tick box", pulseRow(), true);
-	check("  and the spiral has its own", rowLabels().some((t) => /Screen Fade as a turning spiral/.test(t.text)) || (() => { for (let i = 0; i < 30 && up(); i++) { clickAt(up().left + 5, up().top + 5); frame(); } return rowLabels().some((t) => /Screen Fade as a turning spiral/.test(t.text)); })(), true);
+	// v1.9.1: the screen effect is a dropdown under the rows. Failure: it never appears, or picking does not save.
+	let effectSeen = false;
+	for (let i = 0; i < 30 && !effectSeen; i++) { frame(); effectSeen = !!elements.HypnosisAddonScreenEffect; if (!effectSeen && down()) { clickAt(down().left + 5, down().top + 5); } }
+	check("  the screen effect dropdown shows", effectSeen, true);
+	if (effectSeen) {
+		const sel = elements.HypnosisAddonScreenEffect;
+		check("    showing the grey fade", sel.selectedIndex, 1);
+		sel.selectedIndex = 3;
+		sel.onChange.call(sel);
+		check("    and picking saves it", storage.getScreenEffect(), "medium");
+		storage.setScreenEffect("fade");
+	}
 	// Failure: it can't be reached, or clicks where it isn't. Scrolled to the end, as a player would.
 	for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
 	const colour = () => buttons.find((b) => /^Pulse colour:/.test(b.label));
