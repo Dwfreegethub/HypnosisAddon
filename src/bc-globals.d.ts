@@ -210,6 +210,9 @@ declare function ChatRoomSendEmote(message: string): void;
 // leaving orphans; pass Refresh=false while looping and refresh once at the end.
 declare function InventoryRemove(character: any, assetGroup: string, refresh?: boolean): void;
 declare function InventoryGet(character: any, assetGroup: string): any;
+// R133 Character.js: "Eyes" sets both eyes (it recurses into Eyes2); refuses an expression the group
+// does not allow. See eyes.ts.
+declare function CharacterSetFacialExpression(character: any, group: string, expression: string | null, timer?: number, color?: string): void;
 // Crafting.js — crafted descriptions may be stored UTF16-packed; Decode returns plain text.
 declare const CraftingDescription: { Decode(description: string): string };
 

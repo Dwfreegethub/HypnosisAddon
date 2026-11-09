@@ -20,6 +20,35 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-08 (v1.10.0 RC) — her eyes while under
+
+DW: "peek at how [LSCG] changes the eyes when you are hypnotized and see if we can do similar".
+LSCG (read for technique only, rule 7) swaps the Eyes and Eyes2 items' asset to another eye type,
+recolours them, sets Dazed eyes and lowered eyebrows, and saves the old eyes in its settings. Two
+options were put to DW: BC's eye expressions alone (nothing permanent), or expressions plus a
+colour (a real write to her eye items, which BC saves). DW chose expressions plus colour, off by
+default.
+
+New `src/eyes.ts`. `applyTranceEyes` runs from `applyTranceState`, after the clothing freeze's
+snapshot. It saves each eye's colour and expression, and what it is about to set, to
+`settings.eyesSaved` BEFORE touching anything. It sets the expression through BC's
+`CharacterSetFacialExpression(Player, "Eyes", …)` (R133: that covers both eyes and refuses an
+expression the group does not allow), sets the colour per colourable layer as BC does, then
+refreshes and sends the appearance to the room. It does nothing if a saved copy already exists, so
+a second apply cannot save the trance colour as her real one. `restoreTranceEyes` puts back only
+what still matches what was set, so a mid-trance change by her or another add-on survives.
+
+Every way out is covered: `endSession` and `totalStop` (safeword, hard floor, reset) call it next to
+`clearTranceStates`; recovery's `releaseEverything` calls it; and `attemptRecovery` calls it for
+every outcome except "resumed" and "waiting", which is the crash case. Changing either dropdown
+mid-trance re-applies at once. The Trance Defaults dropdowns are now one generic `DropdownRow`
+list (screen effect, eyes, eye colour), with shared create/remove bookkeeping.
+
+`test/trance-eyes.mjs` (30): off by default; the choices are BC eye expressions; both on and back;
+no double-save; a mid-trance change kept; expression-only and colour-only; a crash put right by
+`attemptRecovery`; junk dropped on import; the wiring on every exit; and no asset swap. Dropping
+the double-save guard, the "still ours" check, or the load-time restore each fails it.
+
 ### Changed 2026-11-08 (v1.9.1 RC) — the screen effect choice, three strengths, a real flash
 
 DW, after seeing v1.9.0: "a little too dark still... Light, med and heavy"; the command's swell

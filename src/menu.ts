@@ -60,6 +60,12 @@ import {
 	setPulseCustom,
 	PULSE_COLORS,
 	SCREEN_EFFECTS,
+	TRANCE_EYES,
+	TRANCE_EYE_COLORS,
+	getTranceEyes,
+	setTranceEyes,
+	getTranceEyeColor,
+	setTranceEyeColor,
 	getScreenEffect,
 	setScreenEffect,
 	getSpiralStrength,
@@ -90,6 +96,7 @@ import {
 	clearAllRefusal,
 } from "./voice";
 import { isHypnotized, isSessionLive, hardFloorStop } from "./session";
+import { applyTranceEyes, restoreTranceEyes } from "./eyes";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -259,17 +266,18 @@ const TABS: Tab[] = [
 			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
 		scrollExtra: {
-			// The screen effect first (v1.9.1), then the pulse colour, then where others' icons go.
-			height: () => screenEffectSlot() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			// The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
+			// where others' icons go.
+			height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
 			draw: (top, width) => {
-				drawScreenEffectControl(top, width, settingsLocked());
-				const pulseTop = top + screenEffectSlot();
+				drawTranceDropdowns(top, width, settingsLocked());
+				const pulseTop = top + tranceDropdownsHeight();
 				drawPulseControls(pulseTop, width);
 				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
 				drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
 			},
 			click: (top) => {
-				const pulseTop = top + screenEffectSlot();
+				const pulseTop = top + tranceDropdownsHeight();
 				if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					// Consumed either way: a locked button must not cycle.
 					if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
@@ -284,7 +292,7 @@ const TABS: Tab[] = [
 			},
 			hide: () => {
 				removePulseHexInput();
-				removeScreenEffectControl();
+				removeTranceDropdowns();
 			},
 		},
 	},
@@ -703,32 +711,102 @@ interface CycleControl {
 }
 const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
 
+// The dropdowns under the Trance Defaults rows (v1.9.1, v1.10.0). DOM <select>s, shown only while
+// wholly in view, as the toy mode dropdown is, and removed off their tab and on every exit.
+//
 // The screen effect (v1.9.1, DW 2026-11-08): one dropdown for what was the Screen Fade tick box and
 // v1.9.0's spiral tick box, which only worked together. None, the grey fade, or the spiral at three
-// strengths. A DOM <select>, shown only while wholly in view, as the toy mode dropdown is.
+// strengths. Her eyes while under (v1.10.0): BC's own eye expressions, and a colour (eyes.ts).
+interface DropdownRow {
+	id: string;
+	label: string;
+	options: { key: string; label: string }[];
+	get: () => string;
+	set: (key: string) => void;
+	caption: () => string;
+}
 const SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
-const SCREEN_EFFECT_LABEL_WIDTH = 250;
-const SCREEN_EFFECT_WIDTH = 400;
-/** The dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
-function screenEffectSlot(): number {
+const TRANCE_EYES_ID = "HypnosisAddonTranceEyes";
+const TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
+const TRANCE_DROPDOWN_IDS = [SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID];
+const DROPDOWN_LABEL_WIDTH = 250;
+const DROPDOWN_WIDTH = 400;
+/** One dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
+function dropdownSlot(): number {
 	return attemptControlHeight() + CYCLE_GAP;
 }
 
-function removeScreenEffectControl(): void {
-	if (document.getElementById(SCREEN_EFFECT_ID)) ElementRemove(SCREEN_EFFECT_ID);
+/** Her eyes changed while she is under: undo what is there and put the new choice on now. */
+function reapplyTranceEyes(): void {
+	if (!isHypnotized()) return;
+	restoreTranceEyes();
+	applyTranceEyes();
 }
 
-function screenEffectCaption(): string {
-	const e = getScreenEffect();
-	if (e === "none") return "Nothing over your screen while you are under.";
-	if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
-	return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+const TRANCE_DROPDOWNS: DropdownRow[] = [
+	{
+		id: SCREEN_EFFECT_ID,
+		label: "Screen effect:",
+		options: SCREEN_EFFECTS,
+		get: getScreenEffect,
+		set: (key) => {
+			const was = getScreenEffect();
+			setScreenEffect(key);
+			const now = getScreenEffect();
+			log(`screen effect: ${was} -> ${now}`);
+			// None takes the fade off at once, as unticking Screen Fade did.
+			if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
+			// From None mid-trance there is no fade to draw yet (rule 5: say so).
+			else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
+				tellPlayer("Your screen effect starts with your next trance.");
+		},
+		caption: () => {
+			const e = getScreenEffect();
+			if (e === "none") return "Nothing over your screen while you are under.";
+			if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
+			return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+		},
+	},
+	{
+		id: TRANCE_EYES_ID,
+		label: "Eyes while under:",
+		options: TRANCE_EYES,
+		get: getTranceEyes,
+		set: (key) => {
+			setTranceEyes(key);
+			log(`trance eyes: ${key || "unchanged"}`);
+			reapplyTranceEyes();
+		},
+		caption: () =>
+			getTranceEyes()
+				? "Your eyes change while you are under, and back when you wake. Everyone in the room sees it."
+				: "Your eyes stay as they are while you are under.",
+	},
+	{
+		id: TRANCE_EYE_COLOR_ID,
+		label: "Eye colour while under:",
+		options: TRANCE_EYE_COLORS,
+		get: getTranceEyeColor,
+		set: (key) => {
+			setTranceEyeColor(key);
+			log(`trance eye colour: ${key || "unchanged"}`);
+			reapplyTranceEyes();
+		},
+		caption: () =>
+			getTranceEyeColor()
+				? "Your real eye colour is saved first and put back when you wake, even after a crash. The room sees it."
+				: "Your eye colour stays as it is while you are under.",
+	},
+];
+
+function removeTranceDropdowns(): void {
+	for (const id of TRANCE_DROPDOWN_IDS) if (document.getElementById(id)) ElementRemove(id);
 }
 
-function drawScreenEffectControl(top: number, width: number, locked: boolean): void {
-	drawLeftTextFit("Screen effect:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_LABEL_WIDTH, locked ? "Gray" : "Black");
+function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: boolean): void {
+	drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black");
 	drawLeftTextWrap(
-		screenEffectCaption(),
+		row.caption(),
 		BOX_LEFT,
 		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
 		width,
@@ -736,36 +814,37 @@ function drawScreenEffectControl(top: number, width: number, locked: boolean): v
 		locked ? "Gray" : "#555",
 	);
 	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
-	let element = document.getElementById(SCREEN_EFFECT_ID) as HTMLSelectElement | null;
+	let element = document.getElementById(row.id) as HTMLSelectElement | null;
 	if (!inView) {
-		if (element) ElementRemove(SCREEN_EFFECT_ID);
+		if (element) ElementRemove(row.id);
 		return;
 	}
 	if (!element) {
 		element = ElementCreateDropdown(
-			SCREEN_EFFECT_ID,
-			SCREEN_EFFECTS.map((e) => e.label),
+			row.id,
+			row.options.map((o) => o.label),
 			function () {
 				// Again here, not only through `disabled`: a lock can begin while it is open.
 				if (settingsLocked()) return;
-				const was = getScreenEffect();
-				setScreenEffect(SCREEN_EFFECTS[this.selectedIndex]?.key ?? "fade");
-				const now = getScreenEffect();
-				log(`screen effect: ${was} -> ${now}`);
-				// None takes the fade off at once, as unticking Screen Fade did.
-				if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
-				// From None mid-trance there is no fade to draw yet (rule 5: say so).
-				else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
-					tellPlayer("Your screen effect starts with your next trance.");
+				const picked = row.options[this.selectedIndex];
+				if (picked) row.set(picked.key);
 			},
 		);
 	}
 	// Re-synced every frame: an import or a reset changes it underneath us.
-	const index = SCREEN_EFFECTS.findIndex((e) => e.key === getScreenEffect());
+	const index = row.options.findIndex((o) => o.key === row.get());
 	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
 	element.disabled = locked;
-	const left = BOX_LEFT + SCREEN_EFFECT_LABEL_WIDTH + 20;
-	ElementPosition(SCREEN_EFFECT_ID, left + SCREEN_EFFECT_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, SCREEN_EFFECT_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+	const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
+	ElementPosition(row.id, left + DROPDOWN_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
+
+function drawTranceDropdowns(top: number, width: number, locked: boolean): void {
+	TRANCE_DROPDOWNS.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, locked));
+}
+
+function tranceDropdownsHeight(): number {
+	return TRANCE_DROPDOWNS.length * dropdownSlot();
 }
 
 /** On the Trance Defaults tab, under the pulse's tick box. */
@@ -1471,12 +1550,12 @@ const DECAY_CAPTION_Y = 858;
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, SCREEN_EFFECT_ID, TRUST_SEARCH_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 	removeDepthInputs();
@@ -1499,7 +1578,7 @@ function syncTabControls(tabName: string): void {
 	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
 	if (tabName !== "Trance Defaults") {
 		removePulseHexInput();
-		removeScreenEffectControl();
+		removeTranceDropdowns();
 	}
 	if (tabName !== "Depth") removeDepthInputs();
 }

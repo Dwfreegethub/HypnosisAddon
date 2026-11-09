@@ -25,6 +25,7 @@ export * as extreme from "../src/extreme";
 export * as arousal from "../src/arousal";
 export * as effects from "../src/effects";
 export * as recovery from "../src/recovery";
+export * as eyes from "../src/eyes";
 export * as welcome from "../src/welcome";
 export * as commands from "../src/commands";
 export * as conceal from "../src/conceal";

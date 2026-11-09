@@ -129,6 +129,8 @@ Defines baseline states that engage automatically when an induction succeeds, be
 Under the list:
 
 * **Screen effect:** what covers the room view while you are under. *None · Grey fade · Spiral, light · Spiral, medium · Spiral, heavy* (default: *Grey fade*). The grey fade is a soft veil. A spiral, in your **Pulse colour**, turns slowly instead of the grey (about one turn every 12 seconds), and when a command lands or a trigger fires it gives a quick flash in place of the glow at the edge. Either one thins in a walking trance and steps aside while your sight is dimmed or gone. Only you see it.
+* **Eyes while under:** *Unchanged · Dazed · Spirals · Daydream · Hearts · Pink hearts* (default: *Unchanged*). BC's own eye expressions, put on when you go under and taken off when you wake. **Everyone in the room sees it.**
+* **Eye colour while under:** *Unchanged · Grey · Pink · Purple · Blue* (default: *Unchanged*). Your eyes turn this colour while you are under. Your real colour is saved first and put back when you wake, by any way out, and also the next time you load in if the game closed mid-trance. If you (or another add-on) change your eyes during the trance, that change is kept. **Everyone in the room sees it.**
 
 ---
 

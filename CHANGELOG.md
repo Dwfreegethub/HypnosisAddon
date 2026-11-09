@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.10.0 RC · 8 November 2026
+
+- **Your eyes can change when you go under.** Two new choices on the Trance Defaults tab, both off
+  unless you pick them: **Eyes while under** (Dazed, Spirals, Daydream, Hearts or Pink hearts) and
+  **Eye colour while under** (Grey, Pink, Purple or Blue). Everyone in the room sees it, and your
+  eyes go back to how they were when you wake, even if the game closed while you were under.
+
 ## v1.9.1 RC · 8 November 2026
 
 - **Screen effect is now one choice.** On the Trance Defaults tab, *Screen Fade* and the spiral tick

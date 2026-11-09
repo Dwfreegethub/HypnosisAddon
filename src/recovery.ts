@@ -31,6 +31,7 @@ import {
 } from "./illusion";
 import { clearOrgasmDenial } from "./arousal";
 import { applyFollow, releaseFollow, isFollowActive, followTargetId } from "./follow";
+import { restoreTranceEyes } from "./eyes";
 
 // Surviving a disconnect.
 //
@@ -234,6 +235,7 @@ export function releaseEverything(reason: string): void {
 	clearSelfTouchBlocks();
 	clearIllusion();
 	clearSuggestedPose();
+	restoreTranceEyes();
 	clearSaved();
 	log(`recovery: released everything — ${reason}`);
 }
@@ -496,6 +498,14 @@ export function startRecovery(): void {
 
 /** Called once identity is known. Returns what it decided, for logging and tests. */
 export function attemptRecovery(): RecoveryOutcome {
+	const outcome = decideRecovery();
+	// Her trance eyes (v1.10.0) are on her real eye items, which BC saved with her character. Unless
+	// the trance is coming back, or may yet, put them back: a crash mid-trance must not leave them.
+	if (outcome !== "resumed" && outcome !== "waiting") restoreTranceEyes();
+	return outcome;
+}
+
+function decideRecovery(): RecoveryOutcome {
 	const saved = read();
 
 	if (!saved) {

@@ -245,6 +245,19 @@ default **x 228-258 of the top row**, the only slot no FUSAM add-on uses
 (`docs/addon-icon-survey.md`); found through `state-query`/`state-response`, never a new type;
 hidden by BC's own hide-icons button. `src/badge.ts`.
 
+**Her eyes while under (v1.10.0, DW 2026-11-08).** Her choice, off by default, seen by the room:
+one of BC's own eye expressions (Dazed, Dizzy as "Spirals", Daydream, Heart, HeartPink) and a
+colour. Technique reference only (rule 7): LSCG's hypnotized face, which swaps the eye ASSET for
+another eye type, recolours it grey, and keeps the old eyes in its settings. ECHS does not swap the
+asset. **The colour is a deliberate write to her real, server-synced eye items**, which the
+Orientation's caution about `Player.Appearance` would otherwise rule out (rule 3 itself is about the
+illusion). DW chose it on 2026-11-08 after being told the risk, so `eyes.ts` carries the safeguards:
+what was there is saved in her settings *before* anything changes; it is put back on every
+teardown (`endSession`, `totalStop`, recovery's `releaseEverything`) and on any load that is not
+resuming the trance, so a crash cannot strand it; and only where it is still what ECHS set, so a
+change she or another add-on made mid-trance is kept. Applying twice never overwrites the saved
+copy. Expressions go through BC's `CharacterSetFacialExpression` (R133), which handles both eyes.
+
 **The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
 choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces
 the grey veil, and a landed command swells the spiral (+0.3 opacity at the peak of the same 1.8 s

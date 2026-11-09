@@ -517,6 +517,13 @@ interface HypnoAddonSettings {
 	 * the Trance Defaults tab's one "Screen effect" choice (getScreenEffect). Off by default: moving
 	 * pictures over the screen are hers to ask for. */
 	spiralStrength?: string;
+	/** Her eyes while under (v1.10.0, DW 2026-11-08): one of TRANCE_EYES' expression keys, and one of
+	 * TRANCE_EYE_COLORS' colours. Both sparse: absent means her eyes are left as they are. */
+	tranceEyes?: string;
+	tranceEyeColor?: string;
+	/** What her eyes were before a trance changed them, kept until they are put back (eyes.ts). Here,
+	 * not in memory, so a crash mid-trance can still be undone on the next load. */
+	eyesSaved?: EyesSaved;
 	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
 	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
 	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
@@ -670,6 +677,9 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// it from what was stored: ticked becomes Medium, since DW found v1.9.0's one strength too dark.
 	if ((stored as any).tranceSpiral === true && s.spiralStrength === undefined) s.spiralStrength = "medium";
 	if (s.spiralStrength !== undefined && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
+	if (s.tranceEyes !== undefined && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
+	if (s.tranceEyeColor !== undefined && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
+	if (s.eyesSaved !== undefined && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
 	s.experience ??= 0;
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
@@ -1440,6 +1450,58 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "custom", label: "Custom", rgb: "" },
 ];
 export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+/** Her eyes while under (v1.10.0). Keys are BC's own eye expression names (R133 Female3DCG, Eyes
+ * AllowExpression); "" leaves them as they are. */
+export const TRANCE_EYES: { key: string; label: string }[] = [
+	{ key: "", label: "Unchanged" },
+	{ key: "Dazed", label: "Dazed" },
+	{ key: "Dizzy", label: "Spirals" },
+	{ key: "Daydream", label: "Daydream" },
+	{ key: "Heart", label: "Hearts" },
+	{ key: "HeartPink", label: "Pink hearts" },
+];
+/** Her eye colour while under. Grey is the dulled look LSCG uses by default. "" leaves it as it is. */
+export const TRANCE_EYE_COLORS: { key: string; label: string }[] = [
+	{ key: "", label: "Unchanged" },
+	{ key: "#A2A2A2", label: "Grey" },
+	{ key: "#FF69B4", label: "Pink" },
+	{ key: "#AA5AFF", label: "Purple" },
+	{ key: "#50A0FF", label: "Blue" },
+];
+export type EyesSaved = {
+	at: number;
+	eyes: Partial<Record<"Eyes" | "Eyes2", { color: unknown; expression: string | null; setColor?: string[]; setExpression?: string }>>;
+};
+export function getTranceEyes(): string {
+	return loadSettings().tranceEyes ?? "";
+}
+export function setTranceEyes(key: string): void {
+	if (!TRANCE_EYES.some((e) => e.key === key)) return;
+	const s = loadSettings();
+	if (key) s.tranceEyes = key;
+	else delete s.tranceEyes;
+	saveSettings();
+}
+export function getTranceEyeColor(): string {
+	return loadSettings().tranceEyeColor ?? "";
+}
+export function setTranceEyeColor(key: string): void {
+	if (!TRANCE_EYE_COLORS.some((c) => c.key === key)) return;
+	const s = loadSettings();
+	if (key) s.tranceEyeColor = key;
+	else delete s.tranceEyeColor;
+	saveSettings();
+}
+export function getEyesSaved(): EyesSaved | undefined {
+	return loadSettings().eyesSaved;
+}
+export function setEyesSaved(saved: EyesSaved | undefined): void {
+	const s = loadSettings();
+	if (saved) s.eyesSaved = saved;
+	else delete s.eyesSaved;
+	saveSettings();
+}
 
 /** The spiral's strengths (v1.9.1). Their opacities are effects.ts's SPIRAL_ALPHAS. */
 export const SPIRAL_STRENGTHS = ["light", "medium", "heavy"];
