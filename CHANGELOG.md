@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.10.1 RC · 11 November 2026
+
+- **Fewer eye choices, and spirals look cleaner.** *Eyes while under* is now Dazed, Spirals or
+  Hearts (Daydream and the second hearts are gone; if you had Pink hearts you now have Hearts).
+  With Spirals, your eye shadow is hidden while you are under and comes back when you wake.
+
 ## v1.10.0 RC · 8 November 2026
 
 - **Your eyes can change when you go under.** Two new choices on the Trance Defaults tab, both off

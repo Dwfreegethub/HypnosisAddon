@@ -779,7 +779,9 @@ const TRANCE_DROPDOWNS: DropdownRow[] = [
 		},
 		caption: () =>
 			getTranceEyes()
-				? "Your eyes change while you are under, and back when you wake. Everyone in the room sees it."
+				? getTranceEyes() === "Dizzy"
+					? "Spiral eyes while you are under, with your eye shadow hidden; both back when you wake. The room sees it."
+					: "Your eyes change while you are under, and back when you wake. Everyone in the room sees it."
 				: "Your eyes stay as they are while you are under.",
 	},
 	{

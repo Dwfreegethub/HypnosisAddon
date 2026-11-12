@@ -18,6 +18,13 @@ import { getTranceEyes, getTranceEyeColor, getEyesSaved, setEyesSaved, EyesSaved
 // another add-on, changed her eyes during the trance, that change is hers and is left alone.
 
 const EYE_GROUPS = ["Eyes", "Eyes2"] as const;
+// Spiral eyes hide her eye shadow while they show (v1.10.1, DW: "clear eye shadow setting for
+// spirals and turn it back on when done"): the shadow sits over the eye and muddies the spiral.
+// By opacity, not by taking the item off, so nothing about it (a crafted one's name and
+// description included) can be lost: R133 CommonDraw reads Property.Opacity and clamps it to the
+// layer's minimum, which is 0 for every EyeShadow asset. Put back like the colour, if still ours.
+const SHADOW_GROUP = "EyeShadow";
+const HIDES_SHADOW = "Dizzy";
 
 function eyeItem(group: string): any {
 	return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
@@ -59,16 +66,22 @@ export function applyTranceEyes(): string {
 			setExpression: expression || undefined,
 		};
 	}
+	const shadow = expression === HIDES_SHADOW ? eyeItem(SHADOW_GROUP) : null;
+	if (shadow) saved.shadow = { opacity: shadow.Property?.Opacity ?? null };
 	// Saved before anything is touched, so a crash part-way still knows what to put back.
 	setEyesSaved(saved);
 	try {
 		if (expression && typeof CharacterSetFacialExpression === "function") CharacterSetFacialExpression(Player, "Eyes", expression);
 		if (colour) for (let i = 0; i < EYE_GROUPS.length; i++) if (items[i]) items[i].Color = saved.eyes[EYE_GROUPS[i]]!.setColor;
+		if (shadow) {
+			if (!shadow.Property) shadow.Property = {};
+			shadow.Property.Opacity = 0;
+		}
 		sync();
 	} catch (err) {
 		warn("trance eyes: could not change them", err);
 	}
-	const what = [expression && `${expression} eyes`, colour && `colour ${colour}`].filter(Boolean).join(", ");
+	const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow && "eye shadow hidden"].filter(Boolean).join(", ");
 	log(`trance eyes: ${what}`);
 	return what;
 }
@@ -92,6 +105,12 @@ export function restoreTranceEyes(): boolean {
 				item.Property.Expression = was.expression ?? null;
 				changed = true;
 			}
+		}
+		const shadow = saved.shadow ? eyeItem(SHADOW_GROUP) : null;
+		if (shadow && shadow.Property?.Opacity === 0) {
+			if (saved.shadow!.opacity === null || saved.shadow!.opacity === undefined) delete shadow.Property.Opacity;
+			else shadow.Property.Opacity = saved.shadow!.opacity;
+			changed = true;
 		}
 		if (changed) sync();
 	} catch (err) {

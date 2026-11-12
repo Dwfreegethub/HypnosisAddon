@@ -14,7 +14,7 @@ const eye = (group) => ({
 });
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: {},
-	Appearance: [eye("Eyes"), eye("Eyes2"), { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } }],
+	Appearance: [eye("Eyes"), eye("Eyes2"), { Asset: { Name: "CatEye", Group: { Name: "EyeShadow" } }, Color: "#542828", Property: { Opacity: 0.8 } }, { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } }],
 };
 globalThis.Asset = [{ Name: "Emoticon", AllowEffect: [] }];
 globalThis.InventoryGet = (C, group) => C.Appearance.find((i) => i.Asset.Group.Name === group) ?? null;
@@ -61,7 +61,9 @@ check("  and saves nothing", storage.getEyesSaved(), undefined);
 // --- the choices ----------------------------------------------------------------------------
 // Every expression offered must be one BC allows on eyes, or BC refuses it and nothing shows.
 const f3 = readFileSync(new URL("../src/eyes.ts", import.meta.url), "utf8");
-check("every eye choice is a BC eye expression", storage.TRANCE_EYES.every((e) => !e.key || ["Dazed", "Dizzy", "Daydream", "Heart", "HeartPink"].includes(e.key)), true);
+// DW (v1.10.1): Dazed, Spirals and one Hearts; no Daydream. Each a BC eye expression.
+check("the eye choices", storage.TRANCE_EYES.map((e) => e.label), ["Unchanged", "Dazed", "Spirals", "Hearts"]);
+check("  every one a BC eye expression", storage.TRANCE_EYES.every((e) => !e.key || ["Dazed", "Dizzy", "Heart"].includes(e.key)), true);
 check("  Spirals is BC's Dizzy", storage.TRANCE_EYES.find((e) => e.label === "Spirals")?.key, "Dizzy");
 storage.setTranceEyes("Bloodshot");
 storage.setTranceEyeColor("#123");
@@ -95,6 +97,37 @@ check("a colour she changed is left alone", E1().Color, ["#00FF00", "#00FF00"]);
 check("  but the eye she did not touch gets its colour back", E2().Color, BLUE);
 check("an expression she changed is left alone", E2().Property.Expression, "Shy");
 check("  and the one she did not is put back", E1().Property.Expression, null);
+
+// --- spirals hide her eye shadow, and put it back (v1.10.1) ------------------------------------
+// Failure: the shadow muddies the spiral, or she wakes with her eye shadow gone.
+const SHADOW = () => InventoryGet(Player, "EyeShadow");
+reset();
+storage.setTranceEyes("Dizzy");
+storage.setTranceEyeColor("");
+eyes.applyTranceEyes();
+check("spiral eyes: her eye shadow is hidden", SHADOW().Property.Opacity, 0);
+check("  the item itself stays on, untouched", [SHADOW().Asset.Name, SHADOW().Color], ["CatEye", "#542828"]);
+eyes.restoreTranceEyes();
+check("  and waking puts her opacity back", SHADOW().Property.Opacity, 0.8);
+delete SHADOW().Property.Opacity;
+eyes.applyTranceEyes();
+eyes.restoreTranceEyes();
+check("  a shadow with no opacity set goes back to none set", "Opacity" in SHADOW().Property, false);
+eyes.applyTranceEyes();
+SHADOW().Property.Opacity = 0.5;
+eyes.restoreTranceEyes();
+check("  one she changed mid-trance is kept", SHADOW().Property.Opacity, 0.5);
+SHADOW().Property.Opacity = 0.8;
+storage.setTranceEyes("Dazed");
+eyes.applyTranceEyes();
+check("other eyes leave the shadow alone", SHADOW().Property.Opacity, 0.8);
+eyes.restoreTranceEyes();
+storage.setTranceEyes("Dizzy");
+eyes.applyTranceEyes();
+storage.importSettings(storage.exportSettings());
+recovery.attemptRecovery();
+check("a crash with spiral eyes: the shadow comes back on the next load", SHADOW().Property.Opacity, 0.8);
+storage.setTranceEyes("");
 
 // --- expression only, colour only ----------------------------------------------------------
 reset();
@@ -132,6 +165,10 @@ check("  and clears the saved copy", storage.getEyesSaved(), undefined);
 {
 	const lz = (await import("lz-string")).default;
 	const blob = JSON.parse(lz.decompressFromBase64(storage.exportSettings()));
+	storage.importSettings(lz.compressToBase64(JSON.stringify({ ...blob, tranceEyes: "HeartPink" })));
+	check("v1.10.0's Pink hearts becomes Hearts", storage.getTranceEyes(), "Heart");
+	storage.importSettings(lz.compressToBase64(JSON.stringify({ ...blob, tranceEyes: "Daydream" })));
+	check("  and its Daydream goes back to Unchanged", storage.getTranceEyes(), "");
 	Object.assign(blob, { tranceEyes: "Bloodshot", tranceEyeColor: "red", eyesSaved: "oops" });
 	storage.importSettings(lz.compressToBase64(JSON.stringify(blob)));
 	check("junk eye settings are dropped on import", [storage.getTranceEyes(), storage.getTranceEyeColor(), storage.getEyesSaved()], ["", "", undefined]);

@@ -256,7 +256,8 @@ what was there is saved in her settings *before* anything changes; it is put bac
 teardown (`endSession`, `totalStop`, recovery's `releaseEverything`) and on any load that is not
 resuming the trance, so a crash cannot strand it; and only where it is still what ECHS set, so a
 change she or another add-on made mid-trance is kept. Applying twice never overwrites the saved
-copy. Expressions go through BC's `CharacterSetFacialExpression` (R133), which handles both eyes.
+copy. Expressions go through BC's `CharacterSetFacialExpression` (R133), which handles both eyes. **v1.10.1 (DW):** the choices are Dazed, Spirals and Hearts, and Spirals also hides her eye
+shadow by opacity (never by taking it off), put back the same way.
 
 **The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
 choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces

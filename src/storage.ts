@@ -677,6 +677,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// it from what was stored: ticked becomes Medium, since DW found v1.9.0's one strength too dark.
 	if ((stored as any).tranceSpiral === true && s.spiralStrength === undefined) s.spiralStrength = "medium";
 	if (s.spiralStrength !== undefined && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
+	if (s.tranceEyes !== undefined && OLD_TRANCE_EYES[s.tranceEyes]) s.tranceEyes = OLD_TRANCE_EYES[s.tranceEyes];
 	if (s.tranceEyes !== undefined && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
 	if (s.tranceEyeColor !== undefined && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
 	if (s.eyesSaved !== undefined && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
@@ -1457,10 +1458,11 @@ export const TRANCE_EYES: { key: string; label: string }[] = [
 	{ key: "", label: "Unchanged" },
 	{ key: "Dazed", label: "Dazed" },
 	{ key: "Dizzy", label: "Spirals" },
-	{ key: "Daydream", label: "Daydream" },
 	{ key: "Heart", label: "Hearts" },
-	{ key: "HeartPink", label: "Pink hearts" },
 ];
+/** v1.10.0's choices that v1.10.1 dropped (DW: no Daydream, one Hearts). Pink hearts becomes Hearts;
+ * Daydream has no near match, so it goes back to Unchanged. */
+const OLD_TRANCE_EYES: Record<string, string> = { HeartPink: "Heart" };
 /** Her eye colour while under. Grey is the dulled look LSCG uses by default. "" leaves it as it is. */
 export const TRANCE_EYE_COLORS: { key: string; label: string }[] = [
 	{ key: "", label: "Unchanged" },
@@ -1472,6 +1474,8 @@ export const TRANCE_EYE_COLORS: { key: string; label: string }[] = [
 export type EyesSaved = {
 	at: number;
 	eyes: Partial<Record<"Eyes" | "Eyes2", { color: unknown; expression: string | null; setColor?: string[]; setExpression?: string }>>;
+	/** Her eye shadow's opacity before the spiral eyes hid it (v1.10.1). `opacity` null: it had none set. */
+	shadow?: { opacity: unknown };
 };
 export function getTranceEyes(): string {
 	return loadSettings().tranceEyes ?? "";

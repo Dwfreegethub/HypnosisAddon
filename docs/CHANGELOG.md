@@ -20,6 +20,18 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Changed 2026-11-11 (v1.10.1 RC) — eye choices trimmed, spirals hide the eye shadow
+
+DW, testing v1.10.0: no Daydream, one hearts setting (Dazed, Spirals and hearts were the ones liked),
+and "clear eye shadow setting for spirals and turn it back on when done". `TRANCE_EYES` is now
+Unchanged, Dazed, Dizzy ("Spirals"), Heart ("Hearts"); a stored HeartPink becomes Heart and a stored
+Daydream is dropped to Unchanged. With Dizzy, `applyTranceEyes` also saves the EyeShadow item's
+`Property.Opacity` and sets it to 0, so the item stays on (a crafted one loses nothing) and R133's
+`CommonDraw` draws it invisible (it clamps to the layer's MinOpacity, 0 for every EyeShadow asset).
+`restoreTranceEyes` puts it back only while it is still 0, so a change she made mid-trance is kept,
+and the same restore covers a crash. `test/trance-eyes.mjs` 40 (+10); dropping the hide or the
+"still ours" check each fails it.
+
 ### Added 2026-11-08 (v1.10.0 RC) — her eyes while under
 
 DW: "peek at how [LSCG] changes the eyes when you are hypnotized and see if we can do similar".
