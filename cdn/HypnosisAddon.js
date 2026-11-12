@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.10.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.10.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3340,17 +3340,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
         setExpression: expression || void 0
       };
     }
+    const shadow2 = expression === HIDES_SHADOW ? eyeItem(SHADOW_GROUP) : null;
+    if (shadow2) saved.shadow = { opacity: shadow2.Property?.Opacity ?? null };
     setEyesSaved(saved);
     try {
       if (expression && typeof CharacterSetFacialExpression === "function") CharacterSetFacialExpression(Player, "Eyes", expression);
       if (colour) {
         for (let i = 0; i < EYE_GROUPS.length; i++) if (items[i]) items[i].Color = saved.eyes[EYE_GROUPS[i]].setColor;
       }
+      if (shadow2) {
+        if (!shadow2.Property) shadow2.Property = {};
+        shadow2.Property.Opacity = 0;
+      }
       sync();
     } catch (err) {
       warn("trance eyes: could not change them", err);
     }
-    const what = [expression && `${expression} eyes`, colour && `colour ${colour}`].filter(Boolean).join(", ");
+    const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow2 && "eye shadow hidden"].filter(Boolean).join(", ");
     log(`trance eyes: ${what}`);
     return what;
   }
@@ -3373,6 +3379,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           changed = true;
         }
       }
+      const shadow2 = saved.shadow ? eyeItem(SHADOW_GROUP) : null;
+      if (shadow2 && shadow2.Property?.Opacity === 0) {
+        if (saved.shadow.opacity === null || saved.shadow.opacity === void 0) delete shadow2.Property.Opacity;
+        else shadow2.Property.Opacity = saved.shadow.opacity;
+        changed = true;
+      }
       if (changed) sync();
     } catch (err) {
       warn("trance eyes: could not put them back", err);
@@ -3381,12 +3393,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trance eyes: ${changed ? "put back as they were" : "left as they are now (changed during the trance)"}`);
     return changed;
   }
-  var EYE_GROUPS, same;
+  var EYE_GROUPS, SHADOW_GROUP, HIDES_SHADOW, same;
   var init_eyes = __esm({
     "src/eyes.ts"() {
       init_log();
       init_storage();
       EYE_GROUPS = ["Eyes", "Eyes2"];
+      SHADOW_GROUP = "EyeShadow";
+      HIDES_SHADOW = "Dizzy";
       same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
     }
   });
@@ -5279,6 +5293,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     s.features = merged;
     if (stored.tranceSpiral === true && s.spiralStrength === void 0) s.spiralStrength = "medium";
     if (s.spiralStrength !== void 0 && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
+    if (s.tranceEyes !== void 0 && OLD_TRANCE_EYES[s.tranceEyes]) s.tranceEyes = OLD_TRANCE_EYES[s.tranceEyes];
     if (s.tranceEyes !== void 0 && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
     if (s.tranceEyeColor !== void 0 && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
     if (s.eyesSaved !== void 0 && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
@@ -5923,7 +5938,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6040,10 +6055,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "", label: "Unchanged" },
         { key: "Dazed", label: "Dazed" },
         { key: "Dizzy", label: "Spirals" },
-        { key: "Daydream", label: "Daydream" },
-        { key: "Heart", label: "Hearts" },
-        { key: "HeartPink", label: "Pink hearts" }
+        { key: "Heart", label: "Hearts" }
       ];
+      OLD_TRANCE_EYES = { HeartPink: "Heart" };
       TRANCE_EYE_COLORS = [
         { key: "", label: "Unchanged" },
         { key: "#A2A2A2", label: "Grey" },
@@ -9729,7 +9743,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.10.0", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.10.1", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9768,7 +9782,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.10.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.10.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12044,7 +12058,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12111,7 +12125,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12658,7 +12672,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             log(`trance eyes: ${key || "unchanged"}`);
             reapplyTranceEyes();
           },
-          caption: () => getTranceEyes() ? "Your eyes change while you are under, and back when you wake. Everyone in the room sees it." : "Your eyes stay as they are while you are under."
+          caption: () => getTranceEyes() ? getTranceEyes() === "Dizzy" ? "Spiral eyes while you are under, with your eye shadow hidden; both back when you wake. The room sees it." : "Your eyes change while you are under, and back when you wake. Everyone in the room sees it." : "Your eyes stay as they are while you are under."
         },
         {
           id: TRANCE_EYE_COLOR_ID,
@@ -14483,7 +14497,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.10.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.10.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14504,7 +14518,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.10.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.10.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14577,14 +14591,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.10.0"})`);
+      info(`script loaded (v${"1.10.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.10.0",
+          version: "1.10.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14725,10 +14739,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.10.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.10.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.10.0";
+    page2.__ECHS_LOADED__ = "1.10.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
