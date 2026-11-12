@@ -1474,8 +1474,10 @@ export const TRANCE_EYE_COLORS: { key: string; label: string }[] = [
 export type EyesSaved = {
 	at: number;
 	eyes: Partial<Record<"Eyes" | "Eyes2", { color: unknown; expression: string | null; setColor?: string[]; setExpression?: string }>>;
-	/** Her eye shadow's opacity before the spiral eyes hid it (v1.10.1). `opacity` null: it had none set. */
-	shadow?: { opacity: unknown };
+	/** Her eye shadow before the spiral eyes hid it. Faded (v1.10.1): its opacity before, null if none
+	 * was set. Taken off (v1.10.2, for a shadow BC will not fade all the way, such as Wings): the item
+	 * as it was, to put back exactly. */
+	shadow?: { opacity?: unknown; removed?: { name: string; color: unknown; property: unknown; craft: unknown; difficulty: unknown } };
 };
 export function getTranceEyes(): string {
 	return loadSettings().tranceEyes ?? "";

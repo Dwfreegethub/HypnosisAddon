@@ -14,10 +14,21 @@ const eye = (group) => ({
 });
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: {},
-	Appearance: [eye("Eyes"), eye("Eyes2"), { Asset: { Name: "CatEye", Group: { Name: "EyeShadow" } }, Color: "#542828", Property: { Opacity: 0.8 } }, { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } }],
+	AssetFamily: "Female3DCG",
+	Appearance: [eye("Eyes"), eye("Eyes2"), { Asset: { Name: "CatEye", MinOpacity: 0, Layer: [{ Name: "CatEye", MinOpacity: 0 }], Group: { Name: "EyeShadow" } }, Color: "#542828", Property: { Opacity: 0.8 } }, { Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } }],
 };
 globalThis.Asset = [{ Name: "Emoticon", AllowEffect: [] }];
 globalThis.InventoryGet = (C, group) => C.Appearance.find((i) => i.Asset.Group.Name === group) ?? null;
+// R133's Wings: its "Line" layer has MinOpacity 0.8, so opacity cannot hide it.
+const WINGS_ASSET = { Name: "Wings", MinOpacity: 0, Layer: [{ Name: "Shad", MinOpacity: 0 }, { Name: "Line", MinOpacity: 0.8 }], Group: { Name: "EyeShadow" } };
+globalThis.AssetGet = (family, group, name) => (group === "EyeShadow" && name === "Wings" ? WINGS_ASSET : null);
+globalThis.InventoryRemove = (C, group) => { C.Appearance = C.Appearance.filter((i) => i.Asset.Group.Name !== group); };
+globalThis.CharacterAppearanceSetItem = (C, group, asset, color) => {
+	InventoryRemove(C, group);
+	const item = { Asset: asset, Color: color ?? "Default", Difficulty: 0, Property: {} };
+	C.Appearance.push(item);
+	return item;
+};
 // As R133's: "Eyes" means both, and an expression the group does not allow is refused.
 globalThis.CharacterSetFacialExpression = (C, group, expr) => {
 	if (group === "Eyes") CharacterSetFacialExpression(C, "Eyes2", expr);
@@ -127,6 +138,28 @@ eyes.applyTranceEyes();
 storage.importSettings(storage.exportSettings());
 recovery.attemptRecovery();
 check("a crash with spiral eyes: the shadow comes back on the next load", SHADOW().Property.Opacity, 0.8);
+
+// Wings (v1.10.2, DW: "It did not clear the eye shadow - WINGS"). Failure: Wings' line stays on.
+const wings = () => ({ Asset: WINGS_ASSET, Color: ["#100E1E", "#202020"], Difficulty: 3, Property: { Opacity: [0.6, 0.8] }, Craft: { Name: "Missy's wings", Description: "Hers" } });
+Player.Appearance = Player.Appearance.filter((i) => i.Asset.Group.Name !== "EyeShadow").concat(wings());
+storage.setTranceEyes("Dizzy");
+eyes.applyTranceEyes();
+check("Wings, which BC will not fade: taken off while spiral", SHADOW(), null);
+eyes.restoreTranceEyes();
+const back = SHADOW();
+check("  and put back on waking", back?.Asset?.Name, "Wings");
+check("  exactly as it was: colour, opacity, crafted name, difficulty",
+	[back?.Color, back?.Property?.Opacity, back?.Craft, back?.Difficulty], [["#100E1E", "#202020"], [0.6, 0.8], { Name: "Missy's wings", Description: "Hers" }, 3]);
+eyes.applyTranceEyes();
+const hers = { Asset: { Name: "CatEye", MinOpacity: 0, Layer: [{ MinOpacity: 0 }], Group: { Name: "EyeShadow" } }, Color: "#00FF00", Property: {} };
+Player.Appearance.push(hers);
+eyes.restoreTranceEyes();
+check("  one she put on mid-trance is kept, not swapped back", SHADOW()?.Color, "#00FF00");
+Player.Appearance = Player.Appearance.filter((i) => i.Asset.Group.Name !== "EyeShadow").concat(wings());
+eyes.applyTranceEyes();
+storage.importSettings(storage.exportSettings());
+recovery.attemptRecovery();
+check("  a crash with Wings off: put back on the next load", [SHADOW()?.Asset?.Name, SHADOW()?.Craft?.Name], ["Wings", "Missy's wings"]);
 storage.setTranceEyes("");
 
 // --- expression only, colour only ----------------------------------------------------------

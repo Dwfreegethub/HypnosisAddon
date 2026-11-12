@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.10.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.10.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3313,6 +3313,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const layers = Math.max(1, Number(item?.Asset?.ColorableLayerCount) || 1);
     return Array(layers).fill(hex);
   }
+  function canFadeOut(item) {
+    const layers = Array.isArray(item?.Asset?.Layer) ? item.Asset.Layer : [];
+    const assetMin = Number(item?.Asset?.MinOpacity ?? 0) || 0;
+    if (!layers.length) return assetMin <= 0;
+    return layers.every((l) => (Number(l?.MinOpacity ?? assetMin) || 0) <= 0);
+  }
+  function putBackShadow(was) {
+    if (typeof AssetGet !== "function" || typeof CharacterAppearanceSetItem !== "function") return false;
+    const asset = AssetGet(Player.AssetFamily ?? "Female3DCG", SHADOW_GROUP, was.name);
+    if (!asset) {
+      warn(`trance eyes: could not find the eye shadow "${was.name}" to put back`);
+      return false;
+    }
+    const item = CharacterAppearanceSetItem(Player, SHADOW_GROUP, asset, clone(was.color));
+    if (!item) return false;
+    if (was.property != null) item.Property = clone(was.property);
+    if (was.craft != null) item.Craft = clone(was.craft);
+    if (typeof was.difficulty === "number") item.Difficulty = was.difficulty;
+    return true;
+  }
   function sync() {
     if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
     if (typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") {
@@ -3341,22 +3361,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
       };
     }
     const shadow2 = expression === HIDES_SHADOW ? eyeItem(SHADOW_GROUP) : null;
-    if (shadow2) saved.shadow = { opacity: shadow2.Property?.Opacity ?? null };
+    const fades = shadow2 ? canFadeOut(shadow2) : false;
+    if (shadow2 && fades) saved.shadow = { opacity: shadow2.Property?.Opacity ?? null };
+    else if (shadow2) {
+      saved.shadow = {
+        removed: {
+          name: shadow2.Asset?.Name,
+          color: clone(shadow2.Color ?? null),
+          property: clone(shadow2.Property ?? null),
+          craft: clone(shadow2.Craft ?? null),
+          difficulty: shadow2.Difficulty ?? null
+        }
+      };
+    }
     setEyesSaved(saved);
     try {
       if (expression && typeof CharacterSetFacialExpression === "function") CharacterSetFacialExpression(Player, "Eyes", expression);
       if (colour) {
         for (let i = 0; i < EYE_GROUPS.length; i++) if (items[i]) items[i].Color = saved.eyes[EYE_GROUPS[i]].setColor;
       }
-      if (shadow2) {
+      if (shadow2 && fades) {
         if (!shadow2.Property) shadow2.Property = {};
         shadow2.Property.Opacity = 0;
+      } else if (shadow2 && typeof InventoryRemove === "function") {
+        InventoryRemove(Player, SHADOW_GROUP, false);
       }
       sync();
     } catch (err) {
       warn("trance eyes: could not change them", err);
     }
-    const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow2 && "eye shadow hidden"].filter(Boolean).join(", ");
+    const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow2 && (fades ? "eye shadow faded out" : "eye shadow taken off")].filter(Boolean).join(", ");
     log(`trance eyes: ${what}`);
     return what;
   }
@@ -3380,7 +3414,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       }
       const shadow2 = saved.shadow ? eyeItem(SHADOW_GROUP) : null;
-      if (shadow2 && shadow2.Property?.Opacity === 0) {
+      const removed = saved.shadow?.removed;
+      if (removed) {
+        if (!shadow2 && putBackShadow(removed)) changed = true;
+      } else if (shadow2 && shadow2.Property?.Opacity === 0) {
         if (saved.shadow.opacity === null || saved.shadow.opacity === void 0) delete shadow2.Property.Opacity;
         else shadow2.Property.Opacity = saved.shadow.opacity;
         changed = true;
@@ -3393,7 +3430,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trance eyes: ${changed ? "put back as they were" : "left as they are now (changed during the trance)"}`);
     return changed;
   }
-  var EYE_GROUPS, SHADOW_GROUP, HIDES_SHADOW, same;
+  var EYE_GROUPS, SHADOW_GROUP, HIDES_SHADOW, same, clone;
   var init_eyes = __esm({
     "src/eyes.ts"() {
       init_log();
@@ -3402,6 +3439,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       SHADOW_GROUP = "EyeShadow";
       HIDES_SHADOW = "Dizzy";
       same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+      clone = (v) => v == null ? v : JSON.parse(JSON.stringify(v));
     }
   });
 
@@ -9743,7 +9781,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.10.1", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.10.2", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9782,7 +9820,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.10.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.10.2", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12058,7 +12096,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12125,7 +12163,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14497,7 +14535,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.10.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.10.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14518,7 +14556,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.10.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.10.2"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14591,14 +14629,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.10.1"})`);
+      info(`script loaded (v${"1.10.2"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.10.1",
+          version: "1.10.2",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14739,10 +14777,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.10.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.10.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.10.1";
+    page2.__ECHS_LOADED__ = "1.10.2";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

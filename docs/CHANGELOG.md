@@ -20,6 +20,19 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-11 (v1.10.2 RC) — Wings stayed on with spiral eyes
+
+DW: "It did not clear the eye shadow - WINGS". v1.10.1 hid the shadow by `Property.Opacity = 0`, but
+R133 `CommonDraw` clamps opacity to each LAYER's MinOpacity, and Wings' `Line` layer has 0.8 (R133's
+comment: set "to 'turn off' opacity control for this layer"). The unit stub had no layers, so the
+test passed against a shadow that does not exist in BC. Now `canFadeOut` checks every layer: a
+shadow that can reach 0 is still faded (the item never leaves her); one that cannot is saved whole
+(asset name, colour, Property, Craft, Difficulty) and taken off with `InventoryRemove`, then put back
+with `CharacterAppearanceSetItem` plus the saved fields, as BC's own appearance loading rebuilds an
+item. Only into an empty slot, so a shadow she put on mid-trance is kept. The crash path is the
+same restore. `test/trance-eyes.mjs` 45 (+5), with the stub now carrying real layer minimums;
+forcing the fade, dropping the empty-slot check, or dropping the craft restore each fails it.
+
 ### Changed 2026-11-11 (v1.10.1 RC) — eye choices trimmed, spirals hide the eye shadow
 
 DW, testing v1.10.0: no Daydream, one hearts setting (Dazed, Spirals and hearts were the ones liked),

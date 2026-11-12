@@ -20,9 +20,12 @@ import { getTranceEyes, getTranceEyeColor, getEyesSaved, setEyesSaved, EyesSaved
 const EYE_GROUPS = ["Eyes", "Eyes2"] as const;
 // Spiral eyes hide her eye shadow while they show (v1.10.1, DW: "clear eye shadow setting for
 // spirals and turn it back on when done"): the shadow sits over the eye and muddies the spiral.
-// By opacity, not by taking the item off, so nothing about it (a crafted one's name and
-// description included) can be lost: R133 CommonDraw reads Property.Opacity and clamps it to the
-// layer's minimum, which is 0 for every EyeShadow asset. Put back like the colour, if still ours.
+// By opacity where BC allows it, so the item never leaves her: R133 CommonDraw reads
+// Property.Opacity and clamps it to each LAYER's minimum. v1.10.2: that minimum is not always 0.
+// Wings' "Line" layer has MinOpacity 0.8, which R133's own comment says is there to "turn off"
+// opacity control for it, so DW saw Wings stay. A shadow like that is taken off instead, with the
+// whole item kept in her settings (colour, properties, crafted name and description, difficulty)
+// and put back exactly as it was. Both put back only if still as we left them.
 const SHADOW_GROUP = "EyeShadow";
 const HIDES_SHADOW = "Dizzy";
 
@@ -35,6 +38,34 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stri
 function colourFor(item: any, hex: string): string[] {
 	const layers = Math.max(1, Number(item?.Asset?.ColorableLayerCount) || 1);
 	return Array(layers).fill(hex);
+}
+
+const clone = <T>(v: T): T => (v == null ? v : JSON.parse(JSON.stringify(v)));
+
+/** Can BC draw every layer of this shadow fully transparent? (R133 CommonDraw clamps the opacity to
+ * each layer's MinOpacity.) */
+function canFadeOut(item: any): boolean {
+	const layers: any[] = Array.isArray(item?.Asset?.Layer) ? item.Asset.Layer : [];
+	const assetMin = Number(item?.Asset?.MinOpacity ?? 0) || 0;
+	if (!layers.length) return assetMin <= 0;
+	return layers.every((l) => (Number(l?.MinOpacity ?? assetMin) || 0) <= 0);
+}
+
+/** Put a taken-off shadow back exactly as it was. As BC's own appearance loading does it: the item
+ * from its asset, then its saved fields over the top. */
+function putBackShadow(was: { name: string; color: unknown; property: unknown; craft: unknown; difficulty: unknown }): boolean {
+	if (typeof AssetGet !== "function" || typeof CharacterAppearanceSetItem !== "function") return false;
+	const asset = AssetGet(Player.AssetFamily ?? "Female3DCG", SHADOW_GROUP, was.name);
+	if (!asset) {
+		warn(`trance eyes: could not find the eye shadow "${was.name}" to put back`);
+		return false;
+	}
+	const item = CharacterAppearanceSetItem(Player, SHADOW_GROUP, asset, clone(was.color) as any);
+	if (!item) return false;
+	if (was.property != null) item.Property = clone(was.property);
+	if (was.craft != null) item.Craft = clone(was.craft);
+	if (typeof was.difficulty === "number") item.Difficulty = was.difficulty;
+	return true;
 }
 
 function sync(): void {
@@ -67,21 +98,35 @@ export function applyTranceEyes(): string {
 		};
 	}
 	const shadow = expression === HIDES_SHADOW ? eyeItem(SHADOW_GROUP) : null;
-	if (shadow) saved.shadow = { opacity: shadow.Property?.Opacity ?? null };
+	const fades = shadow ? canFadeOut(shadow) : false;
+	if (shadow && fades) saved.shadow = { opacity: shadow.Property?.Opacity ?? null };
+	else if (shadow) {
+		saved.shadow = {
+			removed: {
+				name: shadow.Asset?.Name,
+				color: clone(shadow.Color ?? null),
+				property: clone(shadow.Property ?? null),
+				craft: clone(shadow.Craft ?? null),
+				difficulty: shadow.Difficulty ?? null,
+			},
+		};
+	}
 	// Saved before anything is touched, so a crash part-way still knows what to put back.
 	setEyesSaved(saved);
 	try {
 		if (expression && typeof CharacterSetFacialExpression === "function") CharacterSetFacialExpression(Player, "Eyes", expression);
 		if (colour) for (let i = 0; i < EYE_GROUPS.length; i++) if (items[i]) items[i].Color = saved.eyes[EYE_GROUPS[i]]!.setColor;
-		if (shadow) {
+		if (shadow && fades) {
 			if (!shadow.Property) shadow.Property = {};
 			shadow.Property.Opacity = 0;
+		} else if (shadow && typeof InventoryRemove === "function") {
+			InventoryRemove(Player, SHADOW_GROUP, false);
 		}
 		sync();
 	} catch (err) {
 		warn("trance eyes: could not change them", err);
 	}
-	const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow && "eye shadow hidden"].filter(Boolean).join(", ");
+	const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow && (fades ? "eye shadow faded out" : "eye shadow taken off")].filter(Boolean).join(", ");
 	log(`trance eyes: ${what}`);
 	return what;
 }
@@ -107,7 +152,11 @@ export function restoreTranceEyes(): boolean {
 			}
 		}
 		const shadow = saved.shadow ? eyeItem(SHADOW_GROUP) : null;
-		if (shadow && shadow.Property?.Opacity === 0) {
+		const removed = saved.shadow?.removed;
+		if (removed) {
+			// Only into an empty slot: if she put a shadow on meanwhile, that one is hers.
+			if (!shadow && putBackShadow(removed)) changed = true;
+		} else if (shadow && shadow.Property?.Opacity === 0) {
 			if (saved.shadow!.opacity === null || saved.shadow!.opacity === undefined) delete shadow.Property.Opacity;
 			else shadow.Property.Opacity = saved.shadow!.opacity;
 			changed = true;
