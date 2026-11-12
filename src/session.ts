@@ -84,6 +84,7 @@ import {
 } from "./effects";
 import { clearFollow } from "./follow";
 import { applyTranceEyes, restoreTranceEyes } from "./eyes";
+import { clearFace } from "./face";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -636,6 +637,8 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	// The face first: what it puts back may be her trance eyes, which restoreTranceEyes then takes off.
+	clearFace();
 	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
@@ -2052,6 +2055,8 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	// The face first: what it puts back may be her trance eyes, which restoreTranceEyes then takes off.
+	clearFace();
 	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();

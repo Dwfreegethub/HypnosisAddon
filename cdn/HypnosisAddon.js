@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.10.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.11.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1605,6 +1605,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
         "arms-relax": ["{name}'s arms drift down to {their} sides."],
         "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
+        // A face is as visible as a pose, so each gets a room line too.
+        "tongue-hang": ["{name}'s tongue slips out and hangs there, {their} eyes rolling up and away."],
+        "tongue-out": ["The tip of {name}'s tongue peeks out between {their} lips and stays there."],
+        "mouth-open": ["{name}'s mouth falls open and stays that way."],
+        "mouth-parted": ["{name}'s lips part softly."],
+        "lip-bite": ["{name} catches {their} lower lip between {their} teeth."],
+        smile: ["A slow, dreamy smile spreads across {name}'s face."],
+        grin: ["{name} breaks into a wide, helpless grin."],
+        smirk: ["One corner of {name}'s mouth curls up into a smirk."],
+        pout: ["{name}'s lower lip pushes out into a pout."],
+        moan: ["{name}'s lips shape a soft, silent moan."],
+        "mouth-close": ["{name}'s mouth closes and {their} lips settle."],
+        "eyes-closed": ["{name}'s eyes drift closed."],
+        "eyes-wide": ["{name}'s eyes go wide."],
+        "eyes-dazed": ["{name}'s eyes glaze over, empty and soft."],
+        "eyes-hearts": ["{name}'s eyes go soft, little hearts shining in them."],
+        "eyes-open": ["{name}'s eyes open again."],
+        blush: ["A deep blush rises in {name}'s cheeks."],
+        "face-relax": ["{name}'s face smooths out and goes quiet."],
+        "face-blocked": ["{name}'s face twitches, trying to obey, but will not quite do it."],
         // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
         // INTO one is observable, which is why the attempt keys carry the public lines and the
         // apply keys mostly do not. Movement and posture are the exceptions: going still and
@@ -1709,6 +1729,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "arms-out": ["Your arms lift out to either side and hold, level and steady."],
         "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
         "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
+        "tongue-hang": ["Your tongue slides out and hangs there, and your eyes roll up and away. You can't seem to mind."],
+        "tongue-out": ["The tip of your tongue slips out between your lips and stays there, silly and obedient."],
+        "mouth-open": ["Your mouth falls open. It stays open, waiting."],
+        "mouth-parted": ["Your lips part on their own, just a little."],
+        "lip-bite": ["Your teeth find your lower lip and hold it."],
+        smile: ["A smile spreads across your face before you know why. It feels good to wear it."],
+        grin: ["You grin, wide and helpless, and can't stop."],
+        smirk: ["One side of your mouth curls up, all on its own."],
+        pout: ["Your lower lip pushes out into a pout."],
+        moan: ["Your lips shape a moan, soft and silent."],
+        "mouth-close": ["Your mouth closes. Your lips are yours again."],
+        "eyes-closed": ["Your eyes close. They are so much happier closed."],
+        "eyes-wide": ["Your eyes go wide."],
+        "eyes-dazed": ["Your eyes glaze over. There's nothing behind them that needs looking out."],
+        "eyes-hearts": ["Your eyes go soft and full of hearts."],
+        "eyes-open": ["Your eyes open again."],
+        blush: ["Warmth floods into your cheeks, and you blush and blush."],
+        "face-relax": ["Your face smooths out and softens. It's yours again."],
+        "face-blocked": ["Your face tries to obey and can't quite do it."],
         "speech-block": [
           "You go to answer and find there is nothing to answer with.",
           "The words are there. The way out of your mouth is not.",
@@ -2632,21 +2671,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function oocOnly(text2) {
     const spans = [];
     let depth = 0;
-    let current = "";
+    let current2 = "";
     for (const ch of String(text2 ?? "")) {
       if (ch === "(") {
-        if (depth === 0) current = "";
+        if (depth === 0) current2 = "";
         depth++;
-        current += ch;
+        current2 += ch;
       } else if (ch === ")" && depth > 0) {
-        current += ch;
+        current2 += ch;
         depth--;
-        if (depth === 0) spans.push(current);
+        if (depth === 0) spans.push(current2);
       } else if (depth > 0) {
-        current += ch;
+        current2 += ch;
       }
     }
-    if (depth > 0 && current.length > 1) spans.push(current);
+    if (depth > 0 && current2.length > 1) spans.push(current2);
     return spans.join(" ").trim();
   }
   function installHearingFilter(onHidden) {
@@ -3443,6 +3482,65 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/face.ts
+  function faceItem(group) {
+    return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
+  }
+  function current(group) {
+    return faceItem(group)?.Property?.Expression ?? null;
+  }
+  function setFace(group, expression) {
+    if (typeof CharacterSetFacialExpression !== "function" || !faceItem(group)) return false;
+    const saved = getFaceSaved() ?? { at: Date.now(), groups: {} };
+    const before = saved.groups[group];
+    const now = current(group);
+    const was = before && now === before.set ? before.was : now;
+    saved.groups[group] = { was, set: expression };
+    setFaceSaved(saved);
+    try {
+      CharacterSetFacialExpression(Player, group, expression);
+    } catch (err) {
+      warn(`face: could not set ${group} to ${expression}`, err);
+    }
+    if (current(group) !== expression) {
+      if (before) saved.groups[group] = before;
+      else delete saved.groups[group];
+      setFaceSaved(saved);
+      log(`face: BC did not take ${group} ${expression}`);
+      return false;
+    }
+    log(`face: ${group} ${expression} (was ${was ?? "none"})`);
+    return true;
+  }
+  function clearFace(group, only) {
+    const saved = getFaceSaved();
+    if (!saved) return false;
+    const groups = group ? [group] : Object.keys(saved.groups);
+    let changed = false;
+    for (const g of groups) {
+      const entry = saved.groups[g];
+      if (!entry || only && entry.set !== only) continue;
+      if (current(g) === entry.set) {
+        try {
+          CharacterSetFacialExpression(Player, g, entry.was);
+          changed = true;
+        } catch (err) {
+          warn(`face: could not put ${g} back`, err);
+        }
+      }
+      delete saved.groups[g];
+    }
+    setFaceSaved(saved);
+    if (groups.length) log(`face: ${changed ? "put back" : "nothing to put back"} (${groups.join(", ")})`);
+    return changed;
+  }
+  var init_face = __esm({
+    "src/face.ts"() {
+      init_log();
+      init_storage();
+    }
+  });
+
   // src/recovery.ts
   function stateKey() {
     const member = Player?.MemberNumber;
@@ -3505,6 +3603,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearSelfTouchBlocks();
     clearIllusion();
     clearSuggestedPose();
+    clearFace();
     restoreTranceEyes();
     clearSaved();
     log(`recovery: released everything \u2014 ${reason}`);
@@ -3644,7 +3743,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function attemptRecovery() {
     const outcome = decideRecovery();
-    if (outcome !== "resumed" && outcome !== "waiting") restoreTranceEyes();
+    if (outcome !== "resumed" && outcome !== "waiting") {
+      clearFace();
+      restoreTranceEyes();
+    }
     return outcome;
   }
   function decideRecovery() {
@@ -3748,6 +3850,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_arousal();
       init_follow();
       init_eyes();
+      init_face();
       RECOVERY_WINDOW_MS = 5 * 6e4;
       WAIT_POLL_MS = 3e3;
       STARTUP_POLL_MS = 250;
@@ -4130,6 +4233,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearFollow();
     clearSuggestedPose();
     clearTranceStates();
+    clearFace();
     restoreTranceEyes();
     clearAllSuppression();
     clearSelfTouchBlocks();
@@ -4183,16 +4287,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function giveTrust(memberId, name) {
     if (!getFeatures().hypnoEnabled) return "Hypnosis is switched off, so there is nothing to trust anyone with.";
     if (memberId === Player?.MemberNumber) return "You cannot give your trust to yourself.";
-    const current = session.hypnotistId === memberId && session.phase !== "Idle";
-    if (current && session.phase === "Hypnotized") {
+    const current2 = session.hypnotistId === memberId && session.phase !== "Idle";
+    if (current2 && session.phase === "Hypnotized") {
       return `You are already under with ${name}. Your trust has nothing more to do this time.`;
     }
-    if (current && trustGift?.memberId === memberId && trustGift.spentOn === session) {
+    if (current2 && trustGift?.memberId === memberId && trustGift.spentOn === session) {
       return `${name} already has your trust for this one.`;
     }
     trustGift = { memberId, name, until: Date.now() + TRUST_GIFT_MS, spentOn: null };
     log(`trust gift to ${name} [${memberId}], waiting ${TRUST_GIFT_MS / 6e4} min`);
-    if (current && session.phase === "AttemptMade") {
+    if (current2 && session.phase === "AttemptMade") {
       spendTrustGift();
       if (promptTimer) {
         clearTimeout(promptTimer);
@@ -4202,7 +4306,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       beginInductionWindow();
       return `You trust ${name}. You let yourself go along with it.`;
     }
-    if (current) {
+    if (current2) {
       spendTrustGift();
       session.choice = "agree";
       return `You trust ${name}. You stop holding anything back.`;
@@ -4853,6 +4957,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearFollow();
     clearSuggestedPose();
     clearTranceStates();
+    clearFace();
     restoreTranceEyes();
     clearAllSuppression();
     clearSelfTouchBlocks();
@@ -5150,6 +5255,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_effects();
       init_follow();
       init_eyes();
+      init_face();
       PROMPT_TIMEOUT_MS = 6e4;
       maxAttempts = () => getMaxAttempts();
       COOLDOWN_MS = 10 * 6e4;
@@ -5247,8 +5353,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
   }
-  function nextAttemptLimit(current) {
-    const i = ATTEMPT_LIMITS.indexOf(current);
+  function nextAttemptLimit(current2) {
+    const i = ATTEMPT_LIMITS.indexOf(current2);
     return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
   }
   function defaultFeatures() {
@@ -5335,6 +5441,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.tranceEyes !== void 0 && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
     if (s.tranceEyeColor !== void 0 && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
     if (s.eyesSaved !== void 0 && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
+    if (s.faceSaved !== void 0 && (typeof s.faceSaved !== "object" || s.faceSaved === null || typeof s.faceSaved.groups !== "object" || s.faceSaved.groups === null)) delete s.faceSaved;
     s.experience ?? (s.experience = 0);
     s.triggers ?? (s.triggers = []);
     s.triggerScope ?? (s.triggerScope = "hypnotist");
@@ -5750,8 +5857,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEEPEST_TIERS.some((r) => r.key === key)) loadSettings().deepestTier = key;
     saveSettings();
   }
-  function nextDeepestTier(current) {
-    const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
+  function nextDeepestTier(current2) {
+    const i = DEEPEST_TIERS.findIndex((r) => r.key === current2);
     return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
   }
   function getDefaultStance() {
@@ -5761,8 +5868,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEFAULT_STANCES.some((r) => r.key === key)) loadSettings().defaultStance = key;
     saveSettings();
   }
-  function nextDefaultStance(current) {
-    return cycle(DEFAULT_STANCES, current);
+  function nextDefaultStance(current2) {
+    return cycle(DEFAULT_STANCES, current2);
   }
   function getAwayStance() {
     return loadSettings().awayStance ?? DEFAULT_AWAY_STANCE;
@@ -5771,8 +5878,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (AWAY_STANCES.some((r) => r.key === key)) loadSettings().awayStance = key;
     saveSettings();
   }
-  function nextAwayStance(current) {
-    return cycle(AWAY_STANCES, current);
+  function nextAwayStance(current2) {
+    return cycle(AWAY_STANCES, current2);
   }
   function getInductionSeconds() {
     const v = loadSettings().inductionSeconds;
@@ -5786,8 +5893,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  function nextInductionSeconds(current) {
-    const i = INDUCTION_TIMES.indexOf(current);
+  function nextInductionSeconds(current2) {
+    const i = INDUCTION_TIMES.indexOf(current2);
     return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
   }
   function getToyMode() {
@@ -5835,6 +5942,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const s = loadSettings();
     if (saved) s.eyesSaved = saved;
     else delete s.eyesSaved;
+    saveSettings();
+  }
+  function getFaceSaved() {
+    return loadSettings().faceSaved;
+  }
+  function setFaceSaved(saved) {
+    const s = loadSettings();
+    if (saved && Object.keys(saved.groups).length) s.faceSaved = saved;
+    else delete s.faceSaved;
     saveSettings();
   }
   function getScreenEffect() {
@@ -5927,8 +6043,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
     saveSettings();
   }
-  function nextSkillHonour(current) {
-    const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current);
+  function nextSkillHonour(current2) {
+    const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current2);
     return SKILL_HONOUR_OFFERED[(i + 1) % SKILL_HONOUR_OFFERED.length].key;
   }
   function addSkill(delta) {
@@ -6076,7 +6192,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       DEFAULT_TOY_SCOPE = "lovers";
       OLD_TOY_SCOPES = { lover: "lovers", friend: "friends", anyone: "everyone" };
-      cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      cycle = (list, current2) => list[(list.findIndex((r) => r.key === current2) + 1) % list.length].key;
       INDUCTION_TIMES = [60, 45, 30, 20, 10];
       DEFAULT_INDUCTION_SECONDS = 60;
       MIN_INDUCTION_SECONDS = 10;
@@ -7072,6 +7188,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     };
   }
+  function applyFace(group, expression) {
+    if (!setFace(group, expression)) return "face-blocked";
+  }
+  function faceSuggestion(id, group, expression, examples, patterns, unless) {
+    return {
+      id,
+      examples,
+      permission: "postureControl",
+      patterns,
+      unless,
+      run: () => applyFace(group, expression),
+      // Only while it is still this face: a trigger's smile must not undo a pout said since.
+      undo: () => {
+        clearFace(group, expression);
+      }
+    };
+  }
   function isSelfReferential(text2) {
     return /^(i|we)\b/.test(text2) && !/\byou\b/.test(text2);
   }
@@ -7129,7 +7262,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const segments = splitSegments(content, known);
     const namedOther = segments.some((s) => s.lead.some((n) => otherSet.has(n)));
     if (!namedOther) return { text: content, scoped: false, ambiguous: false };
-    let current = [];
+    let current2 = [];
     let prevWasVocative = false;
     let namedMe = false;
     const owned = [];
@@ -7142,11 +7275,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           for (const p of pending) p.owner = [...seg.lead];
           justClaimed = pending;
           pending = [];
-          current = [];
+          current2 = [];
         } else if (prevWasVocative && justClaimed.length) {
           for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
         } else {
-          current = prevWasVocative ? [...current, ...seg.lead] : seg.lead;
+          current2 = prevWasVocative ? [...current2, ...seg.lead] : seg.lead;
           justClaimed = [];
         }
         prevWasVocative = true;
@@ -7154,10 +7287,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       prevWasVocative = false;
       justClaimed = [];
-      if (seg.lead.length) current = seg.lead;
-      const entry = { owner: [...current], body: seg.body };
+      if (seg.lead.length) current2 = seg.lead;
+      const entry = { owner: [...current2], body: seg.body };
       owned.push(entry);
-      if (!current.length) pending.push(entry);
+      if (!current2.length) pending.push(entry);
     }
     const floating = owned.some((o) => o.owner.length === 0);
     const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
@@ -8566,11 +8699,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         noteReleased(of);
         dropCarried(of);
       }
-    } else if (!HEARING_IDS.includes(id)) {
+    } else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -8583,6 +8716,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       init_follow();
       init_depth();
+      init_face();
       init_flavor();
       init_notify();
       init_arousal();
@@ -8667,6 +8801,110 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\b(?:arms|hands) down\b/
           ],
           run: () => setSuggestedPose(null, "arms") ? void 0 : "pose-blocked"
+        }
+      ];
+      EYE_FACE_IDS = ["eyes-closed", "eyes-wide", "eyes-dazed", "eyes-hearts"];
+      MOUTH_FACE_IDS = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan"];
+      FACE_IDS = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-relax"];
+      NOT_HERS = String.raw`(?<!\b(?:i|we|a|an|your|my|her|his|their|me|us|them|him|that|the) )`;
+      bare = (word) => new RegExp(String.raw`${NOT_HERS}\b${word}\b`);
+      NEGATED = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
+      FACE_SUGGESTIONS = [
+        // The full tongue first: "let your tongue hang out" also says "tongue out".
+        faceSuggestion("tongue-hang", "Mouth", "Ahegao", ["let your tongue hang out", "tongue all the way out"], [
+          /\btongue (?:all the way|hanging|lolling) out\b/,
+          /\b(?:let )?your tongue (?:hang|loll|lolls|hangs)(?: out)?\b/,
+          /\bahegao\b/,
+          /\b(?:roll your eyes back|your eyes roll back)\b/
+        ], [NEGATED]),
+        faceSuggestion("tongue-out", "Mouth", "TonguePinch", ["stick out your tongue", "tongue out", "show me your tongue"], [
+          /\b(?:stick|put|poke) (?:out your tongue|your tongue out)\b/,
+          /\btongue out\b/,
+          /\bshow me your tongue\b/
+        ], [NEGATED]),
+        faceSuggestion("mouth-open", "Mouth", "Open", ["open your mouth", "mouth open", "open wide"], [
+          /\bopen your mouth\b/,
+          /\b(?:keep )?your mouth open\b/,
+          /\bmouth open\b/,
+          /(?<!\bi )(?<!\bwe )\bopen wide\b/,
+          /\bsay a+h+\b/
+        ], [NEGATED]),
+        faceSuggestion("mouth-parted", "Mouth", "HalfOpen", ["part your lips", "your lips part"], [
+          /\bpart your lips\b/,
+          /\byour lips (?:part|fall open|drift open|come apart)\b/
+        ], [NEGATED]),
+        faceSuggestion("lip-bite", "Mouth", "LipBite", ["bite your lip"], [
+          /\bbite (?:on )?your (?:bottom |lower )?lip\b/
+        ], [NEGATED]),
+        faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED]),
+        faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED]),
+        faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED]),
+        faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED]),
+        faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
+          /\bmoan (?:for me|for us|softly|quietly|for them)\b/
+        ], [NEGATED]),
+        {
+          id: "mouth-close",
+          examples: ["close your mouth", "tongue back in"],
+          release: true,
+          releaseOf: MOUTH_FACE_IDS,
+          permission: "postureControl",
+          patterns: [
+            /\b(?:close|shut) your mouth\b/,
+            /\bmouth (?:closed|shut)\b/,
+            /\b(?:put your )?tongue (?:back )?(?:in|away)\b/,
+            /\bput your tongue away\b/
+          ],
+          run: () => {
+            clearFace("Mouth");
+          }
+        },
+        // Eyes. Closed before open: "you cannot open your eyes" is a closing.
+        faceSuggestion("eyes-closed", "Eyes", "Closed", ["close your eyes", "your eyes close", "you cannot open your eyes"], [
+          /(?<!\b(?:not|never|don t|dont) )\b(?:close|shut) your eyes\b/,
+          /\b(?:let )?your eyes (?:close|closing|fall closed|drift closed|flutter closed|shut)\b/,
+          /\beyes closed\b/,
+          /\byou (?:cannot|can t) open your eyes\b/
+        ], [/\b(?:do not|don t|dont|never) (?:close|shut) your eyes\b/]),
+        faceSuggestion("eyes-wide", "Eyes", "Surprised", ["eyes wide", "widen your eyes"], [
+          /\beyes (?:go |open )?wide\b/,
+          /\bwiden your eyes\b/
+        ], [NEGATED]),
+        faceSuggestion("eyes-dazed", "Eyes", "Dazed", ["your eyes glaze over", "your eyes go blank"], [
+          /\byour eyes (?:glaze|go glassy|go blank|go empty|unfocus|lose focus)/,
+          /\b(?:blank|empty|glassy) eyes\b/
+        ]),
+        faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED]),
+        {
+          id: "eyes-open",
+          examples: ["open your eyes", "eyes open"],
+          release: true,
+          releaseOf: EYE_FACE_IDS,
+          permission: "postureControl",
+          // "You open your eyes" after a wake condition plants a trigger, and wake itself is checked
+          // before this table, so neither reaches here.
+          patterns: [/\bopen your eyes\b/, /\beyes open\b/],
+          run: () => {
+            clearFace("Eyes");
+          }
+        },
+        faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
+          bare("blush"),
+          /\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/
+        ], [NEGATED]),
+        {
+          id: "face-relax",
+          examples: ["relax your face", "your face relaxes"],
+          release: true,
+          releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-relax"),
+          permission: "postureControl",
+          patterns: [
+            /\brelax your (?:face|expression)\b/,
+            /\byour (?:face|expression) (?:relaxes|softens|goes slack|goes soft|smooths out)\b/
+          ],
+          run: () => {
+            clearFace();
+          }
         }
       ];
       SUGGESTIONS = [
@@ -9335,6 +9573,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           /\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/
         ]),
         ...POSE_SUGGESTIONS,
+        ...FACE_SUGGESTIONS,
         {
           id: "stand",
           examples: ["stand", "get up", "on your feet"],
@@ -9781,7 +10020,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.10.2", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.11.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9820,7 +10059,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.10.2", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.11.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12096,7 +12335,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.11.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12163,7 +12402,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.10.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.11.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12395,7 +12634,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (!enabled) removeEffect("BlockWardrobe");
         break;
       case "postureControl":
-        if (!enabled) clearSuggestedPose();
+        if (!enabled) {
+          clearSuggestedPose();
+          clearFace();
+        }
         break;
       case "speechRestriction":
       case "tranceCannotSpeak":
@@ -12455,6 +12697,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_voice();
       init_session();
       init_eyes();
+      init_face();
       init_depth();
       init_help();
       init_wizard();
@@ -14535,7 +14778,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.10.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.11.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14556,7 +14799,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.10.2"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.11.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14629,14 +14872,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.10.2"})`);
+      info(`script loaded (v${"1.11.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.10.2",
+          version: "1.11.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14777,10 +15020,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.10.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.11.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.10.2";
+    page2.__ECHS_LOADED__ = "1.11.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

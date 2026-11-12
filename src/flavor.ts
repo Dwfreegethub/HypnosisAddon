@@ -35,6 +35,27 @@ export type FlavorKey =
 	| "arms-relax"
 	/** A pose matched and was permitted, and BC did not take it — bondage, most likely. */
 	| "pose-blocked"
+	// Her face (v1.11.0). Each is a suggestion id as well.
+	| "tongue-hang"
+	| "tongue-out"
+	| "mouth-open"
+	| "mouth-parted"
+	| "lip-bite"
+	| "smile"
+	| "grin"
+	| "smirk"
+	| "pout"
+	| "moan"
+	| "mouth-close"
+	| "eyes-closed"
+	| "eyes-wide"
+	| "eyes-dazed"
+	| "eyes-hearts"
+	| "eyes-open"
+	| "blush"
+	| "face-relax"
+	/** A face matched and was permitted, and BC did not take it. */
+	| "face-blocked"
 	| "speech-block"
 	| "speech-release"
 	// Hearing only one voice (v0.93.0). Private only: nobody can watch someone stop hearing.
@@ -173,6 +194,26 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"arms-out": ["{name}'s arms lift out to either side and hold there, level."],
 	"arms-relax": ["{name}'s arms drift down to {their} sides."],
 	"pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
+	// A face is as visible as a pose, so each gets a room line too.
+	"tongue-hang": ["{name}'s tongue slips out and hangs there, {their} eyes rolling up and away."],
+	"tongue-out": ["The tip of {name}'s tongue peeks out between {their} lips and stays there."],
+	"mouth-open": ["{name}'s mouth falls open and stays that way."],
+	"mouth-parted": ["{name}'s lips part softly."],
+	"lip-bite": ["{name} catches {their} lower lip between {their} teeth."],
+	smile: ["A slow, dreamy smile spreads across {name}'s face."],
+	grin: ["{name} breaks into a wide, helpless grin."],
+	smirk: ["One corner of {name}'s mouth curls up into a smirk."],
+	pout: ["{name}'s lower lip pushes out into a pout."],
+	moan: ["{name}'s lips shape a soft, silent moan."],
+	"mouth-close": ["{name}'s mouth closes and {their} lips settle."],
+	"eyes-closed": ["{name}'s eyes drift closed."],
+	"eyes-wide": ["{name}'s eyes go wide."],
+	"eyes-dazed": ["{name}'s eyes glaze over, empty and soft."],
+	"eyes-hearts": ["{name}'s eyes go soft, little hearts shining in them."],
+	"eyes-open": ["{name}'s eyes open again."],
+	blush: ["A deep blush rises in {name}'s cheeks."],
+	"face-relax": ["{name}'s face smooths out and goes quiet."],
+	"face-blocked": ["{name}'s face twitches, trying to obey, but will not quite do it."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
 	// INTO one is observable, which is why the attempt keys carry the public lines and the
 	// apply keys mostly do not. Movement and posture are the exceptions: going still and
@@ -278,6 +319,25 @@ const LINES: Record<FlavorKey, string[]> = {
 	"arms-out": ["Your arms lift out to either side and hold, level and steady."],
 	"arms-relax": ["Your arms drift back down to your sides. They are yours again."],
 	"pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
+	"tongue-hang": ["Your tongue slides out and hangs there, and your eyes roll up and away. You can't seem to mind."],
+	"tongue-out": ["The tip of your tongue slips out between your lips and stays there, silly and obedient."],
+	"mouth-open": ["Your mouth falls open. It stays open, waiting."],
+	"mouth-parted": ["Your lips part on their own, just a little."],
+	"lip-bite": ["Your teeth find your lower lip and hold it."],
+	smile: ["A smile spreads across your face before you know why. It feels good to wear it."],
+	grin: ["You grin, wide and helpless, and can't stop."],
+	smirk: ["One side of your mouth curls up, all on its own."],
+	pout: ["Your lower lip pushes out into a pout."],
+	moan: ["Your lips shape a moan, soft and silent."],
+	"mouth-close": ["Your mouth closes. Your lips are yours again."],
+	"eyes-closed": ["Your eyes close. They are so much happier closed."],
+	"eyes-wide": ["Your eyes go wide."],
+	"eyes-dazed": ["Your eyes glaze over. There's nothing behind them that needs looking out."],
+	"eyes-hearts": ["Your eyes go soft and full of hearts."],
+	"eyes-open": ["Your eyes open again."],
+	blush: ["Warmth floods into your cheeks, and you blush and blush."],
+	"face-relax": ["Your face smooths out and softens. It's yours again."],
+	"face-blocked": ["Your face tries to obey and can't quite do it."],
 	"speech-block": [
 		"You go to answer and find there is nothing to answer with.",
 		"The words are there. The way out of your mouth is not.",

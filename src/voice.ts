@@ -38,6 +38,7 @@ import {
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
+import { setFace, clearFace, FaceGroup } from "./face";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
@@ -570,6 +571,144 @@ const POSE_SUGGESTIONS: Suggestion[] = [
 			/\b(?:arms|hands) down\b/,
 		],
 		run: () => (setSuggestedPose(null, "arms") ? undefined : "pose-blocked"),
+	},
+];
+
+// --- Her face (v1.11.0) ----------------------------------------------------------------
+// DW 2026-11-11: open and close the eyes, open the mouth, the tongue out, "and other suggestions",
+// as spoken suggestions and trigger actions. BC's own facial expressions; see face.ts for the names,
+// for what is saved and put back, and why it lasts until "relax your face" or waking. Posture
+// Control, like the poses: a face is the body doing what it is told.
+
+/** A face that BC did not take is its own outcome (rule 5). */
+function applyFace(group: FaceGroup, expression: string): FlavorKey | void {
+	if (!setFace(group, expression)) return "face-blocked";
+}
+
+function faceSuggestion(id: FlavorKey, group: FaceGroup, expression: string, examples: string[], patterns: RegExp[], unless?: RegExp[]): Suggestion {
+	return {
+		id,
+		examples,
+		permission: "postureControl",
+		patterns,
+		unless,
+		run: () => applyFace(group, expression),
+		// Only while it is still this face: a trigger's smile must not undo a pout said since.
+		undo: () => {
+			clearFace(group, expression);
+		},
+	};
+}
+
+const EYE_FACE_IDS: FlavorKey[] = ["eyes-closed", "eyes-wide", "eyes-dazed", "eyes-hearts"];
+const MOUTH_FACE_IDS: FlavorKey[] = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan"];
+/** Every face command, applied or released. None is carried by "that will stay with you": DW
+ * wants a face to last until it is relaxed or she wakes. */
+const FACE_IDS: FlavorKey[] = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-relax"];
+
+/** A bare word ("smile", "pout") is matched unless it is a noun or about someone else: "a smile",
+ * "your smile", "you make me smile", "I grin". */
+const NOT_HERS = String.raw`(?<!\b(?:i|we|a|an|your|my|her|his|their|me|us|them|him|that|the) )`;
+const bare = (word: string) => new RegExp(String.raw`${NOT_HERS}\b${word}\b`);
+/** "Do not close your eyes", "don't smile": the negation is not the command. */
+const NEGATED = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
+
+const FACE_SUGGESTIONS: Suggestion[] = [
+	// The full tongue first: "let your tongue hang out" also says "tongue out".
+	faceSuggestion("tongue-hang", "Mouth", "Ahegao", ["let your tongue hang out", "tongue all the way out"], [
+		/\btongue (?:all the way|hanging|lolling) out\b/,
+		/\b(?:let )?your tongue (?:hang|loll|lolls|hangs)(?: out)?\b/,
+		/\bahegao\b/,
+		/\b(?:roll your eyes back|your eyes roll back)\b/,
+	], [NEGATED]),
+	faceSuggestion("tongue-out", "Mouth", "TonguePinch", ["stick out your tongue", "tongue out", "show me your tongue"], [
+		/\b(?:stick|put|poke) (?:out your tongue|your tongue out)\b/,
+		/\btongue out\b/,
+		/\bshow me your tongue\b/,
+	], [NEGATED]),
+	faceSuggestion("mouth-open", "Mouth", "Open", ["open your mouth", "mouth open", "open wide"], [
+		/\bopen your mouth\b/,
+		/\b(?:keep )?your mouth open\b/,
+		/\bmouth open\b/,
+		/(?<!\bi )(?<!\bwe )\bopen wide\b/,
+		/\bsay a+h+\b/,
+	], [NEGATED]),
+	faceSuggestion("mouth-parted", "Mouth", "HalfOpen", ["part your lips", "your lips part"], [
+		/\bpart your lips\b/,
+		/\byour lips (?:part|fall open|drift open|come apart)\b/,
+	], [NEGATED]),
+	faceSuggestion("lip-bite", "Mouth", "LipBite", ["bite your lip"], [
+		/\bbite (?:on )?your (?:bottom |lower )?lip\b/,
+	], [NEGATED]),
+	faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED]),
+	faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED]),
+	faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED]),
+	faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED]),
+	faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
+		/\bmoan (?:for me|for us|softly|quietly|for them)\b/,
+	], [NEGATED]),
+	{
+		id: "mouth-close",
+		examples: ["close your mouth", "tongue back in"],
+		release: true,
+		releaseOf: MOUTH_FACE_IDS,
+		permission: "postureControl",
+		patterns: [
+			/\b(?:close|shut) your mouth\b/,
+			/\bmouth (?:closed|shut)\b/,
+			/\b(?:put your )?tongue (?:back )?(?:in|away)\b/,
+			/\bput your tongue away\b/,
+		],
+		run: () => {
+			clearFace("Mouth");
+		},
+	},
+	// Eyes. Closed before open: "you cannot open your eyes" is a closing.
+	faceSuggestion("eyes-closed", "Eyes", "Closed", ["close your eyes", "your eyes close", "you cannot open your eyes"], [
+		/(?<!\b(?:not|never|don t|dont) )\b(?:close|shut) your eyes\b/,
+		/\b(?:let )?your eyes (?:close|closing|fall closed|drift closed|flutter closed|shut)\b/,
+		/\beyes closed\b/,
+		/\byou (?:cannot|can t) open your eyes\b/,
+	], [/\b(?:do not|don t|dont|never) (?:close|shut) your eyes\b/]),
+	faceSuggestion("eyes-wide", "Eyes", "Surprised", ["eyes wide", "widen your eyes"], [
+		/\beyes (?:go |open )?wide\b/,
+		/\bwiden your eyes\b/,
+	], [NEGATED]),
+	faceSuggestion("eyes-dazed", "Eyes", "Dazed", ["your eyes glaze over", "your eyes go blank"], [
+		/\byour eyes (?:glaze|go glassy|go blank|go empty|unfocus|lose focus)/,
+		/\b(?:blank|empty|glassy) eyes\b/,
+	]),
+	faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED]),
+	{
+		id: "eyes-open",
+		examples: ["open your eyes", "eyes open"],
+		release: true,
+		releaseOf: EYE_FACE_IDS,
+		permission: "postureControl",
+		// "You open your eyes" after a wake condition plants a trigger, and wake itself is checked
+		// before this table, so neither reaches here.
+		patterns: [/\bopen your eyes\b/, /\beyes open\b/],
+		run: () => {
+			clearFace("Eyes");
+		},
+	},
+	faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
+		bare("blush"),
+		/\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/,
+	], [NEGATED]),
+	{
+		id: "face-relax",
+		examples: ["relax your face", "your face relaxes"],
+		release: true,
+		releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-relax"),
+		permission: "postureControl",
+		patterns: [
+			/\brelax your (?:face|expression)\b/,
+			/\byour (?:face|expression) (?:relaxes|softens|goes slack|goes soft|smooths out)\b/,
+		],
+		run: () => {
+			clearFace();
+		},
 	},
 ];
 
@@ -1245,6 +1384,7 @@ const SUGGESTIONS: Suggestion[] = [
 		/\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/,
 	]),
 	...POSE_SUGGESTIONS,
+	...FACE_SUGGESTIONS,
 	{
 		id: "stand",
 		examples: ["stand", "get up", "on your feet"],
@@ -4136,7 +4276,7 @@ function landCommand(sender: number, line: string): void {
 			noteReleased(of);
 			dropCarried(of);
 		}
-	} else if (!HEARING_IDS.includes(id)) {
+	} else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
 		noteApplied(id);
 	}
 }

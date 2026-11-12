@@ -20,6 +20,7 @@ For a worked example of these phrases used in a live scene, see [A Sample Sessio
 * **[Going Deeper Mid-Trance](#going-deeper-mid-trance)**
 * **[Ending a Trance](#ending-a-trance--never-gated)**
 * **[Movement and Posture](#movement-and-posture)**
+* **[Face](#face--posture-control--yielding-20)**
 * **[Speech](#speech)**
 * **[Hearing](#hearing--hearing--entranced-40)**
 * **[Sight](#sight--sight--entranced-40)**
@@ -117,6 +118,33 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 **Follow / Leash** uses Bondage Club's own leash, with no leash or collar needed and nothing to click. Once the phrase lands, the hypnotist is told the subject will follow. When the hypnotist leaves the room, the game brings the subject along, and the subject cannot walk out on their own while the hypnotist is in the room. *"You can leave"*, waking, or the safeword ends it.
 
 It needs three things. **Both players must run ECHS:** without it on the hypnotist's side, the subject feels the pull but nothing can take them to another room, and the subject is told so. **The subject's own Bondage Club setting that lets others leash them must be on** (Preferences, Immersion). **The room must not block leashing.** If either setting stops it, the phrase does not land and the hypnotist is told why. Being tied to furniture or shut in a cage also stops it, as it does a real leash. Only the person who said the phrase can lead the subject.
+
+---
+
+### Face — Posture Control · Yielding (20)
+
+The subject's face changes the way they are told, and everyone in the room sees it.
+
+| Say | What it does |
+|---|---|
+| *"close your eyes"* · *"your eyes close"* · *"you cannot open your eyes"* | Eyes closed |
+| *"eyes wide"* · *"widen your eyes"* | Eyes wide, surprised |
+| *"your eyes glaze over"* · *"your eyes go blank"* | Dazed eyes |
+| *"hearts in your eyes"* | Heart eyes |
+| *"open your eyes"* · *"eyes open"* | — *release* (eyes only) |
+| *"open your mouth"* · *"mouth open"* · *"open wide"* | Mouth open |
+| *"part your lips"* · *"your lips part"* | Lips parted |
+| *"stick out your tongue"* · *"tongue out"* · *"show me your tongue"* | The tip of the tongue out |
+| *"let your tongue hang out"* · *"tongue all the way out"* | Tongue all the way out, eyes rolled back |
+| *"bite your lip"* | Biting the lower lip |
+| *"smile"* · *"grin"* · *"smirk"* · *"pout"* · *"moan for me"* | That expression |
+| *"close your mouth"* · *"tongue back in"* | — *release* (mouth only) |
+| *"blush"* · *"your cheeks burn"* | A deep blush |
+| *"relax your face"* · *"your face relaxes"* | — *release* (the whole face) |
+
+**A face lasts until it is let go or the subject wakes.** Waking, the safeword, or turning hypnosis off puts the face back as it was before, and *"that will stay with you"* does not carry it past the wake. If the subject has spiral eyes on (Trance Defaults), *"close your eyes"* closes them and *"open your eyes"* brings the spirals back. A face the subject changes themselves in the meantime is theirs, and is left alone. A face can also be a trigger's action, like any other suggestion.
+
+> ⚠️ **Caution (Patter Collision):** *"Close your eyes"* is common deepening patter. With Posture Control ticked and the subject under, it now closes their eyes. Plain words like *"smile"* and *"blush"* work on their own too, though not in lines such as *"you make me smile"* or *"I love your smile"*.
 
 ---
 

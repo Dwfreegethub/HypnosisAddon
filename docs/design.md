@@ -259,6 +259,16 @@ change she or another add-on made mid-trance is kept. Applying twice never overw
 copy. Expressions go through BC's `CharacterSetFacialExpression` (R133), which handles both eyes. **v1.10.1 (DW):** the choices are Dazed, Spirals and Hearts, and Spirals also hides her eye
 shadow by opacity (never by taking it off), put back the same way.
 
+**Her face on command (v1.11.0, DW 2026-11-11; Missy's 11-08 note).** Spoken suggestions and
+trigger actions under **Posture Control**, at its depth: eyes (closed, wide, dazed, hearts), mouth
+(open, parted, the tongue's tip out as `TonguePinch`, all the way out as `Ahegao`, lip bite, smile,
+grin, smirk, pout, moan) and blush, all BC's own expressions through `CharacterSetFacialExpression`.
+**Decided (DW):** it lasts until *"relax your face"* (or *"open your eyes"* / *"close your mouth"*
+for one part) or waking, and is never carried; with trance eyes on, opening the eyes gives the
+spirals back. `src/face.ts` uses the same safeguards as the eyes: saved first, put back on every
+teardown and on a load that is not resuming, only where still ours. The face is put back before
+the trance eyes, so the spirals are there to be taken off. Not yet live-tested.
+
 **The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
 choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces
 the grey veil, and a landed command swells the spiral (+0.3 opacity at the peak of the same 1.8 s

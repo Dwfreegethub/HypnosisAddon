@@ -27,7 +27,7 @@ Every feature needs both its permission ticked **and** your trance at least as d
 | Not noticing touches | Touches / Activities | Awareness | 0 | Drifting |
 | Freezing | Movement Restriction | Permissions | 20 | Yielding |
 | Muting | Speech Restriction | Permissions | 20 | Yielding |
-| Poses | Posture Control | Permissions | 20 | Yielding |
+| Poses and face | Posture Control | Permissions | 20 | Yielding |
 | Wardrobe lock | Clothing Restriction | Permissions | 20 | Yielding |
 | Blocking self-touch | Self-Touch Control | Permissions | 20 | Yielding |
 | Commanded touch (self, or the hypnotist) | Made to Act | Permissions | 20 | Yielding |
@@ -64,7 +64,7 @@ What others may do to you. Everything here is off until you turn it on.
 | Setting | What It Allows |
 |---|---|
 | **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you; nobody else can change your pose. Items can still be put on you. |
-| **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. |
+| **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. Also the face: closing the eyes, opening the mouth, the tongue out, a smile, a blush and the like. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the side of whoever said it, across room changes, using Bondage Club's own leash. No leash or collar is needed. Requires your own BC setting that lets others leash you, and the hypnotist must also run ECHS. |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |

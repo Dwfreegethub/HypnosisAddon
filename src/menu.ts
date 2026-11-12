@@ -97,6 +97,7 @@ import {
 } from "./voice";
 import { isHypnotized, isSessionLive, hardFloorStop } from "./session";
 import { applyTranceEyes, restoreTranceEyes } from "./eyes";
+import { clearFace } from "./face";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -2385,7 +2386,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) removeEffect("BlockWardrobe");
 			break;
 		case "postureControl":
-			if (!enabled) clearSuggestedPose();
+			if (!enabled) {
+				clearSuggestedPose();
+				clearFace();
+			}
 			break;
 		case "speechRestriction":
 		case "tranceCannotSpeak":
