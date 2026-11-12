@@ -47,7 +47,7 @@ On a fresh install, every permission starts switched **off**, including the mast
 Permissions are configured per feature:
 * **Movement restriction:** Freezing in place and pose.
 * **Speech restriction:** Verbal muting in room chat.
-* **Posture control:** Kneeling, standing, leg/arm poses.
+* **Posture control:** Kneeling, standing, leg/arm poses, and the face (eyes, mouth, tongue, blush).
 * **Wardrobe restrictions:** Locking the wardrobe screen.
 * **Arousal control:** Arousal shifts, orgasm denial, forced climaxes.
 * **Undressing:** Removing clothes on command.

@@ -524,6 +524,9 @@ interface HypnoAddonSettings {
 	/** What her eyes were before a trance changed them, kept until they are put back (eyes.ts). Here,
 	 * not in memory, so a crash mid-trance can still be undone on the next load. */
 	eyesSaved?: EyesSaved;
+	/** Her face before a spoken face command changed it (v1.11.0, face.ts), kept until it is put
+	 * back. Here, not in memory, for the same reason as eyesSaved. */
+	faceSaved?: FaceSaved;
 	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
 	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
 	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
@@ -681,6 +684,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.tranceEyes !== undefined && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
 	if (s.tranceEyeColor !== undefined && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
 	if (s.eyesSaved !== undefined && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
+	if (s.faceSaved !== undefined && (typeof s.faceSaved !== "object" || s.faceSaved === null || typeof s.faceSaved.groups !== "object" || s.faceSaved.groups === null)) delete s.faceSaved;
 	s.experience ??= 0;
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
@@ -1506,6 +1510,21 @@ export function setEyesSaved(saved: EyesSaved | undefined): void {
 	const s = loadSettings();
 	if (saved) s.eyesSaved = saved;
 	else delete s.eyesSaved;
+	saveSettings();
+}
+
+/** Her face before spoken face commands (v1.11.0, face.ts): per group, what it was and what we set. */
+export type FaceSaved = {
+	at: number;
+	groups: Partial<Record<"Eyes" | "Mouth" | "Blush", { was: string | null; set: string }>>;
+};
+export function getFaceSaved(): FaceSaved | undefined {
+	return loadSettings().faceSaved;
+}
+export function setFaceSaved(saved: FaceSaved | undefined): void {
+	const s = loadSettings();
+	if (saved && Object.keys(saved.groups).length) s.faceSaved = saved;
+	else delete s.faceSaved;
 	saveSettings();
 }
 

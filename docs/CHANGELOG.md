@@ -20,6 +20,37 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Added 2026-11-11 (v1.11.0 RC) — her face on command
+
+Missy's feedback line of 2026-11-08 ("check if addon can adjust fave") was DW's own note, meaning
+*face*: "open eyes, close eyes, open mouth, stick out tongue, things like that". DW's decisions
+(2026-11-11): it lasts until "relax your face" or waking; with trance eyes on, closing then opening
+the eyes gives the spirals back; both tongue faces; and a face can be a trigger action.
+
+- **BC's own expressions, through BC's own setter.** `CharacterSetFacialExpression` (R132
+  Character.js) sets both eyes for "Eyes", refuses an expression the group does not allow without a
+  word, and for the player in a room sends the change itself. Names from R132 Female3DCG
+  `AllowExpression`. There are two tongue faces: `TonguePinch` (the tip out: *"stick out your
+  tongue"*) and `Ahegao` (all the way out, eyes rolled: *"let your tongue hang out"*). The local BC
+  clone could not be pulled (the server reset the connection), so these are R132's lists; check
+  them against the live game in the test run.
+- **Posture Control, no new permission.** A face is the body doing what it is told, as a pose is,
+  and the same depth gate.
+- **Saved first, put back only if still ours** (`src/face.ts`), as the trance eyes are: BC saves the
+  expression with her character, so a crash mid-trance is put right on the next load
+  (`attemptRecovery`). What is saved is the face at the time of the FIRST command on that part, which
+  is why "open your eyes" gives back her spiral eyes while she is under. On every way out the face is
+  put back before `restoreTranceEyes`, so the spirals are then there to be taken off.
+- **Not carried.** Face ids are left out of `noteApplied` like the hearing modes: DW wants a face to
+  end on the wake.
+- **Releases by part.** *"Open your eyes"* (also not a wake: wake needs "wake" or "you open your
+  eyes" after a condition), *"close your mouth"*, and *"relax your face"* for all of it. A trigger's
+  undo is `clearFace(part, its own expression)`, so a trigger letting go leaves a face said since.
+- **Near misses guarded.** A bare "smile", "grin", "pout", "smirk" or "blush" is not taken after
+  "a", "your", "me", "I" and the like ("you make me smile", "I love your smile"), nor when negated.
+- Tests: `test/face.mjs`. `test/trance-eyes.mjs`'s two source-shape checks now allow the face step
+  between the trance clear and `restoreTranceEyes`.
+
 ### Fixed 2026-11-11 (v1.10.2 RC) — Wings stayed on with spiral eyes
 
 DW: "It did not clear the eye shadow - WINGS". v1.10.1 hid the shadow by `Property.Opacity = 0`, but

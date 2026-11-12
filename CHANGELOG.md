@@ -12,6 +12,17 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.11.0 RC · 11 November 2026
+
+- **The hypnotist can now change your face.** With Posture Control ticked, while you are under:
+  *"close your eyes"*, *"open your mouth"*, *"stick out your tongue"*, *"let your tongue hang out"*,
+  *"bite your lip"*, *"smile"*, *"grin"*, *"smirk"*, *"pout"*, *"moan for me"*, *"blush"*,
+  *"eyes wide"*, *"your eyes glaze over"* and *"hearts in your eyes"*. Everyone in the room sees it.
+- **It lasts until it is let go or you wake.** *"Relax your face"* puts all of it back,
+  *"open your eyes"* and *"close your mouth"* put back just that part, and waking or your safeword
+  puts everything back. If you have spiral eyes on, opening your eyes brings the spirals back.
+- **A trigger can change your face too,** like any other suggestion.
+
 ## v1.10.2 RC · 11 November 2026
 
 - **Spirals now hide every eye shadow, Wings included.** Some eye shadows, like Wings, have a line

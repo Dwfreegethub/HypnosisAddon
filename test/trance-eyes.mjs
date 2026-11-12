@@ -213,9 +213,9 @@ const session = readFileSync(new URL("../src/session.ts", import.meta.url), "utf
 const rec = readFileSync(new URL("../src/recovery.ts", import.meta.url), "utf8");
 check("going under applies them", /function applyTranceState\(\)[\s\S]{0,900}applyTranceEyes\(\)/.test(session), true);
 check("every teardown that clears the trance also puts the eyes back",
-	(session.match(/clearTranceStates\(\);\s*restoreTranceEyes\(\);/g) ?? []).length, (session.match(/clearTranceStates\(\);/g) ?? []).length);
+	(session.match(/clearTranceStates\(\);(?:\s*\/\/[^\n]*)?\s*(?:clearFace\(\);\s*)?restoreTranceEyes\(\);/g) ?? []).length, (session.match(/clearTranceStates\(\);/g) ?? []).length);
 check("recovery's release puts them back", /function releaseEverything[\s\S]{0,400}restoreTranceEyes\(\)/.test(rec), true);
-check("  and so does any load that is not resuming the trance", /outcome !== "resumed" && outcome !== "waiting"\) restoreTranceEyes\(\)/.test(rec), true);
+check("  and so does any load that is not resuming the trance", /outcome !== "resumed" && outcome !== "waiting"\)[\s\S]{0,80}restoreTranceEyes\(\)/.test(rec), true);
 check("no asset swap: the eye items are never replaced", /\.Asset\s*=/.test(f3), false);
 
 console.log(`trance-eyes: ${pass}/${pass + fail} passed`);
