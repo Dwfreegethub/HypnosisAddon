@@ -212,6 +212,8 @@ declare function InventoryRemove(character: any, assetGroup: string, refresh?: b
 declare function InventoryGet(character: any, assetGroup: string): any;
 // R133 Character.js: "Eyes" sets both eyes (it recurses into Eyes2); refuses an expression the group
 // does not allow. See eyes.ts.
+// R133 Inventory.js / Appearance.js, for taking an eye shadow off and putting it back (eyes.ts).
+declare function CharacterAppearanceSetItem(character: any, group: string, asset: any, color?: any, difficulty?: number | null, memberNumber?: number | null): any;
 declare function CharacterSetFacialExpression(character: any, group: string, expression: string | null, timer?: number, color?: string): void;
 // Crafting.js — crafted descriptions may be stored UTF16-packed; Decode returns plain text.
 declare const CraftingDescription: { Decode(description: string): string };

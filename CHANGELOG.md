@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.10.2 RC · 11 November 2026
+
+- **Spirals now hide every eye shadow, Wings included.** Some eye shadows, like Wings, have a line
+  the game will not fade out, so they stayed on. Those are now taken off while you are under and put
+  back exactly as they were when you wake, crafted name and all.
+
 ## v1.10.1 RC · 11 November 2026
 
 - **Fewer eye choices, and spirals look cleaner.** *Eyes while under* is now Dazed, Spirals or
