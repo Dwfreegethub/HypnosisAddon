@@ -20,6 +20,33 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.12.2 RC) — the full hold no longer blames "someone" for her own client's add-ons
+
+DW's live run of v1.12.1: the room read *"Missy does not budge"* six times for Biker's two add-on
+moves: once straight after *"no one can move you"* before anyone acted (the v1.12.0 log had the
+same *"Someone tries to move you"* there), twice with nothing between, and once just before the
+hypnotist's own *"legs closed"* landed. Biker confirmed she never appeared to move on their screen.
+
+- **Cause.** v1.12.0 read every change that was not her own input as someone else's. Changes from
+  her own client also land there: another add-on reacting to our own action inside the same chat
+  message's dispatch, and timers (WCE's animation engine re-applies on one).
+- **Fix.** `changeSource()` in `effects.ts` now has three answers: *hers* (her click or key), *someone*
+  (dispatched from a server message: WebSocket `message`, or the polling fallback's XHR `load` /
+  `readystatechange`, and not the dispatch that carried one of our own actions, which
+  `markOwnAction()` records when we apply the Freeze, set the level, or pose her), and *auto*
+  (everything else). The full hold refuses all three but tells her and the room only for *hers* and
+  *someone*. A bare `ChatRoomSyncPose` about her names no sender and may be the server echoing her
+  own client, so it is undone quietly too; BC's own route for another player,
+  `ChatRoomSyncCharacter`, names one and is still told. The ordinary hold is unchanged.
+- **Diagnostics.** Each refusal and pass-through now logs the pose asked for, the source and six
+  frames of the calling code (only when logging is on: the Hypno Testing room or `/echs debug on`),
+  so the add-on behind the next stray one can be named rather than guessed.
+- **Risk.** A remote request an add-on handles on a timer after the message would now read as
+  *auto*: still refused under the full hold, but without the lines. The ordinary hold lets *auto*
+  through as before, so it is unaffected.
+- `test/held-still.mjs` 80 (+7): a timer change, a same-dispatch reaction, a bare pose update (all
+  quiet), a later message and a named sync (both told). Three fail on v1.12.1.
+
 ### Fixed 2026-11-14 (v1.12.1 RC) — the room is told when the full hold refuses someone
 
 DW's live run of v1.12.0: the full hold stopped the moves, but the room read

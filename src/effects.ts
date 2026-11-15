@@ -1,4 +1,4 @@
-import { log, warn } from "./log";
+import { log, warn, isDebugLogging } from "./log";
 import { tellPlayer, tellRoom, fillTokens } from "./notify";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
@@ -152,6 +152,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	// whatever asks sees her as a real restraint would leave her. A real restraint's Freeze stays.
 	// Local only: nothing is sent to the room, and the cache is rebuilt again straight after.
 	const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
+	markOwnAction();
 	ownPoseChange++;
 	if (liftOwnFreeze) refreshOwnEffects();
 	try {
@@ -655,6 +656,7 @@ export function isHeldFully(): boolean {
 export function setHoldFully(on: boolean): void {
 	if (holdFully !== on) log(`hold level: ${on ? "no one can move her" : "others may still move her"}`);
 	holdFully = on;
+	markOwnAction();
 }
 
 /** The events her own hand or keyboard raises. A change made while one of these is being handled is
@@ -667,8 +669,47 @@ const OWN_INPUT_EVENTS = new Set([
 /** Is this pose change her own doing? See the block comment above: window.event names the event
  * the browser is dispatching right now, if any. */
 function fromHerOwnInput(): boolean {
+	return changeSource() === "hers";
+}
+
+// --- Whose change, in three (v1.12.2, DW's live run of v1.12.1, 2026-11-14) ---------------------
+// v1.12.1 called every change that was not her own input "someone", and the room was told "does not
+// budge" six times for two real attempts: once straight after "no one can move you" before anyone
+// acted, twice with nothing between, and once just before the hypnotist's own "legs closed" landed.
+// Those came from her OWN client: another add-on reacting to our change in the same chat message's
+// dispatch, or nudging her pose from a timer (WCE's animation engine re-applies on one). So:
+//   - "hers": her own click or key (as before);
+//   - "someone": a message from the server, which is how another player's request reaches her
+//     (socket.io's WebSocket "message", or its polling fallback's XHR "load"/"readystatechange"),
+//     and not the same dispatch that carried one of our own actions;
+//   - "auto": anything else — a timer, an animation frame, or a side effect of our own action.
+// The full hold refuses all three, but only "hers" and "someone" are told; "auto" is quiet. The
+// ordinary hold refuses only "hers", as in v1.12.0. Refusals log the calling code when logging is
+// on, so the add-on behind an "auto" or "someone" can be named.
+const REMOTE_EVENTS = new Set(["message", "load", "readystatechange"]);
+type ChangeSource = "hers" | "someone" | "auto";
+/** The event that was being dispatched when we last acted (applied the hold, or posed her). A change
+ * inside the same dispatch is another add-on reacting to us, not a player. */
+let ownActionEvent: unknown = null;
+
+/** Note that WE are acting now, so changes in this same dispatch are read as side effects. */
+function markOwnAction(): void {
+	ownActionEvent = (globalThis as any).event ?? null;
+}
+
+function changeSource(): ChangeSource {
 	const e = (globalThis as any).event;
-	return !!e && typeof e.type === "string" && OWN_INPUT_EVENTS.has(e.type);
+	if (!e || typeof e.type !== "string") return "auto";
+	if (OWN_INPUT_EVENTS.has(e.type)) return "hers";
+	if (e === ownActionEvent) return "auto";
+	return REMOTE_EVENTS.has(e.type) ? "someone" : "auto";
+}
+
+/** A few frames of the calling code, for the log: which add-on asked. Only built when logging. */
+function caller(): string {
+	if (!isDebugLogging()) return "";
+	const frames = (new Error().stack ?? "").split("\n").slice(3, 9).map((f) => f.trim());
+	return frames.length ? `\n  from: ${frames.join("\n        ")}` : "";
 }
 
 const OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
@@ -754,11 +795,12 @@ export function installEffectHooks(modApi: any): void {
 	const holdPose = (args: any[], next: (a: any[]) => any) => {
 		const [C, pose, force] = args;
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-			const hers = fromHerOwnInput();
-			if (hers || isHeldFully()) {
-				if (hers) heldNotice(OWN_TRY_LINE);
-				else othersRefused(true);
-				log(`held still: refused a pose change (${hers ? "her own" : "not hers"}${isHeldFully() ? ", held fully" : ""})`);
+			const source = changeSource();
+			if (source === "hers" || isHeldFully()) {
+				// Told only when it was her, or another player; "auto" (her own client's add-ons) is quiet.
+				if (source === "hers") heldNotice(OWN_TRY_LINE);
+				else if (source === "someone") othersRefused(true);
+				log(`held still: refused a pose change to ${JSON.stringify(pose)} (${source}${isHeldFully() ? ", held fully" : ""})${caller()}`);
 				return undefined;
 			}
 			// Someone else, through an add-on, while she is only held: it lands, and becomes the pose
@@ -776,7 +818,7 @@ export function installEffectHooks(modApi: any): void {
 				if (liftOwnFreeze) refreshOwnEffects();
 			}
 			noteHeldPose();
-			log("held still: let a pose change through (not hers; others may move her)");
+			log(`held still: let a pose change to ${JSON.stringify(pose)} through (${source}; others may move her)${caller()}`);
 			return result;
 		}
 		return next(args);
@@ -814,9 +856,10 @@ export function installEffectHooks(modApi: any): void {
 			log("held still: kept an incoming pose update (others may move her)");
 			return result;
 		}
+		// Quiet (v1.12.2): a bare pose update names no sender, so it may be the server's echo of her own
+		// client's send. BC's own route for another player is the sync above, which does name one.
 		restoreHeldPose(currentPoses());
-		othersRefused(false);
-		log("held still: refused an incoming pose update");
+		log(`held still: refused an incoming pose update ${JSON.stringify(data?.Pose)}`);
 		return undefined;
 	});
 	// THE BUTTON, the way a real restraint does it (v0.91.3). BC's kneel/stand button reads
@@ -845,18 +888,18 @@ export function installEffectHooks(modApi: any): void {
 		if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
 			return next(args);
 		}
-		const hers = fromHerOwnInput();
-		if (!hers && !isHeldFully()) {
+		const source = changeSource();
+		if (source !== "hers" && !isHeldFully()) {
 			// Someone else's change that came in by another road, while she is only held: it stands.
 			noteHeldPose();
-			log("held still: a pose change that is not hers got past the hook; kept (others may move her)");
+			log(`held still: a pose change that is not hers got past the hook; kept (${source}; others may move her)${caller()}`);
 			return next(args);
 		}
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-		if (hers) heldNotice(OWN_TRY_LINE);
-		else othersRefused(false); // the held pose is what this send now carries
-		log("held still: a pose change got past the hook; put the held pose back before it was sent");
+		if (source === "hers") heldNotice(OWN_TRY_LINE);
+		else if (source === "someone") othersRefused(false); // the held pose is what this send now carries
+		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${source})${caller()}`);
 		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
 	});
 	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
@@ -917,6 +960,8 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 		if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
 		return true;
 	}
+	// First, so an add-on reacting to the update below is read as a side effect of ours (v1.12.2).
+	if (effectName === "Freeze") markOwnAction();
 	OWN_EFFECTS.add(effectName);
 	// Defensive: normally already done at startup, but an effect applied before the
 	// retry loop succeeded would otherwise be stripped from our own appearance too.

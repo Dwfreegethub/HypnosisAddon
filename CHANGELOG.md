@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.2 RC · 14 November 2026
+
+- **"Does not budge" only when someone really tried.** While you were held with *"no one can move
+  you"*, the room could be told you didn't budge when nobody had touched you, because another
+  add-on on your own game was nudging your pose. Those nudges are still stopped, just quietly now.
+
 ## v1.12.1 RC · 14 November 2026
 
 - **When "no one can move you" stops someone, the room is told.** Another player's add-on can
