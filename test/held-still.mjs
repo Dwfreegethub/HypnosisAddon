@@ -57,6 +57,8 @@ globalThis.ChatRoomSyncCharacter = (data) => {
 	Player.ActivePose = [...data.Character.ActivePose];
 	if (data.Character.Appearance) Player.Appearance = data.Character.Appearance;
 };
+// R132 ChatRoomSyncSingle, trimmed: CharacterLoadOnline on the character it carries sets her pose.
+globalThis.ChatRoomSyncSingle = (data) => { if (data.Character.MemberNumber === Player.MemberNumber) Player.ActivePose = [...data.Character.ActivePose]; };
 globalThis.ChatRoomSyncPose = (data) => { if (data.MemberNumber === Player.MemberNumber) Player.ActivePose = [...data.Pose]; };
 let poseUpdates = [];
 let said = [];
@@ -263,6 +265,26 @@ check("held fully: all fours by a whole-character sync is put back", [Player.Act
 check("  and told", said.some((s) => /Someone tries/.test(s)), true);
 ServerSend("ChatRoomCharacterUpdate", { ID: "c2", ActivePose: ["AllFours"], Appearance: [] });
 check("  someone else's character, updated from her client, is left alone", charUpdates.at(-1), { ID: "c2", ActivePose: ["AllFours"] });
+// v1.12.5, DW's live run of v1.12.4: belly and all fours got through with no "held still" line.
+// The other player's whole-character update reaches her as ChatRoomSyncSingle, which was not hooked.
+// Failure: she ends up on all fours, or on her belly.
+later();
+ChatRoomSyncSingle({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, ActivePose: ["AllFours"] } });
+check("held fully: all fours by ChatRoomSyncSingle is undone", Player.ActivePose, ["BaseUpper", "Kneel"]);
+check("  and told, and re-sent", [said.some((s) => /Someone tries/.test(s)), emotes.length, poseUpdates.at(-1)], [true, 1, ["BaseUpper", "Kneel"]]);
+// DW: "once she stops moving me the messages keep happening". The same pose asked again and again
+// is refused every time, but told once. Failure: a room line for each repeat.
+offset += 10_000; said = []; emotes = []; poseUpdates = [];
+ChatRoomSyncSingle({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, ActivePose: ["AllFours"] } });
+fromRemote(() => PoseSetActive(Player, "AllFours"));
+await Promise.resolve();
+check("  the same pose again, ten seconds on: refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
+check("  but quietly", [said.length, emotes.length], [0, 0]);
+offset += 10_000;
+ChatRoomSyncSingle({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, ActivePose: ["Hogtied"] } });
+check("  a different pose (her belly) is a new attempt, and told", [Player.ActivePose, emotes.length], [["BaseUpper", "Kneel"], 1]);
+ChatRoomSyncSingle({ SourceMemberNumber: 1, Character: { MemberNumber: 1, ActivePose: ["BaseUpper", "Kneel"] } });
+check("  her own ChatRoomSyncSingle is left alone", Player.ActivePose, ["BaseUpper", "Kneel"]);
 later();
 asHer(() => PoseSetActive(Player, "BaseLower"));
 check("held fully: her own is still refused, with her own line", [Player.ActivePose, said.some((s) => /your body does not answer/.test(s))], [["BaseUpper", "Kneel"], true]);

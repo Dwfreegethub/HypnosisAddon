@@ -12,6 +12,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.5 RC · 14 November 2026
+
+- **Belly and all fours are really held now.** With *"no one can move you"*, another player could
+  still put you on all fours or on your belly. The game delivers those moves in a way ECHS wasn't
+  watching. It is now.
+- **No more repeating messages.** After someone stopped trying to move you, *"does not budge"*
+  could keep appearing every few seconds. The same move is now announced once; trying it again is
+  still stopped, just without the message.
+
 ## v1.12.4 RC · 14 November 2026
 
 - **Belly and all fours are held too.** Some ways of moving you send your pose along with your
