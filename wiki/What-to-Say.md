@@ -89,13 +89,16 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 ### Movement and Posture
 
-**"You cannot move" holds her still.** She stays in the pose and the place she is in: her own pose changes are refused (arms too), she cannot leave the room, and on a map room she cannot walk. Your spoken pose commands (*"Missy, kneel"*) still move her; nobody else can change her pose. Items can still be put on her. Her safeword always ends it.
+**"You cannot move" holds her still.** She stays in the pose and the place she is in: her own pose changes are refused (arms too), she cannot leave the room, and on a map room she cannot walk. Your spoken pose commands (*"Missy, kneel"*) still move her, and so can anyone else who adjusts her pose. Items can still be put on her. Her safeword always ends it.
+
+**"No one can move you" holds her harder.** The same stillness, and now nobody else can change her pose either: anyone who tries finds her back where she was, and she sees *"Someone tries to move you, and your body will not be moved."* Your spoken pose commands still move her. Saying *"you cannot move"* afterwards eases it back to the ordinary hold, and *"you can move again"* ends either one.
 
 > ⚠️ **Caution (Patter Collision):** *"Surrender"* and *"relax your arms"* are active pose commands. With Posture Control ticked, *"Missy, surrender to my voice"* raises her arms over her head, and *"Missy, relax your arms and legs"* drops any arm pose she is holding.
 
 | Say | Needs (Default Depth) |
 |---|---|
-| *"you cannot move"* · *"stay still"* · *"you are frozen"* · *"you will be frozen"* · *"you'll be stuck"* | Movement Restriction · **Yielding (20)** — holds her in her pose and place |
+| *"you cannot move"* · *"stay still"* · *"you are frozen"* · *"you will be frozen"* · *"you'll be stuck"* | Movement Restriction · **Yielding (20)** — holds her in her pose and place; others may still adjust her |
+| *"no one can move you"* · *"nobody can move you"* · *"you cannot be moved"* · *"you are frozen solid"* · *"you are a statue"* | Movement Restriction · **Yielding (20)** — the same, and no one else can change her pose either |
 | *"kneel"* · *"on your knees"* | Posture Control · **Yielding (20)** |
 | *"kneel spread"* · *"spread your knees"* | Posture Control · **Yielding (20)** |
 | *"spread your legs"* · *"stand with your legs apart"* | Posture Control · **Yielding (20)** |

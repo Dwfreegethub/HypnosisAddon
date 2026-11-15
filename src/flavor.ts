@@ -13,6 +13,8 @@ import { tellPlayer, tellRoom, fillTokens } from "./notify";
 export type FlavorKey =
 	| "movement-block"
 	| "movement-release"
+	/** The full hold (v1.12.0): no one else can move her either. */
+	| "movement-lock"
 	| "follow-block"
 	| "follow-release"
 	| "clothing-block"
@@ -157,6 +159,10 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 		"{name} stops moving, as though the idea had gone.",
 	],
 	"movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+	"movement-lock": [
+		"{name} goes perfectly still, as if set in stone.",
+		"{name} stops, and stays stopped, like a statue.",
+	],
 	// Follow is observable in the same way going still is: nobody sees the compulsion land,
 	// but they see {name} close the distance and keep it closed. Naming {name} is required —
 	// room lines carry no sender.
@@ -265,6 +271,11 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your body simply stops listening to you.",
 		"You tell your legs to move. Nothing happens.",
 		"Somewhere far off you decide to move, and the message never arrives.",
+	],
+	"movement-lock": [
+		"You go still, all the way through. Not even another's hands could move you now.",
+		"You set like stone. Whoever tries to move you will find you exactly where you are.",
+		"Your body locks in place, and stays locked, whoever reaches for it.",
 	],
 	"movement-release": [
 		"Control seeps back into your limbs.",

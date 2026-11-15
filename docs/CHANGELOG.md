@@ -20,6 +20,39 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Decided 2026-11-14 (v1.12.0 RC) — two levels of hold; others may adjust a held subject
+
+DW, 2026-11-14: while hypnotized, someone moving her through the BC interface "acts like you are
+moving, but you don't move", and she got the line meant for her own attempt. DW chose three levels:
+unfrozen; she cannot move but others can adjust her; and no one can move her. **This re-decides
+v0.91.0's "no to others"** (DW, 2026-09-26), which is now only the third level.
+
+- **Levels.** `"movement-block"` (*"you cannot move"* and its kin) is the ordinary hold: her own
+  changes are refused, anyone else's land. New `"movement-lock"` (*"no one can move you"*, *"you
+  cannot be moved"*, *"you will not be moved"*, *"frozen solid"*, *"a statue"*) is the full hold,
+  the old behaviour. Same permission and depth (Movement Restriction). Saying the ordinary one after
+  the full one eases it; `"movement-release"` ends both. The level is `holdFully` in `effects.ts`,
+  cleared whenever our Freeze comes off (the commanded undress lifts and restores it, level too).
+  Local only: after a reload the Freeze that rides the item is the ordinary hold.
+- **Trance default.** New `tranceNoOneMoves`, *"...and no one else can move you either"*, indented
+  under Cannot Move, **off by default**, so a trance's own hold now lets others adjust her. Walking
+  trance and "be still" honour it.
+- **Whose change is it.** Add-ons that pose her for someone else (BCX, LSCG, ...) call
+  `PoseSetActive` on HER client, as her own click does; that is why the old hold refused them with
+  her own line. The hold now reads `window.event` (we run in the page, `@grant none`): a change made
+  while one of her clicks or key presses is being dispatched is hers, and one made in a socket
+  message, a timer or an animation frame is not. Under the ordinary hold such a change goes through
+  with our Freeze lifted for the call (WCE and LSCG, hooked after us, refuse to pose a frozen
+  character), and becomes the pose she is held in, so the `ServerSend` net does not take it back.
+  Under the full hold it is refused with *"Someone tries to move you…"*. BC's own route for another
+  player (the kneel/stand help, a `ChatRoomSyncCharacter`) and a bare `ChatRoomSyncPose` follow the
+  same split. BC's pose menu is self-only (R132 `_DialogPoseMenu extends _DialogSelfMenu`).
+- **Known gap.** An add-on's self-pose path that runs outside her input (a chat command handled on a
+  timer, say) would read as someone else's and pass under the ordinary hold. None is known.
+- **Tests.** `test/held-still.mjs` (69) covers both levels by BC sync, bare pose update, add-on
+  `PoseSetActive` and the `ServerSend` net, the trance default, walking, and the wordings;
+  `test/held-wce.mjs` marks her own calls as clicks. **Not run live.**
+
 ### Fixed 2026-11-14 (v1.11.1 RC) — sight never reached BC's blind level
 
 Found live by DW, 2026-11-14 (Missy in toy mode): every sight suggestion told the hypnotist

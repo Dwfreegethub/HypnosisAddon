@@ -81,7 +81,7 @@ If an effect or restriction persists unexpectedly, escalate in this order:
 * **If you are the subject:** `/echs wake` breaks a *shallow* trance yourself. A deep trance refuses it; use `/echs safeword` to get out immediately.
 * **If you are the hypnotist:** `/echs wake` only ever wakes yourself. To wake your partner, speak a wake line (*"Missy, wake up"*) or click **Wake Up** on their profile remote.
 
-*Trying to move while held:* you see *"You try to shift, and your body does not answer."* It shows at most once every 30 seconds, so repeated tries don't flood your chat.
+*Trying to move while held:* you see *"You try to shift, and your body does not answer."* If someone else tries to move you while you are held so that no one can (*"no one can move you"*), you see *"Someone tries to move you, and your body will not be moved."* instead. Either shows at most once every 30 seconds, so repeated tries don't flood your chat. Under the ordinary hold (*"you cannot move"*), others can still adjust your pose.
 
 *After a refresh or disconnect:* a trigger that was holding you comes back and finishes the time it had left. Time spent logged out counts, so one that would have ended while you were away has ended. To come back clear instead, tick **Release everything if you disconnect** on your Trance Defaults tab.
 

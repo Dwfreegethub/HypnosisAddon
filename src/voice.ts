@@ -14,6 +14,8 @@ import {
 	withForcedSpeech,
 	setSight,
 	getSight,
+	isHeldFully,
+	setHoldFully,
 	type SightLevel,
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
@@ -293,6 +295,7 @@ function applyUndress(count: number): FlavorKey | void {
 	// CanChangeOwnClothes() answer false, which the "locked" branch would then blame. Actually
 	// lifting the effect and re-reading is the only way to tell our freeze from a real lock.
 	const liftedOwnFreeze = heldByUs("Freeze");
+	const wasHeldFully = isHeldFully();
 	if (liftedOwnFreeze) {
 		removeEffect("Freeze");
 		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
@@ -311,6 +314,7 @@ function applyUndress(count: number): FlavorKey | void {
 	} finally {
 		if (liftedOwnFreeze) {
 			applyEffect("Freeze");
+			setHoldFully(wasHeldFully);
 			if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
 		}
 	}
@@ -880,7 +884,7 @@ const SUGGESTIONS: Suggestion[] = [
 		id: "movement-release",
 		examples: ["you can move again", "your body is your own"],
 		release: true,
-		releaseOf: "movement-block",
+		releaseOf: ["movement-block", "movement-lock"],
 		permission: "movementRestriction",
 		patterns: [
 			/\byou (can|may) move\b/,
@@ -891,6 +895,29 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byour body is your own\b/,
 		],
 		run: () => { removeEffect("Freeze"); },
+	},
+	// The full hold (v1.12.0, DW 2026-11-14): no one else can move her either. Above movement-block,
+	// whose "you are frozen" would otherwise take "you are frozen solid". The same permission: it is
+	// the same stillness, held harder.
+	{
+		id: "movement-lock",
+		examples: ["no one can move you", "you cannot be moved", "you are frozen solid", "you are a statue"],
+		permission: "movementRestriction",
+		patterns: [
+			/\b(?:no one|nobody)(?: else)? (?:can|could|will|is able to|will be able to) (?:\w+ )?move you\b/,
+			/\byou cannot (?:\w+ )?be moved\b/,
+			/\byou (?:will|ll) not be moved\b/,
+			/\byou (?:are|will be|ll be) (?:\w+ )?frozen solid\b/,
+			/\byou (?:are|will be|ll be) (?:a|like a) statue\b/,
+		],
+		run: () => {
+			if (!applyEffect("Freeze")) return "effect-failed";
+			setHoldFully(true);
+		},
+		// Only while it is still the full hold: a plain "you cannot move" said since keeps its own.
+		undo: () => {
+			if (isHeldFully()) removeEffect("Freeze");
+		},
 	},
 	{
 		id: "movement-block",
@@ -919,8 +946,15 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		// Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
 		// told it did not land, and the room is not told of a stillness that is not there.
-		run: () => (applyEffect("Freeze") ? undefined : "effect-failed"),
-		undo: () => removeEffect("Freeze"),
+		// Said after the full hold, it eases it back to the ordinary one (v1.12.0): others may move her.
+		run: () => {
+			if (!applyEffect("Freeze")) return "effect-failed";
+			setHoldFully(false);
+		},
+		// Not while a full hold said since is on: that one ends by its own undo or a release.
+		undo: () => {
+			if (!isHeldFully()) removeEffect("Freeze");
+		},
 	},
 	// Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
 	// block's verbs before the block gets a look. Deliberately no "come with me" — that would

@@ -1,7 +1,7 @@
 import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
-import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, getScreenFade, clearTranceStates, setSight } from "./effects";
+import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, getScreenFade, clearTranceStates, setSight, setHoldFully } from "./effects";
 import {
 	getFeatures,
 	setFeature,
@@ -258,6 +258,7 @@ const TABS: Tab[] = [
 		blurb: "What being under is like, and what the room sees of it. On by default — this is the trance itself, not something granted.",
 		rows: [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
+			{ key: "tranceNoOneMoves", label: "...and no one else can move you either", needs: "tranceCannotMove" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
@@ -2397,6 +2398,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "tranceCannotMove":
 			if (!enabled) removeEffect("Freeze");
+			break;
+		// Unticked mid-trance: the hold she is in eases to the ordinary one. Ticking it waits for the next trance.
+		case "tranceNoOneMoves":
+			if (!enabled) setHoldFully(false);
 			break;
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);

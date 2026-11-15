@@ -603,8 +603,18 @@ function reassertItemEffects(): boolean {
 // default — DW: yes to all three):
 //   - her own pose changes are refused (PoseSetActive hook). Our calls pass (ownPoseChange), so the
 //     hypnotist's spoken pose commands still move her (DW: yes);
-//   - another player changing her pose is undone on her client and re-synced (DW: no to others);
 //   - on a map, BC's own MapImmobile is added beside Freeze, which stops walking outright.
+//
+// TWO LEVELS OF HOLD (v1.12.0, DW 2026-11-14, re-deciding v0.91.0's "no to others"):
+//   - HELD ("you cannot move"): she cannot move herself; anyone else may still adjust her.
+//   - HELD FULLY ("no one can move you"): no one moves her either; another player's change is
+//     undone on her client and re-synced, which was v0.91.0's only behaviour.
+// Whose change is it? An add-on that poses her for someone else (BCX, LSCG, ...) calls PoseSetActive
+// on HER client, exactly as her own click does, so the call alone cannot say. What can is the event
+// being handled: her own change happens inside one of her clicks or key presses (window.event, set
+// by the browser during dispatch; we run in the page, @grant none), and a remote one inside a socket
+// message or a timer. DW's live report: the old hold refused such a remote change with her own
+// "You try to shift" line.
 // Items are NOT blocked: an item that forces a pose is applied by BC's item system under her item
 // permissions, and refusing it would stop anyone restraining a held-still subject. Flagged to DW.
 let ownPoseChange = 0;
@@ -630,6 +640,39 @@ const HELD_NOTICE_GAP_MS = 30_000;
 export function isHeldStill(): boolean {
 	return heldByUs("Freeze");
 }
+
+/** The full hold: set by "no one can move you" and the trance default, cleared whenever our Freeze
+ * comes off (removeEffect) or a plain "you cannot move" is said. Local only: after a reload the
+ * Freeze that rides the item comes back as the ordinary hold, until recovery clears it. */
+let holdFully = false;
+
+/** Is the hold the full one, where no one else can move her either? */
+export function isHeldFully(): boolean {
+	return holdFully && isHeldStill();
+}
+
+/** Choose the level of the hold. Our Freeze is applied separately (applyEffect). */
+export function setHoldFully(on: boolean): void {
+	if (holdFully !== on) log(`hold level: ${on ? "no one can move her" : "others may still move her"}`);
+	holdFully = on;
+}
+
+/** The events her own hand or keyboard raises. A change made while one of these is being handled is
+ * hers; one made inside a socket message, a timer or an animation frame is not. */
+const OWN_INPUT_EVENTS = new Set([
+	"click", "dblclick", "auxclick", "contextmenu", "mousedown", "mouseup", "pointerdown", "pointerup",
+	"touchstart", "touchend", "keydown", "keyup", "keypress", "input", "change", "submit", "wheel",
+]);
+
+/** Is this pose change her own doing? See the block comment above: window.event names the event
+ * the browser is dispatching right now, if any. */
+function fromHerOwnInput(): boolean {
+	const e = (globalThis as any).event;
+	return !!e && typeof e.type === "string" && OWN_INPUT_EVENTS.has(e.type);
+}
+
+const OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
+const OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
 
 function heldNotice(line: string): void {
 	const now = Date.now();
@@ -674,9 +717,29 @@ export function installEffectHooks(modApi: any): void {
 	const holdPose = (args: any[], next: (a: any[]) => any) => {
 		const [C, pose, force] = args;
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-			log("held still: refused a pose change");
-			return undefined;
+			const hers = fromHerOwnInput();
+			if (hers || isHeldFully()) {
+				heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+				log(`held still: refused a pose change (${hers ? "her own" : "not hers"}${isHeldFully() ? ", held fully" : ""})`);
+				return undefined;
+			}
+			// Someone else, through an add-on, while she is only held: it lands, and becomes the pose
+			// she is held in, so the ServerSend net below does not take it back. Our Freeze is lifted
+			// for the call, as for the hypnotist's own (setSuggestedPose): WCE and LSCG, hooked after
+			// us, refuse to pose a frozen character, and this freeze is not meant to stop anyone else.
+			const liftOwnFreeze = OWN_EFFECTS.has("Freeze");
+			ownPoseChange++;
+			if (liftOwnFreeze) refreshOwnEffects();
+			let result;
+			try {
+				result = next(args);
+			} finally {
+				ownPoseChange--;
+				if (liftOwnFreeze) refreshOwnEffects();
+			}
+			noteHeldPose();
+			log("held still: let a pose change through (not hers; others may move her)");
+			return result;
 		}
 		return next(args);
 	};
@@ -692,15 +755,27 @@ export function installEffectHooks(modApi: any): void {
 		const held = currentPoses();
 		const result = next(args);
 		if (!samePoses(held, Player?.ActivePose)) {
-			restoreHeldPose(held);
-			heldNotice("Someone tries to move you, and your body will not be moved.");
-			log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+			if (isHeldFully()) {
+				restoreHeldPose(held);
+				heldNotice(OTHERS_TRY_LINE);
+				log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+			} else {
+				// Only held: another player may adjust her. Their pose is now the one she is held in.
+				noteHeldPose();
+				log(`held still: kept a pose change from ${data.SourceMemberNumber} (others may move her)`);
+			}
 		}
 		return result;
 	});
 	modApi.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+		if (!isHeldFully()) {
+			const result = next(args);
+			noteHeldPose();
+			log("held still: kept an incoming pose update (others may move her)");
+			return result;
+		}
 		restoreHeldPose(currentPoses());
 		log("held still: refused an incoming pose update");
 		return undefined;
@@ -731,9 +806,16 @@ export function installEffectHooks(modApi: any): void {
 		if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
 			return next(args);
 		}
+		const hers = fromHerOwnInput();
+		if (!hers && !isHeldFully()) {
+			// Someone else's change that came in by another road, while she is only held: it stands.
+			noteHeldPose();
+			log("held still: a pose change that is not hers got past the hook; kept (others may move her)");
+			return next(args);
+		}
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-		heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+		heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
 		log("held still: a pose change got past the hook; put the held pose back before it was sent");
 		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
 	});
@@ -876,6 +958,9 @@ export function heldByUs(effectName: string): boolean {
 
 export function removeEffect(effectName: string, character: any = Player): boolean {
 	const heldByUs = character === Player && OWN_EFFECTS.delete(effectName);
+	// The level goes with the hold: a Freeze put back later is the ordinary one unless asked again.
+	// (voice.ts's commanded undress lifts and restores it, and puts the level back itself.)
+	if (heldByUs && effectName === "Freeze") setHoldFully(false);
 	const item = findEmoticonItem(character);
 	const effects = item?.Property?.Effect;
 	const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;

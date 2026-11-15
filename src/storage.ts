@@ -421,6 +421,9 @@ export interface FeatureToggles {
 
 	/** Freeze on entering trance. */
 	tranceCannotMove: boolean;
+	/** With tranceCannotMove: the trance's freeze is the full hold, so no one else can move her either
+	 * (v1.12.0, DW 2026-11-14). Off by default: under, others may still adjust her. */
+	tranceNoOneMoves: boolean;
 	/** Block outgoing room chat while under. */
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
@@ -611,6 +614,8 @@ function defaultFeatures(): FeatureToggles {
 		lockedWhileHypnotized: false,
 		// On by default — see the note on the interface.
 		tranceCannotMove: true,
+		// Off: the trance holds her, and others may still adjust her (v1.12.0).
+		tranceNoOneMoves: false,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
 		commandPulse: true,
