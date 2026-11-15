@@ -889,8 +889,15 @@ export function installEffectHooks(modApi: any): void {
 	// DW's live trace: WCE's animation engine applies and sends a queued pose at once, and this net
 	// took the hypnotist's command for her own attempt, put the old pose back, and then fought WCE's
 	// 250 ms re-apply timer, sending her pose over and over).
+	//
+	// AND the whole-character sync (v1.12.4, DW: belly and all fours "might go through a different
+	// function"). R132 ChatRoomCharacterUpdate sends { ID, ActivePose, Appearance }, so a pose written
+	// straight to Player.ActivePose (BC's setter, Character.js:192, skips PoseSetActive and so our hold)
+	// and then synced that way reached the room unchecked. Only her own sync: she can update others.
 	modApi.hookFunction("ServerSend", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
-		if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+		const poseSend = args[0] === "ChatRoomCharacterPoseUpdate";
+		const herSync = args[0] === "ChatRoomCharacterUpdate" && args[1]?.ID === Player?.CharacterID && Array.isArray(args[1]?.ActivePose);
+		if ((!poseSend && !herSync) || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
 			return next(args);
 		}
 		const source = changeSource();
@@ -904,8 +911,8 @@ export function installEffectHooks(modApi: any): void {
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
 		if (source === "hers") heldNotice(OWN_TRY_LINE);
 		else othersRefused(false); // the held pose is what this send now carries
-		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${source})${caller()}`);
-		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
+		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${args[0]}, ${source})${caller()}`);
+		return next([args[0], poseSend ? { ...(args[1] ?? {}), Pose: Player.ActivePose } : { ...args[1], ActivePose: Player.ActivePose }]);
 	});
 	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
 	// CharacterLoadEffect caches it as C.Effect, which HasEffect and CanWalk read. With a group
