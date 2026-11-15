@@ -1143,7 +1143,7 @@ const COMMANDS: HypnoCommand[] = [
 		Tag: "forgettrust",
 		group: "Data",
 		args: "<name|number>",
-		Description: "Delete a stored trust entry outright — see /echs logtrust for the numbers",
+		Description: "Delete a stored trust entry outright (the [x] on the Stats tab does the same)",
 		Action: (args: string) => {
 			const token = wholeName(args);
 			if (!token) {

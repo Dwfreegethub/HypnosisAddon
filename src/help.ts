@@ -75,12 +75,14 @@ function startedLines(): HelpLine[] {
 		body("4. /echs safeword ends everything, from any state, always."),
 		gap(),
 		head("As the hypnotist"),
-		body("1. Open their profile, click the H icon, Attempt Hypnosis."),
+		body("1. Open their profile, click the spiral icon, Attempt Hypnosis"),
+		body("   (or type /echs induce <name>)."),
 		dim("   The icon shows on everyone — it cannot know who has the add-on"),
 		dim("   until it asks. The panel says within 3 seconds whether they do."),
 		body("2. Wait out the induction window — that time is for roleplay, and"),
 		body("   roleplaying it well improves the roll."),
 		body("3. Then just talk. Use their NAME, or whisper to them, or nothing lands."),
+		dim("   Each suggestion takes hold 2 to 5 seconds after you say it."),
 		gap(),
 		head("Why nothing happened"),
 		body("Every suggestion is gated, and the checks run in this order:"),
@@ -133,14 +135,15 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(body(`"wake up" · "you are awake" · "come back to me" — ending a trance,`));
 	lines.push(dim("   always allowed, gated by no permission."));
 	lines.push(body(`"walk with me" · "be still" — walking trance: still under, but on`));
-	lines.push(dim(`   your feet with the veil lifted; "be still" puts the stillness back.`));
+	lines.push(dim(`   your feet with the veil thinned; "be still" puts the stillness back.`));
 	lines.push(body(`"you cannot touch your breasts" · "...touch yourself"`));
-	lines.push(dim("   (selfTouchControl) — around 40 body words are understood."));
+	lines.push(dim("   (Self-Touch Control) — around 40 body words are understood."));
+	lines.push(dim(`"you can touch your breasts" · "...touch yourself" — releases it.`));
 	lines.push(body(`"touch your breasts" · "pinch your nipples" · "lick your thighs"`));
-	lines.push(dim(`Add "three times" to repeat a touch, up to five.`));
 	lines.push(dim("   (Made to Act) — one grammar: <verb> your <part>. touch · caress · rub ·"));
 	lines.push(dim("   pinch · spank · slap · scratch · tickle · pull · lick · kiss · bite ·"));
 	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
+	lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
 	lines.push(body(`"kiss Rei" · "kiss Rei's nipples" · "kiss me" · "pinch my nipples"`));
 	lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) — the same verbs"));
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
@@ -217,7 +220,8 @@ function depthTrustLines(): HelpLine[] {
 		gap(),
 		head("The roll, when they attempt"),
 		body("Chance = access + a quarter of your arousal + your choice (Agree +25"),
-		body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
+		body("/ Fight -25) + experience + their roleplay during the induction"),
+		body("(up to +15) + their honoured skill, clamped to 5-95."),
 		body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
 		body("your setting, on the Inductions tab."),
 		dim("/echs chance <name> shows the real numbers for each choice."),
@@ -298,9 +302,11 @@ function lastingLines(): HelpLine[] {
 		head("Shaping it — before \"remember trigger\""),
 		body(`"Missy, this trigger works only once"`),
 		body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
+		body(`"Missy, only I can use it"    "your owner / lovers / friends can use it"`),
 		body(`"Missy, only when you hear it exactly"   ← whole words only`),
 		dim("Their own settings still cap how long it lasts and who may fire it."),
 		body(`"Missy, you will drop into trance"   ← an instant drop`),
+		dim("Drops need Drop triggers on (Triggers tab); each works once unless they allow more."),
 		body(`"Missy, you will say 'I obey' three times"   ← words, aloud`),
 		dim("Words need Made to Speak on; a gag still garbles them."),
 		gap(),
@@ -310,7 +316,6 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
 		dim("Then \"remember trigger\". Once, unless you say it works every time;"),
 		dim("never while they are under. Their safeword clears the after-waking ones."),
-		dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
 		gap(),
 		head("Firing, releasing and removing one"),
 		body(`Say the phrase — it works with no session, which is the point.`),
@@ -362,7 +367,7 @@ function commandLines(): HelpLine[] {
 		Session: "In a scene. Usable from any state; the safeword never fails.",
 		Diagnostics: "Look without changing anything.",
 		Data: "Your stored settings and stats.",
-		Testing: "Development only — these vanish from a release build.",
+		Testing: "Development only — these work only in the Hypno Testing room.",
 	};
 	const cmds = commandHelp();
 	const lines: HelpLine[] = [

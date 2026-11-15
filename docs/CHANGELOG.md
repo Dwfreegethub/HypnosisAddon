@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-15 (v1.12.6 RC) — in-game help audit
+
+A read of every hand-written line in `src/help.ts` against the code, after the wiki pass (#137,
+#138). The generated parts (vocabulary, commands, depth ladder) were already current.
+- *Start Here:* "click the H icon" → the spiral icon (the icon has been a spiral since the
+  2026-09-16 refresh), plus `/echs induce <name>`; a line that suggestions land 2 to 5 seconds later.
+- *What to Say → Not in the table:* "(selfTouchControl)" was the storage key; now the menu's
+  "Self-Touch Control", with its releases (`PART_RELEASE`/`SELF_RELEASE` in voice.ts, which no help
+  or wiki line showed). "Veil lifted" → "thinned" for the walking trance (it thins, per the screen
+  effect). The "three times" line moved under the grammar it belongs to.
+- *Depth & Trust → The roll:* added the roleplay bonus (`rpBonusFor`, up to 15), which is in
+  `chanceBeforeInvariant` but was missing from the formula shown.
+- *Lasting:* the Drop-triggers line sat under compulsions; it belongs to the instant drop. Added
+  the owner/lovers/friends and "only I" scope phrases.
+- *Commands:* the Testing note said the group "vanishes from a release build"; it is gated by the
+  Hypno Testing room (`isTestingMode`). `/echs forgettrust`'s description pointed at
+  `/echs logtrust`, a testing-room command; it now names the Stats tab's [x].
+
 ### Fixed 2026-11-14 (v1.12.5 RC) — ChatRoomSyncSingle was not held; repeats are told once
 
 DW's live run of v1.12.4: all fours and belly still got through, with **no** `held still` console

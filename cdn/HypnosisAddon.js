@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.12.5. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.12.6. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -10195,7 +10195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.12.5", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.12.6", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10234,7 +10234,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.12.5", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.12.6", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -10703,12 +10703,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("4. /echs safeword ends everything, from any state, always."),
       gap(),
       head("As the hypnotist"),
-      body("1. Open their profile, click the H icon, Attempt Hypnosis."),
+      body("1. Open their profile, click the spiral icon, Attempt Hypnosis"),
+      body("   (or type /echs induce <name>)."),
       dim("   The icon shows on everyone \u2014 it cannot know who has the add-on"),
       dim("   until it asks. The panel says within 3 seconds whether they do."),
       body("2. Wait out the induction window \u2014 that time is for roleplay, and"),
       body("   roleplaying it well improves the roll."),
       body("3. Then just talk. Use their NAME, or whisper to them, or nothing lands."),
+      dim("   Each suggestion takes hold 2 to 5 seconds after you say it."),
       gap(),
       head("Why nothing happened"),
       body("Every suggestion is gated, and the checks run in this order:"),
@@ -10760,14 +10762,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(body(`"wake up" \xB7 "you are awake" \xB7 "come back to me" \u2014 ending a trance,`));
     lines.push(dim("   always allowed, gated by no permission."));
     lines.push(body(`"walk with me" \xB7 "be still" \u2014 walking trance: still under, but on`));
-    lines.push(dim(`   your feet with the veil lifted; "be still" puts the stillness back.`));
+    lines.push(dim(`   your feet with the veil thinned; "be still" puts the stillness back.`));
     lines.push(body(`"you cannot touch your breasts" \xB7 "...touch yourself"`));
-    lines.push(dim("   (selfTouchControl) \u2014 around 40 body words are understood."));
+    lines.push(dim("   (Self-Touch Control) \u2014 around 40 body words are understood."));
+    lines.push(dim(`"you can touch your breasts" \xB7 "...touch yourself" \u2014 releases it.`));
     lines.push(body(`"touch your breasts" \xB7 "pinch your nipples" \xB7 "lick your thighs"`));
-    lines.push(dim(`Add "three times" to repeat a touch, up to five.`));
     lines.push(dim("   (Made to Act) \u2014 one grammar: <verb> your <part>. touch \xB7 caress \xB7 rub \xB7"));
     lines.push(dim("   pinch \xB7 spank \xB7 slap \xB7 scratch \xB7 tickle \xB7 pull \xB7 lick \xB7 kiss \xB7 bite \xB7"));
     lines.push(dim('   massage \xB7 pet. Bare "touch yourself" wanders; name a part to steer it.'));
+    lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
     lines.push(body(`"kiss Rei" \xB7 "kiss Rei's nipples" \xB7 "kiss me" \xB7 "pinch my nipples"`));
     lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) \u2014 the same verbs"));
     lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
@@ -10838,7 +10841,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("The roll, when they attempt"),
       body("Chance = access + a quarter of your arousal + your choice (Agree +25"),
-      body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
+      body("/ Fight -25) + experience + their roleplay during the induction"),
+      body("(up to +15) + their honoured skill, clamped to 5-95."),
       body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
       body("your setting, on the Inductions tab."),
       dim("/echs chance <name> shows the real numbers for each choice."),
@@ -10918,9 +10922,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       head('Shaping it \u2014 before "remember trigger"'),
       body(`"Missy, this trigger works only once"`),
       body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
+      body(`"Missy, only I can use it"    "your owner / lovers / friends can use it"`),
       body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
       dim("Their own settings still cap how long it lasts and who may fire it."),
       body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
+      dim("Drops need Drop triggers on (Triggers tab); each works once unless they allow more."),
       body(`"Missy, you will say 'I obey' three times"   \u2190 words, aloud`),
       dim("Words need Made to Speak on; a gag still garbles them."),
       gap(),
@@ -10930,7 +10936,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       dim('Then "remember trigger". Once, unless you say it works every time;'),
       dim("never while they are under. Their safeword clears the after-waking ones."),
-      dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
       head("Firing, releasing and removing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
@@ -10977,7 +10982,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Session: "In a scene. Usable from any state; the safeword never fails.",
       Diagnostics: "Look without changing anything.",
       Data: "Your stored settings and stats.",
-      Testing: "Development only \u2014 these vanish from a release build."
+      Testing: "Development only \u2014 these work only in the Hypno Testing room."
     };
     const cmds = commandHelp();
     const lines = [
@@ -12510,7 +12515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.5"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12577,7 +12582,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.5"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14165,7 +14170,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "forgettrust",
           group: "Data",
           args: "<name|number>",
-          Description: "Delete a stored trust entry outright \u2014 see /echs logtrust for the numbers",
+          Description: "Delete a stored trust entry outright (the [x] on the Stats tab does the same)",
           Action: (args) => {
             const token = wholeName(args);
             if (!token) {
@@ -14958,7 +14963,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.5"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14979,7 +14984,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.12.5"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.12.6"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -15052,14 +15057,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.12.5"})`);
+      info(`script loaded (v${"1.12.6"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.12.5",
+          version: "1.12.6",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -15200,10 +15205,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.5"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.12.5";
+    page2.__ECHS_LOADED__ = "1.12.6";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
