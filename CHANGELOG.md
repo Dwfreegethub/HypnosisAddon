@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.4 RC · 14 November 2026
+
+- **Belly and all fours are held too.** Some ways of moving you send your pose along with your
+  whole outfit instead of on its own, and those slipped past *"no one can move you"* (and your own
+  hold, for moves of your own). They're caught now.
+
 ## v1.12.3 RC · 14 November 2026
 
 - **Undoes 1.12.2.** With *"no one can move you"*, some moves were being stopped without a word,

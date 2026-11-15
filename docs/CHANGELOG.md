@@ -20,6 +20,19 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.12.4 RC) — the safety net also watches the whole-character sync
+
+DW, after the v1.12.2 run: belly and all fours "might go through a different function". One road
+was open: R132 `ChatRoomCharacterUpdate` sends `{ ID, ActivePose, Appearance }`, and
+`Player.ActivePose` has a public setter (Character.js:192) that skips `PoseSetActive`, so a pose
+written there and synced with the whole character never met the hold. The `ServerSend` net watched
+only `ChatRoomCharacterPoseUpdate`; it now also checks `ChatRoomCharacterUpdate` when `ID` is her
+own `CharacterID` (her client also syncs others she changes), with the same decision as before and
+the held pose put into `ActivePose`. **Not verified** that this is the road Biker's add-on uses:
+the log line now names the send (`ChatRoomCharacterUpdate` or `ChatRoomCharacterPoseUpdate`).
+A pose written straight to `ActivePose` and never sent by her client is still not seen.
+`test/held-still.mjs` 79 (+3), two of which fail on v1.12.3.
+
 ### Fixed 2026-11-14 (v1.12.3 RC) — v1.12.2's quiet refusals reverted
 
 DW's live run of v1.12.2: Biker saw Missy moved ("hhmmmm???", "uhhhhm") and the room got one

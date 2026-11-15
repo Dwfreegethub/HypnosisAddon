@@ -22,7 +22,7 @@ const HYP = 246108;
 const emoticonAsset = { Name: "Emoticon", Group: { Name: "Emoticon" }, Effect: [], AllowEffect: [] };
 globalThis.Asset = [emoticonAsset];
 globalThis.Player = {
-	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: {},
+	MemberNumber: 1, CharacterID: "c1", Name: "Missy", ExtensionSettings: {}, ArousalSettings: {},
 	Appearance: [{ Asset: emoticonAsset, Property: {} }],
 	Effect: [], ActivePose: ["BaseUpper", "BaseLower"],
 	IsPlayer() { return true; },
@@ -60,7 +60,11 @@ globalThis.ChatRoomSyncCharacter = (data) => {
 globalThis.ChatRoomSyncPose = (data) => { if (data.MemberNumber === Player.MemberNumber) Player.ActivePose = [...data.Pose]; };
 let poseUpdates = [];
 let said = [];
-globalThis.ServerSend = (type, data) => { if (type === "ChatRoomCharacterPoseUpdate") poseUpdates.push([...data.Pose]); };
+let charUpdates = [];
+globalThis.ServerSend = (type, data) => {
+	if (type === "ChatRoomCharacterPoseUpdate") poseUpdates.push([...data.Pose]);
+	if (type === "ChatRoomCharacterUpdate") charUpdates.push({ ID: data.ID, ActivePose: [...data.ActivePose] });
+};
 globalThis.ChatRoomCharacterUpdate = () => {};
 globalThis.ServerPlayerIsInChatRoom = () => true;
 globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }];
@@ -248,6 +252,17 @@ later();
 Player.ActivePose = ["BaseUpper", "BaseLower"];
 ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 check("held fully: a change round every hook is put back", [Player.ActivePose, poseUpdates.at(-1)], [["BaseUpper", "Kneel"], ["BaseUpper", "Kneel"]]);
+// v1.12.4 (DW: belly and all fours "might go through a different function"): a pose written straight
+// to ActivePose and sent with the whole character (ChatRoomCharacterUpdate carries ActivePose too).
+// Failure: the room is sent the new pose.
+later();
+charUpdates = [];
+Player.ActivePose = ["AllFours"];
+ServerSend("ChatRoomCharacterUpdate", { ID: "c1", ActivePose: Player.ActivePose, Appearance: [] });
+check("held fully: all fours by a whole-character sync is put back", [Player.ActivePose, charUpdates.at(-1)?.ActivePose], [["BaseUpper", "Kneel"], ["BaseUpper", "Kneel"]]);
+check("  and told", said.some((s) => /Someone tries/.test(s)), true);
+ServerSend("ChatRoomCharacterUpdate", { ID: "c2", ActivePose: ["AllFours"], Appearance: [] });
+check("  someone else's character, updated from her client, is left alone", charUpdates.at(-1), { ID: "c2", ActivePose: ["AllFours"] });
 later();
 asHer(() => PoseSetActive(Player, "BaseLower"));
 check("held fully: her own is still refused, with her own line", [Player.ActivePose, said.some((s) => /your body does not answer/.test(s))], [["BaseUpper", "Kneel"], true]);
