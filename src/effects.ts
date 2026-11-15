@@ -683,9 +683,15 @@ function fromHerOwnInput(): boolean {
 //     (socket.io's WebSocket "message", or its polling fallback's XHR "load"/"readystatechange"),
 //     and not the same dispatch that carried one of our own actions;
 //   - "auto": anything else — a timer, an animation frame, or a side effect of our own action.
-// The full hold refuses all three, but only "hers" and "someone" are told; "auto" is quiet. The
-// ordinary hold refuses only "hers", as in v1.12.0. Refusals log the calling code when logging is
-// on, so the add-on behind an "auto" or "someone" can be named.
+// The full hold refuses all three. The ordinary hold refuses only "hers", as in v1.12.0.
+//
+// v1.12.3, REVERTED the quiet "auto" (DW's live run of v1.12.2, 2026-11-14): the mover's add-on
+// handles its request on her client AFTER the message (a timer or a promise), so its changes read as
+// "auto". Refused quietly, nothing re-sent her pose, and the mover's screen kept showing her moved.
+// And the "stray" lines of v1.12.1 were most likely real: in both runs the add-on's own room line
+// reaches the chat AFTER her refusal. So every refusal that is not hers is told as someone's again,
+// with the re-send. The three-way source stays for the log, with the calling code (when logging is
+// on), so a truly stray refusal can be named from the console rather than guessed at.
 const REMOTE_EVENTS = new Set(["message", "load", "readystatechange"]);
 type ChangeSource = "hers" | "someone" | "auto";
 /** The event that was being dispatched when we last acted (applied the hold, or posed her). A change
@@ -797,9 +803,9 @@ export function installEffectHooks(modApi: any): void {
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
 			const source = changeSource();
 			if (source === "hers" || isHeldFully()) {
-				// Told only when it was her, or another player; "auto" (her own client's add-ons) is quiet.
+				// Anything not hers is told as someone's, "auto" included (v1.12.3: see changeSource).
 				if (source === "hers") heldNotice(OWN_TRY_LINE);
-				else if (source === "someone") othersRefused(true);
+				else othersRefused(true);
 				log(`held still: refused a pose change to ${JSON.stringify(pose)} (${source}${isHeldFully() ? ", held fully" : ""})${caller()}`);
 				return undefined;
 			}
@@ -856,9 +862,8 @@ export function installEffectHooks(modApi: any): void {
 			log("held still: kept an incoming pose update (others may move her)");
 			return result;
 		}
-		// Quiet (v1.12.2): a bare pose update names no sender, so it may be the server's echo of her own
-		// client's send. BC's own route for another player is the sync above, which does name one.
 		restoreHeldPose(currentPoses());
+		othersRefused(false);
 		log(`held still: refused an incoming pose update ${JSON.stringify(data?.Pose)}`);
 		return undefined;
 	});
@@ -898,7 +903,7 @@ export function installEffectHooks(modApi: any): void {
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
 		if (source === "hers") heldNotice(OWN_TRY_LINE);
-		else if (source === "someone") othersRefused(false); // the held pose is what this send now carries
+		else othersRefused(false); // the held pose is what this send now carries
 		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${source})${caller()}`);
 		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
 	});

@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.3 RC · 14 November 2026
+
+- **Undoes 1.12.2.** With *"no one can move you"*, some moves were being stopped without a word,
+  and the person moving you could see you in the new pose on their screen. Back to how 1.12.1
+  behaved: every attempt is stopped, the room is told you didn't budge, and their screen is put
+  right.
+
 ## v1.12.2 RC · 14 November 2026
 
 - **"Does not budge" only when someone really tried.** While you were held with *"no one can move
