@@ -4,9 +4,6 @@
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**.  
 > Works 100% of the time, even while completely silenced. It instantly breaks active trances and releases all holding effects.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Command parsers and speech triggers are actively being refined. If a phrase fails to trigger, double-check that your partner’s name is included, the required permission is ticked on their client, and their trance depth is sufficient.
-
 **This is the page to keep open while you play.** Almost nothing here is a slash command — you **speak** in ordinary chat, and the subject's local client decides whether anything takes hold. A command lands after a beat of 2 to 5 seconds, in the order you said them. Say several together and each gets its own beat after the one before lands, so they take hold one at a time. Waking and releasing never wait.
 
 For a worked example of these phrases used in a live scene, see [A Sample Session](Sample-Session).
@@ -89,9 +86,15 @@ Each suggestion requires its specific **permission** enabled on the subject's cl
 
 ### Movement and Posture
 
-**"You cannot move" holds her still.** She stays in the pose and the place she is in: her own pose changes are refused (arms too), she cannot leave the room, and on a map room she cannot walk. Your spoken pose commands (*"Missy, kneel"*) still move her, and so can anyone else who adjusts her pose. Items can still be put on her. Her safeword always ends it.
+#### Holding Still
 
-**"No one can move you" holds her harder.** The same stillness, and now nobody else can change her pose either: anyone who tries finds her back where she was, and she sees *"Someone tries to move you, and your body will not be moved."* The room is told *"Missy does not budge: her body stays exactly where it was."*, since the mover's own add-on may already have announced the move. Your spoken pose commands still move her. Saying *"you cannot move"* afterwards eases it back to the ordinary hold, and *"you can move again"* ends either one.
+**"You cannot move" holds her still.** She stays in the pose and the place she is in: her own pose changes are refused (arms too), she cannot leave the room, and on a map room she cannot walk. If she tries, she sees *"You try to shift, and your body does not answer."* Your spoken pose commands (*"Missy, kneel"*) still move her, and so can anyone else who adjusts her pose. Items can still be put on her. Her safeword always ends it.
+
+**"No one can move you" holds her harder.** The same stillness, and now nobody else can change her pose either: anyone who tries finds her back where she was, and she sees *"Someone tries to move you, and your body will not be moved."* The room is told *"Missy does not budge: her body stays exactly where it was."*, since the mover's own add-on may already have announced the move. Your spoken pose commands still move her. Her own message shows at most once every 30 seconds, and the same pose tried again within a minute is stopped without another room line (*Others See Your Reactions*, on her Trance Defaults tab, silences the room line). Saying *"you cannot move"* afterwards eases it back to the ordinary hold, and *"you can move again"* ends either one.
+
+The trance can hold her either way on its own: **Cannot Move** and **...and no one else can move you either** on her Trance Defaults tab.
+
+#### Poses
 
 > ⚠️ **Caution (Patter Collision):** *"Surrender"* and *"relax your arms"* are active pose commands. With Posture Control ticked, *"Missy, surrender to my voice"* raises her arms over her head, and *"Missy, relax your arms and legs"* drops any arm pose she is holding.
 
@@ -187,11 +190,7 @@ Now anyone allowed to use it saying *"ember glow"* in the room makes Missy say *
 | *"you only hear what is said to you"* · *"you only hear your name"* | Only lines that use **her name**, and whispers to her, from anyone. |
 | *"you can hear everyone again"* · *"your hearing comes back"* | — *release* |
 
-**What she still gets:** everything she can *see* — emotes, activities, items going on, people coming and going — and her own lines. **Out-of-character text in (parentheses) always gets through**, in chat or whispers, from anyone: a friend can still ask *"(are you ok?)"*. Everything else said in the room is hidden, and now and then (at most once a minute) she is told that other voices are there and don't matter.
-
-**What she can't hear can't reach her.** While it is on, other people's commands and trigger words do nothing to her. In the "her name" version, a line that names her is heard, so it works as normal.
-
-**Spoken, it lasts until the trance ends** (or the release, or her safeword). It is not carried by *"that will stay with you"*. **As a trigger**, "my voice" means **whoever says the trigger word**, and it lasts as long as her trigger effects do. Her safeword always ends it.
+**Out-of-character text in (parentheses) always gets through**, and so does everything she can see. While it is on, other people's commands and trigger words don't reach her. It lasts until the trance ends; as a trigger, "my voice" means whoever says the trigger word. What else gets through, and how long it lasts: **[Sensory Modulation](Sensory-Modulation#hearing-only-one-voice)**.
 
 ### Sight — Sight · Entranced (40)
 
@@ -202,9 +201,7 @@ Now anyone allowed to use it saying *"ember glow"* in the room makes Missy say *
 | *"you cannot see"* · *"you are blind"* · *"everything is fading to black"* | Black (BC's heavy blindness) |
 | *"you can see again"* · *"your vision clears"* | — *release* |
 
-**This is Bondage Club's own blindness**, so her own BC settings decide how far it goes and what comes with it. With her *Sensory Deprivation* setting on **Light**, BC never goes past "very dark", whatever you say (you are told when that happens). Her *Blind Adjacent*, *Blind Disable Examine* and name-hiding settings apply exactly as they do under a blindfold, and a real blindfold adds to it. Nobody else sees any change.
-
-It ends with the trance, the release, or her safeword, and *"that will stay with you"* can carry it past the wake. It can be planted in a trigger.
+**This is Bondage Club's own blindness**, so her own BC settings cap it: on *Light* Sensory Deprivation it stops at very dark, and you are told. Nobody else sees a change. *"That will stay with you"* can carry it past the wake, and it can be planted in a trigger. More: **[Sensory Modulation](Sensory-Modulation#sight)**.
 
 ---
 

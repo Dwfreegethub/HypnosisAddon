@@ -1,8 +1,5 @@
 # A Sample Session
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Real-time feedback, visual cues, and chat outputs are continually being refined.
-
 ---
 
 A worked example, end to end: two people, the actual lines typed in room chat, and what each player sees on their screen.
@@ -205,6 +202,6 @@ Clears active trances, purges active triggers, and removes every lingering restr
 ## Further Reading
 
 * **[What to Say](What-to-Say)** — Comprehensive dictionary of recognized spoken commands.
-* **[Your First Session](Your-First-Session)** — Diagnostic setup and troubleshooting when lines fail to land.
+* **[Troubleshooting](Troubleshooting)** — What to check when a line fails to land.
 * **[Depth and Trust](Depth-and-Trust)** — Detailed mechanics on induction rolls, relationship baselines, and depth gates.
 * **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** — Deep dive into trigger scopes, duration timers, and decay curves.

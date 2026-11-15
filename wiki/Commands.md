@@ -2,9 +2,6 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all effects.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Command syntax, debug outputs, and diagnostic helpers are evolving.
-
 ---
 
 Most features are **spoken**, not typed — see [What to Say](What-to-Say). These slash commands are the utility exceptions for managing sessions, inspecting client states, and handling emergency exits.

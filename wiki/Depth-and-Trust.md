@@ -34,7 +34,7 @@ Depth is measured on a scale from 0 to 100, divided into five recognizable tiers
 
 ## How You Reach Depth (The Simple Version)
 
-Since v0.97, **how deep you go depends on who the hypnotist is to you**, not on luck. The roll decides whether an induction takes; once it does, you land at about the same depth every time with the same person. The full explanation, with worked examples, is on **[How an Induction Works](How-Inductions-Work)**.
+**How deep you go depends on who the hypnotist is to you**, not on luck. The roll decides whether an induction takes; once it does, you land at about the same depth every time with the same person. The full explanation, with worked examples, is on **[How an Induction Works](How-Inductions-Work)**.
 
 1. **Familiarity & Trust:** Talking in room chat and going under together builds a trust score for that person, kept on your own machine. It is the biggest part of both the chance and the depth: you land at least **half your trust** deep, unless you fight.
 2. **Relationships:** Your Bondage Club relationships give a head start:

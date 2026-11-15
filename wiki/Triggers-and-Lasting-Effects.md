@@ -2,9 +2,6 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to purge active triggers, lingering suggestions, and waking compulsions.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
-
 ---
 
 There are three ways for a suggestion to outlast an active session:

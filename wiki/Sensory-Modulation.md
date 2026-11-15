@@ -4,7 +4,7 @@
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**.  
 > Works 100% of the time, even while completely silenced. It instantly breaks active trances, releases sensory blocks, and restores full hearing and vision.
 
-Narrowing what the subject can perceive through hypnotic suggestion. **Hearing and sight are built** (since v0.93.0). A softer "muffled" hearing is planned and not built yet.
+Narrowing what the subject can perceive through hypnotic suggestion. **Hearing and sight** are covered here. A softer "muffled" hearing is planned and not built yet.
 
 ---
 
@@ -12,11 +12,11 @@ Narrowing what the subject can perceive through hypnotic suggestion. **Hearing a
 
 Requires the **Hearing** permission (Permissions tab, off by default) and an **Entranced** trance (40 by default; adjustable on your Depth tab).
 
-| The hypnotist says | What she hears |
-|---|---|
-| *"Missy, you hear only my voice"* · *"you will only hear me"* · *"my voice is the only one you can hear"* | Everything that one person says, named or not. Nobody else. |
-| *"Missy, you only hear what is said to you"* · *"you only hear your name"* | Only lines that use her name, and whispers to her, from anyone. |
-| *"Missy, you can hear everyone again"* · *"your hearing comes back"* | Everyone, as normal (release). |
+There are two versions:
+* **One voice:** she hears everything the hypnotist says, named or not, and nobody else.
+* **Only her name:** she hears lines that use her name, and whispers to her, from anyone.
+
+The phrases are on **[What to Say → Hearing](What-to-Say#hearing--hearing--entranced-40)**.
 
 ### What Still Gets Through
 * Everything she can **see**: emotes, activities, items being placed or removed, people arriving and leaving.
@@ -42,12 +42,9 @@ While it is on, other people's spoken commands and trigger words do nothing to h
 
 Requires the **Sight** permission (Permissions tab, off by default) and an **Entranced** trance (40 by default; adjustable on your Depth tab).
 
-| The hypnotist says | What she sees |
-|---|---|
-| *"your vision is dimming"* · *"the room grows dim"* | Dim: her screen at about a third of its brightness (BC's light blindness) |
-| *"you can barely see"* · *"everything is going dark"* | Very dark (BC's normal blindness) |
-| *"you cannot see"* · *"you are blind"* · *"everything is fading to black"* | Black (BC's heavy blindness) |
-| *"you can see again"* · *"your vision clears"* | Normal sight (release) |
+There are three levels: **dim** (her screen at about a third of its brightness, BC's light blindness), **very dark** (BC's normal blindness) and **black** (BC's heavy blindness).
+
+The phrases are on **[What to Say → Sight](What-to-Say#sight--sight--entranced-40)**.
 
 ### Powered by Bondage Club's Own Blindness
 It is BC's blindness, not an overlay of ours, so BC's limits and her own BC settings always win:
@@ -61,4 +58,4 @@ The trance's own screen effect (the grey fade or the spiral) steps aside while h
 ### Duration & Exits
 Until the trance ends, the release, or her safeword. Unlike hearing, *"that will stay with you"* can carry it past the wake, and it can be planted in a trigger. Unticking **Sight** ends it at once. Reloading the page mid-trance clears it, as it does "you cannot speak".
 
-See also [What to Say](What-to-Say#hearing--hearing--entranced-40) and [Settings Reference](Settings-Reference).
+See also [Settings Reference](Settings-Reference).

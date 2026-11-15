@@ -1,7 +1,7 @@
 # How an Induction Works
 
 > **Looking for a step-by-step walkthrough?**  
-> If you just want to see how an induction looks in chat during roleplay, start with [Your First Session](Your-First-Session) or [A Sample Session](Sample-Session). This page breaks down the underlying math, roll modifiers, and depth calculations.
+> If you just want to see how an induction looks in chat during roleplay, start with [Your First Induction](Getting-Started#your-first-induction) or [A Sample Session](Sample-Session). This page breaks down the underlying math, roll modifiers, and depth calculations.
 
 This page explains the whole thing in plain words, with the real numbers underneath for anyone who wants them. To see your own numbers with someone in the room, type:
 
@@ -38,7 +38,16 @@ These add up to the chance:
 
 Fighting always keeps a small chance (at least 5%, a little more against a skilled hypnotist), and fighting is never better for them than ignoring.
 
-**"I trust you."** Saying *"I trust you, Eri"* (or `/echs trust Eri`) means Eri's next induction within 5 minutes skips the box and goes ahead as **Agree**, with your trust counted as at least 65. See [Your First Session](Your-First-Session#giving-your-trust-ahead-of-time).
+### Saying "I trust you"
+
+If you already know you want to go under for someone, say so in the room: *"I trust you, Eri"* (or *"Eri, I trust you"*, or whisper *"I trust you"* to them). You can also type `/echs trust Eri`.
+
+* **Their name is needed.** A bare *"I trust you"* said to the room goes to no one, and you are told how to say it.
+* **For the next 5 minutes,** if Eri starts an induction on you, the box does not appear. It goes ahead as **Agree**.
+* **Your trust in them counts as at least 65** for that induction and the trance it leads to, so it is more likely to land. It reaches ordinary suggestions and arousal. It does **not** reach triggers, suggestions that outlive the trance, or the clothing illusion, which still need trust you have really built.
+* **It is used up by that one induction**, however long the trance lasts. The next time, you are asked again. If Eri does not try within 5 minutes, it lapses.
+* Said while Eri's box is already on your screen, it answers it as Agree.
+* Your safeword clears it. Nothing about it is saved: a reload forgets it.
 
 ---
 

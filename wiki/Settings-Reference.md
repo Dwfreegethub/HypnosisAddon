@@ -3,9 +3,6 @@
 > 🛡️ **EMERGENCY EXIT — ANY TIME, ANY STATE**  
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**. It always works, even while silenced, and instantly breaks trances and releases all holding effects.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Settings layouts, storage keys, and UI options are actively being polished.
-
 ---
 
 Open settings via the **spiral icon on your player profile card**, or navigate to **Preferences → Extensions → ECHS Hypnosis**. Setting categories run down the left edge.
@@ -63,7 +60,7 @@ What others may do to you. Everything here is off until you turn it on.
 
 | Setting | What It Allows |
 |---|---|
-| **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you, and others can still adjust your pose. *"No one can move you"* (*"you cannot be moved"*, *"you are frozen solid"*) holds you harder: no one else can change your pose either. Items can still be put on you. |
+| **Movement Restriction** | Allows being held still. *"You cannot move"*: you cannot change your own pose, leave the room or walk on a map, but others can still adjust you. *"No one can move you"*: nobody else can change your pose either. The hypnotist's spoken pose commands still move you, and items can still be put on you. See [Holding Still](What-to-Say#holding-still). |
 | **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. Also the face: closing the eyes, opening the mouth, the tongue out, a smile, a blush and the like. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the side of whoever said it, across room changes, using Bondage Club's own leash. No leash or collar is needed. Requires your own BC setting that lets others leash you, and the hypnotist must also run ECHS. |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
@@ -181,7 +178,7 @@ Purge and Clear All are not affected by the session lock: removing something pla
 * **earned only / arousal ok** (on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): click to let arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
 * **Chemicals count:** What may push you deeper besides trust (*Arousal + drugs · Arousal only · Drugs only · Neither*; default: *Arousal only*). *Drugs* are crafted drinks and cigarettes tagged `[echs:relax]` or `[echs:stimulate]`; with a drug option on, they add to arousal. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**. It never reaches the three earned-only rows unless you open them above.
 * **A hypnotist's skill:** How much of a hypnotist's own practice may help them put you under (*Ignore it · Only from people I trust · Honour, capped · Full from people I trust, capped otherwise*; default: *Full from people I trust, capped otherwise*). Their skill is shown to you as a feeling, never a number, and never reaches the three earned-only rows.
-* **"Sink deeper" stops at:** moved to the **Inductions** tab in v0.100.0.
+* **"Sink deeper" stops at:** is on the **[Inductions](#2-inductions-tab)** tab.
 * **Reset to defaults:** Puts every feature back to its standard depth.
 
 ---
