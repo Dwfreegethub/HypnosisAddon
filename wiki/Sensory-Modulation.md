@@ -56,7 +56,7 @@ It is BC's blindness, not an overlay of ours, so BC's limits and her own BC sett
 * **A real blindfold adds to it**, by BC's own rules, and the cap still holds.
 * **Nobody else sees any change.** Her appearance is not touched; no blindfold appears on her unless one is really put on her.
 
-The trance's own soft white veil steps aside while her sight is dimmed or gone, so the dark is not washed grey, and comes back when she can see again. A real blindfold worn in a trance does the same.
+The trance's own screen effect (the grey fade or the spiral) steps aside while her sight is dimmed or gone, so the dark is not washed grey, and comes back when she can see again. A real blindfold worn in a trance does the same.
 
 ### Duration & Exits
 Until the trance ends, the release, or her safeword. Unlike hearing, *"that will stay with you"* can carry it past the wake, and it can be planted in a trigger. Unticking **Sight** ends it at once. Reloading the page mid-trance clears it, as it does "you cannot speak".
