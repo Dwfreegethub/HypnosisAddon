@@ -278,6 +278,8 @@ The rest of the room sees actual wardrobe changes in real-time. Only the subject
 |---|---|
 | *"you cannot touch your breasts"* | Blocks interaction with that specific zone (recognizes ~40 body terms) |
 | *"you cannot touch yourself"* | Blocks self-touch across all zones |
+| *"you can touch your breasts"* · *"your breasts are yours again"* | — *release* (that zone) |
+| *"you can touch yourself"* | — *release* (every zone) |
 
 This **prevents** the subject from touching themselves. Commanding autonomous touch is a separate system covered on its own page.
 
@@ -297,7 +299,7 @@ To configure subconscious triggers that activate days later or suggestions that 
 |---|---|
 | *"this trigger works only once"* · *"it works every time"* | Once, or until it fades. |
 | *"it lasts 2 hours"* · *"it lasts forever"* | A time limit, or none. |
-| *"anyone can use it"* · *"only I can use it"* | Who may fire it, within the subject's own setting. |
+| *"anyone can use it"* · *"your owner can use it too"* · *"your lovers can use it"* · *"your friends can use it"* · *"only I can use it"* | Who may fire it, within the subject's own setting. |
 | *"only when you hear it exactly"* | Whole words only. |
 | *"you will drop into trance"* | An instant drop (needs **Drop triggers**). |
 | *"you will say 'I obey' three times"* | Words said aloud (needs **Made to Speak**). |

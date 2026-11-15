@@ -5,7 +5,7 @@ A conversational hypnosis add-on for [Bondage Club](https://www.bondageprojects.
 *Formerly "BC Hypnosis Add-on". The repository, install link, and your saved settings are completely unchanged — only the display name in-game. ECHS is an independent project and is not affiliated with HSC (Hypnotic Slave Club).*
 
 > **1.0 Release Candidate**  
-> ECHS is at **v1.0.0 RC**: the build we intend to call 1.0. Balance may still be tweaked, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. If you run into odd behavior or broken edges, drop an issue on GitHub and say which version your chat line shows.
+> ECHS is in its **1.0 release candidate** series (your chat line shows the exact version, such as v1.12.5 RC). Balance may still be tweaked, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. If you run into odd behavior or broken edges, drop an issue on GitHub and say which version your chat line shows.
 
 ---
 
@@ -16,6 +16,11 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
 **Recent highlights** (every update, newest first, is in **[What's New](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)**):
+* **Two levels of holding still:** *"you cannot move"* stops only you, so others can still adjust your pose; *"no one can move you"* stops everyone, and the room is told you didn't budge. See **[What to Say](What-to-Say#movement-and-posture)**.
+* **Her face on command:** with Posture Control, *"close your eyes"*, *"open your mouth"*, *"smile"*, *"blush"* and more, until *"relax your face"* or waking. See **[What to Say](What-to-Say#face--posture-control--yielding-20)**.
+* **Eyes while under:** Dazed, Spirals or Hearts, and an eye colour, both optional on the Trance Defaults tab. Everyone in the room sees them. See **[Settings Reference](Settings-Reference#3-trance-defaults-tab)**.
+* **A spiral screen effect:** *Screen effect* on the Trance Defaults tab picks a grey fade or a turning spiral (light, medium or heavy) while you are under.
+* **Friends:** *Owner, Lovers and friends* is a new choice for who can fire your triggers and who toy mode is for. If you had picked whitelist, check it again.
 * **See who else runs ECHS:** a small spiral over each ECHS player in the room, with their version on hover. You choose whether others see yours, and where you see theirs, on the Trance Defaults tab.
 * **Commands sink in:** a spoken command takes hold 2 to 5 seconds after it is said, with a pulse of colour you can change or switch off on the Trance Defaults tab. See **[What to Say](What-to-Say)**.
 * **What you planted:** hypnotists can list their triggers with `/echs planted <name>` or the **Planted triggers** button on the spiral panel. See **[Commands](Commands)**.

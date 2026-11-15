@@ -45,7 +45,7 @@ Between naming the trigger and saying *"remember trigger"*, the hypnotist can sh
 | *"Missy, it works every time"* | The trigger keeps working until it fades (the default for an ordinary trigger). |
 | *"Missy, it lasts 2 hours"* · *"it fades in three days"* | Gives the trigger a hard time limit. It ends at that time, or when it fades, whichever comes first. |
 | *"Missy, it lasts forever"* | Removes a time limit given earlier. Fading still applies. |
-| *"Missy, anyone can use it"* · *"your owner can use it too"* · *"your friends can use it"* · *"only I can use it"* | Asks for who may fire it. The subject's own setting is the ceiling (see [Trigger Scope](#6-trigger-scope-who-can-fire-your-triggers)). |
+| *"Missy, anyone can use it"* · *"your owner can use it too"* · *"your lovers can use it"* · *"your friends can use it"* · *"only I can use it"* | Asks for who may fire it. The subject's own setting is the ceiling (see [Trigger Scope](#6-trigger-scope-who-can-fire-your-triggers)). |
 | *"Missy, only when you hear it exactly"* | The trigger fires only on the whole words, never inside a longer word. |
 
 The subject's settings always win. If they cap how long a trigger may last, or who may fire it, the hypnotist is told what changed when the trigger is saved.
