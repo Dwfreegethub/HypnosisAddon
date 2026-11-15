@@ -1,5 +1,5 @@
 import { log, warn } from "./log";
-import { tellPlayer } from "./notify";
+import { tellPlayer, tellRoom, fillTokens } from "./notify";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
 // invisible "Emoticon" appearance item's Property.Effect array rather than depending on
@@ -674,6 +674,43 @@ function fromHerOwnInput(): boolean {
 const OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
 const OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
 
+// --- What the room is told when the full hold refuses someone (v1.12.1, DW 2026-11-14) ----------
+// DW's live run: the mover's add-on (not BC: no such text in R132) posts its own room line, "(Biker
+// raises Missy's hands.)", from THEIR client before the request reaches hers, and may show her
+// moved on their screen. Neither is ours to stop. So her client answers: the room is told she did
+// not move, once per burst (an add-on may change several pose categories in one go), and her real
+// pose is sent again so every screen shows it. The room line answers to "Others See Your
+// Reactions" (tellRoom), as every room line does.
+const ROOM_REFUSAL_LINE = "{name} does not budge: {their} body stays exactly where it was.";
+const ROOM_REFUSAL_GAP_MS = 5_000;
+let lastRoomRefusal = 0;
+let resyncPending = false;
+
+/** Send her held pose to the room once the current burst of calls is over (a microtask, so the
+ * several PoseSetActive calls of one request share one send). */
+function resyncHeldPoseSoon(): void {
+	if (resyncPending) return;
+	resyncPending = true;
+	Promise.resolve().then(() => {
+		resyncPending = false;
+		if (!isHeldFully() || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
+		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+		log("held fully: re-sent her pose after refusing someone else's change");
+	});
+}
+
+/** The full hold refused someone else's change: tell her, tell the room, and (when nothing else
+ * already re-sent it) put her real pose back on every screen. */
+function othersRefused(resync: boolean): void {
+	heldNotice(OTHERS_TRY_LINE);
+	const now = Date.now();
+	if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
+		lastRoomRefusal = now;
+		tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+	}
+	if (resync) resyncHeldPoseSoon();
+}
+
 function heldNotice(line: string): void {
 	const now = Date.now();
 	if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
@@ -719,7 +756,8 @@ export function installEffectHooks(modApi: any): void {
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
 			const hers = fromHerOwnInput();
 			if (hers || isHeldFully()) {
-				heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+				if (hers) heldNotice(OWN_TRY_LINE);
+				else othersRefused(true);
 				log(`held still: refused a pose change (${hers ? "her own" : "not hers"}${isHeldFully() ? ", held fully" : ""})`);
 				return undefined;
 			}
@@ -757,7 +795,7 @@ export function installEffectHooks(modApi: any): void {
 		if (!samePoses(held, Player?.ActivePose)) {
 			if (isHeldFully()) {
 				restoreHeldPose(held);
-				heldNotice(OTHERS_TRY_LINE);
+				othersRefused(false);
 				log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
 			} else {
 				// Only held: another player may adjust her. Their pose is now the one she is held in.
@@ -777,6 +815,7 @@ export function installEffectHooks(modApi: any): void {
 			return result;
 		}
 		restoreHeldPose(currentPoses());
+		othersRefused(false);
 		log("held still: refused an incoming pose update");
 		return undefined;
 	});
@@ -815,7 +854,8 @@ export function installEffectHooks(modApi: any): void {
 		}
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-		heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+		if (hers) heldNotice(OWN_TRY_LINE);
+		else othersRefused(false); // the held pose is what this send now carries
 		log("held still: a pose change got past the hook; put the held pose back before it was sent");
 		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
 	});

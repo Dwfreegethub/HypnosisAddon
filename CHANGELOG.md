@@ -12,6 +12,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.1 RC · 14 November 2026
+
+- **When "no one can move you" stops someone, the room is told.** Another player's add-on can
+  announce the move (*"Biker raises Missy's hands"*) before it reaches you, so the room thought it
+  worked. Now your character answers with *"Missy does not budge: her body stays exactly where it
+  was."*, and everyone's screen is put back to your real pose. Turn off *Others See Your
+  Reactions* if you'd rather the room heard nothing.
+
 ## v1.12.0 RC · 14 November 2026
 
 - **"You cannot move" no longer stops other people adjusting you.** While you're held, you still
