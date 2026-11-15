@@ -233,6 +233,36 @@ later();
 fromRemote(() => { PoseSetActive(Player, "OverTheHead"); PoseSetActive(Player, "BaseLower"); PoseSetActive(Player, "KneelingSpread"); });
 await Promise.resolve();
 check("  a burst of three changes: one room line, one re-send", [emotes.length, poseUpdates.length], [1, 1]);
+// v1.12.2, DW's live run of v1.12.1: "does not budge" six times for two real attempts. The extra
+// ones came from her own client. Failure: any line, to her or the room, for a change nobody made.
+later();
+PoseSetActive(Player, "BaseLower"); // no event: a timer on her own client (WCE's animation engine)
+await Promise.resolve();
+check("held fully: a change from a timer on her own client is refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
+check("  quietly: no line for her, none for the room, nothing re-sent", [said.length, emotes.length, poseUpdates.length], [0, 0, 0]);
+later();
+{
+	// The hypnotist's line arrives in a socket message; our own action in it, then another add-on
+	// reacting to that action in the same dispatch.
+	const msg = { type: "message" };
+	globalThis.event = msg;
+	effects.setHoldFully(true); // ours: marks this dispatch
+	PoseSetActive(Player, "BaseLower");
+	delete globalThis.event;
+	await Promise.resolve();
+	check("held fully: another add-on reacting to OUR action, same message: refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
+	check("  quietly", [said.length, emotes.length], [0, 0]);
+	// The next message is a new dispatch: a real request again.
+	fromRemote(() => PoseSetActive(Player, "BaseLower"));
+	await Promise.resolve();
+	check("  a later message is someone again, and is told", [said.some((s) => /Someone tries/.test(s)), emotes.length], [true, 1]);
+}
+later();
+ChatRoomSyncPose({ MemberNumber: 1, Pose: ["BaseUpper", "BaseLower"] });
+check("held fully: a bare pose update (no sender named) is undone quietly", [Player.ActivePose, said.length, emotes.length], [["BaseUpper", "Kneel"], 0, 0]);
+later();
+ChatRoomSyncCharacter({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, ActivePose: ["BaseUpper", "BaseLower"] } });
+check("  but a sync from a named player is still told", [said.some((s) => /Someone tries/.test(s)), emotes.length], [true, 1]);
 later();
 Player.ActivePose = ["BaseUpper", "BaseLower"];
 ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
