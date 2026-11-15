@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.6 RC · 15 November 2026
+
+- **The in-game help is up to date.** It told hypnotists to click an "H" icon; the icon is a spiral.
+  It also now says a suggestion takes hold 2 to 5 seconds after it is said, how to let someone touch
+  themselves again, who a trigger can be opened to (owner, lovers, friends), and that the
+  hypnotist's roleplay during the induction counts toward the roll.
+
 ## v1.12.5 RC · 14 November 2026
 
 - **Belly and all fours are really held now.** With *"no one can move you"*, another player could
