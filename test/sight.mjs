@@ -1,16 +1,19 @@
 // Sight, v0.93.0 (DW, 2026-09-26): "you cannot see", linked into BC's own blindness.
 //
 // BC's three levels: 1 dim, 2 very dark, 3 black. DW: link into BC's blindness and never override
-// its limits. So the stand-in below is R132's Player.GetBlindLevel, trimmed: it counts
-// BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects asked about ItemHead, ItemHood, ItemNeck
-// and ItemDevices ONLY, then clamps to 2 when her Sensory Deprivation setting is Light, else to 3.
-// Our effect has to reach BC through that door, or nothing happens.
+// its limits. So the stand-in below is BC's Player.GetBlindLevel, trimmed: it counts
+// BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects, then clamps to 2 when her Sensory
+// Deprivation setting is Light, else to 3. Our effect has to reach BC through that door, or nothing
+// happens. BC once asked about ItemHead/ItemHood/ItemNeck/ItemDevices; it now asks with [] (every
+// group). The stand-in follows BC as it is now (v1.11.1: the old stand-in hid that sight never
+// landed live); BLIND_ASK switches it, so both questions are checked.
 //
 // Every block states what failure looks like.
 const HYP = 246108;
 const emoticonAsset = { Name: "Emoticon", Group: { Name: "Emoticon" }, Effect: [], AllowEffect: [] };
 globalThis.Asset = [emoticonAsset];
 const BLIND = { BlindLight: 1, BlindNormal: 2, BlindHeavy: 3 };
+let BLIND_ASK = []; // BC's current call (Character.js, clone of 2026-09-29)
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 },
 	GameplaySettings: { SensDepChatLog: "Normal" },
@@ -20,10 +23,10 @@ globalThis.Player = {
 	IsPlayer() { return true; },
 	HasEffect(e) { return this.Effect.includes(e); },
 	CanWalk() { return !this.HasEffect("Freeze"); },
-	// R132 Character.js GetBlindLevel, trimmed (no eyes-closed or crafted Thick/Thin terms).
+	// Character.js GetBlindLevel, trimmed (no eyes-closed or crafted Thick/Thin terms).
 	GetBlindLevel() {
 		if (this._BlindLevel != null) return this._BlindLevel;
-		const effects = CharacterGetEffects(this, ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"], true);
+		const effects = CharacterGetEffects(this, BLIND_ASK, true);
 		let level = effects.reduce((n, e) => n + (BLIND[e] ?? 0), 0);
 		level = this.GameplaySettings.SensDepChatLog === "SensDepLight" ? Math.max(0, Math.min(2, level)) : Math.max(0, Math.min(3, level));
 		this._BlindLevel = level;
@@ -129,6 +132,18 @@ check("  not on her synced item (the room sees nothing)", Player.Appearance[0].P
 check("  not in her general effect list either", Player.Effect.some((e) => e.startsWith("Blind")), false);
 say("Missy, you can see again");
 check("released: level 0", blind(), 0);
+
+// --- the older BC question, by named groups, still counts ------------------------------------------
+// Failure: only one of BC's two ways of asking reaches our effect.
+BLIND_ASK = ["ItemHead", "ItemHood", "ItemNeck", "ItemDevices"];
+say("Missy, your vision is dimming");
+check("asked by named groups: level 1", blind(), 1);
+BLIND_ASK = ["ItemFeet"];
+Player._BlindLevel = undefined;
+check("  a question about other groups does not see it", blind(), 0);
+BLIND_ASK = [];
+Player._BlindLevel = undefined;
+say("Missy, you can see again");
 
 // --- BC's limits win ------------------------------------------------------------------------------------
 // Her Sensory Deprivation setting on Light: BC never goes past 2. Failure: we push through to 3, or
