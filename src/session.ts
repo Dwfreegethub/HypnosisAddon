@@ -81,8 +81,11 @@ import {
 	WALKING_FADE_OPACITY,
 	clearTranceStates,
 	TRANCE_FADE_OPACITY,
+	setHoldFully,
 } from "./effects";
 import { clearFollow } from "./follow";
+import { applyTranceEyes, restoreTranceEyes } from "./eyes";
+import { clearFace } from "./face";
 
 // The hypnosis session state machine, per the design doc's "Session Flow" section.
 //
@@ -635,6 +638,9 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	// The face first: what it puts back may be her trance eyes, which restoreTranceEyes then takes off.
+	clearFace();
+	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();
@@ -1686,15 +1692,17 @@ function findCharacterName(memberId: number): string {
 function applyTranceState(): void {
 	const f = getFeatures();
 	if (!f.hypnoEnabled) return;
-	if (f.tranceCannotMove) applyEffect("Freeze");
+	if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
 	if (f.tranceCannotSpeak) setSpeechBlocked(true);
 	if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
 	// Snapshot at the moment of going under, so the clothes the subject keeps seeing are
 	// the ones they were wearing when they lost track — not whatever they had on at some
 	// arbitrary later point.
 	if (f.tranceClothingFreeze) freezeAppearance();
+	// After the snapshot, so her own frozen view keeps the eyes she went under with.
+	applyTranceEyes();
 	log(
-		`trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} ` +
+		`trance state applied: move=${f.tranceCannotMove}${f.tranceCannotMove && f.tranceNoOneMoves ? " (no one moves her)" : ""} speak=${f.tranceCannotSpeak} ` +
 			`fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`,
 	);
 }
@@ -1728,7 +1736,7 @@ export function enterWalkingTrance(): boolean {
 export function leaveWalkingTrance(): boolean {
 	if (!isWalkingTrance()) return false;
 	const f = getFeatures();
-	if (f.tranceCannotMove) applyEffect("Freeze");
+	if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
 	if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
 	setWalkingTrance(false);
 	notify("You go still, and the world recedes again.");
@@ -2048,6 +2056,9 @@ function totalStop(hypnotistMessage: string, localMessage: string): void {
 	clearFollow();
 	clearSuggestedPose();
 	clearTranceStates();
+	// The face first: what it puts back may be her trance eyes, which restoreTranceEyes then takes off.
+	clearFace();
+	restoreTranceEyes();
 	clearAllSuppression();
 	clearSelfTouchBlocks();
 	clearActiveSuggestions();

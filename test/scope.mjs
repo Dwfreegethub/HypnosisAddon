@@ -1,17 +1,18 @@
 // Trigger scope: who besides the installer can fire a trigger.
 // Mirrors BC's own AllowedInteractions ladder, so the ordering of the checks matters as
 // much as the checks themselves — owner is allowed at every level and BEFORE blacklist.
-const HYP = 246108, OWNER = 111, LOVER = 222, WHITE = 333, DOM = 444, BLACK = 555, RANDOM = 666;
+const HYP = 246108, OWNER = 111, LOVER = 222, WHITE = 333, DOM = 444, BLACK = 555, RANDOM = 666, FRIEND = 777;
 
-const rel = { owner: null, lover: null, white: [], black: [], dom: 0 };
+const rel = { owner: null, lover: null, white: [], black: [], friends: [], dom: 0 };
 globalThis.Player = {
 	MemberNumber: 1, Name: "Missy", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 },
 	IsOwnedByCharacter: (C) => C.MemberNumber === rel.owner,
 	HasOnBlacklist: (C) => rel.black.includes(C.MemberNumber),
 	HasOnWhitelist: (C) => rel.white.includes(C.MemberNumber),
+	HasOnFriendlist: (C) => rel.friends.includes(C.MemberNumber),
 };
 const mk = (n) => ({ MemberNumber: n, Name: `P${n}`, IsLoverOfCharacter: () => n === rel.lover });
-globalThis.ChatRoomCharacter = [Player, ...[HYP, OWNER, LOVER, WHITE, DOM, BLACK, RANDOM].map(mk)];
+globalThis.ChatRoomCharacter = [Player, ...[HYP, OWNER, LOVER, WHITE, DOM, BLACK, RANDOM, FRIEND].map(mk)];
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
 globalThis.ServerSend = () => {};
@@ -35,7 +36,7 @@ const check = (label, got, want) => {
 	if (!ok) console.log(`  FAIL ${label}: want ${want}, got ${got}`);
 };
 
-rel.owner = OWNER; rel.lover = LOVER; rel.white = [WHITE]; rel.black = [BLACK];
+rel.owner = OWNER; rel.lover = LOVER; rel.white = [WHITE]; rel.black = [BLACK]; rel.friends = [FRIEND];
 storage.setFeature("hypnoEnabled", true);
 storage.setFeature("triggerControl", true);
 storage.setTrustValue(HYP, "GameBot", 70);
@@ -50,13 +51,33 @@ const row = (scope, expected) => {
 };
 
 // The installer always fires, at every level — that's the "plus hypnotist" in each option.
-row("hypnotist", [[HYP,"hypnotist",true],[OWNER,"owner",false],[LOVER,"lover",false],[WHITE,"whitelist",false],[DOM,"dominant",false],[BLACK,"blacklist",false],[RANDOM,"stranger",false]]);
-row("owner",     [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",false],[WHITE,"whitelist",false],[RANDOM,"stranger",false]]);
-row("lovers",    [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",true],[WHITE,"whitelist",false],[RANDOM,"stranger",false]]);
-row("whitelist", [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",true],[WHITE,"whitelist",true],[RANDOM,"stranger",false]]);
-row("dominants", [[HYP,"hypnotist",true],[OWNER,"owner",true],[WHITE,"whitelist",true],[DOM,"dominant",true],[RANDOM,"stranger",false]]);
-row("notblack",  [[HYP,"hypnotist",true],[RANDOM,"stranger",true],[BLACK,"blacklisted",false],[OWNER,"owner",true]]);
+// Friends (v1.8.0): between Lovers and whitelist, so every rung from friends up includes them.
+row("hypnotist", [[HYP,"hypnotist",true],[OWNER,"owner",false],[LOVER,"lover",false],[FRIEND,"friend",false],[WHITE,"whitelist",false],[DOM,"dominant",false],[BLACK,"blacklist",false],[RANDOM,"stranger",false]]);
+row("owner",     [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",false],[FRIEND,"friend",false],[WHITE,"whitelist",false],[RANDOM,"stranger",false]]);
+row("lovers",    [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",true],[FRIEND,"friend",false],[WHITE,"whitelist",false],[RANDOM,"stranger",false]]);
+row("friends",   [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",true],[FRIEND,"friend",true],[WHITE,"whitelist",false],[DOM,"dominant",false],[RANDOM,"stranger",false]]);
+row("whitelist", [[HYP,"hypnotist",true],[OWNER,"owner",true],[LOVER,"lover",true],[FRIEND,"friend",true],[WHITE,"whitelist",true],[RANDOM,"stranger",false]]);
+row("dominants", [[HYP,"hypnotist",true],[OWNER,"owner",true],[FRIEND,"friend",true],[WHITE,"whitelist",true],[DOM,"dominant",true],[RANDOM,"stranger",false]]);
+row("notblack",  [[HYP,"hypnotist",true],[RANDOM,"stranger",true],[FRIEND,"friend",true],[BLACK,"blacklisted",false],[OWNER,"owner",true]]);
 row("everyone",  [[HYP,"hypnotist",true],[RANDOM,"stranger",true],[BLACK,"blacklisted",true]]);
+
+// A friend you have also blacklisted is not let in by being a friend.
+rel.black = [BLACK, FRIEND];
+storage.setTriggerScope("friends");
+check("friends: a blacklisted friend is refused", fires(FRIEND), false);
+rel.black = [BLACK];
+
+// A build without BC's helper still reads the plain list, as trust.ts does.
+{
+	const helper = Player.HasOnFriendlist;
+	delete Player.HasOnFriendlist;
+	Player.FriendList = [FRIEND];
+	storage.setTriggerScope("friends");
+	check("friends: read from Player.FriendList without the helper", fires(FRIEND), true);
+	check("  and a stranger still is not", fires(RANDOM), false);
+	Player.HasOnFriendlist = helper;
+	delete Player.FriendList;
+}
 
 // Owner is checked before the blacklist, matching BC exactly.
 rel.black = [OWNER];
@@ -71,12 +92,12 @@ check("blacklisted owner still allowed (matches BC)", fires(OWNER), true);
 // and every scope must agree with it.
 const SELF = Player.MemberNumber;
 storage.setFeature("selfTrigger", false);
-for (const scope of ["hypnotist", "owner", "lovers", "whitelist", "dominants", "notblack", "everyone"]) {
+for (const scope of ["hypnotist", "owner", "lovers", "friends", "whitelist", "dominants", "notblack", "everyone"]) {
 	storage.setTriggerScope(scope);
 	check(`${scope}: self, setting off`, fires(SELF), false);
 }
 storage.setFeature("selfTrigger", true);
-for (const scope of ["hypnotist", "owner", "lovers", "whitelist", "dominants", "notblack", "everyone"]) {
+for (const scope of ["hypnotist", "owner", "lovers", "friends", "whitelist", "dominants", "notblack", "everyone"]) {
 	storage.setTriggerScope(scope);
 	check(`${scope}: self, setting on`, fires(SELF), true);
 }
@@ -90,5 +111,28 @@ check("self may still RELEASE with the setting off", canRelease(SELF), true);
 check("  but still cannot fire", fires(SELF), false);
 check("a stranger still cannot release", canRelease(RANDOM), false);
 
+// --- the one-time move (v1.8.0) -------------------------------------------------------
+// Before the Friends rung, "whitelist" did not include friends. A save from then that says
+// whitelist moves DOWN to friends once, so nobody's circle widens without their choosing (DW,
+// 2026-11-08). Failure looks like: an old save left on whitelist (friends let in unasked), or a
+// whitelist chosen after the move being moved again on the next load.
+const lz = (await import("lz-string")).default;
+const oldSave = JSON.parse(lz.decompressFromBase64(storage.exportSettings()));
+delete oldSave.friendsRung;
+oldSave.triggerScope = "whitelist";
+oldSave.toyScope = "whitelist";
+check("an old save imports", storage.importSettings(lz.compressToBase64(JSON.stringify(oldSave))).ok, true);
+check("  its whitelist trigger scope moves down to friends", storage.getTriggerScope(), "friends");
+check("  and so does its toy-mode scope", storage.getToyScope(), "friends");
+const oldDom = { ...oldSave, triggerScope: "dominants", toyScope: "lovers" };
+storage.importSettings(lz.compressToBase64(JSON.stringify(oldDom)));
+check("  other rungs are left as they were", [storage.getTriggerScope(), storage.getToyScope()].join(), "dominants,lovers");
+oldSave.toyScope = "friend";
+storage.importSettings(lz.compressToBase64(JSON.stringify(oldSave)));
+check("  v0.97's 'friend' toy key now means the Friends rung", storage.getToyScope(), "friends");
+storage.setTriggerScope("whitelist");
+storage.setToyScope("whitelist");
+check("whitelist chosen after the move survives an export and import",
+	storage.importSettings(storage.exportSettings()).ok && [storage.getTriggerScope(), storage.getToyScope()].join(), "whitelist,whitelist");
 console.log(`scope: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

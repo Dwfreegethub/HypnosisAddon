@@ -2,9 +2,6 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to purge active triggers, lingering suggestions, and waking compulsions.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Trigger buffers, decay balancing, and multi-action executions are actively being refined.
-
 ---
 
 There are three ways for a suggestion to outlast an active session:
@@ -45,7 +42,7 @@ Between naming the trigger and saying *"remember trigger"*, the hypnotist can sh
 | *"Missy, it works every time"* | The trigger keeps working until it fades (the default for an ordinary trigger). |
 | *"Missy, it lasts 2 hours"* · *"it fades in three days"* | Gives the trigger a hard time limit. It ends at that time, or when it fades, whichever comes first. |
 | *"Missy, it lasts forever"* | Removes a time limit given earlier. Fading still applies. |
-| *"Missy, anyone can use it"* · *"your owner can use it too"* · *"only I can use it"* | Asks for who may fire it. The subject's own setting is the ceiling (see [Trigger Scope](#6-trigger-scope-who-can-fire-your-triggers)). |
+| *"Missy, anyone can use it"* · *"your owner can use it too"* · *"your lovers can use it"* · *"your friends can use it"* · *"only I can use it"* | Asks for who may fire it. The subject's own setting is the ceiling (see [Trigger Scope](#6-trigger-scope-who-can-fire-your-triggers)). |
 | *"Missy, only when you hear it exactly"* | The trigger fires only on the whole words, never inside a longer word. |
 
 The subject's settings always win. If they cap how long a trigger may last, or who may fire it, the hypnotist is told what changed when the trigger is saved.
@@ -158,15 +155,18 @@ Compulsions otherwise work like any trigger: the same permissions, strength, fad
 
 ## 6. Trigger Scope: Who Can Fire Your Triggers?
 
-Configured on your **Triggers** tab. ECHS uses a 7-rung scope ladder (defaulting to **Hypnotist only**):
+Configured on your **Triggers** tab. ECHS uses an 8-rung scope ladder (defaulting to **Hypnotist only**):
 
 1. **Hypnotist only** (the player who planted it)
 2. **Hypnotist and Owner**
 3. **Hypnotist, Owner, and Lovers**
-4. …plus **Whitelist**
-5. …plus **Dominants**
-6. **Everyone except Blacklist**
-7. **Everyone** (public trigger, no restrictions)
+4. …plus **Friends** (your BC friend list)
+5. …plus **Whitelist**
+6. …plus **Dominants**
+7. **Everyone except Blacklist**
+8. **Everyone** (public trigger, no restrictions)
+
+Each rung includes everyone on the rungs above it, so the Whitelist rung lets your friends in too. A friend you have also blacklisted is still refused.
 
 The player who planted the trigger can always fire it regardless of the selected rung. Whether **you** can fire your own triggers is an independent setting (*"You can fire your own triggers"* on the Triggers tab).
 
@@ -232,7 +232,7 @@ Carry-forward suggestions allow active trance commands to persist after waking:
 
 ### Constraints
 * **Natural speech ordering:** The carry command applies to the most recently delivered suggestion, allowing natural roleplay phrasing.
-* **Trance defaults never carry:** Automatic session defaults (*Cannot Move*, *Cannot Speak*, *Screen Fade*) **can never be carried past waking**. You will always wake with movement and speech restored. Making a physical restriction persistent requires delivering it deliberately as a spoken command first.
+* **Trance defaults never carry:** Automatic session defaults (*Cannot Move*, *Cannot Speak*, the *Screen effect*) **can never be carried past waking**. You will always wake with movement and speech restored. Making a physical restriction persistent requires delivering it deliberately as a spoken command first.
 * **Releasing carried suggestions:** The hypnotist who applied a carried suggestion can release it at any time using standard release phrasing.
 
 ---

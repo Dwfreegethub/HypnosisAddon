@@ -14,6 +14,8 @@ import {
 	withForcedSpeech,
 	setSight,
 	getSight,
+	isHeldFully,
+	setHoldFully,
 	type SightLevel,
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
@@ -38,6 +40,7 @@ import {
 } from "./session";
 import { applyFollow, releaseFollow } from "./follow";
 import { depthAllows, depthRefusal, requiredDepth, tierOf, tierLabel } from "./depth";
+import { setFace, clearFace, FaceGroup } from "./face";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
@@ -292,6 +295,7 @@ function applyUndress(count: number): FlavorKey | void {
 	// CanChangeOwnClothes() answer false, which the "locked" branch would then blame. Actually
 	// lifting the effect and re-reading is the only way to tell our freeze from a real lock.
 	const liftedOwnFreeze = heldByUs("Freeze");
+	const wasHeldFully = isHeldFully();
 	if (liftedOwnFreeze) {
 		removeEffect("Freeze");
 		if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
@@ -310,6 +314,7 @@ function applyUndress(count: number): FlavorKey | void {
 	} finally {
 		if (liftedOwnFreeze) {
 			applyEffect("Freeze");
+			setHoldFully(wasHeldFully);
 			if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
 		}
 	}
@@ -573,6 +578,144 @@ const POSE_SUGGESTIONS: Suggestion[] = [
 	},
 ];
 
+// --- Her face (v1.11.0) ----------------------------------------------------------------
+// DW 2026-11-11: open and close the eyes, open the mouth, the tongue out, "and other suggestions",
+// as spoken suggestions and trigger actions. BC's own facial expressions; see face.ts for the names,
+// for what is saved and put back, and why it lasts until "relax your face" or waking. Posture
+// Control, like the poses: a face is the body doing what it is told.
+
+/** A face that BC did not take is its own outcome (rule 5). */
+function applyFace(group: FaceGroup, expression: string): FlavorKey | void {
+	if (!setFace(group, expression)) return "face-blocked";
+}
+
+function faceSuggestion(id: FlavorKey, group: FaceGroup, expression: string, examples: string[], patterns: RegExp[], unless?: RegExp[]): Suggestion {
+	return {
+		id,
+		examples,
+		permission: "postureControl",
+		patterns,
+		unless,
+		run: () => applyFace(group, expression),
+		// Only while it is still this face: a trigger's smile must not undo a pout said since.
+		undo: () => {
+			clearFace(group, expression);
+		},
+	};
+}
+
+const EYE_FACE_IDS: FlavorKey[] = ["eyes-closed", "eyes-wide", "eyes-dazed", "eyes-hearts"];
+const MOUTH_FACE_IDS: FlavorKey[] = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan"];
+/** Every face command, applied or released. None is carried by "that will stay with you": DW
+ * wants a face to last until it is relaxed or she wakes. */
+const FACE_IDS: FlavorKey[] = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-relax"];
+
+/** A bare word ("smile", "pout") is matched unless it is a noun or about someone else: "a smile",
+ * "your smile", "you make me smile", "I grin". */
+const NOT_HERS = String.raw`(?<!\b(?:i|we|a|an|your|my|her|his|their|me|us|them|him|that|the) )`;
+const bare = (word: string) => new RegExp(String.raw`${NOT_HERS}\b${word}\b`);
+/** "Do not close your eyes", "don't smile": the negation is not the command. */
+const NEGATED = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
+
+const FACE_SUGGESTIONS: Suggestion[] = [
+	// The full tongue first: "let your tongue hang out" also says "tongue out".
+	faceSuggestion("tongue-hang", "Mouth", "Ahegao", ["let your tongue hang out", "tongue all the way out"], [
+		/\btongue (?:all the way|hanging|lolling) out\b/,
+		/\b(?:let )?your tongue (?:hang|loll|lolls|hangs)(?: out)?\b/,
+		/\bahegao\b/,
+		/\b(?:roll your eyes back|your eyes roll back)\b/,
+	], [NEGATED]),
+	faceSuggestion("tongue-out", "Mouth", "TonguePinch", ["stick out your tongue", "tongue out", "show me your tongue"], [
+		/\b(?:stick|put|poke) (?:out your tongue|your tongue out)\b/,
+		/\btongue out\b/,
+		/\bshow me your tongue\b/,
+	], [NEGATED]),
+	faceSuggestion("mouth-open", "Mouth", "Open", ["open your mouth", "mouth open", "open wide"], [
+		/\bopen your mouth\b/,
+		/\b(?:keep )?your mouth open\b/,
+		/\bmouth open\b/,
+		/(?<!\bi )(?<!\bwe )\bopen wide\b/,
+		/\bsay a+h+\b/,
+	], [NEGATED]),
+	faceSuggestion("mouth-parted", "Mouth", "HalfOpen", ["part your lips", "your lips part"], [
+		/\bpart your lips\b/,
+		/\byour lips (?:part|fall open|drift open|come apart)\b/,
+	], [NEGATED]),
+	faceSuggestion("lip-bite", "Mouth", "LipBite", ["bite your lip"], [
+		/\bbite (?:on )?your (?:bottom |lower )?lip\b/,
+	], [NEGATED]),
+	faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED]),
+	faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED]),
+	faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED]),
+	faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED]),
+	faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
+		/\bmoan (?:for me|for us|softly|quietly|for them)\b/,
+	], [NEGATED]),
+	{
+		id: "mouth-close",
+		examples: ["close your mouth", "tongue back in"],
+		release: true,
+		releaseOf: MOUTH_FACE_IDS,
+		permission: "postureControl",
+		patterns: [
+			/\b(?:close|shut) your mouth\b/,
+			/\bmouth (?:closed|shut)\b/,
+			/\b(?:put your )?tongue (?:back )?(?:in|away)\b/,
+			/\bput your tongue away\b/,
+		],
+		run: () => {
+			clearFace("Mouth");
+		},
+	},
+	// Eyes. Closed before open: "you cannot open your eyes" is a closing.
+	faceSuggestion("eyes-closed", "Eyes", "Closed", ["close your eyes", "your eyes close", "you cannot open your eyes"], [
+		/(?<!\b(?:not|never|don t|dont) )\b(?:close|shut) your eyes\b/,
+		/\b(?:let )?your eyes (?:close|closing|fall closed|drift closed|flutter closed|shut)\b/,
+		/\beyes closed\b/,
+		/\byou (?:cannot|can t) open your eyes\b/,
+	], [/\b(?:do not|don t|dont|never) (?:close|shut) your eyes\b/]),
+	faceSuggestion("eyes-wide", "Eyes", "Surprised", ["eyes wide", "widen your eyes"], [
+		/\beyes (?:go |open )?wide\b/,
+		/\bwiden your eyes\b/,
+	], [NEGATED]),
+	faceSuggestion("eyes-dazed", "Eyes", "Dazed", ["your eyes glaze over", "your eyes go blank"], [
+		/\byour eyes (?:glaze|go glassy|go blank|go empty|unfocus|lose focus)/,
+		/\b(?:blank|empty|glassy) eyes\b/,
+	]),
+	faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED]),
+	{
+		id: "eyes-open",
+		examples: ["open your eyes", "eyes open"],
+		release: true,
+		releaseOf: EYE_FACE_IDS,
+		permission: "postureControl",
+		// "You open your eyes" after a wake condition plants a trigger, and wake itself is checked
+		// before this table, so neither reaches here.
+		patterns: [/\bopen your eyes\b/, /\beyes open\b/],
+		run: () => {
+			clearFace("Eyes");
+		},
+	},
+	faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
+		bare("blush"),
+		/\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/,
+	], [NEGATED]),
+	{
+		id: "face-relax",
+		examples: ["relax your face", "your face relaxes"],
+		release: true,
+		releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-relax"),
+		permission: "postureControl",
+		patterns: [
+			/\brelax your (?:face|expression)\b/,
+			/\byour (?:face|expression) (?:relaxes|softens|goes slack|goes soft|smooths out)\b/,
+		],
+		run: () => {
+			clearFace();
+		},
+	},
+];
+
 const SUGGESTIONS: Suggestion[] = [
 	// Arousal goes FIRST. Its patterns are the most specific in the table (every one names
 	// arousal, an orgasm, or the edge), so it can't shadow anything below it — while the
@@ -741,7 +884,7 @@ const SUGGESTIONS: Suggestion[] = [
 		id: "movement-release",
 		examples: ["you can move again", "your body is your own"],
 		release: true,
-		releaseOf: "movement-block",
+		releaseOf: ["movement-block", "movement-lock"],
 		permission: "movementRestriction",
 		patterns: [
 			/\byou (can|may) move\b/,
@@ -752,6 +895,29 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byour body is your own\b/,
 		],
 		run: () => { removeEffect("Freeze"); },
+	},
+	// The full hold (v1.12.0, DW 2026-11-14): no one else can move her either. Above movement-block,
+	// whose "you are frozen" would otherwise take "you are frozen solid". The same permission: it is
+	// the same stillness, held harder.
+	{
+		id: "movement-lock",
+		examples: ["no one can move you", "you cannot be moved", "you are frozen solid", "you are a statue"],
+		permission: "movementRestriction",
+		patterns: [
+			/\b(?:no one|nobody)(?: else)? (?:can|could|will|is able to|will be able to) (?:\w+ )?move you\b/,
+			/\byou cannot (?:\w+ )?be moved\b/,
+			/\byou (?:will|ll) not be moved\b/,
+			/\byou (?:are|will be|ll be) (?:\w+ )?frozen solid\b/,
+			/\byou (?:are|will be|ll be) (?:a|like a) statue\b/,
+		],
+		run: () => {
+			if (!applyEffect("Freeze")) return "effect-failed";
+			setHoldFully(true);
+		},
+		// Only while it is still the full hold: a plain "you cannot move" said since keeps its own.
+		undo: () => {
+			if (isHeldFully()) removeEffect("Freeze");
+		},
 	},
 	{
 		id: "movement-block",
@@ -780,8 +946,15 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		// Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
 		// told it did not land, and the room is not told of a stillness that is not there.
-		run: () => (applyEffect("Freeze") ? undefined : "effect-failed"),
-		undo: () => removeEffect("Freeze"),
+		// Said after the full hold, it eases it back to the ordinary one (v1.12.0): others may move her.
+		run: () => {
+			if (!applyEffect("Freeze")) return "effect-failed";
+			setHoldFully(false);
+		},
+		// Not while a full hold said since is on: that one ends by its own undo or a release.
+		undo: () => {
+			if (!isHeldFully()) removeEffect("Freeze");
+		},
 	},
 	// Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
 	// block's verbs before the block gets a look. Deliberately no "come with me" — that would
@@ -1245,6 +1418,7 @@ const SUGGESTIONS: Suggestion[] = [
 		/\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/,
 	]),
 	...POSE_SUGGESTIONS,
+	...FACE_SUGGESTIONS,
 	{
 		id: "stand",
 		examples: ["stand", "get up", "on your feet"],
@@ -1806,6 +1980,9 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 	...[
 		String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "lovers" }) })),
+	...[
+		String.raw`\byour friends? (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "scope", scope: "friends" }) })),
 	...[
 		String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
 		String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
@@ -4133,7 +4310,7 @@ function landCommand(sender: number, line: string): void {
 			noteReleased(of);
 			dropCarried(of);
 		}
-	} else if (!HEARING_IDS.includes(id)) {
+	} else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
 		noteApplied(id);
 	}
 }

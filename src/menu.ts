@@ -1,7 +1,7 @@
 import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
 import { tellPlayer } from "./notify";
-import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, clearTranceStates, setSight } from "./effects";
+import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, getScreenFade, clearTranceStates, setSight, setHoldFully } from "./effects";
 import {
 	getFeatures,
 	setFeature,
@@ -59,6 +59,16 @@ import {
 	getPulseCustom,
 	setPulseCustom,
 	PULSE_COLORS,
+	SCREEN_EFFECTS,
+	TRANCE_EYES,
+	TRANCE_EYE_COLORS,
+	getTranceEyes,
+	setTranceEyes,
+	getTranceEyeColor,
+	setTranceEyeColor,
+	getScreenEffect,
+	setScreenEffect,
+	getSpiralStrength,
 	ECHS_ICON_SPOTS,
 	getEchsIconSpot,
 	setEchsIconSpot,
@@ -86,6 +96,8 @@ import {
 	clearAllRefusal,
 } from "./voice";
 import { isHypnotized, isSessionLive, hardFloorStop } from "./session";
+import { applyTranceEyes, restoreTranceEyes } from "./eyes";
+import { clearFace } from "./face";
 import {
 	DEPTH_GATES,
 	CHEMICAL_SCOPES,
@@ -246,9 +258,9 @@ const TABS: Tab[] = [
 		blurb: "What being under is like, and what the room sees of it. On by default — this is the trance itself, not something granted.",
 		rows: [
 			{ key: "tranceCannotMove", label: "Cannot Move" },
+			{ key: "tranceNoOneMoves", label: "...and no one else can move you either", needs: "tranceCannotMove" },
 			{ key: "tranceCannotSpeak", label: "Cannot Speak" },
 			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
-			{ key: "tranceScreenFade", label: "Screen Fade" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
 			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -256,26 +268,34 @@ const TABS: Tab[] = [
 			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
 		scrollExtra: {
-			height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			// The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
+			// where others' icons go.
+			height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
 			draw: (top, width) => {
-				drawPulseControls(top, width);
+				drawTranceDropdowns(top, width, settingsLocked());
+				const pulseTop = top + tranceDropdownsHeight();
+				drawPulseControls(pulseTop, width);
 				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
-				drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+				drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
 			},
 			click: (top) => {
-				if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+				const pulseTop = top + tranceDropdownsHeight();
+				if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					// Consumed either way: a locked button must not cycle.
 					if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
 					return true;
 				}
-				if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+				if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					ICON_SPOT_CONTROL.cycle();
 					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
 					return true;
 				}
 				return false;
 			},
-			hide: removePulseHexInput,
+			hide: () => {
+				removePulseHexInput();
+				removeTranceDropdowns();
+			},
 		},
 	},
 	{
@@ -693,16 +713,154 @@ interface CycleControl {
 }
 const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
 
+// The dropdowns under the Trance Defaults rows (v1.9.1, v1.10.0). DOM <select>s, shown only while
+// wholly in view, as the toy mode dropdown is, and removed off their tab and on every exit.
+//
+// The screen effect (v1.9.1, DW 2026-11-08): one dropdown for what was the Screen Fade tick box and
+// v1.9.0's spiral tick box, which only worked together. None, the grey fade, or the spiral at three
+// strengths. Her eyes while under (v1.10.0): BC's own eye expressions, and a colour (eyes.ts).
+interface DropdownRow {
+	id: string;
+	label: string;
+	options: { key: string; label: string }[];
+	get: () => string;
+	set: (key: string) => void;
+	caption: () => string;
+}
+const SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
+const TRANCE_EYES_ID = "HypnosisAddonTranceEyes";
+const TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
+const TRANCE_DROPDOWN_IDS = [SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID];
+const DROPDOWN_LABEL_WIDTH = 250;
+const DROPDOWN_WIDTH = 400;
+/** One dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
+function dropdownSlot(): number {
+	return attemptControlHeight() + CYCLE_GAP;
+}
+
+/** Her eyes changed while she is under: undo what is there and put the new choice on now. */
+function reapplyTranceEyes(): void {
+	if (!isHypnotized()) return;
+	restoreTranceEyes();
+	applyTranceEyes();
+}
+
+const TRANCE_DROPDOWNS: DropdownRow[] = [
+	{
+		id: SCREEN_EFFECT_ID,
+		label: "Screen effect:",
+		options: SCREEN_EFFECTS,
+		get: getScreenEffect,
+		set: (key) => {
+			const was = getScreenEffect();
+			setScreenEffect(key);
+			const now = getScreenEffect();
+			log(`screen effect: ${was} -> ${now}`);
+			// None takes the fade off at once, as unticking Screen Fade did.
+			if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
+			// From None mid-trance there is no fade to draw yet (rule 5: say so).
+			else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
+				tellPlayer("Your screen effect starts with your next trance.");
+		},
+		caption: () => {
+			const e = getScreenEffect();
+			if (e === "none") return "Nothing over your screen while you are under.";
+			if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
+			return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+		},
+	},
+	{
+		id: TRANCE_EYES_ID,
+		label: "Eyes while under:",
+		options: TRANCE_EYES,
+		get: getTranceEyes,
+		set: (key) => {
+			setTranceEyes(key);
+			log(`trance eyes: ${key || "unchanged"}`);
+			reapplyTranceEyes();
+		},
+		caption: () =>
+			getTranceEyes()
+				? getTranceEyes() === "Dizzy"
+					? "Spiral eyes while you are under, with your eye shadow hidden; both back when you wake. The room sees it."
+					: "Your eyes change while you are under, and back when you wake. Everyone in the room sees it."
+				: "Your eyes stay as they are while you are under.",
+	},
+	{
+		id: TRANCE_EYE_COLOR_ID,
+		label: "Eye colour while under:",
+		options: TRANCE_EYE_COLORS,
+		get: getTranceEyeColor,
+		set: (key) => {
+			setTranceEyeColor(key);
+			log(`trance eye colour: ${key || "unchanged"}`);
+			reapplyTranceEyes();
+		},
+		caption: () =>
+			getTranceEyeColor()
+				? "Your real eye colour is saved first and put back when you wake, even after a crash. The room sees it."
+				: "Your eye colour stays as it is while you are under.",
+	},
+];
+
+function removeTranceDropdowns(): void {
+	for (const id of TRANCE_DROPDOWN_IDS) if (document.getElementById(id)) ElementRemove(id);
+}
+
+function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: boolean): void {
+	drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black");
+	drawLeftTextWrap(
+		row.caption(),
+		BOX_LEFT,
+		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		locked ? "Gray" : "#555",
+	);
+	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+	let element = document.getElementById(row.id) as HTMLSelectElement | null;
+	if (!inView) {
+		if (element) ElementRemove(row.id);
+		return;
+	}
+	if (!element) {
+		element = ElementCreateDropdown(
+			row.id,
+			row.options.map((o) => o.label),
+			function () {
+				// Again here, not only through `disabled`: a lock can begin while it is open.
+				if (settingsLocked()) return;
+				const picked = row.options[this.selectedIndex];
+				if (picked) row.set(picked.key);
+			},
+		);
+	}
+	// Re-synced every frame: an import or a reset changes it underneath us.
+	const index = row.options.findIndex((o) => o.key === row.get());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
+	ElementPosition(row.id, left + DROPDOWN_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+}
+
+function drawTranceDropdowns(top: number, width: number, locked: boolean): void {
+	TRANCE_DROPDOWNS.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, locked));
+}
+
+function tranceDropdownsHeight(): number {
+	return TRANCE_DROPDOWNS.length * dropdownSlot();
+}
+
 /** On the Trance Defaults tab, under the pulse's tick box. */
 const PULSE_COLOR_CONTROL: CycleControl = {
 	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
 	caption: () =>
-		!getFeatures().commandPulse
-			? "The pulse is off, so this does nothing until you tick the box above."
+		!getFeatures().commandPulse && !getSpiralStrength()
+			? "The pulse is off and there is no spiral, so this does nothing until you choose one."
 			: getPulseColor() === "custom"
 				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
-				: "A glow and a wash of colour over the room view. Only you see it.",
-	tooltip: "The colour of the pulse",
+				: "The pulse, and the trance spiral if it is on. Only you see them.",
+	tooltip: "The colour of the pulse and the trance spiral",
 	cycle: () => {
 		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
 		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
@@ -1396,12 +1554,12 @@ const DECAY_CAPTION_Y = 858;
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID]) {
+	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID]) {
 		if (document.getElementById(id)) ElementRemove(id);
 	}
 	removeDepthInputs();
@@ -1422,7 +1580,10 @@ function syncTabControls(tabName: string): void {
 	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
 	if (tabName !== "Stats") removeTrustSearch();
 	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-	if (tabName !== "Trance Defaults") removePulseHexInput();
+	if (tabName !== "Trance Defaults") {
+		removePulseHexInput();
+		removeTranceDropdowns();
+	}
 	if (tabName !== "Depth") removeDepthInputs();
 }
 
@@ -2226,7 +2387,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) removeEffect("BlockWardrobe");
 			break;
 		case "postureControl":
-			if (!enabled) clearSuggestedPose();
+			if (!enabled) {
+				clearSuggestedPose();
+				clearFace();
+			}
 			break;
 		case "speechRestriction":
 		case "tranceCannotSpeak":
@@ -2234,6 +2398,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			break;
 		case "tranceCannotMove":
 			if (!enabled) removeEffect("Freeze");
+			break;
+		// Unticked mid-trance: the hold she is in eases to the ordinary one. Ticking it waits for the next trance.
+		case "tranceNoOneMoves":
+			if (!enabled) setHoldFully(false);
 			break;
 		case "tranceScreenFade":
 			if (!enabled) setScreenFade(0);

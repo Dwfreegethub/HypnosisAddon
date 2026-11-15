@@ -291,7 +291,7 @@ export const QUESTIONS: WizardQuestion[] = [
 		title: "How should triggers and lasting suggestions work?",
 		options: [
 			{ value: "none", label: "None — nothing outlives the trance" },
-			{ value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+			{ value: "standard", label: "Triggers, from my owner, lovers, friends and whitelist" },
 			{ value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" },
 		],
 	},
@@ -485,7 +485,7 @@ export function describeConfig(cfg: SetupConfig): string[] {
 		has("sightControl") && "sight, hearing and not noticing things",
 		has("triggerControl") && (has("carryForward") ? "triggers, drops, made to speak and lasting suggestions" : "triggers"),
 	].filter(Boolean);
-	const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers and whitelist";
+	const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers, friends and whitelist";
 	return [
 		`Allowed: ${allowed.join("; ")}.`,
 		`When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}` +

@@ -1,8 +1,5 @@
 # A Sample Session
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Real-time feedback, visual cues, and chat outputs are continually being refined.
-
 ---
 
 A worked example, end to end: two people, the actual lines typed in room chat, and what each player sees on their screen.
@@ -72,7 +69,7 @@ This time, Missy clicks **Agree**, adding a significant bonus to the calculation
 
 The depth tier reported in brackets (*drifting, yielding, entranced, deep,* or *blank*) comes from Missy's trust in the hypnotist, their relationship, the hypnotist's skill, her arousal and her answer, give or take a few points. The roll only decided that it landed.
 
-Missy's configured **trance defaults** engage immediately. By default, these apply *cannot move*, *cannot speak*, and the **screen fade** (a soft white veil over her game view). All three defaults are adjustable on her Trance Defaults tab.
+Missy's configured **trance defaults** engage immediately. By default, these apply *cannot move*, *cannot speak*, and the **screen fade** (a soft grey fade over her game view, or a turning spiral if she chose one; the **Screen effect** setting). All three defaults are adjustable on her Trance Defaults tab.
 
 **The room sees** *(one of several)*:
 
@@ -205,6 +202,6 @@ Clears active trances, purges active triggers, and removes every lingering restr
 ## Further Reading
 
 * **[What to Say](What-to-Say)** — Comprehensive dictionary of recognized spoken commands.
-* **[Your First Session](Your-First-Session)** — Diagnostic setup and troubleshooting when lines fail to land.
+* **[Troubleshooting](Troubleshooting)** — What to check when a line fails to land.
 * **[Depth and Trust](Depth-and-Trust)** — Detailed mechanics on induction rolls, relationship baselines, and depth gates.
 * **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)** — Deep dive into trigger scopes, duration timers, and decay curves.

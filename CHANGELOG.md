@@ -12,6 +12,122 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.6 RC · 15 November 2026
+
+- **The in-game help is up to date.** It told hypnotists to click an "H" icon; the icon is a spiral.
+  It also now says a suggestion takes hold 2 to 5 seconds after it is said, how to let someone touch
+  themselves again, who a trigger can be opened to (owner, lovers, friends), and that the
+  hypnotist's roleplay during the induction counts toward the roll.
+
+## v1.12.5 RC · 14 November 2026
+
+- **Belly and all fours are really held now.** With *"no one can move you"*, another player could
+  still put you on all fours or on your belly. The game delivers those moves in a way ECHS wasn't
+  watching. It is now.
+- **No more repeating messages.** After someone stopped trying to move you, *"does not budge"*
+  could keep appearing every few seconds. The same move is now announced once; trying it again is
+  still stopped, just without the message.
+
+## v1.12.4 RC · 14 November 2026
+
+- **Belly and all fours are held too.** Some ways of moving you send your pose along with your
+  whole outfit instead of on its own, and those slipped past *"no one can move you"* (and your own
+  hold, for moves of your own). They're caught now.
+
+## v1.12.3 RC · 14 November 2026
+
+- **Undoes 1.12.2.** With *"no one can move you"*, some moves were being stopped without a word,
+  and the person moving you could see you in the new pose on their screen. Back to how 1.12.1
+  behaved: every attempt is stopped, the room is told you didn't budge, and their screen is put
+  right.
+
+## v1.12.2 RC · 14 November 2026
+
+- **"Does not budge" only when someone really tried.** While you were held with *"no one can move
+  you"*, the room could be told you didn't budge when nobody had touched you, because another
+  add-on on your own game was nudging your pose. Those nudges are still stopped, just quietly now.
+
+## v1.12.1 RC · 14 November 2026
+
+- **When "no one can move you" stops someone, the room is told.** Another player's add-on can
+  announce the move (*"Biker raises Missy's hands"*) before it reaches you, so the room thought it
+  worked. Now your character answers with *"Missy does not budge: her body stays exactly where it
+  was."*, and everyone's screen is put back to your real pose. Turn off *Others See Your
+  Reactions* if you'd rather the room heard nothing.
+
+## v1.12.0 RC · 14 November 2026
+
+- **"You cannot move" no longer stops other people adjusting you.** While you're held, you still
+  can't change your own pose, leave or walk, but anyone else can now move you as usual. Before,
+  their change was undone and you were told *you* had tried to move.
+- **New: "no one can move you."** The hypnotist can hold you harder with *"no one can move you"*,
+  *"you cannot be moved"*, *"you are frozen solid"* or *"you are a statue"*. Then nobody else can
+  change your pose either, and you're told *"Someone tries to move you…"* when they try. The
+  hypnotist's own pose commands still move you, and *"you can move again"* ends either hold.
+- **New trance setting: "…and no one else can move you either."** On the Trance Defaults tab, under
+  Cannot Move. Tick it if you want the trance itself to hold you the harder way. It starts off.
+
+## v1.11.1 RC · 14 November 2026
+
+- **Sight commands work again.** *"Your vision is dimming"*, *"you can barely see"* and
+  *"you cannot see"* were heard but did nothing, and the hypnotist was told they did not land.
+  They now darken your screen as they should, still within your own Sensory Deprivation setting.
+
+## v1.11.0 RC · 11 November 2026
+
+- **The hypnotist can now change your face.** With Posture Control ticked, while you are under:
+  *"close your eyes"*, *"open your mouth"*, *"stick out your tongue"*, *"let your tongue hang out"*,
+  *"bite your lip"*, *"smile"*, *"grin"*, *"smirk"*, *"pout"*, *"moan for me"*, *"blush"*,
+  *"eyes wide"*, *"your eyes glaze over"* and *"hearts in your eyes"*. Everyone in the room sees it.
+- **It lasts until it is let go or you wake.** *"Relax your face"* puts all of it back,
+  *"open your eyes"* and *"close your mouth"* put back just that part, and waking or your safeword
+  puts everything back. If you have spiral eyes on, opening your eyes brings the spirals back.
+- **A trigger can change your face too,** like any other suggestion.
+
+## v1.10.2 RC · 11 November 2026
+
+- **Spirals now hide every eye shadow, Wings included.** Some eye shadows, like Wings, have a line
+  the game will not fade out, so they stayed on. Those are now taken off while you are under and put
+  back exactly as they were when you wake, crafted name and all.
+
+## v1.10.1 RC · 11 November 2026
+
+- **Fewer eye choices, and spirals look cleaner.** *Eyes while under* is now Dazed, Spirals or
+  Hearts (Daydream and the second hearts are gone; if you had Pink hearts you now have Hearts).
+  With Spirals, your eye shadow is hidden while you are under and comes back when you wake.
+
+## v1.10.0 RC · 8 November 2026
+
+- **Your eyes can change when you go under.** Two new choices on the Trance Defaults tab, both off
+  unless you pick them: **Eyes while under** (Dazed, Spirals, Daydream, Hearts or Pink hearts) and
+  **Eye colour while under** (Grey, Pink, Purple or Blue). Everyone in the room sees it, and your
+  eyes go back to how they were when you wake, even if the game closed while you were under.
+
+## v1.9.1 RC · 8 November 2026
+
+- **Screen effect is now one choice.** On the Trance Defaults tab, *Screen Fade* and the spiral tick
+  box are replaced by a **Screen effect** dropdown: *None*, *Grey fade*, or the spiral at *light*,
+  *medium* or *heavy*. If you had ticked the spiral, you now have the medium one.
+- **The spiral is lighter to start with, and flashes.** Light and medium are paler than before
+  (heavy is the old strength). A command now gives the spiral a quick flash instead of a slow swell.
+
+## v1.9.0 RC · 8 November 2026
+
+- **A spiral instead of the grey fade.** Tick *Screen Fade as a turning spiral* on the Trance
+  Defaults tab and, while you are under, a spiral in your pulse colour turns slowly over the room
+  instead of the grey wash. When a command lands it swells brighter for a moment, in place of the
+  glow at the edge of the screen. It is off unless you turn it on, and only you see it.
+
+## v1.8.0 RC · 8 November 2026
+
+- **Friends can fire your triggers.** A new choice, *Owner, Lovers and friends*, sits between Lovers
+  and whitelist in who can fire your triggers, and in who toy mode is for. It reads your BC friend
+  list. The whitelist choice and the ones above it now include your friends too.
+- **If you had chosen whitelist, check it.** So that nobody's choice quietly grows, anyone set to
+  whitelist (for triggers or for toy mode) has been moved to the new friends choice. Pick whitelist
+  again on the Triggers or Inductions tab if you want it back.
+- A hypnotist planting a trigger can now say *"your friends can use it"*.
+
 ## v1.7.3 RC · 8 November 2026
 
 - **A smaller label on the ECHS spiral.** Hovering it now shows just the ECHS version, in small

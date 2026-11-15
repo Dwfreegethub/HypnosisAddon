@@ -68,20 +68,28 @@ Here, you can choose one of four starting templates, each applied with one click
 
 Or answer five short questions instead (your role, how attempts are handled, what physical commands you allow, your senses, and triggers). Every page has a **Cancel** button that changes nothing. You can re-run setup or change any setting by hand afterward, outside an active session.
 
-### No Roll: Toy Mode
-If you prefer hands-free play with an owner or partner without seeing induction confirmation boxes:
-1. Open **Preferences → Extensions → ECHS Hypnosis → Inductions**.
-2. Set **Toy mode** to **On**.
-3. Choose who it applies to under **Toy mode is for** (default *Owner and Lovers*; it can widen to *Owner, Lovers and whitelist* or further).
+---
 
-When an authorized partner attempts an induction, **no prompt box appears**. The induction runs for your **Induction time** (60 seconds unless you shorten it, as low as 10, on the same tab), then you go under to your configured *"Sink deeper" stops at* ceiling, with no roll. To the hypnotist it looks like any other induction. Your safeword (`/echs safeword`) always works. See [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
+## Your First Induction
 
-### Initiating Hypnosis via Profiles
-Once installed, when you click on any player to open their profile screen, you will see a **spiral icon on the left side** of their profile card. 
+### If You're the Hypnotist
 
-Clicking that spiral opens their hypnosis panel, where **Attempt Hypnosis** sends the induction request.
+1. **Start it.** Open their profile and click the **spiral icon** on the left of their card, then **Attempt Hypnosis**. Or type `/echs induce Missy` in chat, which does the same. The icon shows on everyone, because ECHS can't tell who has it until it asks; within about three seconds the panel says whether they do.
+2. **Use the induction window.** It runs 60 seconds, or less if they have shortened it (as low as 10). It is there for roleplay, and it counts: each line you write describing the induction adds to your chance, up to a cap.
+3. **See how it went.** If it takes, you are told roughly how deep they went (*drifting, yielding, entranced, deep* or *blank*). If not, how close it came (*barely responsive* up to *almost under*), never numbers. You get **2 tries** (they can allow 3), then wait 10 minutes. `/echs retry` tries the same person again.
+4. **Talk.** Say suggestions in ordinary chat with their name, *"Missy, you cannot move"*, or whisper them, which needs no name. Each one takes hold 2 to 5 seconds later. If one can't, you are told which check stopped it. The phrases are on **[What to Say](What-to-Say)**.
+5. **Wake them** with *"Missy, wake up"*, or **Wake Up** on their profile panel.
 
-**Or type it:** `/echs induce <name>` (for example `/echs induce Missy`) does exactly the same from chat, and `/echs retry` tries the same person again. See [Commands](Commands#starting-a-hypnosis--for-the-hypnotist).
+A trance holds them still by default. *"Missy, walk with me"* lets them move while staying under, and *"Missy, be still"* holds them again.
+
+### If You're the Subject
+
+1. **Answer the box.** When someone starts an induction, a box asks you to **Agree** (it lands more easily and you go deeper), **Ignore**, or **Fight** (much harder to land, and you stay shallow). Nobody is told which you chose, and doing nothing counts as Ignore. If another screen is covering the box, type `/echs agree`, `/echs ignore` or `/echs fight`.
+2. **Going under.** The roll only decides whether it lands. How deep you go comes mostly from who they are to you: your trust in them and your BC relationship. The numbers are on **[How an Induction Works](How-Inductions-Work)**.
+3. **While you are under,** what lands is shown to you in [brackets], privately. You can change your answer at any time, and `/echs fight` while under pushes back up (see [Fighting your way up](How-Inductions-Work#6-fighting-your-way-up)).
+4. **Getting out.** The hypnotist wakes you, or the trance ends on its own after 30 minutes (you are asked if you want to stay under). In a shallow trance `/echs wake` works for you, and **`/echs safeword` always works**, from any state.
+
+**Skipping the box.** Say *"I trust you, Eri"* and Eri's next induction within 5 minutes goes ahead as Agree. On the **Inductions** tab you can answer every induction ahead of time, or turn on **toy mode** so the people you choose put you under with no roll. Both are explained on **[How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode)**.
 
 ---
 
@@ -115,5 +123,6 @@ It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**,
 ## Next Steps
 
 * → **[A Sample Session](Sample-Session)** — A walkthrough of a real session from start to finish.
+* → **[How an Induction Works](How-Inductions-Work)** — Why an induction lands, how deep, and how to skip the box.
 * → **[What to Say](What-to-Say)** — The full vocabulary and sentence structures recognized by the parser.
 * → **[Consent and Safety](Consent-and-Safety)** — Essential reading on client boundaries and emergency exits before turning on deeper modules.

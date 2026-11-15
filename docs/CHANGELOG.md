@@ -20,6 +20,321 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-15 (v1.12.6 RC) — in-game help audit
+
+A read of every hand-written line in `src/help.ts` against the code, after the wiki pass (#137,
+#138). The generated parts (vocabulary, commands, depth ladder) were already current.
+- *Start Here:* "click the H icon" → the spiral icon (the icon has been a spiral since the
+  2026-09-16 refresh), plus `/echs induce <name>`; a line that suggestions land 2 to 5 seconds later.
+- *What to Say → Not in the table:* "(selfTouchControl)" was the storage key; now the menu's
+  "Self-Touch Control", with its releases (`PART_RELEASE`/`SELF_RELEASE` in voice.ts, which no help
+  or wiki line showed). "Veil lifted" → "thinned" for the walking trance (it thins, per the screen
+  effect). The "three times" line moved under the grammar it belongs to.
+- *Depth & Trust → The roll:* added the roleplay bonus (`rpBonusFor`, up to 15), which is in
+  `chanceBeforeInvariant` but was missing from the formula shown.
+- *Lasting:* the Drop-triggers line sat under compulsions; it belongs to the instant drop. Added
+  the owner/lovers/friends and "only I" scope phrases.
+- *Commands:* the Testing note said the group "vanishes from a release build"; it is gated by the
+  Hypno Testing room (`isTestingMode`). `/echs forgettrust`'s description pointed at
+  `/echs logtrust`, a testing-room command; it now names the Stats tab's [x].
+
+### Fixed 2026-11-14 (v1.12.5 RC) — ChatRoomSyncSingle was not held; repeats are told once
+
+DW's live run of v1.12.4: all fours and belly still got through, with **no** `held still` console
+line, and after Biker stopped, ECHS kept announcing refusals every few seconds (Biker's own add-on
+lines had stopped).
+
+- **The road.** R132 `Server.js` maps the server's `ChatRoomSyncSingle` message to
+  `ChatRoomSyncSingle()`, which runs `CharacterLoadOnline` on the character it carries and so sets
+  her `ActivePose`. Only `ChatRoomSyncCharacter` was hooked (v0.91.0 read the kneel/stand help as
+  arriving that way). A whole-character update of her from another client, which Biker's add-on
+  sends for those poses, went round every hook, which is why nothing was logged. Both now share one
+  hook (`holdOnSync`), labelled in the log. So v1.12.4's whole-sync net, on her own sends, was not
+  the road; it stays, as it closes a real gap.
+- **The repeats.** Most likely her client fighting the pose that sync had put in: something on it
+  re-tried, the hold refused, and every refusal was told. `othersRefused()` now takes the pose asked
+  for and tells each distinct pose once a minute (a single name and a one-pose list count as the
+  same); repeats are refused and re-sent without lines. The re-send is held to one a second.
+- `test/held-still.mjs` 85 (+6): all fours by `ChatRoomSyncSingle` undone, told and re-sent; the same
+  pose by both roads ten seconds on, quiet; her belly, told; her own `ChatRoomSyncSingle` left alone.
+  Four fail on v1.12.4.
+
+### Fixed 2026-11-14 (v1.12.4 RC) — the safety net also watches the whole-character sync
+
+DW, after the v1.12.2 run: belly and all fours "might go through a different function". One road
+was open: R132 `ChatRoomCharacterUpdate` sends `{ ID, ActivePose, Appearance }`, and
+`Player.ActivePose` has a public setter (Character.js:192) that skips `PoseSetActive`, so a pose
+written there and synced with the whole character never met the hold. The `ServerSend` net watched
+only `ChatRoomCharacterPoseUpdate`; it now also checks `ChatRoomCharacterUpdate` when `ID` is her
+own `CharacterID` (her client also syncs others she changes), with the same decision as before and
+the held pose put into `ActivePose`. **Not verified** that this is the road Biker's add-on uses:
+the log line now names the send (`ChatRoomCharacterUpdate` or `ChatRoomCharacterPoseUpdate`).
+A pose written straight to `ActivePose` and never sent by her client is still not seen.
+`test/held-still.mjs` 79 (+3), two of which fail on v1.12.3.
+
+### Fixed 2026-11-14 (v1.12.3 RC) — v1.12.2's quiet refusals reverted
+
+DW's live run of v1.12.2: Biker saw Missy moved ("hhmmmm???", "uhhhhm") and the room got one
+*"does not budge"* for a burst of six add-on moves. v1.12.2's premise was wrong.
+
+- **What v1.12.2 did.** Changes that were neither her input nor inside a server message were read
+  as *auto* and refused quietly: no lines and no re-send of her pose. Biker's add-on handles the
+  request on her client after the message (a timer or a promise), so its changes were *auto*. Still
+  refused on her client, but nothing put the mover's screen right, so they saw her moved.
+- **The "stray" lines were most likely real.** In both the v1.12.1 and v1.12.2 logs the add-on's own
+  room line reaches the chat after her refusal, so a "does not budge" that seemed to come before
+  any attempt was the answer to one whose announcement had not arrived yet.
+- **Now.** Every refusal under the full hold that is not hers is told as someone's again, with the
+  re-send, as in v1.12.1; a bare `ChatRoomSyncPose` is told again too. Kept from v1.12.2: the
+  three-way source and the calling code in the log, and `markOwnAction()`, now only for the log.
+- `test/held-still.mjs` 76: the three quiet checks replaced by checks that a timer change and a bare
+  pose update are told and re-sent; both fail on v1.12.2.
+
+### Fixed 2026-11-14 (v1.12.2 RC) — the full hold no longer blames "someone" for her own client's add-ons
+
+DW's live run of v1.12.1: the room read *"Missy does not budge"* six times for Biker's two add-on
+moves: once straight after *"no one can move you"* before anyone acted (the v1.12.0 log had the
+same *"Someone tries to move you"* there), twice with nothing between, and once just before the
+hypnotist's own *"legs closed"* landed. Biker confirmed she never appeared to move on their screen.
+
+- **Cause.** v1.12.0 read every change that was not her own input as someone else's. Changes from
+  her own client also land there: another add-on reacting to our own action inside the same chat
+  message's dispatch, and timers (WCE's animation engine re-applies on one).
+- **Fix.** `changeSource()` in `effects.ts` now has three answers: *hers* (her click or key), *someone*
+  (dispatched from a server message: WebSocket `message`, or the polling fallback's XHR `load` /
+  `readystatechange`, and not the dispatch that carried one of our own actions, which
+  `markOwnAction()` records when we apply the Freeze, set the level, or pose her), and *auto*
+  (everything else). The full hold refuses all three but tells her and the room only for *hers* and
+  *someone*. A bare `ChatRoomSyncPose` about her names no sender and may be the server echoing her
+  own client, so it is undone quietly too; BC's own route for another player,
+  `ChatRoomSyncCharacter`, names one and is still told. The ordinary hold is unchanged.
+- **Diagnostics.** Each refusal and pass-through now logs the pose asked for, the source and six
+  frames of the calling code (only when logging is on: the Hypno Testing room or `/echs debug on`),
+  so the add-on behind the next stray one can be named rather than guessed.
+- **Risk.** A remote request an add-on handles on a timer after the message would now read as
+  *auto*: still refused under the full hold, but without the lines. The ordinary hold lets *auto*
+  through as before, so it is unaffected.
+- `test/held-still.mjs` 80 (+7): a timer change, a same-dispatch reaction, a bare pose update (all
+  quiet), a later message and a named sync (both told). Three fail on v1.12.1.
+
+### Fixed 2026-11-14 (v1.12.1 RC) — the room is told when the full hold refuses someone
+
+DW's live run of v1.12.0: the full hold stopped the moves, but the room read
+`(Biker draws Missy's arms behind their back, elbows almost touching.)` and two more like it. That
+text is not BC's (no match in R132), so it is the mover's add-on, posted from **their** client before
+the request reaches hers; it may also show her moved on their screen. Neither is ours to stop.
+
+- Her client now answers each refusal of someone else's change (`othersRefused()` in `effects.ts`):
+  a room emote, *"{name} does not budge: {their} body stays exactly where it was."*, at most once per
+  5 s so a burst reads as one, through `tellRoom` so *Others See Your Reactions* governs it; and, on
+  the add-on (`PoseSetActive`) path, which re-sent nothing, her held pose is sent again in a
+  microtask, so one request's several calls share one `ChatRoomCharacterPoseUpdate` and every
+  screen shows her real pose. The sync and `ServerSend` paths already re-send.
+- `test/held-still.mjs` +4 (73): the room line, the re-send, one of each for a burst of three, and
+  nothing to the room under the ordinary hold. The three new checks fail on v1.12.0.
+
+### Decided 2026-11-14 (v1.12.0 RC) — two levels of hold; others may adjust a held subject
+
+DW, 2026-11-14: while hypnotized, someone moving her through the BC interface "acts like you are
+moving, but you don't move", and she got the line meant for her own attempt. DW chose three levels:
+unfrozen; she cannot move but others can adjust her; and no one can move her. **This re-decides
+v0.91.0's "no to others"** (DW, 2026-09-26), which is now only the third level.
+
+- **Levels.** `"movement-block"` (*"you cannot move"* and its kin) is the ordinary hold: her own
+  changes are refused, anyone else's land. New `"movement-lock"` (*"no one can move you"*, *"you
+  cannot be moved"*, *"you will not be moved"*, *"frozen solid"*, *"a statue"*) is the full hold,
+  the old behaviour. Same permission and depth (Movement Restriction). Saying the ordinary one after
+  the full one eases it; `"movement-release"` ends both. The level is `holdFully` in `effects.ts`,
+  cleared whenever our Freeze comes off (the commanded undress lifts and restores it, level too).
+  Local only: after a reload the Freeze that rides the item is the ordinary hold.
+- **Trance default.** New `tranceNoOneMoves`, *"...and no one else can move you either"*, indented
+  under Cannot Move, **off by default**, so a trance's own hold now lets others adjust her. Walking
+  trance and "be still" honour it.
+- **Whose change is it.** Add-ons that pose her for someone else (BCX, LSCG, ...) call
+  `PoseSetActive` on HER client, as her own click does; that is why the old hold refused them with
+  her own line. The hold now reads `window.event` (we run in the page, `@grant none`): a change made
+  while one of her clicks or key presses is being dispatched is hers, and one made in a socket
+  message, a timer or an animation frame is not. Under the ordinary hold such a change goes through
+  with our Freeze lifted for the call (WCE and LSCG, hooked after us, refuse to pose a frozen
+  character), and becomes the pose she is held in, so the `ServerSend` net does not take it back.
+  Under the full hold it is refused with *"Someone tries to move you…"*. BC's own route for another
+  player (the kneel/stand help, a `ChatRoomSyncCharacter`) and a bare `ChatRoomSyncPose` follow the
+  same split. BC's pose menu is self-only (R132 `_DialogPoseMenu extends _DialogSelfMenu`).
+- **Known gap.** An add-on's self-pose path that runs outside her input (a chat command handled on a
+  timer, say) would read as someone else's and pass under the ordinary hold. None is known.
+- **Tests.** `test/held-still.mjs` (69) covers both levels by BC sync, bare pose update, add-on
+  `PoseSetActive` and the `ServerSend` net, the trance default, walking, and the wordings;
+  `test/held-wce.mjs` marks her own calls as clicks. **Not run live.**
+
+### Fixed 2026-11-14 (v1.11.1 RC) — sight never reached BC's blind level
+
+Found live by DW, 2026-11-14 (Missy in toy mode): every sight suggestion told the hypnotist
+`"sight-dim" matched but did not land: effect-failed`. Toy mode was incidental; any trance did it.
+
+- **Cause.** Our `CharacterGetEffects` hook added the sight effect only when BC asked about a named
+  blind group (ItemHead, ItemHood, ItemNeck, ItemDevices), as v0.93.0 read R132. BC's
+  `GetBlindLevel` now asks with `[]`, which BC's own filter treats as every group, so our effect was
+  never counted, `setSight` read back 0, and `applySight` reported `effect-failed`.
+- **Fix.** An explicit empty list now counts as covering the blind groups. A missing list
+  (`CharacterLoadEffect` rebuilding `C.Effect`) still gets no sight, so it stays out of her general
+  effect list as before. The sight branch no longer returns early, so a question that covers both
+  the blind groups and the Emoticon also gets our held effects.
+- **Why the suite missed it.** `test/sight.mjs` stood in for `GetBlindLevel` with the old named-group
+  call. It now uses `[]`, as BC does, and also checks the named-group call and a non-blind group.
+  On the old code the new stand-in fails 7 checks, the same failure DW saw.
+
+### Added 2026-11-11 (v1.11.0 RC) — her face on command
+
+Missy's feedback line of 2026-11-08 ("check if addon can adjust fave") was DW's own note, meaning
+*face*: "open eyes, close eyes, open mouth, stick out tongue, things like that". DW's decisions
+(2026-11-11): it lasts until "relax your face" or waking; with trance eyes on, closing then opening
+the eyes gives the spirals back; both tongue faces; and a face can be a trigger action.
+
+- **BC's own expressions, through BC's own setter.** `CharacterSetFacialExpression` (R132
+  Character.js) sets both eyes for "Eyes", refuses an expression the group does not allow without a
+  word, and for the player in a room sends the change itself. Names from R132 Female3DCG
+  `AllowExpression`. There are two tongue faces: `TonguePinch` (the tip out: *"stick out your
+  tongue"*) and `Ahegao` (all the way out, eyes rolled: *"let your tongue hang out"*). The local BC
+  clone could not be pulled (the server reset the connection), so these are R132's lists; check
+  them against the live game in the test run.
+- **Posture Control, no new permission.** A face is the body doing what it is told, as a pose is,
+  and the same depth gate.
+- **Saved first, put back only if still ours** (`src/face.ts`), as the trance eyes are: BC saves the
+  expression with her character, so a crash mid-trance is put right on the next load
+  (`attemptRecovery`). What is saved is the face at the time of the FIRST command on that part, which
+  is why "open your eyes" gives back her spiral eyes while she is under. On every way out the face is
+  put back before `restoreTranceEyes`, so the spirals are then there to be taken off.
+- **Not carried.** Face ids are left out of `noteApplied` like the hearing modes: DW wants a face to
+  end on the wake.
+- **Releases by part.** *"Open your eyes"* (also not a wake: wake needs "wake" or "you open your
+  eyes" after a condition), *"close your mouth"*, and *"relax your face"* for all of it. A trigger's
+  undo is `clearFace(part, its own expression)`, so a trigger letting go leaves a face said since.
+- **Near misses guarded.** A bare "smile", "grin", "pout", "smirk" or "blush" is not taken after
+  "a", "your", "me", "I" and the like ("you make me smile", "I love your smile"), nor when negated.
+- Tests: `test/face.mjs`. `test/trance-eyes.mjs`'s two source-shape checks now allow the face step
+  between the trance clear and `restoreTranceEyes`.
+
+### Fixed 2026-11-11 (v1.10.2 RC) — Wings stayed on with spiral eyes
+
+DW: "It did not clear the eye shadow - WINGS". v1.10.1 hid the shadow by `Property.Opacity = 0`, but
+R133 `CommonDraw` clamps opacity to each LAYER's MinOpacity, and Wings' `Line` layer has 0.8 (R133's
+comment: set "to 'turn off' opacity control for this layer"). The unit stub had no layers, so the
+test passed against a shadow that does not exist in BC. Now `canFadeOut` checks every layer: a
+shadow that can reach 0 is still faded (the item never leaves her); one that cannot is saved whole
+(asset name, colour, Property, Craft, Difficulty) and taken off with `InventoryRemove`, then put back
+with `CharacterAppearanceSetItem` plus the saved fields, as BC's own appearance loading rebuilds an
+item. Only into an empty slot, so a shadow she put on mid-trance is kept. The crash path is the
+same restore. `test/trance-eyes.mjs` 45 (+5), with the stub now carrying real layer minimums;
+forcing the fade, dropping the empty-slot check, or dropping the craft restore each fails it.
+
+### Changed 2026-11-11 (v1.10.1 RC) — eye choices trimmed, spirals hide the eye shadow
+
+DW, testing v1.10.0: no Daydream, one hearts setting (Dazed, Spirals and hearts were the ones liked),
+and "clear eye shadow setting for spirals and turn it back on when done". `TRANCE_EYES` is now
+Unchanged, Dazed, Dizzy ("Spirals"), Heart ("Hearts"); a stored HeartPink becomes Heart and a stored
+Daydream is dropped to Unchanged. With Dizzy, `applyTranceEyes` also saves the EyeShadow item's
+`Property.Opacity` and sets it to 0, so the item stays on (a crafted one loses nothing) and R133's
+`CommonDraw` draws it invisible (it clamps to the layer's MinOpacity, 0 for every EyeShadow asset).
+`restoreTranceEyes` puts it back only while it is still 0, so a change she made mid-trance is kept,
+and the same restore covers a crash. `test/trance-eyes.mjs` 40 (+10); dropping the hide or the
+"still ours" check each fails it.
+
+### Added 2026-11-08 (v1.10.0 RC) — her eyes while under
+
+DW: "peek at how [LSCG] changes the eyes when you are hypnotized and see if we can do similar".
+LSCG (read for technique only, rule 7) swaps the Eyes and Eyes2 items' asset to another eye type,
+recolours them, sets Dazed eyes and lowered eyebrows, and saves the old eyes in its settings. Two
+options were put to DW: BC's eye expressions alone (nothing permanent), or expressions plus a
+colour (a real write to her eye items, which BC saves). DW chose expressions plus colour, off by
+default.
+
+New `src/eyes.ts`. `applyTranceEyes` runs from `applyTranceState`, after the clothing freeze's
+snapshot. It saves each eye's colour and expression, and what it is about to set, to
+`settings.eyesSaved` BEFORE touching anything. It sets the expression through BC's
+`CharacterSetFacialExpression(Player, "Eyes", …)` (R133: that covers both eyes and refuses an
+expression the group does not allow), sets the colour per colourable layer as BC does, then
+refreshes and sends the appearance to the room. It does nothing if a saved copy already exists, so
+a second apply cannot save the trance colour as her real one. `restoreTranceEyes` puts back only
+what still matches what was set, so a mid-trance change by her or another add-on survives.
+
+Every way out is covered: `endSession` and `totalStop` (safeword, hard floor, reset) call it next to
+`clearTranceStates`; recovery's `releaseEverything` calls it; and `attemptRecovery` calls it for
+every outcome except "resumed" and "waiting", which is the crash case. Changing either dropdown
+mid-trance re-applies at once. The Trance Defaults dropdowns are now one generic `DropdownRow`
+list (screen effect, eyes, eye colour), with shared create/remove bookkeeping.
+
+`test/trance-eyes.mjs` (30): off by default; the choices are BC eye expressions; both on and back;
+no double-save; a mid-trance change kept; expression-only and colour-only; a crash put right by
+`attemptRecovery`; junk dropped on import; the wiring on every exit; and no asset swap. Dropping
+the double-save guard, the "still ours" check, or the load-time restore each fails it.
+
+### Changed 2026-11-08 (v1.9.1 RC) — the screen effect choice, three strengths, a real flash
+
+DW, after seeing v1.9.0: "a little too dark still... Light, med and heavy"; the command's swell
+should be "more sudden, more of a flash"; and since the spiral only worked with Screen Fade ticked,
+"a selector box that has none, fade, and the 3 spiral options" instead of two tick boxes.
+
+- **One choice, two stored values.** `features.tranceScreenFade` stays the switch (None is off), so
+  session.ts, the wizard, recovery and every suite that reads it are untouched; the spiral is a
+  sparse `spiralStrength` (absent means the grey fade). `getScreenEffect`/`setScreenEffect` are
+  the only place the two meet. The `tranceSpiral` feature key is gone; `normalise` reads it from
+  the stored blob before reconciling features drops it, and a ticked one becomes Medium.
+- **Strengths.** `SPIRAL_ALPHAS` light 0.15, medium 0.25, heavy 0.36 (v1.9.0's only value), each
+  scaled by the fade in proportion, so walking trance thins every strength the same way.
+- **The flash.** Its own curve, not the glow's: linear up in 60 ms, then down as the square of what
+  is left over 450 ms, so it falls fastest first. It restarts on every command, unlike the glow,
+  which refuses to restart mid-swell because a drop to nothing would itself be a flash.
+- **The menu.** A DOM dropdown at the top of the controls under the rows, in the toy mode
+  dropdown's pattern: shown only while wholly in view, removed off its tab and on every exit. None
+  takes the fade off at once (the old untick path); turning an effect on from None mid-trance
+  says it starts with the next trance (rule 5), since there is no fade running to draw.
+
+`test/trance-spiral.mjs` is 55 checks. Five mutations fail it: a slow rise, one fixed strength, no
+re-flash, no migration, and None not turning the fade off. `menu-layout` drives the dropdown.
+
+### Added 2026-11-08 (v1.9.0 RC) — the trance spiral
+
+JAX (11-02) asked for a spiral screen overlay. DW, after LSCG's spiral got stuck on Missy's screen:
+a spiral over the screen while hypnotized, with no grey fade under it, and the spiral flashing a
+little when a command lands instead of the glow at the edge. Built as a way of drawing the fade
+(`tranceSpiral`, off by default, needs `tranceScreenFade`) rather than a separate effect, so it
+inherits everything the fade already gets right: the walking-trance thinning, recovery across a
+reload, the step-aside while BC darkens her screen, and clearing on every exit path.
+
+`drawTranceVeil` now takes her setting and colour from `main.ts` (effects.ts stays a leaf) and
+returns whether the spiral drew; `drawCommandPulse` is told, and skips its glow and wash when it
+did. The swell itself is one shared curve, so the spiral and the glow brighten on the same timing.
+The spiral is three arms, 3.5 turns, built once per colour on a 1024 px offscreen canvas and drawn
+rotated and clipped to the room half; ticking it with the fade off says why nothing shows (rule 5).
+BC's VR headset spiral was looked at first: a still background, only while blind, and it hides the
+room, so it was not the model. LSCG's overlay was the technique reference (rule 7), no code taken.
+
+`test/trance-spiral.mjs` (32): off by default, no grey under it, the rect, strength, turning speed,
+one build per colour, the swell with no edge glow, blind and awake, the no-canvas fallback, and
+the wiring. Dropping the spiral draw, the swell, or the glow suppression each fails it.
+
+### Added 2026-11-08 (v1.8.0 RC) — a Friends rung on the scope ladder
+
+Lianne (11-07) asked for friends to be able to fire planted triggers; DW put the rung between
+Lovers and whitelist. One ladder serves trigger scope and toy mode, so both gained it. Friendship is
+BC's own (`Player.HasOnFriendlist`, R133 Character.js, through `CharacterIsOnList`), with
+`Player.FriendList` as the fallback that `trust.ts` already reads. Checked after Lovers and after
+the blacklist, so a blacklisted friend is refused, the same as a blacklisted whitelist member.
+
+Because rungs are cumulative, adding friends below whitelist widens every save already on
+whitelist, including the setup wizard's "Balanced" and "standard triggers" answers. DW chose to move
+those saves down to the new rung rather than widen them silently: `normalise` moves a stored
+`triggerScope` or `toyScope` of "whitelist" to "friends" once, and marks the save `friendsRung` so a
+later deliberate whitelist is never moved again. New and reset saves carry the mark from
+`defaultSettings`. An old export imported later is moved on the way in, which is right: it was made
+when whitelist meant no friends. Dominants is not moved (design.md has why). v0.97's never-released
+`friend` toy key now maps to the new rung instead of to whitelist.
+
+Spoken: *"your friends can use it"* asks for the rung for one trigger, capped by her setting as
+every scope phrase is. `test/scope.mjs` covers the rung on every level, the blacklisted friend, the
+FriendList fallback and the move (both mutations, dropping the friend check and dropping the move,
+fail it); `test/trigger-options.mjs` the phrase.
+
 ### Changed 2026-11-08 (v1.7.3 RC) — the spiral's hover label: version only, small
 
 DW, after seeing it live: a smaller font, and no name, since the icon is already over the person.

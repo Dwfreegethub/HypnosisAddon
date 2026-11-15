@@ -3,9 +3,6 @@
 > 🛡️ **EMERGENCY EXIT — ANY TIME, ANY STATE**  
 > If you need to stop or end the scene immediately: **Type `/echs safeword`**. It always works, even while silenced, and instantly breaks trances and releases all holding effects.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Settings layouts, storage keys, and UI options are actively being polished.
-
 ---
 
 Open settings via the **spiral icon on your player profile card**, or navigate to **Preferences → Extensions → ECHS Hypnosis**. Setting categories run down the left edge.
@@ -27,7 +24,7 @@ Every feature needs both its permission ticked **and** your trance at least as d
 | Not noticing touches | Touches / Activities | Awareness | 0 | Drifting |
 | Freezing | Movement Restriction | Permissions | 20 | Yielding |
 | Muting | Speech Restriction | Permissions | 20 | Yielding |
-| Poses | Posture Control | Permissions | 20 | Yielding |
+| Poses and face | Posture Control | Permissions | 20 | Yielding |
 | Wardrobe lock | Clothing Restriction | Permissions | 20 | Yielding |
 | Blocking self-touch | Self-Touch Control | Permissions | 20 | Yielding |
 | Commanded touch (self, or the hypnotist) | Made to Act | Permissions | 20 | Yielding |
@@ -63,8 +60,8 @@ What others may do to you. Everything here is off until you turn it on.
 
 | Setting | What It Allows |
 |---|---|
-| **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you; nobody else can change your pose. Items can still be put on you. |
-| **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. |
+| **Movement Restriction** | Allows being held still. *"You cannot move"*: you cannot change your own pose, leave the room or walk on a map, but others can still adjust you. *"No one can move you"*: nobody else can change your pose either. The hypnotist's spoken pose commands still move you, and items can still be put on you. See [Holding Still](What-to-Say#holding-still). |
+| **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. Also the face: closing the eyes, opening the mouth, the tongue out, a smile, a blush and the like. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the side of whoever said it, across room changes, using Bondage Club's own leash. No leash or collar is needed. Requires your own BC setting that lets others leash you, and the hypnotist must also run ECHS. |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
 | **Undressing** | Allows spoken undress commands (*"take something off"* / *"strip"*). |
@@ -106,7 +103,7 @@ How someone gets you under: how many tries they get, whether you are asked, and 
 * **When someone tries to hypnotize me:** *Ask me · Agree · Ignore · Fight* (default: *Ask me*). Anything but *Ask me* answers every induction for you with no box; the hypnotist is never told which.
 * **When I'm away:** *Refuse · Ignore · Keep my answer* (default: *Refuse*). Away means 10 minutes with no key, click or touch. Applies to the answer above and to toy mode, never to *Ask me*.
 * **Toy mode:** *Off · On* (default: *Off*). No roll: when your induction time is up, you go under to your *"sink deeper"* limit, full and earned depth alike, with no attempt limit or cooldown. Triggers included, if that limit is Deep or deeper.
-* **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and whitelist · Owner, Lovers, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, whitelist, blacklist and Dominant reputation, exactly as for triggers.
+* **Toy mode is for:** a dropdown with the same choices as trigger scope on the Triggers tab, less "Hypnotist only": *Owner only · Owner and Lovers · Owner, Lovers and friends · Owner, Lovers, friends and whitelist · Owner, Lovers, friends, whitelist & Dominants · Everyone, except blacklist · Everyone, no exceptions* (default: *Owner and Lovers*). Read from your BC relationships, friend list, whitelist, blacklist and Dominant reputation, exactly as for triggers.
 * **"Sink deeper" stops at:** How deep a hypnotist can talk you mid-trance, a few points per success (*Never deeper · Yielding · Entranced · Deep · Blank*). Default **Entranced**; of the setup templates only Extreme sets Blank (Light sets Yielding). An ordinary induction lands where your trust puts it; toy mode puts you here. See [What to Say](What-to-Say#going-deeper-mid-trance).
 
 ---
@@ -117,15 +114,21 @@ Defines baseline states that engage automatically when an induction succeeds, be
 
 | Setting | Default | Effect |
 |---|---|---|
-| **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. |
+| **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. Others can still adjust your pose. |
+| **...and no one else can move you either** | Off | With Cannot Move on: the trance holds you the way *"no one can move you"* does, so nobody else can change your pose while you are under. The hypnotist's spoken pose commands still move you. |
 | **Cannot Speak** | On | The trance silences standard room speech automatically. |
 | **Silence OOC too (text in parentheses)** | Off | By default, OOC text in parentheses, `(like this)` or `((like this))`, passes through muted speech. Enabling this suppresses OOC chat while silenced. |
-| **Screen Fade** | On | Displays a soft trance veil overlay across your screen while under. Automatically thins during active walking trances, and steps aside while your sight is dimmed or gone. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
-| **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak). Turning this off silences automated emotes. |
-| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, picks Pink, Purple, Blue, White or **Custom**. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter. |
+| **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak, or *"Missy does not budge"* when *"no one can move you"* stops someone). Turning this off silences automated emotes. |
+| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, also colours the trance spiral, and picks Pink, Purple, Blue, White or **Custom**. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter. |
 | **Show others that I run ECHS (a spiral over you in rooms)** | On | Other ECHS players see a small spiral over your character in a room, with your ECHS version when they hover it. Untick it and they don't; your client still answers when a hypnotist opens your spiral panel. **ECHS icons over others**, the last button on this tab, is where *you* see other players' spirals: *Top row* (in the gap between Bondage Club's own icons and other add-ons'), *Below, on the left*, or *Off*. If another add-on's icon covers it on your screen, move it there. Bondage Club's own hide-icons button hides it too, and so does BCT's setting to show icons only on hover: with that on, the spiral appears only while your mouse is over the top of a character. `/echs icons` says why it isn't showing. |
 | **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
+
+Under the list:
+
+* **Screen effect:** what covers the room view while you are under. *None · Grey fade · Spiral, light · Spiral, medium · Spiral, heavy* (default: *Grey fade*). The grey fade is a soft veil. A spiral, in your **Pulse colour**, turns slowly instead of the grey (about one turn every 12 seconds), and when a command lands or a trigger fires it gives a quick flash in place of the glow at the edge. Either one thins in a walking trance and steps aside while your sight is dimmed or gone. Only you see it.
+* **Eyes while under:** *Unchanged · Dazed · Spirals · Hearts* (default: *Unchanged*). BC's own eye expressions, put on when you go under and taken off when you wake. *Spirals* also hides your eye shadow while they show (one the game will not fade, such as Wings, is taken off), and puts it back exactly as it was after. **Everyone in the room sees it.**
+* **Eye colour while under:** *Unchanged · Grey · Pink · Purple · Blue* (default: *Unchanged*). Your eyes turn this colour while you are under. Your real colour is saved first and put back when you wake, by any way out, and also the next time you load in if the game closed mid-trance. If you (or another add-on) change your eyes during the trance, that change is kept. **Everyone in the room sees it.**
 
 ---
 
@@ -151,7 +154,7 @@ Manages long-term suggestions and conditioned words:
 * **Triggers fire only on whole words:** A trigger no longer fires inside a longer word (*"sleepy"* stops firing on *"sleepyhead"*). Off by default.
 * **Minutes a fired trigger lasts (0 = until released):** How long a fired trigger's effects hold before letting go by themselves (default: 5). 0 means they stay until released by name or by the safeword.
 * **Triggers fade without reinforcement:** How quickly planted triggers fade when not kept up (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*). The line under it says roughly how long that means.
-* **Who else can fire triggers planted in you:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
+* **Who else can fire triggers planted in you:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your BC friends, then your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
 * **Longest a New Trigger Lasts:** Gives every trigger planted from now on a time limit (*No limit · 15 minutes · 30 minutes · 1 hour · 2 hours · 6 hours · 1 day*; default: *No limit*). Triggers you already have are not shortened.
 * **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). Scroll down the tab to reach it. See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
 
@@ -175,7 +178,7 @@ Purge and Clear All are not affected by the session lock: removing something pla
 * **earned only / arousal ok** (on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): click to let arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
 * **Chemicals count:** What may push you deeper besides trust (*Arousal + drugs · Arousal only · Drugs only · Neither*; default: *Arousal only*). *Drugs* are crafted drinks and cigarettes tagged `[echs:relax]` or `[echs:stimulate]`; with a drug option on, they add to arousal. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**. It never reaches the three earned-only rows unless you open them above.
 * **A hypnotist's skill:** How much of a hypnotist's own practice may help them put you under (*Ignore it · Only from people I trust · Honour, capped · Full from people I trust, capped otherwise*; default: *Full from people I trust, capped otherwise*). Their skill is shown to you as a feeling, never a number, and never reaches the three earned-only rows.
-* **"Sink deeper" stops at:** moved to the **Inductions** tab in v0.100.0.
+* **"Sink deeper" stops at:** is on the **[Inductions](#2-inductions-tab)** tab.
 * **Reset to defaults:** Puts every feature back to its standard depth.
 
 ---
@@ -204,7 +207,7 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 |---|---|---|---|---|
 | **Hypnotist Only** | Nothing — hypnosis is off, so nobody can hypnotize you | (auto-answer set to Fight, in case you turn hypnosis back on) | — | Off |
 | **Light / Safe** | Movement, Posture. A trance never silences you (Cannot Speak off) | Yes | Yielding | Off |
-| **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers and whitelist |
+| **Balanced** | Movement, Posture, Speech, Self-Touch, Arousal & Orgasm, Undressing, the wardrobe lock | Yes | Entranced | Owner, Lovers, friends and whitelist |
 | **Extreme** | Everything, including Made to Touch Others, Made to Speak, Sight, Hearing, the clothing illusion, the clothing freeze in trance, awareness, carry-forward and the settings lock. Every depth set to 20. Arousal and drugs both count, and arousal may reach triggers and the illusion. Toy mode for everyone except your blacklist, so a stranger can put you under with no roll; drops unlimited; triggers fade very slowly | No — agrees automatically | Blank | Everyone except your blacklist |
 
 **The five questions** cover your role (Hypnotist only, or Subject/both), how attempts are handled (always ask, toy mode for owner and lovers, or agree to all), what physical commands you allow, what can be done to your senses and awareness, and how triggers work. Your answer about physical commands also sets how far "sink deeper" can take you (Yielding, Entranced or Deep). The questions never lock anything.

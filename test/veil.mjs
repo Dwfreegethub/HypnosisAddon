@@ -70,7 +70,7 @@ const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
 const prompt = readFileSync(new URL("../src/prompt.ts", import.meta.url), "utf8");
 check("main.ts no longer hooks DrawProcess", /hookFunction\(\s*"DrawProcess"/.test(main), false);
 check("main.ts never fills the whole canvas", /fillRect\(\s*0\s*,\s*0\s*,\s*MainCanvasWidth/.test(main), false);
-const veilHook = main.match(/hookFunction\(\s*"(\w+)"\s*,\s*(\d+)\s*,[\s\S]{0,200}?drawTranceVeil\(\)/);
+const veilHook = main.match(/hookFunction\(\s*"(\w+)"\s*,\s*(\d+)\s*,[\s\S]{0,300}?drawTranceVeil\(/);
 check("the veil is drawn from a ChatRoomRun hook", veilHook?.[1], "ChatRoomRun");
 const promptHook = prompt.match(/hookFunction\(\s*"ChatRoomRun"\s*,\s*(\d+)/);
 check("  at a lower priority than the prompt box, so the box paints on top",

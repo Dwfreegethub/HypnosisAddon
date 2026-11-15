@@ -245,6 +245,56 @@ default **x 228-258 of the top row**, the only slot no FUSAM add-on uses
 (`docs/addon-icon-survey.md`); found through `state-query`/`state-response`, never a new type;
 hidden by BC's own hide-icons button. `src/badge.ts`.
 
+**Her eyes while under (v1.10.0, DW 2026-11-08).** Her choice, off by default, seen by the room:
+one of BC's own eye expressions (Dazed, Dizzy as "Spirals", Daydream, Heart, HeartPink) and a
+colour. Technique reference only (rule 7): LSCG's hypnotized face, which swaps the eye ASSET for
+another eye type, recolours it grey, and keeps the old eyes in its settings. ECHS does not swap the
+asset. **The colour is a deliberate write to her real, server-synced eye items**, which the
+Orientation's caution about `Player.Appearance` would otherwise rule out (rule 3 itself is about the
+illusion). DW chose it on 2026-11-08 after being told the risk, so `eyes.ts` carries the safeguards:
+what was there is saved in her settings *before* anything changes; it is put back on every
+teardown (`endSession`, `totalStop`, recovery's `releaseEverything`) and on any load that is not
+resuming the trance, so a crash cannot strand it; and only where it is still what ECHS set, so a
+change she or another add-on made mid-trance is kept. Applying twice never overwrites the saved
+copy. Expressions go through BC's `CharacterSetFacialExpression` (R133), which handles both eyes. **v1.10.1 (DW):** the choices are Dazed, Spirals and Hearts, and Spirals also hides her eye
+shadow by opacity (never by taking it off), put back the same way.
+
+**Her face on command (v1.11.0, DW 2026-11-11; Missy's 11-08 note).** Spoken suggestions and
+trigger actions under **Posture Control**, at its depth: eyes (closed, wide, dazed, hearts), mouth
+(open, parted, the tongue's tip out as `TonguePinch`, all the way out as `Ahegao`, lip bite, smile,
+grin, smirk, pout, moan) and blush, all BC's own expressions through `CharacterSetFacialExpression`.
+**Decided (DW):** it lasts until *"relax your face"* (or *"open your eyes"* / *"close your mouth"*
+for one part) or waking, and is never carried; with trance eyes on, opening the eyes gives the
+spirals back. `src/face.ts` uses the same safeguards as the eyes: saved first, put back on every
+teardown and on a load that is not resuming, only where still ours. The face is put back before
+the trance eyes, so the spirals are there to be taken off. Not yet live-tested.
+
+**The trance spiral (v1.9.0, DW 2026-11-08; JAX 11-02).** A way of drawing the Screen Fade, her
+choice and off by default: a slowly turning spiral (one turn in 12 s) in her pulse colour replaces
+the grey veil, and a landed command swells the spiral (+0.3 opacity at the peak of the same 1.8 s
+swell) instead of the edge glow, so the two never show at once. **v1.9.1, DW after seeing it:** one
+strength was too dark, so three (light 0.15, medium 0.25, heavy 0.36, the old one); the swell
+became a flash (up in 60 ms, gone in 450, re-flashing on every command); and the two tick boxes,
+which only worked together, became one *Screen effect* dropdown: None, Grey fade, and the three
+spirals. Stored as the existing `tranceScreenFade` switch plus a sparse `spiralStrength`, so every
+place that already reads the fade switch is unchanged; v1.9.0's ticked spiral becomes Medium. Same rect as the veil, same
+step-aside while BC darkens her screen, built once per colour on an offscreen canvas. With no
+canvas it falls back to the grey veil and says so. Technique reference only (rule 7): LSCG's hypno
+spiral overlay, which DW ran into on 11-08; drawn here from scratch. BC's own VR headset spiral was
+looked at and not used: it is a still background image that only shows while the wearer is blind,
+and it replaces the room. `src/effects.ts`.
+
+**Friends on the scope ladder (v1.8.0, DW 2026-11-08; Lianne 11-07).** A *Friends* rung between
+Lovers and whitelist, on both the trigger scope and who toy mode is for (they share
+`allowedByLadder`, `src/ladder.ts`). Read from BC's own friend list (`Player.HasOnFriendlist`,
+R133). It is a ladder, so whitelist and Dominants now include friends; the blacklist still wins, as
+it does for the whitelist. Decided: **a save made before the rung that says "whitelist" moves down
+to "friends", once** (marked by `friendsRung`), so nobody's circle widens without their choosing;
+someone who wants their whitelist back picks it again. Dominants is left where it is: that rung
+already lets in anyone near the player's Dominant reputation, and moving it down would take far more
+away than adding friends gives. The setup wizard's "standard" triggers still choose whitelist, which
+now names friends.
+
 **Permissions (subject's Preferences screen, all off by default).** These are consent flags — "do I allow someone else to do this to me" — not self-triggers: Hypnosis Enabled (master), Movement Restriction, Clothing Restriction, Posture Control, Speech Restriction, Self-Touch Control, Arousal & Orgasm, Clothing Illusion, plus "Lock settings while a session is on you". The one control on that tab that is not a checkbox is **Attempts before they must wait** (2 or 3, default 2) — how many times one hypnotist may try before the cooldown. **The lock covers the whole session, not only the trance** (v0.65.1): the prompt, the roleplay window and the misses between attempts are all locked, so a permission cannot be granted to someone mid-attempt and the attempt limit cannot be moved to hand them another try. The cooldown after a spent run is not locked — there is nothing left to protect against. **Import is locked with them** (v0.84.3), from the Data tab button and `/hypno import` alike, because it replaces every toggle at once without ending anything; Export (read-only) and Reset (ends the session before it wipes, Known Bug #4) stay open. Unchecking one mid-effect releases it immediately — **except `arousalControl` and `illusionControl`, which is a bug, not a design** (see the todo).
 
 A second tab holds the **trance defaults** — cannot move / cannot speak / screen fade, all ON by default, plus *Clothes Look Unchanged* (off, deliberately: the other three are things you feel, this one makes your own screen tell you something untrue) and *Others See Your Reactions* (on). A third holds **awareness** (what you can be made not to notice), a fourth **triggers** (planting, carry-forward, firing your own, showing the words, scope, duration), and a fifth is read-only **stats**. A **"?" button on both this screen and the remote panel** opens a five-tab help screen generated from the pattern library and command list themselves, so it cannot fall behind them.

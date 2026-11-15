@@ -2,12 +2,9 @@
 
 > 🛡️ **EMERGENCY EXIT:** Type `/echs safeword` at any time to break trances and drop all commands.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. Since v0.84.0 a commanded activity can be aimed at someone else in the room by name, or at the hypnotist (see [Touching Someone Else](#touching-someone-else)). Sustained activity loops and additional actions are experimental or pending implementation. Mechanics and syntax may adjust in upcoming builds.
-
 ---
 
-Everything else in the add-on **stops** the subject from doing something. This makes them **act**.
+Everything else in the add-on **stops** the subject from doing something. This makes them **act**: on herself, on someone else in the room by name, or on the hypnotist (see [Touching Someone Else](#touching-someone-else)).
 
 *"Missy, touch your breasts"* and she performs the real Bondage Club activity on herself — it renders in the room exactly as though she had clicked it, with the same native arousal changes and the same chat narration.
 
@@ -110,7 +107,7 @@ This allows classic hypnotic tropes to work seamlessly: *"you cannot touch yours
 
 ## Touching Someone Else
 
-*New in v0.84.0.* The same verbs, aimed at a person instead of `your <part>`:
+The same verbs, aimed at a person instead of `your <part>`:
 
 | Say | Lands on |
 |---|---|
@@ -154,7 +151,7 @@ There is no redundant room narration from ECHS, ensuring chat stays clean and im
 
 In the current build, commanded activities are **one-shot**.
 
-* **Touching other players:** Built in v0.84.0 for a named person or the hypnotist. A random pick (*"touch someone's hand"*) and aiming a trigger at a person are still to come.
+* **Touching other players:** Works for a named person or the hypnotist. A random pick (*"touch someone's hand"*) and aiming a trigger at a person are still to come.
 * **Toy activities:** Interacting with held toys is under consideration.
 * **Loops:** Sustained actions (*"keep stroking"*) are planned for a later phase.
 * **Conditions already work as triggers:** *"Missy, when you hear good girl, touch your breasts"* plants a trigger in one line (then *"Missy, remember trigger"*), and a compulsion waits for a moment instead of a word (*"Missy, five minutes after you wake, touch yourself"*, *"Missy, when Rei comes in, kneel"*). See [Storing in a Trigger](#storing-in-a-trigger) and [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).

@@ -1104,8 +1104,9 @@ export const TRIGGER_SCOPES: { key: TriggerScope; label: string }[] = [
 	{ key: "hypnotist", label: "Hypnotist only" },
 	{ key: "owner", label: "Hypnotist and Owner" },
 	{ key: "lovers", label: "Hypnotist, Owner and Lovers" },
-	{ key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
-	{ key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
+	{ key: "friends", label: "Hypnotist, Owner, Lovers and friends" },
+	{ key: "whitelist", label: "Hypnotist, Owner, Lovers, friends and whitelist" },
+	{ key: "dominants", label: "Hypnotist, Owner, Lovers, friends, whitelist & Dominants" },
 	{ key: "notblack", label: "Hypnotist and everyone, except blacklist" },
 	{ key: "everyone", label: "Hypnotist and everyone, no exceptions" },
 ];

@@ -310,7 +310,7 @@ openTab(1); frame();
 	check("  labelled", texts.some((t) => t.text === "Toy mode is for:" && inside(t, iarea)), true);
 	check("  between the toy mode and sink deeper buttons", !!at && at.y - at.h / 2 >= found[3].top + found[3].height && at.y + at.h / 2 <= found[4].top, true);
 	check("  showing the default, Owner and Lovers", toy.selectedIndex, 1);
-	toy.selectedIndex = 5;
+	toy.selectedIndex = storage.TOY_SCOPES.length - 1; // the last rung: Everyone
 	toy.onChange.call(toy);
 	check("  choosing saves it", storage.getToyScope(), "everyone");
 	// The tab is short, so at the top the dropdown may still be in view. The rule is that it exists
@@ -378,9 +378,30 @@ check("another tab: the toy mode dropdown goes", !!elements.HypnosisAddonToyScop
 check("a tab that fits has no scroll bar", [!!up(), !!down()], [false, false]);
 check("  and its rows start at the top again", rowLabels()[0].text, "Clothing Changes");
 openTab(2); frame(); // Trance Defaults: eight rows and the pulse colour, once two columns
-check("Trance Defaults is one column now", new Set(boxes.map((b) => b.left)).size, 1);
 {
-	check("  the pulse has its tick box", rowLabels().some((t) => /Pulse when a command lands/.test(t.text)), true);
+	// One column, with one sub-option indented under Cannot Move (v1.12.0: "no one else can move you").
+	// Failure: a second column, i.e. lefts that differ by more than the indent.
+	const lefts = [...new Set(boxes.map((b) => b.left))].sort((a, b) => a - b);
+	check("Trance Defaults is one column now", lefts.length <= 1 || (lefts.length === 2 && lefts[1] - lefts[0] === 60), true);
+	check("  and the hold's sub-option is indented under Cannot Move", boxes.filter((b) => b.left !== lefts[0]).length, 1);
+}
+{
+	// v1.9.0 added the spiral row, so the pulse row may be below the fold: scroll to it as a player would.
+	const pulseRow = () => rowLabels().some((t) => /Pulse when a command lands/.test(t.text));
+	for (let i = 0; i < 30 && !pulseRow() && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
+	check("  the pulse has its tick box", pulseRow(), true);
+	// v1.9.1: the screen effect is a dropdown under the rows. Failure: it never appears, or picking does not save.
+	let effectSeen = false;
+	for (let i = 0; i < 30 && !effectSeen; i++) { frame(); effectSeen = !!elements.HypnosisAddonScreenEffect; if (!effectSeen && down()) { clickAt(down().left + 5, down().top + 5); } }
+	check("  the screen effect dropdown shows", effectSeen, true);
+	if (effectSeen) {
+		const sel = elements.HypnosisAddonScreenEffect;
+		check("    showing the grey fade", sel.selectedIndex, 1);
+		sel.selectedIndex = 3;
+		sel.onChange.call(sel);
+		check("    and picking saves it", storage.getScreenEffect(), "medium");
+		storage.setScreenEffect("fade");
+	}
 	// Failure: it can't be reached, or clicks where it isn't. Scrolled to the end, as a player would.
 	for (let i = 0; i < 30 && down(); i++) { clickAt(down().left + 5, down().top + 5); frame(); }
 	const colour = () => buttons.find((b) => /^Pulse colour:/.test(b.label));

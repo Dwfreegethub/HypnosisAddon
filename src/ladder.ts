@@ -37,6 +37,12 @@ export function allowedByLadder(memberId: number, scope: TriggerScope): boolean 
 	if (scope === "owner") return false;
 	if (C.IsLoverOfCharacter?.(Player)) return true;
 	if (scope === "lovers") return false;
+	// Friends (v1.8.0; Lianne 11-07, DW 2026-11-08: "between Lovers and Whitelist"). BC's own
+	// list, through its own helper (R133 Character.js HasOnFriendlist -> CharacterIsOnList), or the
+	// list itself if a build lacks the helper, as trust.ts reads it.
+	const friend = typeof Player?.HasOnFriendlist === "function" ? Player.HasOnFriendlist(C) : Player?.FriendList?.includes?.(memberId);
+	if (friend) return true;
+	if (scope === "friends") return false;
 	if (Player?.HasOnWhitelist?.(C)) return true;
 	if (scope === "whitelist") return false;
 	try {

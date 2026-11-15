@@ -241,6 +241,7 @@ export type TriggerScope =
 	| "hypnotist"
 	| "owner"
 	| "lovers"
+	| "friends"
 	| "whitelist"
 	| "dominants"
 	| "notblack"
@@ -253,6 +254,7 @@ export const TRIGGER_SCOPE_KEYS: TriggerScope[] = [
 	"hypnotist",
 	"owner",
 	"lovers",
+	"friends",
 	"whitelist",
 	"dominants",
 	"notblack",
@@ -419,6 +421,9 @@ export interface FeatureToggles {
 
 	/** Freeze on entering trance. */
 	tranceCannotMove: boolean;
+	/** With tranceCannotMove: the trance's freeze is the full hold, so no one else can move her either
+	 * (v1.12.0, DW 2026-11-14). Off by default: under, others may still adjust her. */
+	tranceNoOneMoves: boolean;
 	/** Block outgoing room chat while under. */
 	tranceCannotSpeak: boolean;
 	/** Dreamlike veil over the screen while under. */
@@ -510,6 +515,26 @@ interface HypnoAddonSettings {
 	awayStance?: string;
 	toyMode?: boolean;
 	toyScope?: string;
+	/** The fade drawn as a turning spiral, at this strength (v1.9.1): one of SPIRAL_STRENGTHS. Absent
+	 * means the plain grey fade. Only drawn while features.tranceScreenFade is on; the two together are
+	 * the Trance Defaults tab's one "Screen effect" choice (getScreenEffect). Off by default: moving
+	 * pictures over the screen are hers to ask for. */
+	spiralStrength?: string;
+	/** Her eyes while under (v1.10.0, DW 2026-11-08): one of TRANCE_EYES' expression keys, and one of
+	 * TRANCE_EYE_COLORS' colours. Both sparse: absent means her eyes are left as they are. */
+	tranceEyes?: string;
+	tranceEyeColor?: string;
+	/** What her eyes were before a trance changed them, kept until they are put back (eyes.ts). Here,
+	 * not in memory, so a crash mid-trance can still be undone on the next load. */
+	eyesSaved?: EyesSaved;
+	/** Her face before a spoken face command changed it (v1.11.0, face.ts), kept until it is put
+	 * back. Here, not in memory, for the same reason as eyesSaved. */
+	faceSaved?: FaceSaved;
+	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
+	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
+	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
+	 * 2026-11-08). The mark is what stops a later, deliberate choice of whitelist being moved again. */
+	friendsRung?: boolean;
 	/** How long an induction runs before it lands or misses, in seconds (v1.6.0, DW 2026-11-08).
 	 * One of INDUCTION_TIMES; absent means DEFAULT_INDUCTION_SECONDS. Toy mode uses it too. */
 	inductionSeconds?: number;
@@ -589,6 +614,8 @@ function defaultFeatures(): FeatureToggles {
 		lockedWhileHypnotized: false,
 		// On by default — see the note on the interface.
 		tranceCannotMove: true,
+		// Off: the trance holds her, and others may still adjust her (v1.12.0).
+		tranceNoOneMoves: false,
 		tranceCannotSpeak: true,
 		tranceScreenFade: true,
 		commandPulse: true,
@@ -607,6 +634,8 @@ function defaultSettings(): HypnoAddonSettings {
 		skill: 0,
 		triggers: [],
 		triggerScope: "hypnotist",
+		// A new or reset save already has the Friends rung, so nothing it later chooses is moved.
+		friendsRung: true,
 		triggerDurationMinutes: 5,
 		triggerLifespanMinutes: 0,
 		dropTriggers: "off",
@@ -652,6 +681,15 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 		if (typeof stored[key] === "boolean") merged[key] = stored[key];
 	}
 	s.features = merged;
+	// v1.9.0 (dev only) stored the spiral as a tick box, which the reconcile above just dropped. Read
+	// it from what was stored: ticked becomes Medium, since DW found v1.9.0's one strength too dark.
+	if ((stored as any).tranceSpiral === true && s.spiralStrength === undefined) s.spiralStrength = "medium";
+	if (s.spiralStrength !== undefined && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
+	if (s.tranceEyes !== undefined && OLD_TRANCE_EYES[s.tranceEyes]) s.tranceEyes = OLD_TRANCE_EYES[s.tranceEyes];
+	if (s.tranceEyes !== undefined && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
+	if (s.tranceEyeColor !== undefined && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
+	if (s.eyesSaved !== undefined && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
+	if (s.faceSaved !== undefined && (typeof s.faceSaved !== "object" || s.faceSaved === null || typeof s.faceSaved.groups !== "object" || s.faceSaved.groups === null)) delete s.faceSaved;
 	s.experience ??= 0;
 	s.triggers ??= [];
 	s.triggerScope ??= "hypnotist";
@@ -678,6 +716,11 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.inductionSeconds !== undefined && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+	if (s.friendsRung !== true) {
+		if (s.triggerScope === "whitelist") s.triggerScope = "friends";
+		if (s.toyScope === "whitelist") s.toyScope = "friends";
+		s.friendsRung = true;
+	}
 	// A lock with no valid end is no lock: dropped, never invented.
 	if (s.pulseColor !== undefined && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
 	// Read back into the canvas's colour string, so an imported blob must not bring junk with it.
@@ -1324,15 +1367,16 @@ export const DEFAULT_AWAY_STANCE = "refuse";
 export const TOY_SCOPES: { key: TriggerScope; label: string }[] = [
 	{ key: "owner", label: "Owner only" },
 	{ key: "lovers", label: "Owner and Lovers" },
-	{ key: "whitelist", label: "Owner, Lovers and whitelist" },
-	{ key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+	{ key: "friends", label: "Owner, Lovers and friends" },
+	{ key: "whitelist", label: "Owner, Lovers, friends and whitelist" },
+	{ key: "dominants", label: "Owner, Lovers, friends, whitelist & Dominants" },
 	{ key: "notblack", label: "Everyone, except blacklist" },
 	{ key: "everyone", label: "Everyone, no exceptions" },
 ];
 export const DEFAULT_TOY_SCOPE: TriggerScope = "lovers";
-/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends had no rung on the
- * ladder; the whitelist is the nearest. */
-const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
+/** v0.97.0-v0.97.2's keys, only ever saved by testers on the branch. Friends has had its own
+ * rung since v1.8.0. */
+const OLD_TOY_SCOPES: Record<string, TriggerScope> = { lover: "lovers", friend: "friends", anyone: "everyone" };
 
 const cycle = (list: { key: string }[], current: string): string =>
 	list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
@@ -1416,6 +1460,108 @@ export const PULSE_COLORS: { key: string; label: string; rgb: string }[] = [
 	{ key: "custom", label: "Custom", rgb: "" },
 ];
 export const DEFAULT_PULSE_CUSTOM = "#FF69B4";
+
+/** Her eyes while under (v1.10.0). Keys are BC's own eye expression names (R133 Female3DCG, Eyes
+ * AllowExpression); "" leaves them as they are. */
+export const TRANCE_EYES: { key: string; label: string }[] = [
+	{ key: "", label: "Unchanged" },
+	{ key: "Dazed", label: "Dazed" },
+	{ key: "Dizzy", label: "Spirals" },
+	{ key: "Heart", label: "Hearts" },
+];
+/** v1.10.0's choices that v1.10.1 dropped (DW: no Daydream, one Hearts). Pink hearts becomes Hearts;
+ * Daydream has no near match, so it goes back to Unchanged. */
+const OLD_TRANCE_EYES: Record<string, string> = { HeartPink: "Heart" };
+/** Her eye colour while under. Grey is the dulled look LSCG uses by default. "" leaves it as it is. */
+export const TRANCE_EYE_COLORS: { key: string; label: string }[] = [
+	{ key: "", label: "Unchanged" },
+	{ key: "#A2A2A2", label: "Grey" },
+	{ key: "#FF69B4", label: "Pink" },
+	{ key: "#AA5AFF", label: "Purple" },
+	{ key: "#50A0FF", label: "Blue" },
+];
+export type EyesSaved = {
+	at: number;
+	eyes: Partial<Record<"Eyes" | "Eyes2", { color: unknown; expression: string | null; setColor?: string[]; setExpression?: string }>>;
+	/** Her eye shadow before the spiral eyes hid it. Faded (v1.10.1): its opacity before, null if none
+	 * was set. Taken off (v1.10.2, for a shadow BC will not fade all the way, such as Wings): the item
+	 * as it was, to put back exactly. */
+	shadow?: { opacity?: unknown; removed?: { name: string; color: unknown; property: unknown; craft: unknown; difficulty: unknown } };
+};
+export function getTranceEyes(): string {
+	return loadSettings().tranceEyes ?? "";
+}
+export function setTranceEyes(key: string): void {
+	if (!TRANCE_EYES.some((e) => e.key === key)) return;
+	const s = loadSettings();
+	if (key) s.tranceEyes = key;
+	else delete s.tranceEyes;
+	saveSettings();
+}
+export function getTranceEyeColor(): string {
+	return loadSettings().tranceEyeColor ?? "";
+}
+export function setTranceEyeColor(key: string): void {
+	if (!TRANCE_EYE_COLORS.some((c) => c.key === key)) return;
+	const s = loadSettings();
+	if (key) s.tranceEyeColor = key;
+	else delete s.tranceEyeColor;
+	saveSettings();
+}
+export function getEyesSaved(): EyesSaved | undefined {
+	return loadSettings().eyesSaved;
+}
+export function setEyesSaved(saved: EyesSaved | undefined): void {
+	const s = loadSettings();
+	if (saved) s.eyesSaved = saved;
+	else delete s.eyesSaved;
+	saveSettings();
+}
+
+/** Her face before spoken face commands (v1.11.0, face.ts): per group, what it was and what we set. */
+export type FaceSaved = {
+	at: number;
+	groups: Partial<Record<"Eyes" | "Mouth" | "Blush", { was: string | null; set: string }>>;
+};
+export function getFaceSaved(): FaceSaved | undefined {
+	return loadSettings().faceSaved;
+}
+export function setFaceSaved(saved: FaceSaved | undefined): void {
+	const s = loadSettings();
+	if (saved && Object.keys(saved.groups).length) s.faceSaved = saved;
+	else delete s.faceSaved;
+	saveSettings();
+}
+
+/** The spiral's strengths (v1.9.1). Their opacities are effects.ts's SPIRAL_ALPHAS. */
+export const SPIRAL_STRENGTHS = ["light", "medium", "heavy"];
+/** What the screen does in a trance (v1.9.1, DW: "a selector box that has none, fade, and the 3
+ * spiral options"). One choice over two stored values: the fade switch, and the spiral strength. */
+export const SCREEN_EFFECTS: { key: string; label: string }[] = [
+	{ key: "none", label: "None" },
+	{ key: "fade", label: "Grey fade" },
+	{ key: "light", label: "Spiral, light" },
+	{ key: "medium", label: "Spiral, medium" },
+	{ key: "heavy", label: "Spiral, heavy" },
+];
+export function getScreenEffect(): string {
+	const s = loadSettings();
+	if (!s.features.tranceScreenFade) return "none";
+	return s.spiralStrength && SPIRAL_STRENGTHS.includes(s.spiralStrength) ? s.spiralStrength : "fade";
+}
+/** The spiral strength to draw, or "" for the plain fade (or none). */
+export function getSpiralStrength(): string {
+	const e = getScreenEffect();
+	return SPIRAL_STRENGTHS.includes(e) ? e : "";
+}
+export function setScreenEffect(key: string): void {
+	if (!SCREEN_EFFECTS.some((e) => e.key === key)) return;
+	const s = loadSettings();
+	s.features.tranceScreenFade = key !== "none";
+	if (SPIRAL_STRENGTHS.includes(key)) s.spiralStrength = key;
+	else delete s.spiralStrength;
+	saveSettings();
+}
 
 /** Where the ECHS icon goes over other players (v1.7.0). The viewer's choice, because a clash
  * depends on which add-ons the VIEWER runs (docs/addon-icon-survey.md). */

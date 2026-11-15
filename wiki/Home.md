@@ -4,45 +4,51 @@ A conversational hypnosis add-on for [Bondage Club](https://www.bondageprojects.
 
 *Formerly "BC Hypnosis Add-on". The repository, install link, and your saved settings are completely unchanged — only the display name in-game. ECHS is an independent project and is not affiliated with HSC (Hypnotic Slave Club).*
 
-> **1.0 Release Candidate**  
-> ECHS is at **v1.0.0 RC**: the build we intend to call 1.0. Balance may still be tweaked, and if something serious turns up, fixes arrive as 1.0.1, 1.0.2 and so on. If you run into odd behavior or broken edges, drop an issue on GitHub and say which version your chat line shows.
-
----
-
 One player acts as hypnotist. They try an induction — the spiral icon on your profile, or **`/echs induce <your name>`** in chat — and you privately choose to agree, ignore, or resist; and if the trance lands, you slip under to a depth decided by your shared dynamic and your answer. 
 
 From there, suggestions work through ordinary chat and whispers — *"Missy, you cannot move"*, *"Missy, touch your breasts"* — and your own client checks every single line against your saved permissions in real-time. Suggestions can be set to outlive the trance, or planted as trigger words that fire whenever spoken.
 
 **Nothing is turned on until you enable it. `/echs safeword` always works.**
 
-**Recent highlights:**
-* **See who else runs ECHS:** a small spiral over each ECHS player in the room, with their version on hover. You choose whether others see yours, and where you see theirs, on the Trance Defaults tab.
-* **Commands sink in:** a spoken command takes hold 2 to 5 seconds after it is said, with a pulse of colour you can change or switch off on the Trance Defaults tab. See **[What to Say](What-to-Say)**.
-* **What you planted:** hypnotists can list their triggers with `/echs planted <name>` or the **Planted triggers** button on the spiral panel. See **[Commands](Commands)**.
-* **A stronger Extreme:** while locked, triggers can only be added, the numbers are hidden and trances run 60 minutes. See **[The Extreme lock](Settings-Reference#the-extreme-lock)**.
-* **1.0 Release Candidate:** your chat line and settings title read **v1.0.0 RC**, and every help line and message now says `/echs`.
-* **Drinks and cigarettes:** a crafted drink or cigarette tagged `[echs:relax]` or `[echs:stimulate]` makes you easier or harder to hypnotize for a while. Opt in on the Depth tab. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**.
-* **Depth is a number:** each feature's depth is set from 0 to 99 on the Depth tab.
-* **Read-only lock banner:** locked settings show a yellow *Read-only* banner.
-* **Trust list names:** the trust list shows people by the name they go by.
-* **Setup wizard:** four starter templates and guided questions, with **Extreme** featuring a 7-day progressive lock.
-* **Inductions tab:** attempts, answering ahead of time, toy mode and *"sink deeper"* on a dedicated panel. See **[Settings Reference](Settings-Reference)**.
-* **Inductions reworked:** landing depth comes from how well you know the hypnotist rather than luck. Read **[How an Induction Works](How-Inductions-Work)**.
+---
+
+## Where to Start
+
+| If you're the subject | If you're the hypnotist |
+|---|---|
+| 1. **[Getting Started](Getting-Started)** — install, and pick a starting setup. | 1. **[Getting Started](Getting-Started)** — install. For a full session you both need ECHS. |
+| 2. **[Consent and Safety](Consent-and-Safety)** — what you can allow, and every way out. | 2. **[Your First Induction](Getting-Started#your-first-induction)** — how to start one, and what you'll see. |
+| 3. **[Settings Reference](Settings-Reference)** — what each setting does. | 3. **[What to Say](What-to-Say)** — the phrases. Keep it open while you play. |
+| 4. **[How an Induction Works](How-Inductions-Work)** — why it lands, and how deep you go. | 4. **[Troubleshooting](Troubleshooting)** — when a line does nothing. |
+
+Want to see a whole scene first? **[A Sample Session](Sample-Session)** follows two players line by line.
 
 ---
 
-## Start Here
+## What's New
+
+* **Two levels of holding still:** *"you cannot move"* stops only you, so others can still adjust your pose; *"no one can move you"* stops everyone, and the room is told you didn't budge. See **[Holding Still](What-to-Say#holding-still)**.
+* **Her face on command:** with Posture Control, *"close your eyes"*, *"open your mouth"*, *"smile"*, *"blush"* and more, until *"relax your face"* or waking. See **[What to Say](What-to-Say#face--posture-control--yielding-20)**.
+* **Eyes while under:** Dazed, Spirals or Hearts, and an eye colour, both optional on the Trance Defaults tab. Everyone in the room sees them. See **[Settings Reference](Settings-Reference#3-trance-defaults-tab)**.
+* **A spiral screen effect:** *Screen effect* on the Trance Defaults tab picks a grey fade or a turning spiral (light, medium or heavy) while you are under.
+* **Friends:** *Owner, Lovers and friends* is a new choice for who can fire your triggers and who toy mode is for. If you had picked whitelist, check it again.
+
+Every update, newest first, is in **[What's New](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)**.
+
+---
+
+## All Pages
+
+**Playing**
 
 | Page | Description |
 |---|---|
-| **[Getting Started](Getting-Started)** | Install, first run, and what settings to switch on. |
-| **[What to Say](What-to-Say)** | **What you actually type.** The phrases and syntax the parser recognizes — keep this open while playing. |
+| **[Getting Started](Getting-Started)** | Install, first run, your first induction, and what to switch on. |
+| **[What to Say](What-to-Say)** | **What you actually type.** Every phrase ECHS recognizes. |
 | **[A Sample Session](Sample-Session)** | A worked walkthrough: real dialogue lines, roll checks, and what each player sees. |
 | **[Consent and Safety](Consent-and-Safety)** | How client-side checks protect you, and every way out. |
 
----
-
-## The Features
+**The features**
 
 | Page | Description |
 |---|---|
@@ -52,22 +58,20 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 | **[Drinks and Cigarettes](Drinks-and-Cigarettes)** | Crafted items tagged `[echs:relax]` or `[echs:stimulate]` that make you easier or harder to put under for a while. |
 | **[Depth and Trust](Depth-and-Trust)** | Why a stranger cannot reach far, and how familiarity opens deeper trance. |
 | **[How an Induction Works](How-Inductions-Work)** | What decides whether it takes and how deep, going deeper, fighting up, answering ahead of time, and toy mode. |
-| **[Your First Session](Your-First-Session)** | The diagnostic view: how an induction resolves, and why first attempts often stall. |
 
----
-
-## Reference
+**Reference**
 
 | Page | Description |
 |---|---|
 | **[Settings Reference](Settings-Reference)** | Every preference tab and what each toggle actually does. |
 | **[Commands](Commands)** | Slash command reference (`/echs`). |
 | **[Troubleshooting](Troubleshooting)** | "Nothing happened" and how to sort out common snags. |
+| **[What's New](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)** | Every update in plain words, newest first, and how to check which version you have. |
 
 ---
 
 ## A Note on This Wiki
 
-This wiki and the in-game help (the **`?`** button in your settings, or `/echs help`) cover the exact same ground. The wiki is great for browsing out-of-game, while the in-game help is built to check quickly mid-scene. 
+ECHS is in its **1.0 release candidate** series: your chat line shows the exact version (such as *v1.12.5 RC*). Balance may still be tweaked. If something behaves differently from what is written here, drop an issue on GitHub and say which version your chat line shows.
 
-Because ECHS is still changing, whenever the two disagree, **the in-game help is bundled right into the running code and is more likely to be current.**
+This wiki and the in-game help (the **`?`** button in your settings, or `/echs help`) cover the same ground. The wiki is for browsing out of game; the in-game help is built to check quickly mid-scene. Whenever the two disagree, **the in-game help is bundled into the running code and is more likely to be current.**

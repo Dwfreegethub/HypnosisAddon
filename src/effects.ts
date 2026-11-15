@@ -1,5 +1,5 @@
-import { log, warn } from "./log";
-import { tellPlayer } from "./notify";
+import { log, warn, isDebugLogging } from "./log";
+import { tellPlayer, tellRoom, fillTokens } from "./notify";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
 // invisible "Emoticon" appearance item's Property.Effect array rather than depending on
@@ -152,6 +152,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	// whatever asks sees her as a real restraint would leave her. A real restraint's Freeze stays.
 	// Local only: nothing is sent to the room, and the cache is rebuilt again straight after.
 	const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
+	markOwnAction();
 	ownPoseChange++;
 	if (liftOwnFreeze) refreshOwnEffects();
 	try {
@@ -333,13 +334,127 @@ export const VEIL_WIDTH = 1003;
  * so it covers our sight suggestions and a real blindfold alike, and follows BC's own exceptions
  * (photo mode, VR avatars): wherever BC does not darken, the veil stays. It returns by itself the
  * frame her sight comes back. */
-export function drawTranceVeil(): void {
-	if (screenFade <= 0) return;
-	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+export function drawTranceVeil(opts: { spiral?: number; rgb?: string; now?: number } = {}): boolean {
+	if (screenFade <= 0) return false;
+	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
+	if (opts.spiral && opts.spiral > 0 && opts.rgb) {
+		const sprite = spiralSprite(opts.rgb);
+		if (sprite) {
+			drawSpiral(sprite, opts.spiral, opts.now ?? Date.now());
+			return true;
+		}
+		// No canvas to build it on: the grey veil instead, and said once (rule 5).
+		if (!spiralFailNoted) {
+			spiralFailNoted = true;
+			warn("trance spiral: could not build the spiral image, showing the plain fade instead");
+		}
+	}
 	MainCanvas.save();
 	MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
 	MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
 	MainCanvas.restore();
+	return false;
+}
+
+// --- The trance spiral (v1.9.0, JAX 2026-11-02, DW 2026-11-08) ---------------------------------
+// Her choice, off by default: while the fade is on, a slowly turning spiral in her pulse colour
+// takes the grey veil's place, and a landed command flashes the spiral instead of glowing at the
+// edge. Technique reference only (rule 7): LSCG's hypno spiral overlay, a turning spiral drawn
+// over the screen with a strength that follows a level. Nothing of its code; drawn here from
+// scratch. Same rect as the veil, and the same step-aside while BC darkens her screen.
+//
+// v1.9.1, DW after seeing it: v1.9.0's one strength (0.36) was "a little too dark", so three to
+// choose from, and the command's swell became a flash: "more sudden, more of a flash and less of a
+// fade in and out". One sharp flash per command, never repeating on its own.
+/** One turn, in ms. Slow, so it drifts rather than spins. */
+export const SPIRAL_TURN_MS = 12_000;
+/** The spiral's opacity in a full trance, per strength; a walking trance thins it in proportion,
+ * as it thins the veil. Heavy is v1.9.0's only strength. */
+export const SPIRAL_ALPHAS: Record<string, number> = { light: 0.15, medium: 0.25, heavy: 0.36 };
+/** How much brighter the spiral gets at the peak of a command's flash. */
+export const SPIRAL_FLASH_BOOST = 0.35;
+/** The flash: up in this long... */
+export const SPIRAL_FLASH_RISE_MS = 60;
+/** ...and gone again in this long, falling fastest at first. */
+export const SPIRAL_FLASH_FALL_MS = 450;
+/** When the last command landed, for the flash. Unlike the glow, a second command re-flashes. */
+let spiralFlashAt = 0;
+const SPIRAL_SPRITE_SIZE = 1024;
+const SPIRAL_ARMS = 3;
+const SPIRAL_TURNS = 3.5;
+/** Half the drawn size: past the corners of the 1003 x 1000 view from its centre (about 707). */
+export const SPIRAL_RADIUS = 720;
+let spiralCache: { rgb: string; canvas: any } | null = null;
+let spiralFailNoted = false;
+
+/** The spiral in this colour, built once per colour. Null if there is no canvas to build it on. */
+function spiralSprite(rgb: string): any {
+	if (spiralCache?.rgb === rgb) return spiralCache.canvas;
+	if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
+	const canvas: any = document.createElement("canvas");
+	canvas.width = canvas.height = SPIRAL_SPRITE_SIZE;
+	const ctx = canvas.getContext?.("2d");
+	if (!ctx) return null;
+	const c = SPIRAL_SPRITE_SIZE / 2;
+	const end = SPIRAL_TURNS * 2 * Math.PI;
+	const grow = c / end;
+	ctx.strokeStyle = `rgb(${rgb})`;
+	ctx.lineCap = "round";
+	for (let arm = 0; arm < SPIRAL_ARMS; arm++) {
+		const offset = (arm * 2 * Math.PI) / SPIRAL_ARMS;
+		let px = c;
+		let py = c;
+		for (let t = 0.3; t <= end; t += 0.04) {
+			const r = grow * t;
+			const x = c + r * Math.cos(t + offset);
+			const y = c + r * Math.sin(t + offset);
+			// Thicker further out, so the arms read as bands, not threads.
+			ctx.lineWidth = 2 + r * 0.16;
+			ctx.beginPath();
+			ctx.moveTo(px, py);
+			ctx.lineTo(x, y);
+			ctx.stroke();
+			px = x;
+			py = y;
+		}
+	}
+	spiralCache = { rgb, canvas };
+	return canvas;
+}
+
+/** 0 to 1: how much of the flash is showing. 0 when none, at once to 1, then quickly back to 0. */
+function spiralFlash(now: number): number {
+	if (!spiralFlashAt) return 0;
+	const dt = now - spiralFlashAt;
+	if (dt < 0 || dt >= SPIRAL_FLASH_RISE_MS + SPIRAL_FLASH_FALL_MS) return 0;
+	if (dt < SPIRAL_FLASH_RISE_MS) return dt / SPIRAL_FLASH_RISE_MS;
+	const left = 1 - (dt - SPIRAL_FLASH_RISE_MS) / SPIRAL_FLASH_FALL_MS;
+	return left * left;
+}
+
+function spiralAlpha(strength: number, now: number): number {
+	const base = strength * (screenFade / TRANCE_FADE_OPACITY);
+	return Math.min(1, base + spiralFlash(now) * SPIRAL_FLASH_BOOST);
+}
+
+function drawSpiral(sprite: any, strength: number, now: number): void {
+	const angle = ((now % SPIRAL_TURN_MS) / SPIRAL_TURN_MS) * 2 * Math.PI;
+	MainCanvas.save();
+	MainCanvas.beginPath();
+	MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+	MainCanvas.clip();
+	MainCanvas.globalAlpha = spiralAlpha(strength, now);
+	MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
+	MainCanvas.rotate(angle);
+	MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
+	MainCanvas.restore();
+}
+
+/** Tests only. */
+export function resetSpiralForTests(): void {
+	spiralCache = null;
+	spiralFailNoted = false;
+	spiralFlashAt = 0;
 }
 
 // --- The command pulse (v1.4.0, JAX 2026-11-02, DW 2026-11-05) -----------------------------------
@@ -363,19 +478,24 @@ let pulseRgb = "";
 /** Start a pulse in this colour ("r, g, b"). One already showing is left to finish: restarting it
  * would drop it to nothing in a single frame, which is the flash this is built not to have. */
 export function startCommandPulse(rgb: string, now: number = Date.now()): void {
+	// The spiral's flash restarts on every command: it is a flash, so a new one is no drop.
+	spiralFlashAt = now;
 	if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
 	pulseStartedAt = now;
 	pulseRgb = rgb;
 }
 
-/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded. */
-export function drawCommandPulse(now: number = Date.now()): void {
+/** Called each frame from the ChatRoomRun hook in main.ts. Nothing at all once it has faded.
+ * `spiralShowing`: the trance spiral drew this frame and carries the command itself as a flash, so
+ * the edge glow and wash stay off (DW, 2026-11-08). */
+export function drawCommandPulse(now: number = Date.now(), spiralShowing = false): void {
 	if (!pulseStartedAt) return;
 	const t = (now - pulseStartedAt) / PULSE_MS;
 	if (t >= 1 || t < 0) {
 		pulseStartedAt = 0;
 		return;
 	}
+	if (spiralShowing) return;
 	if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
 	const swell = Math.sin(Math.PI * t);
 	const strength = swell * PULSE_PEAK;
@@ -400,12 +520,12 @@ export function drawCommandPulse(now: number = Date.now()): void {
 // --- Sight (v0.93.0, DW 2026-09-26) -------------------------------------------------------------
 //
 // "You cannot see", in BC's own three levels: 1 dim (screen at 30%), 2 very dark (15%), 3 black.
-// DW: link into BC's blindness and never override its limits. Verified against R132 Character.js:
-// Player.GetBlindLevel() counts BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects asked
-// about ItemHead, ItemHood, ItemNeck and ItemDevices ONLY — so an effect on our Emoticon carrier is
-// never counted — and then clamps to 2 when her Sensory Deprivation setting is Light, else to 3. So
-// our CharacterGetEffects hook adds the level's effect when, and only when, BC asks about those
-// groups: BC's own clamp still applies, and everything BC does with blindness (the dark screen,
+// DW: link into BC's blindness and never override its limits. Player.GetBlindLevel() counts
+// BlindLight/BlindNormal/BlindHeavy from CharacterGetEffects and then clamps to 2 when her Sensory
+// Deprivation setting is Light, else to 3. It once asked only about ItemHead, ItemHood, ItemNeck and
+// ItemDevices; it now asks with an empty list, meaning every group (v1.11.1 fix). So our
+// CharacterGetEffects hook adds the level's effect whenever the question covers those groups,
+// named or by an empty/missing list: BC's own clamp still applies, and everything BC does with blindness (the dark screen,
 // Blind Adjacent, Blind Disable Examine, name hiding under her SensDep setting, map sight range,
 // harder struggling) follows her own settings. Nothing is written to the item, so the room sees no
 // change: blindness is hers alone, as BC's is.
@@ -484,8 +604,18 @@ function reassertItemEffects(): boolean {
 // default — DW: yes to all three):
 //   - her own pose changes are refused (PoseSetActive hook). Our calls pass (ownPoseChange), so the
 //     hypnotist's spoken pose commands still move her (DW: yes);
-//   - another player changing her pose is undone on her client and re-synced (DW: no to others);
 //   - on a map, BC's own MapImmobile is added beside Freeze, which stops walking outright.
+//
+// TWO LEVELS OF HOLD (v1.12.0, DW 2026-11-14, re-deciding v0.91.0's "no to others"):
+//   - HELD ("you cannot move"): she cannot move herself; anyone else may still adjust her.
+//   - HELD FULLY ("no one can move you"): no one moves her either; another player's change is
+//     undone on her client and re-synced, which was v0.91.0's only behaviour.
+// Whose change is it? An add-on that poses her for someone else (BCX, LSCG, ...) calls PoseSetActive
+// on HER client, exactly as her own click does, so the call alone cannot say. What can is the event
+// being handled: her own change happens inside one of her clicks or key presses (window.event, set
+// by the browser during dispatch; we run in the page, @grant none), and a remote one inside a socket
+// message or a timer. DW's live report: the old hold refused such a remote change with her own
+// "You try to shift" line.
 // Items are NOT blocked: an item that forces a pose is applied by BC's item system under her item
 // permissions, and refusing it would stop anyone restraining a held-still subject. Flagged to DW.
 let ownPoseChange = 0;
@@ -510,6 +640,146 @@ const HELD_NOTICE_GAP_MS = 30_000;
 /** Is our freeze holding her still? */
 export function isHeldStill(): boolean {
 	return heldByUs("Freeze");
+}
+
+/** The full hold: set by "no one can move you" and the trance default, cleared whenever our Freeze
+ * comes off (removeEffect) or a plain "you cannot move" is said. Local only: after a reload the
+ * Freeze that rides the item comes back as the ordinary hold, until recovery clears it. */
+let holdFully = false;
+
+/** Is the hold the full one, where no one else can move her either? */
+export function isHeldFully(): boolean {
+	return holdFully && isHeldStill();
+}
+
+/** Choose the level of the hold. Our Freeze is applied separately (applyEffect). */
+export function setHoldFully(on: boolean): void {
+	if (holdFully !== on) log(`hold level: ${on ? "no one can move her" : "others may still move her"}`);
+	holdFully = on;
+	markOwnAction();
+}
+
+/** The events her own hand or keyboard raises. A change made while one of these is being handled is
+ * hers; one made inside a socket message, a timer or an animation frame is not. */
+const OWN_INPUT_EVENTS = new Set([
+	"click", "dblclick", "auxclick", "contextmenu", "mousedown", "mouseup", "pointerdown", "pointerup",
+	"touchstart", "touchend", "keydown", "keyup", "keypress", "input", "change", "submit", "wheel",
+]);
+
+/** Is this pose change her own doing? See the block comment above: window.event names the event
+ * the browser is dispatching right now, if any. */
+function fromHerOwnInput(): boolean {
+	return changeSource() === "hers";
+}
+
+// --- Whose change, in three (v1.12.2, DW's live run of v1.12.1, 2026-11-14) ---------------------
+// v1.12.1 called every change that was not her own input "someone", and the room was told "does not
+// budge" six times for two real attempts: once straight after "no one can move you" before anyone
+// acted, twice with nothing between, and once just before the hypnotist's own "legs closed" landed.
+// Those came from her OWN client: another add-on reacting to our change in the same chat message's
+// dispatch, or nudging her pose from a timer (WCE's animation engine re-applies on one). So:
+//   - "hers": her own click or key (as before);
+//   - "someone": a message from the server, which is how another player's request reaches her
+//     (socket.io's WebSocket "message", or its polling fallback's XHR "load"/"readystatechange"),
+//     and not the same dispatch that carried one of our own actions;
+//   - "auto": anything else — a timer, an animation frame, or a side effect of our own action.
+// The full hold refuses all three. The ordinary hold refuses only "hers", as in v1.12.0.
+//
+// v1.12.3, REVERTED the quiet "auto" (DW's live run of v1.12.2, 2026-11-14): the mover's add-on
+// handles its request on her client AFTER the message (a timer or a promise), so its changes read as
+// "auto". Refused quietly, nothing re-sent her pose, and the mover's screen kept showing her moved.
+// And the "stray" lines of v1.12.1 were most likely real: in both runs the add-on's own room line
+// reaches the chat AFTER her refusal. So every refusal that is not hers is told as someone's again,
+// with the re-send. The three-way source stays for the log, with the calling code (when logging is
+// on), so a truly stray refusal can be named from the console rather than guessed at.
+const REMOTE_EVENTS = new Set(["message", "load", "readystatechange"]);
+type ChangeSource = "hers" | "someone" | "auto";
+/** The event that was being dispatched when we last acted (applied the hold, or posed her). A change
+ * inside the same dispatch is another add-on reacting to us, not a player. */
+let ownActionEvent: unknown = null;
+
+/** Note that WE are acting now, so changes in this same dispatch are read as side effects. */
+function markOwnAction(): void {
+	ownActionEvent = (globalThis as any).event ?? null;
+}
+
+function changeSource(): ChangeSource {
+	const e = (globalThis as any).event;
+	if (!e || typeof e.type !== "string") return "auto";
+	if (OWN_INPUT_EVENTS.has(e.type)) return "hers";
+	if (e === ownActionEvent) return "auto";
+	return REMOTE_EVENTS.has(e.type) ? "someone" : "auto";
+}
+
+/** A few frames of the calling code, for the log: which add-on asked. Only built when logging. */
+function caller(): string {
+	if (!isDebugLogging()) return "";
+	const frames = (new Error().stack ?? "").split("\n").slice(3, 9).map((f) => f.trim());
+	return frames.length ? `\n  from: ${frames.join("\n        ")}` : "";
+}
+
+const OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
+const OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
+
+// --- What the room is told when the full hold refuses someone (v1.12.1, DW 2026-11-14) ----------
+// DW's live run: the mover's add-on (not BC: no such text in R132) posts its own room line, "(Biker
+// raises Missy's hands.)", from THEIR client before the request reaches hers, and may show her
+// moved on their screen. Neither is ours to stop. So her client answers: the room is told she did
+// not move, once per burst (an add-on may change several pose categories in one go), and her real
+// pose is sent again so every screen shows it. The room line answers to "Others See Your
+// Reactions" (tellRoom), as every room line does.
+const ROOM_REFUSAL_LINE = "{name} does not budge: {their} body stays exactly where it was.";
+const ROOM_REFUSAL_GAP_MS = 5_000;
+let lastRoomRefusal = 0;
+let resyncPending = false;
+
+/** Send her held pose to the room once the current burst of calls is over (a microtask, so the
+ * several PoseSetActive calls of one request share one send). */
+function resyncHeldPoseSoon(): void {
+	if (resyncPending) return;
+	resyncPending = true;
+	// At most one send a second (v1.12.5): something re-trying on a timer must not make us flood the
+	// server. The first goes at once (a microtask, so one request's several calls share it).
+	const wait = Math.max(0, lastResync + RESYNC_GAP_MS - Date.now());
+	const send = () => {
+		resyncPending = false;
+		lastResync = Date.now();
+		if (!isHeldFully() || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
+		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+		log("held fully: re-sent her pose after refusing someone else's change");
+	};
+	if (wait === 0) Promise.resolve().then(send);
+	else setTimeout(send, wait);
+}
+const RESYNC_GAP_MS = 1_000;
+let lastResync = 0;
+
+// The same pose, asked again and again, is told once (v1.12.5, DW's live run of v1.12.4: "once she
+// stops moving me the messages keep happening"). Something kept re-trying a pose it had been
+// refused, every few seconds, and each refusal was told. A new pose is a new attempt and is told; a
+// repeat of one told in the last minute is refused, and re-sent, without a word.
+const REPEAT_QUIET_MS = 60_000;
+const toldPoses = new Map<string, number>();
+
+/** The full hold refused someone else's change: tell her, tell the room, and (when nothing else
+ * already re-sent it) put her real pose back on every screen. `asked` is the pose that was asked for. */
+function othersRefused(resync: boolean, asked: unknown): void {
+	// One pose name (PoseSetActive) or a list (a sync): the same pose either way.
+	const list = Array.isArray(asked) ? [...asked] : typeof asked === "string" ? [asked] : [];
+	const key = JSON.stringify(list.sort());
+	const now = Date.now();
+	for (const [k, at] of toldPoses) if (now - at >= REPEAT_QUIET_MS) toldPoses.delete(k);
+	if (toldPoses.has(key)) {
+		log(`held fully: refused ${key} again; already told, so quietly`);
+	} else {
+		toldPoses.set(key, now);
+		heldNotice(OTHERS_TRY_LINE);
+		if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
+			lastRoomRefusal = now;
+			tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+		}
+	}
+	if (resync) resyncHeldPoseSoon();
 }
 
 function heldNotice(line: string): void {
@@ -555,9 +825,31 @@ export function installEffectHooks(modApi: any): void {
 	const holdPose = (args: any[], next: (a: any[]) => any) => {
 		const [C, pose, force] = args;
 		if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-			heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-			log("held still: refused a pose change");
-			return undefined;
+			const source = changeSource();
+			if (source === "hers" || isHeldFully()) {
+				// Anything not hers is told as someone's, "auto" included (v1.12.3: see changeSource).
+				if (source === "hers") heldNotice(OWN_TRY_LINE);
+				else othersRefused(true, pose);
+				log(`held still: refused a pose change to ${JSON.stringify(pose)} (${source}${isHeldFully() ? ", held fully" : ""})${caller()}`);
+				return undefined;
+			}
+			// Someone else, through an add-on, while she is only held: it lands, and becomes the pose
+			// she is held in, so the ServerSend net below does not take it back. Our Freeze is lifted
+			// for the call, as for the hypnotist's own (setSuggestedPose): WCE and LSCG, hooked after
+			// us, refuse to pose a frozen character, and this freeze is not meant to stop anyone else.
+			const liftOwnFreeze = OWN_EFFECTS.has("Freeze");
+			ownPoseChange++;
+			if (liftOwnFreeze) refreshOwnEffects();
+			let result;
+			try {
+				result = next(args);
+			} finally {
+				ownPoseChange--;
+				if (liftOwnFreeze) refreshOwnEffects();
+			}
+			noteHeldPose();
+			log(`held still: let a pose change to ${JSON.stringify(pose)} through (${source}; others may move her)${caller()}`);
+			return result;
 		}
 		return next(args);
 	};
@@ -566,24 +858,47 @@ export function installEffectHooks(modApi: any): void {
 	// Someone else changing her pose: their client sets it and syncs her whole character (R132
 	// ChatRoomKneelStandAssist -> ChatRoomCharacterUpdate), which reaches her as a
 	// ChatRoomSyncCharacter of herself. Her items from that sync stand; her pose goes back.
-	modApi.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
+	//
+	// AND ChatRoomSyncSingle (v1.12.5, DW's live run of v1.12.4: belly and all fours got through with
+	// no "held still" line at all). R132 Server.js routes two server messages to these: the
+	// ChatRoomSyncCharacter one, and ChatRoomSyncSingle, which also runs CharacterLoadOnline on the
+	// character it carries and so sets her ActivePose. Only the first was hooked, so a whole-character
+	// update of her from another player's client, which their add-on sends for those poses, landed
+	// round the hold entirely.
+	const holdOnSync = (label: string) => (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
 		if (!aboutHer || !isHeldStill()) return next(args);
 		const held = currentPoses();
 		const result = next(args);
 		if (!samePoses(held, Player?.ActivePose)) {
-			restoreHeldPose(held);
-			heldNotice("Someone tries to move you, and your body will not be moved.");
-			log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+			if (isHeldFully()) {
+				const asked = Player?.ActivePose;
+				restoreHeldPose(held);
+				othersRefused(false, asked);
+				log(`held still: undid a pose change to ${JSON.stringify(asked)} from ${data.SourceMemberNumber} (${label})`);
+			} else {
+				// Only held: another player may adjust her. Their pose is now the one she is held in.
+				noteHeldPose();
+				log(`held still: kept a pose change from ${data.SourceMemberNumber} (${label}; others may move her)`);
+			}
 		}
 		return result;
-	});
+	};
+	modApi.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, holdOnSync("ChatRoomSyncCharacter"));
+	modApi.hookFunction("ChatRoomSyncSingle", HOLD_PRIORITY, holdOnSync("ChatRoomSyncSingle"));
 	modApi.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+		if (!isHeldFully()) {
+			const result = next(args);
+			noteHeldPose();
+			log("held still: kept an incoming pose update (others may move her)");
+			return result;
+		}
 		restoreHeldPose(currentPoses());
-		log("held still: refused an incoming pose update");
+		othersRefused(false, data?.Pose);
+		log(`held still: refused an incoming pose update ${JSON.stringify(data?.Pose)}`);
 		return undefined;
 	});
 	// THE BUTTON, the way a real restraint does it (v0.91.3). BC's kneel/stand button reads
@@ -608,28 +923,49 @@ export function installEffectHooks(modApi: any): void {
 	// DW's live trace: WCE's animation engine applies and sends a queued pose at once, and this net
 	// took the hypnotist's command for her own attempt, put the old pose back, and then fought WCE's
 	// 250 ms re-apply timer, sending her pose over and over).
+	//
+	// AND the whole-character sync (v1.12.4, DW: belly and all fours "might go through a different
+	// function"). R132 ChatRoomCharacterUpdate sends { ID, ActivePose, Appearance }, so a pose written
+	// straight to Player.ActivePose (BC's setter, Character.js:192, skips PoseSetActive and so our hold)
+	// and then synced that way reached the room unchecked. Only her own sync: she can update others.
 	modApi.hookFunction("ServerSend", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
-		if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+		const poseSend = args[0] === "ChatRoomCharacterPoseUpdate";
+		const herSync = args[0] === "ChatRoomCharacterUpdate" && args[1]?.ID === Player?.CharacterID && Array.isArray(args[1]?.ActivePose);
+		if ((!poseSend && !herSync) || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
 			return next(args);
 		}
+		const source = changeSource();
+		if (source !== "hers" && !isHeldFully()) {
+			// Someone else's change that came in by another road, while she is only held: it stands.
+			noteHeldPose();
+			log(`held still: a pose change that is not hers got past the hook; kept (${source}; others may move her)${caller()}`);
+			return next(args);
+		}
+		const asked = Player?.ActivePose;
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-		heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-		log("held still: a pose change got past the hook; put the held pose back before it was sent");
-		return next([args[0], { ...(args[1] ?? {}), Pose: Player.ActivePose }]);
+		if (source === "hers") heldNotice(OWN_TRY_LINE);
+		else othersRefused(false, asked); // the held pose is what this send now carries
+		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${args[0]}, ${source})${caller()}`);
+		return next([args[0], poseSend ? { ...(args[1] ?? {}), Pose: Player.ActivePose } : { ...args[1], ActivePose: Player.ActivePose }]);
 	});
 	// CharacterGetEffects (R132 Character.js) builds a character's effect list from their items;
 	// CharacterLoadEffect caches it as C.Effect, which HasEffect and CanWalk read. With a group
 	// filter it is answering about specific item slots, so ours are added only when the Emoticon
 	// group is in scope (or no filter was given).
 	modApi.hookFunction("CharacterGetEffects", 5, (args: any[], next: (a: any[]) => any) => {
-		const result = next(args);
+		let result = next(args);
 		const [C, groups] = args;
-		// Sight: only when BC asks about the groups it reads blindness from (see setSight).
-		if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g: string) => BLIND_GROUPS.includes(g))) {
-			const withSight = Array.isArray(result) ? result.slice() : [];
-			withSight.push(BLIND_EFFECTS[sightLevel as 1 | 2 | 3]);
-			return withSight;
+		// Sight: added when BC asks a group-list question that covers the groups it reads blindness
+		// from (see setSight). An EMPTY list means every group (BC's own filter), and GetBlindLevel now
+		// asks with [] (Character.js, clone of 2026-09-29): requiring a named blind group meant sight
+		// never counted and every sight suggestion failed (v1.11.1, DW 2026-11-14). A missing list
+		// (CharacterLoadEffect rebuilding C.Effect) still gets no sight, as before. No early return:
+		// our other effects are still merged below when the same question covers the Emoticon.
+		const allGroups = Array.isArray(groups) && groups.length === 0;
+		if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && (allGroups || groups.some((g: string) => BLIND_GROUPS.includes(g)))) {
+			result = Array.isArray(result) ? result.slice() : [];
+			result.push(BLIND_EFFECTS[sightLevel as 1 | 2 | 3]);
 		}
 		if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
 		if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
@@ -671,6 +1007,8 @@ export function applyEffect(effectName: string, character: any = Player): boolea
 		if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
 		return true;
 	}
+	// First, so an add-on reacting to the update below is read as a side effect of ours (v1.12.2).
+	if (effectName === "Freeze") markOwnAction();
 	OWN_EFFECTS.add(effectName);
 	// Defensive: normally already done at startup, but an effect applied before the
 	// retry loop succeeded would otherwise be stripped from our own appearance too.
@@ -752,6 +1090,9 @@ export function heldByUs(effectName: string): boolean {
 
 export function removeEffect(effectName: string, character: any = Player): boolean {
 	const heldByUs = character === Player && OWN_EFFECTS.delete(effectName);
+	// The level goes with the hold: a Freeze put back later is the ordinary one unless asked again.
+	// (voice.ts's commanded undress lifts and restores it, and puts the level back itself.)
+	if (heldByUs && effectName === "Freeze") setHoldFully(false);
 	const item = findEmoticonItem(character);
 	const effects = item?.Property?.Effect;
 	const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;

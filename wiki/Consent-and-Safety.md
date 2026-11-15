@@ -47,7 +47,7 @@ On a fresh install, every permission starts switched **off**, including the mast
 Permissions are configured per feature:
 * **Movement restriction:** Freezing in place and pose.
 * **Speech restriction:** Verbal muting in room chat.
-* **Posture control:** Kneeling, standing, leg/arm poses.
+* **Posture control:** Kneeling, standing, leg/arm poses, and the face (eyes, mouth, tongue, blush).
 * **Wardrobe restrictions:** Locking the wardrobe screen.
 * **Arousal control:** Arousal shifts, orgasm denial, forced climaxes.
 * **Undressing:** Removing clothes on command.
@@ -96,9 +96,7 @@ Being worked up lowers resistance: it helps an induction land and takes you some
 * Arousal **never** unlocks Deep-tier features, triggers, clothing illusions, or carry-forward effects by default.
 
 ### Answering Ahead of Time & Toy Mode
-* **Automatic Answer:** Configure on the **Inductions tab** to answer *Agree*, *Ignore*, or *Fight* without a dialog box.
-* **Toy Mode:** Configured on the **Inductions tab**. Puts you under to your *"sink deeper"* limit with no roll for selected partners, once your induction time (60 seconds, or as low as 10) has run. This counts as earned depth.
-* **Away Mode:** After 10 minutes with no key, click or touch, inductions are turned away by default and the hypnotist is told you are away. You are told who tried when you come back.
+On the **Inductions** tab you can answer every induction ahead of time, decide what happens while you are away from the keyboard, and let chosen people put you under with no roll (**toy mode**, which counts as earned depth). All of it is explained on [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
 ---
 

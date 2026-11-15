@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.7.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.12.6. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -416,6 +416,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const otherGroup = group === "stance" ? "arms" : "stance";
     const keep = before.filter((p) => poseGroupOf(p) === otherGroup);
     const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
+    markOwnAction();
     ownPoseChange++;
     if (liftOwnFreeze) refreshOwnEffects();
     try {
@@ -513,26 +514,96 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function getScreenFade() {
     return screenFade;
   }
-  function drawTranceVeil() {
-    if (screenFade <= 0) return;
-    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
+  function drawTranceVeil(opts = {}) {
+    if (screenFade <= 0) return false;
+    if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return false;
+    if (opts.spiral && opts.spiral > 0 && opts.rgb) {
+      const sprite = spiralSprite(opts.rgb);
+      if (sprite) {
+        drawSpiral(sprite, opts.spiral, opts.now ?? Date.now());
+        return true;
+      }
+      if (!spiralFailNoted) {
+        spiralFailNoted = true;
+        warn("trance spiral: could not build the spiral image, showing the plain fade instead");
+      }
+    }
     MainCanvas.save();
     MainCanvas.fillStyle = `rgba(255, 255, 255, ${screenFade})`;
     MainCanvas.fillRect(0, 0, VEIL_WIDTH, MainCanvasHeight);
     MainCanvas.restore();
+    return false;
+  }
+  function spiralSprite(rgb) {
+    if (spiralCache?.rgb === rgb) return spiralCache.canvas;
+    if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = SPIRAL_SPRITE_SIZE;
+    const ctx = canvas.getContext?.("2d");
+    if (!ctx) return null;
+    const c = SPIRAL_SPRITE_SIZE / 2;
+    const end = SPIRAL_TURNS * 2 * Math.PI;
+    const grow = c / end;
+    ctx.strokeStyle = `rgb(${rgb})`;
+    ctx.lineCap = "round";
+    for (let arm = 0; arm < SPIRAL_ARMS; arm++) {
+      const offset = arm * 2 * Math.PI / SPIRAL_ARMS;
+      let px = c;
+      let py = c;
+      for (let t = 0.3; t <= end; t += 0.04) {
+        const r = grow * t;
+        const x = c + r * Math.cos(t + offset);
+        const y = c + r * Math.sin(t + offset);
+        ctx.lineWidth = 2 + r * 0.16;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        px = x;
+        py = y;
+      }
+    }
+    spiralCache = { rgb, canvas };
+    return canvas;
+  }
+  function spiralFlash(now) {
+    if (!spiralFlashAt) return 0;
+    const dt = now - spiralFlashAt;
+    if (dt < 0 || dt >= SPIRAL_FLASH_RISE_MS + SPIRAL_FLASH_FALL_MS) return 0;
+    if (dt < SPIRAL_FLASH_RISE_MS) return dt / SPIRAL_FLASH_RISE_MS;
+    const left = 1 - (dt - SPIRAL_FLASH_RISE_MS) / SPIRAL_FLASH_FALL_MS;
+    return left * left;
+  }
+  function spiralAlpha(strength, now) {
+    const base = strength * (screenFade / TRANCE_FADE_OPACITY);
+    return Math.min(1, base + spiralFlash(now) * SPIRAL_FLASH_BOOST);
+  }
+  function drawSpiral(sprite, strength, now) {
+    const angle = now % SPIRAL_TURN_MS / SPIRAL_TURN_MS * 2 * Math.PI;
+    MainCanvas.save();
+    MainCanvas.beginPath();
+    MainCanvas.rect(0, 0, VEIL_WIDTH, MainCanvasHeight);
+    MainCanvas.clip();
+    MainCanvas.globalAlpha = spiralAlpha(strength, now);
+    MainCanvas.translate(VEIL_WIDTH / 2, MainCanvasHeight / 2);
+    MainCanvas.rotate(angle);
+    MainCanvas.drawImage(sprite, -SPIRAL_RADIUS, -SPIRAL_RADIUS, SPIRAL_RADIUS * 2, SPIRAL_RADIUS * 2);
+    MainCanvas.restore();
   }
   function startCommandPulse(rgb, now = Date.now()) {
+    spiralFlashAt = now;
     if (pulseStartedAt && now - pulseStartedAt < PULSE_MS) return;
     pulseStartedAt = now;
     pulseRgb = rgb;
   }
-  function drawCommandPulse(now = Date.now()) {
+  function drawCommandPulse(now = Date.now(), spiralShowing = false) {
     if (!pulseStartedAt) return;
     const t = (now - pulseStartedAt) / PULSE_MS;
     if (t >= 1 || t < 0) {
       pulseStartedAt = 0;
       return;
     }
+    if (spiralShowing) return;
     if (typeof CharacterGetDarkFactor === "function" && CharacterGetDarkFactor(Player) < 1) return;
     const swell = Math.sin(Math.PI * t);
     const strength = swell * PULSE_PEAK;
@@ -589,6 +660,61 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isHeldStill() {
     return heldByUs("Freeze");
   }
+  function isHeldFully() {
+    return holdFully && isHeldStill();
+  }
+  function setHoldFully(on) {
+    if (holdFully !== on) log(`hold level: ${on ? "no one can move her" : "others may still move her"}`);
+    holdFully = on;
+    markOwnAction();
+  }
+  function markOwnAction() {
+    ownActionEvent = globalThis.event ?? null;
+  }
+  function changeSource() {
+    const e = globalThis.event;
+    if (!e || typeof e.type !== "string") return "auto";
+    if (OWN_INPUT_EVENTS.has(e.type)) return "hers";
+    if (e === ownActionEvent) return "auto";
+    return REMOTE_EVENTS.has(e.type) ? "someone" : "auto";
+  }
+  function caller() {
+    if (!isDebugLogging()) return "";
+    const frames = (new Error().stack ?? "").split("\n").slice(3, 9).map((f) => f.trim());
+    return frames.length ? `
+  from: ${frames.join("\n        ")}` : "";
+  }
+  function resyncHeldPoseSoon() {
+    if (resyncPending) return;
+    resyncPending = true;
+    const wait = Math.max(0, lastResync + RESYNC_GAP_MS - Date.now());
+    const send = () => {
+      resyncPending = false;
+      lastResync = Date.now();
+      if (!isHeldFully() || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
+      ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+      log("held fully: re-sent her pose after refusing someone else's change");
+    };
+    if (wait === 0) Promise.resolve().then(send);
+    else setTimeout(send, wait);
+  }
+  function othersRefused(resync, asked) {
+    const list = Array.isArray(asked) ? [...asked] : typeof asked === "string" ? [asked] : [];
+    const key = JSON.stringify(list.sort());
+    const now = Date.now();
+    for (const [k, at] of toldPoses) if (now - at >= REPEAT_QUIET_MS) toldPoses.delete(k);
+    if (toldPoses.has(key)) {
+      log(`held fully: refused ${key} again; already told, so quietly`);
+    } else {
+      toldPoses.set(key, now);
+      heldNotice(OTHERS_TRY_LINE);
+      if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
+        lastRoomRefusal = now;
+        tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+      }
+    }
+    if (resync) resyncHeldPoseSoon();
+  }
   function heldNotice(line) {
     const now = Date.now();
     if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
@@ -616,32 +742,64 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const holdPose = (args, next) => {
       const [C, pose, force] = args;
       if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-        heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-        log("held still: refused a pose change");
-        return void 0;
+        const source2 = changeSource();
+        if (source2 === "hers" || isHeldFully()) {
+          if (source2 === "hers") heldNotice(OWN_TRY_LINE);
+          else othersRefused(true, pose);
+          log(`held still: refused a pose change to ${JSON.stringify(pose)} (${source2}${isHeldFully() ? ", held fully" : ""})${caller()}`);
+          return void 0;
+        }
+        const liftOwnFreeze = OWN_EFFECTS.has("Freeze");
+        ownPoseChange++;
+        if (liftOwnFreeze) refreshOwnEffects();
+        let result;
+        try {
+          result = next(args);
+        } finally {
+          ownPoseChange--;
+          if (liftOwnFreeze) refreshOwnEffects();
+        }
+        noteHeldPose();
+        log(`held still: let a pose change to ${JSON.stringify(pose)} through (${source2}; others may move her)${caller()}`);
+        return result;
       }
       return next(args);
     };
     modApi2.hookFunction("PoseSetActive", HOLD_PRIORITY, holdPose);
     modApi2.hookFunction("CharacterSetActivePose", HOLD_PRIORITY, holdPose);
-    modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args, next) => {
+    const holdOnSync = (label) => (args, next) => {
       const [data] = args;
       const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
       if (!aboutHer || !isHeldStill()) return next(args);
       const held = currentPoses();
       const result = next(args);
       if (!samePoses(held, Player?.ActivePose)) {
-        restoreHeldPose(held);
-        heldNotice("Someone tries to move you, and your body will not be moved.");
-        log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+        if (isHeldFully()) {
+          const asked = Player?.ActivePose;
+          restoreHeldPose(held);
+          othersRefused(false, asked);
+          log(`held still: undid a pose change to ${JSON.stringify(asked)} from ${data.SourceMemberNumber} (${label})`);
+        } else {
+          noteHeldPose();
+          log(`held still: kept a pose change from ${data.SourceMemberNumber} (${label}; others may move her)`);
+        }
       }
       return result;
-    });
+    };
+    modApi2.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, holdOnSync("ChatRoomSyncCharacter"));
+    modApi2.hookFunction("ChatRoomSyncSingle", HOLD_PRIORITY, holdOnSync("ChatRoomSyncSingle"));
     modApi2.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args, next) => {
       const [data] = args;
       if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+      if (!isHeldFully()) {
+        const result = next(args);
+        noteHeldPose();
+        log("held still: kept an incoming pose update (others may move her)");
+        return result;
+      }
       restoreHeldPose(currentPoses());
-      log("held still: refused an incoming pose update");
+      othersRefused(false, data?.Pose);
+      log(`held still: refused an incoming pose update ${JSON.stringify(data?.Pose)}`);
       return void 0;
     });
     modApi2.hookFunction("PoseCanChangeUnaidedStatus", HOLD_PRIORITY, (args, next) => {
@@ -652,22 +810,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return next(args);
     });
     modApi2.hookFunction("ServerSend", HOLD_PRIORITY, (args, next) => {
-      if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
+      const poseSend = args[0] === "ChatRoomCharacterPoseUpdate";
+      const herSync = args[0] === "ChatRoomCharacterUpdate" && args[1]?.ID === Player?.CharacterID && Array.isArray(args[1]?.ActivePose);
+      if (!poseSend && !herSync || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
         return next(args);
       }
+      const source2 = changeSource();
+      if (source2 !== "hers" && !isHeldFully()) {
+        noteHeldPose();
+        log(`held still: a pose change that is not hers got past the hook; kept (${source2}; others may move her)${caller()}`);
+        return next(args);
+      }
+      const asked = Player?.ActivePose;
       Player.ActivePose = heldPose.slice();
       if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-      heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-      log("held still: a pose change got past the hook; put the held pose back before it was sent");
-      return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
+      if (source2 === "hers") heldNotice(OWN_TRY_LINE);
+      else othersRefused(false, asked);
+      log(`held still: a pose change got past the hook; put the held pose back before it was sent (${args[0]}, ${source2})${caller()}`);
+      return next([args[0], poseSend ? { ...args[1] ?? {}, Pose: Player.ActivePose } : { ...args[1], ActivePose: Player.ActivePose }]);
     });
     modApi2.hookFunction("CharacterGetEffects", 5, (args, next) => {
-      const result = next(args);
+      let result = next(args);
       const [C, groups] = args;
-      if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && groups.some((g) => BLIND_GROUPS.includes(g))) {
-        const withSight = Array.isArray(result) ? result.slice() : [];
-        withSight.push(BLIND_EFFECTS[sightLevel]);
-        return withSight;
+      const allGroups = Array.isArray(groups) && groups.length === 0;
+      if (sightLevel && C && (C === Player || C?.IsPlayer?.()) && Array.isArray(groups) && (allGroups || groups.some((g) => BLIND_GROUPS.includes(g)))) {
+        result = Array.isArray(result) ? result.slice() : [];
+        result.push(BLIND_EFFECTS[sightLevel]);
       }
       if (!OWN_EFFECTS.size || !C || !(C === Player || C?.IsPlayer?.())) return result;
       if (Array.isArray(groups) && groups.length && !groups.includes("Emoticon")) return result;
@@ -702,6 +870,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
       return true;
     }
+    if (effectName === "Freeze") markOwnAction();
     OWN_EFFECTS.add(effectName);
     ensureEffectsAllowed();
     if (item) {
@@ -742,6 +911,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function removeEffect(effectName, character = Player) {
     const heldByUs2 = character === Player && OWN_EFFECTS.delete(effectName);
+    if (heldByUs2 && effectName === "Freeze") setHoldFully(false);
     const item = findEmoticonItem(character);
     const effects = item?.Property?.Effect;
     const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
@@ -754,7 +924,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, REMOTE_EVENTS, ownActionEvent, OWN_TRY_LINE, OTHERS_TRY_LINE, ROOM_REFUSAL_LINE, ROOM_REFUSAL_GAP_MS, lastRoomRefusal, resyncPending, RESYNC_GAP_MS, lastResync, REPEAT_QUIET_MS, toldPoses;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -774,6 +944,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       walkingTrance = false;
       forcedSpeaking = false;
       VEIL_WIDTH = 1003;
+      SPIRAL_TURN_MS = 12e3;
+      SPIRAL_ALPHAS = { light: 0.15, medium: 0.25, heavy: 0.36 };
+      SPIRAL_FLASH_BOOST = 0.35;
+      SPIRAL_FLASH_RISE_MS = 60;
+      SPIRAL_FLASH_FALL_MS = 450;
+      spiralFlashAt = 0;
+      SPIRAL_SPRITE_SIZE = 1024;
+      SPIRAL_ARMS = 3;
+      SPIRAL_TURNS = 3.5;
+      SPIRAL_RADIUS = 720;
+      spiralCache = null;
+      spiralFailNoted = false;
       PULSE_MS = 1800;
       PULSE_PEAK = 0.8;
       PULSE_TINT_PEAK = 0.18;
@@ -791,6 +973,38 @@ One of mods you are using is using an old version of SDK. It will work for now b
       heldPose = null;
       HOLD_PRIORITY = 1e3;
       HELD_NOTICE_GAP_MS = 3e4;
+      holdFully = false;
+      OWN_INPUT_EVENTS = /* @__PURE__ */ new Set([
+        "click",
+        "dblclick",
+        "auxclick",
+        "contextmenu",
+        "mousedown",
+        "mouseup",
+        "pointerdown",
+        "pointerup",
+        "touchstart",
+        "touchend",
+        "keydown",
+        "keyup",
+        "keypress",
+        "input",
+        "change",
+        "submit",
+        "wheel"
+      ]);
+      REMOTE_EVENTS = /* @__PURE__ */ new Set(["message", "load", "readystatechange"]);
+      ownActionEvent = null;
+      OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
+      OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
+      ROOM_REFUSAL_LINE = "{name} does not budge: {their} body stays exactly where it was.";
+      ROOM_REFUSAL_GAP_MS = 5e3;
+      lastRoomRefusal = 0;
+      resyncPending = false;
+      RESYNC_GAP_MS = 1e3;
+      lastResync = 0;
+      REPEAT_QUIET_MS = 6e4;
+      toldPoses = /* @__PURE__ */ new Map();
     }
   });
 
@@ -1486,6 +1700,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           "{name} stops moving, as though the idea had gone."
         ],
         "movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+        "movement-lock": [
+          "{name} goes perfectly still, as if set in stone.",
+          "{name} stops, and stays stopped, like a statue."
+        ],
         // Follow is observable in the same way going still is: nobody sees the compulsion land,
         // but they see {name} close the distance and keep it closed. Naming {name} is required —
         // room lines carry no sender.
@@ -1523,6 +1741,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "arms-out": ["{name}'s arms lift out to either side and hold there, level."],
         "arms-relax": ["{name}'s arms drift down to {their} sides."],
         "pose-blocked": ["{name} shifts, trying to obey, but {their} body will not go there."],
+        // A face is as visible as a pose, so each gets a room line too.
+        "tongue-hang": ["{name}'s tongue slips out and hangs there, {their} eyes rolling up and away."],
+        "tongue-out": ["The tip of {name}'s tongue peeks out between {their} lips and stays there."],
+        "mouth-open": ["{name}'s mouth falls open and stays that way."],
+        "mouth-parted": ["{name}'s lips part softly."],
+        "lip-bite": ["{name} catches {their} lower lip between {their} teeth."],
+        smile: ["A slow, dreamy smile spreads across {name}'s face."],
+        grin: ["{name} breaks into a wide, helpless grin."],
+        smirk: ["One corner of {name}'s mouth curls up into a smirk."],
+        pout: ["{name}'s lower lip pushes out into a pout."],
+        moan: ["{name}'s lips shape a soft, silent moan."],
+        "mouth-close": ["{name}'s mouth closes and {their} lips settle."],
+        "eyes-closed": ["{name}'s eyes drift closed."],
+        "eyes-wide": ["{name}'s eyes go wide."],
+        "eyes-dazed": ["{name}'s eyes glaze over, empty and soft."],
+        "eyes-hearts": ["{name}'s eyes go soft, little hearts shining in them."],
+        "eyes-open": ["{name}'s eyes open again."],
+        blush: ["A deep blush rises in {name}'s cheeks."],
+        "face-relax": ["{name}'s face smooths out and goes quiet."],
+        "face-blocked": ["{name}'s face twitches, trying to obey, but will not quite do it."],
         // Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
         // INTO one is observable, which is why the attempt keys carry the public lines and the
         // apply keys mostly do not. Movement and posture are the exceptions: going still and
@@ -1573,6 +1811,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           "Your body simply stops listening to you.",
           "You tell your legs to move. Nothing happens.",
           "Somewhere far off you decide to move, and the message never arrives."
+        ],
+        "movement-lock": [
+          "You go still, all the way through. Not even another's hands could move you now.",
+          "You set like stone. Whoever tries to move you will find you exactly where you are.",
+          "Your body locks in place, and stays locked, whoever reaches for it."
         ],
         "movement-release": [
           "Control seeps back into your limbs.",
@@ -1627,6 +1870,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "arms-out": ["Your arms lift out to either side and hold, level and steady."],
         "arms-relax": ["Your arms drift back down to your sides. They are yours again."],
         "pose-blocked": ["Your body tries to obey and cannot. Something already holding you won't let it."],
+        "tongue-hang": ["Your tongue slides out and hangs there, and your eyes roll up and away. You can't seem to mind."],
+        "tongue-out": ["The tip of your tongue slips out between your lips and stays there, silly and obedient."],
+        "mouth-open": ["Your mouth falls open. It stays open, waiting."],
+        "mouth-parted": ["Your lips part on their own, just a little."],
+        "lip-bite": ["Your teeth find your lower lip and hold it."],
+        smile: ["A smile spreads across your face before you know why. It feels good to wear it."],
+        grin: ["You grin, wide and helpless, and can't stop."],
+        smirk: ["One side of your mouth curls up, all on its own."],
+        pout: ["Your lower lip pushes out into a pout."],
+        moan: ["Your lips shape a moan, soft and silent."],
+        "mouth-close": ["Your mouth closes. Your lips are yours again."],
+        "eyes-closed": ["Your eyes close. They are so much happier closed."],
+        "eyes-wide": ["Your eyes go wide."],
+        "eyes-dazed": ["Your eyes glaze over. There's nothing behind them that needs looking out."],
+        "eyes-hearts": ["Your eyes go soft and full of hearts."],
+        "eyes-open": ["Your eyes open again."],
+        blush: ["Warmth floods into your cheeks, and you blush and blush."],
+        "face-relax": ["Your face smooths out and softens. It's yours again."],
+        "face-blocked": ["Your face tries to obey and can't quite do it."],
         "speech-block": [
           "You go to answer and find there is nothing to answer with.",
           "The words are there. The way out of your mouth is not.",
@@ -1952,6 +2214,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (scope === "owner") return false;
     if (C.IsLoverOfCharacter?.(Player)) return true;
     if (scope === "lovers") return false;
+    const friend = typeof Player?.HasOnFriendlist === "function" ? Player.HasOnFriendlist(C) : Player?.FriendList?.includes?.(memberId);
+    if (friend) return true;
+    if (scope === "friends") return false;
     if (Player?.HasOnWhitelist?.(C)) return true;
     if (scope === "whitelist") return false;
     try {
@@ -2547,21 +2812,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function oocOnly(text2) {
     const spans = [];
     let depth = 0;
-    let current = "";
+    let current2 = "";
     for (const ch of String(text2 ?? "")) {
       if (ch === "(") {
-        if (depth === 0) current = "";
+        if (depth === 0) current2 = "";
         depth++;
-        current += ch;
+        current2 += ch;
       } else if (ch === ")" && depth > 0) {
-        current += ch;
+        current2 += ch;
         depth--;
-        if (depth === 0) spans.push(current);
+        if (depth === 0) spans.push(current2);
       } else if (depth > 0) {
-        current += ch;
+        current2 += ch;
       }
     }
-    if (depth > 0 && current.length > 1) spans.push(current);
+    if (depth > 0 && current2.length > 1) spans.push(current2);
     return spans.join(" ").trim();
   }
   function installHearingFilter(onHidden) {
@@ -3220,6 +3485,203 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/eyes.ts
+  function eyeItem(group) {
+    return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
+  }
+  function colourFor(item, hex) {
+    const layers = Math.max(1, Number(item?.Asset?.ColorableLayerCount) || 1);
+    return Array(layers).fill(hex);
+  }
+  function canFadeOut(item) {
+    const layers = Array.isArray(item?.Asset?.Layer) ? item.Asset.Layer : [];
+    const assetMin = Number(item?.Asset?.MinOpacity ?? 0) || 0;
+    if (!layers.length) return assetMin <= 0;
+    return layers.every((l) => (Number(l?.MinOpacity ?? assetMin) || 0) <= 0);
+  }
+  function putBackShadow(was) {
+    if (typeof AssetGet !== "function" || typeof CharacterAppearanceSetItem !== "function") return false;
+    const asset = AssetGet(Player.AssetFamily ?? "Female3DCG", SHADOW_GROUP, was.name);
+    if (!asset) {
+      warn(`trance eyes: could not find the eye shadow "${was.name}" to put back`);
+      return false;
+    }
+    const item = CharacterAppearanceSetItem(Player, SHADOW_GROUP, asset, clone(was.color));
+    if (!item) return false;
+    if (was.property != null) item.Property = clone(was.property);
+    if (was.craft != null) item.Craft = clone(was.craft);
+    if (typeof was.difficulty === "number") item.Difficulty = was.difficulty;
+    return true;
+  }
+  function sync() {
+    if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
+    if (typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom() && typeof ChatRoomCharacterUpdate === "function") {
+      ChatRoomCharacterUpdate(Player);
+    }
+  }
+  function applyTranceEyes() {
+    const expression = getTranceEyes();
+    const colour = getTranceEyeColor();
+    if (!expression && !colour) return "";
+    if (getEyesSaved()) return "";
+    const items = EYE_GROUPS.map(eyeItem);
+    if (!items[0]) {
+      warn("trance eyes: no eyes found on her character, so nothing was changed");
+      return "";
+    }
+    const saved = { at: Date.now(), eyes: {} };
+    for (let i = 0; i < EYE_GROUPS.length; i++) {
+      const item = items[i];
+      if (!item) continue;
+      saved.eyes[EYE_GROUPS[i]] = {
+        color: item.Color ?? null,
+        expression: item.Property?.Expression ?? null,
+        setColor: colour ? colourFor(item, colour) : void 0,
+        setExpression: expression || void 0
+      };
+    }
+    const shadow2 = expression === HIDES_SHADOW ? eyeItem(SHADOW_GROUP) : null;
+    const fades = shadow2 ? canFadeOut(shadow2) : false;
+    if (shadow2 && fades) saved.shadow = { opacity: shadow2.Property?.Opacity ?? null };
+    else if (shadow2) {
+      saved.shadow = {
+        removed: {
+          name: shadow2.Asset?.Name,
+          color: clone(shadow2.Color ?? null),
+          property: clone(shadow2.Property ?? null),
+          craft: clone(shadow2.Craft ?? null),
+          difficulty: shadow2.Difficulty ?? null
+        }
+      };
+    }
+    setEyesSaved(saved);
+    try {
+      if (expression && typeof CharacterSetFacialExpression === "function") CharacterSetFacialExpression(Player, "Eyes", expression);
+      if (colour) {
+        for (let i = 0; i < EYE_GROUPS.length; i++) if (items[i]) items[i].Color = saved.eyes[EYE_GROUPS[i]].setColor;
+      }
+      if (shadow2 && fades) {
+        if (!shadow2.Property) shadow2.Property = {};
+        shadow2.Property.Opacity = 0;
+      } else if (shadow2 && typeof InventoryRemove === "function") {
+        InventoryRemove(Player, SHADOW_GROUP, false);
+      }
+      sync();
+    } catch (err) {
+      warn("trance eyes: could not change them", err);
+    }
+    const what = [expression && `${expression} eyes`, colour && `colour ${colour}`, shadow2 && (fades ? "eye shadow faded out" : "eye shadow taken off")].filter(Boolean).join(", ");
+    log(`trance eyes: ${what}`);
+    return what;
+  }
+  function restoreTranceEyes() {
+    const saved = getEyesSaved();
+    if (!saved) return false;
+    let changed = false;
+    try {
+      for (const group of EYE_GROUPS) {
+        const was = saved.eyes[group];
+        const item = eyeItem(group);
+        if (!was || !item) continue;
+        if (was.setColor && same(item.Color, was.setColor)) {
+          item.Color = was.color ?? "Default";
+          changed = true;
+        }
+        if (was.setExpression && (item.Property?.Expression ?? null) === was.setExpression) {
+          if (!item.Property) item.Property = {};
+          item.Property.Expression = was.expression ?? null;
+          changed = true;
+        }
+      }
+      const shadow2 = saved.shadow ? eyeItem(SHADOW_GROUP) : null;
+      const removed = saved.shadow?.removed;
+      if (removed) {
+        if (!shadow2 && putBackShadow(removed)) changed = true;
+      } else if (shadow2 && shadow2.Property?.Opacity === 0) {
+        if (saved.shadow.opacity === null || saved.shadow.opacity === void 0) delete shadow2.Property.Opacity;
+        else shadow2.Property.Opacity = saved.shadow.opacity;
+        changed = true;
+      }
+      if (changed) sync();
+    } catch (err) {
+      warn("trance eyes: could not put them back", err);
+    }
+    setEyesSaved(void 0);
+    log(`trance eyes: ${changed ? "put back as they were" : "left as they are now (changed during the trance)"}`);
+    return changed;
+  }
+  var EYE_GROUPS, SHADOW_GROUP, HIDES_SHADOW, same, clone;
+  var init_eyes = __esm({
+    "src/eyes.ts"() {
+      init_log();
+      init_storage();
+      EYE_GROUPS = ["Eyes", "Eyes2"];
+      SHADOW_GROUP = "EyeShadow";
+      HIDES_SHADOW = "Dizzy";
+      same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+      clone = (v) => v == null ? v : JSON.parse(JSON.stringify(v));
+    }
+  });
+
+  // src/face.ts
+  function faceItem(group) {
+    return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
+  }
+  function current(group) {
+    return faceItem(group)?.Property?.Expression ?? null;
+  }
+  function setFace(group, expression) {
+    if (typeof CharacterSetFacialExpression !== "function" || !faceItem(group)) return false;
+    const saved = getFaceSaved() ?? { at: Date.now(), groups: {} };
+    const before = saved.groups[group];
+    const now = current(group);
+    const was = before && now === before.set ? before.was : now;
+    saved.groups[group] = { was, set: expression };
+    setFaceSaved(saved);
+    try {
+      CharacterSetFacialExpression(Player, group, expression);
+    } catch (err) {
+      warn(`face: could not set ${group} to ${expression}`, err);
+    }
+    if (current(group) !== expression) {
+      if (before) saved.groups[group] = before;
+      else delete saved.groups[group];
+      setFaceSaved(saved);
+      log(`face: BC did not take ${group} ${expression}`);
+      return false;
+    }
+    log(`face: ${group} ${expression} (was ${was ?? "none"})`);
+    return true;
+  }
+  function clearFace(group, only) {
+    const saved = getFaceSaved();
+    if (!saved) return false;
+    const groups = group ? [group] : Object.keys(saved.groups);
+    let changed = false;
+    for (const g of groups) {
+      const entry = saved.groups[g];
+      if (!entry || only && entry.set !== only) continue;
+      if (current(g) === entry.set) {
+        try {
+          CharacterSetFacialExpression(Player, g, entry.was);
+          changed = true;
+        } catch (err) {
+          warn(`face: could not put ${g} back`, err);
+        }
+      }
+      delete saved.groups[g];
+    }
+    setFaceSaved(saved);
+    if (groups.length) log(`face: ${changed ? "put back" : "nothing to put back"} (${groups.join(", ")})`);
+    return changed;
+  }
+  var init_face = __esm({
+    "src/face.ts"() {
+      init_log();
+      init_storage();
+    }
+  });
+
   // src/recovery.ts
   function stateKey() {
     const member = Player?.MemberNumber;
@@ -3282,6 +3744,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearSelfTouchBlocks();
     clearIllusion();
     clearSuggestedPose();
+    clearFace();
+    restoreTranceEyes();
     clearSaved();
     log(`recovery: released everything \u2014 ${reason}`);
   }
@@ -3419,6 +3883,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     tick();
   }
   function attemptRecovery() {
+    const outcome = decideRecovery();
+    if (outcome !== "resumed" && outcome !== "waiting") {
+      clearFace();
+      restoreTranceEyes();
+    }
+    return outcome;
+  }
+  function decideRecovery() {
     const saved = read();
     if (!saved) {
       if (hasOrphanedEffects()) {
@@ -3518,6 +3990,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_illusion();
       init_arousal();
       init_follow();
+      init_eyes();
+      init_face();
       RECOVERY_WINDOW_MS = 5 * 6e4;
       WAIT_POLL_MS = 3e3;
       STARTUP_POLL_MS = 250;
@@ -3900,6 +4374,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearFollow();
     clearSuggestedPose();
     clearTranceStates();
+    clearFace();
+    restoreTranceEyes();
     clearAllSuppression();
     clearSelfTouchBlocks();
     clearActiveSuggestions();
@@ -3952,16 +4428,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function giveTrust(memberId, name) {
     if (!getFeatures().hypnoEnabled) return "Hypnosis is switched off, so there is nothing to trust anyone with.";
     if (memberId === Player?.MemberNumber) return "You cannot give your trust to yourself.";
-    const current = session.hypnotistId === memberId && session.phase !== "Idle";
-    if (current && session.phase === "Hypnotized") {
+    const current2 = session.hypnotistId === memberId && session.phase !== "Idle";
+    if (current2 && session.phase === "Hypnotized") {
       return `You are already under with ${name}. Your trust has nothing more to do this time.`;
     }
-    if (current && trustGift?.memberId === memberId && trustGift.spentOn === session) {
+    if (current2 && trustGift?.memberId === memberId && trustGift.spentOn === session) {
       return `${name} already has your trust for this one.`;
     }
     trustGift = { memberId, name, until: Date.now() + TRUST_GIFT_MS, spentOn: null };
     log(`trust gift to ${name} [${memberId}], waiting ${TRUST_GIFT_MS / 6e4} min`);
-    if (current && session.phase === "AttemptMade") {
+    if (current2 && session.phase === "AttemptMade") {
       spendTrustGift();
       if (promptTimer) {
         clearTimeout(promptTimer);
@@ -3971,7 +4447,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       beginInductionWindow();
       return `You trust ${name}. You let yourself go along with it.`;
     }
-    if (current) {
+    if (current2) {
       spendTrustGift();
       session.choice = "agree";
       return `You trust ${name}. You stop holding anything back.`;
@@ -4399,12 +4875,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function applyTranceState() {
     const f = getFeatures();
     if (!f.hypnoEnabled) return;
-    if (f.tranceCannotMove) applyEffect("Freeze");
+    if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
     if (f.tranceCannotSpeak) setSpeechBlocked(true);
     if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
     if (f.tranceClothingFreeze) freezeAppearance();
+    applyTranceEyes();
     log(
-      `trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`
+      `trance state applied: move=${f.tranceCannotMove}${f.tranceCannotMove && f.tranceNoOneMoves ? " (no one moves her)" : ""} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`
     );
   }
   function enterWalkingTrance() {
@@ -4420,7 +4897,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function leaveWalkingTrance() {
     if (!isWalkingTrance()) return false;
     const f = getFeatures();
-    if (f.tranceCannotMove) applyEffect("Freeze");
+    if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
     if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
     setWalkingTrance(false);
     notify("You go still, and the world recedes again.");
@@ -4621,6 +5098,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearFollow();
     clearSuggestedPose();
     clearTranceStates();
+    clearFace();
+    restoreTranceEyes();
     clearAllSuppression();
     clearSelfTouchBlocks();
     clearActiveSuggestions();
@@ -4916,6 +5395,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_carry();
       init_effects();
       init_follow();
+      init_eyes();
+      init_face();
       PROMPT_TIMEOUT_MS = 6e4;
       maxAttempts = () => getMaxAttempts();
       COOLDOWN_MS = 10 * 6e4;
@@ -5013,8 +5494,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
   }
-  function nextAttemptLimit(current) {
-    const i = ATTEMPT_LIMITS.indexOf(current);
+  function nextAttemptLimit(current2) {
+    const i = ATTEMPT_LIMITS.indexOf(current2);
     return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
   }
   function defaultFeatures() {
@@ -5049,6 +5530,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lockedWhileHypnotized: false,
       // On by default — see the note on the interface.
       tranceCannotMove: true,
+      // Off: the trance holds her, and others may still adjust her (v1.12.0).
+      tranceNoOneMoves: false,
       tranceCannotSpeak: true,
       tranceScreenFade: true,
       commandPulse: true,
@@ -5066,6 +5549,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       skill: 0,
       triggers: [],
       triggerScope: "hypnotist",
+      // A new or reset save already has the Friends rung, so nothing it later chooses is moved.
+      friendsRung: true,
       triggerDurationMinutes: 5,
       triggerLifespanMinutes: 0,
       dropTriggers: "off",
@@ -5093,6 +5578,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (typeof stored[key] === "boolean") merged[key] = stored[key];
     }
     s.features = merged;
+    if (stored.tranceSpiral === true && s.spiralStrength === void 0) s.spiralStrength = "medium";
+    if (s.spiralStrength !== void 0 && !SPIRAL_STRENGTHS.includes(s.spiralStrength)) delete s.spiralStrength;
+    if (s.tranceEyes !== void 0 && OLD_TRANCE_EYES[s.tranceEyes]) s.tranceEyes = OLD_TRANCE_EYES[s.tranceEyes];
+    if (s.tranceEyes !== void 0 && !TRANCE_EYES.some((e) => e.key === s.tranceEyes && e.key)) delete s.tranceEyes;
+    if (s.tranceEyeColor !== void 0 && !TRANCE_EYE_COLORS.some((c) => c.key === s.tranceEyeColor && c.key)) delete s.tranceEyeColor;
+    if (s.eyesSaved !== void 0 && (typeof s.eyesSaved !== "object" || s.eyesSaved === null || typeof s.eyesSaved.eyes !== "object")) delete s.eyesSaved;
+    if (s.faceSaved !== void 0 && (typeof s.faceSaved !== "object" || s.faceSaved === null || typeof s.faceSaved.groups !== "object" || s.faceSaved.groups === null)) delete s.faceSaved;
     s.experience ?? (s.experience = 0);
     s.triggers ?? (s.triggers = []);
     s.triggerScope ?? (s.triggerScope = "hypnotist");
@@ -5111,6 +5603,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.inductionSeconds !== void 0 && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+    if (s.friendsRung !== true) {
+      if (s.triggerScope === "whitelist") s.triggerScope = "friends";
+      if (s.toyScope === "whitelist") s.toyScope = "friends";
+      s.friendsRung = true;
+    }
     if (s.pulseColor !== void 0 && !PULSE_COLORS.some((c) => c.key === s.pulseColor)) delete s.pulseColor;
     if (s.pulseCustom !== void 0) {
       const hex = typeof s.pulseCustom === "string" ? parsePulseHex(s.pulseCustom) : null;
@@ -5503,8 +6000,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEEPEST_TIERS.some((r) => r.key === key)) loadSettings().deepestTier = key;
     saveSettings();
   }
-  function nextDeepestTier(current) {
-    const i = DEEPEST_TIERS.findIndex((r) => r.key === current);
+  function nextDeepestTier(current2) {
+    const i = DEEPEST_TIERS.findIndex((r) => r.key === current2);
     return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
   }
   function getDefaultStance() {
@@ -5514,8 +6011,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEFAULT_STANCES.some((r) => r.key === key)) loadSettings().defaultStance = key;
     saveSettings();
   }
-  function nextDefaultStance(current) {
-    return cycle(DEFAULT_STANCES, current);
+  function nextDefaultStance(current2) {
+    return cycle(DEFAULT_STANCES, current2);
   }
   function getAwayStance() {
     return loadSettings().awayStance ?? DEFAULT_AWAY_STANCE;
@@ -5524,8 +6021,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (AWAY_STANCES.some((r) => r.key === key)) loadSettings().awayStance = key;
     saveSettings();
   }
-  function nextAwayStance(current) {
-    return cycle(AWAY_STANCES, current);
+  function nextAwayStance(current2) {
+    return cycle(AWAY_STANCES, current2);
   }
   function getInductionSeconds() {
     const v = loadSettings().inductionSeconds;
@@ -5539,8 +6036,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  function nextInductionSeconds(current) {
-    const i = INDUCTION_TIMES.indexOf(current);
+  function nextInductionSeconds(current2) {
+    const i = INDUCTION_TIMES.indexOf(current2);
     return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
   }
   function getToyMode() {
@@ -5559,6 +6056,61 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function resetSkillHonour() {
     delete loadSettings().skillHonour;
+    saveSettings();
+  }
+  function getTranceEyes() {
+    return loadSettings().tranceEyes ?? "";
+  }
+  function setTranceEyes(key) {
+    if (!TRANCE_EYES.some((e) => e.key === key)) return;
+    const s = loadSettings();
+    if (key) s.tranceEyes = key;
+    else delete s.tranceEyes;
+    saveSettings();
+  }
+  function getTranceEyeColor() {
+    return loadSettings().tranceEyeColor ?? "";
+  }
+  function setTranceEyeColor(key) {
+    if (!TRANCE_EYE_COLORS.some((c) => c.key === key)) return;
+    const s = loadSettings();
+    if (key) s.tranceEyeColor = key;
+    else delete s.tranceEyeColor;
+    saveSettings();
+  }
+  function getEyesSaved() {
+    return loadSettings().eyesSaved;
+  }
+  function setEyesSaved(saved) {
+    const s = loadSettings();
+    if (saved) s.eyesSaved = saved;
+    else delete s.eyesSaved;
+    saveSettings();
+  }
+  function getFaceSaved() {
+    return loadSettings().faceSaved;
+  }
+  function setFaceSaved(saved) {
+    const s = loadSettings();
+    if (saved && Object.keys(saved.groups).length) s.faceSaved = saved;
+    else delete s.faceSaved;
+    saveSettings();
+  }
+  function getScreenEffect() {
+    const s = loadSettings();
+    if (!s.features.tranceScreenFade) return "none";
+    return s.spiralStrength && SPIRAL_STRENGTHS.includes(s.spiralStrength) ? s.spiralStrength : "fade";
+  }
+  function getSpiralStrength() {
+    const e = getScreenEffect();
+    return SPIRAL_STRENGTHS.includes(e) ? e : "";
+  }
+  function setScreenEffect(key) {
+    if (!SCREEN_EFFECTS.some((e) => e.key === key)) return;
+    const s = loadSettings();
+    s.features.tranceScreenFade = key !== "none";
+    if (SPIRAL_STRENGTHS.includes(key)) s.spiralStrength = key;
+    else delete s.spiralStrength;
     saveSettings();
   }
   function getEchsIconSpot() {
@@ -5634,8 +6186,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
     saveSettings();
   }
-  function nextSkillHonour(current) {
-    const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current);
+  function nextSkillHonour(current2) {
+    const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current2);
     return SKILL_HONOUR_OFFERED[(i + 1) % SKILL_HONOUR_OFFERED.length].key;
   }
   function addSkill(delta) {
@@ -5683,7 +6235,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, LEGACY_GATE_TIERS, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -5723,6 +6275,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "hypnotist",
         "owner",
         "lovers",
+        "friends",
         "whitelist",
         "dominants",
         "notblack",
@@ -5774,14 +6327,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       TOY_SCOPES = [
         { key: "owner", label: "Owner only" },
         { key: "lovers", label: "Owner and Lovers" },
-        { key: "whitelist", label: "Owner, Lovers and whitelist" },
-        { key: "dominants", label: "Owner, Lovers, whitelist & Dominants" },
+        { key: "friends", label: "Owner, Lovers and friends" },
+        { key: "whitelist", label: "Owner, Lovers, friends and whitelist" },
+        { key: "dominants", label: "Owner, Lovers, friends, whitelist & Dominants" },
         { key: "notblack", label: "Everyone, except blacklist" },
         { key: "everyone", label: "Everyone, no exceptions" }
       ];
       DEFAULT_TOY_SCOPE = "lovers";
-      OLD_TOY_SCOPES = { lover: "lovers", friend: "whitelist", anyone: "everyone" };
-      cycle = (list, current) => list[(list.findIndex((r) => r.key === current) + 1) % list.length].key;
+      OLD_TOY_SCOPES = { lover: "lovers", friend: "friends", anyone: "everyone" };
+      cycle = (list, current2) => list[(list.findIndex((r) => r.key === current2) + 1) % list.length].key;
       INDUCTION_TIMES = [60, 45, 30, 20, 10];
       DEFAULT_INDUCTION_SECONDS = 60;
       MIN_INDUCTION_SECONDS = 10;
@@ -5794,6 +6348,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "custom", label: "Custom", rgb: "" }
       ];
       DEFAULT_PULSE_CUSTOM = "#FF69B4";
+      TRANCE_EYES = [
+        { key: "", label: "Unchanged" },
+        { key: "Dazed", label: "Dazed" },
+        { key: "Dizzy", label: "Spirals" },
+        { key: "Heart", label: "Hearts" }
+      ];
+      OLD_TRANCE_EYES = { HeartPink: "Heart" };
+      TRANCE_EYE_COLORS = [
+        { key: "", label: "Unchanged" },
+        { key: "#A2A2A2", label: "Grey" },
+        { key: "#FF69B4", label: "Pink" },
+        { key: "#AA5AFF", label: "Purple" },
+        { key: "#50A0FF", label: "Blue" }
+      ];
+      SPIRAL_STRENGTHS = ["light", "medium", "heavy"];
+      SCREEN_EFFECTS = [
+        { key: "none", label: "None" },
+        { key: "fade", label: "Grey fade" },
+        { key: "light", label: "Spiral, light" },
+        { key: "medium", label: "Spiral, medium" },
+        { key: "heavy", label: "Spiral, heavy" }
+      ];
       ECHS_ICON_SPOTS = [
         { key: "top", label: "Top row" },
         { key: "left", label: "Below, on the left" },
@@ -6605,8 +7181,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "hypnotist", label: "Hypnotist only" },
         { key: "owner", label: "Hypnotist and Owner" },
         { key: "lovers", label: "Hypnotist, Owner and Lovers" },
-        { key: "whitelist", label: "Hypnotist, Owner, Lovers and whitelist" },
-        { key: "dominants", label: "Hypnotist, Owner, Lovers, whitelist & Dominants" },
+        { key: "friends", label: "Hypnotist, Owner, Lovers and friends" },
+        { key: "whitelist", label: "Hypnotist, Owner, Lovers, friends and whitelist" },
+        { key: "dominants", label: "Hypnotist, Owner, Lovers, friends, whitelist & Dominants" },
         { key: "notblack", label: "Hypnotist and everyone, except blacklist" },
         { key: "everyone", label: "Hypnotist and everyone, no exceptions" }
       ];
@@ -6650,6 +7227,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function applyUndress(count) {
     const liftedOwnFreeze = heldByUs("Freeze");
+    const wasHeldFully = isHeldFully();
     if (liftedOwnFreeze) {
       removeEffect("Freeze");
       if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
@@ -6663,6 +7241,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } finally {
       if (liftedOwnFreeze) {
         applyEffect("Freeze");
+        setHoldFully(wasHeldFully);
         if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
       }
     }
@@ -6754,6 +7333,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     };
   }
+  function applyFace(group, expression) {
+    if (!setFace(group, expression)) return "face-blocked";
+  }
+  function faceSuggestion(id, group, expression, examples, patterns, unless) {
+    return {
+      id,
+      examples,
+      permission: "postureControl",
+      patterns,
+      unless,
+      run: () => applyFace(group, expression),
+      // Only while it is still this face: a trigger's smile must not undo a pout said since.
+      undo: () => {
+        clearFace(group, expression);
+      }
+    };
+  }
   function isSelfReferential(text2) {
     return /^(i|we)\b/.test(text2) && !/\byou\b/.test(text2);
   }
@@ -6811,7 +7407,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const segments = splitSegments(content, known);
     const namedOther = segments.some((s) => s.lead.some((n) => otherSet.has(n)));
     if (!namedOther) return { text: content, scoped: false, ambiguous: false };
-    let current = [];
+    let current2 = [];
     let prevWasVocative = false;
     let namedMe = false;
     const owned = [];
@@ -6824,11 +7420,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           for (const p of pending) p.owner = [...seg.lead];
           justClaimed = pending;
           pending = [];
-          current = [];
+          current2 = [];
         } else if (prevWasVocative && justClaimed.length) {
           for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
         } else {
-          current = prevWasVocative ? [...current, ...seg.lead] : seg.lead;
+          current2 = prevWasVocative ? [...current2, ...seg.lead] : seg.lead;
           justClaimed = [];
         }
         prevWasVocative = true;
@@ -6836,10 +7432,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       prevWasVocative = false;
       justClaimed = [];
-      if (seg.lead.length) current = seg.lead;
-      const entry = { owner: [...current], body: seg.body };
+      if (seg.lead.length) current2 = seg.lead;
+      const entry = { owner: [...current2], body: seg.body };
       owned.push(entry);
-      if (!current.length) pending.push(entry);
+      if (!current2.length) pending.push(entry);
     }
     const floating = owned.some((o) => o.owner.length === 0);
     const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
@@ -8248,11 +8844,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         noteReleased(of);
         dropCarried(of);
       }
-    } else if (!HEARING_IDS.includes(id)) {
+    } else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -8265,6 +8861,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_session();
       init_follow();
       init_depth();
+      init_face();
       init_flavor();
       init_notify();
       init_arousal();
@@ -8349,6 +8946,110 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\b(?:arms|hands) down\b/
           ],
           run: () => setSuggestedPose(null, "arms") ? void 0 : "pose-blocked"
+        }
+      ];
+      EYE_FACE_IDS = ["eyes-closed", "eyes-wide", "eyes-dazed", "eyes-hearts"];
+      MOUTH_FACE_IDS = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan"];
+      FACE_IDS = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-relax"];
+      NOT_HERS = String.raw`(?<!\b(?:i|we|a|an|your|my|her|his|their|me|us|them|him|that|the) )`;
+      bare = (word) => new RegExp(String.raw`${NOT_HERS}\b${word}\b`);
+      NEGATED = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
+      FACE_SUGGESTIONS = [
+        // The full tongue first: "let your tongue hang out" also says "tongue out".
+        faceSuggestion("tongue-hang", "Mouth", "Ahegao", ["let your tongue hang out", "tongue all the way out"], [
+          /\btongue (?:all the way|hanging|lolling) out\b/,
+          /\b(?:let )?your tongue (?:hang|loll|lolls|hangs)(?: out)?\b/,
+          /\bahegao\b/,
+          /\b(?:roll your eyes back|your eyes roll back)\b/
+        ], [NEGATED]),
+        faceSuggestion("tongue-out", "Mouth", "TonguePinch", ["stick out your tongue", "tongue out", "show me your tongue"], [
+          /\b(?:stick|put|poke) (?:out your tongue|your tongue out)\b/,
+          /\btongue out\b/,
+          /\bshow me your tongue\b/
+        ], [NEGATED]),
+        faceSuggestion("mouth-open", "Mouth", "Open", ["open your mouth", "mouth open", "open wide"], [
+          /\bopen your mouth\b/,
+          /\b(?:keep )?your mouth open\b/,
+          /\bmouth open\b/,
+          /(?<!\bi )(?<!\bwe )\bopen wide\b/,
+          /\bsay a+h+\b/
+        ], [NEGATED]),
+        faceSuggestion("mouth-parted", "Mouth", "HalfOpen", ["part your lips", "your lips part"], [
+          /\bpart your lips\b/,
+          /\byour lips (?:part|fall open|drift open|come apart)\b/
+        ], [NEGATED]),
+        faceSuggestion("lip-bite", "Mouth", "LipBite", ["bite your lip"], [
+          /\bbite (?:on )?your (?:bottom |lower )?lip\b/
+        ], [NEGATED]),
+        faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED]),
+        faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED]),
+        faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED]),
+        faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED]),
+        faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
+          /\bmoan (?:for me|for us|softly|quietly|for them)\b/
+        ], [NEGATED]),
+        {
+          id: "mouth-close",
+          examples: ["close your mouth", "tongue back in"],
+          release: true,
+          releaseOf: MOUTH_FACE_IDS,
+          permission: "postureControl",
+          patterns: [
+            /\b(?:close|shut) your mouth\b/,
+            /\bmouth (?:closed|shut)\b/,
+            /\b(?:put your )?tongue (?:back )?(?:in|away)\b/,
+            /\bput your tongue away\b/
+          ],
+          run: () => {
+            clearFace("Mouth");
+          }
+        },
+        // Eyes. Closed before open: "you cannot open your eyes" is a closing.
+        faceSuggestion("eyes-closed", "Eyes", "Closed", ["close your eyes", "your eyes close", "you cannot open your eyes"], [
+          /(?<!\b(?:not|never|don t|dont) )\b(?:close|shut) your eyes\b/,
+          /\b(?:let )?your eyes (?:close|closing|fall closed|drift closed|flutter closed|shut)\b/,
+          /\beyes closed\b/,
+          /\byou (?:cannot|can t) open your eyes\b/
+        ], [/\b(?:do not|don t|dont|never) (?:close|shut) your eyes\b/]),
+        faceSuggestion("eyes-wide", "Eyes", "Surprised", ["eyes wide", "widen your eyes"], [
+          /\beyes (?:go |open )?wide\b/,
+          /\bwiden your eyes\b/
+        ], [NEGATED]),
+        faceSuggestion("eyes-dazed", "Eyes", "Dazed", ["your eyes glaze over", "your eyes go blank"], [
+          /\byour eyes (?:glaze|go glassy|go blank|go empty|unfocus|lose focus)/,
+          /\b(?:blank|empty|glassy) eyes\b/
+        ]),
+        faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED]),
+        {
+          id: "eyes-open",
+          examples: ["open your eyes", "eyes open"],
+          release: true,
+          releaseOf: EYE_FACE_IDS,
+          permission: "postureControl",
+          // "You open your eyes" after a wake condition plants a trigger, and wake itself is checked
+          // before this table, so neither reaches here.
+          patterns: [/\bopen your eyes\b/, /\beyes open\b/],
+          run: () => {
+            clearFace("Eyes");
+          }
+        },
+        faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
+          bare("blush"),
+          /\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/
+        ], [NEGATED]),
+        {
+          id: "face-relax",
+          examples: ["relax your face", "your face relaxes"],
+          release: true,
+          releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-relax"),
+          permission: "postureControl",
+          patterns: [
+            /\brelax your (?:face|expression)\b/,
+            /\byour (?:face|expression) (?:relaxes|softens|goes slack|goes soft|smooths out)\b/
+          ],
+          run: () => {
+            clearFace();
+          }
         }
       ];
       SUGGESTIONS = [
@@ -8519,7 +9220,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           id: "movement-release",
           examples: ["you can move again", "your body is your own"],
           release: true,
-          releaseOf: "movement-block",
+          releaseOf: ["movement-block", "movement-lock"],
           permission: "movementRestriction",
           patterns: [
             /\byou (can|may) move\b/,
@@ -8531,6 +9232,29 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           run: () => {
             removeEffect("Freeze");
+          }
+        },
+        // The full hold (v1.12.0, DW 2026-11-14): no one else can move her either. Above movement-block,
+        // whose "you are frozen" would otherwise take "you are frozen solid". The same permission: it is
+        // the same stillness, held harder.
+        {
+          id: "movement-lock",
+          examples: ["no one can move you", "you cannot be moved", "you are frozen solid", "you are a statue"],
+          permission: "movementRestriction",
+          patterns: [
+            /\b(?:no one|nobody)(?: else)? (?:can|could|will|is able to|will be able to) (?:\w+ )?move you\b/,
+            /\byou cannot (?:\w+ )?be moved\b/,
+            /\byou (?:will|ll) not be moved\b/,
+            /\byou (?:are|will be|ll be) (?:\w+ )?frozen solid\b/,
+            /\byou (?:are|will be|ll be) (?:a|like a) statue\b/
+          ],
+          run: () => {
+            if (!applyEffect("Freeze")) return "effect-failed";
+            setHoldFully(true);
+          },
+          // Only while it is still the full hold: a plain "you cannot move" said since keeps its own.
+          undo: () => {
+            if (isHeldFully()) removeEffect("Freeze");
           }
         },
         {
@@ -8560,8 +9284,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
           // told it did not land, and the room is not told of a stillness that is not there.
-          run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
-          undo: () => removeEffect("Freeze")
+          // Said after the full hold, it eases it back to the ordinary one (v1.12.0): others may move her.
+          run: () => {
+            if (!applyEffect("Freeze")) return "effect-failed";
+            setHoldFully(false);
+          },
+          // Not while a full hold said since is on: that one ends by its own undo or a release.
+          undo: () => {
+            if (!isHeldFully()) removeEffect("Freeze");
+          }
         },
         // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
         // block's verbs before the block gets a look. Deliberately no "come with me" — that would
@@ -9017,6 +9748,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           /\b(?:everything|the (?:world|room|light)) (?:is |)(?:dimming|dims|growing dim|grows dim|going dim|goes dim|fading|fades)\b/
         ]),
         ...POSE_SUGGESTIONS,
+        ...FACE_SUGGESTIONS,
         {
           id: "stand",
           examples: ["stand", "get up", "on your feet"],
@@ -9230,6 +9962,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         ...[
           String.raw`\byour (?:lovers?|partners?) (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
         ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "lovers" }) })),
+        ...[
+          String.raw`\byour friends? (?:can|may|could) (?:also )?(?:use|say|fire) (?:it|this|that)\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "scope", scope: "friends" }) })),
         ...[
           String.raw`\bonly (?:i|me) (?:can|may|could) (?:use|say|fire) (?:it|this|that|this trigger|that trigger)\b`,
           String.raw`\b${OPT_SUBJ} (?:only )?works for me(?: alone| only)?\b`,
@@ -9460,7 +10195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.7.3", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.12.6", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -9499,7 +10234,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.7.3", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.12.6", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -9968,12 +10703,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("4. /echs safeword ends everything, from any state, always."),
       gap(),
       head("As the hypnotist"),
-      body("1. Open their profile, click the H icon, Attempt Hypnosis."),
+      body("1. Open their profile, click the spiral icon, Attempt Hypnosis"),
+      body("   (or type /echs induce <name>)."),
       dim("   The icon shows on everyone \u2014 it cannot know who has the add-on"),
       dim("   until it asks. The panel says within 3 seconds whether they do."),
       body("2. Wait out the induction window \u2014 that time is for roleplay, and"),
       body("   roleplaying it well improves the roll."),
       body("3. Then just talk. Use their NAME, or whisper to them, or nothing lands."),
+      dim("   Each suggestion takes hold 2 to 5 seconds after you say it."),
       gap(),
       head("Why nothing happened"),
       body("Every suggestion is gated, and the checks run in this order:"),
@@ -10025,14 +10762,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(body(`"wake up" \xB7 "you are awake" \xB7 "come back to me" \u2014 ending a trance,`));
     lines.push(dim("   always allowed, gated by no permission."));
     lines.push(body(`"walk with me" \xB7 "be still" \u2014 walking trance: still under, but on`));
-    lines.push(dim(`   your feet with the veil lifted; "be still" puts the stillness back.`));
+    lines.push(dim(`   your feet with the veil thinned; "be still" puts the stillness back.`));
     lines.push(body(`"you cannot touch your breasts" \xB7 "...touch yourself"`));
-    lines.push(dim("   (selfTouchControl) \u2014 around 40 body words are understood."));
+    lines.push(dim("   (Self-Touch Control) \u2014 around 40 body words are understood."));
+    lines.push(dim(`"you can touch your breasts" \xB7 "...touch yourself" \u2014 releases it.`));
     lines.push(body(`"touch your breasts" \xB7 "pinch your nipples" \xB7 "lick your thighs"`));
-    lines.push(dim(`Add "three times" to repeat a touch, up to five.`));
     lines.push(dim("   (Made to Act) \u2014 one grammar: <verb> your <part>. touch \xB7 caress \xB7 rub \xB7"));
     lines.push(dim("   pinch \xB7 spank \xB7 slap \xB7 scratch \xB7 tickle \xB7 pull \xB7 lick \xB7 kiss \xB7 bite \xB7"));
     lines.push(dim('   massage \xB7 pet. Bare "touch yourself" wanders; name a part to steer it.'));
+    lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
     lines.push(body(`"kiss Rei" \xB7 "kiss Rei's nipples" \xB7 "kiss me" \xB7 "pinch my nipples"`));
     lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) \u2014 the same verbs"));
     lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
@@ -10103,7 +10841,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       gap(),
       head("The roll, when they attempt"),
       body("Chance = access + a quarter of your arousal + your choice (Agree +25"),
-      body("/ Fight -25) + experience + their honoured skill, clamped to 5-95."),
+      body("/ Fight -25) + experience + their roleplay during the induction"),
+      body("(up to +15) + their honoured skill, clamped to 5-95."),
       body(`You get ${getMaxAttempts()} tries at a time, then a ten-minute wait. That count is`),
       body("your setting, on the Inductions tab."),
       dim("/echs chance <name> shows the real numbers for each choice."),
@@ -10183,9 +10922,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       head('Shaping it \u2014 before "remember trigger"'),
       body(`"Missy, this trigger works only once"`),
       body(`"Missy, it lasts 2 hours"     "Missy, anyone can use it"`),
+      body(`"Missy, only I can use it"    "your owner / lovers / friends can use it"`),
       body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
       dim("Their own settings still cap how long it lasts and who may fire it."),
       body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
+      dim("Drops need Drop triggers on (Triggers tab); each works once unless they allow more."),
       body(`"Missy, you will say 'I obey' three times"   \u2190 words, aloud`),
       dim("Words need Made to Speak on; a gag still garbles them."),
       gap(),
@@ -10195,7 +10936,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       dim('Then "remember trigger". Once, unless you say it works every time;'),
       dim("never while they are under. Their safeword clears the after-waking ones."),
-      dim("Only if they allow Drop triggers (Triggers tab); works once unless they allow more."),
       gap(),
       head("Firing, releasing and removing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
@@ -10242,7 +10982,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       Session: "In a scene. Usable from any state; the safeword never fails.",
       Diagnostics: "Look without changing anything.",
       Data: "Your stored settings and stats.",
-      Testing: "Development only \u2014 these vanish from a release build."
+      Testing: "Development only \u2014 these work only in the Hypno Testing room."
     };
     const cmds = commandHelp();
     const lines = [
@@ -10507,7 +11247,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       has("sightControl") && "sight, hearing and not noticing things",
       has("triggerControl") && (has("carryForward") ? "triggers, drops, made to speak and lasting suggestions" : "triggers")
     ].filter(Boolean);
-    const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers and whitelist";
+    const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers, friends and whitelist";
     return [
       `Allowed: ${allowed.join("; ")}.`,
       `When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
@@ -10752,7 +11492,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           title: "How should triggers and lasting suggestions work?",
           options: [
             { value: "none", label: "None \u2014 nothing outlives the trance" },
-            { value: "standard", label: "Triggers, from my owner, lovers and whitelist" },
+            { value: "standard", label: "Triggers, from my owner, lovers, friends and whitelist" },
             { value: "deep", label: "Deep conditioning: triggers from almost anyone, made to speak, drops, lasting suggestions" }
           ]
         }
@@ -10977,6 +11717,56 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ATTEMPT_CAPTION_HEIGHT,
       locked ? "Gray" : "#555"
     );
+  }
+  function dropdownSlot() {
+    return attemptControlHeight() + CYCLE_GAP;
+  }
+  function reapplyTranceEyes() {
+    if (!isHypnotized()) return;
+    restoreTranceEyes();
+    applyTranceEyes();
+  }
+  function removeTranceDropdowns() {
+    for (const id of TRANCE_DROPDOWN_IDS) if (document.getElementById(id)) ElementRemove(id);
+  }
+  function drawDropdownRow(row, top, width, locked) {
+    drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black");
+    drawLeftTextWrap(
+      row.caption(),
+      BOX_LEFT,
+      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      locked ? "Gray" : "#555"
+    );
+    const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
+    let element = document.getElementById(row.id);
+    if (!inView) {
+      if (element) ElementRemove(row.id);
+      return;
+    }
+    if (!element) {
+      element = ElementCreateDropdown(
+        row.id,
+        row.options.map((o) => o.label),
+        function() {
+          if (settingsLocked()) return;
+          const picked = row.options[this.selectedIndex];
+          if (picked) row.set(picked.key);
+        }
+      );
+    }
+    const index = row.options.findIndex((o) => o.key === row.get());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
+    ElementPosition(row.id, left + DROPDOWN_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_WIDTH, ATTEMPT_BUTTON_HEIGHT);
+  }
+  function drawTranceDropdowns(top, width, locked) {
+    TRANCE_DROPDOWNS.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, locked));
+  }
+  function tranceDropdownsHeight() {
+    return TRANCE_DROPDOWNS.length * dropdownSlot();
   }
   function removePulseHexInput() {
     if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
@@ -11435,10 +12225,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
   }
   function ownedControlIds() {
-    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
   }
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, TRUST_SEARCH_ID]) {
+    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID]) {
       if (document.getElementById(id)) ElementRemove(id);
     }
     removeDepthInputs();
@@ -11453,7 +12243,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
     if (tabName !== "Stats") removeTrustSearch();
     if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-    if (tabName !== "Trance Defaults") removePulseHexInput();
+    if (tabName !== "Trance Defaults") {
+      removePulseHexInput();
+      removeTranceDropdowns();
+    }
     if (tabName !== "Depth") removeDepthInputs();
   }
   function drawDecayControl() {
@@ -11722,7 +12515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -11789,7 +12582,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.7.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12021,7 +12814,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (!enabled) removeEffect("BlockWardrobe");
         break;
       case "postureControl":
-        if (!enabled) clearSuggestedPose();
+        if (!enabled) {
+          clearSuggestedPose();
+          clearFace();
+        }
         break;
       case "speechRestriction":
       case "tranceCannotSpeak":
@@ -12029,6 +12825,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
       case "tranceCannotMove":
         if (!enabled) removeEffect("Freeze");
+        break;
+      // Unticked mid-trance: the hold she is in eases to the ordinary one. Ticking it waits for the next trance.
+      case "tranceNoOneMoves":
+        if (!enabled) setHoldFully(false);
         break;
       case "tranceScreenFade":
         if (!enabled) setScreenFade(0);
@@ -12064,7 +12864,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -12080,6 +12880,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_triggers();
       init_voice();
       init_session();
+      init_eyes();
+      init_face();
       init_depth();
       init_help();
       init_wizard();
@@ -12136,9 +12938,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           blurb: "What being under is like, and what the room sees of it. On by default \u2014 this is the trance itself, not something granted.",
           rows: [
             { key: "tranceCannotMove", label: "Cannot Move" },
+            { key: "tranceNoOneMoves", label: "...and no one else can move you either", needs: "tranceCannotMove" },
             { key: "tranceCannotSpeak", label: "Cannot Speak" },
             { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
-            { key: "tranceScreenFade", label: "Screen Fade" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
             { key: "roomSeesReactions", label: "Others See Your Reactions" },
             { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
@@ -12146,24 +12948,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
           ],
           scrollExtra: {
-            height: () => pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+            // The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
+            // where others' icons go.
+            height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
             draw: (top, width) => {
-              drawPulseControls(top, width);
-              drawCycle(ICON_SPOT_CONTROL, top + pulseControlsHeight() + CYCLE_GAP, width, false);
+              drawTranceDropdowns(top, width, settingsLocked());
+              const pulseTop = top + tranceDropdownsHeight();
+              drawPulseControls(pulseTop, width);
+              drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
             },
             click: (top) => {
-              if (MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+              const pulseTop = top + tranceDropdownsHeight();
+              if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
                 if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
                 return true;
               }
-              if (MouseIn(BOX_LEFT, top + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+              if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
                 ICON_SPOT_CONTROL.cycle();
                 log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
                 return true;
               }
               return false;
             },
-            hide: removePulseHexInput
+            hide: () => {
+              removePulseHexInput();
+              removeTranceDropdowns();
+            }
           }
         },
         {
@@ -12290,10 +13100,63 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ATTEMPT_CAPTION_HEIGHT = 44;
       ATTEMPT_CAPTION_GAP = 8;
       labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
+      SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
+      TRANCE_EYES_ID = "HypnosisAddonTranceEyes";
+      TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
+      TRANCE_DROPDOWN_IDS = [SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID];
+      DROPDOWN_LABEL_WIDTH = 250;
+      DROPDOWN_WIDTH = 400;
+      TRANCE_DROPDOWNS = [
+        {
+          id: SCREEN_EFFECT_ID,
+          label: "Screen effect:",
+          options: SCREEN_EFFECTS,
+          get: getScreenEffect,
+          set: (key) => {
+            const was = getScreenEffect();
+            setScreenEffect(key);
+            const now = getScreenEffect();
+            log(`screen effect: ${was} -> ${now}`);
+            if (now === "none" && was !== "none") onToggle("tranceScreenFade", false);
+            else if (was === "none" && now !== "none" && getScreenFade() === 0 && isHypnotized())
+              tellPlayer("Your screen effect starts with your next trance.");
+          },
+          caption: () => {
+            const e = getScreenEffect();
+            if (e === "none") return "Nothing over your screen while you are under.";
+            if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
+            return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+          }
+        },
+        {
+          id: TRANCE_EYES_ID,
+          label: "Eyes while under:",
+          options: TRANCE_EYES,
+          get: getTranceEyes,
+          set: (key) => {
+            setTranceEyes(key);
+            log(`trance eyes: ${key || "unchanged"}`);
+            reapplyTranceEyes();
+          },
+          caption: () => getTranceEyes() ? getTranceEyes() === "Dizzy" ? "Spiral eyes while you are under, with your eye shadow hidden; both back when you wake. The room sees it." : "Your eyes change while you are under, and back when you wake. Everyone in the room sees it." : "Your eyes stay as they are while you are under."
+        },
+        {
+          id: TRANCE_EYE_COLOR_ID,
+          label: "Eye colour while under:",
+          options: TRANCE_EYE_COLORS,
+          get: getTranceEyeColor,
+          set: (key) => {
+            setTranceEyeColor(key);
+            log(`trance eye colour: ${key || "unchanged"}`);
+            reapplyTranceEyes();
+          },
+          caption: () => getTranceEyeColor() ? "Your real eye colour is saved first and put back when you wake, even after a crash. The room sees it." : "Your eye colour stays as it is while you are under."
+        }
+      ];
       PULSE_COLOR_CONTROL = {
         label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => !getFeatures().commandPulse ? "The pulse is off, so this does nothing until you tick the box above." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "A glow and a wash of colour over the room view. Only you see it.",
-        tooltip: "The colour of the pulse",
+        caption: () => !getFeatures().commandPulse && !getSpiralStrength() ? "The pulse is off and there is no spiral, so this does nothing until you choose one." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse, and the trance spiral if it is on. Only you see them.",
+        tooltip: "The colour of the pulse and the trance spiral",
         cycle: () => {
           const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
           setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
@@ -13307,7 +14170,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "forgettrust",
           group: "Data",
           args: "<name|number>",
-          Description: "Delete a stored trust entry outright \u2014 see /echs logtrust for the numbers",
+          Description: "Delete a stored trust entry outright (the [x] on the Stats tab does the same)",
           Action: (args) => {
             const token = wholeName(args);
             if (!token) {
@@ -14100,7 +14963,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.7.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14121,7 +14984,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.7.3"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.12.6"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14194,14 +15057,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.7.3"})`);
+      info(`script loaded (v${"1.12.6"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.7.3",
+          version: "1.12.6",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -14310,8 +15173,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           9,
           ((args, next) => {
             const result = next(args);
-            drawTranceVeil();
-            drawCommandPulse();
+            const now = Date.now();
+            const spiral = drawTranceVeil({ spiral: SPIRAL_ALPHAS[getSpiralStrength()] ?? 0, rgb: getPulseRgb(), now });
+            drawCommandPulse(now, spiral);
             return result;
           })
         );
@@ -14341,10 +15205,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.7.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.7.3";
+    page2.__ECHS_LOADED__ = "1.12.6";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
