@@ -4,9 +4,6 @@
 > If you are trapped, muted, frozen, or need to end the scene immediately: **Type `/echs safeword`**.  
 > Bondage Club processes slash commands before speech-restriction hooks see the text, so the safeword works 100% of the time, even when completely silenced. It instantly breaks active trances, releases all holding triggers, discards waking compulsions, and restores full character control.
 
-> **1.0 Release Candidate**  
-> ECHS is at its 1.0 release candidate. UI locations, diagnostic feedback, and known parser quirks are actively being refined.
-
 ---
 
 ## Quick Diagnostic: "I Said Something and Nothing Happened"
@@ -42,7 +39,7 @@
 If so, the script is running properly — **it simply starts completely turned off**. Every permission begins disabled by default, including the master switch. Click the spiral icon on your player profile card (or go to **Preferences → Extensions → ECHS Hypnosis**) and run the Setup Wizard. See [Getting Started](Getting-Started). *(This notice appears only on a fresh install, so returning players will not see it on every login).*
 
 **If a red note in the bottom-right corner says ECHS could not load:**  
-Since v0.83.0 ECHS downloads its newest version each time the game opens, and this time it could not reach either place it downloads from. Refresh the page. If the note keeps coming back, report it and say which Bondage Club address you play on.
+ECHS downloads its newest version each time the game opens, and this time it could not reach either place it downloads from. Refresh the page. If the note keeps coming back, report it and say which Bondage Club address you play on.
 
 **If there is no spiral icon on your player profile card and nothing in the browser console:**  
 The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting. If you load ECHS through FUSAM, open the **Addon Manager** and check that ECHS is set to **stable** (or **dev**) and not **None**.
@@ -81,7 +78,7 @@ If an effect or restriction persists unexpectedly, escalate in this order:
 * **If you are the subject:** `/echs wake` breaks a *shallow* trance yourself. A deep trance refuses it; use `/echs safeword` to get out immediately.
 * **If you are the hypnotist:** `/echs wake` only ever wakes yourself. To wake your partner, speak a wake line (*"Missy, wake up"*) or click **Wake Up** on their profile remote.
 
-*Trying to move while held:* you see *"You try to shift, and your body does not answer."* If someone else tries to move you while you are held so that no one can (*"no one can move you"*), you see *"Someone tries to move you, and your body will not be moved."* instead. Either shows at most once every 30 seconds, so repeated tries don't flood your chat. The room sees *"Missy does not budge: her body stays exactly where it was."*, and the other player's screen is put back to your real pose; trying the same pose again within a minute is still stopped, just without another message. Under the ordinary hold (*"you cannot move"*), others can still adjust your pose.
+*"You try to shift, and your body does not answer"* or *"Someone tries to move you…":* that is a hold doing its job. *"You can move again"* from the hypnotist, waking, or your safeword ends it. What each of the two holds does, and what you and the room are told: **[Holding Still](What-to-Say#holding-still)**.
 
 *After a refresh or disconnect:* a trigger that was holding you comes back and finishes the time it had left. Time spent logged out counts, so one that would have ended while you were away has ended. To come back clear instead, tick **Release everything if you disconnect** on your Trance Defaults tab.
 

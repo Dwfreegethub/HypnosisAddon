@@ -1,5 +1,12 @@
 **[What's New (changelog)](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)**
 
+**Mid-scene quick card**
+* Stop everything: `/echs safeword`
+* Wake them: *"Missy, wake up"*
+* Let them move: *"Missy, you can move again"*
+* Did my line match? `/echs match <line>`
+* Am I deep enough? `/echs gates`
+
 ---
 
 **Start here**
@@ -16,7 +23,6 @@
 * [Drinks and Cigarettes](Drinks-and-Cigarettes)
 * [Depth and Trust](Depth-and-Trust)
 * [How an Induction Works](How-Inductions-Work)
-* [Your First Session](Your-First-Session)
 
 **Reference**
 * [Settings Reference](Settings-Reference)
