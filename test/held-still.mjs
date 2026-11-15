@@ -233,36 +233,17 @@ later();
 fromRemote(() => { PoseSetActive(Player, "OverTheHead"); PoseSetActive(Player, "BaseLower"); PoseSetActive(Player, "KneelingSpread"); });
 await Promise.resolve();
 check("  a burst of three changes: one room line, one re-send", [emotes.length, poseUpdates.length], [1, 1]);
-// v1.12.2, DW's live run of v1.12.1: "does not budge" six times for two real attempts. The extra
-// ones came from her own client. Failure: any line, to her or the room, for a change nobody made.
+// v1.12.3, DW's live run of v1.12.2: the mover's add-on handles its request on her client AFTER the
+// message, on a timer, so v1.12.2 refused it quietly and never re-sent her pose; the mover saw her
+// moved. Every refusal that is not hers is told and re-sent again. Failure: any of these is quiet.
 later();
-PoseSetActive(Player, "BaseLower"); // no event: a timer on her own client (WCE's animation engine)
+PoseSetActive(Player, "BaseLower"); // no event: an add-on acting on a timer after another's request
 await Promise.resolve();
-check("held fully: a change from a timer on her own client is refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
-check("  quietly: no line for her, none for the room, nothing re-sent", [said.length, emotes.length, poseUpdates.length], [0, 0, 0]);
-later();
-{
-	// The hypnotist's line arrives in a socket message; our own action in it, then another add-on
-	// reacting to that action in the same dispatch.
-	const msg = { type: "message" };
-	globalThis.event = msg;
-	effects.setHoldFully(true); // ours: marks this dispatch
-	PoseSetActive(Player, "BaseLower");
-	delete globalThis.event;
-	await Promise.resolve();
-	check("held fully: another add-on reacting to OUR action, same message: refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
-	check("  quietly", [said.length, emotes.length], [0, 0]);
-	// The next message is a new dispatch: a real request again.
-	fromRemote(() => PoseSetActive(Player, "BaseLower"));
-	await Promise.resolve();
-	check("  a later message is someone again, and is told", [said.some((s) => /Someone tries/.test(s)), emotes.length], [true, 1]);
-}
+check("held fully: a change on a timer is refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
+check("  and told, and her real pose re-sent (the mover's screen is put right)", [said.length, emotes.length, poseUpdates.at(-1)], [1, 1, ["BaseUpper", "Kneel"]]);
 later();
 ChatRoomSyncPose({ MemberNumber: 1, Pose: ["BaseUpper", "BaseLower"] });
-check("held fully: a bare pose update (no sender named) is undone quietly", [Player.ActivePose, said.length, emotes.length], [["BaseUpper", "Kneel"], 0, 0]);
-later();
-ChatRoomSyncCharacter({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, ActivePose: ["BaseUpper", "BaseLower"] } });
-check("  but a sync from a named player is still told", [said.some((s) => /Someone tries/.test(s)), emotes.length], [true, 1]);
+check("held fully: a bare pose update is undone and told", [Player.ActivePose, said.length, emotes.length], [["BaseUpper", "Kneel"], 1, 1]);
 later();
 Player.ActivePose = ["BaseUpper", "BaseLower"];
 ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });

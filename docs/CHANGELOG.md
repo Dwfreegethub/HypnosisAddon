@@ -20,6 +20,24 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.12.3 RC) — v1.12.2's quiet refusals reverted
+
+DW's live run of v1.12.2: Biker saw Missy moved ("hhmmmm???", "uhhhhm") and the room got one
+*"does not budge"* for a burst of six add-on moves. v1.12.2's premise was wrong.
+
+- **What v1.12.2 did.** Changes that were neither her input nor inside a server message were read
+  as *auto* and refused quietly: no lines and no re-send of her pose. Biker's add-on handles the
+  request on her client after the message (a timer or a promise), so its changes were *auto*. Still
+  refused on her client, but nothing put the mover's screen right, so they saw her moved.
+- **The "stray" lines were most likely real.** In both the v1.12.1 and v1.12.2 logs the add-on's own
+  room line reaches the chat after her refusal, so a "does not budge" that seemed to come before
+  any attempt was the answer to one whose announcement had not arrived yet.
+- **Now.** Every refusal under the full hold that is not hers is told as someone's again, with the
+  re-send, as in v1.12.1; a bare `ChatRoomSyncPose` is told again too. Kept from v1.12.2: the
+  three-way source and the calling code in the log, and `markOwnAction()`, now only for the log.
+- `test/held-still.mjs` 76: the three quiet checks replaced by checks that a timer change and a bare
+  pose update are told and re-sent; both fail on v1.12.2.
+
 ### Fixed 2026-11-14 (v1.12.2 RC) — the full hold no longer blames "someone" for her own client's add-ons
 
 DW's live run of v1.12.1: the room read *"Missy does not budge"* six times for Biker's two add-on
