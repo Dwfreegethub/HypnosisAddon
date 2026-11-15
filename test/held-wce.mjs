@@ -116,6 +116,8 @@ const realNow = Date.now;
 let offset = 0;
 Date.now = () => realNow() + offset;
 const later = () => { offset += 60_000; said = []; poseUpdates = []; };
+// Her own click (v1.12.0: her own pose changes are the ones made inside her own input events).
+const asHer = (fn) => { globalThis.event = { type: "click" }; try { return fn(); } finally { delete globalThis.event; } };
 const refusals = () => said.filter((s) => /your body does not answer/.test(s)).length;
 
 // --- not held: the stand-in behaves as WCE does ----------------------------------------------------
@@ -144,14 +146,14 @@ check("  no refusal line", refusals(), 0);
 // WCE's hook on the alias never calls PoseSetActive, so a hold on PoseSetActive alone is walked round.
 // Failure: she stands, or WCE's queue picks the attempt up and a fight starts on the next tick.
 later();
-PoseSetActive(Player, "BaseLower");
+asHer(() => PoseSetActive(Player, "BaseLower"));
 check("held: her own PoseSetActive is refused", Player.ActivePose, ["OverTheHead", "Kneel"]);
-CharacterSetActivePose(Player, "BaseLower");
+asHer(() => CharacterSetActivePose(Player, "BaseLower"));
 check("  and so is the old alias, which WCE hooks separately", Player.ActivePose, ["OverTheHead", "Kneel"]);
 check("  she is told, once", refusals(), 1);
 wceTick();
 check("  and WCE's queue never got it: nothing sent on the next ticks", poseUpdates.length, 0);
-check("  the alias with her current pose is not an attempt to move", (CharacterSetActivePose(Player, "Kneel"), refusals()), 1);
+check("  the alias with her current pose is not an attempt to move", (asHer(() => CharacterSetActivePose(Player, "Kneel")), refusals()), 1);
 
 // --- the hypnotist's next command, and release -------------------------------------------------------
 later();

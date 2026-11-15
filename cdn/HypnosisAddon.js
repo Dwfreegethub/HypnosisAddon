@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.11.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.12.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -659,6 +659,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isHeldStill() {
     return heldByUs("Freeze");
   }
+  function isHeldFully() {
+    return holdFully && isHeldStill();
+  }
+  function setHoldFully(on) {
+    if (holdFully !== on) log(`hold level: ${on ? "no one can move her" : "others may still move her"}`);
+    holdFully = on;
+  }
+  function fromHerOwnInput() {
+    const e = globalThis.event;
+    return !!e && typeof e.type === "string" && OWN_INPUT_EVENTS.has(e.type);
+  }
   function heldNotice(line) {
     const now = Date.now();
     if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
@@ -686,9 +697,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const holdPose = (args, next) => {
       const [C, pose, force] = args;
       if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
-        heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
-        log("held still: refused a pose change");
-        return void 0;
+        const hers = fromHerOwnInput();
+        if (hers || isHeldFully()) {
+          heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+          log(`held still: refused a pose change (${hers ? "her own" : "not hers"}${isHeldFully() ? ", held fully" : ""})`);
+          return void 0;
+        }
+        const liftOwnFreeze = OWN_EFFECTS.has("Freeze");
+        ownPoseChange++;
+        if (liftOwnFreeze) refreshOwnEffects();
+        let result;
+        try {
+          result = next(args);
+        } finally {
+          ownPoseChange--;
+          if (liftOwnFreeze) refreshOwnEffects();
+        }
+        noteHeldPose();
+        log("held still: let a pose change through (not hers; others may move her)");
+        return result;
       }
       return next(args);
     };
@@ -701,15 +728,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const held = currentPoses();
       const result = next(args);
       if (!samePoses(held, Player?.ActivePose)) {
-        restoreHeldPose(held);
-        heldNotice("Someone tries to move you, and your body will not be moved.");
-        log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+        if (isHeldFully()) {
+          restoreHeldPose(held);
+          heldNotice(OTHERS_TRY_LINE);
+          log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+        } else {
+          noteHeldPose();
+          log(`held still: kept a pose change from ${data.SourceMemberNumber} (others may move her)`);
+        }
       }
       return result;
     });
     modApi2.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args, next) => {
       const [data] = args;
       if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
+      if (!isHeldFully()) {
+        const result = next(args);
+        noteHeldPose();
+        log("held still: kept an incoming pose update (others may move her)");
+        return result;
+      }
       restoreHeldPose(currentPoses());
       log("held still: refused an incoming pose update");
       return void 0;
@@ -725,9 +763,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (args[0] !== "ChatRoomCharacterPoseUpdate" || ownPoseChange || !heldPose || !isHeldStill() || samePoses(Player?.ActivePose, heldPose)) {
         return next(args);
       }
+      const hers = fromHerOwnInput();
+      if (!hers && !isHeldFully()) {
+        noteHeldPose();
+        log("held still: a pose change that is not hers got past the hook; kept (others may move her)");
+        return next(args);
+      }
       Player.ActivePose = heldPose.slice();
       if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-      heldNotice("You try to shift, and your body does not answer. You stay exactly as you are.");
+      heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
       log("held still: a pose change got past the hook; put the held pose back before it was sent");
       return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
     });
@@ -812,6 +856,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function removeEffect(effectName, character = Player) {
     const heldByUs2 = character === Player && OWN_EFFECTS.delete(effectName);
+    if (heldByUs2 && effectName === "Freeze") setHoldFully(false);
     const item = findEmoticonItem(character);
     const effects = item?.Property?.Effect;
     const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
@@ -824,7 +869,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, OWN_TRY_LINE, OTHERS_TRY_LINE;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -873,6 +918,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
       heldPose = null;
       HOLD_PRIORITY = 1e3;
       HELD_NOTICE_GAP_MS = 3e4;
+      holdFully = false;
+      OWN_INPUT_EVENTS = /* @__PURE__ */ new Set([
+        "click",
+        "dblclick",
+        "auxclick",
+        "contextmenu",
+        "mousedown",
+        "mouseup",
+        "pointerdown",
+        "pointerup",
+        "touchstart",
+        "touchend",
+        "keydown",
+        "keyup",
+        "keypress",
+        "input",
+        "change",
+        "submit",
+        "wheel"
+      ]);
+      OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
+      OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
     }
   });
 
@@ -1568,6 +1635,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           "{name} stops moving, as though the idea had gone."
         ],
         "movement-release": ["{name} moves again, a little unsteadily.", "Something lets go of {name}."],
+        "movement-lock": [
+          "{name} goes perfectly still, as if set in stone.",
+          "{name} stops, and stays stopped, like a statue."
+        ],
         // Follow is observable in the same way going still is: nobody sees the compulsion land,
         // but they see {name} close the distance and keep it closed. Naming {name} is required —
         // room lines carry no sender.
@@ -1675,6 +1746,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           "Your body simply stops listening to you.",
           "You tell your legs to move. Nothing happens.",
           "Somewhere far off you decide to move, and the message never arrives."
+        ],
+        "movement-lock": [
+          "You go still, all the way through. Not even another's hands could move you now.",
+          "You set like stone. Whoever tries to move you will find you exactly where you are.",
+          "Your body locks in place, and stays locked, whoever reaches for it."
         ],
         "movement-release": [
           "Control seeps back into your limbs.",
@@ -4734,13 +4810,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function applyTranceState() {
     const f = getFeatures();
     if (!f.hypnoEnabled) return;
-    if (f.tranceCannotMove) applyEffect("Freeze");
+    if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
     if (f.tranceCannotSpeak) setSpeechBlocked(true);
     if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
     if (f.tranceClothingFreeze) freezeAppearance();
     applyTranceEyes();
     log(
-      `trance state applied: move=${f.tranceCannotMove} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`
+      `trance state applied: move=${f.tranceCannotMove}${f.tranceCannotMove && f.tranceNoOneMoves ? " (no one moves her)" : ""} speak=${f.tranceCannotSpeak} fade=${f.tranceScreenFade} clothesFrozen=${f.tranceClothingFreeze}`
     );
   }
   function enterWalkingTrance() {
@@ -4756,7 +4832,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function leaveWalkingTrance() {
     if (!isWalkingTrance()) return false;
     const f = getFeatures();
-    if (f.tranceCannotMove) applyEffect("Freeze");
+    if (f.tranceCannotMove && applyEffect("Freeze")) setHoldFully(f.tranceNoOneMoves);
     if (f.tranceScreenFade) setScreenFade(TRANCE_FADE_OPACITY);
     setWalkingTrance(false);
     notify("You go still, and the world recedes again.");
@@ -5389,6 +5465,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lockedWhileHypnotized: false,
       // On by default — see the note on the interface.
       tranceCannotMove: true,
+      // Off: the trance holds her, and others may still adjust her (v1.12.0).
+      tranceNoOneMoves: false,
       tranceCannotSpeak: true,
       tranceScreenFade: true,
       commandPulse: true,
@@ -7084,6 +7162,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function applyUndress(count) {
     const liftedOwnFreeze = heldByUs("Freeze");
+    const wasHeldFully = isHeldFully();
     if (liftedOwnFreeze) {
       removeEffect("Freeze");
       if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
@@ -7097,6 +7176,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } finally {
       if (liftedOwnFreeze) {
         applyEffect("Freeze");
+        setHoldFully(wasHeldFully);
         if (typeof CharacterLoadEffect === "function") CharacterLoadEffect(Player);
       }
     }
@@ -9075,7 +9155,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           id: "movement-release",
           examples: ["you can move again", "your body is your own"],
           release: true,
-          releaseOf: "movement-block",
+          releaseOf: ["movement-block", "movement-lock"],
           permission: "movementRestriction",
           patterns: [
             /\byou (can|may) move\b/,
@@ -9087,6 +9167,29 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           run: () => {
             removeEffect("Freeze");
+          }
+        },
+        // The full hold (v1.12.0, DW 2026-11-14): no one else can move her either. Above movement-block,
+        // whose "you are frozen" would otherwise take "you are frozen solid". The same permission: it is
+        // the same stillness, held harder.
+        {
+          id: "movement-lock",
+          examples: ["no one can move you", "you cannot be moved", "you are frozen solid", "you are a statue"],
+          permission: "movementRestriction",
+          patterns: [
+            /\b(?:no one|nobody)(?: else)? (?:can|could|will|is able to|will be able to) (?:\w+ )?move you\b/,
+            /\byou cannot (?:\w+ )?be moved\b/,
+            /\byou (?:will|ll) not be moved\b/,
+            /\byou (?:are|will be|ll be) (?:\w+ )?frozen solid\b/,
+            /\byou (?:are|will be|ll be) (?:a|like a) statue\b/
+          ],
+          run: () => {
+            if (!applyEffect("Freeze")) return "effect-failed";
+            setHoldFully(true);
+          },
+          // Only while it is still the full hold: a plain "you cannot move" said since keeps its own.
+          undo: () => {
+            if (isHeldFully()) removeEffect("Freeze");
           }
         },
         {
@@ -9116,8 +9219,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           // Returns a failure key when BC does not report the freeze afterwards (rule 5): the hypnotist is
           // told it did not land, and the room is not told of a stillness that is not there.
-          run: () => applyEffect("Freeze") ? void 0 : "effect-failed",
-          undo: () => removeEffect("Freeze")
+          // Said after the full hold, it eases it back to the ordinary one (v1.12.0): others may move her.
+          run: () => {
+            if (!applyEffect("Freeze")) return "effect-failed";
+            setHoldFully(false);
+          },
+          // Not while a full hold said since is on: that one ends by its own undo or a release.
+          undo: () => {
+            if (!isHeldFully()) removeEffect("Freeze");
+          }
         },
         // Follow / leash. Release listed first, as everywhere: "you may leave" must win over the
         // block's verbs before the block gets a look. Deliberately no "come with me" — that would
@@ -10020,7 +10130,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.11.1", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.12.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10059,7 +10169,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.11.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.12.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12335,7 +12445,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.11.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12402,7 +12512,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.11.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12646,6 +12756,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       case "tranceCannotMove":
         if (!enabled) removeEffect("Freeze");
         break;
+      // Unticked mid-trance: the hold she is in eases to the ordinary one. Ticking it waits for the next trance.
+      case "tranceNoOneMoves":
+        if (!enabled) setHoldFully(false);
+        break;
       case "tranceScreenFade":
         if (!enabled) setScreenFade(0);
         break;
@@ -12754,6 +12868,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           blurb: "What being under is like, and what the room sees of it. On by default \u2014 this is the trance itself, not something granted.",
           rows: [
             { key: "tranceCannotMove", label: "Cannot Move" },
+            { key: "tranceNoOneMoves", label: "...and no one else can move you either", needs: "tranceCannotMove" },
             { key: "tranceCannotSpeak", label: "Cannot Speak" },
             { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
@@ -14778,7 +14893,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.11.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14799,7 +14914,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.11.1"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.12.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14872,14 +14987,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.11.1"})`);
+      info(`script loaded (v${"1.12.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.11.1",
+          version: "1.12.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -15020,10 +15135,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.11.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.11.1";
+    page2.__ECHS_LOADED__ = "1.12.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

@@ -63,7 +63,7 @@ What others may do to you. Everything here is off until you turn it on.
 
 | Setting | What It Allows |
 |---|---|
-| **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you; nobody else can change your pose. Items can still be put on you. |
+| **Movement Restriction** | Allows freezing suggestions (*"you cannot move"*, *"you will be frozen"*). Held still: you stay in the pose and the place you are in. You cannot change your own pose (arms included), cannot leave the room, and cannot walk on a map. The hypnotist's spoken pose commands still move you, and others can still adjust your pose. *"No one can move you"* (*"you cannot be moved"*, *"you are frozen solid"*) holds you harder: no one else can change your pose either. Items can still be put on you. |
 | **Posture Control** | Allows pose suggestions: kneeling, standing, spreading or closing the legs, all fours, lying down, and arm poses such as hands behind the back or raised. Also the face: closing the eyes, opening the mouth, the tongue out, a smile, a blush and the like. |
 | **Follow / Leash** | Allows following suggestions (*"follow me"* / *"stay close"*). Compels you to stay at the side of whoever said it, across room changes, using Bondage Club's own leash. No leash or collar is needed. Requires your own BC setting that lets others leash you, and the hypnotist must also run ECHS. |
 | **Clothing Restriction** | Locks out the wardrobe screen while in trance. |
@@ -117,7 +117,8 @@ Defines baseline states that engage automatically when an induction succeeds, be
 
 | Setting | Default | Effect |
 |---|---|---|
-| **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. |
+| **Cannot Move** | On | The trance itself holds you still upon going under, the same as *"you cannot move"*: your pose and place are held until you wake or walk. Others can still adjust your pose. |
+| **...and no one else can move you either** | Off | With Cannot Move on: the trance holds you the way *"no one can move you"* does, so nobody else can change your pose while you are under. The hypnotist's spoken pose commands still move you. |
 | **Cannot Speak** | On | The trance silences standard room speech automatically. |
 | **Silence OOC too (text in parentheses)** | Off | By default, OOC text in parentheses, `(like this)` or `((like this))`, passes through muted speech. Enabling this suppresses OOC chat while silenced. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |

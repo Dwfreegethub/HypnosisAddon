@@ -12,6 +12,18 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.0 RC · 14 November 2026
+
+- **"You cannot move" no longer stops other people adjusting you.** While you're held, you still
+  can't change your own pose, leave or walk, but anyone else can now move you as usual. Before,
+  their change was undone and you were told *you* had tried to move.
+- **New: "no one can move you."** The hypnotist can hold you harder with *"no one can move you"*,
+  *"you cannot be moved"*, *"you are frozen solid"* or *"you are a statue"*. Then nobody else can
+  change your pose either, and you're told *"Someone tries to move you…"* when they try. The
+  hypnotist's own pose commands still move you, and *"you can move again"* ends either hold.
+- **New trance setting: "…and no one else can move you either."** On the Trance Defaults tab, under
+  Cannot Move. Tick it if you want the trance itself to hold you the harder way. It starts off.
+
 ## v1.11.1 RC · 14 November 2026
 
 - **Sight commands work again.** *"Your vision is dimming"*, *"you can barely see"* and
