@@ -67,7 +67,8 @@ globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }];
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; }, removeItem(k) { delete this._d[k]; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
 globalThis.ChatRoomSendLocal = (m) => said.push(String(m));
-globalThis.ChatRoomSendEmote = () => {};
+let emotes = [];
+globalThis.ChatRoomSendEmote = (m) => emotes.push(String(m));
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
 globalThis.setInterval = () => 0;
@@ -120,7 +121,7 @@ const check = (label, got, want) => {
 const realNow = Date.now;
 let offset = 0;
 Date.now = () => realNow() + offset;
-const later = () => { offset += 60_000; said = []; poseUpdates = []; }; // past the 30 s notice gap
+const later = () => { offset += 60_000; said = []; poseUpdates = []; emotes = []; }; // past the 30 s notice gap
 
 // --- not held: poses are hers ------------------------------------------------------------------
 PoseSetActive(Player, "Kneel");
@@ -186,6 +187,7 @@ ChatRoomSyncCharacter({ SourceMemberNumber: HYP, Character: { MemberNumber: 1, A
 check("held: someone else's 'help her stand' sticks", Player.ActivePose, ["BaseUpper", "BaseLower"]);
 check("  nothing re-sent to undo it", poseUpdates.length, 0);
 check("  and no refusal line", said.length, 0);
+check("  and nothing told to the room", emotes.length, 0);
 asHer(() => PoseSetActive(Player, "Kneel"));
 check("  and that pose is what she is now held in: her own kneel is refused", Player.ActivePose, ["BaseUpper", "BaseLower"]);
 ChatRoomSyncPose({ MemberNumber: 1, Pose: ["BaseUpper", "Kneel"] });
@@ -222,6 +224,15 @@ later();
 fromRemote(() => PoseSetActive(Player, "OverTheHead"));
 check("held fully: an add-on posing her for someone else is refused", Player.ActivePose, ["BaseUpper", "Kneel"]);
 check("  with the 'someone tries' line, not her own (DW's report)", [said.some((s) => /Someone tries to move you/.test(s)), said.some((s) => /your body does not answer/.test(s))], [true, false]);
+// v1.12.1, DW's live run: the mover's add-on had already told the room "(Biker raises Missy's hands.)".
+// Failure: the room is not told otherwise, is told once per call, or her real pose is not re-sent.
+await Promise.resolve();
+check("  the room is told she did not budge", emotes.filter((e) => /does not budge/.test(e)).length, 1);
+check("  and her real pose is re-sent, so every screen shows it", poseUpdates.at(-1), ["BaseUpper", "Kneel"]);
+later();
+fromRemote(() => { PoseSetActive(Player, "OverTheHead"); PoseSetActive(Player, "BaseLower"); PoseSetActive(Player, "KneelingSpread"); });
+await Promise.resolve();
+check("  a burst of three changes: one room line, one re-send", [emotes.length, poseUpdates.length], [1, 1]);
 later();
 Player.ActivePose = ["BaseUpper", "BaseLower"];
 ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });

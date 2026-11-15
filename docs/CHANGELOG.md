@@ -20,6 +20,22 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.12.1 RC) — the room is told when the full hold refuses someone
+
+DW's live run of v1.12.0: the full hold stopped the moves, but the room read
+`(Biker draws Missy's arms behind their back, elbows almost touching.)` and two more like it. That
+text is not BC's (no match in R132), so it is the mover's add-on, posted from **their** client before
+the request reaches hers; it may also show her moved on their screen. Neither is ours to stop.
+
+- Her client now answers each refusal of someone else's change (`othersRefused()` in `effects.ts`):
+  a room emote, *"{name} does not budge: {their} body stays exactly where it was."*, at most once per
+  5 s so a burst reads as one, through `tellRoom` so *Others See Your Reactions* governs it; and, on
+  the add-on (`PoseSetActive`) path, which re-sent nothing, her held pose is sent again in a
+  microtask, so one request's several calls share one `ChatRoomCharacterPoseUpdate` and every
+  screen shows her real pose. The sync and `ServerSend` paths already re-send.
+- `test/held-still.mjs` +4 (73): the room line, the re-send, one of each for a burst of three, and
+  nothing to the room under the ordinary hold. The three new checks fail on v1.12.0.
+
 ### Decided 2026-11-14 (v1.12.0 RC) — two levels of hold; others may adjust a held subject
 
 DW, 2026-11-14: while hypnotized, someone moving her through the BC interface "acts like you are

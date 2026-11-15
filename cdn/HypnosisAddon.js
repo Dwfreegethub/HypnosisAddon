@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.12.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.12.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -670,6 +670,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const e = globalThis.event;
     return !!e && typeof e.type === "string" && OWN_INPUT_EVENTS.has(e.type);
   }
+  function resyncHeldPoseSoon() {
+    if (resyncPending) return;
+    resyncPending = true;
+    Promise.resolve().then(() => {
+      resyncPending = false;
+      if (!isHeldFully() || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
+      ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
+      log("held fully: re-sent her pose after refusing someone else's change");
+    });
+  }
+  function othersRefused(resync) {
+    heldNotice(OTHERS_TRY_LINE);
+    const now = Date.now();
+    if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
+      lastRoomRefusal = now;
+      tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+    }
+    if (resync) resyncHeldPoseSoon();
+  }
   function heldNotice(line) {
     const now = Date.now();
     if (now - lastHeldNotice < HELD_NOTICE_GAP_MS) return;
@@ -699,7 +718,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if ((C === Player || C?.IsPlayer?.()) && isHeldStill() && !ownPoseChange && poseWouldChange(pose, force)) {
         const hers = fromHerOwnInput();
         if (hers || isHeldFully()) {
-          heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+          if (hers) heldNotice(OWN_TRY_LINE);
+          else othersRefused(true);
           log(`held still: refused a pose change (${hers ? "her own" : "not hers"}${isHeldFully() ? ", held fully" : ""})`);
           return void 0;
         }
@@ -730,7 +750,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!samePoses(held, Player?.ActivePose)) {
         if (isHeldFully()) {
           restoreHeldPose(held);
-          heldNotice(OTHERS_TRY_LINE);
+          othersRefused(false);
           log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
         } else {
           noteHeldPose();
@@ -749,6 +769,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return result;
       }
       restoreHeldPose(currentPoses());
+      othersRefused(false);
       log("held still: refused an incoming pose update");
       return void 0;
     });
@@ -771,7 +792,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       Player.ActivePose = heldPose.slice();
       if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
-      heldNotice(hers ? OWN_TRY_LINE : OTHERS_TRY_LINE);
+      if (hers) heldNotice(OWN_TRY_LINE);
+      else othersRefused(false);
       log("held still: a pose change got past the hook; put the held pose back before it was sent");
       return next([args[0], { ...args[1] ?? {}, Pose: Player.ActivePose }]);
     });
@@ -869,7 +891,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, OWN_TRY_LINE, OTHERS_TRY_LINE;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, OWN_TRY_LINE, OTHERS_TRY_LINE, ROOM_REFUSAL_LINE, ROOM_REFUSAL_GAP_MS, lastRoomRefusal, resyncPending;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -940,6 +962,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ]);
       OWN_TRY_LINE = "You try to shift, and your body does not answer. You stay exactly as you are.";
       OTHERS_TRY_LINE = "Someone tries to move you, and your body will not be moved.";
+      ROOM_REFUSAL_LINE = "{name} does not budge: {their} body stays exactly where it was.";
+      ROOM_REFUSAL_GAP_MS = 5e3;
+      lastRoomRefusal = 0;
+      resyncPending = false;
     }
   });
 
@@ -10130,7 +10156,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.12.0", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.12.1", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10169,7 +10195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.12.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.12.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12445,7 +12471,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12512,7 +12538,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14893,7 +14919,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14914,7 +14940,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.12.0"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.12.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -14987,14 +15013,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.12.0"})`);
+      info(`script loaded (v${"1.12.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.12.0",
+          version: "1.12.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -15135,10 +15161,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.12.0";
+    page2.__ECHS_LOADED__ = "1.12.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
