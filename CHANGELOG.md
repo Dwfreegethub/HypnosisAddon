@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.11.1 RC · 14 November 2026
+
+- **Sight commands work again.** *"Your vision is dimming"*, *"you can barely see"* and
+  *"you cannot see"* were heard but did nothing, and the hypnotist was told they did not land.
+  They now darken your screen as they should, still within your own Sensory Deprivation setting.
+
 ## v1.11.0 RC · 11 November 2026
 
 - **The hypnotist can now change your face.** With Posture Control ticked, while you are under:

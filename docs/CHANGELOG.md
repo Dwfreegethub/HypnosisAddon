@@ -20,6 +20,23 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.11.1 RC) — sight never reached BC's blind level
+
+Found live by DW, 2026-11-14 (Missy in toy mode): every sight suggestion told the hypnotist
+`"sight-dim" matched but did not land: effect-failed`. Toy mode was incidental; any trance did it.
+
+- **Cause.** Our `CharacterGetEffects` hook added the sight effect only when BC asked about a named
+  blind group (ItemHead, ItemHood, ItemNeck, ItemDevices), as v0.93.0 read R132. BC's
+  `GetBlindLevel` now asks with `[]`, which BC's own filter treats as every group, so our effect was
+  never counted, `setSight` read back 0, and `applySight` reported `effect-failed`.
+- **Fix.** An explicit empty list now counts as covering the blind groups. A missing list
+  (`CharacterLoadEffect` rebuilding `C.Effect`) still gets no sight, so it stays out of her general
+  effect list as before. The sight branch no longer returns early, so a question that covers both
+  the blind groups and the Emoticon also gets our held effects.
+- **Why the suite missed it.** `test/sight.mjs` stood in for `GetBlindLevel` with the old named-group
+  call. It now uses `[]`, as BC does, and also checks the named-group call and a non-blind group.
+  On the old code the new stand-in fails 7 checks, the same failure DW saw.
+
 ### Added 2026-11-11 (v1.11.0 RC) — her face on command
 
 Missy's feedback line of 2026-11-08 ("check if addon can adjust fave") was DW's own note, meaning
