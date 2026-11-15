@@ -20,6 +20,27 @@ The version comes from `package.json`, which is the single source of truth.
 
 ---
 
+### Fixed 2026-11-14 (v1.12.5 RC) — ChatRoomSyncSingle was not held; repeats are told once
+
+DW's live run of v1.12.4: all fours and belly still got through, with **no** `held still` console
+line, and after Biker stopped, ECHS kept announcing refusals every few seconds (Biker's own add-on
+lines had stopped).
+
+- **The road.** R132 `Server.js` maps the server's `ChatRoomSyncSingle` message to
+  `ChatRoomSyncSingle()`, which runs `CharacterLoadOnline` on the character it carries and so sets
+  her `ActivePose`. Only `ChatRoomSyncCharacter` was hooked (v0.91.0 read the kneel/stand help as
+  arriving that way). A whole-character update of her from another client, which Biker's add-on
+  sends for those poses, went round every hook, which is why nothing was logged. Both now share one
+  hook (`holdOnSync`), labelled in the log. So v1.12.4's whole-sync net, on her own sends, was not
+  the road; it stays, as it closes a real gap.
+- **The repeats.** Most likely her client fighting the pose that sync had put in: something on it
+  re-tried, the hold refused, and every refusal was told. `othersRefused()` now takes the pose asked
+  for and tells each distinct pose once a minute (a single name and a one-pose list count as the
+  same); repeats are refused and re-sent without lines. The re-send is held to one a second.
+- `test/held-still.mjs` 85 (+6): all fours by `ChatRoomSyncSingle` undone, told and re-sent; the same
+  pose by both roads ten seconds on, quiet; her belly, told; her own `ChatRoomSyncSingle` left alone.
+  Four fail on v1.12.4.
+
 ### Fixed 2026-11-14 (v1.12.4 RC) — the safety net also watches the whole-character sync
 
 DW, after the v1.12.2 run: belly and all fours "might go through a different function". One road

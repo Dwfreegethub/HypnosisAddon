@@ -738,22 +738,46 @@ let resyncPending = false;
 function resyncHeldPoseSoon(): void {
 	if (resyncPending) return;
 	resyncPending = true;
-	Promise.resolve().then(() => {
+	// At most one send a second (v1.12.5): something re-trying on a timer must not make us flood the
+	// server. The first goes at once (a microtask, so one request's several calls share it).
+	const wait = Math.max(0, lastResync + RESYNC_GAP_MS - Date.now());
+	const send = () => {
 		resyncPending = false;
+		lastResync = Date.now();
 		if (!isHeldFully() || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
 		ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose });
 		log("held fully: re-sent her pose after refusing someone else's change");
-	});
+	};
+	if (wait === 0) Promise.resolve().then(send);
+	else setTimeout(send, wait);
 }
+const RESYNC_GAP_MS = 1_000;
+let lastResync = 0;
+
+// The same pose, asked again and again, is told once (v1.12.5, DW's live run of v1.12.4: "once she
+// stops moving me the messages keep happening"). Something kept re-trying a pose it had been
+// refused, every few seconds, and each refusal was told. A new pose is a new attempt and is told; a
+// repeat of one told in the last minute is refused, and re-sent, without a word.
+const REPEAT_QUIET_MS = 60_000;
+const toldPoses = new Map<string, number>();
 
 /** The full hold refused someone else's change: tell her, tell the room, and (when nothing else
- * already re-sent it) put her real pose back on every screen. */
-function othersRefused(resync: boolean): void {
-	heldNotice(OTHERS_TRY_LINE);
+ * already re-sent it) put her real pose back on every screen. `asked` is the pose that was asked for. */
+function othersRefused(resync: boolean, asked: unknown): void {
+	// One pose name (PoseSetActive) or a list (a sync): the same pose either way.
+	const list = Array.isArray(asked) ? [...asked] : typeof asked === "string" ? [asked] : [];
+	const key = JSON.stringify(list.sort());
 	const now = Date.now();
-	if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
-		lastRoomRefusal = now;
-		tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+	for (const [k, at] of toldPoses) if (now - at >= REPEAT_QUIET_MS) toldPoses.delete(k);
+	if (toldPoses.has(key)) {
+		log(`held fully: refused ${key} again; already told, so quietly`);
+	} else {
+		toldPoses.set(key, now);
+		heldNotice(OTHERS_TRY_LINE);
+		if (now - lastRoomRefusal >= ROOM_REFUSAL_GAP_MS) {
+			lastRoomRefusal = now;
+			tellRoom(fillTokens(ROOM_REFUSAL_LINE));
+		}
 	}
 	if (resync) resyncHeldPoseSoon();
 }
@@ -805,7 +829,7 @@ export function installEffectHooks(modApi: any): void {
 			if (source === "hers" || isHeldFully()) {
 				// Anything not hers is told as someone's, "auto" included (v1.12.3: see changeSource).
 				if (source === "hers") heldNotice(OWN_TRY_LINE);
-				else othersRefused(true);
+				else othersRefused(true, pose);
 				log(`held still: refused a pose change to ${JSON.stringify(pose)} (${source}${isHeldFully() ? ", held fully" : ""})${caller()}`);
 				return undefined;
 			}
@@ -834,7 +858,14 @@ export function installEffectHooks(modApi: any): void {
 	// Someone else changing her pose: their client sets it and syncs her whole character (R132
 	// ChatRoomKneelStandAssist -> ChatRoomCharacterUpdate), which reaches her as a
 	// ChatRoomSyncCharacter of herself. Her items from that sync stand; her pose goes back.
-	modApi.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
+	//
+	// AND ChatRoomSyncSingle (v1.12.5, DW's live run of v1.12.4: belly and all fours got through with
+	// no "held still" line at all). R132 Server.js routes two server messages to these: the
+	// ChatRoomSyncCharacter one, and ChatRoomSyncSingle, which also runs CharacterLoadOnline on the
+	// character it carries and so sets her ActivePose. Only the first was hooked, so a whole-character
+	// update of her from another player's client, which their add-on sends for those poses, landed
+	// round the hold entirely.
+	const holdOnSync = (label: string) => (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		const aboutHer = data?.Character?.MemberNumber === Player?.MemberNumber && data?.SourceMemberNumber !== Player?.MemberNumber;
 		if (!aboutHer || !isHeldStill()) return next(args);
@@ -842,17 +873,20 @@ export function installEffectHooks(modApi: any): void {
 		const result = next(args);
 		if (!samePoses(held, Player?.ActivePose)) {
 			if (isHeldFully()) {
+				const asked = Player?.ActivePose;
 				restoreHeldPose(held);
-				othersRefused(false);
-				log(`held still: undid a pose change from ${data.SourceMemberNumber}`);
+				othersRefused(false, asked);
+				log(`held still: undid a pose change to ${JSON.stringify(asked)} from ${data.SourceMemberNumber} (${label})`);
 			} else {
 				// Only held: another player may adjust her. Their pose is now the one she is held in.
 				noteHeldPose();
-				log(`held still: kept a pose change from ${data.SourceMemberNumber} (others may move her)`);
+				log(`held still: kept a pose change from ${data.SourceMemberNumber} (${label}; others may move her)`);
 			}
 		}
 		return result;
-	});
+	};
+	modApi.hookFunction("ChatRoomSyncCharacter", HOLD_PRIORITY, holdOnSync("ChatRoomSyncCharacter"));
+	modApi.hookFunction("ChatRoomSyncSingle", HOLD_PRIORITY, holdOnSync("ChatRoomSyncSingle"));
 	modApi.hookFunction("ChatRoomSyncPose", HOLD_PRIORITY, (args: any[], next: (a: any[]) => any) => {
 		const [data] = args;
 		if (data?.MemberNumber !== Player?.MemberNumber || !isHeldStill() || samePoses(data?.Pose, Player?.ActivePose)) return next(args);
@@ -863,7 +897,7 @@ export function installEffectHooks(modApi: any): void {
 			return result;
 		}
 		restoreHeldPose(currentPoses());
-		othersRefused(false);
+		othersRefused(false, data?.Pose);
 		log(`held still: refused an incoming pose update ${JSON.stringify(data?.Pose)}`);
 		return undefined;
 	});
@@ -907,10 +941,11 @@ export function installEffectHooks(modApi: any): void {
 			log(`held still: a pose change that is not hers got past the hook; kept (${source}; others may move her)${caller()}`);
 			return next(args);
 		}
+		const asked = Player?.ActivePose;
 		Player.ActivePose = heldPose.slice();
 		if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false);
 		if (source === "hers") heldNotice(OWN_TRY_LINE);
-		else othersRefused(false); // the held pose is what this send now carries
+		else othersRefused(false, asked); // the held pose is what this send now carries
 		log(`held still: a pose change got past the hook; put the held pose back before it was sent (${args[0]}, ${source})${caller()}`);
 		return next([args[0], poseSend ? { ...(args[1] ?? {}), Pose: Player.ActivePose } : { ...args[1], ActivePose: Player.ActivePose }]);
 	});
