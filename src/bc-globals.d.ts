@@ -84,6 +84,8 @@ declare function ElementWrap(id: string): HTMLElement | null | undefined;
 // The character currently shown on the Information Sheet screen (module-level global in
 // Screens/Character/InformationSheet/InformationSheet.js, not a hook argument).
 declare const InformationSheetSelection: any;
+// R134 InformationSheet.js: builds one menubar button (ElementButton.Create underneath).
+declare function InformationSheetMenuButton(id: string, onClick: () => void, image: string | null, tooltip: string, classList?: string[]): HTMLElement;
 // Pose control (Scripts/Pose.js via Character.js). Passing null resets to the base pose.
 // Only sets the pose locally — the room is told separately via
 // ServerSend("ChatRoomCharacterPoseUpdate", { Pose: Player.ActivePose }).

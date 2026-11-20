@@ -12,6 +12,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.7 RC · 19 November 2026
+
+- **The spiral is back on other players' profiles.** The game's latest update redrew the profile
+  screen, which hid the ECHS spiral and made its panel open behind the profile. The spiral now sits
+  with the game's own buttons on the profile, and the panel opens in front.
+
 ## v1.12.6 RC · 15 November 2026
 
 - **The in-game help is up to date.** It told hypnotists to click an "H" icon; the icon is a spiral.

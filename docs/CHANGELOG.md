@@ -18,6 +18,33 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-19 (v1.12.7 RC) — the profile spiral under R134
+
+Reported by Cassidy (11-18, "since the latest update the UI isn't at its usual place") and
+idkkkkk (11-19, Firefox: "the hypno menu pops up behind the main menu when you click the spiral").
+One cause: **R134**, now live, rebuilt the Information Sheet as an HTML screen
+(`ElementDOMScreen.getTemplate`, id `information-sheet-screen`, `ElementPositionFixed` at
+50,70 1900×870) laid over the canvas, and emptied `InformationSheetClick`. Our canvas button at
+90,130 sat under it, and the remote panel drew on the canvas behind it. Read from R134's
+`InformationSheet.js`, `Element.js` and `Common.js`, fetched from the game site: gitgud still resets
+the clone's pull, so the local clone remains R132 (rule 8).
+- **Entry point.** A hook after `InformationSheetLoad` (async; it builds the page) appends our button
+  to the sheet's menubar (`information-sheet-screen-menu`) through BC's own
+  `InformationSheetMenuButton` → `ElementButton.Create`, with the spiral data URI as its image
+  (plain `<img src>` when no `imageColor` is given). If the helper is ever renamed, a plain button
+  with "H" goes in instead. Other players only, as before.
+- **The panel.** Opening it sets `hidden` on the sheet's screen, the same move BC's Extensions list
+  makes for an extension's page, so the canvas (still drawn with the "Sheet" background) and
+  canvas clicks, which `CommonClick` still routes to `InformationSheetClick`, are ours. Every way
+  out unhides it through one `closeRemote()`: our exit button, Escape (→ `CurrentScreenFunctions.Exit`
+  → our existing `InformationSheetExit` hook), and a new `InformationSheetUnload` hook that drops the
+  panel state if the screen is left with the panel open.
+- **Fallback.** With no such screen (an older client), the canvas button draws and clicks as before.
+- **Checked the rest of R134:** every other function ECHS hooks still exists; extension settings
+  registration only moved file (`Scripts/Preference.js`), and `Extensions.js` is unchanged from R132.
+- Test: `test/profile-button.mjs` (21 checks) drives the hooks against a stand-in for the R134 page.
+  Not yet live-tested.
+
 ---
 
 ### Fixed 2026-11-15 (v1.12.6 RC) — in-game help audit

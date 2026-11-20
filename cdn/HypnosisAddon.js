@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.12.6. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.12.7. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -10195,7 +10195,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.12.6", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.12.7", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10234,7 +10234,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.12.6", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.12.7", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12515,7 +12515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.7"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12582,7 +12582,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.7"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14447,6 +14447,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/remote.ts
+  function sheetScreen() {
+    return typeof document !== "undefined" ? document.getElementById(SHEET_SCREEN_ID) : null;
+  }
+  function setSheetHidden(hidden) {
+    sheetScreen()?.toggleAttribute("hidden", hidden);
+  }
   function presenceOf(memberNumber) {
     if (repliedToProbe.has(memberNumber) || getSessionView(memberNumber)) return "present";
     const asked = probedAt.get(memberNumber);
@@ -14583,7 +14589,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     if (MouseIn(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
-      activeTarget = null;
+      closeRemote();
       return;
     }
     if (presenceOf(target.MemberNumber) === "absent") {
@@ -14636,7 +14642,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function openRemoteFor(target) {
     activeTarget = target;
     plantedOpen = false;
+    setSheetHidden(true);
     probeRemote(target);
+  }
+  function closeRemote() {
+    activeTarget = null;
+    plantedOpen = false;
+    closeHelp();
+    setSheetHidden(false);
+  }
+  function addSheetButton() {
+    const C = getViewedOtherCharacter();
+    if (!C) return;
+    const menu = document.getElementById(`${SHEET_SCREEN_ID}-menu`);
+    if (!menu || document.getElementById(ECHS_SHEET_BUTTON_ID)) return;
+    const onClick = () => openRemoteFor(C);
+    const tooltip = "ECHS Hypnosis Remote";
+    let button;
+    if (typeof InformationSheetMenuButton === "function") {
+      button = InformationSheetMenuButton(ECHS_SHEET_BUTTON_ID, onClick, SPIRAL_ICON ?? null, tooltip);
+      if (!SPIRAL_ICON) button.textContent = "H";
+    } else {
+      button = document.createElement("button");
+      button.id = ECHS_SHEET_BUTTON_ID;
+      button.title = tooltip;
+      button.setAttribute("role", "menuitem");
+      button.className = "blank-button button button-styling";
+      button.textContent = "H";
+      button.addEventListener("click", onClick);
+    }
+    menu.append(button);
   }
   function probeRemote(target) {
     repliedToProbe.delete(target.MemberNumber);
@@ -14677,7 +14712,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         next([]);
         const C = getViewedOtherCharacter();
-        if (C) {
+        if (C && !sheetScreen()) {
           DrawButton(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2, SPIRAL_ICON ? "" : "H", "White", "", "ECHS Hypnosis Remote");
           if (SPIRAL_ICON) {
             DrawImageResize(
@@ -14700,7 +14735,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         const C = getViewedOtherCharacter();
-        if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2)) {
+        if (C && !sheetScreen() && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_SIZE2)) {
           openRemoteFor(C);
           return;
         }
@@ -14712,16 +14747,45 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((_args, next) => {
         if (activeTarget) {
-          activeTarget = null;
-          plantedOpen = false;
-          closeHelp();
+          closeRemote();
           return;
         }
         next([]);
       })
     );
+    if (typeof globalThis.InformationSheetLoad === "function") {
+      modApi2.hookFunction(
+        "InformationSheetLoad",
+        10,
+        ((args, next) => {
+          const after = () => {
+            try {
+              addSheetButton();
+            } catch (err) {
+              log("ECHS: could not add the remote button to the profile", err);
+            }
+          };
+          const result = next(args);
+          if (result && typeof result.then === "function") return result.then((r) => (after(), r));
+          after();
+          return result;
+        })
+      );
+    }
+    if (typeof globalThis.InformationSheetUnload === "function") {
+      modApi2.hookFunction(
+        "InformationSheetUnload",
+        10,
+        ((args, next) => {
+          activeTarget = null;
+          plantedOpen = false;
+          closeHelp();
+          return next(args);
+        })
+      );
+    }
   }
-  var ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
+  var SHEET_SCREEN_ID, ECHS_SHEET_BUTTON_ID, ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
@@ -14733,6 +14797,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_panel();
       init_planted();
       init_session();
+      SHEET_SCREEN_ID = "information-sheet-screen";
+      ECHS_SHEET_BUTTON_ID = "echs-information-sheet-remote";
       ICON_LEFT = 90;
       ICON_TOP = 130;
       ICON_SIZE2 = 60;
@@ -14963,7 +15029,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.7"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -14984,7 +15050,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.12.6"}${RELEASE_SUFFIX} loaded`;
+    el.textContent = `ECHS v${"1.12.7"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el.style, {
       position: "fixed",
       bottom: "4px",
@@ -15057,14 +15123,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.12.6"})`);
+      info(`script loaded (v${"1.12.7"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.12.6",
+          version: "1.12.7",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -15205,10 +15271,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.7"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.12.6";
+    page2.__ECHS_LOADED__ = "1.12.7";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
