@@ -18,6 +18,81 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-19 (v1.12.9 RC) — one account sync per frame
+
+From DW's ask after v1.12.8 to look for other places ECHS sends more to BC than it needs to. The
+review found no other flood like the trust list: trust from chat is 5 min per person, the session
+heartbeat and the presence poll are local only, session updates go out per transition, follow beeps
+once per follower per room change. What it did find is saves in a row, each its own
+`AccountUpdate` with the whole blob: a trigger firing saves twice (`noteTriggerFired`, then
+`markSpent`/`forgetTrigger`); `setFace` saves on every face command, beside BC's own expression
+message; `pruneFadedTriggers` saves once per dead trigger.
+- **Change.** `saveSettings` still writes `Player.ExtensionSettings` and the localStorage backup at
+  once, so every read in the frame is current, but the `ServerPlayerExtensionSettingsSync` call is
+  shared: one `setTimeout` 0 per frame (`syncToAccountSoon`/`flushAccountSync`). BC's sync reads
+  `Player.ExtensionSettings` when it runs, so it carries the last state. A throwing sync is caught
+  and warned, and the next save tries again. Nothing in ECHS reloads or disconnects right after a
+  save. The no-member-number guard is unchanged and still comes first.
+- v1.12.8's `saveDecaySoon` stays: it also spares the per-entry compress.
+- **Not done, DW's call for later:** a safeword or wake sends a full `ChatRoomCharacterUpdate` per
+  held effect (Freeze, BlockWardrobe, DenialMode, Leash) plus one for the trance eyes, a pose update
+  and one expression message per face part. Batching those touches the hold's safety net
+  (`ChatRoomCharacterUpdate` is hooked, effects.ts), so it wants its own build and a live run.
+- Test: `test/settings-sync.mjs` (11 checks; four saves in a frame → one sync carrying the last
+  state, separate frames sync separately, a failed send neither throws nor sticks, nothing before
+  the member number is known). Fails on v1.12.8. `test/trust-burst.mjs` updated: the [x] writes
+  the local copy at once and syncs at the end of the frame.
+
+### Fixed 2026-11-19 (v1.12.8 RC) — opening a long trust list flooded BC's send queue
+
+Reported by Senge (11-18): "after a certain point, trying to look at the trust values will get you
+infinitely rate-limited by BC", so names could not be removed or decay managed short of a reset.
+- **Cause.** `applyDecay` (storage.ts) charges decay on read and wrote it back with `saveSettings()`
+  on the spot, one call per entry that had lost a whole interaction. `trustStatRows` (the Stats tab)
+  and `describeTrust` (`/echs logtrust`) read every entry, so a long list left a few days at any
+  decay rate made one `ServerPlayerExtensionSettingsSync` per person in one frame. Each is an
+  `AccountUpdate` carrying the whole compressed settings blob (which grows with the list), and each
+  also recompressed it. BC's client sends 14 messages per 1.2 s and queues the rest (R134 Server.js,
+  `ServerSendRateLimit`/`ServerSendRateLimitQueue`), so a couple of hundred entries held chat and
+  every click behind them, including the [x] that would have shrunk the list.
+- **Fix.** Decay still changes the entries in memory at once (so reads stay correct and never
+  double-charge), but the write-back is one shared deferred save (`saveDecaySoon`, a `setTimeout`
+  0 that runs after the frame). A lost deferred save costs nothing: the stored values and clock
+  give the same charge next time. Every other save is unchanged and immediate.
+- Test: `test/trust-burst.mjs` (9 checks; 200 entries, 10 days at Typical: 0 sends in the frame,
+  then 1; 60 more frames send nothing; logtrust the same; `forgetTrust` still saves at once).
+  Fails 4/9 on v1.12.7.
+- **Not changed, noted for DW:** the Stats tab's "· N days ago" reads `lastUpdated`, which decay also
+  moves to now when it charges, so after a decay save every row says "just now". It is the clock
+  decay needs; showing "last seen" would need its own field.
+
+### Fixed 2026-11-19 (v1.12.7 RC) — the profile spiral under R134
+
+Reported by Cassidy (11-18, "since the latest update the UI isn't at its usual place") and
+idkkkkk (11-19, Firefox: "the hypno menu pops up behind the main menu when you click the spiral").
+One cause: **R134**, now live, rebuilt the Information Sheet as an HTML screen
+(`ElementDOMScreen.getTemplate`, id `information-sheet-screen`, `ElementPositionFixed` at
+50,70 1900×870) laid over the canvas, and emptied `InformationSheetClick`. Our canvas button at
+90,130 sat under it, and the remote panel drew on the canvas behind it. Read from R134's
+`InformationSheet.js`, `Element.js` and `Common.js`, fetched from the game site: gitgud still resets
+the clone's pull, so the local clone remains R132 (rule 8).
+- **Entry point.** A hook after `InformationSheetLoad` (async; it builds the page) appends our button
+  to the sheet's menubar (`information-sheet-screen-menu`) through BC's own
+  `InformationSheetMenuButton` → `ElementButton.Create`, with the spiral data URI as its image
+  (plain `<img src>` when no `imageColor` is given). If the helper is ever renamed, a plain button
+  with "H" goes in instead. Other players only, as before.
+- **The panel.** Opening it sets `hidden` on the sheet's screen, the same move BC's Extensions list
+  makes for an extension's page, so the canvas (still drawn with the "Sheet" background) and
+  canvas clicks, which `CommonClick` still routes to `InformationSheetClick`, are ours. Every way
+  out unhides it through one `closeRemote()`: our exit button, Escape (→ `CurrentScreenFunctions.Exit`
+  → our existing `InformationSheetExit` hook), and a new `InformationSheetUnload` hook that drops the
+  panel state if the screen is left with the panel open.
+- **Fallback.** With no such screen (an older client), the canvas button draws and clicks as before.
+- **Checked the rest of R134:** every other function ECHS hooks still exists; extension settings
+  registration only moved file (`Scripts/Preference.js`), and `Extensions.js` is unchanged from R132.
+- Test: `test/profile-button.mjs` (21 checks) drives the hooks against a stand-in for the R134 page.
+  Not yet live-tested.
+
 ---
 
 ### Fixed 2026-11-15 (v1.12.6 RC) — in-game help audit

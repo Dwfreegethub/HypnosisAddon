@@ -12,6 +12,26 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.9 RC · 19 November 2026
+
+- **Less traffic to the game server.** When ECHS saved your settings several times in a row (a
+  trigger going off, a face command, old triggers being cleared out), it sent each save to the
+  server separately. They now go as one, so your chat isn't held up behind them. Nothing about
+  what is saved has changed.
+
+## v1.12.8 RC · 19 November 2026
+
+- **A long trust list no longer jams the game.** With trust set to fade and many people on your
+  list, opening the Stats tab sent the game one save for every person at once. The game sends only
+  a few messages a second, so your chat and clicks were stuck behind them, sometimes for minutes.
+  It is now one save, and the [x] to forget someone works straight away again.
+
+## v1.12.7 RC · 19 November 2026
+
+- **The spiral is back on other players' profiles.** The game's latest update redrew the profile
+  screen, which hid the ECHS spiral and made its panel open behind the profile. The spiral now sits
+  with the game's own buttons on the profile, and the panel opens in front.
+
 ## v1.12.6 RC · 15 November 2026
 
 - **The in-game help is up to date.** It told hypnotists to click an "H" icon; the icon is a spiral.
