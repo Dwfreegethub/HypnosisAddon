@@ -960,7 +960,15 @@ export function setDecayRate(rate: DecayRate): void {
  * catch a timer would not have is that the clock must be advanced when it is charged —
  * otherwise every subsequent read bills the same elapsed days again. Hence the write-back,
  * which also only happens once a whole interaction has accrued, so ordinary reads do not
- * touch storage. */
+ * touch storage.
+ *
+ * The write-back is DEFERRED and shared (v1.12.8, Senge 11-18). It used to save on the spot, and
+ * the Stats tab and /echs logtrust read every entry at once: a long list left untouched for days
+ * sent one AccountUpdate per person in a single frame, each carrying the whole settings blob. BC
+ * sends 14 messages per 1.2 s (R134 Server.js, ServerSendRateLimit) and queues the rest, so chat
+ * and every click behind them waited, which read as being rate-limited without end. Now the
+ * entries change in memory at once and one save follows. Losing that save (a closed tab) loses
+ * nothing: the old values and old clock give the same answer next time. */
 function applyDecay(entry: TrustEntry | undefined): number {
 	if (!entry) return 0;
 	const perDay = DECAY_PER_DAY[loadSettings().decayRate] ?? 0;
@@ -970,8 +978,24 @@ function applyDecay(entry: TrustEntry | undefined): number {
 	if (lost < 1) return entry.interactions; // not yet worth a write
 	entry.interactions = Math.max(0, entry.interactions - lost);
 	entry.lastUpdated = Date.now();
-	saveSettings();
+	saveDecaySoon();
 	return entry.interactions;
+}
+
+let decaySavePending = false;
+
+/** One save for every entry decay charged in this frame. Exported for the tests only. */
+export function saveDecaySoon(): void {
+	if (decaySavePending) return;
+	decaySavePending = true;
+	setTimeout(flushDecaySave, 0);
+}
+
+/** Runs the pending decay save now, if there is one. The tests call it to stand in for the timer. */
+export function flushDecaySave(): void {
+	if (!decaySavePending) return;
+	decaySavePending = false;
+	saveSettings();
 }
 
 export function trustWith(memberId: number): number {
