@@ -18,6 +18,31 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-19 (v1.12.9 RC) — one account sync per frame
+
+From DW's ask after v1.12.8 to look for other places ECHS sends more to BC than it needs to. The
+review found no other flood like the trust list: trust from chat is 5 min per person, the session
+heartbeat and the presence poll are local only, session updates go out per transition, follow beeps
+once per follower per room change. What it did find is saves in a row, each its own
+`AccountUpdate` with the whole blob: a trigger firing saves twice (`noteTriggerFired`, then
+`markSpent`/`forgetTrigger`); `setFace` saves on every face command, beside BC's own expression
+message; `pruneFadedTriggers` saves once per dead trigger.
+- **Change.** `saveSettings` still writes `Player.ExtensionSettings` and the localStorage backup at
+  once, so every read in the frame is current, but the `ServerPlayerExtensionSettingsSync` call is
+  shared: one `setTimeout` 0 per frame (`syncToAccountSoon`/`flushAccountSync`). BC's sync reads
+  `Player.ExtensionSettings` when it runs, so it carries the last state. A throwing sync is caught
+  and warned, and the next save tries again. Nothing in ECHS reloads or disconnects right after a
+  save. The no-member-number guard is unchanged and still comes first.
+- v1.12.8's `saveDecaySoon` stays: it also spares the per-entry compress.
+- **Not done, DW's call for later:** a safeword or wake sends a full `ChatRoomCharacterUpdate` per
+  held effect (Freeze, BlockWardrobe, DenialMode, Leash) plus one for the trance eyes, a pose update
+  and one expression message per face part. Batching those touches the hold's safety net
+  (`ChatRoomCharacterUpdate` is hooked, effects.ts), so it wants its own build and a live run.
+- Test: `test/settings-sync.mjs` (11 checks; four saves in a frame → one sync carrying the last
+  state, separate frames sync separately, a failed send neither throws nor sticks, nothing before
+  the member number is known). Fails on v1.12.8. `test/trust-burst.mjs` updated: the [x] writes
+  the local copy at once and syncs at the end of the frame.
+
 ### Fixed 2026-11-19 (v1.12.8 RC) — opening a long trust list flooded BC's send queue
 
 Reported by Senge (11-18): "after a certain point, trying to look at the trust values will get you
