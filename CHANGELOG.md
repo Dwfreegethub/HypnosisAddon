@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.12.8 RC · 19 November 2026
+
+- **A long trust list no longer jams the game.** With trust set to fade and many people on your
+  list, opening the Stats tab sent the game one save for every person at once. The game sends only
+  a few messages a second, so your chat and clicks were stuck behind them, sometimes for minutes.
+  It is now one save, and the [x] to forget someone works straight away again.
+
 ## v1.12.7 RC · 19 November 2026
 
 - **The spiral is back on other players' profiles.** The game's latest update redrew the profile

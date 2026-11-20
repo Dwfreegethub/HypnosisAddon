@@ -18,6 +18,29 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-19 (v1.12.8 RC) — opening a long trust list flooded BC's send queue
+
+Reported by Senge (11-18): "after a certain point, trying to look at the trust values will get you
+infinitely rate-limited by BC", so names could not be removed or decay managed short of a reset.
+- **Cause.** `applyDecay` (storage.ts) charges decay on read and wrote it back with `saveSettings()`
+  on the spot, one call per entry that had lost a whole interaction. `trustStatRows` (the Stats tab)
+  and `describeTrust` (`/echs logtrust`) read every entry, so a long list left a few days at any
+  decay rate made one `ServerPlayerExtensionSettingsSync` per person in one frame. Each is an
+  `AccountUpdate` carrying the whole compressed settings blob (which grows with the list), and each
+  also recompressed it. BC's client sends 14 messages per 1.2 s and queues the rest (R134 Server.js,
+  `ServerSendRateLimit`/`ServerSendRateLimitQueue`), so a couple of hundred entries held chat and
+  every click behind them, including the [x] that would have shrunk the list.
+- **Fix.** Decay still changes the entries in memory at once (so reads stay correct and never
+  double-charge), but the write-back is one shared deferred save (`saveDecaySoon`, a `setTimeout`
+  0 that runs after the frame). A lost deferred save costs nothing: the stored values and clock
+  give the same charge next time. Every other save is unchanged and immediate.
+- Test: `test/trust-burst.mjs` (9 checks; 200 entries, 10 days at Typical: 0 sends in the frame,
+  then 1; 60 more frames send nothing; logtrust the same; `forgetTrust` still saves at once).
+  Fails 4/9 on v1.12.7.
+- **Not changed, noted for DW:** the Stats tab's "· N days ago" reads `lastUpdated`, which decay also
+  moves to now when it charges, so after a decay save every row says "just now". It is the clock
+  decay needs; showing "last seen" would need its own field.
+
 ### Fixed 2026-11-19 (v1.12.7 RC) — the profile spiral under R134
 
 Reported by Cassidy (11-18, "since the latest update the UI isn't at its usual place") and
