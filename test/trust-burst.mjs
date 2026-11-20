@@ -15,7 +15,7 @@ globalThis.ChatRoomSendLocal = () => {};
 // Timers are held, so a check can see what was sent before the deferred save runs.
 let timers = [];
 globalThis.setTimeout = (fn) => { timers.push(fn); return timers.length; };
-const runTimers = () => { const t = timers; timers = []; t.forEach((fn) => fn()); };
+const runTimers = () => { while (timers.length) { const t = timers; timers = []; t.forEach((fn) => fn()); } };
 let clock = 1_000_000_000;
 Date.now = () => clock;
 const DAY = 86_400_000;
@@ -68,11 +68,15 @@ runTimers();
 check("the saved settings change only when the save runs, and then they do", [blobHeld === blobBefore, savedBlob() !== blobBefore], [true, true]);
 
 // --- an ordinary save is not held back -----------------------------------------------------------
+// Since v1.12.9 every save's account sync waits for the end of the frame (settings-sync.mjs), but
+// the saved copy changes at once. Failure: the [x] is folded into a decay save that never comes.
 syncs = 0;
+const beforeForget = savedBlob();
 storage.forgetTrust(1000);
-// Failure: the [x] waits for a timer, or is folded into a decay save that never comes.
-check("forgetting someone still saves at once", syncs, 1);
+check("forgetting someone saves the local copy at once", savedBlob() !== beforeForget, true);
 check("  and they are gone", storage.listTrust().some((t) => t.memberId === 1000), false);
+runTimers();
+check("  and it reaches the server at the end of the frame", syncs, 1);
 
 console.log(`trust-burst: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

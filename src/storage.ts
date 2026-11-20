@@ -857,7 +857,35 @@ function saveSettings(): void {
 	if (!Player.ExtensionSettings) Player.ExtensionSettings = {};
 	Player.ExtensionSettings[SETTINGS_KEY] = encoded;
 	localStorage.setItem(key, encoded);
-	ServerPlayerExtensionSettingsSync(SETTINGS_KEY);
+	syncToAccountSoon();
+}
+
+/** One account sync for every save made in this frame (v1.12.9).
+ *
+ * Each sync is an AccountUpdate carrying the whole settings blob, and BC sends 14 messages per
+ * 1.2 s and queues the rest (R134 Server.js, ServerSendRateLimit), behind which chat waits. Several
+ * saves in a row are ordinary: a trigger firing saves twice, each face command saves, faded triggers
+ * are cleared one save each. The local copies above are still written at once, so every read in
+ * this frame sees the change; only the send waits for the frame to finish, and BC's sync reads
+ * Player.ExtensionSettings when it runs, so it carries the last state. Nothing in ECHS reloads or
+ * logs out straight after a save, so nothing is lost by the wait. */
+let accountSyncPending = false;
+
+function syncToAccountSoon(): void {
+	if (accountSyncPending) return;
+	accountSyncPending = true;
+	setTimeout(flushAccountSync, 0);
+}
+
+/** Sends the pending account sync now, if there is one. The tests call it to stand in for the timer. */
+export function flushAccountSync(): void {
+	if (!accountSyncPending) return;
+	accountSyncPending = false;
+	try {
+		ServerPlayerExtensionSettingsSync(SETTINGS_KEY);
+	} catch (err) {
+		warn("could not send ECHS settings to the server; they are kept on this device and go with the next save", err);
+	}
 }
 
 export function getTrust(memberId: number): TrustEntry | undefined {
