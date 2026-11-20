@@ -23,6 +23,27 @@ import {
 // module-level `InformationSheetSelection` global directly rather than receiving the
 // viewed character as a parameter (verified against the live client, not assumed).
 
+// R134 (live 2026-11, found from Cassidy's and idkkkkk's feedback, 11-18/19): the sheet is now an
+// HTML screen (ElementDOMScreen.getTemplate, id "information-sheet-screen", positioned over
+// 50,70 1900x870) laid OVER the canvas, and InformationSheetClick is empty. The canvas button
+// below was hidden under it, and our canvas panel drew behind it. So on R134 the entry point is a
+// real menu button appended to the sheet's own menubar ("<screen id>-menu", built by
+// InformationSheetMenuButton → ElementButton.Create), and while our panel is open the sheet's
+// screen is hidden so the canvas, and canvas clicks, are ours. Same hide that BC's own Extensions
+// list does (Extensions.js: ElementWrap(PreferenceIDs.subscreen).toggleAttribute("hidden")).
+// Verified against R134's InformationSheet.js, Element.js and Common.js fetched from the game site.
+// The canvas button stays as the fallback when no such screen exists (an older client).
+const SHEET_SCREEN_ID = "information-sheet-screen";
+const ECHS_SHEET_BUTTON_ID = "echs-information-sheet-remote";
+
+function sheetScreen(): HTMLElement | null {
+	return typeof document !== "undefined" ? document.getElementById(SHEET_SCREEN_ID) : null;
+}
+
+function setSheetHidden(hidden: boolean): void {
+	sheetScreen()?.toggleAttribute("hidden", hidden);
+}
+
 // LSCG draws its own remote icon at DrawButton(90, 60, 60, 60, ...) on this same screen
 // — ours sits directly below it, same size, small gap. ADJUST-ME if it doesn't line up:
 // increase ICON_TOP to move down, ICON_LEFT to move right.
@@ -259,7 +280,7 @@ function clickSubscreen(target: any): void {
 		return;
 	}
 	if (MouseIn(SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE)) {
-		activeTarget = null;
+		closeRemote();
 		return;
 	}
 	if (presenceOf(target.MemberNumber) === "absent") {
@@ -318,7 +339,43 @@ function clickPlantedPage(target: any): void {
 function openRemoteFor(target: any): void {
 	activeTarget = target;
 	plantedOpen = false;
+	setSheetHidden(true);
 	probeRemote(target);
+}
+
+/** Back to BC's sheet: our panel shut, and the sheet's screen (R134) shown again. */
+function closeRemote(): void {
+	activeTarget = null;
+	plantedOpen = false;
+	closeHelp();
+	setSheetHidden(false);
+}
+
+/** R134: our entry point as a button in the sheet's own menubar. Runs after BC built the screen;
+ * does nothing on the player's own sheet, on a client without the HTML screen, or if it is already
+ * there. Never throws into BC's screen load. */
+function addSheetButton(): void {
+	const C = getViewedOtherCharacter();
+	if (!C) return;
+	const menu = document.getElementById(`${SHEET_SCREEN_ID}-menu`);
+	if (!menu || document.getElementById(ECHS_SHEET_BUTTON_ID)) return;
+	const onClick = () => openRemoteFor(C);
+	const tooltip = "ECHS Hypnosis Remote";
+	let button: HTMLElement;
+	if (typeof InformationSheetMenuButton === "function") {
+		button = InformationSheetMenuButton(ECHS_SHEET_BUTTON_ID, onClick, SPIRAL_ICON ?? null, tooltip);
+		if (!SPIRAL_ICON) button.textContent = "H";
+	} else {
+		// BC renamed its helper: a plain button still opens the panel.
+		button = document.createElement("button");
+		button.id = ECHS_SHEET_BUTTON_ID;
+		button.title = tooltip;
+		button.setAttribute("role", "menuitem");
+		button.className = "blank-button button button-styling";
+		button.textContent = "H";
+		button.addEventListener("click", onClick);
+	}
+	menu.append(button);
 }
 
 /** Ask both questions and start the clock. Split out so the Retry button can re-ask
@@ -377,7 +434,8 @@ export function installRemote(modApi: any): void {
 			}
 			next([]);
 			const C = getViewedOtherCharacter();
-			if (C) {
+			// R134 draws its sheet as HTML over this spot; our button is in its menubar instead.
+			if (C && !sheetScreen()) {
 				// Our own spiral icon (icon.ts, built at load). Draw the button CHROME first with
 				// no image, then place the icon scaled into the box ourselves. BC's DrawButton draws
 				// an Image at its NATURAL size anchored at the top-left, with no fit (Drawing.js:
@@ -408,7 +466,7 @@ export function installRemote(modApi: any): void {
 				return;
 			}
 			const C = getViewedOtherCharacter();
-			if (C && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE)) {
+			if (C && !sheetScreen() && MouseIn(ICON_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE)) {
 				openRemoteFor(C);
 				return;
 			}
@@ -421,12 +479,47 @@ export function installRemote(modApi: any): void {
 		10,
 		((_args: [], next: (args?: any) => void) => {
 			if (activeTarget) {
-				activeTarget = null;
-				plantedOpen = false;
-				closeHelp();
+				closeRemote();
 				return;
 			}
 			next([]);
 		}) as any,
 	);
+
+	// R134's sheet is built in InformationSheetLoad (async); add our menu button once it exists.
+	// Hooked only if the client has the function, and a failure is logged, never thrown into BC.
+	if (typeof (globalThis as any).InformationSheetLoad === "function") {
+		modApi.hookFunction(
+			"InformationSheetLoad",
+			10,
+			((args: any[], next: (args: any[]) => any) => {
+				const after = () => {
+					try {
+						addSheetButton();
+					} catch (err) {
+						log("ECHS: could not add the remote button to the profile", err);
+					}
+				};
+				const result = next(args);
+				if (result && typeof result.then === "function") return result.then((r: any) => (after(), r));
+				after();
+				return result;
+			}) as any,
+		);
+	}
+
+	// Leaving the sheet any other way (BC's own exit while the panel is open, a screen change) must
+	// not leave the panel armed for the next sheet. BC removes the sheet's HTML here itself.
+	if (typeof (globalThis as any).InformationSheetUnload === "function") {
+		modApi.hookFunction(
+			"InformationSheetUnload",
+			10,
+			((args: any[], next: (args: any[]) => any) => {
+				activeTarget = null;
+				plantedOpen = false;
+				closeHelp();
+				return next(args);
+			}) as any,
+		);
+	}
 }
