@@ -34,6 +34,10 @@ import {
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest";
+import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-triggers";
+import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
+import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
+import { listTriggers, getTriggerDecayRate, DECAY_RATES } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -64,7 +68,7 @@ let timer: any = null;
 /** Which +/- groups are expanded. Session starts open: it is what a newcomer needs first. */
 const expanded = new Set<string>(["Session"]);
 let statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
-export type PopupTab = "me" | "people" | "suggest" | "commands";
+export type PopupTab = "me" | "people" | "suggest" | "triggers" | "commands";
 let tab: PopupTab = "people";
 /** Which Suggestions groups are open. Trance first: waking and going deeper are needed most. */
 const suggestOpen = new Set<string>(["trance"]);
@@ -257,6 +261,7 @@ export function availableTabs(): PopupTab[] {
 	if (subjectSide() !== null) t.push("me");
 	t.push("people");
 	if (popupSubjects().length) t.push("suggest");
+	t.push("triggers");
 	t.push("commands");
 	return t;
 }
@@ -270,6 +275,7 @@ function viewKey(): string {
 		parts.push(JSON.stringify(who ? (getSessionView(who.id)?.gates ?? null) : null));
 	}
 	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
+	if (tab === "triggers") parts.push(triggersKey());
 	return parts.join("#");
 }
 
@@ -506,7 +512,7 @@ function setStatus(node: any, text: string): void {
 	node.textContent = text;
 }
 
-const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", commands: "Commands" };
+const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", commands: "Commands" };
 
 /** The tab row and whichever tab is chosen. */
 function renderBody(): void {
@@ -525,6 +531,7 @@ function renderBody(): void {
 	if (tab === "people") renderPeople(bodyEl, statusEl);
 	else if (tab === "suggest") renderSuggest(bodyEl, statusEl);
 	else if (tab === "me") renderMe(bodyEl, statusEl);
+	else if (tab === "triggers") renderTriggers(bodyEl, statusEl);
 	else renderCommands(bodyEl, statusEl);
 	bodyEl.scrollTop = keep;
 	drawnTab = tab;
@@ -635,6 +642,174 @@ function suggestButton(it: SuggestItem, name: string, status: any, gate: Gate): 
 	return wrap;
 }
 
+// --- Triggers (stage 5) ----------------------------------------------------------------------
+// Three parts, by role. Planting: for whoever is under you now. What you planted: per person here
+// you hold notes on (planted.ts — the subject's client is asked, once in a while, and answers only
+// about your own; nothing is decided from the notes). In you: the subject's own triggers and fade
+// speed, numbered exactly as /echs triggers numbers them, because the commands it types use them.
+
+/** Which Triggers groups are open. Planting first: it is what this tab is mostly for. */
+const triggerOpen = new Set<string>(["plant", "mine"]);
+/** When we last asked each person for their planted list from here, so the tab never floods. */
+const plantedAskedAt = new Map<number, number>();
+export const PLANTED_REASK_MS = 30_000;
+
+/** The people whose planted lists this tab shows: here now, and either under you or on your notes. */
+export function plantedPeople(): { id: number; name: string }[] {
+	const under = new Set(popupSubjects().map((s) => s.id));
+	return roomOthers()
+		.filter((c) => under.has(c.MemberNumber) || plantedNote(c.MemberNumber))
+		.map((c) => ({ id: c.MemberNumber, name: shownName(c) }));
+}
+
+/** Ask each of them, at most once every PLANTED_REASK_MS. One message per person, never per row. */
+function askPlantedLists(now: number = Date.now()): void {
+	for (const p of plantedPeople()) {
+		if (now - (plantedAskedAt.get(p.id) ?? 0) < PLANTED_REASK_MS) continue;
+		plantedAskedAt.set(p.id, now);
+		askPlanted(p.id, now);
+	}
+}
+
+function triggersKey(): string {
+	const who = currentSubject();
+	const planted = plantedPeople().map((p) => `${p.id}:${plantedStatus(p.id)}:${plantedNote(p.id)?.updatedAt ?? 0}`);
+	const mine = listTriggers().map((t) => `${t.key}:${isTriggerInEffect(t) ? 1 : 0}`);
+	return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), extremeLocked() ? "x" : ""].join("|");
+}
+
+function triggerGroup(body: any, key: string, title: string, fill: (list: any) => void): void {
+	const isOpen = triggerOpen.has(key);
+	const head = el("button", "echs-pop-group", `${isOpen ? "−" : "+"}  ${title}`);
+	head.type = "button";
+	head.setAttribute?.("aria-expanded", String(isOpen));
+	head.addEventListener("click", () => {
+		if (triggerOpen.has(key)) triggerOpen.delete(key);
+		else triggerOpen.add(key);
+		renderBody();
+	});
+	body.appendChild(head);
+	if (!isOpen) return;
+	const list = el("div", "echs-pop-list");
+	fill(list);
+	body.appendChild(list);
+}
+
+function triggerLineButton(line: TriggerLine, name: string, status: any): any {
+	const text = suggestionText(name, line.phrase);
+	const b = el("button", `echs-pop-item echs-pop-say${line.release ? " echs-pop-release" : ""}`, `${line.release ? "↺ " : ""}${line.label}`);
+	b.type = "button";
+	b.title = text;
+	b.addEventListener("click", () =>
+		typeIt(status, text, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`),
+	);
+	return b;
+}
+
+function chip(label: string, tip: string, onClick: () => void, faded = false): any {
+	const c = el("button", `echs-pop-chip${faded ? " echs-pop-off" : ""}`, label);
+	c.type = "button";
+	c.title = tip;
+	c.addEventListener("click", onClick);
+	return c;
+}
+
+function renderTriggers(body: any, status: any): void {
+	body.textContent = "";
+	askPlantedLists();
+	const who = currentSubject();
+	// 1. Planting, for whoever is under you.
+	if (who) {
+		body.appendChild(el("div", "echs-pop-hint", `Planting in ${who.name}. Needs a Deep trance, on earned depth.`));
+		for (const g of PLANT_GROUPS)
+			triggerGroup(body, g.key, g.title, (list) => {
+				if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
+				for (const line of g.lines) list.appendChild(triggerLineButton(line, who.name, status));
+			});
+	} else {
+		body.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first. The planting lines appear here."));
+	}
+	// 2. What you planted, per person here.
+	for (const p of plantedPeople()) {
+		triggerGroup(body, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
+			list.appendChild(el("div", "echs-pop-hint", plantedHeading(p.id, p.name)));
+			const entries = plantedNote(p.id)?.triggers ?? [];
+			for (const t of entries) {
+				const row = el("div", "echs-pop-entry");
+				row.appendChild(el("div", "echs-pop-person", plantedTitle(t)));
+				const detail = [plantedState(t), t.does.join("; ")].filter(Boolean).join(" · ");
+				if (detail) row.appendChild(el("div", "echs-pop-desc", detail));
+				if (t.word) {
+					const chips = el("div", "echs-pop-buttons");
+					for (const line of plantedLines(t.word)) {
+						const text = suggestionText(p.name, line.phrase);
+						chips.appendChild(chip(line.label, text, () => typeIt(status, text, `Typed. Press Enter to say it to ${p.name}.`)));
+					}
+					row.appendChild(chips);
+				} else row.appendChild(el("div", "echs-pop-desc", "No word: only “remove everything I planted” below takes it away."));
+				list.appendChild(row);
+			}
+			if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
+		});
+	}
+	// 3. Triggers in you.
+	const mine = sweptTriggers();
+	const locked = extremeLocked();
+	triggerGroup(body, "mine", `Triggers in you (${mine.length})`, (list) => {
+		if (!mine.length) list.appendChild(el("div", "echs-pop-empty", "Nothing is planted in you."));
+		const reveal = triggerPhrasesVisible(false);
+		mine.forEach((t, i) => {
+			const n = i + 1;
+			const holding = isTriggerInEffect(t);
+			const row = el("div", "echs-pop-entry");
+			row.appendChild(el("div", "echs-pop-person", `${n}. ${reveal && t.phrase ? `"${t.phrase}"` : t.fireOn ? "a compulsion" : "word hidden"}`));
+			row.appendChild(el("div", "echs-pop-desc", triggerSummary(t)));
+			const chips = el("div", "echs-pop-buttons");
+			chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
+			// Typed even when it will be refused, and the status says why: the command decides (rule 1),
+			// and a refusal said out loud beats a button that silently does nothing (rule 5).
+			const why = locked
+				? "Your Extreme lock is on: triggers can only be added until it ends."
+				: holding
+					? "It is holding you: wait, have it released, or use the safeword."
+					: "";
+			chips.appendChild(
+				chip(
+					"forget",
+					why || `/echs forgettrigger ${n}`,
+					() => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to remove it."),
+					!!why,
+				),
+			);
+			row.appendChild(chips);
+			list.appendChild(row);
+		});
+		if (mine.length > 1)
+			list.appendChild(
+				chip(
+					"forget all",
+					locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
+					() => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
+					locked,
+				),
+			);
+		list.appendChild(el("div", "echs-pop-hint", "How fast your triggers fade:"));
+		const rates = el("div", "echs-pop-buttons");
+		const now = getTriggerDecayRate();
+		for (const r of DECAY_RATES) {
+			const c = chip(
+				r.label,
+				locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
+				() => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
+				locked,
+			);
+			if (r.key === now) c.className += " echs-pop-chip-on";
+			rates.appendChild(c);
+		}
+		list.appendChild(rates);
+	});
+}
+
 function typeIt(status: any, text: string, done: string): void {
 	if (fillChat(text)) setStatus(status, done);
 	else setStatus(status, "No chat box to type into. This works in a chat room.");
@@ -728,6 +903,8 @@ const POPUP_CSS = `
 .echs-pop-alts{margin-left:14px;border-left:2px solid #26335c}
 .echs-pop-alt{font-size:12px;opacity:.85}
 .echs-pop-tag{align-self:center;margin:0 4px}
+.echs-pop-entry{padding:4px 6px;border-bottom:1px solid #1d2747}
+.echs-pop-entry .echs-pop-buttons{padding:3px 0 0}
 .echs-pop-off{opacity:.38}
 .echs-pop-off:hover{opacity:.6}
 .echs-pop-deeper .echs-pop-say{color:#c9cfe0}

@@ -338,6 +338,102 @@ byText("Safeword")[0].click();
 popup.popupTick();
 check("safeword ends it: Me gone", popup.subjectSide() === null && popup.getPopupTab() === "people", `no subject side and back on People, got ${popup.subjectSide()} / "${popup.getPopupTab()}"`);
 
+// 10. Triggers (stage 5).
+const T = (await import("./harness-bundle.mjs")).popupTriggers;
+// Every planting line, name in front (finished with its sample where it needs finishing), is read
+// by the parsers as what it says it is.
+const expectKind = { start: "start", commit: "commit", cancel: "cancel", drop: "drop", say: "say" };
+const plantWrong = [];
+for (const g of T.PLANT_GROUPS) for (const l of g.lines) {
+	const line = `Bea, ${l.sample ?? l.phrase}`;
+	const ctl = voice.parseTriggerControl(line);
+	const ok =
+		g.key === "shape" && !expectKind[l.id] ? ctl?.kind === "option"
+		: g.key === "compel" ? ctl?.kind === "condition" && voice.parseCondition(line)?.rest === "you will kneel"
+		: g.key === "keep" ? voice.isReinforceLine(line)
+		: ctl?.kind === expectKind[l.id];
+	if (!ok) plantWrong.push(`${l.id}: "${line}" -> ${JSON.stringify(ctl)}`);
+	if (!!l.finish !== !!l.sample) plantWrong.push(`${l.id}: a line to finish needs a sample, and only then`);
+}
+check("every planting line parses", plantWrong.length === 0, `each line read as intended, wrong: ${plantWrong.join("; ")}`);
+const plantedWrong = [];
+const [fire, rel, rem] = T.plantedLines("sleepy time").map((l) => `Bea, ${l.phrase}`);
+if (!fire.includes("sleepy time")) plantedWrong.push("say it");
+if (!voice.isTriggerReleaseLine(rel)) plantedWrong.push(`release "${rel}"`);
+if (voice.parseTriggerRemoval(rem)?.phrase !== "sleepy time") plantedWrong.push(`remove "${rem}"`);
+if (voice.parseTriggerRemoval(`Bea, ${T.FORGET_ALL.phrase}`)?.kind !== "all") plantedWrong.push("remove everything");
+if (voice.isTriggerRemovalLine(rel) || voice.isTriggerReleaseLine(rem)) plantedWrong.push("release and remove overlap");
+check("release / remove / remove all parse", plantedWrong.length === 0, `each read as intended, wrong: ${plantedWrong.join("; ")}`);
+
+// The tab: always there; planting lines only while someone is under you.
+ChatRoomCharacter = [Player, { MemberNumber: A, Name: "Alice", Nickname: "Ali" }, { MemberNumber: B, Name: "Bea" }];
+check("Triggers tab always offered", popup.availableTabs().includes("triggers"), "a Triggers tab with nobody under you");
+popup.setPopupTab("triggers");
+const hint = (start) => findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith(start)).length === 1;
+check("nobody under: says how to start", hint("To plant a trigger, put someone under first"), "the put-someone-under-first line");
+update(B, { phase: "Hypnotized", attempts: 1 });
+popup.setPopupTab("triggers");
+popup.popupTick();
+check("someone under: planting for them", popup.getPopupTab() === "triggers" || popup.getPopupTab() === "suggest", "still offering Triggers");
+popup.setPopupTab("triggers");
+check("planting names them", hint("Planting in Bea."), "the Planting in Bea line");
+const trigBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-item") && n.textContent.replace(/^↺ /, "") === label)[0];
+trigBtn("your trigger word is …").click();
+check("start: typed to finish", chatBox.value === "Bea, your trigger word is " && status().includes("Finish it (the word or phrase)"), `"Bea, your trigger word is " and a finish-it status, got "${chatBox.value}" / "${status()}"`);
+trigBtn("remember trigger").click();
+check("commit typed", chatBox.value === "Bea, remember trigger", `"Bea, remember trigger", got "${chatBox.value}"`);
+check("shaping closed at first", !trigBtn("anyone can use it") && byText("+  Shape it").length === 1, "Shape it collapsed at first");
+
+// What you planted: from Bea's own answer, asked once.
+const asks = () => hidden.filter((m) => m.type === "state-query" && m.planted && m.to === B).length;
+const asksBefore = asks();
+// The answer as remote.ts's state-response handler passes it on (remote.ts is not installed here).
+(await import("./harness-bundle.mjs")).planted.receivePlanted(B, "Bea", [
+	{ word: "sleepy time", when: "", does: ["kneel"], strength: "full strength", once: false, holding: false },
+	{ word: "", when: "when Rei comes in", does: ["kneel"], strength: "full strength", once: true, holding: false },
+]);
+popup.popupTick();
+check("planted group for Bea", byText("+  What you planted in Bea").length === 1, "a What you planted in Bea group");
+byText("+  What you planted in Bea")[0].click();
+check("asked once, not per redraw", asks() - asksBefore <= 1, `at most one ask of Bea, got ${asks() - asksBefore}`);
+popup.setPopupTab("people"); popup.setPopupTab("triggers"); popup.popupTick();
+check("not asked again within 30s", asks() - asksBefore <= 1, `still at most one ask after reopening, got ${asks() - asksBefore}`);
+const chipIn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label);
+check("a row per planted trigger", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"sleepy time"').length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "when Rei comes in").length === 1, "rows for sleepy time and the compulsion");
+check("one set of chips (the compulsion has none)", chipIn("release").length === 1 && chipIn("remove").length === 1 && chipIn("say it").length === 1, `say it / release / remove once, got ${chipIn("release").length}`);
+chipIn("release")[0].click();
+check("release typed", chatBox.value === "Bea, you are released from sleepy time", `got "${chatBox.value}"`);
+chipIn("remove")[0].click();
+check("remove typed", chatBox.value === "Bea, forget the trigger sleepy time", `got "${chatBox.value}"`);
+trigBtn("remove everything I planted").click();
+check("remove all typed", chatBox.value === "Bea, forget every trigger I gave you", `got "${chatBox.value}"`);
+check("compulsion says how to remove it", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent.startsWith("No word")).length === 1, "the no-word note on the compulsion");
+
+// Triggers in you: numbered as /echs triggers numbers them; refused things say so.
+const plantIn = (phrase) => storage.saveTrigger({ phrase, actions: ["movement-block"], installedBy: A, installedByName: "Alice", installedAt: Date.now(), plantedDepth: 60, plantedChemical: false, reinforcedAt: Date.now(), firings: 0 });
+plantIn("bluebell");
+plantIn("snowdrop");
+popup.popupTick();
+check("own triggers listed", byText("−  Triggers in you (2)").length === 1, `a Triggers in you (2) group, got ${findAll(win(), (n) => n.className.startsWith("echs-pop-group")).map((n) => n.textContent).join(" | ")}`);
+check("words hidden by default", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "1. word hidden").length === 1, "row 1 reads word hidden");
+chipIn("forget")[1].click();
+check("forget types its number", chatBox.value === "/echs forgettrigger 2" && status() === "Typed. Press Enter to remove it.", `"/echs forgettrigger 2", got "${chatBox.value}" / "${status()}"`);
+chipIn("details")[0].click();
+check("details types its number", chatBox.value === "/echs triggers 1", `got "${chatBox.value}"`);
+chipIn("Fast")[0].click();
+check("fade speed typed", chatBox.value === "/echs triggerdecay fast", `got "${chatBox.value}"`);
+check("current fade speed marked", chipIn("Never")[0].className.includes("echs-pop-chip-on"), "Never marked as the current speed");
+storage.startExtremeLock("trial", Date.now());
+popup.popupTick();
+check("Extreme lock: forget faded", chipIn("forget")[0].className.includes("echs-pop-off") && chipIn("Fast")[0].className.includes("echs-pop-off"), "forget and the fade speeds faded under the lock");
+chipIn("forget")[0].click();
+check("Extreme lock: still types, says refused", chatBox.value === "/echs forgettrigger 1" && status().includes("will be refused") && status().includes("Extreme lock"), `typed with a refused status, got "${status()}"`);
+check("never mentions the way out", !JSON.stringify(findAll(win(), () => true).map((n) => n.title + n._text)).includes("exit_extreme"), "no exit_extreme anywhere in the window");
+storage.clearExtremeLock();
+storage.forgetAllTriggers();
+update(B, { phase: "Idle" });
+popup.popupTick();
+
 ChatRoomCharacter = [Player];
 popup.popupTick();
 check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");
