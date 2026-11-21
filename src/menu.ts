@@ -2075,6 +2075,17 @@ export const EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
  * Every BC global it touches is typeof-guarded: if a future release renames one, this returns
  * false rather than throwing, and the caller points the user at the manual path instead. */
 export async function openHelpScreen(): Promise<boolean> {
+	return enterSettings(true);
+}
+
+/** Open Preferences > Extensions > ECHS Hypnosis on its first tab, no guide: the ECHS popup's gear
+ * (v1.13.4, DW). The same entry as `/echs help`, checked again against R134 (Preference.js
+ * PreferenceOpenSubscreen, Extensions.js's list click). Leaving it is the game's own way back. */
+export async function openSettingsScreen(): Promise<boolean> {
+	return enterSettings(false);
+}
+
+async function enterSettings(withHelp: boolean): Promise<boolean> {
 	try {
 		if (typeof PreferenceOpenSubscreen !== "function" || typeof PreferenceExtensionsSettings === "undefined") {
 			return false;
@@ -2089,7 +2100,7 @@ export async function openHelpScreen(): Promise<boolean> {
 			ElementWrap(PreferenceIDs.subscreen)?.toggleAttribute("hidden", true);
 		}
 		screen.load?.();
-		openHelp();
+		if (withHelp) openHelp();
 		return true;
 	} catch {
 		return false;

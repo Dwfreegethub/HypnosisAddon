@@ -12,6 +12,10 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.4 RC · 21 November 2026
+
+- **A gear on the ECHS popup** takes you straight to the ECHS settings.
+
 ## v1.13.3 RC · 21 November 2026
 
 - **Less spam while denied.** Held at the edge by *"you cannot cum"* while wearing something that

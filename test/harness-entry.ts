@@ -38,3 +38,4 @@ export * as badge from "../src/badge";
 export * as popup from "../src/popup";
 export * as popupSuggest from "../src/popup-suggest";
 export * as popupTriggers from "../src/popup-triggers";
+export * as help from "../src/help";
