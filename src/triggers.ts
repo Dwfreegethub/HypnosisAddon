@@ -602,17 +602,21 @@ onTeardown(() => {
 
 // --- delayed compulsions: arming and matching (Build 6) ---------------------------------------
 //
-// "5 minutes after you wake" arms when a trance with its INSTALLER ends by an ordinary wake or
-// timeout: a due time is stored, and voice.ts's poller fires it when it comes round. A stored time,
-// not a timer, because timers die with the page and with every clearAllTimers(), and DW's rule is
-// that the clock keeps running while logged out (2026-09-25). Another hypnotist's trance does not
-// arm it — the compulsion belongs to the trance it was planted in and its installer's next ones.
+// "5 minutes after you wake" arms when ANY trance ends by an ordinary wake or timeout: a due time is
+// stored, and voice.ts's poller fires it when it comes round. A stored time, not a timer, because
+// timers die with the page and with every clearAllTimers(), and DW's rule is that the clock keeps
+// running while logged out (2026-09-25).
+//
+// ANY TRANCE, NOT ONLY THE INSTALLER'S (v1.13.1; a player's report, DW 2026-11-21). Until then
+// only a trance with whoever planted it armed it, so a "when you open your eyes, take something off"
+// never went off when someone else had her under, and players read "when you wake" as every time. It matches the arrive/speak compulsions, which never asked who. It still fires as
+// its installer's (fireTrigger(t, t.installedBy)), and the safeword still discards it (below).
 onWake((hypnotistId) => {
 	if (hypnotistId == null) return;
 	const now = Date.now();
 	let armed = 0;
 	for (const t of listTriggers()) {
-		if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
+		if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t)) continue;
 		t.dueAt = now + (t.delayMs ?? 0);
 		armed++;
 	}

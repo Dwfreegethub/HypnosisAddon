@@ -18,6 +18,21 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-21 (v1.13.1 RC) — wake compulsions arm on any trance's wake
+
+A player's report (feedback 2026-11-20, and passed on by DW 2026-11-21): a planter's "when you open
+your eyes, take something off" only went off when the planter was the one who had her under. That
+was Build 6's rule
+(v0.90.0): `onWake` armed a wake compulsion only when the trance ending was its installer's. Players
+read "when you wake" as every time, and the arrive/speak compulsions never asked who.
+- **Decided (DW):** any trance's ordinary wake or timeout arms it. Considered and not chosen: the
+  word triggers' "who can use it" rule (the subject's scope defaults to Hypnotist only, so the reported
+  case would still not work), and keeping it with better help text.
+- Unchanged: it still fires as its installer's (`fireTrigger(t, t.installedBy)`), never while she is
+  under, and the safeword / hard floor still discard it (`onTotalStop`).
+- `test/compulsion.mjs` now checks another hypnotist's wake arms it, it goes off, and it holds as
+  the installer's; with the old rule restored, those three fail.
+
 ### Added 2026-11-21 (v1.13.0 RC) — the ECHS popup
 
 DW, 2026-11-21 (job4.md, local): players find ECHS hard to use because the typed commands and
