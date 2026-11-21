@@ -65,6 +65,8 @@ export type PopupTab = "me" | "people" | "suggest" | "commands";
 let tab: PopupTab = "people";
 /** Which Suggestions groups are open. Trance first: waking and going deeper are needed most. */
 const suggestOpen = new Set<string>(["trance"]);
+/** Which suggestions have their other wordings showing. */
+const altOpen = new Set<string>();
 /** The subject the Suggestions tab is for, when more than one is under you. */
 let chosenSubject: number | null = null;
 /** For switching tabs by themselves only when something CHANGES, never against the player's click. */
@@ -556,14 +558,39 @@ function renderSuggest(body: any, status: any): void {
 	}
 }
 
+/** One suggestion: the line itself types its first wording; a + beside it opens the other wordings
+ * one level down, each of which types itself (DW, 2026-11-21). */
 function suggestButton(it: SuggestItem, name: string, status: any): any {
-	const text = suggestionText(name, it.phrase);
-	const item = el("button", `echs-pop-item${it.release ? " echs-pop-release" : ""}`);
-	item.type = "button";
-	item.title = it.more.length ? `Also works: ${it.more.join(" · ")}` : text;
-	item.appendChild(el("div", "echs-pop-say", `${it.release ? "↺ " : ""}${it.label}`));
-	item.addEventListener("click", () => typeIt(status, text, `Typed. Press Enter to say it to ${name}.`));
-	return item;
+	const wrap = el("div", "echs-pop-sug");
+	const row = el("div", "echs-pop-row");
+	const say = (phrase: string, label: string, cls: string) => {
+		const text = suggestionText(name, phrase);
+		const b = el("button", cls, label);
+		b.type = "button";
+		b.title = text;
+		b.addEventListener("click", () => typeIt(status, text, `Typed. Press Enter to say it to ${name}.`));
+		return b;
+	};
+	row.appendChild(say(it.phrase, `${it.release ? "↺ " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`));
+	const isOpen = altOpen.has(it.id);
+	if (it.alternates.length) {
+		const more = el("button", "echs-pop-more", isOpen ? "−" : `+${it.alternates.length}`);
+		more.type = "button";
+		more.title = isOpen ? "Hide the other wordings" : "Other ways to say it";
+		more.addEventListener("click", () => {
+			if (altOpen.has(it.id)) altOpen.delete(it.id);
+			else altOpen.add(it.id);
+			renderBody();
+		});
+		row.appendChild(more);
+	}
+	wrap.appendChild(row);
+	if (isOpen) {
+		const alts = el("div", "echs-pop-alts");
+		for (const a of it.alternates) alts.appendChild(say(a, a, `echs-pop-item echs-pop-alt${it.release ? " echs-pop-release" : ""}`));
+		wrap.appendChild(alts);
+	}
+	return wrap;
 }
 
 function typeIt(status: any, text: string, done: string): void {
@@ -650,8 +677,14 @@ const POPUP_CSS = `
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
 .echs-pop-person{font-weight:600}
+.echs-pop-row{display:flex;align-items:stretch}
+.echs-pop-row .echs-pop-item{flex:1}
 .echs-pop-say{color:#e4ecff}
-.echs-pop-release .echs-pop-say{color:#9fe0b8}
+.echs-pop-say.echs-pop-release,.echs-pop-alt.echs-pop-release{color:#9fe0b8}
+.echs-pop-more{background:none;border:none;border-bottom:1px solid #1d2747;color:#9fd0ff;font-size:11px;min-width:34px;cursor:pointer}
+.echs-pop-more:hover{background:#1b2648}
+.echs-pop-alts{margin-left:14px;border-left:2px solid #26335c}
+.echs-pop-alt{font-size:12px;opacity:.85}
 .echs-pop-buttons{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px}
 .echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
 .echs-pop-chip:hover{background:#22305a}

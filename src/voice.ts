@@ -1812,6 +1812,8 @@ export interface SuggestionHelp {
 	 * same as `examples`. The test still checks `examples`, so display can read however it likes. */
 	display: string[];
 	release: boolean;
+	/** For a release, the ids it gives back. The ECHS popup lists it under them. */
+	releaseOf: string[];
 	/** The tier this needs, as a label. Looked up from the permission rather than stored on
 	 * the suggestion, so the help screen and the gate cannot disagree. */
 	depthTier?: string;
@@ -1837,6 +1839,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		examples: s.examples,
 		display: s.displayExamples ?? s.examples,
 		release: !!s.release,
+		releaseOf: s.releaseOf === undefined ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
 		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));
 }

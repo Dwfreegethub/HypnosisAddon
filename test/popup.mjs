@@ -203,6 +203,18 @@ byText("+  Body & pose")[0].click();
 sayBtn("kneel").click();
 check("+ opens a group", chatBox.value === "Bea, kneel", `"Bea, kneel" from Body & pose, got "${chatBox.value}"`);
 check("release marked", sayBtn("stand")?.className.includes("echs-pop-release") && sayBtn("stand").textContent.startsWith("↺"), "stand marked ↺ as a release");
+// The other wordings, one level down.
+const moreBtn = (label) => sayBtn(label).parent.children.find((n) => n.className === "echs-pop-more");
+check("+ shows how many", moreBtn("kneel")?.textContent === "+1" && !sayBtn("on your knees"), `a "+1" beside kneel and its other wording hidden, got "${moreBtn("kneel")?.textContent}"`);
+moreBtn("kneel").click();
+check("+ opens the wordings", !!sayBtn("on your knees") && moreBtn("kneel").textContent === "−", "on your knees shown under kneel, its button now −");
+sayBtn("on your knees").click();
+check("a wording types itself", chatBox.value === "Bea, on your knees", `"Bea, on your knees", got "${chatBox.value}"`);
+sayBtn("kneel").click();
+check("the line still types the first", chatBox.value === "Bea, kneel", `"Bea, kneel" from the line itself, got "${chatBox.value}"`);
+moreBtn("kneel").click();
+check("− closes them", !sayBtn("on your knees"), "on your knees hidden again");
+check("no + for a single wording", !moreBtn("elbows behind your back"), "no + beside a suggestion with one wording");
 // Every phrase it can type, with a name in front, is what the add-on listens for.
 const { voice } = await import("./harness-bundle.mjs");
 const sug = await import("./harness-bundle.mjs").then((m) => m.popupSuggest);
@@ -211,8 +223,8 @@ check("every permission has a group", !cats.some((c) => c.key === "other"), `no 
 const itemIds = cats.flatMap((c) => c.items.map((i) => i.id));
 check("each suggestion once", new Set(itemIds).size === itemIds.length && voice.suggestionHelp().every((s) => itemIds.includes(s.id)), "every voice.ts suggestion listed exactly once");
 const wrong = [];
-for (const c of cats) for (const it of c.items) {
-	const line = sug.suggestionText("Bea", it.phrase);
+for (const c of cats) for (const it of c.items) for (const phrase of [it.phrase, ...it.alternates]) {
+	const line = sug.suggestionText("Bea", phrase);
 	const ok = it.id === "x-wake" ? voice.isWakeLine(line)
 		: it.id === "x-deeper" ? voice.isDeepeningLine(line)
 		: it.id === "x-walk" ? voice.walkingLineKind(line) === "enter"
@@ -223,7 +235,17 @@ for (const c of cats) for (const it of c.items) {
 		: voice.matchSuggestion(line) === it.id;
 	if (!ok) wrong.push(`${it.id}: "${line}" -> ${voice.matchSuggestion(line)}`);
 }
-check("every typed phrase matches", wrong.length === 0, `each phrase to match its own suggestion, wrong: ${wrong.join("; ")}`);
+check("every typed phrase matches", wrong.length === 0, `each phrase and alternate to match its own suggestion, wrong: ${wrong.join("; ")}`);
+check("alternates are counted", cats.flatMap((c) => c.items).reduce((n, i) => n + i.alternates.length, 0) > 50, "the alternates included in that check (over 50 of them)");
+// Releases under what they give back (DW 2026-11-21), kneel first.
+const order = (key) => cats.find((c) => c.key === key).items.map((i) => i.id);
+const after = (key, a, b) => order(key).indexOf(a) > order(key).indexOf(b);
+check("sight: release last", after("senses", "sight-release", "sight-dim") && after("senses", "sight-release", "sight-blind"), `↺ you can see again after the three sight lines, got ${order("senses").join(",")}`);
+check("speech: release under it", order("senses").indexOf("speech-release") === order("senses").indexOf("speech-block") + 1, "↺ you can speak again straight under you cannot speak");
+check("mouth release before the eyes", after("face", "mouth-close", "moan") && after("face", "eyes-closed", "mouth-close"), `↺ close your mouth after the mouth lines and before the eyes, got ${order("face").join(",")}`);
+check("kneel first, stand after the poses", order("body")[0] === "kneel" && after("body", "stand", "lie-down"), `kneel first and ↺ stand after lie down, got ${order("body").join(",")}`);
+check("orgasm-allow under deny", order("arousal").indexOf("orgasm-allow") === order("arousal").indexOf("orgasm-deny") + 1, `↺ you may come under you cannot come, got ${order("arousal").join(",")}`);
+check("wake last in Trance", order("trance").at(-1) === "x-wake", `↺ wake up last, got ${order("trance").join(",")}`);
 // Two under you: a switcher, and the name follows the choice.
 update(A, { phase: "Hypnotized", attempts: 1 });
 popup.popupTick();

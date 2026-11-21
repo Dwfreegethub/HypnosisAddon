@@ -22,8 +22,11 @@ export type SuggestItem = {
 	release: boolean;
 	/** The permission(s) it needs, as voice.ts names them; "" for always-allowed. For stage 4's greying. */
 	permission: string;
-	/** Other wordings that also work, for the hover text. */
-	more: string[];
+	/** Other REAL wordings that also work (voice.ts examples, never display merges), one level down
+	 * in the list (DW, 2026-11-21). Each is checked against the matchers in test/popup.mjs. */
+	alternates: string[];
+	/** For a release, the ids it gives back, so it can be listed under them. */
+	releaseOf?: string[];
 };
 export type SuggestCategory = { key: string; title: string; items: SuggestItem[] };
 
@@ -63,14 +66,14 @@ const FACE_ID = /^(tongue|mouth|lip|smile|grin|smirk|pout|moan|eyes|blush|face)\
 
 /** Not in voice.ts's table. Each is checked against the real matcher in test/popup.mjs. */
 export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
-	{ cat: "trance", item: { id: "x-deeper", label: "sink deeper", phrase: "sink deeper", release: false, permission: "", more: ["deeper and deeper", "drift deeper"] } },
-	{ cat: "trance", item: { id: "x-walk", label: "walk with me (stay under, on your feet)", phrase: "walk with me", release: false, permission: "", more: [] } },
-	{ cat: "trance", item: { id: "x-still", label: "be still (back to the full trance)", phrase: "be still", release: false, permission: "", more: [] } },
-	{ cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", more: ["you are awake", "come back to me"] } },
-	{ cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", more: ["you cannot touch your breasts"] } },
-	{ cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", more: [] } },
-	{ cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", more: ["touch your breasts", "pinch your nipples"] } },
-	{ cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", more: ["pinch my nipples"] } },
+	{ cat: "trance", item: { id: "x-deeper", label: "sink deeper", phrase: "sink deeper", release: false, permission: "", alternates: ["deeper and deeper", "drift deeper"] } },
+	{ cat: "trance", item: { id: "x-walk", label: "walk with me (stay under, on your feet)", phrase: "walk with me", release: false, permission: "", alternates: [] } },
+	{ cat: "trance", item: { id: "x-still", label: "be still (back to the full trance)", phrase: "be still", release: false, permission: "", alternates: [] } },
+	{ cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
+	{ cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
+	{ cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
+	{ cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
+	{ cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
 ];
 
 function categoryFor(id: string, permission: string): string {
@@ -90,11 +93,39 @@ export function suggestCategories(): SuggestCategory[] {
 			phrase: s.examples[0],
 			release: s.release,
 			permission: s.permission,
-			more: s.display.slice(1),
+			alternates: s.examples.slice(1),
+			releaseOf: s.releaseOf,
 		});
 	}
 	for (const x of EXTRA_ITEMS.filter((e) => e.cat !== "trance")) buckets.get(x.cat)!.push(x.item);
-	return CATEGORY_TITLES.map(([key, title]) => ({ key, title, items: buckets.get(key)! })).filter((c) => c.items.length > 0);
+	return CATEGORY_TITLES.map(([key, title]) => ({ key, title, items: ordered(key, buckets.get(key)!) })).filter((c) => c.items.length > 0);
+}
+
+/** Kneel first in Body & pose: it is the one asked for most. */
+const LEADS: Record<string, string[]> = { body: ["kneel"] };
+
+/** Each release goes BELOW what it gives back (DW, 2026-11-21): "can't see, barely see, dim,
+ * ↺ see again", never the release first. voice.ts records what each release undoes (releaseOf), so
+ * it goes straight after the last of those; one that names none (wake up) goes at the end. */
+export function ordered(key: string, items: SuggestItem[]): SuggestItem[] {
+	const lead = LEADS[key] ?? [];
+	const base = [...items.filter((i) => lead.includes(i.id)), ...items.filter((i) => !lead.includes(i.id))];
+	const out = base.filter((i) => !i.release);
+	for (const r of base.filter((i) => i.release)) {
+		const undoes = new Set(r.releaseOf ?? []);
+		let at = -1;
+		out.forEach((it, n) => {
+			if (undoes.has(it.id)) at = n;
+		});
+		if (at < 0) {
+			out.push(r);
+			continue;
+		}
+		// After any release already placed there, so two releases of one thing keep table order.
+		while (at + 1 < out.length && out[at + 1].release) at++;
+		out.splice(at + 1, 0, r);
+	}
+	return out;
 }
 
 /** What a click types: the subject's name, then the wording. Their name is what makes it theirs
