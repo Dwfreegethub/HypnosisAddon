@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.3 RC · 21 November 2026
+
+- **Less spam while denied.** Held at the edge by *"you cannot cum"* while wearing something that
+  keeps arousal up, you and the room were told every minute. Now the room is told once, and you are
+  told again less and less often: after 2 minutes, then 4, 8, and at most every 15 minutes. Five
+  quiet minutes and it starts over.
+
 ## v1.13.2 RC · 21 November 2026
 
 - **The ECHS popup can be resized.** Drag its bottom-right corner; it remembers the size, as it does

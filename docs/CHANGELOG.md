@@ -18,6 +18,16 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-21 (v1.13.3 RC) — the held orgasm is said ever more rarely
+
+A player's report, passed on by DW 2026-11-21: denied and wearing something that drives arousal, the
+"held at the edge" line came every minute or two. `denial.ts` said it at most once a minute, both
+privately and as a room emote, for as long as the toy ran.
+- **Now an episode** (`heldAnnouncement`): the first hold is said to her and the room; repeats are
+  private only, at 2, 4, 8, then 15-minute gaps (capped); five minutes with no hold ends the episode.
+- `test/denial.mjs`: the schedule step by step, and through the real hook the room told once per
+  episode and her twice in ten minutes of climbs; sending repeats to the room again fails 2.
+
 ### Added 2026-11-21 (v1.13.2 RC) — the popup can be resized
 
 DW asked. The browser's own grip (CSS `resize: both`), so nothing fights BC for the mouse; a
