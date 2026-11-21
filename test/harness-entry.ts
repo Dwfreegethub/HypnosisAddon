@@ -35,3 +35,4 @@ export * as drugs from "../src/drugs";
 export * as follow from "../src/follow";
 export * as planted from "../src/planted";
 export * as badge from "../src/badge";
+export * as popup from "../src/popup";

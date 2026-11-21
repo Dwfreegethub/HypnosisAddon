@@ -72,6 +72,8 @@ import {
 	ECHS_ICON_SPOTS,
 	getEchsIconSpot,
 	setEchsIconSpot,
+	getPopupEnabled,
+	setPopupEnabled,
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
@@ -269,14 +271,16 @@ const TABS: Tab[] = [
 		],
 		scrollExtra: {
 			// The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
-			// where others' icons go.
-			height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			// where others' icons go, then the ECHS popup (job4.md).
+			height: () => tranceDropdownsHeight() + pulseControlsHeight() + 2 * (CYCLE_GAP + attemptControlHeight()),
 			draw: (top, width) => {
 				drawTranceDropdowns(top, width, settingsLocked());
 				const pulseTop = top + tranceDropdownsHeight();
 				drawPulseControls(pulseTop, width);
-				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
-				drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
+				// The viewer's own display choices, so not greyed by a lock: they change nothing about her.
+				const iconTop = pulseTop + pulseControlsHeight() + CYCLE_GAP;
+				drawCycle(ICON_SPOT_CONTROL, iconTop, width, false);
+				drawCycle(POPUP_CONTROL, iconTop + attemptControlHeight() + CYCLE_GAP, width, false);
 			},
 			click: (top) => {
 				const pulseTop = top + tranceDropdownsHeight();
@@ -288,6 +292,12 @@ const TABS: Tab[] = [
 				if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					ICON_SPOT_CONTROL.cycle();
 					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+					return true;
+				}
+				const popupTop = pulseTop + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight() + CYCLE_GAP;
+				if (MouseIn(BOX_LEFT, popupTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+					POPUP_CONTROL.cycle();
+					log(`setting now: ${POPUP_CONTROL.label()}`);
 					return true;
 				}
 				return false;
@@ -880,6 +890,17 @@ const ICON_SPOT_CONTROL: CycleControl = {
 		const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
 		setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
 	},
+};
+
+/** The floating ECHS window in chat rooms (job4.md). On by default. Last on the Trance Defaults tab. */
+const POPUP_CONTROL: CycleControl = {
+	label: () => `ECHS popup in rooms: ${getPopupEnabled() ? "On" : "Off"}`,
+	caption: () =>
+		getPopupEnabled()
+			? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it."
+			: "No spiral button in rooms. The /echs commands still work as typed.",
+	tooltip: "Show or hide the ECHS popup and its button in chat rooms",
+	cycle: () => setPopupEnabled(!getPopupEnabled()),
 };
 
 // The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes

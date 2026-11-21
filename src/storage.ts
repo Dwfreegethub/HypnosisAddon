@@ -547,6 +547,12 @@ interface HypnoAddonSettings {
 	pulseColor?: string;
 	/** Where she sees OTHER players' ECHS icons, one of ECHS_ICON_SPOTS (v1.7.0). Absent means "top". */
 	echsIconSpot?: string;
+	/** The ECHS popup (job4.md, DW 2026-11-21): on by default, so only switching it OFF is stored. */
+	popupOff?: boolean;
+	/** Where the popup window and its launcher were last dragged to, in page pixels. Absent means
+	 * the default spot. Clamped back on screen when drawn, so a smaller window never loses them. */
+	popupPos?: { x: number; y: number };
+	popupLauncherPos?: { x: number; y: number };
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -1630,6 +1636,29 @@ export function setEchsIconSpot(key: string): void {
 	const s = loadSettings();
 	if (key === "top") delete s.echsIconSpot;
 	else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+	saveSettings();
+}
+
+/** The ECHS popup (job4.md). A display choice for the viewer alone, so no lock applies to it. */
+export function getPopupEnabled(): boolean {
+	return loadSettings().popupOff !== true;
+}
+export function setPopupEnabled(on: boolean): void {
+	const s = loadSettings();
+	if (on) delete s.popupOff;
+	else s.popupOff = true;
+	saveSettings();
+}
+export type PopupSpot = "window" | "launcher";
+export function getPopupPos(which: PopupSpot): { x: number; y: number } | null {
+	const p = which === "window" ? loadSettings().popupPos : loadSettings().popupLauncherPos;
+	return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : null;
+}
+export function setPopupPos(which: PopupSpot, x: number, y: number): void {
+	const s = loadSettings();
+	const p = { x: Math.round(x), y: Math.round(y) };
+	if (which === "window") s.popupPos = p;
+	else s.popupLauncherPos = p;
 	saveSettings();
 }
 
