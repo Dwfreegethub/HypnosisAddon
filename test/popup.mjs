@@ -22,13 +22,22 @@ let syncs = 0;
 globalThis.ServerPlayerExtensionSettingsSync = () => syncs++;
 globalThis.ServerPlayerIsInChatRoom = () => true;
 let chatSent = [];
-globalThis.ServerSend = (type, data) => { if (type === "ChatRoomChat" && data?.Type !== "Hidden") chatSent.push(data); };
+let hidden = [];
+globalThis.ServerSend = (type, data) => {
+	if (type !== "ChatRoomChat") return;
+	if (data?.Type === "Hidden") hidden.push({ to: data.Target, ...data?.Dictionary?.[0]?.message });
+	else chatSent.push(data);
+};
 let local = [];
 globalThis.ChatRoomSendLocal = (m) => local.push(String(m?.textContent ?? m));
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
-globalThis.setInterval = () => 0;
-globalThis.clearInterval = () => {};
+// Timers that can be stopped, so a one-off poll (recovery's startup check) does not run every beat.
+const intervals = new Map();
+let nextTimer = 1;
+globalThis.setInterval = (fn) => { intervals.set(nextTimer, fn); return nextTimer++; };
+const beat = () => { for (const fn of [...intervals.values()]) fn(); };
+globalThis.clearInterval = (id) => intervals.delete(id);
 globalThis.CurrentScreen = "MainHall";
 globalThis.CurrentCharacter = null;
 
@@ -158,7 +167,7 @@ check("safeword runs at once", local.some((m) => m.includes("Safeword")) && stat
 check("safeword sends nothing to the room", chatSent.length === 0, "no public chat from the safeword button");
 
 // 6. People.
-const { badge, messaging, session } = await import("./harness-bundle.mjs");
+const { badge, messaging, session, depth } = await import("./harness-bundle.mjs");
 session.installSession();
 const A = 100, B = 200, C = 300, D = 400, E = 500, F = 600;
 ChatRoomCharacter = [
@@ -259,6 +268,31 @@ popup.popupTick();
 check("chosen one wakes: back to the other", popup.currentSubject()?.id === B && chips().length === 0, "Bea chosen again, no switcher, once Ali is no longer under");
 popup.setPopupTab("people");
 check("people redrawn with status", personBtn("Bea").textContent.includes("under you"), `Bea's row tagged "under you", got "${personBtn("Bea")?.textContent}"`);
+// 7b. Greying (stage 4), from Bea's own report.
+popup.setPopupTab("suggest");
+const tagOf = (label) => sayBtn(label)?.parent.parent.className ?? "";
+check("no report: nothing greyed, and says why", !tagOf("kneel").includes("off") && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.includes("older version")).length === 1, "no greying and the older-version line while Bea has sent no report");
+update(B, { phase: "Hypnotized", attempts: 1, gates: { ok: ["postureControl"], deeper: ["arousalControl"] } });
+popup.popupTick();
+check("report redraws the list", !findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.includes("older version")).length, "the older-version line gone once Bea reports");
+check("allowed: normal", tagOf("kneel") === "echs-pop-sug", `kneel shown normally, got "${tagOf("kneel")}"`);
+const groupHead = (title) => findAll(win(), (n) => n.className.startsWith("echs-pop-group") && n.textContent.includes(title))[0];
+check("group with nothing allowed is marked", groupHead("Speech, sight").textContent.endsWith("(not allowed)") && groupHead("Speech, sight").className.includes("echs-pop-off") && !groupHead("Body & pose").textContent.includes("not allowed") && !groupHead("Trance").textContent.includes("not allowed"), `Speech, sight & hearing marked (not allowed), Body and Trance not, got "${groupHead("Speech, sight").textContent}"`);
+groupHead("Speech, sight").click();
+groupHead("Arousal").click();
+check("not allowed: greyed", tagOf("you cannot speak").includes("echs-pop-off"), `you cannot speak greyed, got "${tagOf("you cannot speak")}"`);
+check("release never greyed", !tagOf("you can speak again").includes("off"), `↺ you can speak again not greyed (a release skips the permission), got "${tagOf("you can speak again")}"`);
+check("too shallow: tagged deeper", tagOf("you are very aroused").includes("echs-pop-deeper") && sayBtn("you are very aroused").parent.textContent.includes("deeper"), `you are very aroused tagged deeper, got "${tagOf("you are very aroused")}"`);
+check("wake never greyed", !tagOf("wake up").includes("off"), "wake up never greyed");
+sayBtn("you cannot speak").click();
+check("greyed still types, and says it won't land", chatBox.value === "Bea, you cannot speak" && status().includes("hasn't allowed this"), `typed with a won't-land status, got "${chatBox.value}" / "${status()}"`);
+sayBtn("you are very aroused").click();
+check("deeper says so", status().includes("isn't deep enough"), `a not-deep-enough status, got "${status()}"`);
+update(B, { phase: "Hypnotized", attempts: 1, gates: { ok: "everything", deeper: [] } });
+popup.popupTick();
+check("malformed report: treated as none", !tagOf("you cannot speak").includes("off") && session.getSessionView(B).gates === null, "a malformed report ignored (nothing greyed)");
+const missingKeys = [...new Set(cats.flatMap((c) => c.items.map((i) => i.permission)).flatMap((p) => p.split(" / ")).filter(Boolean))].filter((k) => !depth.SUGGESTION_GATE_KEYS.includes(k));
+check("every suggestion permission is reported", missingKeys.length === 0, `each permission in SUGGESTION_GATE_KEYS, missing ${missingKeys.join(", ")}`);
 update(B, { phase: "Idle" });
 popup.setPopupTab("suggest");
 popup.popupTick();
@@ -268,11 +302,34 @@ check("nobody under: tab gone", popup.getPopupTab() === "people" && byText("Sugg
 const HYP = A;
 check("Me hidden when nothing is on us", !popup.availableTabs().includes("me"), "no Me tab with no session on us");
 storage.setFeature("hypnoEnabled", true);
+storage.setFeature("postureControl", true);
+storage.setFeature("arousalControl", true);
+storage.setDepthOverride("postureControl", 10);
+storage.setDepthOverride("arousalControl", 90);
+storage.setDepthOverride("sightControl", 10);
+hidden = [];
 const forced = session.forceTrance(HYP, 40, 40);
 check("test trance started", forced === null, `forceTrance to start the fixture, refused: ${forced}`);
 popup.popupTick();
 check("under: Me, chosen by itself", popup.getPopupTab() === "me" && popup.subjectSide() === "under", `Me tab chosen once we are under, got "${popup.getPopupTab()}" / ${popup.subjectSide()}`);
 check("names who", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent === "You are under Ali.").length === 1, "the line \"You are under Ali.\"");
+check("depth shown", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Depth: ")).length === 1, "a Depth: line on the Me tab");
+// 9. The report (stage 4), our side: to our hypnotist only, permission names only.
+const reports = () => hidden.filter((m) => m.type === "session-update" && m.phase === "Hypnotized");
+const first = reports().at(-1);
+check("report sent to our hypnotist", first && first.to === HYP && first.gates, `a session-update with gates to Ali (${HYP}), got ${JSON.stringify(first)}`);
+check("allowed and deep enough", first?.gates.ok.includes("postureControl") && !first.gates.ok.includes("arousalControl"), `postureControl ok, got ${JSON.stringify(first?.gates)}`);
+check("allowed, too shallow", first?.gates.deeper.includes("arousalControl"), `arousalControl deeper (needs 90, at 40), got ${JSON.stringify(first?.gates)}`);
+check("not allowed: not mentioned", !JSON.stringify(first?.gates).includes("sightControl") && !JSON.stringify(first?.gates).includes("tranceCannotMove"), "sight (off) and trance defaults absent");
+check("no depth number in it", !("depth" in (first ?? {})) && !JSON.stringify(first?.gates ?? {}).match(/\d/), "no depth figure in the report");
+beat(); // let start-up polls finish what they would long since have done in a real session
+const before = reports().length;
+beat();
+check("unchanged: not re-sent", reports().length === before, `no new report on a beat with nothing changed, got ${reports().length - before}`);
+storage.setFeature("sightControl", true);
+beat();
+const latest = reports().at(-1);
+check("permission ticked mid-trance: re-sent", reports().length === before + 1 && latest.gates.ok.includes("sightControl"), `one new report with sightControl ok, got ${reports().length - before} / ${JSON.stringify(latest?.gates)}`);
 const meBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
 check("its buttons", ["Wake", "Fight", "Agree", "Ignore", "What is on me"].every((l) => meBtn(l)), "Wake, Fight, Agree, Ignore and What is on me");
 meBtn("Wake").click();

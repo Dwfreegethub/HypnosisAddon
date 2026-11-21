@@ -29,7 +29,10 @@ import {
 	isHypnotized,
 	isSessionLive,
 	currentHypnotistId,
+	currentTier,
 } from "./session";
+import { tierLabel } from "./depth";
+import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot } from "./storage";
 import { SPIRAL_ICON } from "./icon";
@@ -261,7 +264,11 @@ export function availableTabs(): PopupTab[] {
 function viewKey(): string {
 	const parts = [availableTabs().join(","), tab];
 	if (tab === "people") parts.push(peopleKey());
-	if (tab === "suggest") parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
+	if (tab === "suggest") {
+		const who = currentSubject();
+		parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
+		parts.push(JSON.stringify(who ? (getSessionView(who.id)?.gates ?? null) : null));
+	}
 	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
 	return parts.join("#");
 }
@@ -308,12 +315,30 @@ export function meView(): { lines: string[]; buttons: { label: string; text: str
 		];
 		const ext = getPendingExtend();
 		if (ext) out.unshift(b(`Stay (${ext.minutes} min more)`, "stay", "Your time is up: stay under for as long again"));
-		return { lines: [`You are under ${hypnotistName()}.`], buttons: out };
+		// The tier names from the Depth tab, from full depth, so it never tells her she is shallower
+		// than she is (rule 4). Hidden under the Extreme lock, which hides her depth everywhere.
+		const lines = [`You are under ${hypnotistName()}.`];
+		if (!extremeLocked()) lines.push(`Depth: ${tierLabel(currentTier())}`);
+		return { lines, buttons: out };
 	}
 	return { lines: ["Nobody has you under."], buttons: [] };
 }
 
 // --- Suggestions (stage 3): the hypnotist's side ---------------------------------------------
+
+/** Whether a suggestion would land, from the subject's own report (stage 4). "unknown" when they
+ * sent none: an older build, so nothing is greyed. Releases and the always-allowed lines (wake,
+ * deeper) are always "ok": a release skips the permission check and is never depth-gated
+ * (voice.ts). A line needing any of several permissions lands if any one does. */
+export type Gate = "ok" | "deeper" | "off" | "unknown";
+export function gateOf(it: SuggestItem, gates: { ok: string[]; deeper: string[] } | null): Gate {
+	if (!gates) return "unknown";
+	if (it.release || !it.permission) return "ok";
+	const keys = it.permission.split(" / ");
+	if (keys.some((k) => gates.ok.includes(k))) return "ok";
+	if (keys.some((k) => gates.deeper.includes(k))) return "deeper";
+	return "off";
+}
 
 /** Everyone in the room who is under YOU, by their last report to you. */
 export function popupSubjects(): { id: number; name: string }[] {
@@ -540,9 +565,15 @@ function renderSuggest(body: any, status: any): void {
 		body.appendChild(row);
 	}
 	body.appendChild(el("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. ↺ gives something back.`));
+	const gates = getSessionView(who.id)?.gates ?? null;
+	if (!gates) body.appendChild(el("div", "echs-pop-hint", `${who.name}'s ECHS doesn't say what they allow (an older version), so nothing is greyed.`));
 	for (const cat of suggestCategories()) {
 		const isOpen = suggestOpen.has(cat.key);
-		const head = el("button", "echs-pop-group", `${isOpen ? "−" : "+"}  ${cat.title}`);
+		// Judged on what needs a permission: releases and wake/deeper always land, so they say nothing
+		// about whether the group is allowed. A group of only those (Trance) is never "not allowed".
+		const gated = cat.items.filter((i) => !i.release && i.permission);
+		const noneLand = gates !== null && gated.length > 0 && gated.every((i) => gateOf(i, gates) === "off");
+		const head = el("button", `echs-pop-group${noneLand ? " echs-pop-off" : ""}`, `${isOpen ? "−" : "+"}  ${cat.title}${noneLand ? "  (not allowed)" : ""}`);
 		head.type = "button";
 		head.setAttribute?.("aria-expanded", String(isOpen));
 		head.addEventListener("click", () => {
@@ -553,25 +584,36 @@ function renderSuggest(body: any, status: any): void {
 		body.appendChild(head);
 		if (!isOpen) continue;
 		const list = el("div", "echs-pop-list");
-		for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status));
+		for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
 		body.appendChild(list);
 	}
 }
 
 /** One suggestion: the line itself types its first wording; a + beside it opens the other wordings
  * one level down, each of which types itself (DW, 2026-11-21). */
-function suggestButton(it: SuggestItem, name: string, status: any): any {
-	const wrap = el("div", "echs-pop-sug");
+function suggestButton(it: SuggestItem, name: string, status: any, gate: Gate): any {
+	const wrap = el("div", `echs-pop-sug${gate === "off" ? " echs-pop-off" : gate === "deeper" ? " echs-pop-deeper" : ""}`);
 	const row = el("div", "echs-pop-row");
+	// Greyed, not disabled: the subject's client decides (rule 1), and the hint may be a beat stale.
+	// What the status says on a click is the honest part (rule 5).
+	const done =
+		gate === "off"
+			? `Typed, but ${name} hasn't allowed this. It won't land.`
+			: gate === "deeper"
+				? `Typed, but ${name} isn't deep enough for this yet. Take them deeper first.`
+				: `Typed. Press Enter to say it to ${name}.`;
+	const why = gate === "off" ? `${name} hasn't allowed this. ` : gate === "deeper" ? `Needs ${name} deeper. ` : "";
 	const say = (phrase: string, label: string, cls: string) => {
 		const text = suggestionText(name, phrase);
 		const b = el("button", cls, label);
 		b.type = "button";
-		b.title = text;
-		b.addEventListener("click", () => typeIt(status, text, `Typed. Press Enter to say it to ${name}.`));
+		b.title = `${why}${text}`;
+		b.addEventListener("click", () => typeIt(status, text, done));
 		return b;
 	};
-	row.appendChild(say(it.phrase, `${it.release ? "↺ " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`));
+	const main = say(it.phrase, `${it.release ? "↺ " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
+	row.appendChild(main);
+	if (gate === "deeper") row.appendChild(el("span", "echs-pop-state echs-pop-tag", "deeper"));
 	const isOpen = altOpen.has(it.id);
 	if (it.alternates.length) {
 		const more = el("button", "echs-pop-more", isOpen ? "−" : `+${it.alternates.length}`);
@@ -685,6 +727,10 @@ const POPUP_CSS = `
 .echs-pop-more:hover{background:#1b2648}
 .echs-pop-alts{margin-left:14px;border-left:2px solid #26335c}
 .echs-pop-alt{font-size:12px;opacity:.85}
+.echs-pop-tag{align-self:center;margin:0 4px}
+.echs-pop-off{opacity:.38}
+.echs-pop-off:hover{opacity:.6}
+.echs-pop-deeper .echs-pop-say{color:#c9cfe0}
 .echs-pop-buttons{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px}
 .echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
 .echs-pop-chip:hover{background:#22305a}

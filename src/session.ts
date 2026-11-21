@@ -41,6 +41,8 @@ import {
 	setCurrentDepths,
 	clearCurrentDepths,
 	arousalCounts,
+	gateReport,
+	GateReport,
 } from "./depth";
 import {
 	persist,
@@ -469,7 +471,7 @@ function persistState(): void {
 	}
 	// Self-arming, so no caller has to remember to start it — the check above is the only
 	// place that decides whether there is anything worth saving.
-	if (!persistTimer) persistTimer = setInterval(persistState, PERSIST_HEARTBEAT_MS);
+	if (!persistTimer) persistTimer = setInterval(heartbeat, PERSIST_HEARTBEAT_MS);
 	persist({
 		...snapshotLocalState(),
 		sessionLive: live,
@@ -507,9 +509,26 @@ export function saveForReconnect(): void {
  * its panel flips to idle exactly as before. */
 type EndedHow = "timeout";
 
+/** What we last told our hypnotist would land (depth.ts gateReport), so a change is sent once. */
+let sentGates = "";
+
+function currentGates(): GateReport | null {
+	return session.phase === "Hypnotized" ? gateReport(getFeatures()) : null;
+}
+
+/** The heartbeat: re-send the update if what would land has changed since we last said — a
+ * permission ticked mid-trance, or depth moving without a session transition — then save as before.
+ * Never more than once per beat, and nothing at all while it stays the same. */
+function heartbeat(): void {
+	if (session.phase === "Hypnotized" && session.hypnotistId != null && JSON.stringify(currentGates()) !== sentGates) pushUpdate();
+	else persistState();
+}
+
 function pushUpdate(refusedReason?: string, ended?: EndedHow): void {
 	if (session.hypnotistId == null) return;
 	const now = Date.now();
+	const gates = currentGates();
+	sentGates = JSON.stringify(gates);
 	sendHiddenMessage(
 		{
 			type: "session-update",
@@ -523,6 +542,9 @@ function pushUpdate(refusedReason?: string, ended?: EndedHow): void {
 			windowRemaining: session.phase === "InductionInProgress" ? Math.max(0, session.windowEndsAt - now) : 0,
 			refusedReason: refusedReason ?? null,
 			ended: ended ?? null,
+			// Which suggestions would land, for the hypnotist's popup only (job4.md stage 4). Additive:
+			// an older client ignores it. Permission names and "deeper" — never the depth itself.
+			gates,
 		},
 		session.hypnotistId,
 	);
@@ -2179,11 +2201,25 @@ export interface SessionView {
 	cooldownRemaining: number;
 	windowRemaining: number;
 	refusedReason: string | null;
+	/** What the subject says would land right now (depth.ts gateReport), for greying the popup.
+	 * Null from an older subject, or when not under: then nothing is greyed. A hint only (rule 1). */
+	gates: GateReport | null;
 	/** Local receipt time, so countdowns tick without trusting the other client's clock. */
 	receivedAt: number;
 }
 
 const views = new Map<number, SessionView>();
+
+/** The subject's gate report, checked: it comes from another client, so anything malformed is
+ * treated as no report (nothing greyed) rather than trusted. Strings only, at most a few dozen. */
+function readGates(raw: any): GateReport | null {
+	const list = (v: any): string[] | null =>
+		Array.isArray(v) && v.length <= 64 && v.every((x) => typeof x === "string" && x.length <= 40) ? v : null;
+	if (!raw || typeof raw !== "object") return null;
+	const ok = list(raw.ok);
+	const deeper = list(raw.deeper);
+	return ok && deeper ? { ok, deeper } : null;
+}
 
 export function getSessionView(memberNumber: number): SessionView | undefined {
 	return views.get(memberNumber);
@@ -2550,6 +2586,7 @@ export function installSession(): void {
 			cooldownRemaining: Number(message.cooldownRemaining ?? 0),
 			windowRemaining: Number(message.windowRemaining ?? 0),
 			refusedReason: (message.refusedReason as string) || null,
+			gates: readGates(message.gates),
 			receivedAt: Date.now(),
 		});
 	});
