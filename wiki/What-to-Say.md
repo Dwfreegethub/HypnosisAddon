@@ -233,6 +233,8 @@ Undressing takes clothes off from the outside in: jacket, top, accessories, skir
 | *"you cannot feel my touch"* · *"you feel nothing when I touch you"* | Sexual numbness |
 | *“you can feel my touch again”* · *“you can feel again”* | — *release* |
 
+**Held at the edge:** while denied, reaching the top is said to you and the room the first time. If it keeps happening (a toy, say), only you are told again, less and less often: after 2 minutes, then 4, 8, and at most every 15 minutes. Five minutes without reaching the top starts it over.
+
 Native chastity items or locked edging crafts will still prevent forced climaxes. ECHS queries game state rather than overriding native mechanics.
 
 **Numbness vs. Suppression:** Numbness prevents arousal from registering at all. Suppression allows arousal to increase normally, but conceals the feedback from the subject's view.

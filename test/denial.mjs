@@ -96,6 +96,50 @@ reset();
 ActivityOrgasmPrepare(Player);
 check("a second climb straight after is held but not re-announced", [prepared, local.length], [0, 0]);
 
+// --- an episode of being held: first to her and the room, then her only, ever more rarely ------
+// (v1.13.3; a player's report.) A toy keeps bringing her to the top. Failure: the room is told more
+// than once in an episode, she is told every minute, the gap never widens or passes 15 minutes, or a
+// new episode (after five quiet minutes) is not said like the first.
+denial.resetDenialAnnouncements();
+const MIN = 60_000;
+const t0 = 1_000_000_000;
+const plan = [
+	[0, "first"], [30_000, null], [2 * MIN, "repeat"], [3 * MIN, null], [6 * MIN, "repeat"],
+	[10 * MIN, null], [14 * MIN, "repeat"], [28 * MIN, null], [29 * MIN, "repeat"], [43 * MIN, null], [44 * MIN, "repeat"],
+];
+// Holds every 30 s in between, as a toy would, so the episode never lapses.
+const got = [];
+let at = 0;
+for (const [when, want] of plan) {
+	for (; at < when; at += 30_000) denial.heldAnnouncement(t0 + at);
+	got.push([when / MIN, denial.heldAnnouncement(t0 + when), want]);
+	at = when + 30_000;
+}
+const wrongSteps = got.filter(([, g, w]) => g !== w);
+check("held: first, then 2, 4, 8, 15, 15 minutes apart", wrongSteps, []);
+check("five quiet minutes: the next hold is a first again", denial.heldAnnouncement(t0 + 44 * MIN + denial.DENIAL_EPISODE_GAP_MS), "first");
+
+// Through the real hook: the room hears it once per episode, she hears the repeats.
+let roomLines = [];
+globalThis.ChatRoomSendEmote = (m) => roomLines.push(String(m));
+denial.resetDenialAnnouncements();
+const realNow = Date.now;
+let fakeNow = t0;
+Date.now = () => fakeNow;
+const climb = () => { reset(); ActivityOrgasmPrepare(Player); };
+climb();
+check("episode starts: she and the room are told", [local.length > 0, roomLines.length], [true, 1]);
+let herLines = local.length;
+for (let s = 30; s <= 10 * 60; s += 30) { fakeNow = t0 + s * 1000; climb(); herLines += local.length; }
+check("ten minutes of climbs: the room is not told again", roomLines.length, 1);
+check("  and she is told twice more (at 2 and 6 minutes), not ten", herLines, 3);
+fakeNow = t0 + 10 * MIN + denial.DENIAL_EPISODE_GAP_MS + 1000;
+climb();
+check("after five quiet minutes the room is told again", roomLines.length, 2);
+Date.now = realNow;
+delete globalThis.ChatRoomSendEmote;
+denial.resetDenialAnnouncements();
+
 // --- only the player: another character's orgasm is never ours to stop -----------------------
 reset();
 hooks.ActivityOrgasmPrepare([other], bcPrepare);
