@@ -86,6 +86,33 @@ check("  and the hypnotist is told which permission", /have not enabled/.test(la
 
 storage.setFeature("compelActivity", true);
 
+// --- "take a sip" (v1.13.5; a player's report) -------------------------------------------------
+// BC's own SipItem on her own mouth, under Made to Act. Failure: a wording missed, conversation
+// read as a sip, the wrong activity or zone, a sip with nothing to drink (BC offers none), or the
+// refusal unsaid.
+check("sip: 'take a sip'", voice.matchActivityCommand("Missy, take a sip"), { kind: "sip" });
+check("sip: 'have a drink' / 'sip your drink' / 'drink up'", ["Missy, have a drink", "Missy, sip your drink", "Missy, drink up"].map((l) => voice.matchActivityCommand(l)?.kind), ["sip", "sip", "sip"]);
+check("sip: three times", voice.matchActivityCommand("Missy, take a sip three times"), { kind: "sip", times: 3 });
+check("sip: 'you cannot take a sip' is no command", voice.matchActivityCommand("Missy, you cannot take a sip"), null);
+check("sip: 'I need a drink' is conversation", voice.matchActivityCommand("I need a drink after that"), null);
+check("sip: no suggestion claims it first", voice.matchSuggestion("Missy, take a sip"), null);
+reset();
+ALLOWED = { ItemMouth: [] };
+say("Missy, take a sip.");
+check("sip: nothing sippable in hand (BC offers no SipItem): not run", runCalls.length, 0);
+check("  and the hypnotist is told why", /can't take a sip right now/.test(lastReport()), true);
+reset();
+ALLOWED = { ItemMouth: ["SipItem"] };
+say("Missy, take a sip.");
+check("sip: BC's SipItem on her mouth", lastRun(), { activity: "SipItem", group: "ItemMouth" });
+storage.setFeature("compelActivity", false);
+reset();
+say("Missy, take a sip.");
+check("sip: needs Made to Act", [runCalls.length, /have not enabled/.test(lastReport())], [0, true]);
+storage.setFeature("compelActivity", true);
+check("sip: a trigger describes it", voice.describeAction("act:sip"), "you take a sip of your drink");
+ALLOWED = { ItemBreast: ["Caress", "Grope"], ItemNipples: ["Pinch"], ItemVulva: ["MasturbateHand"] };
+
 // --- it runs the right activity on the right zone, through BC ---------------------------------
 reset();
 say("Missy, touch your breasts.");

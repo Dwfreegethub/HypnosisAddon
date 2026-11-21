@@ -151,6 +151,7 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   pinch · spank · slap · scratch · tickle · pull · lick · kiss · bite ·"));
 	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
 	lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
+	lines.push(body(`"take a sip" · "drink up"   (Made to Act) — she sips the drink in her hand.`));
 	lines.push(body(`"kiss Rei" · "kiss Rei's nipples" · "kiss me" · "pinch my nipples"`));
 	lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) — the same verbs"));
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));

@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.5 RC · 21 November 2026
+
+- **"Take a sip."** A hypnotist can now say *"Missy, take a sip"* (or *"have a drink"*, *"sip your
+  drink"*, *"drink up"*) and she sips the drink in her hand. It needs **Made to Act**, and a glass or
+  mug in her hand with her hands and mouth free. A crafted ECHS drink works as usual. It's also on
+  the popup's Touch list.
+
 ## v1.13.4 RC · 21 November 2026
 
 - **A gear on the ECHS popup** takes you straight to the ECHS settings.
