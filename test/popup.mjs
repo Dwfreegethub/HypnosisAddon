@@ -471,6 +471,35 @@ popup.setPopupOpen(false);
 check("closing stops watching", observed === null, "the ResizeObserver disconnected when the window closes");
 popup.setPopupOpen(true);
 
+// 12. The gear (v1.13.4, DW): straight into the ECHS settings, no guide on top.
+const helpMod = (await import("./harness-bundle.mjs")).help;
+const gearBtn = () => findAll(win(), (n) => n.tagName === "BUTTON" && n.textContent === "⚙")[0];
+check("a gear in the title bar", !!gearBtn() && gearBtn().title === "ECHS settings", "a ⚙ button titled ECHS settings");
+let opened = [], loaded = 0, hidden2 = 0;
+globalThis.PreferenceOpenSubscreen = async (name) => { opened.push(name); };
+globalThis.PreferenceExtensionsSettings = { HypnosisAddon: { load() { loaded++; } } };
+globalThis.PreferenceExtensionsCurrent = null;
+globalThis.PreferenceIDs = { subscreen: "preference-subscreen" };
+globalThis.ElementWrap = () => ({ toggleAttribute: (a, on) => { if (a === "hidden" && on) hidden2++; } });
+gearBtn().click();
+await new Promise((r) => setImmediate(r));
+check("gear: opens Preferences > Extensions > ECHS", opened.join(",") === "Extensions" && PreferenceExtensionsCurrent === PreferenceExtensionsSettings.HypnosisAddon && loaded === 1 && hidden2 === 1, `Extensions opened, ours current and loaded, BC's list hidden; got ${opened} / ${loaded} / ${hidden2}`);
+check("gear: no guide on top", !helpMod.isHelpOpen(), "the settings, not the help guide");
+const menuMod = (await import("./harness-bundle.mjs")).menu;
+await menuMod.openHelpScreen();
+check("/echs help still opens the guide", helpMod.isHelpOpen(), "the guide open after openHelpScreen");
+helpMod.closeHelp();
+delete globalThis.PreferenceOpenSubscreen;
+gearBtn().click();
+await new Promise((r) => setImmediate(r));
+check("gear can't open: says where they are", status().startsWith("Couldn't open them from here.") && status().includes("Preferences > Extensions > ECHS Hypnosis"), `the manual path in the status, got "${status()}"`);
+delete globalThis.PreferenceExtensionsSettings; delete globalThis.PreferenceIDs; delete globalThis.ElementWrap;
+const tb = findAll(win(), (n) => n.className === "echs-pop-head")[0];
+storage.setPopupSize({ w: 400, h: 400 });
+tb.dispatchEvent({ type: "dblclick", target: gearBtn() });
+check("double-click on the gear is not a reset", JSON.stringify(storage.getPopupSize()) === JSON.stringify({ w: 400, h: 400 }), "the saved size kept");
+storage.setPopupSize(null);
+
 ChatRoomCharacter = [Player];
 popup.popupTick();
 check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");

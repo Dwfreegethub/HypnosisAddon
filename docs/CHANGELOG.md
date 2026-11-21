@@ -18,6 +18,14 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.13.4 RC) — a gear on the popup opens the ECHS settings
+
+DW asked. `menu.ts` `openSettingsScreen()` shares `openHelpScreen()`'s path into Preferences >
+Extensions > ECHS Hypnosis (checked again against R134: Preference.js `PreferenceOpenSubscreen`,
+Extensions.js's list click), without opening the guide. The popup hides itself on that screen (it
+shows only in a room) and is open again on return. A failure says the manual path (rule 5).
+`test/popup.mjs`: 137 checks.
+
 ### Changed 2026-11-21 (v1.13.3 RC) — the held orgasm is said ever more rarely
 
 A player's report, passed on by DW 2026-11-21: denied and wearing something that drives arousal, the

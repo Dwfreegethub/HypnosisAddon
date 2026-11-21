@@ -20,6 +20,7 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT } from "./menu";
 import {
 	safeword,
 	getSessionView,
@@ -543,6 +544,20 @@ function buildWindow(): void {
 	const head = el("div", "echs-pop-head");
 	head.appendChild(el("span", "echs-pop-title", "ECHS"));
 	head.appendChild(el("span", "echs-pop-ver", `v${__VERSION__}${RELEASE_SUFFIX}`));
+	// The gear (v1.13.4, DW): straight into the ECHS settings. The window hides on the settings screen
+	// by itself (it shows only in a room) and is open again when the player comes back.
+	const gear = el("button", "echs-pop-x echs-pop-gear", "⚙");
+	gear.type = "button";
+	gear.title = "ECHS settings";
+	gear.setAttribute?.("aria-label", "ECHS settings");
+	gear.addEventListener("click", () => {
+		openSettingsScreen()
+			.then((ok) => {
+				if (!ok && statusEl) setStatus(statusEl, `Couldn't open them from here. They're under Preferences > Extensions > ${EXTENSION_BUTTON_TEXT}.`);
+			})
+			.catch(() => statusEl && setStatus(statusEl, `Couldn't open them from here. They're under Preferences > Extensions > ${EXTENSION_BUTTON_TEXT}.`));
+	});
+	head.appendChild(gear);
 	const close = el("button", "echs-pop-x", "×");
 	close.type = "button";
 	close.title = "Close (the spiral button opens it again)";
@@ -965,6 +980,7 @@ const POPUP_CSS = `
 .echs-pop-ver{opacity:.6;font-size:11px;flex:1}
 .echs-pop-x{background:none;border:1px solid #3b4f86;border-radius:4px;width:24px;height:24px;cursor:pointer}
 .echs-pop-x:hover{background:#26335c}
+.echs-pop-gear{font-size:15px;line-height:1;padding:0}
 .echs-pop-tabs{display:flex;gap:4px;padding:6px 8px 0}
 .echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px;background:none;cursor:pointer}
 .echs-pop-tab:hover{background:#1b2648}
