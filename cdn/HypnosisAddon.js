@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.12.9. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.13.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -385,13 +385,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     let tries = 0;
-    const timer = setInterval(() => {
+    const timer2 = setInterval(() => {
       tries += 1;
       if (ensureEffectsAllowed()) {
-        clearInterval(timer);
+        clearInterval(timer2);
         log(`Emoticon effect allow-list patched after ${tries} retries`);
       } else if (tries >= 60) {
-        clearInterval(timer);
+        clearInterval(timer2);
         log("gave up patching Emoticon effect allow-list \u2014 BC assets never appeared");
       }
     }, 500);
@@ -2247,8 +2247,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const exp = addExperience(ATTEMPT_EXPERIENCE);
     log(`attempt experience +${ATTEMPT_EXPERIENCE} \u2192 ${exp.toFixed(1)}`);
   }
-  function noteInductionSuccess(hypnotistId, hypnotistName) {
-    const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS, characterFor2(hypnotistId)?.Name);
+  function noteInductionSuccess(hypnotistId, hypnotistName2) {
+    const entry = addInteractions(hypnotistId, hypnotistName2, INDUCTION_INTERACTIONS, characterFor2(hypnotistId)?.Name);
     const exp = addExperience(INDUCTION_EXPERIENCE);
     log(
       `induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${trustEntryLabel(entry)} \u2192 trust ${trustWith(hypnotistId).toFixed(1)}; experience \u2192 ${exp.toFixed(1)}`
@@ -2394,7 +2394,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return activeKeys.has(key);
   }
   function clearAllTimers() {
-    for (const timer of timers.values()) clearTimeout(timer);
+    for (const timer2 of timers.values()) clearTimeout(timer2);
     timers.clear();
     deadlines.clear();
     activeKeys.clear();
@@ -2559,6 +2559,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const have = effectiveEarnedOnly(key) ? earned : full;
     return have >= requiredDepth(key);
   }
+  function gateReport(features) {
+    const ok = [];
+    const deeper = [];
+    for (const key of SUGGESTION_GATE_KEYS) {
+      if (!features[key]) continue;
+      if (depthAllows(key)) ok.push(key);
+      else deeper.push(key);
+    }
+    return { ok, deeper };
+  }
   function deeperHint(key) {
     return effectiveEarnedOnly(key) ? "" : " Take them deeper first.";
   }
@@ -2570,7 +2580,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const where = earnedGate && whole > have ? `${depthLabel(whole)} but only ${depthLabel(have)}` : depthLabel(have);
     return `needs ${depthLabel(requiredDepth(key))}, at ${where}${earnedGate ? " earned \u2014 arousal does not count toward this one" : ""}`;
   }
-  var DEPTH_TIERS, MAX_GATE_DEPTH, CHEMICAL_SCOPES, depthFull, depthEarned, DEPTH_GATES, CHEMICAL_TOGGLEABLE;
+  var DEPTH_TIERS, MAX_GATE_DEPTH, CHEMICAL_SCOPES, depthFull, depthEarned, DEPTH_GATES, CHEMICAL_TOGGLEABLE, SUGGESTION_GATE_KEYS;
   var init_depth = __esm({
     "src/depth.ts"() {
       init_storage();
@@ -2616,6 +2626,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
       ];
       CHEMICAL_TOGGLEABLE = /* @__PURE__ */ new Set(["illusionControl", "triggerControl"]);
+      SUGGESTION_GATE_KEYS = [
+        "postureControl",
+        "movementRestriction",
+        "followControl",
+        "speechRestriction",
+        "hearingControl",
+        "sightControl",
+        "clothingRestriction",
+        "undressControl",
+        "illusionControl",
+        "suppressClothing",
+        "suppressBondage",
+        "suppressActivities",
+        "arousalControl",
+        "selfTouchControl",
+        "compelActivity"
+      ];
     }
   });
 
@@ -4246,7 +4273,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       clearSaved();
       return;
     }
-    if (!persistTimer) persistTimer = setInterval(persistState, PERSIST_HEARTBEAT_MS);
+    if (!persistTimer) persistTimer = setInterval(heartbeat, PERSIST_HEARTBEAT_MS);
     persist({
       ...snapshotLocalState(),
       sessionLive: live,
@@ -4267,9 +4294,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function saveForReconnect() {
     persistState();
   }
+  function currentGates() {
+    return session.phase === "Hypnotized" ? gateReport(getFeatures()) : null;
+  }
+  function heartbeat() {
+    if (session.phase === "Hypnotized" && session.hypnotistId != null && JSON.stringify(currentGates()) !== sentGates) pushUpdate();
+    else persistState();
+  }
   function pushUpdate(refusedReason, ended) {
     if (session.hypnotistId == null) return;
     const now = Date.now();
+    const gates = currentGates();
+    sentGates = JSON.stringify(gates);
     sendHiddenMessage(
       {
         type: "session-update",
@@ -4282,7 +4318,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         cooldownRemaining: Math.max(0, session.cooldownUntil - now),
         windowRemaining: session.phase === "InductionInProgress" ? Math.max(0, session.windowEndsAt - now) : 0,
         refusedReason: refusedReason ?? null,
-        ended: ended ?? null
+        ended: ended ?? null,
+        // Which suggestions would land, for the hypnotist's popup only (job4.md stage 4). Additive:
+        // an older client ignores it. Permission names and "deeper" — never the depth itself.
+        gates
       },
       session.hypnotistId
     );
@@ -4996,9 +5035,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     startPresenceWatch();
     pushUpdate();
   }
-  function showPrompt(hypnotistName) {
+  function showPrompt(hypnotistName2) {
     if (promptTimer) clearTimeout(promptTimer);
-    session.promptName = hypnotistName;
+    session.promptName = hypnotistName2;
     session.promptExpiresAt = Date.now() + PROMPT_TIMEOUT_MS;
     promptTimer = setTimeout(() => {
       promptTimer = null;
@@ -5010,7 +5049,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     startPresenceWatch();
     const descriptor = skillDescriptor(session.honouredSkill);
     notify(
-      `${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
+      `${hypnotistName2} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
     );
   }
   function getPendingPrompt() {
@@ -5138,6 +5177,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     endSession("they woke you");
     return true;
   }
+  function currentTier() {
+    return tierOf(session.phase === "Hypnotized" ? session.depth : 0);
+  }
   function currentHypnotistId() {
     return session.phase === "Idle" ? null : session.hypnotistId;
   }
@@ -5152,6 +5194,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function isSessionActiveWith(memberNumber) {
     return session.phase === "Hypnotized" && session.hypnotistId === memberNumber;
+  }
+  function readGates(raw) {
+    const list = (v) => Array.isArray(v) && v.length <= 64 && v.every((x) => typeof x === "string" && x.length <= 40) ? v : null;
+    if (!raw || typeof raw !== "object") return null;
+    const ok = list(raw.ok);
+    const deeper = list(raw.deeper);
+    return ok && deeper ? { ok, deeper } : null;
   }
   function getSessionView(memberNumber) {
     return views.get(memberNumber);
@@ -5367,11 +5416,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         cooldownRemaining: Number(message.cooldownRemaining ?? 0),
         windowRemaining: Number(message.windowRemaining ?? 0),
         refusedReason: message.refusedReason || null,
+        gates: readGates(message.gates),
         receivedAt: Date.now()
       });
     });
   }
-  var PROMPT_TIMEOUT_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
+  var PROMPT_TIMEOUT_MS, maxAttempts, COOLDOWN_MS, timeoutMinutes, sessionTimeoutMs, EXTEND_ASK_MS, RESISTANCE_FLOOR, CHANCE_CEILING, EXPERIENCE_WEIGHT, STRANGER_CEILING, AROUSAL_ACCESS_WEIGHT, SKILL_ATTEMPT_CREDIT, SKILL_SUCCESS_CREDIT, SELF_WAKE_MAX_DEPTH, CHOICE_MODIFIER, TRANCE_ABSENCE_GRACE_MS, INDUCTION_ABSENCE_GRACE_MS, PRESENCE_POLL_MS, RELATION_DEPTH_FLOOR, STANCE_DEPTH, DEPTH_TRUST_WEIGHT, DEPTH_RELATION_WEIGHT, DEPTH_SKILL_WEIGHT, DEPTH_AROUSAL_WEIGHT, TRUST_DEPTH_FLOOR_WEIGHT, LANDED_DEPTH_MAX, RP_BONUS_PER_LINE, RP_BONUS_CAP, RP_MIN_LENGTH, session, promptTimer, windowTimer, sessionTimer, cooldownTimer, extendAskUntil, extendTimer, hypnotistGoneSince, presenceTimer, sessionEndsAt, PERSIST_HEARTBEAT_MS, persistTimer, sentGates, TRUST_GIFT_MS, TRUST_GIFT_FLOOR, trustGift, TRUST_LINE, NO_SKILL, SKILL_ADDITIVE_WEIGHT, SKILL_FIGHT_FLOOR_WEIGHT, DEEPEN_COOLDOWN_MS, DEEPEN_TIME_PER_MINUTE, DEEPEN_TIME_MAX, DEEPEN_MIN, DEEPEN_MAX, TIER_ORDER, DEEPEN_BASE, DEEPEN_TRUST_WEIGHT, DEEPEN_SKILL_WEIGHT, DEEPEN_AROUSAL_WEIGHT, DEEPEN_EXPERIENCE_WEIGHT, DEEPEN_DEPTH_WEIGHT, STANCE_DEEPEN, DEEPEN_STEPS, DEEPEN_TRUST_SYNERGY_AT, DEEPEN_TRUST_SYNERGY, struggleReporter, SURFACE_BASE, SURFACE_EXPERIENCE_WEIGHT, SURFACE_SKILL_WEIGHT, SURFACE_TRUST_WEIGHT, SURFACE_AROUSAL_WEIGHT, SURFACE_MIN, SURFACE_MAX, SURFACE_DROPS, STRUGGLE_COOLDOWN_MS, views;
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
@@ -5444,6 +5494,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       sessionEndsAt = 0;
       PERSIST_HEARTBEAT_MS = 5e3;
       persistTimer = null;
+      sentGates = "";
       TRUST_GIFT_MS = 5 * 6e4;
       TRUST_GIFT_FLOOR = 65;
       trustGift = null;
@@ -6145,6 +6196,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const s = loadSettings();
     if (key === "top") delete s.echsIconSpot;
     else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+    saveSettings();
+  }
+  function getPopupEnabled() {
+    return loadSettings().popupOff !== true;
+  }
+  function setPopupEnabled(on) {
+    const s = loadSettings();
+    if (on) delete s.popupOff;
+    else s.popupOff = true;
+    saveSettings();
+  }
+  function getPopupPos(which) {
+    const p = which === "window" ? loadSettings().popupPos : loadSettings().popupLauncherPos;
+    return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : null;
+  }
+  function setPopupPos(which, x, y) {
+    const s = loadSettings();
+    const p = { x: Math.round(x), y: Math.round(y) };
+    if (which === "window") s.popupPos = p;
+    else s.popupLauncherPos = p;
     saveSettings();
   }
   function getPulseColor() {
@@ -6918,7 +6989,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trigger recording renamed "${old}" -> "${phrase}"`);
     tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}" \u2014 ${recording.actions.length} suggestion(s) kept.`);
   }
-  function beginRecording(hypnotistId, hypnotistName, phrase, isHolding = () => false, condition) {
+  function beginRecording(hypnotistId, hypnotistName2, phrase, isHolding = () => false, condition) {
     const refuse2 = (why) => {
       tellHypnotist(hypnotistId, why);
       return "";
@@ -6956,14 +7027,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     recording = {
       hypnotistId,
-      hypnotistName,
+      hypnotistName: hypnotistName2,
       phrase,
       actions: [],
       plantedDepth,
       plantedChemical,
       condition
     };
-    log(`recording ${recordingLabel()} for ${hypnotistName}`);
+    log(`recording ${recordingLabel()} for ${hypnotistName2}`);
     tellHypnotist(
       hypnotistId,
       `[trigger] RECORDING ${recordingLabel()}. Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`
@@ -7526,6 +7597,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       examples: s.examples,
       display: s.displayExamples ?? s.examples,
       release: !!s.release,
+      releaseOf: s.releaseOf === void 0 ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
       depthTier: s.release ? void 0 : tierLabelFor(s.permission)
     }));
   }
@@ -10221,13 +10293,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.12.9", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.13.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
     const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
     const known = peers.get(sender);
     peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+  }
+  function peerFor(member) {
+    return peers.get(member);
   }
   function announce2() {
     if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
@@ -10260,7 +10335,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.12.9", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.13.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -10654,15 +10729,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       originY = c.top;
     }
     for (const id of ids2) {
-      const el = typeof document !== "undefined" ? document.getElementById(id) : null;
-      if (!el || typeof el.getBoundingClientRect !== "function" || !el.style) continue;
+      const el2 = typeof document !== "undefined" ? document.getElementById(id) : null;
+      if (!el2 || typeof el2.getBoundingClientRect !== "function" || !el2.style) continue;
       let covered = false;
       if (tip) {
-        const r = el.getBoundingClientRect();
+        const r = el2.getBoundingClientRect();
         const l = originX + tip.left * scaleX, t = originY + tip.top * scaleY;
         covered = r.left < l + tip.width * scaleX && r.right > l && r.top < t + tip.height * scaleY && r.bottom > t;
       }
-      el.style.visibility = covered ? "hidden" : "";
+      el2.style.visibility = covered ? "hidden" : "";
     }
   }
   var TITLE_Y, TAB_LEFT, TAB_WIDTH, TAB_HEIGHT, TAB_GAP, PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, BORDER, MAX_TABS, BLURB_Y, CONTENT_LEFT, BACK_LEFT, BACK_TOP, BACK_SIZE, HELP_LEFT, HELP_WIDTH, HELP_TOP, HELP_BOTTOM, BODY_SIZE, HEAD_SIZE, HEAD_LEAD, GAP_SIZE, SCROLLBAR_WIDTH, THUMB_MIN, TIP_WIDTH, TIP_FONT, TIP_PAD, pendingTip;
@@ -10719,6 +10794,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("Almost nothing here is a command. You SPEAK to someone, and their"),
       body("own client decides whether anything lands. Nobody is ever made to"),
       body("do anything \u2014 their settings answer for them."),
+      gap(),
+      head("The ECHS popup"),
+      body("In a chat room, the round spiral button on the left opens a window"),
+      body("that TYPES for you: who you can hypnotize, what to say to someone"),
+      body("under you, your own answers, triggers, and every command. Nothing"),
+      body("is sent until you press Enter. Drag it anywhere; switch it off at"),
+      dim("Trance Defaults > ECHS popup in rooms."),
       gap(),
       head("As the subject"),
       body("1. Tick the permissions you want to allow. Everything is off until"),
@@ -12044,16 +12126,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
       if (gate.earnedOnly) {
         const toggleable = isChemicalToggleable(gate.key);
-        const open2 = toggleable && getChemicalReach(gate.key);
+        const open3 = toggleable && getChemicalReach(gate.key);
         tipButton(
           CHEM_TOGGLE_LEFT,
           top,
           CHEM_TOGGLE_WIDTH,
           DEPTH_BUTTON_HEIGHT,
-          open2 ? "arousal ok" : "earned only",
-          locked || !toggleable ? "#eee" : open2 ? "#e7efe7" : "White",
+          open3 ? "arousal ok" : "earned only",
+          locked || !toggleable ? "#eee" : open3 ? "#e7efe7" : "White",
           "",
-          !toggleable ? "Waiting on carry-forward decay before arousal can be allowed here." : open2 ? "Arousal can reach this \u2014 but anything seeded that way fades fast. Click for trust only." : "Only trust reaches this. Click to let arousal too \u2014 it fades fast.",
+          !toggleable ? "Waiting on carry-forward decay before arousal can be allowed here." : open3 ? "Arousal can reach this \u2014 but anything seeded that way fades fast. Click for trust only." : "Only trust reaches this. Click to let arousal too \u2014 it fades fast.",
           locked || !toggleable
         );
       }
@@ -12494,10 +12576,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     drawDataButtons();
   }
-  function layoutRows(tab) {
-    rowScroll.top = ROWS_TOP + (tab.fixedRows?.length ? FIXED_BAND : 0);
-    rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
-    rowScroll.content = ROWS_PAD + itemsHeight(tab.rows ?? [], (tab.rows ?? []).length) + (tab.scrollExtra?.height() ?? 0);
+  function layoutRows(tab2) {
+    rowScroll.top = ROWS_TOP + (tab2.fixedRows?.length ? FIXED_BAND : 0);
+    rowScroll.height = (tab2.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
+    rowScroll.content = ROWS_PAD + itemsHeight(tab2.rows ?? [], (tab2.rows ?? []).length) + (tab2.scrollExtra?.height() ?? 0);
     clampScroll(rowScroll);
   }
   function itemsHeight(items, count) {
@@ -12505,11 +12587,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (let i = 0; i < count; i++) h += isHeading(items[i]) ? HEADING_SPACING : ROW_SPACING;
     return h;
   }
-  function rowTop(tab, index) {
-    return scrollY(rowScroll, ROWS_PAD + itemsHeight(tab.rows ?? [], index));
+  function rowTop(tab2, index) {
+    return scrollY(rowScroll, ROWS_PAD + itemsHeight(tab2.rows ?? [], index));
   }
-  function scrollExtraTop(tab) {
-    return rowTop(tab, tab.rows?.length ?? 0);
+  function scrollExtraTop(tab2) {
+    return rowTop(tab2, tab2.rows?.length ?? 0);
   }
   function fixedLeft(i) {
     return BOX_LEFT + i * FIXED_COLUMN;
@@ -12541,7 +12623,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.9"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12608,7 +12690,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.12.9"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12627,7 +12709,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       "",
       showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
     );
-    const tab = tabs[activeTab2];
+    const tab2 = tabs[activeTab2];
     const locked = settingsLocked();
     if (locked) {
       DrawRect(BOX_LEFT - 20, BLURB_Y - 24, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT, 48, LOCK_BANNER_BACK);
@@ -12639,25 +12721,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
         LOCK_BANNER_TEXT
       );
     } else {
-      drawLeftTextFit(tab.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
+      drawLeftTextFit(tab2.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
     }
-    syncTabControls(tab.name);
-    if (tab.render) {
-      tab.render();
+    syncTabControls(tab2.name);
+    if (tab2.render) {
+      tab2.render();
       return;
     }
     const features = getFeatures();
-    const rows = tab.rows ?? [];
-    layoutRows(tab);
+    const rows = tab2.rows ?? [];
+    layoutRows(tab2);
     const contentWidth = scrollContentWidth(rowScroll);
-    (tab.fixedRows ?? []).forEach((row, i) => {
+    (tab2.fixedRows ?? []).forEach((row, i) => {
       const left = fixedLeft(i);
       DrawCheckbox(left, ROWS_TOP, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
       drawLeftTextFit(row.label, left + BOX_SIZE + 20, ROWS_TOP + 26, FIXED_COLUMN - BOX_SIZE - 40, locked ? "Gray" : "Black");
     });
     drawScrollArea(rowScroll, () => {
       rows.forEach((item, i) => {
-        const top = rowTop(tab, i);
+        const top = rowTop(tab2, i);
         if (isHeading(item)) {
           if (scrollShows(rowScroll, top, HEADING_SPACING)) {
             drawLeftTextFit(item.heading, BOX_LEFT, top + HEADING_SPACING / 2, contentWidth, "#555");
@@ -12670,15 +12752,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item.key], inert);
         drawLeftTextFit(item.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
       });
-      const extra = tab.scrollExtra;
+      const extra = tab2.scrollExtra;
       if (extra) {
-        const top = scrollExtraTop(tab);
+        const top = scrollExtraTop(tab2);
         if (scrollShows(rowScroll, top, extra.height())) extra.draw(top, contentWidth);
         else extra.hide?.();
       }
     });
     rowsDrawnAt = Date.now();
-    tab.extra?.();
+    tab2.extra?.();
   }
   function installMenu() {
     PreferenceRegisterExtensionSetting({
@@ -12759,12 +12841,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           removeScopeControl();
           return;
         }
-        const tab = tabs[activeTab2];
-        if (tab.rows) {
-          layoutRows(tab);
+        const tab2 = tabs[activeTab2];
+        if (tab2.rows) {
+          layoutRows(tab2);
           if (clickScrollBar(rowScroll)) return;
         }
-        const fixed = (tab.fixedRows ?? []).find((_, i) => MouseIn(fixedLeft(i), ROWS_TOP, BOX_SIZE, BOX_SIZE));
+        const fixed = (tab2.fixedRows ?? []).find((_, i) => MouseIn(fixedLeft(i), ROWS_TOP, BOX_SIZE, BOX_SIZE));
         if (fixed) {
           if (settingsLocked()) return;
           const next = !getFeatures()[fixed.key];
@@ -12773,7 +12855,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           log(`${fixed.key} set to ${next}`);
           return;
         }
-        if (tab.clickExtra?.()) return;
+        if (tab2.clickExtra?.()) return;
         if (tabs[activeTab2].render) {
           if (!extremeLocked() && clickStatForget()) return;
           if (MouseIn(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
@@ -12795,15 +12877,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           return;
         }
         if (!mouseInScroll(rowScroll)) return;
-        if (tab.scrollExtra?.click(scrollExtraTop(tab))) return;
+        if (tab2.scrollExtra?.click(scrollExtraTop(tab2))) return;
         if (settingsLocked()) return;
         const features = getFeatures();
-        const clickRows = tab.rows ?? [];
+        const clickRows = tab2.rows ?? [];
         clickRows.forEach((item, i) => {
           if (isHeading(item)) return;
           if (item.needs && !features[item.needs]) return;
           const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
-          if (MouseIn(left, rowTop(tab, i), BOX_SIZE, BOX_SIZE)) {
+          if (MouseIn(left, rowTop(tab2, i), BOX_SIZE, BOX_SIZE)) {
             const next = !features[item.key];
             setFeature(item.key, next);
             onToggle(item.key, next);
@@ -12890,7 +12972,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -12975,13 +13057,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           scrollExtra: {
             // The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
-            // where others' icons go.
-            height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+            // where others' icons go, then the ECHS popup (job4.md).
+            height: () => tranceDropdownsHeight() + pulseControlsHeight() + 2 * (CYCLE_GAP + attemptControlHeight()),
             draw: (top, width) => {
               drawTranceDropdowns(top, width, settingsLocked());
               const pulseTop = top + tranceDropdownsHeight();
               drawPulseControls(pulseTop, width);
-              drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
+              const iconTop = pulseTop + pulseControlsHeight() + CYCLE_GAP;
+              drawCycle(ICON_SPOT_CONTROL, iconTop, width, false);
+              drawCycle(POPUP_CONTROL, iconTop + attemptControlHeight() + CYCLE_GAP, width, false);
             },
             click: (top) => {
               const pulseTop = top + tranceDropdownsHeight();
@@ -12992,6 +13076,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
               if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
                 ICON_SPOT_CONTROL.cycle();
                 log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+                return true;
+              }
+              const popupTop = pulseTop + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight() + CYCLE_GAP;
+              if (MouseIn(BOX_LEFT, popupTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+                POPUP_CONTROL.cycle();
+                log(`setting now: ${POPUP_CONTROL.label()}`);
                 return true;
               }
               return false;
@@ -13197,6 +13287,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
           setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
         }
+      };
+      POPUP_CONTROL = {
+        label: () => `ECHS popup in rooms: ${getPopupEnabled() ? "On" : "Off"}`,
+        caption: () => getPopupEnabled() ? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it." : "No spiral button in rooms. The /echs commands still work as typed.",
+        tooltip: "Show or hide the ECHS popup and its button in chat rooms",
+        cycle: () => setPopupEnabled(!getPopupEnabled())
       };
       PULSE_HEX_ID = "HypnosisAddonPulseHex";
       PULSE_HEX_LABEL_WIDTH = 200;
@@ -14374,12 +14470,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function buttonLeft(index) {
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
   }
-  function drawPrompt(hypnotistName, remainingMs, descriptor) {
+  function drawPrompt(hypnotistName2, remainingMs, descriptor) {
     DrawRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "White");
     DrawEmptyRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "Black", 4);
     const centre = PANEL_LEFT2 + PANEL_WIDTH2 / 2;
     const inner = PANEL_WIDTH2 - 40;
-    DrawTextFit(`${hypnotistName} is trying to hypnotize you.`, centre, PANEL_TOP2 + 55, inner, "Black");
+    DrawTextFit(`${hypnotistName2} is trying to hypnotize you.`, centre, PANEL_TOP2 + 55, inner, "Black");
     DrawTextFit("They are never told which you choose.", centre, PANEL_TOP2 + 105, inner, "Gray");
     if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP2 + 138, inner, "#444");
     DrawTextFit(
@@ -14970,6 +15066,888 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/popup-suggest.ts
+  function categoryFor(id, permission) {
+    const first = permission.split(" / ")[0];
+    if (first === "postureControl" && FACE_ID.test(id)) return "face";
+    return BY_PERMISSION[first] ?? "other";
+  }
+  function suggestCategories() {
+    const buckets = new Map(CATEGORY_TITLES.map(([k]) => [k, []]));
+    for (const x of EXTRA_ITEMS.filter((e) => e.cat === "trance")) buckets.get("trance").push(x.item);
+    for (const s of suggestionHelp()) {
+      buckets.get(categoryFor(s.id, s.permission)).push({
+        id: s.id,
+        label: s.display[0] ?? s.examples[0],
+        phrase: s.examples[0],
+        release: s.release,
+        permission: s.permission,
+        alternates: s.examples.slice(1),
+        releaseOf: s.releaseOf
+      });
+    }
+    for (const x of EXTRA_ITEMS.filter((e) => e.cat !== "trance")) buckets.get(x.cat).push(x.item);
+    return CATEGORY_TITLES.map(([key, title]) => ({ key, title, items: ordered(key, buckets.get(key)) })).filter((c) => c.items.length > 0);
+  }
+  function ordered(key, items) {
+    const lead = LEADS[key] ?? [];
+    const base = [...items.filter((i) => lead.includes(i.id)), ...items.filter((i) => !lead.includes(i.id))];
+    const out = base.filter((i) => !i.release);
+    for (const r of base.filter((i) => i.release)) {
+      const undoes = new Set(r.releaseOf ?? []);
+      let at = -1;
+      out.forEach((it, n) => {
+        if (undoes.has(it.id)) at = n;
+      });
+      if (at < 0) {
+        out.push(r);
+        continue;
+      }
+      while (at + 1 < out.length && out[at + 1].release) at++;
+      out.splice(at + 1, 0, r);
+    }
+    return out;
+  }
+  function suggestionText(subjectName, phrase) {
+    return `${subjectName}, ${phrase}`;
+  }
+  var CATEGORY_TITLES, BY_PERMISSION, FACE_ID, EXTRA_ITEMS, LEADS;
+  var init_popup_suggest = __esm({
+    "src/popup-suggest.ts"() {
+      init_voice();
+      CATEGORY_TITLES = [
+        ["trance", "Trance"],
+        ["body", "Body & pose"],
+        ["face", "Face"],
+        ["moving", "Moving & following"],
+        ["senses", "Speech, sight & hearing"],
+        ["clothes", "Clothes"],
+        ["awareness", "Awareness"],
+        ["arousal", "Arousal"],
+        ["touch", "Touch"],
+        ["other", "Other"]
+      ];
+      BY_PERMISSION = {
+        postureControl: "body",
+        movementRestriction: "moving",
+        followControl: "moving",
+        speechRestriction: "senses",
+        hearingControl: "senses",
+        sightControl: "senses",
+        clothingRestriction: "clothes",
+        undressControl: "clothes",
+        illusionControl: "clothes",
+        suppressClothing: "awareness",
+        suppressBondage: "awareness",
+        suppressActivities: "awareness",
+        arousalControl: "arousal"
+      };
+      FACE_ID = /^(tongue|mouth|lip|smile|grin|smirk|pout|moan|eyes|blush|face)\b/;
+      EXTRA_ITEMS = [
+        { cat: "trance", item: { id: "x-deeper", label: "sink deeper", phrase: "sink deeper", release: false, permission: "", alternates: ["deeper and deeper", "drift deeper"] } },
+        { cat: "trance", item: { id: "x-walk", label: "walk with me (stay under, on your feet)", phrase: "walk with me", release: false, permission: "", alternates: [] } },
+        { cat: "trance", item: { id: "x-still", label: "be still (back to the full trance)", phrase: "be still", release: false, permission: "", alternates: [] } },
+        { cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
+        { cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
+        { cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
+        { cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
+        { cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } }
+      ];
+      LEADS = { body: ["kneel"] };
+    }
+  });
+
+  // src/popup-triggers.ts
+  function plantedLines(word) {
+    return [
+      { id: "fire", label: "say it", phrase: word },
+      { id: "release", label: "release", phrase: `you are released from ${word}`, release: true },
+      { id: "forget", label: "remove", phrase: `forget the trigger ${word}`, release: true }
+    ];
+  }
+  var PLANT_GROUPS, FORGET_ALL;
+  var init_popup_triggers = __esm({
+    "src/popup-triggers.ts"() {
+      PLANT_GROUPS = [
+        {
+          key: "plant",
+          title: "Plant a trigger",
+          hint: "1. the word \xB7 2. what it does: anything from Suggestions, each one added \xB7 3. remember trigger",
+          lines: [
+            { id: "start", label: "your trigger word is \u2026", phrase: "your trigger word is ", finish: "the word or phrase", sample: "your trigger word is sleepy time" },
+            { id: "commit", label: "remember trigger", phrase: "remember trigger" },
+            { id: "cancel", label: "cancel the trigger (start again)", phrase: "cancel the trigger", release: true }
+          ]
+        },
+        {
+          key: "shape",
+          title: "Shape it (before remember trigger)",
+          hint: "Their own settings still cap how long it lasts and who may fire it.",
+          lines: [
+            { id: "once", label: "this trigger works only once", phrase: "this trigger works only once" },
+            { id: "lasts", label: "it lasts 2 hours", phrase: "it lasts 2 hours" },
+            { id: "anyone", label: "anyone can use it", phrase: "anyone can use it" },
+            { id: "only-me", label: "only I can use it", phrase: "only I can use it" },
+            { id: "owner", label: "your owner can use it", phrase: "your owner can use it" },
+            { id: "lovers", label: "your lovers can use it", phrase: "your lovers can use it" },
+            { id: "friends", label: "your friends can use it", phrase: "your friends can use it" },
+            { id: "exact", label: "only when you hear it exactly (whole words)", phrase: "only when you hear it exactly" },
+            { id: "drop", label: "you will drop into trance (needs Drop triggers on)", phrase: "you will drop into trance" },
+            { id: "say", label: "you will say '\u2026' three times (needs Made to Speak)", phrase: "you will say '", finish: "the words, then ' three times", sample: "you will say 'I obey' three times" }
+          ]
+        },
+        {
+          key: "compel",
+          title: "Compulsions (waiting for something, not a word)",
+          hint: "Then the suggestion, then remember trigger. Once, unless you say it works every time.",
+          lines: [
+            { id: "after-wake", label: "five minutes after you wake, \u2026", phrase: "five minutes after you wake, ", finish: "what they will do", sample: "five minutes after you wake, you will kneel" },
+            { id: "on-wake", label: "when you open your eyes, \u2026", phrase: "when you open your eyes, ", finish: "what they will do", sample: "when you open your eyes, you will kneel" },
+            { id: "arrive", label: "when \u2026 comes in, \u2026", phrase: "when ", finish: "who, then comes in, then what they will do", sample: "when Rei comes in, you will kneel" },
+            { id: "speak", label: "when I speak, \u2026", phrase: "when I speak, ", finish: "what they will do", sample: "when I speak, you will kneel" }
+          ]
+        },
+        {
+          key: "keep",
+          title: "Keep one strong",
+          hint: "While they are under with you, the one who planted it. Resets the fade.",
+          lines: [{ id: "holds", label: "that trigger holds", phrase: "that trigger holds" }]
+        }
+      ];
+      FORGET_ALL = { id: "forget-all", label: "remove everything I planted", phrase: "forget every trigger I gave you", release: true };
+    }
+  });
+
+  // src/popup.ts
+  function roomOthers2() {
+    const me2 = typeof Player !== "undefined" ? Player?.MemberNumber : void 0;
+    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).filter((c) => c?.MemberNumber && c.MemberNumber !== me2);
+  }
+  function induceTarget(c, pool) {
+    const name = shownName(c);
+    const lower = name.toLowerCase();
+    const hits = pool.filter((o) => [o?.Name, o?.Nickname].filter(Boolean).some((n) => n.toLowerCase() === lower));
+    const survives = name === name.trim().replace(/\s+/g, " ") && !/^\d+$/.test(name);
+    return hits.length === 1 && survives ? name : String(c.MemberNumber);
+  }
+  function personStatus(memberNumber) {
+    const v = getSessionView(memberNumber);
+    if (!v) return "";
+    switch (v.phase) {
+      case "Hypnotized":
+        return "under you";
+      case "AttemptMade":
+      case "InductionInProgress":
+        return "induction under way";
+      case "AttemptFailed":
+        return "missed: you can try again";
+      case "CooldownRequired": {
+        const mins = Math.ceil(countdownRemaining(v, "cooldownRemaining") / 6e4);
+        return mins > 0 ? `resting: ${mins} min` : "";
+      }
+      default:
+        return v.refusedReason ? "refused last time" : "";
+    }
+  }
+  function popupPeople() {
+    const pool = roomOthers2();
+    return pool.filter((c) => {
+      const p = peerFor(c.MemberNumber);
+      return p !== void 0 && p.show !== false;
+    }).map((c) => ({
+      id: c.MemberNumber,
+      name: shownName(c),
+      text: `/echs induce ${induceTarget(c, pool)}`,
+      status: personStatus(c.MemberNumber)
+    }));
+  }
+  function popupGroups(testing) {
+    const all = commandHelp();
+    return GROUP_ORDER.filter((g) => testing || g !== "Testing").map((group) => ({
+      group,
+      title: GROUP_TITLES[group] ?? group,
+      commands: all.filter((c) => c.group === group).map((c) => ({ tag: c.tag, args: c.args, description: c.description, text: commandText(c.tag, c.args) }))
+    })).filter((g) => g.commands.length > 0);
+  }
+  function commandText(tag, args) {
+    return `/echs ${tag}${args ? " " : ""}`;
+  }
+  function clampPos(x, y, w, h, vw, vh) {
+    const keepW = Math.min(w, KEEP_VISIBLE);
+    const minX = w <= KEEP_VISIBLE ? 0 : keepW - w;
+    const maxX = Math.max(0, vw - keepW);
+    const maxY = Math.max(0, vh - Math.min(h, KEEP_VISIBLE));
+    return { x: Math.min(Math.max(x, minX), maxX), y: Math.min(Math.max(y, 0), maxY) };
+  }
+  function fillChat(text2) {
+    const input = typeof document !== "undefined" ? document.getElementById("InputChat") : null;
+    if (!input) return false;
+    input.value = text2;
+    try {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    } catch {
+    }
+    input.focus?.();
+    try {
+      input.setSelectionRange?.(text2.length, text2.length);
+    } catch {
+    }
+    return true;
+  }
+  function inChatRoom() {
+    if (typeof CurrentScreen === "undefined" || CurrentScreen !== "ChatRoom") return false;
+    return typeof CurrentCharacter === "undefined" || CurrentCharacter == null;
+  }
+  function popupTick() {
+    if (typeof document === "undefined" || !document.body) return;
+    const show = getPopupEnabled() && inChatRoom();
+    const launcher = document.getElementById(LAUNCHER_ID);
+    if (!show) {
+      launcher?.remove();
+      removeWindow();
+      return;
+    }
+    if (!launcher) buildLauncher();
+    const win = document.getElementById(POPUP_ID);
+    if (open2 && !win) buildWindow();
+    if (!open2 && win) removeWindow();
+    autoSwitch();
+    if (open2 && document.getElementById(POPUP_ID) && viewKey() !== shownKey) renderBody();
+  }
+  function autoSwitch() {
+    const me2 = subjectSide() !== null;
+    const subs = popupSubjects().length;
+    if (me2 && !wasSubjectSide) tab = "me";
+    else if (subs > hadSubjects) tab = "suggest";
+    if (!availableTabs().includes(tab)) tab = "people";
+    wasSubjectSide = me2;
+    hadSubjects = subs;
+  }
+  function availableTabs() {
+    const t = [];
+    if (subjectSide() !== null) t.push("me");
+    t.push("people");
+    if (popupSubjects().length) t.push("suggest");
+    t.push("triggers");
+    t.push("commands");
+    return t;
+  }
+  function viewKey() {
+    const parts = [availableTabs().join(","), tab];
+    if (tab === "people") parts.push(peopleKey());
+    if (tab === "suggest") {
+      const who = currentSubject();
+      parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
+      parts.push(JSON.stringify(who ? getSessionView(who.id)?.gates ?? null : null));
+    }
+    if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
+    if (tab === "triggers") parts.push(triggersKey());
+    return parts.join("#");
+  }
+  function subjectSide() {
+    if (getPendingPrompt()) return "prompt";
+    if (isHypnotized()) return "under";
+    if (isSessionLive()) return "inducing";
+    return null;
+  }
+  function hypnotistName() {
+    const id = currentHypnotistId();
+    const c = roomOthers2().find((x) => x?.MemberNumber === id);
+    return c ? shownName(c) : id != null ? `#${id}` : "someone";
+  }
+  function meView() {
+    const side = subjectSide();
+    const b = (label, tag, tip) => ({ label, text: `/echs ${tag}`, tip });
+    if (side === "prompt") {
+      const p = getPendingPrompt();
+      return {
+        lines: [`${p.hypnotistName} is trying to hypnotize you.`, "Choose how you respond. They are never told which."],
+        buttons: [b("Agree", "agree", "Go along with it: easier for them"), b("Ignore", "ignore", "Neither help nor resist"), b("Fight", "fight", "Resist: harder for them")]
+      };
+    }
+    if (side === "inducing") {
+      return { lines: [`An induction with ${hypnotistName()} is under way.`], buttons: [b("Wake", "wake", "Stop it now")] };
+    }
+    if (side === "under") {
+      const out = [
+        b("Wake", "wake", "Wake yourself, if the trance is shallow enough"),
+        b("Fight", "fight", "Push back up, and fight going deeper"),
+        b("Agree", "agree", "Stop resisting"),
+        b("Ignore", "ignore", "Neither help nor resist going deeper"),
+        b("What is on me", "effects", "List the effects on you now")
+      ];
+      const ext = getPendingExtend();
+      if (ext) out.unshift(b(`Stay (${ext.minutes} min more)`, "stay", "Your time is up: stay under for as long again"));
+      const lines = [`You are under ${hypnotistName()}.`];
+      if (!extremeLocked()) lines.push(`Depth: ${tierLabel(currentTier())}`);
+      return { lines, buttons: out };
+    }
+    return { lines: ["Nobody has you under."], buttons: [] };
+  }
+  function gateOf(it, gates) {
+    if (!gates) return "unknown";
+    if (it.release || !it.permission) return "ok";
+    const keys = it.permission.split(" / ");
+    if (keys.some((k) => gates.ok.includes(k))) return "ok";
+    if (keys.some((k) => gates.deeper.includes(k))) return "deeper";
+    return "off";
+  }
+  function popupSubjects() {
+    return roomOthers2().filter((c) => getSessionView(c.MemberNumber)?.phase === "Hypnotized").map((c) => ({ id: c.MemberNumber, name: shownName(c) }));
+  }
+  function currentSubject() {
+    const subs = popupSubjects();
+    return subs.find((s) => s.id === chosenSubject) ?? subs[0] ?? null;
+  }
+  function chooseSubject(id) {
+    chosenSubject = id;
+    if (bodyEl) renderBody();
+  }
+  function removeWindow() {
+    document.getElementById(POPUP_ID)?.remove();
+    bodyEl = statusEl = tabsEl = null;
+  }
+  function setPopupTab(value) {
+    tab = value;
+    if (bodyEl) renderBody();
+  }
+  function peopleKey() {
+    return popupPeople().map((p) => `${p.id}:${p.name}:${p.status}`).join("|");
+  }
+  function setPopupOpen(value) {
+    open2 = value;
+    popupTick();
+  }
+  function el(tag, cls, text2) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text2 !== void 0) e.textContent = text2;
+    return e;
+  }
+  function viewSize() {
+    return { vw: window.innerWidth || 1280, vh: window.innerHeight || 720 };
+  }
+  function place(node, which, w, h, fallback) {
+    const { vw, vh } = viewSize();
+    const saved = getPopupPos(which) ?? fallback;
+    const p = clampPos(saved.x, saved.y, w, h, vw, vh);
+    node.style.left = `${p.x}px`;
+    node.style.top = `${p.y}px`;
+  }
+  function makeDraggable(node, handle, which, onClick) {
+    handle.addEventListener("pointerdown", (ev) => {
+      if (ev.button !== void 0 && ev.button !== 0) return;
+      if (handle !== node && ev.target !== handle && ev.target?.closest?.("button")) return;
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+      const startX = ev.clientX;
+      const startY = ev.clientY;
+      const left0 = parseFloat(node.style.left) || 0;
+      const top0 = parseFloat(node.style.top) || 0;
+      let moved = false;
+      const move = (e) => {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_SLOP) return;
+        moved = true;
+        const { vw, vh } = viewSize();
+        const p = clampPos(left0 + dx, top0 + dy, node.offsetWidth || LAUNCHER_SIZE, node.offsetHeight || LAUNCHER_SIZE, vw, vh);
+        node.style.left = `${p.x}px`;
+        node.style.top = `${p.y}px`;
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        if (moved) setPopupPos(which, parseFloat(node.style.left) || 0, parseFloat(node.style.top) || 0);
+        else onClick?.();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+  }
+  function buildLauncher() {
+    ensureStyle();
+    const b = el("button", "echs-pop-launcher");
+    b.id = LAUNCHER_ID;
+    b.type = "button";
+    b.title = "ECHS \u2014 commands and help (drag to move)";
+    if (SPIRAL_ICON) {
+      const img = el("img", "");
+      img.src = SPIRAL_ICON;
+      img.alt = "ECHS";
+      img.draggable = false;
+      b.appendChild(img);
+    } else b.textContent = "E";
+    place(b, "launcher", LAUNCHER_SIZE, LAUNCHER_SIZE, { x: 10, y: Math.round(viewSize().vh * 0.45) });
+    makeDraggable(b, b, "launcher", () => setPopupOpen(!open2));
+    document.body.appendChild(b);
+  }
+  function buildWindow() {
+    ensureStyle();
+    const win = el("div", "echs-pop");
+    win.id = POPUP_ID;
+    const head2 = el("div", "echs-pop-head");
+    head2.appendChild(el("span", "echs-pop-title", "ECHS"));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.0"}${RELEASE_SUFFIX}`));
+    const close = el("button", "echs-pop-x", "\xD7");
+    close.type = "button";
+    close.title = "Close (the spiral button opens it again)";
+    close.addEventListener("click", () => setPopupOpen(false));
+    head2.appendChild(close);
+    win.appendChild(head2);
+    tabsEl = el("div", "echs-pop-tabs");
+    win.appendChild(tabsEl);
+    bodyEl = el("div", "echs-pop-body");
+    win.appendChild(bodyEl);
+    const status = el("div", "echs-pop-status", statusText);
+    statusEl = status;
+    win.appendChild(status);
+    renderBody();
+    const foot = el("div", "echs-pop-foot");
+    const sw = el("button", "echs-pop-safeword", "Safeword \u2014 stop everything");
+    sw.type = "button";
+    sw.title = "Ends any trance and releases every effect, at once. Always works.";
+    sw.addEventListener("click", () => {
+      safeword();
+      setStatus(status, "Safeword used: everything stopped.");
+    });
+    foot.appendChild(sw);
+    win.appendChild(foot);
+    place(win, "window", WINDOW_WIDTH, 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
+    makeDraggable(win, head2, "window");
+    document.body.appendChild(win);
+  }
+  function setStatus(node, text2) {
+    statusText = text2;
+    node.textContent = text2;
+  }
+  function renderBody() {
+    if (!bodyEl || !statusEl) return;
+    if (!availableTabs().includes(tab)) tab = "people";
+    if (tabsEl) {
+      tabsEl.textContent = "";
+      for (const t of availableTabs()) {
+        const b = el("button", `echs-pop-tab${t === tab ? " echs-pop-tab-on" : ""}`, TAB_LABELS[t]);
+        b.type = "button";
+        b.addEventListener("click", () => setPopupTab(t));
+        tabsEl.appendChild(b);
+      }
+    }
+    const keep = drawnTab === tab ? bodyEl.scrollTop || 0 : 0;
+    if (tab === "people") renderPeople(bodyEl, statusEl);
+    else if (tab === "suggest") renderSuggest(bodyEl, statusEl);
+    else if (tab === "me") renderMe(bodyEl, statusEl);
+    else if (tab === "triggers") renderTriggers(bodyEl, statusEl);
+    else renderCommands(bodyEl, statusEl);
+    bodyEl.scrollTop = keep;
+    drawnTab = tab;
+    shownKey = viewKey();
+  }
+  function renderMe(body2, status) {
+    body2.textContent = "";
+    const v = meView();
+    for (const line of v.lines) body2.appendChild(el("div", "echs-pop-hint", line));
+    const row = el("div", "echs-pop-buttons");
+    for (const x of v.buttons) {
+      const btn = el("button", "echs-pop-chip", x.label);
+      btn.type = "button";
+      btn.title = `${x.tip} (types ${x.text})`;
+      btn.addEventListener("click", () => typeIt(status, x.text, "Typed. Press Enter to send it."));
+      row.appendChild(btn);
+    }
+    body2.appendChild(row);
+  }
+  function renderSuggest(body2, status) {
+    body2.textContent = "";
+    const subs = popupSubjects();
+    const who = currentSubject();
+    if (!who) {
+      body2.appendChild(el("div", "echs-pop-empty", "Nobody is under you right now."));
+      return;
+    }
+    if (subs.length > 1) {
+      const row = el("div", "echs-pop-buttons");
+      for (const s of subs) {
+        const chip2 = el("button", `echs-pop-chip${s.id === who.id ? " echs-pop-chip-on" : ""}`, s.name);
+        chip2.type = "button";
+        chip2.addEventListener("click", () => chooseSubject(s.id));
+        row.appendChild(chip2);
+      }
+      body2.appendChild(row);
+    }
+    body2.appendChild(el("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. \u21BA gives something back.`));
+    const gates = getSessionView(who.id)?.gates ?? null;
+    if (!gates) body2.appendChild(el("div", "echs-pop-hint", `${who.name}'s ECHS doesn't say what they allow (an older version), so nothing is greyed.`));
+    for (const cat of suggestCategories()) {
+      const isOpen = suggestOpen.has(cat.key);
+      const gated = cat.items.filter((i) => !i.release && i.permission);
+      const noneLand = gates !== null && gated.length > 0 && gated.every((i) => gateOf(i, gates) === "off");
+      const head2 = el("button", `echs-pop-group${noneLand ? " echs-pop-off" : ""}`, `${isOpen ? "\u2212" : "+"}  ${cat.title}${noneLand ? "  (not allowed)" : ""}`);
+      head2.type = "button";
+      head2.setAttribute?.("aria-expanded", String(isOpen));
+      head2.addEventListener("click", () => {
+        if (suggestOpen.has(cat.key)) suggestOpen.delete(cat.key);
+        else suggestOpen.add(cat.key);
+        renderBody();
+      });
+      body2.appendChild(head2);
+      if (!isOpen) continue;
+      const list = el("div", "echs-pop-list");
+      for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
+      body2.appendChild(list);
+    }
+  }
+  function suggestButton(it, name, status, gate) {
+    const wrap = el("div", `echs-pop-sug${gate === "off" ? " echs-pop-off" : gate === "deeper" ? " echs-pop-deeper" : ""}`);
+    const row = el("div", "echs-pop-row");
+    const done = gate === "off" ? `Typed, but ${name} hasn't allowed this. It won't land.` : gate === "deeper" ? `Typed, but ${name} isn't deep enough for this yet. Take them deeper first.` : `Typed. Press Enter to say it to ${name}.`;
+    const why = gate === "off" ? `${name} hasn't allowed this. ` : gate === "deeper" ? `Needs ${name} deeper. ` : "";
+    const say = (phrase, label, cls) => {
+      const text2 = suggestionText(name, phrase);
+      const b = el("button", cls, label);
+      b.type = "button";
+      b.title = `${why}${text2}`;
+      b.addEventListener("click", () => typeIt(status, text2, done));
+      return b;
+    };
+    const main = say(it.phrase, `${it.release ? "\u21BA " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
+    row.appendChild(main);
+    if (gate === "deeper") row.appendChild(el("span", "echs-pop-state echs-pop-tag", "deeper"));
+    const isOpen = altOpen.has(it.id);
+    if (it.alternates.length) {
+      const more = el("button", "echs-pop-more", isOpen ? "\u2212" : `+${it.alternates.length}`);
+      more.type = "button";
+      more.title = isOpen ? "Hide the other wordings" : "Other ways to say it";
+      more.addEventListener("click", () => {
+        if (altOpen.has(it.id)) altOpen.delete(it.id);
+        else altOpen.add(it.id);
+        renderBody();
+      });
+      row.appendChild(more);
+    }
+    wrap.appendChild(row);
+    if (isOpen) {
+      const alts = el("div", "echs-pop-alts");
+      for (const a of it.alternates) alts.appendChild(say(a, a, `echs-pop-item echs-pop-alt${it.release ? " echs-pop-release" : ""}`));
+      wrap.appendChild(alts);
+    }
+    return wrap;
+  }
+  function plantedPeople() {
+    const under = new Set(popupSubjects().map((s) => s.id));
+    return roomOthers2().filter((c) => under.has(c.MemberNumber) || plantedNote(c.MemberNumber)).map((c) => ({ id: c.MemberNumber, name: shownName(c) }));
+  }
+  function askPlantedLists(now = Date.now()) {
+    for (const p of plantedPeople()) {
+      if (now - (plantedAskedAt.get(p.id) ?? 0) < PLANTED_REASK_MS) continue;
+      plantedAskedAt.set(p.id, now);
+      askPlanted(p.id, now);
+    }
+  }
+  function triggersKey() {
+    const who = currentSubject();
+    const planted = plantedPeople().map((p) => `${p.id}:${plantedStatus(p.id)}:${plantedNote(p.id)?.updatedAt ?? 0}`);
+    const mine = listTriggers().map((t) => `${t.key}:${isTriggerInEffect(t) ? 1 : 0}`);
+    return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), extremeLocked() ? "x" : ""].join("|");
+  }
+  function triggerGroup(body2, key, title, fill) {
+    const isOpen = triggerOpen.has(key);
+    const head2 = el("button", "echs-pop-group", `${isOpen ? "\u2212" : "+"}  ${title}`);
+    head2.type = "button";
+    head2.setAttribute?.("aria-expanded", String(isOpen));
+    head2.addEventListener("click", () => {
+      if (triggerOpen.has(key)) triggerOpen.delete(key);
+      else triggerOpen.add(key);
+      renderBody();
+    });
+    body2.appendChild(head2);
+    if (!isOpen) return;
+    const list = el("div", "echs-pop-list");
+    fill(list);
+    body2.appendChild(list);
+  }
+  function triggerLineButton(line, name, status) {
+    const text2 = suggestionText(name, line.phrase);
+    const b = el("button", `echs-pop-item echs-pop-say${line.release ? " echs-pop-release" : ""}`, `${line.release ? "\u21BA " : ""}${line.label}`);
+    b.type = "button";
+    b.title = text2;
+    b.addEventListener(
+      "click",
+      () => typeIt(status, text2, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`)
+    );
+    return b;
+  }
+  function chip(label, tip, onClick, faded = false) {
+    const c = el("button", `echs-pop-chip${faded ? " echs-pop-off" : ""}`, label);
+    c.type = "button";
+    c.title = tip;
+    c.addEventListener("click", onClick);
+    return c;
+  }
+  function renderTriggers(body2, status) {
+    body2.textContent = "";
+    askPlantedLists();
+    const who = currentSubject();
+    if (who) {
+      body2.appendChild(el("div", "echs-pop-hint", `Planting in ${who.name}. Needs a Deep trance, on earned depth.`));
+      for (const g of PLANT_GROUPS)
+        triggerGroup(body2, g.key, g.title, (list) => {
+          if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
+          for (const line of g.lines) list.appendChild(triggerLineButton(line, who.name, status));
+        });
+    } else {
+      body2.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first. The planting lines appear here."));
+    }
+    for (const p of plantedPeople()) {
+      triggerGroup(body2, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
+        list.appendChild(el("div", "echs-pop-hint", plantedHeading(p.id, p.name)));
+        const entries = plantedNote(p.id)?.triggers ?? [];
+        for (const t of entries) {
+          const row = el("div", "echs-pop-entry");
+          row.appendChild(el("div", "echs-pop-person", plantedTitle(t)));
+          const detail = [plantedState(t), t.does.join("; ")].filter(Boolean).join(" \xB7 ");
+          if (detail) row.appendChild(el("div", "echs-pop-desc", detail));
+          if (t.word) {
+            const chips = el("div", "echs-pop-buttons");
+            for (const line of plantedLines(t.word)) {
+              const text2 = suggestionText(p.name, line.phrase);
+              chips.appendChild(chip(line.label, text2, () => typeIt(status, text2, `Typed. Press Enter to say it to ${p.name}.`)));
+            }
+            row.appendChild(chips);
+          } else row.appendChild(el("div", "echs-pop-desc", "No word: only \u201Cremove everything I planted\u201D below takes it away."));
+          list.appendChild(row);
+        }
+        if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
+      });
+    }
+    const mine = sweptTriggers();
+    const locked = extremeLocked();
+    triggerGroup(body2, "mine", `Triggers in you (${mine.length})`, (list) => {
+      if (!mine.length) list.appendChild(el("div", "echs-pop-empty", "Nothing is planted in you."));
+      const reveal = triggerPhrasesVisible(false);
+      mine.forEach((t, i) => {
+        const n = i + 1;
+        const holding = isTriggerInEffect(t);
+        const row = el("div", "echs-pop-entry");
+        row.appendChild(el("div", "echs-pop-person", `${n}. ${reveal && t.phrase ? `"${t.phrase}"` : t.fireOn ? "a compulsion" : "word hidden"}`));
+        row.appendChild(el("div", "echs-pop-desc", triggerSummary(t)));
+        const chips = el("div", "echs-pop-buttons");
+        chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
+        const why = locked ? "Your Extreme lock is on: triggers can only be added until it ends." : holding ? "It is holding you: wait, have it released, or use the safeword." : "";
+        chips.appendChild(
+          chip(
+            "forget",
+            why || `/echs forgettrigger ${n}`,
+            () => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to remove it."),
+            !!why
+          )
+        );
+        row.appendChild(chips);
+        list.appendChild(row);
+      });
+      if (mine.length > 1)
+        list.appendChild(
+          chip(
+            "forget all",
+            locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
+            () => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
+            locked
+          )
+        );
+      list.appendChild(el("div", "echs-pop-hint", "How fast your triggers fade:"));
+      const rates = el("div", "echs-pop-buttons");
+      const now = getTriggerDecayRate();
+      for (const r of DECAY_RATES) {
+        const c = chip(
+          r.label,
+          locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
+          () => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
+          locked
+        );
+        if (r.key === now) c.className += " echs-pop-chip-on";
+        rates.appendChild(c);
+      }
+      list.appendChild(rates);
+    });
+  }
+  function typeIt(status, text2, done) {
+    if (fillChat(text2)) setStatus(status, done);
+    else setStatus(status, "No chat box to type into. This works in a chat room.");
+  }
+  function renderPeople(body2, status) {
+    body2.textContent = "";
+    const people = popupPeople();
+    if (!people.length) {
+      body2.appendChild(el("div", "echs-pop-empty", "Nobody else here is running ECHS, or those who are have chosen not to be shown."));
+      return;
+    }
+    body2.appendChild(el("div", "echs-pop-hint", "Click someone to type an induction for them. They decide, on their own screen, how to respond."));
+    for (const p of people) {
+      const item = el("button", "echs-pop-item");
+      item.type = "button";
+      item.title = p.text;
+      const line = el("div", "echs-pop-person", p.name);
+      if (p.status) line.appendChild(el("span", "echs-pop-state", p.status));
+      item.appendChild(line);
+      item.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
+      body2.appendChild(item);
+    }
+  }
+  function renderCommands(body2, status) {
+    body2.textContent = "";
+    for (const g of popupGroups(isTestingMode())) {
+      const isOpen = expanded.has(g.group);
+      const head2 = el("button", "echs-pop-group", `${isOpen ? "\u2212" : "+"}  ${g.title}`);
+      head2.type = "button";
+      head2.setAttribute?.("aria-expanded", String(isOpen));
+      head2.addEventListener("click", () => {
+        if (expanded.has(g.group)) expanded.delete(g.group);
+        else expanded.add(g.group);
+        renderCommands(body2, status);
+      });
+      body2.appendChild(head2);
+      if (!isOpen) continue;
+      const list = el("div", "echs-pop-list");
+      for (const c of g.commands) {
+        const item = el("button", "echs-pop-item");
+        item.type = "button";
+        item.appendChild(el("div", "echs-pop-cmd", `/echs ${c.tag}${c.args ? " " + c.args : ""}`));
+        item.appendChild(el("div", "echs-pop-desc", c.description));
+        item.addEventListener(
+          "click",
+          () => typeIt(status, c.text, c.args ? `Typed. Finish it (${c.args}), then press Enter.` : "Typed. Press Enter to send it.")
+        );
+        list.appendChild(item);
+      }
+      body2.appendChild(list);
+    }
+  }
+  function ensureStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const s = el("style", "");
+    s.id = STYLE_ID;
+    s.textContent = POPUP_CSS;
+    document.head.appendChild(s);
+  }
+  function installPopup() {
+    if (timer) return;
+    timer = setInterval(() => {
+      try {
+        popupTick();
+      } catch (e) {
+        log(`popup: ${e}`);
+      }
+    }, TICK_MS);
+    popupTick();
+  }
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, POPUP_CSS;
+  var init_popup = __esm({
+    "src/popup.ts"() {
+      init_log();
+      init_commands();
+      init_session();
+      init_depth();
+      init_extreme();
+      init_popup_suggest();
+      init_popup_triggers();
+      init_planted();
+      init_voice();
+      init_storage();
+      init_storage();
+      init_icon();
+      init_badge();
+      POPUP_ID = "echs-popup";
+      LAUNCHER_ID = "echs-popup-launcher";
+      STYLE_ID = "echs-popup-style";
+      TICK_MS = 250;
+      DRAG_SLOP = 5;
+      LAUNCHER_SIZE = 44;
+      WINDOW_WIDTH = 340;
+      KEEP_VISIBLE = 60;
+      GROUP_ORDER = ["Session", "Data", "Diagnostics", "Testing"];
+      GROUP_TITLES = {
+        Session: "Hypnosis",
+        Data: "Your data",
+        Diagnostics: "Checking things",
+        Testing: "Testing room only"
+      };
+      open2 = false;
+      timer = null;
+      expanded = /* @__PURE__ */ new Set(["Session"]);
+      statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+      tab = "people";
+      suggestOpen = /* @__PURE__ */ new Set(["trance"]);
+      altOpen = /* @__PURE__ */ new Set();
+      chosenSubject = null;
+      wasSubjectSide = false;
+      hadSubjects = 0;
+      drawnTab = null;
+      bodyEl = null;
+      statusEl = null;
+      tabsEl = null;
+      shownKey = "";
+      shownName = (c) => c?.Nickname || c?.Name || `#${c?.MemberNumber}`;
+      TAB_LABELS = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", commands: "Commands" };
+      triggerOpen = /* @__PURE__ */ new Set(["plant", "mine"]);
+      plantedAskedAt = /* @__PURE__ */ new Map();
+      PLANTED_REASK_MS = 3e4;
+      POPUP_CSS = `
+.echs-pop-launcher{position:fixed;z-index:1000;width:${LAUNCHER_SIZE}px;height:${LAUNCHER_SIZE}px;border-radius:50%;
+ padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
+.echs-pop-launcher img{width:100%;height:100%;pointer-events:none}
+.echs-pop-launcher:hover{background:#fff}
+.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;max-height:70vh;display:flex;flex-direction:column;
+ background:#0e1424;color:#d8e2ff;border:1px solid #3b4f86;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.55);
+ font:13px/1.35 "Segoe UI",Arial,sans-serif}
+.echs-pop button{font:inherit;color:inherit}
+.echs-pop-head{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #2a3866;cursor:move;touch-action:none;user-select:none}
+.echs-pop-title{font-weight:700;letter-spacing:.2em}
+.echs-pop-ver{opacity:.6;font-size:11px;flex:1}
+.echs-pop-x{background:none;border:1px solid #3b4f86;border-radius:4px;width:24px;height:24px;cursor:pointer}
+.echs-pop-x:hover{background:#26335c}
+.echs-pop-tabs{display:flex;gap:4px;padding:6px 8px 0}
+.echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px;background:none;cursor:pointer}
+.echs-pop-tab:hover{background:#1b2648}
+.echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
+.echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-person{font-weight:600}
+.echs-pop-row{display:flex;align-items:stretch}
+.echs-pop-row .echs-pop-item{flex:1}
+.echs-pop-say{color:#e4ecff}
+.echs-pop-say.echs-pop-release,.echs-pop-alt.echs-pop-release{color:#9fe0b8}
+.echs-pop-more{background:none;border:none;border-bottom:1px solid #1d2747;color:#9fd0ff;font-size:11px;min-width:34px;cursor:pointer}
+.echs-pop-more:hover{background:#1b2648}
+.echs-pop-alts{margin-left:14px;border-left:2px solid #26335c}
+.echs-pop-alt{font-size:12px;opacity:.85}
+.echs-pop-tag{align-self:center;margin:0 4px}
+.echs-pop-entry{padding:4px 6px;border-bottom:1px solid #1d2747}
+.echs-pop-entry .echs-pop-buttons{padding:3px 0 0}
+.echs-pop-off{opacity:.38}
+.echs-pop-off:hover{opacity:.6}
+.echs-pop-deeper .echs-pop-say{color:#c9cfe0}
+.echs-pop-buttons{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px}
+.echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
+.echs-pop-chip:hover{background:#22305a}
+.echs-pop-chip-on{background:#3b4f86;font-weight:600}
+.echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
+.echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1}
+.echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;
+ padding:5px 8px;margin:4px 0;cursor:pointer;font-weight:600}
+.echs-pop-group:hover{background:#22305a}
+.echs-pop-list{margin:0 0 4px 8px}
+.echs-pop-item{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1d2747;
+ padding:4px 6px;cursor:pointer}
+.echs-pop-item:hover{background:#1b2648}
+.echs-pop-cmd{font-family:Consolas,monospace;color:#9fd0ff}
+.echs-pop-desc{font-size:12px;opacity:.75}
+.echs-pop-status{padding:5px 8px;border-top:1px solid #2a3866;font-size:12px;color:#9fe0b8;min-height:16px}
+.echs-pop-foot{padding:6px 8px;border-top:1px solid #2a3866}
+.echs-pop-safeword{width:100%;padding:6px;background:#6b1022;border:1px solid #c0354f;border-radius:4px;cursor:pointer;font-weight:700}
+.echs-pop-safeword:hover{background:#8a1630}
+`;
+    }
+  });
+
   // src/denial.ts
   function isPlayer(C) {
     return !!C && (C === Player || C.IsPlayer?.() === true);
@@ -15055,7 +16033,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.12.9"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -15075,9 +16053,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
-    const el = document.createElement("div");
-    el.textContent = `ECHS v${"1.12.9"}${RELEASE_SUFFIX} loaded`;
-    Object.assign(el.style, {
+    const el2 = document.createElement("div");
+    el2.textContent = `ECHS v${"1.13.0"}${RELEASE_SUFFIX} loaded`;
+    Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
       right: "4px",
@@ -15092,10 +16070,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       opacity: "1",
       transition: `opacity ${LOADED_TOAST_FADE_MS}ms ease`
     });
-    document.body.appendChild(el);
+    document.body.appendChild(el2);
     setTimeout(() => {
-      el.style.opacity = "0";
-      setTimeout(() => el.remove(), LOADED_TOAST_FADE_MS + 100);
+      el2.style.opacity = "0";
+      setTimeout(() => el2.remove(), LOADED_TOAST_FADE_MS + 100);
     }, LOADED_TOAST_HOLD_MS);
   }
   var BANNER_POLL_MS, BANNER_GIVE_UP_MS, bannerShown, LOADED_TOAST_HOLD_MS, LOADED_TOAST_FADE_MS;
@@ -15140,6 +16118,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_conceal();
       init_follow();
       init_badge();
+      init_popup();
       init_triggers();
       init_drugs();
       init_selftouch();
@@ -15149,14 +16128,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.12.9"})`);
+      info(`script loaded (v${"1.13.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.12.9",
+          version: "1.13.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -15287,6 +16266,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("/echs command registration", installCommands);
       safely("preference menu registration", installMenu);
       safely("remote (Information Sheet) registration", () => installRemote(modApi));
+      safely("ECHS popup", installPopup);
       safely("induction prompt box", () => installPrompt(modApi));
       safely("clothing illusion", () => installIllusion(modApi));
     }
@@ -15297,10 +16277,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.12.9"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.12.9";
+    page2.__ECHS_LOADED__ = "1.13.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

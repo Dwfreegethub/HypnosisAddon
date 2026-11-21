@@ -1812,6 +1812,8 @@ export interface SuggestionHelp {
 	 * same as `examples`. The test still checks `examples`, so display can read however it likes. */
 	display: string[];
 	release: boolean;
+	/** For a release, the ids it gives back. The ECHS popup lists it under them. */
+	releaseOf: string[];
 	/** The tier this needs, as a label. Looked up from the permission rather than stored on
 	 * the suggestion, so the help screen and the gate cannot disagree. */
 	depthTier?: string;
@@ -1837,6 +1839,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		examples: s.examples,
 		display: s.displayExamples ?? s.examples,
 		release: !!s.release,
+		releaseOf: s.releaseOf === undefined ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
 		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));
 }
@@ -3094,6 +3097,11 @@ const REINFORCE = [
 	/\blet (?:that|the|your) triggers? (?:settle|sink) deeper\b/,
 ];
 
+/** Pure: is this the reinforcing wording? For the popup's suite. */
+export function isReinforceLine(content: string): boolean {
+	return REINFORCE.some((p) => p.test(normalize(content)));
+}
+
 function handleReinforcement(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!REINFORCE.some((p) => p.test(text))) return false;
@@ -3450,6 +3458,15 @@ const WALK_LEAVE_PATTERNS = [
 	/\bfreeze again\b/,
 	/\bstay\b/,
 ];
+
+/** Which walking-trance wording a line is, ignoring whether she is walking. Pure; for the popup's
+ * suite, which checks that what the popup types is what this file listens for. */
+export function walkingLineKind(content: string): "enter" | "leave" | null {
+	const text = normalize(content);
+	if (WALK_ENTER_PATTERNS.some((p) => p.test(text))) return "enter";
+	if (WALK_LEAVE_PATTERNS.some((p) => p.test(text))) return "leave";
+	return null;
+}
 
 /** Returns true if the line changed walking-trance mode and has been dealt with. */
 function handleWalkingTrance(sender: number, content: string): boolean {

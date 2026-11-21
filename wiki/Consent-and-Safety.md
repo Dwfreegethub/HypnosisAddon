@@ -131,6 +131,7 @@ Choosing the **Extreme** setup template, and confirming its warning, makes your 
 * **Public Emotes:** Noticeable physical reactions (freezing, failing to speak) emit as standard room emotes.
 * **Perception Effects:** Purely mental effects (failing to notice an item or seeing a clothing illusion) never emit room emotes.
 * **Hiding Emotes:** Disable **Trance Defaults → Others See Your Reactions** to keep all reactions private.
+* **The popup:** other ECHS players' **[popup](The-ECHS-Popup)** lists who in the room runs ECHS; untick **Trance Defaults → Show others that I run ECHS** to stay off it. While you are under, your ECHS tells **only the person who has you under** which kinds of suggestion you allow and whether you are deep enough for each (never your depth itself), so their list can fade what won't land. Your ECHS still checks every line by your own settings.
 
 ---
 

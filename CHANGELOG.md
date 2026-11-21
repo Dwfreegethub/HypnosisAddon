@@ -12,6 +12,23 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.0 RC · 21 November 2026
+
+- **The ECHS popup.** In a chat room, a round spiral button on the left opens a small window you can
+  drag anywhere. It types into your chat box for you, so you don't have to remember the wording;
+  nothing is sent until you press Enter.
+  - **People:** everyone in the room running ECHS. Click a name to start an induction.
+  - **Suggestions,** while someone is under you: everything you can say, in groups, typed with their
+    name. What they haven't allowed is faded, and what needs them deeper is marked.
+  - **Me,** while someone is hypnotizing you: Agree, Ignore or Fight, and Wake, Stay or Fight while
+    you are under, with your depth.
+  - **Triggers:** how to plant and shape one, the ones you planted (say it, release, remove), and
+    the ones in you.
+  - **Commands:** every `/echs` command.
+  - The red **Safeword** button at the bottom always works, at once.
+  - It's on for everyone; turn it off under Trance Defaults, **ECHS popup in rooms**. Unticking
+    **Show others that I run ECHS** keeps you off other players' People list.
+
 ## v1.12.9 RC · 19 November 2026
 
 - **Less traffic to the game server.** When ECHS saved your settings several times in a row (a

@@ -110,7 +110,9 @@ let plantedPage = 0;
 //
 // Deliberately NOT used to hide the icon. It could be, once a member number has been
 // probed once — but that would quietly turn the sheet into a directory of who in the room
-// has the add-on installed, which is nobody's business but theirs.
+// has the add-on installed, which is nobody's business but theirs. (The ECHS popup's People tab does
+// list who runs ECHS, from badge.ts, by DW's decision in v1.13.0; "Show others that I run ECHS" opts
+// out. The sheet's icon still shows on everyone. See design.md, The ECHS Popup.)
 
 const PROBE_TIMEOUT_MS = 3000;
 /** When we last asked, per member number. */
