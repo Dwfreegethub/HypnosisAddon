@@ -122,6 +122,35 @@ function inTestingRoom(): boolean {
 	}
 }
 
-/** " RC" while package.json carries a releaseLabel, "" otherwise. Appended to every place the
- * version is SHOWN, never to the version itself (see env.d.ts). */
-export const RELEASE_SUFFIX: string = __RELEASE_LABEL__ ? ` ${__RELEASE_LABEL__}` : "";
+// THE VERSION LABEL (v1.13.6, DW 2026-11-21). The 1.0 "RC" label is gone. Stable shows just the
+// number; a dev build shows it with a D after it ("v1.13.6 D").
+//
+// Decided at load, not at build: dev and main commit the same cdn/HypnosisAddon.js once dev is merged
+// into main, so a D written into the file would ship to stable with the next release. Instead the
+// bundle looks at where it was loaded from. FUSAM's dev channel loads it with a <script> tag from
+// GitHub Pages' /dev/ copy, and document.currentScript is that tag while the bundle's top level runs
+// (this module is evaluated synchronously, before index.ts's first await). FUSAM stable, the
+// Tampermonkey loader (jsDelivr, main's tag) and the bookmark loader (inline text) never match, and
+// show the plain number. The file:// test build is a build under test, so it shows the D as well.
+// Display only: the version itself stays a plain number (the jsDelivr tag; userscript managers).
+
+/** The dev channel's address on GitHub Pages (FUSAM manifest, "dev"). */
+const DEV_CHANNEL_PATH = /\/HypnosisAddon\/dev\//;
+
+/** Where this copy was loaded from, read once at load. Empty when not loaded by a <script src>. */
+function loadedFrom(): string {
+	try {
+		const s: any = typeof document !== "undefined" ? document.currentScript : null;
+		return typeof s?.src === "string" ? s.src : "";
+	} catch {
+		return "";
+	}
+}
+
+/** "D" for a dev build (the dev channel, or the local test build), "" for stable. Exported for the suite. */
+export function channelLabel(src: string, localBuild: boolean): "D" | "" {
+	return localBuild || DEV_CHANNEL_PATH.test(src) ? "D" : "";
+}
+
+/** " D" on a dev build, "" on stable. Appended wherever the version is SHOWN, never to the version. */
+export const RELEASE_SUFFIX: string = channelLabel(loadedFrom(), __LOCAL_BUILD__) ? " D" : "";

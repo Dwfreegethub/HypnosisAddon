@@ -74,6 +74,6 @@ Every update, newest first, is in **[What's New](https://github.com/Dwfreegethub
 
 ## A Note on This Wiki
 
-ECHS is in its **1.0 release candidate** series: your chat line shows the exact version (such as *v1.12.5 RC*). Balance may still be tweaked. If something behaves differently from what is written here, drop an issue on GitHub and say which version your chat line shows.
+Your chat line shows the exact version, such as *v1.13.6*. A **D** after it (*v1.13.6 D*) means a dev build, from FUSAM's dev channel. Balance may still be tweaked. If something behaves differently from what is written here, drop an issue on GitHub and say which version your chat line shows.
 
 This wiki and the in-game help (the **`?`** button in your settings, or `/echs help`) cover the same ground. The wiki is for browsing out of game; the in-game help is built to check quickly mid-scene. Whenever the two disagree, **the in-game help is bundled into the running code and is more likely to be current.**

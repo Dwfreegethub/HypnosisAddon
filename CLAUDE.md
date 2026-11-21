@@ -5,9 +5,12 @@ another: induction, spoken suggestions, persistent triggers, the clothing illusi
 and a trust-and-depth gating system underneath all of it.
 
 **Version:** `package.json` is the single source of truth; the on-screen banner derives from it.
-Since 1.0.0 (2026-10-28) it may also carry `releaseLabel` ("RC"), which is shown after the number
-and never put into it: the number is also the jsDelivr tag and what userscript managers compare.
-Going final means deleting `releaseLabel`, with a patch bump. Reasoning in `docs/CHANGELOG.md`.
+**The label after it (since v1.13.6, DW 2026-11-21): stable shows just the number; a dev build shows
+it with " D" after it.** The add-on decides at load, from where it was loaded (`src/log.ts`,
+`RELEASE_SUFFIX`): FUSAM's dev channel and the local `dist/` test build show the D; FUSAM stable and
+the loaders don't. Never put a label into `package.json` or the version itself: dev and main commit
+the same bundle, and the number is also the jsDelivr tag and what userscript managers compare. Root
+`CHANGELOG.md` headings are `## v1.13.6 · <date>`, with no label. ("RC" ran from 1.0.0 to 1.13.5.)
 
 ## Where the facts live — do not copy them here
 
