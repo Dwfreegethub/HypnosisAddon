@@ -18,7 +18,8 @@ const common = {
 	bundle: true,
 	format: "iife",
 	target: "es2020",
-	define: { __VERSION__: JSON.stringify(pkg.version), __RELEASE_LABEL__: JSON.stringify(pkg.releaseLabel ?? "") },
+	// __LOCAL_BUILD__ is true only in the file:// test build below: it shows the dev "D" (see log.ts).
+	define: { __VERSION__: JSON.stringify(pkg.version), __LOCAL_BUILD__: "false" },
 	logLevel: "info",
 };
 
@@ -29,6 +30,7 @@ const options = {
 	entryPoints: ["src/index.ts"],
 	outfile: "dist/HypnosisAddon.user.js",
 	banner: { js: banner },
+	define: { ...common.define, __LOCAL_BUILD__: "true" },
 };
 
 // Since v0.83.0 a player installs only the small loader, and the loader fetches the add-on from

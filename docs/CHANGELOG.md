@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-21 (v1.13.6) — "RC" retired; dev builds show "D"
+
+DW: stable shows just the number, dev shows it with a D. `releaseLabel` is gone from package.json
+(the 1.0 "RC" ran 1.0.0 to 1.13.5).
+- **Decided at load, not at build.** dev and main commit the same `cdn/HypnosisAddon.js` once dev is
+  merged into main, so a D written into the file would reach stable with the next release; stamping
+  it per branch would mean a conflict in the generated files at every release. Instead `log.ts` reads
+  `document.currentScript.src` at load: FUSAM's dev channel loads GitHub Pages' `/dev/` copy by
+  `<script src>`, so it matches; FUSAM stable, the Tampermonkey loader (jsDelivr) and the bookmark
+  loader (inline) do not. `init_log()` runs on the entry's synchronous first line, before
+  `init_main` is queued, so `currentScript` is still set (checked on the real bundle).
+- The local `dist/HypnosisAddon.user.js` build sets `__LOCAL_BUILD__` and shows the D too.
+- `test/version-label.mjs` (10): the label per address, and the real bundle run as a browser would
+  (currentScript only during the first run); ignoring the address fails it. GreeterBot's announcer
+  reads `## v<number>` and needs no change.
+
 ### Added 2026-11-21 (v1.13.5 RC) — "take a sip"
 
 A player's report (feedback 2026-11-13): "take a sip" did nothing as a command under trance; there was

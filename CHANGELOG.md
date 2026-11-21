@@ -6,11 +6,17 @@ Your userscript manager installs updates on its own, so you are usually on the n
 already. To check which one you have, look at the first line ECHS prints in your chat when the
 game loads, or at the title of the ECHS settings screen.
 
-ECHS is at its **1.0 release candidate**. Every change below passes the automated checks, but not
-every one has been tried in a live room yet. If something behaves differently from what is written
+Your version is the number on that line, such as *v1.13.6*. A **D** after it means a dev build
+(FUSAM's dev channel). Up to v1.13.5 every version carried "RC" (release candidate) instead. Every
+change below passes the automated checks, but not every one has been tried in a live room yet. If something behaves differently from what is written
 here, please report it and say which version your chat line shows.
 
 ---
+
+## v1.13.6 · 21 November 2026
+
+- **No more "RC".** Your version now shows as just the number, such as *v1.13.6*. If you use FUSAM's
+  dev channel, it shows a **D** after it, so you can tell a dev build apart at a glance.
 
 ## v1.13.5 RC · 21 November 2026
 
