@@ -553,6 +553,8 @@ interface HypnoAddonSettings {
 	 * the default spot. Clamped back on screen when drawn, so a smaller window never loses them. */
 	popupPos?: { x: number; y: number };
 	popupLauncherPos?: { x: number; y: number };
+	/** The popup window's size once the player has resized it (v1.13.2). Absent means the default. */
+	popupSize?: { w: number; h: number };
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -1659,6 +1661,17 @@ export function setPopupPos(which: PopupSpot, x: number, y: number): void {
 	const p = { x: Math.round(x), y: Math.round(y) };
 	if (which === "window") s.popupPos = p;
 	else s.popupLauncherPos = p;
+	saveSettings();
+}
+/** The popup window's size after the player resized it (v1.13.2), or null for the default. */
+export function getPopupSize(): { w: number; h: number } | null {
+	const z = loadSettings().popupSize;
+	return z && Number.isFinite(z.w) && Number.isFinite(z.h) && z.w > 0 && z.h > 0 ? z : null;
+}
+export function setPopupSize(size: { w: number; h: number } | null): void {
+	const s = loadSettings();
+	if (size) s.popupSize = { w: Math.round(size.w), h: Math.round(size.h) };
+	else delete s.popupSize;
 	saveSettings();
 }
 

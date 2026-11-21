@@ -38,7 +38,7 @@ import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-tri
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
 import { listTriggers, getTriggerDecayRate, DECAY_RATES } from "./storage";
-import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot } from "./storage";
+import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
 
@@ -52,6 +52,11 @@ export const LAUNCHER_SIZE = 44;
 export const WINDOW_WIDTH = 340;
 /** How much of a dragged window must stay on screen, so it can always be caught again. */
 const KEEP_VISIBLE = 60;
+/** The smallest the window may be resized to (v1.13.2): the tabs and the Safeword button still fit. */
+export const MIN_WIDTH = 260;
+export const MIN_HEIGHT = 220;
+/** How long the size must stay put before it is saved: one save per resize, not one per frame. */
+const SIZE_SAVE_MS = 400;
 
 /** The groups shown, in this order. Testing commands only work in the testing room, so they are
  * only listed there. */
@@ -367,6 +372,69 @@ export function chooseSubject(id: number): void {
 function removeWindow(): void {
 	document.getElementById(POPUP_ID)?.remove();
 	bodyEl = statusEl = tabsEl = null;
+	sizeWatch?.disconnect?.();
+	sizeWatch = null;
+	if (sizeTimer) clearTimeout(sizeTimer);
+	sizeTimer = null;
+}
+
+// --- Resizing (v1.13.2, DW) ------------------------------------------------------------------
+// The browser's own grip in the bottom-right corner (CSS resize), so nothing here fights BC for the
+// mouse. Dragging it writes an inline width and height on the window; a ResizeObserver notices, and
+// once the size has stayed put for SIZE_SAVE_MS it is saved, once. Double-clicking the title bar puts
+// it back to the normal size. Clamped on screen when applied, so a smaller window never loses it.
+let sizeWatch: any = null;
+let sizeTimer: any = null;
+
+/** Keeps a size between the minimum and what the screen can show. */
+export function clampSize(w: number, h: number, vw: number, vh: number): { w: number; h: number } {
+	return {
+		w: Math.round(Math.max(MIN_WIDTH, Math.min(w, Math.max(MIN_WIDTH, vw - 8)))),
+		h: Math.round(Math.max(MIN_HEIGHT, Math.min(h, Math.max(MIN_HEIGHT, vh - 8)))),
+	};
+}
+
+function applySize(win: any): void {
+	const saved = getPopupSize();
+	if (!saved) return;
+	const { vw, vh } = viewSize();
+	const z = clampSize(saved.w, saved.h, vw, vh);
+	win.style.width = `${z.w}px`;
+	win.style.height = `${z.h}px`;
+}
+
+/** Saves the window's size if the player has set one (an inline size) and it differs from the saved. */
+export function noteWindowSize(win: any): void {
+	if (!win?.style?.width && !win?.style?.height) return;
+	const w = Math.round(win.offsetWidth || parseFloat(win.style.width) || 0);
+	const h = Math.round(win.offsetHeight || parseFloat(win.style.height) || 0);
+	if (!w || !h) return;
+	const saved = getPopupSize();
+	if (saved && saved.w === w && saved.h === h) return;
+	setPopupSize({ w, h });
+}
+
+function watchSize(win: any): void {
+	if (typeof ResizeObserver !== "function") return;
+	sizeWatch = new ResizeObserver(() => {
+		if (sizeTimer) clearTimeout(sizeTimer);
+		sizeTimer = setTimeout(() => {
+			sizeTimer = null;
+			noteWindowSize(win);
+		}, SIZE_SAVE_MS);
+	});
+	sizeWatch.observe(win);
+}
+
+/** Back to the normal size, and forget the saved one. */
+export function resetWindowSize(): void {
+	const win: any = document.getElementById(POPUP_ID);
+	if (win) {
+		win.style.width = "";
+		win.style.height = "";
+	}
+	setPopupSize(null);
+	if (statusEl) setStatus(statusEl, "Back to the normal size.");
 }
 
 export function isPopupOpen(): boolean {
@@ -502,9 +570,17 @@ function buildWindow(): void {
 	foot.appendChild(sw);
 	win.appendChild(foot);
 
-	place(win, "window", WINDOW_WIDTH, 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
+	head.title = "Drag to move. Double-click for the normal size.";
+	head.addEventListener("dblclick", (ev: any) => {
+		if (ev?.target?.closest?.("button")) return;
+		resetWindowSize();
+	});
+	applySize(win);
+	const z = getPopupSize();
+	place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
 	makeDraggable(win, head, "window");
 	document.body.appendChild(win);
+	watchSize(win);
 }
 
 function setStatus(node: any, text: string): void {
@@ -879,7 +955,8 @@ const POPUP_CSS = `
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
 .echs-pop-launcher img{width:100%;height:100%;pointer-events:none}
 .echs-pop-launcher:hover{background:#fff}
-.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;max-height:70vh;display:flex;flex-direction:column;
+.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(460px,70vh);max-height:90vh;max-width:90vw;
+ min-width:${MIN_WIDTH}px;min-height:${MIN_HEIGHT}px;resize:both;overflow:hidden;display:flex;flex-direction:column;
  background:#0e1424;color:#d8e2ff;border:1px solid #3b4f86;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.55);
  font:13px/1.35 "Segoe UI",Arial,sans-serif}
 .echs-pop button{font:inherit;color:inherit}
@@ -913,7 +990,7 @@ const POPUP_CSS = `
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
-.echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1}
+.echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1;min-height:0}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;
  padding:5px 8px;margin:4px 0;cursor:pointer;font-weight:600}
 .echs-pop-group:hover{background:#22305a}
