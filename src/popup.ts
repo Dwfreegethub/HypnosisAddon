@@ -20,9 +20,10 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { safeword } from "./session";
+import { safeword, getSessionView, countdownRemaining } from "./session";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot } from "./storage";
 import { SPIRAL_ICON } from "./icon";
+import { peerFor } from "./badge";
 
 export const POPUP_ID = "echs-popup";
 export const LAUNCHER_ID = "echs-popup-launcher";
@@ -49,9 +50,86 @@ let open = false;
 let timer: any = null;
 /** Which +/- groups are expanded. Session starts open: it is what a newcomer needs first. */
 const expanded = new Set<string>(["Session"]);
-let statusText = "Click a command to type it into the chat box.";
+let statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+export type PopupTab = "people" | "commands";
+let tab: PopupTab = "people";
+/** The window's changing parts, kept so the People list can be redrawn as the room changes. */
+let bodyEl: any = null;
+let statusEl: any = null;
+let tabsEl: any = null;
+/** What the People list last showed, so it is rebuilt only when that changes. */
+let shownPeople = "";
 
 // --- Pure parts (tested directly) -----------------------------------------------------------
+
+// THE PEOPLE TAB (stage 2). Everyone else in the room running ECHS, found by the room-wide ask
+// every build already makes on joining (badge.ts), so opening this sends nothing. Anyone who unticked
+// "Show others that I run ECHS" is left out: the same tick box hides them here (DW, 2026-11-21).
+// DW chose to list ECHS players knowingly; it reverses the old rule that presence is never shown
+// (job4.md §3). Their client still answers, because the profile remote needs that, so leaving them
+// out is this client's courtesy, the same as the spiral over them.
+//
+// Clicking a name TYPES the induction (DW): `/echs induce Name`. The name as the room shows it, or
+// the member number when that name would match more than one person, so it can never go to the
+// wrong one. Each row shows only what is already known about a session with them; it asks nothing.
+
+export type PopupPerson = { id: number; name: string; text: string; status: string };
+
+function roomOthers(): any[] {
+	const me = typeof Player !== "undefined" ? Player?.MemberNumber : undefined;
+	return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).filter((c: any) => c?.MemberNumber && c.MemberNumber !== me);
+}
+
+const shownName = (c: any): string => (c?.Nickname || c?.Name || `#${c?.MemberNumber}`) as string;
+
+/** What `/echs induce` should be given so it means exactly this person (commands.ts resolveTarget:
+ * Name or Nickname, case-insensitive, exact match first). */
+export function induceTarget(c: any, pool: any[]): string {
+	const name = shownName(c);
+	const lower = name.toLowerCase();
+	const hits = pool.filter((o) => [o?.Name, o?.Nickname].filter(Boolean).some((n: string) => n.toLowerCase() === lower));
+	// The command squeezes spaces (commands.ts wholeName), so a name it would change cannot be typed
+	// back; nor can one that is all digits, which it reads as a member number.
+	const survives = name === name.trim().replace(/\s+/g, " ") && !/^\d+$/.test(name);
+	return hits.length === 1 && survives ? name : String(c.MemberNumber);
+}
+
+/** What is known of a session with them, from their last report to us. Empty when nothing is. */
+export function personStatus(memberNumber: number): string {
+	const v = getSessionView(memberNumber);
+	if (!v) return "";
+	switch (v.phase) {
+		case "Hypnotized":
+			return "under you";
+		case "AttemptMade":
+		case "InductionInProgress":
+			return "induction under way";
+		case "AttemptFailed":
+			return "missed: you can try again";
+		case "CooldownRequired": {
+			const mins = Math.ceil(countdownRemaining(v, "cooldownRemaining") / 60_000);
+			return mins > 0 ? `resting: ${mins} min` : "";
+		}
+		default:
+			return v.refusedReason ? "refused last time" : "";
+	}
+}
+
+/** The People list: everyone else here running ECHS who has not asked to be left out. */
+export function popupPeople(): PopupPerson[] {
+	const pool = roomOthers();
+	return pool
+		.filter((c) => {
+			const p = peerFor(c.MemberNumber);
+			return p !== undefined && p.show !== false;
+		})
+		.map((c) => ({
+			id: c.MemberNumber,
+			name: shownName(c),
+			text: `/echs induce ${induceTarget(c, pool)}`,
+			status: personStatus(c.MemberNumber),
+		}));
+}
 
 export type PopupCommand = { tag: string; args: string; description: string; text: string };
 
@@ -126,17 +204,39 @@ export function popupTick(): void {
 	const launcher = document.getElementById(LAUNCHER_ID);
 	if (!show) {
 		launcher?.remove();
-		document.getElementById(POPUP_ID)?.remove();
+		removeWindow();
 		return;
 	}
 	if (!launcher) buildLauncher();
 	const win = document.getElementById(POPUP_ID);
 	if (open && !win) buildWindow();
-	if (!open && win) win.remove();
+	if (!open && win) removeWindow();
+	// People come and go, and sessions change: redraw the list when what it would show has changed.
+	if (open && win && tab === "people" && peopleKey() !== shownPeople) renderBody();
+}
+
+function removeWindow(): void {
+	document.getElementById(POPUP_ID)?.remove();
+	bodyEl = statusEl = tabsEl = null;
 }
 
 export function isPopupOpen(): boolean {
 	return open;
+}
+
+export function getPopupTab(): PopupTab {
+	return tab;
+}
+
+export function setPopupTab(value: PopupTab): void {
+	tab = value;
+	if (bodyEl) renderBody();
+}
+
+function peopleKey(): string {
+	return popupPeople()
+		.map((p) => `${p.id}:${p.name}:${p.status}`)
+		.join("|");
 }
 
 export function setPopupOpen(value: boolean): void {
@@ -233,16 +333,14 @@ function buildWindow(): void {
 	head.appendChild(close);
 	win.appendChild(head);
 
-	const tabs = el("div", "echs-pop-tabs");
-	const tab = el("span", "echs-pop-tab echs-pop-tab-on", "Commands");
-	tabs.appendChild(tab);
-	win.appendChild(tabs);
-
-	const body = el("div", "echs-pop-body");
-	win.appendChild(body);
+	tabsEl = el("div", "echs-pop-tabs");
+	win.appendChild(tabsEl);
+	bodyEl = el("div", "echs-pop-body");
+	win.appendChild(bodyEl);
 	const status = el("div", "echs-pop-status", statusText);
-	renderCommands(body, status);
+	statusEl = status;
 	win.appendChild(status);
+	renderBody();
 
 	const foot = el("div", "echs-pop-foot");
 	const sw = el("button", "echs-pop-safeword", "Safeword — stop everything");
@@ -265,6 +363,54 @@ function setStatus(node: any, text: string): void {
 	node.textContent = text;
 }
 
+const TABS: { key: PopupTab; label: string }[] = [
+	{ key: "people", label: "People" },
+	{ key: "commands", label: "Commands" },
+];
+
+/** The tab row and whichever tab is chosen. */
+function renderBody(): void {
+	if (!bodyEl || !statusEl) return;
+	if (tabsEl) {
+		tabsEl.textContent = "";
+		for (const t of TABS) {
+			const b = el("button", `echs-pop-tab${t.key === tab ? " echs-pop-tab-on" : ""}`, t.label);
+			b.type = "button";
+			b.addEventListener("click", () => setPopupTab(t.key));
+			tabsEl.appendChild(b);
+		}
+	}
+	if (tab === "people") renderPeople(bodyEl, statusEl);
+	else renderCommands(bodyEl, statusEl);
+}
+
+function typeIt(status: any, text: string, done: string): void {
+	if (fillChat(text)) setStatus(status, done);
+	else setStatus(status, "No chat box to type into. This works in a chat room.");
+}
+
+function renderPeople(body: any, status: any): void {
+	body.textContent = "";
+	const people = popupPeople();
+	shownPeople = peopleKey();
+	if (!people.length) {
+		body.appendChild(el("div", "echs-pop-empty", "Nobody else here is running ECHS, or those who are have chosen not to be shown."));
+		return;
+	}
+	body.appendChild(el("div", "echs-pop-hint", "Click someone to type an induction for them. They decide, on their own screen, how to respond."));
+	for (const p of people) {
+		const item = el("button", "echs-pop-item");
+		item.type = "button";
+		item.title = p.text;
+		const line = el("div", "echs-pop-person", p.name);
+		if (p.status) line.appendChild(el("span", "echs-pop-state", p.status));
+		item.appendChild(line);
+		item.appendChild(el("div", "echs-pop-desc", p.text));
+		item.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
+		body.appendChild(item);
+	}
+}
+
 function renderCommands(body: any, status: any): void {
 	body.textContent = "";
 	for (const g of popupGroups(isTestingMode())) {
@@ -285,10 +431,9 @@ function renderCommands(body: any, status: any): void {
 			item.type = "button";
 			item.appendChild(el("div", "echs-pop-cmd", `/echs ${c.tag}${c.args ? " " + c.args : ""}`));
 			item.appendChild(el("div", "echs-pop-desc", c.description));
-			item.addEventListener("click", () => {
-				if (fillChat(c.text)) setStatus(status, c.args ? `Typed. Finish it (${c.args}), then press Enter.` : "Typed. Press Enter to send it.");
-				else setStatus(status, "No chat box to type into. This works in a chat room.");
-			});
+			item.addEventListener("click", () =>
+				typeIt(status, c.text, c.args ? `Typed. Finish it (${c.args}), then press Enter.` : "Typed. Press Enter to send it."),
+			);
 			list.appendChild(item);
 		}
 		body.appendChild(list);
@@ -320,8 +465,12 @@ const POPUP_CSS = `
 .echs-pop-x{background:none;border:1px solid #3b4f86;border-radius:4px;width:24px;height:24px;cursor:pointer}
 .echs-pop-x:hover{background:#26335c}
 .echs-pop-tabs{display:flex;gap:4px;padding:6px 8px 0}
-.echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px}
-.echs-pop-tab-on{background:#26335c}
+.echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px;background:none;cursor:pointer}
+.echs-pop-tab:hover{background:#1b2648}
+.echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
+.echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-person{font-weight:600}
+.echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
 .echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;
  padding:5px 8px;margin:4px 0;cursor:pointer;font-weight:600}

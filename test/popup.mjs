@@ -8,6 +8,10 @@
 //   4. Clicking a command TYPES it into BC's chat box and fires BC's input handler; it never sends.
 //      With no chat box, it says so.
 //   5. The safeword button runs the safeword at once (rule 2), not just types it.
+//   6. People (stage 2): the window opens on it; it lists everyone else here running ECHS except
+//      those who unticked "Show others that I run ECHS", never ourselves or non-ECHS players; a
+//      click types /echs induce with a name that means only them (number when it would not); it
+//      shows what is known of a session with them, and redraws when the room changes.
 globalThis.Player = { MemberNumber: 1, Name: "Missy", Nickname: "", ExtensionSettings: {}, ArousalSettings: { Active: "Hybrid", Progress: 0 },
 	Appearance: [{ Asset: { Name: "Emoticon", Group: { Name: "Emoticon" } }, Property: { Effect: [] } }] };
 globalThis.Asset = [{ Name: "Emoticon", AllowEffect: [] }];
@@ -120,6 +124,9 @@ popup.popupTick();
 check("back in the room: window returns", !!win(), "the window back on re-entering a room");
 
 // 3. The list.
+check("opens on People", popup.getPopupTab() === "people" && byText("People").length === 1 && byText("Commands").length === 1, "the window opening on the People tab, with a Commands tab beside it");
+byText("Commands")[0].click();
+check("tab switches", popup.getPopupTab() === "commands" && byText("−  Hypnosis").length === 1, "the Commands tab shown after clicking it");
 const all = commands.commandHelp();
 const listed = popup.popupGroups(true).flatMap((g) => g.commands.map((x) => x.tag));
 const missing = all.filter((x) => !listed.includes(x.tag)).map((x) => `${x.group}/${x.tag}`);
@@ -149,6 +156,45 @@ local = [];
 byText("Safeword")[0].click();
 check("safeword runs at once", local.some((m) => m.includes("Safeword")) && status().startsWith("Safeword used"), `the safeword's own chat line and a status, got ${JSON.stringify(local)} / "${status()}"`);
 check("safeword sends nothing to the room", chatSent.length === 0, "no public chat from the safeword button");
+
+// 6. People.
+const { badge, messaging, session } = await import("./harness-bundle.mjs");
+session.installSession();
+const A = 100, B = 200, C = 300, D = 400, E = 500, F = 600;
+ChatRoomCharacter = [
+	Player,
+	{ MemberNumber: A, Name: "Alice", Nickname: "Ali" },
+	{ MemberNumber: B, Name: "Bea" },
+	{ MemberNumber: C, Name: "Cleo" },             // runs ECHS but hides
+	{ MemberNumber: D, Name: "Dora" },             // no ECHS
+	{ MemberNumber: E, Name: "Bea" },              // a second Bea
+	{ MemberNumber: F, Name: "12345" },            // a name that reads as a number
+];
+for (const [m, show] of [[A, true], [B, true], [C, false], [E, true], [F, true]]) badge.notePeer(m, { type: "state-response", version: "1.13.0", showIcon: show });
+badge.notePeer(1, { type: "state-response", version: "1.13.0" });
+popup.setPopupTab("people");
+popup.popupTick();
+const ppl = popup.popupPeople();
+const ids = ppl.map((p) => p.id);
+check("lists ECHS players only", ids.join(",") === [A, B, E, F].join(","), `Ali, Bea, Bea, 12345 listed (not Cleo, who hides; not Dora; not us), got ${ids.join(",")}`);
+check("shown by nickname, typed by it", ppl[0].name === "Ali" && ppl[0].text === "/echs induce Ali", `"Ali" / "/echs induce Ali", got ${JSON.stringify(ppl[0])}`);
+check("shared name: by number", ppl[1].text === `/echs induce ${B}` && ppl[2].text === `/echs induce ${E}`, `both Beas typed by member number, got ${ppl[1].text} / ${ppl[2].text}`);
+check("number-like name: by number", ppl[3].text === `/echs induce ${F}`, `"12345" typed as member ${F}, got ${ppl[3].text}`);
+const personBtn = (name) => findAll(win(), (n) => n.className === "echs-pop-item" && n.children[0]?.textContent.startsWith(name))[0];
+check("rows drawn", !!personBtn("Ali") && !personBtn("Cleo") && !personBtn("Dora"), "a row for Ali and none for Cleo or Dora");
+personBtn("Ali").click();
+check("click types induce", chatBox.value === "/echs induce Ali" && chatSent.length === 0 && status().includes("Press Enter"), `"/echs induce Ali" typed and nothing sent, got "${chatBox.value}"`);
+const update = (from, msg) => messaging.handleIncomingHidden({ Type: "Hidden", Content: "HypnoMsg", Sender: from, Dictionary: [{ message: { type: "session-update", ...msg } }] });
+update(A, { phase: "CooldownRequired", attempts: 2, cooldownRemaining: 150_000 });
+update(B, { phase: "Hypnotized", attempts: 1 });
+check("status: resting", popup.personStatus(A) === "resting: 3 min", `"resting: 3 min" for a 2.5 min cooldown, got "${popup.personStatus(A)}"`);
+check("status: under you", popup.personStatus(B) === "under you", `"under you", got "${popup.personStatus(B)}"`);
+check("status: nothing known", popup.personStatus(F) === "", `no status for someone we never tried, got "${popup.personStatus(F)}"`);
+popup.popupTick();
+check("redrawn with status", personBtn("Ali").textContent.includes("resting: 3 min"), `Ali's row showing "resting: 3 min", got "${personBtn("Ali").textContent}"`);
+ChatRoomCharacter = [Player];
+popup.popupTick();
+check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");
 
 console.log(`popup: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);
