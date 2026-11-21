@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.13.4. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.13.5. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -8233,6 +8233,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const suffix = times > 1 ? ` ${times} times` : "";
       if (base === "act:vague") return `you touch yourself somewhere${suffix}`;
       if (base === "act:genital") return `you touch yourself between your legs${suffix}`;
+      if (base === "act:sip") return `you take a sip of your drink${suffix}`;
       const [, activity, word] = base.split(":");
       return `you ${activity.toLowerCase()} your ${word ?? "body"}${suffix}`;
     }
@@ -8544,6 +8545,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!text2 || isSelfReferential(text2) || COMMAND_NEGATION.test(text2)) return null;
     const times = repeatCount(content);
     const withTimes = (cmd) => times > 1 ? { ...cmd, times } : cmd;
+    if (SIP_SELF.some((p) => p.test(text2))) return withTimes({ kind: "sip" });
     if (GENITAL_SELF.test(text2)) return withTimes({ kind: "genital" });
     if (VAGUE_SELF.test(text2)) return withTimes({ kind: "vague" });
     const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
@@ -8559,6 +8561,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const times = cmd.times && cmd.times > 1 ? `*${cmd.times}` : "";
     if (cmd.kind === "vague") return `act:vague${times}`;
     if (cmd.kind === "genital") return `act:genital${times}`;
+    if (cmd.kind === "sip") return `act:sip${times}`;
     return `act:${cmd.activity}:${cmd.word}${times}`;
   }
   function parseActId(id) {
@@ -8607,6 +8610,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return zone ? runCommandedActivity("Caress", [zone]) != null : false;
     }
     if (id === "act:genital") return runCommandedActivity("MasturbateHand", ["ItemVulva"]) != null;
+    if (id === "act:sip") return runCommandedActivity("SipItem", ["ItemMouth"]) != null;
     const [, activity, word] = id.split(":");
     const groups = word ? BODY_PARTS[word] ?? [] : [];
     return activity && groups.length ? runCommandedActivity(activity, groups) != null : false;
@@ -8647,6 +8651,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const pick2 = pickVagueZone();
         return pick2 ? runCommandedActivity("Caress", [pick2]) != null : false;
       });
+      return true;
+    }
+    if (cmd.kind === "sip") {
+      if (!runCommandedActivity("SipItem", ["ItemMouth"])) {
+        tellHypnotist(sender, "[command] They can't take a sip right now: nothing to drink in their hand, their hands bound, or their mouth blocked.");
+        return true;
+      }
+      tellPlayer("You lift your drink and sip before you've thought about it.");
+      noteLanded(sender);
+      repeatTouch(sender, cmd.times, () => runCommandedActivity("SipItem", ["ItemMouth"]) != null);
       return true;
     }
     const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;
@@ -8956,7 +8970,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, ACTIVITY_VERBS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -10238,6 +10252,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will ?not|no longer|stop)\b/;
       GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
       VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
+      SIP_SELF = [
+        /\b(?:take|have) (?:a |another )?(?:sip|drink|swallow)\b/,
+        /\bsip (?:your|from your|it|that|some)\b/,
+        /\bdrink (?:up|your|some|it|that|from your)\b/
+      ];
       MAX_TOUCH_TIMES = 5;
       REPEAT_RAW = /\b(one|two|three|four|five|\d+)\s+times?\b|\b(twice|thrice)\b/i;
       VAGUE_ZONES = [
@@ -10303,7 +10322,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.13.4", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.13.5", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10345,7 +10364,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.13.4", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.13.5", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -10889,6 +10908,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim("   pinch \xB7 spank \xB7 slap \xB7 scratch \xB7 tickle \xB7 pull \xB7 lick \xB7 kiss \xB7 bite \xB7"));
     lines.push(dim('   massage \xB7 pet. Bare "touch yourself" wanders; name a part to steer it.'));
     lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
+    lines.push(body(`"take a sip" \xB7 "drink up"   (Made to Act) \u2014 she sips the drink in her hand.`));
     lines.push(body(`"kiss Rei" \xB7 "kiss Rei's nipples" \xB7 "kiss me" \xB7 "pinch my nipples"`));
     lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) \u2014 the same verbs"));
     lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
@@ -12634,7 +12654,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.4"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.5"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12707,7 +12727,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.4"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.5"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15168,6 +15188,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
         { cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
         { cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
+        { cat: "touch", item: { id: "x-sip", label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
         { cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } }
       ];
       LEADS = { body: ["kneel"] };
@@ -15552,7 +15573,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el("div", "echs-pop-head");
     head2.appendChild(el("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.4"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.5"}${RELEASE_SUFFIX}`));
     const gear = el("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -16139,7 +16160,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.4"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.5"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -16160,7 +16181,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el2 = document.createElement("div");
-    el2.textContent = `ECHS v${"1.13.4"}${RELEASE_SUFFIX} loaded`;
+    el2.textContent = `ECHS v${"1.13.5"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
@@ -16234,14 +16255,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.13.4"})`);
+      info(`script loaded (v${"1.13.5"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.13.4",
+          version: "1.13.5",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -16383,10 +16404,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.4"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.5"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.13.4";
+    page2.__ECHS_LOADED__ = "1.13.5";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

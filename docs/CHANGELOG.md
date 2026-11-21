@@ -18,6 +18,18 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.13.5 RC) — "take a sip"
+
+A player's report (feedback 2026-11-13): "take a sip" did nothing as a command under trance; there was
+no spoken sip. Now a commanded activity (`matchActivityCommand` kind `sip`, `act:sip` in triggers):
+BC's own `SipItem` on her own `ItemMouth`, herself as actor, through `runCommandedActivity` — so BC's
+prerequisites decide (R134 Female3DCG.js: TargetCanUseTongue, Needs-SipItem, UseHands). Under Made to
+Act (DW's choice over a permission of its own: her drink settings already decide whether a tagged
+drink touches her hypnosis). A refusal names the likely reasons. drugs.ts already reads her own
+handheld on SipItem, so an ECHS drink doses as when she sips it herself. Popup Touch list. Checked in
+`test/activity.mjs` (wordings, conversation not read as one, permission, BC's refusal, the SipItem
+call) and `test/popup.mjs`.
+
 ### Added 2026-11-21 (v1.13.4 RC) — a gear on the popup opens the ECHS settings
 
 DW asked. `menu.ts` `openSettingsScreen()` shares `openHelpScreen()`'s path into Preferences >
