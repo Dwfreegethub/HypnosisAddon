@@ -18,7 +18,7 @@ From there, suggestions work through ordinary chat and whispers — *"Missy, you
 |---|---|
 | 1. **[Getting Started](Getting-Started)** — install, and pick a starting setup. | 1. **[Getting Started](Getting-Started)** — install. For a full session you both need ECHS. |
 | 2. **[Consent and Safety](Consent-and-Safety)** — what you can allow, and every way out. | 2. **[Your First Induction](Getting-Started#your-first-induction)** — how to start one, and what you'll see. |
-| 3. **[Settings Reference](Settings-Reference)** — what each setting does. | 3. **[What to Say](What-to-Say)** — the phrases. Keep it open while you play. |
+| 3. **[Settings Reference](Settings-Reference)** — what each setting does. | 3. **[What to Say](What-to-Say)** — the phrases. Or open **[the popup](The-ECHS-Popup)** in a room, which types them for you. |
 | 4. **[How an Induction Works](How-Inductions-Work)** — why it lands, and how deep you go. | 4. **[Troubleshooting](Troubleshooting)** — when a line does nothing. |
 
 Want to see a whole scene first? **[A Sample Session](Sample-Session)** follows two players line by line.
@@ -27,6 +27,7 @@ Want to see a whole scene first? **[A Sample Session](Sample-Session)** follows 
 
 ## What's New
 
+* **The ECHS popup:** a spiral button in chat rooms opens a window that types for you: who you can hypnotize, every suggestion for whoever is under you (faded when it won't land), your own answers and ways out while you are under, trigger planting, and every command. Nothing is sent until you press Enter. See **[The ECHS Popup](The-ECHS-Popup)**.
 * **Two levels of holding still:** *"you cannot move"* stops only you, so others can still adjust your pose; *"no one can move you"* stops everyone, and the room is told you didn't budge. See **[Holding Still](What-to-Say#holding-still)**.
 * **Her face on command:** with Posture Control, *"close your eyes"*, *"open your mouth"*, *"smile"*, *"blush"* and more, until *"relax your face"* or waking. See **[What to Say](What-to-Say#face--posture-control--yielding-20)**.
 * **Eyes while under:** Dazed, Spirals or Hearts, and an eye colour, both optional on the Trance Defaults tab. Everyone in the room sees them. See **[Settings Reference](Settings-Reference#3-trance-defaults-tab)**.
@@ -44,6 +45,7 @@ Every update, newest first, is in **[What's New](https://github.com/Dwfreegethub
 | Page | Description |
 |---|---|
 | **[Getting Started](Getting-Started)** | Install, first run, your first induction, and what to switch on. |
+| **[The ECHS Popup](The-ECHS-Popup)** | The on-screen window that types commands and suggestions for you. |
 | **[What to Say](What-to-Say)** | **What you actually type.** Every phrase ECHS recognizes. |
 | **[A Sample Session](Sample-Session)** | A worked walkthrough: real dialogue lines, roll checks, and what each player sees. |
 | **[Consent and Safety](Consent-and-Safety)** | How client-side checks protect you, and every way out. |

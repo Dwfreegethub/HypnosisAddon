@@ -74,7 +74,7 @@ Or answer five short questions instead (your role, how attempts are handled, wha
 
 ### If You're the Hypnotist
 
-1. **Start it.** Open their profile and click the **spiral icon** with the game's own buttons, then **Attempt Hypnosis**. Or type `/echs induce Missy` in chat, which does the same. The icon shows on everyone, because ECHS can't tell who has it until it asks; within about three seconds the panel says whether they do.
+1. **Start it.** Open their profile and click the **spiral icon** with the game's own buttons, then **Attempt Hypnosis**. Or type `/echs induce Missy` in chat, which does the same. Or open **[the ECHS popup](The-ECHS-Popup)** (the round spiral button in the room) and click their name. The icon shows on everyone, because ECHS can't tell who has it until it asks; within about three seconds the panel says whether they do.
 2. **Use the induction window.** It runs 60 seconds, or less if they have shortened it (as low as 10). It is there for roleplay, and it counts: each line you write describing the induction adds to your chance, up to a cap.
 3. **See how it went.** If it takes, you are told roughly how deep they went (*drifting, yielding, entranced, deep* or *blank*). If not, how close it came (*barely responsive* up to *almost under*), never numbers. You get **2 tries** (they can allow 3), then wait 10 minutes. `/echs retry` tries the same person again.
 4. **Talk.** Say suggestions in ordinary chat with their name, *"Missy, you cannot move"*, or whisper them, which needs no name. Each one takes hold 2 to 5 seconds later. If one can't, you are told which check stopped it. The phrases are on **[What to Say](What-to-Say)**.
@@ -114,6 +114,7 @@ It is best to leave **Clothing Illusion**, **Sensory Modulation**, **Triggers**,
 
 ## Finding Help Later
 
+* Click the round **spiral button** in a chat room for **[the ECHS popup](The-ECHS-Popup)**: it types commands and suggestions for you.
 * Click the **`?`** button on the ECHS settings panel to open the built-in guide.
 * Type **`/echs help`** in chat to open the manual directly from your text box.
 * Type **`/echs`** on its own to print a quick cheat sheet of commands in chat.

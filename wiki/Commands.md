@@ -10,6 +10,7 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 * **Used to typing `/hypno`?** That's the old name, and it still works exactly like `/echs`.
 * `/echs help` opens the built-in guide.
 * `/echs commands` lists every registered command.
+* **Rather not type them?** The **Commands** tab of **[the ECHS popup](The-ECHS-Popup)** lists them all and types the one you click.
 
 **Every command starts with `/echs`.**
 

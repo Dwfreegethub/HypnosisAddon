@@ -18,6 +18,32 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.13.0 RC) — the ECHS popup
+
+DW, 2026-11-21 (job4.md, local): players find ECHS hard to use because the typed commands and
+wordings are hard to find; newer add-ons use floating windows. Built in five stages on
+`feat/echs-popup`, each committed with its own suite checks; the decisions are in design.md, *The
+ECHS Popup*, and the player page is `wiki/The-ECHS-Popup.md`.
+- **Typing, never sending,** was DW's choice: it teaches the wording, and lets the player edit or
+  whisper. The Safeword button is the one exception (rule 2).
+- **Generated lists.** Commands from `commandHelp`, suggestions from `suggestionHelp` (now carrying
+  `releaseOf`, so each release is listed under what it undoes, DW), trigger wordings from the help
+  screen. `test/popup.mjs` (121 checks) runs every typed phrase, name in front, through the real
+  matchers and parsers. It caught "kiss me" needing the targeted matcher, and two greying bugs (a
+  group of only always-allowed lines read "not allowed"; a group whose only lit lines were releases
+  never did).
+- **People lists ECHS players, reversing v0.35.0's "never a directory".** DW's call, made knowingly;
+  the existing "Show others that I run ECHS" box opts out of both the spiral and the list.
+- **Greying on the existing message.** `session-update` gains `gates` (depth.ts `gateReport`); no new
+  type, because an older client prints unknown types as raw text, and an older hypnotist ignores the
+  field. Re-sent from the persist heartbeat only when it changes (mutation-checked).
+- **No flood.** People sends nothing (badge.ts already knows); the Triggers tab asks each person's
+  planted list at most once per 30 s (mutation-checked); the subject's trigger list prunes only on a
+  redraw, not per tick, after v1.12.8's lesson.
+- `voice.ts` exports three pure checks for the suite (`walkingLineKind`, `isReinforceLine`, and
+  `releaseOf` on `suggestionHelp`); no matching behaviour changed.
+- **Not live-tested.** design.md *Needs Testing* lists it; the steps are `script_test.md` A–J.
+
 ### Changed 2026-11-19 (v1.12.9 RC) — one account sync per frame
 
 From DW's ask after v1.12.8 to look for other places ECHS sends more to BC than it needs to. The
