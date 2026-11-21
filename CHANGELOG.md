@@ -12,6 +12,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.2 RC · 21 November 2026
+
+- **The ECHS popup can be resized.** Drag its bottom-right corner; it remembers the size, as it does
+  where you put it. Double-click its title bar to put it back to the normal size.
+
 ## v1.13.1 RC · 21 November 2026
 
 - **"When you wake" triggers go off after any trance.** A trigger such as *"when you open your

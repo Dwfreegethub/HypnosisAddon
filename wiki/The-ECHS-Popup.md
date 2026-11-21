@@ -21,6 +21,7 @@ ECHS is played by talking, so there's a lot to remember: commands, suggestion wo
 In a chat room, a **round spiral button** sits on the left edge of the screen. Click it to open the window, and click it again (or the window's **×**) to close it.
 
 * **Move either one** by dragging it. The button moves by dragging the button itself; the window moves by dragging its title bar (the **ECHS** line). Both stay where you leave them, even after you log out.
+* **Resize the window** by dragging its bottom-right corner. It keeps that size too. **Double-click the title bar** to put it back to the normal size.
 * A strip of the window always stays on screen, so you can't lose it off the edge.
 * The button hides while you have a character's item menu open, so it never covers the game's own buttons. It only appears in chat rooms.
 

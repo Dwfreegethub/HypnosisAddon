@@ -18,6 +18,15 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.13.2 RC) — the popup can be resized
+
+DW asked. The browser's own grip (CSS `resize: both`), so nothing fights BC for the mouse; a
+ResizeObserver saves the size (`popupSize`) once it has stayed put 400 ms, and only when the player
+set one (an inline size), so an untouched window saves nothing. Clamped to between 260×220 and the
+screen when applied. Double-click on the title bar (not on its buttons) clears it. The window's
+default height is now fixed (`min(460px, 70vh)`) rather than following its content, so it no
+longer jumps as groups open. `test/popup.mjs`: 131 checks.
+
 ### Changed 2026-11-21 (v1.13.1 RC) — wake compulsions arm on any trance's wake
 
 A player's report (feedback 2026-11-20, and passed on by DW 2026-11-21): a planter's "when you open

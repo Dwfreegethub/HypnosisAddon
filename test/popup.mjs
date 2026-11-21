@@ -434,6 +434,43 @@ storage.forgetAllTriggers();
 update(B, { phase: "Idle" });
 popup.popupTick();
 
+// 11. Resizing (v1.13.2, DW).
+let observed = null;
+globalThis.ResizeObserver = class { constructor(fn) { this.fn = fn; } observe(el) { observed = el; } disconnect() { observed = null; } };
+popup.setPopupOpen(false);
+popup.setPopupOpen(true);
+let w = win();
+check("resize watched", observed === w, "a ResizeObserver on the window");
+check("no saved size: default, nothing saved", !w.style.width && !w.style.height && storage.getPopupSize() === null, `no inline size and none saved, got ${JSON.stringify(w.style)}`);
+popup.noteWindowSize(w);
+check("an untouched window saves nothing", storage.getPopupSize() === null, "no size saved before the player resizes");
+// The browser's grip writes an inline size; once it stays put it is saved, once.
+w.style.width = "480px"; w.style.height = "600px"; w.offsetWidth = 480; w.offsetHeight = 600;
+popup.noteWindowSize(w);
+check("resized: saved", JSON.stringify(storage.getPopupSize()) === JSON.stringify({ w: 480, h: 600 }), `480×600 saved, got ${JSON.stringify(storage.getPopupSize())}`);
+popup.setPopupOpen(false);
+popup.setPopupOpen(true);
+w = win();
+check("reopened at that size", w.style.width === "480px" && w.style.height === "600px", `480×600 on reopening, got ${w.style.width}×${w.style.height}`);
+storage.setPopupSize({ w: 5000, h: 5000 });
+popup.setPopupOpen(false);
+popup.setPopupOpen(true);
+w = win();
+check("too big for the screen: shrunk to fit", w.style.width === `${1600 - 8}px` && w.style.height === `${900 - 8}px`, `clamped to ${1600 - 8}×${900 - 8}, got ${w.style.width}×${w.style.height}`);
+const tiny = popup.clampSize(10, 10, 1600, 900);
+check("never smaller than the minimum", tiny.w === popup.MIN_WIDTH && tiny.h === popup.MIN_HEIGHT, `${popup.MIN_WIDTH}×${popup.MIN_HEIGHT}, got ${JSON.stringify(tiny)}`);
+const titleBar = findAll(w, (n) => n.className === "echs-pop-head")[0];
+titleBar.dispatchEvent({ type: "dblclick", target: titleBar });
+check("double-click the title: normal size", !w.style.width && !w.style.height && storage.getPopupSize() === null && status() === "Back to the normal size.", `inline size cleared and forgotten, got ${w.style.width}×${w.style.height} / ${JSON.stringify(storage.getPopupSize())}`);
+storage.setPopupSize({ w: 400, h: 400 });
+const xBtn = byText("×")[0];
+titleBar.dispatchEvent({ type: "dblclick", target: xBtn });
+check("double-click on × is not a reset", JSON.stringify(storage.getPopupSize()) === JSON.stringify({ w: 400, h: 400 }), "the saved size kept when the double-click was on a button");
+storage.setPopupSize(null);
+popup.setPopupOpen(false);
+check("closing stops watching", observed === null, "the ResizeObserver disconnected when the window closes");
+popup.setPopupOpen(true);
+
 ChatRoomCharacter = [Player];
 popup.popupTick();
 check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");

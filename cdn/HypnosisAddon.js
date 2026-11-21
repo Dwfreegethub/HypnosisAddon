@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.13.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.13.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6218,6 +6218,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else s.popupLauncherPos = p;
     saveSettings();
   }
+  function getPopupSize() {
+    const z = loadSettings().popupSize;
+    return z && Number.isFinite(z.w) && Number.isFinite(z.h) && z.w > 0 && z.h > 0 ? z : null;
+  }
+  function setPopupSize(size) {
+    const s = loadSettings();
+    if (size) s.popupSize = { w: Math.round(size.w), h: Math.round(size.h) };
+    else delete s.popupSize;
+    saveSettings();
+  }
   function getPulseColor() {
     return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
   }
@@ -10293,7 +10303,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.13.1", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.13.2", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10335,7 +10345,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.13.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.13.2", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12624,7 +12634,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12691,7 +12701,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15407,6 +15417,53 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function removeWindow() {
     document.getElementById(POPUP_ID)?.remove();
     bodyEl = statusEl = tabsEl = null;
+    sizeWatch?.disconnect?.();
+    sizeWatch = null;
+    if (sizeTimer) clearTimeout(sizeTimer);
+    sizeTimer = null;
+  }
+  function clampSize(w, h, vw, vh) {
+    return {
+      w: Math.round(Math.max(MIN_WIDTH, Math.min(w, Math.max(MIN_WIDTH, vw - 8)))),
+      h: Math.round(Math.max(MIN_HEIGHT, Math.min(h, Math.max(MIN_HEIGHT, vh - 8))))
+    };
+  }
+  function applySize(win) {
+    const saved = getPopupSize();
+    if (!saved) return;
+    const { vw, vh } = viewSize();
+    const z = clampSize(saved.w, saved.h, vw, vh);
+    win.style.width = `${z.w}px`;
+    win.style.height = `${z.h}px`;
+  }
+  function noteWindowSize(win) {
+    if (!win?.style?.width && !win?.style?.height) return;
+    const w = Math.round(win.offsetWidth || parseFloat(win.style.width) || 0);
+    const h = Math.round(win.offsetHeight || parseFloat(win.style.height) || 0);
+    if (!w || !h) return;
+    const saved = getPopupSize();
+    if (saved && saved.w === w && saved.h === h) return;
+    setPopupSize({ w, h });
+  }
+  function watchSize(win) {
+    if (typeof ResizeObserver !== "function") return;
+    sizeWatch = new ResizeObserver(() => {
+      if (sizeTimer) clearTimeout(sizeTimer);
+      sizeTimer = setTimeout(() => {
+        sizeTimer = null;
+        noteWindowSize(win);
+      }, SIZE_SAVE_MS);
+    });
+    sizeWatch.observe(win);
+  }
+  function resetWindowSize() {
+    const win = document.getElementById(POPUP_ID);
+    if (win) {
+      win.style.width = "";
+      win.style.height = "";
+    }
+    setPopupSize(null);
+    if (statusEl) setStatus(statusEl, "Back to the normal size.");
   }
   function setPopupTab(value) {
     tab = value;
@@ -15489,7 +15546,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el("div", "echs-pop-head");
     head2.appendChild(el("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.1"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.2"}${RELEASE_SUFFIX}`));
     const close = el("button", "echs-pop-x", "\xD7");
     close.type = "button";
     close.title = "Close (the spiral button opens it again)";
@@ -15514,9 +15571,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     foot.appendChild(sw);
     win.appendChild(foot);
-    place(win, "window", WINDOW_WIDTH, 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
+    head2.title = "Drag to move. Double-click for the normal size.";
+    head2.addEventListener("dblclick", (ev) => {
+      if (ev?.target?.closest?.("button")) return;
+      resetWindowSize();
+    });
+    applySize(win);
+    const z = getPopupSize();
+    place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
     makeDraggable(win, head2, "window");
     document.body.appendChild(win);
+    watchSize(win);
   }
   function setStatus(node, text2) {
     statusText = text2;
@@ -15841,7 +15906,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -15865,6 +15930,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       LAUNCHER_SIZE = 44;
       WINDOW_WIDTH = 340;
       KEEP_VISIBLE = 60;
+      MIN_WIDTH = 260;
+      MIN_HEIGHT = 220;
+      SIZE_SAVE_MS = 400;
       GROUP_ORDER = ["Session", "Data", "Diagnostics", "Testing"];
       GROUP_TITLES = {
         Session: "Hypnosis",
@@ -15888,6 +15956,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tabsEl = null;
       shownKey = "";
       shownName = (c) => c?.Nickname || c?.Name || `#${c?.MemberNumber}`;
+      sizeWatch = null;
+      sizeTimer = null;
       TAB_LABELS = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", commands: "Commands" };
       triggerOpen = /* @__PURE__ */ new Set(["plant", "mine"]);
       plantedAskedAt = /* @__PURE__ */ new Map();
@@ -15897,7 +15967,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
 .echs-pop-launcher img{width:100%;height:100%;pointer-events:none}
 .echs-pop-launcher:hover{background:#fff}
-.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;max-height:70vh;display:flex;flex-direction:column;
+.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(460px,70vh);max-height:90vh;max-width:90vw;
+ min-width:${MIN_WIDTH}px;min-height:${MIN_HEIGHT}px;resize:both;overflow:hidden;display:flex;flex-direction:column;
  background:#0e1424;color:#d8e2ff;border:1px solid #3b4f86;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.55);
  font:13px/1.35 "Segoe UI",Arial,sans-serif}
 .echs-pop button{font:inherit;color:inherit}
@@ -15931,7 +16002,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
-.echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1}
+.echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1;min-height:0}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;
  padding:5px 8px;margin:4px 0;cursor:pointer;font-weight:600}
 .echs-pop-group:hover{background:#22305a}
@@ -16034,7 +16105,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -16055,7 +16126,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el2 = document.createElement("div");
-    el2.textContent = `ECHS v${"1.13.1"}${RELEASE_SUFFIX} loaded`;
+    el2.textContent = `ECHS v${"1.13.2"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
@@ -16129,14 +16200,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.13.1"})`);
+      info(`script loaded (v${"1.13.2"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.13.1",
+          version: "1.13.2",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -16278,10 +16349,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.13.1";
+    page2.__ECHS_LOADED__ = "1.13.2";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
