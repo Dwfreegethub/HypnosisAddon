@@ -36,3 +36,4 @@ export * as follow from "../src/follow";
 export * as planted from "../src/planted";
 export * as badge from "../src/badge";
 export * as popup from "../src/popup";
+export * as popupSuggest from "../src/popup-suggest";

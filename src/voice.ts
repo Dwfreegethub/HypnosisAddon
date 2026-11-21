@@ -3451,6 +3451,15 @@ const WALK_LEAVE_PATTERNS = [
 	/\bstay\b/,
 ];
 
+/** Which walking-trance wording a line is, ignoring whether she is walking. Pure; for the popup's
+ * suite, which checks that what the popup types is what this file listens for. */
+export function walkingLineKind(content: string): "enter" | "leave" | null {
+	const text = normalize(content);
+	if (WALK_ENTER_PATTERNS.some((p) => p.test(text))) return "enter";
+	if (WALK_LEAVE_PATTERNS.some((p) => p.test(text))) return "leave";
+	return null;
+}
+
 /** Returns true if the line changed walking-trance mode and has been dealt with. */
 function handleWalkingTrance(sender: number, content: string): boolean {
 	const text = normalize(content);

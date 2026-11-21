@@ -191,7 +191,74 @@ check("status: resting", popup.personStatus(A) === "resting: 3 min", `"resting: 
 check("status: under you", popup.personStatus(B) === "under you", `"under you", got "${popup.personStatus(B)}"`);
 check("status: nothing known", popup.personStatus(F) === "", `no status for someone we never tried, got "${popup.personStatus(F)}"`);
 popup.popupTick();
-check("redrawn with status", personBtn("Ali").textContent.includes("resting: 3 min"), `Ali's row showing "resting: 3 min", got "${personBtn("Ali").textContent}"`);
+// 7. Suggestions (stage 3). Bea going under switches the window to them by itself.
+check("someone under you: Suggestions, chosen by itself", popup.getPopupTab() === "suggest" && byText("Suggestions").length === 1, `the Suggestions tab chosen once Bea is under, got "${popup.getPopupTab()}"`);
+check("for the one under you", popup.currentSubject()?.id === B && status() !== undefined && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Speaking to Bea")).length === 1, "the hint naming Bea");
+check("no switcher for one subject", findAll(win(), (n) => n.className.startsWith("echs-pop-chip")).length === 0, "no name switcher with one subject");
+const sayBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-item") && n.textContent.replace(/^↺ /, "") === label)[0];
+sayBtn("wake up").click();
+check("types name, phrase", chatBox.value === "Bea, wake up" && chatSent.length === 0, `"Bea, wake up" typed and nothing sent, got "${chatBox.value}"`);
+check("only Trance open at first", !sayBtn("kneel") && byText("+  Body & pose").length === 1, "Body & pose collapsed at first");
+byText("+  Body & pose")[0].click();
+sayBtn("kneel").click();
+check("+ opens a group", chatBox.value === "Bea, kneel", `"Bea, kneel" from Body & pose, got "${chatBox.value}"`);
+check("release marked", sayBtn("stand")?.className.includes("echs-pop-release") && sayBtn("stand").textContent.startsWith("↺"), "stand marked ↺ as a release");
+// Every phrase it can type, with a name in front, is what the add-on listens for.
+const { voice } = await import("./harness-bundle.mjs");
+const sug = await import("./harness-bundle.mjs").then((m) => m.popupSuggest);
+const cats = sug.suggestCategories();
+check("every permission has a group", !cats.some((c) => c.key === "other"), `no "Other" group, got ${JSON.stringify(cats.find((c) => c.key === "other")?.items.map((i) => i.permission))}`);
+const itemIds = cats.flatMap((c) => c.items.map((i) => i.id));
+check("each suggestion once", new Set(itemIds).size === itemIds.length && voice.suggestionHelp().every((s) => itemIds.includes(s.id)), "every voice.ts suggestion listed exactly once");
+const wrong = [];
+for (const c of cats) for (const it of c.items) {
+	const line = sug.suggestionText("Bea", it.phrase);
+	const ok = it.id === "x-wake" ? voice.isWakeLine(line)
+		: it.id === "x-deeper" ? voice.isDeepeningLine(line)
+		: it.id === "x-walk" ? voice.walkingLineKind(line) === "enter"
+		: it.id === "x-still" ? voice.walkingLineKind(line) === "leave"
+		: it.id.startsWith("x-touch-block") || it.id.startsWith("x-touch-release") ? !!voice.matchBodyPartCommand(line)
+		: it.id === "x-touch-self" ? !!voice.matchActivityCommand(line)
+		: it.id === "x-kiss-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"
+		: voice.matchSuggestion(line) === it.id;
+	if (!ok) wrong.push(`${it.id}: "${line}" -> ${voice.matchSuggestion(line)}`);
+}
+check("every typed phrase matches", wrong.length === 0, `each phrase to match its own suggestion, wrong: ${wrong.join("; ")}`);
+// Two under you: a switcher, and the name follows the choice.
+update(A, { phase: "Hypnotized", attempts: 1 });
+popup.popupTick();
+const chips = () => findAll(win(), (n) => n.className.startsWith("echs-pop-chip"));
+check("switcher for two", chips().map((c) => c.textContent).join(",") === "Ali,Bea", `chips Ali, Bea, got ${chips().map((c) => c.textContent).join(",")}`);
+chips()[0].click();
+sayBtn("wake up").click();
+check("switched subject", popup.currentSubject()?.id === A && chatBox.value === "Ali, wake up", `"Ali, wake up" after choosing Ali, got "${chatBox.value}"`);
+update(A, { phase: "Idle" });
+popup.popupTick();
+check("chosen one wakes: back to the other", popup.currentSubject()?.id === B && chips().length === 0, "Bea chosen again, no switcher, once Ali is no longer under");
+popup.setPopupTab("people");
+check("people redrawn with status", personBtn("Bea").textContent.includes("under you"), `Bea's row tagged "under you", got "${personBtn("Bea")?.textContent}"`);
+update(B, { phase: "Idle" });
+popup.setPopupTab("suggest");
+popup.popupTick();
+check("nobody under: tab gone", popup.getPopupTab() === "people" && byText("Suggestions").length === 0, `Suggestions tab gone and People shown, got "${popup.getPopupTab()}"`);
+
+// 8. Me (stage 3): we are the subject.
+const HYP = A;
+check("Me hidden when nothing is on us", !popup.availableTabs().includes("me"), "no Me tab with no session on us");
+storage.setFeature("hypnoEnabled", true);
+const forced = session.forceTrance(HYP, 40, 40);
+check("test trance started", forced === null, `forceTrance to start the fixture, refused: ${forced}`);
+popup.popupTick();
+check("under: Me, chosen by itself", popup.getPopupTab() === "me" && popup.subjectSide() === "under", `Me tab chosen once we are under, got "${popup.getPopupTab()}" / ${popup.subjectSide()}`);
+check("names who", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent === "You are under Ali.").length === 1, "the line \"You are under Ali.\"");
+const meBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
+check("its buttons", ["Wake", "Fight", "Agree", "Ignore", "What is on me"].every((l) => meBtn(l)), "Wake, Fight, Agree, Ignore and What is on me");
+meBtn("Wake").click();
+check("Wake types, not sends", chatBox.value === "/echs wake" && popup.subjectSide() === "under", `"/echs wake" typed and still under, got "${chatBox.value}"`);
+byText("Safeword")[0].click();
+popup.popupTick();
+check("safeword ends it: Me gone", popup.subjectSide() === null && popup.getPopupTab() === "people", `no subject side and back on People, got ${popup.subjectSide()} / "${popup.getPopupTab()}"`);
+
 ChatRoomCharacter = [Player];
 popup.popupTick();
 check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");

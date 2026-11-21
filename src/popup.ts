@@ -20,7 +20,17 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { safeword, getSessionView, countdownRemaining } from "./session";
+import {
+	safeword,
+	getSessionView,
+	countdownRemaining,
+	getPendingPrompt,
+	getPendingExtend,
+	isHypnotized,
+	isSessionLive,
+	currentHypnotistId,
+} from "./session";
+import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -51,14 +61,23 @@ let timer: any = null;
 /** Which +/- groups are expanded. Session starts open: it is what a newcomer needs first. */
 const expanded = new Set<string>(["Session"]);
 let statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
-export type PopupTab = "people" | "commands";
+export type PopupTab = "me" | "people" | "suggest" | "commands";
 let tab: PopupTab = "people";
-/** The window's changing parts, kept so the People list can be redrawn as the room changes. */
+/** Which Suggestions groups are open. Trance first: waking and going deeper are needed most. */
+const suggestOpen = new Set<string>(["trance"]);
+/** The subject the Suggestions tab is for, when more than one is under you. */
+let chosenSubject: number | null = null;
+/** For switching tabs by themselves only when something CHANGES, never against the player's click. */
+let wasSubjectSide = false;
+let hadSubjects = 0;
+/** Which tab was last drawn, so its scroll position survives a redraw. */
+let drawnTab: PopupTab | null = null;
+/** The window's changing parts, kept so it can be redrawn as the room changes. */
 let bodyEl: any = null;
 let statusEl: any = null;
 let tabsEl: any = null;
-/** What the People list last showed, so it is rebuilt only when that changes. */
-let shownPeople = "";
+/** What the window last showed, so it is rebuilt only when that changes. */
+let shownKey = "";
 
 // --- Pure parts (tested directly) -----------------------------------------------------------
 
@@ -211,8 +230,105 @@ export function popupTick(): void {
 	const win = document.getElementById(POPUP_ID);
 	if (open && !win) buildWindow();
 	if (!open && win) removeWindow();
-	// People come and go, and sessions change: redraw the list when what it would show has changed.
-	if (open && win && tab === "people" && peopleKey() !== shownPeople) renderBody();
+	autoSwitch();
+	// People come and go, and sessions change: redraw when what the window would show has changed.
+	if (open && document.getElementById(POPUP_ID) && viewKey() !== shownKey) renderBody();
+}
+
+/** Someone just started on you → Me. Someone just went under you → Suggestions. The tab you were
+ * on is gone → People. Otherwise the player's own choice stands. */
+function autoSwitch(): void {
+	const me = subjectSide() !== null;
+	const subs = popupSubjects().length;
+	if (me && !wasSubjectSide) tab = "me";
+	else if (subs > hadSubjects) tab = "suggest";
+	if (!availableTabs().includes(tab)) tab = "people";
+	wasSubjectSide = me;
+	hadSubjects = subs;
+}
+
+export function availableTabs(): PopupTab[] {
+	const t: PopupTab[] = [];
+	if (subjectSide() !== null) t.push("me");
+	t.push("people");
+	if (popupSubjects().length) t.push("suggest");
+	t.push("commands");
+	return t;
+}
+
+function viewKey(): string {
+	const parts = [availableTabs().join(","), tab];
+	if (tab === "people") parts.push(peopleKey());
+	if (tab === "suggest") parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
+	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
+	return parts.join("#");
+}
+
+// --- Me (stage 3): the subject's own side ------------------------------------------------------
+
+export type SubjectSide = "prompt" | "inducing" | "under" | null;
+
+/** Where we stand as a SUBJECT: being asked, in the induction window, or under. */
+export function subjectSide(): SubjectSide {
+	if (getPendingPrompt()) return "prompt";
+	if (isHypnotized()) return "under";
+	if (isSessionLive()) return "inducing";
+	return null;
+}
+
+function hypnotistName(): string {
+	const id = currentHypnotistId();
+	const c = roomOthers().find((x: any) => x?.MemberNumber === id);
+	return c ? shownName(c) : id != null ? `#${id}` : "someone";
+}
+
+/** The Me tab's lines and buttons. Each button types its command, as everywhere else. */
+export function meView(): { lines: string[]; buttons: { label: string; text: string; tip: string }[] } {
+	const side = subjectSide();
+	const b = (label: string, tag: string, tip: string) => ({ label, text: `/echs ${tag}`, tip });
+	if (side === "prompt") {
+		const p = getPendingPrompt()!;
+		return {
+			lines: [`${p.hypnotistName} is trying to hypnotize you.`, "Choose how you respond. They are never told which."],
+			buttons: [b("Agree", "agree", "Go along with it: easier for them"), b("Ignore", "ignore", "Neither help nor resist"), b("Fight", "fight", "Resist: harder for them")],
+		};
+	}
+	if (side === "inducing") {
+		return { lines: [`An induction with ${hypnotistName()} is under way.`], buttons: [b("Wake", "wake", "Stop it now")] };
+	}
+	if (side === "under") {
+		const out = [
+			b("Wake", "wake", "Wake yourself, if the trance is shallow enough"),
+			b("Fight", "fight", "Push back up, and fight going deeper"),
+			b("Agree", "agree", "Stop resisting"),
+			b("Ignore", "ignore", "Neither help nor resist going deeper"),
+			b("What is on me", "effects", "List the effects on you now"),
+		];
+		const ext = getPendingExtend();
+		if (ext) out.unshift(b(`Stay (${ext.minutes} min more)`, "stay", "Your time is up: stay under for as long again"));
+		return { lines: [`You are under ${hypnotistName()}.`], buttons: out };
+	}
+	return { lines: ["Nobody has you under."], buttons: [] };
+}
+
+// --- Suggestions (stage 3): the hypnotist's side ---------------------------------------------
+
+/** Everyone in the room who is under YOU, by their last report to you. */
+export function popupSubjects(): { id: number; name: string }[] {
+	return roomOthers()
+		.filter((c) => getSessionView(c.MemberNumber)?.phase === "Hypnotized")
+		.map((c) => ({ id: c.MemberNumber, name: shownName(c) }));
+}
+
+/** Who the Suggestions tab is for: the one chosen, or the first if that one is gone. */
+export function currentSubject(): { id: number; name: string } | null {
+	const subs = popupSubjects();
+	return subs.find((s) => s.id === chosenSubject) ?? subs[0] ?? null;
+}
+
+export function chooseSubject(id: number): void {
+	chosenSubject = id;
+	if (bodyEl) renderBody();
 }
 
 function removeWindow(): void {
@@ -363,25 +479,91 @@ function setStatus(node: any, text: string): void {
 	node.textContent = text;
 }
 
-const TABS: { key: PopupTab; label: string }[] = [
-	{ key: "people", label: "People" },
-	{ key: "commands", label: "Commands" },
-];
+const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", commands: "Commands" };
 
 /** The tab row and whichever tab is chosen. */
 function renderBody(): void {
 	if (!bodyEl || !statusEl) return;
+	if (!availableTabs().includes(tab)) tab = "people";
 	if (tabsEl) {
 		tabsEl.textContent = "";
-		for (const t of TABS) {
-			const b = el("button", `echs-pop-tab${t.key === tab ? " echs-pop-tab-on" : ""}`, t.label);
+		for (const t of availableTabs()) {
+			const b = el("button", `echs-pop-tab${t === tab ? " echs-pop-tab-on" : ""}`, TAB_LABELS[t]);
 			b.type = "button";
-			b.addEventListener("click", () => setPopupTab(t.key));
+			b.addEventListener("click", () => setPopupTab(t));
 			tabsEl.appendChild(b);
 		}
 	}
+	const keep = drawnTab === tab ? bodyEl.scrollTop || 0 : 0;
 	if (tab === "people") renderPeople(bodyEl, statusEl);
+	else if (tab === "suggest") renderSuggest(bodyEl, statusEl);
+	else if (tab === "me") renderMe(bodyEl, statusEl);
 	else renderCommands(bodyEl, statusEl);
+	bodyEl.scrollTop = keep;
+	drawnTab = tab;
+	shownKey = viewKey();
+}
+
+function renderMe(body: any, status: any): void {
+	body.textContent = "";
+	const v = meView();
+	for (const line of v.lines) body.appendChild(el("div", "echs-pop-hint", line));
+	const row = el("div", "echs-pop-buttons");
+	for (const x of v.buttons) {
+		const btn = el("button", "echs-pop-chip", x.label);
+		btn.type = "button";
+		btn.title = `${x.tip} (types ${x.text})`;
+		btn.addEventListener("click", () => typeIt(status, x.text, "Typed. Press Enter to send it."));
+		row.appendChild(btn);
+	}
+	body.appendChild(row);
+}
+
+function renderSuggest(body: any, status: any): void {
+	body.textContent = "";
+	const subs = popupSubjects();
+	const who = currentSubject();
+	if (!who) {
+		body.appendChild(el("div", "echs-pop-empty", "Nobody is under you right now."));
+		return;
+	}
+	if (subs.length > 1) {
+		const row = el("div", "echs-pop-buttons");
+		for (const s of subs) {
+			const chip = el("button", `echs-pop-chip${s.id === who.id ? " echs-pop-chip-on" : ""}`, s.name);
+			chip.type = "button";
+			chip.addEventListener("click", () => chooseSubject(s.id));
+			row.appendChild(chip);
+		}
+		body.appendChild(row);
+	}
+	body.appendChild(el("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. ↺ gives something back.`));
+	for (const cat of suggestCategories()) {
+		const isOpen = suggestOpen.has(cat.key);
+		const head = el("button", "echs-pop-group", `${isOpen ? "−" : "+"}  ${cat.title}`);
+		head.type = "button";
+		head.setAttribute?.("aria-expanded", String(isOpen));
+		head.addEventListener("click", () => {
+			if (suggestOpen.has(cat.key)) suggestOpen.delete(cat.key);
+			else suggestOpen.add(cat.key);
+			renderBody();
+		});
+		body.appendChild(head);
+		if (!isOpen) continue;
+		const list = el("div", "echs-pop-list");
+		for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status));
+		body.appendChild(list);
+	}
+}
+
+function suggestButton(it: SuggestItem, name: string, status: any): any {
+	const text = suggestionText(name, it.phrase);
+	const item = el("button", `echs-pop-item${it.release ? " echs-pop-release" : ""}`);
+	item.type = "button";
+	item.title = it.more.length ? `Also works: ${it.more.join(" · ")}` : text;
+	item.appendChild(el("div", "echs-pop-say", `${it.release ? "↺ " : ""}${it.label}`));
+	item.addEventListener("click", () => typeIt(status, text, `Typed. Press Enter to say it to ${name}.`));
+	return item;
 }
 
 function typeIt(status: any, text: string, done: string): void {
@@ -392,7 +574,6 @@ function typeIt(status: any, text: string, done: string): void {
 function renderPeople(body: any, status: any): void {
 	body.textContent = "";
 	const people = popupPeople();
-	shownPeople = peopleKey();
 	if (!people.length) {
 		body.appendChild(el("div", "echs-pop-empty", "Nobody else here is running ECHS, or those who are have chosen not to be shown."));
 		return;
@@ -405,7 +586,6 @@ function renderPeople(body: any, status: any): void {
 		const line = el("div", "echs-pop-person", p.name);
 		if (p.status) line.appendChild(el("span", "echs-pop-state", p.status));
 		item.appendChild(line);
-		item.appendChild(el("div", "echs-pop-desc", p.text));
 		item.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
 		body.appendChild(item);
 	}
@@ -470,6 +650,12 @@ const POPUP_CSS = `
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
 .echs-pop-person{font-weight:600}
+.echs-pop-say{color:#e4ecff}
+.echs-pop-release .echs-pop-say{color:#9fe0b8}
+.echs-pop-buttons{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px}
+.echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
+.echs-pop-chip:hover{background:#22305a}
+.echs-pop-chip-on{background:#3b4f86;font-weight:600}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
 .echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;
