@@ -12,6 +12,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.13.1 RC · 21 November 2026
+
+- **"When you wake" triggers go off after any trance.** A trigger such as *"when you open your
+  eyes, take something off"* only went off after a trance with whoever planted it, so it seemed
+  not to work when someone else had you under. It now goes off whenever you wake from a trance,
+  whoever put you under. Your safeword still clears it.
+
 ## v1.13.0 RC · 21 November 2026
 
 - **The ECHS popup.** In a chat room, a round spiral button on the left opens a small window you can

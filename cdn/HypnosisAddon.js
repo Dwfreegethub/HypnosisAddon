@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.13.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.13.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7250,7 +7250,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         const now = Date.now();
         let armed = 0;
         for (const t of listTriggers()) {
-          if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t) || t.installedBy !== hypnotistId) continue;
+          if (t.fireOn !== "wake" || t.dueAt || !triggerCanFire(t)) continue;
           t.dueAt = now + (t.delayMs ?? 0);
           armed++;
         }
@@ -10293,7 +10293,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.13.0", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.13.1", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -10335,7 +10335,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.13.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.13.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -11043,7 +11043,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, after you wake up, ..."   "Missy, when you open your eyes, ..."`),
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       dim('Then "remember trigger". Once, unless you say it works every time;'),
-      dim("never while they are under. Their safeword clears the after-waking ones."),
+      dim("never while they are under. Waking from anyone's trance sets off the"),
+      dim("after-waking ones; their safeword clears them."),
       gap(),
       head("Firing, releasing and removing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
@@ -12623,7 +12624,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12690,7 +12691,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15488,7 +15489,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el("div", "echs-pop-head");
     head2.appendChild(el("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.1"}${RELEASE_SUFFIX}`));
     const close = el("button", "echs-pop-x", "\xD7");
     close.type = "button";
     close.title = "Close (the spiral button opens it again)";
@@ -16033,7 +16034,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -16054,7 +16055,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el2 = document.createElement("div");
-    el2.textContent = `ECHS v${"1.13.0"}${RELEASE_SUFFIX} loaded`;
+    el2.textContent = `ECHS v${"1.13.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
@@ -16128,14 +16129,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.13.0"})`);
+      info(`script loaded (v${"1.13.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.13.0",
+          version: "1.13.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -16277,10 +16278,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.13.0";
+    page2.__ECHS_LOADED__ = "1.13.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

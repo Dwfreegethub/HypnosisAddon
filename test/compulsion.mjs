@@ -124,14 +124,20 @@ plant("Missy, ten minutes after you wake, you cannot move");
 session.safeword();
 check("safeword: a dormant one too", compulsions().length, 0);
 
-// --- only its installer's trance arms it ----------------------------------------------------------------
-// Failure: Vex waking her arms GameBot's compulsion.
+// --- any trance's wake arms it (v1.13.1; DW 2026-11-21) ------------------------------------------------
+// Until v1.13.1 only its installer's trance did, so a planter's "when you open your eyes" never went
+// off after someone else's trance. Failure: Vex waking her does not arm GameBot's compulsion, or it
+// does not go off, or it goes off as Vex's rather than its installer's.
 reset();
 plant("Missy, ten minutes after you wake, you cannot move");
 // Replace GameBot's trance with Vex's directly (no wake event in between), then Vex wakes her.
 session.forceTrance(OTHER_HYP, 60, 60);
+const vexWoke = Date.now();
 session.wakeByHypnotist(OTHER_HYP);
-check("another hypnotist's wake does not arm it", only()?.dueAt, undefined);
+check("another hypnotist's wake arms it too", typeof only()?.dueAt === "number" && only().dueAt >= vexWoke + 10 * MIN - 50, true);
+check("  and it goes off when due", voice.checkDueCompulsions(vexWoke + 10 * MIN + 1000), 1);
+check("  still its installer's trigger", only()?.installedBy, HYP);
+check("  and holds her", voice.isTriggerInEffect(only()), true);
 
 // --- never while she is under -------------------------------------------------------------------------
 reset();
