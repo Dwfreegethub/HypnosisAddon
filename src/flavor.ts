@@ -55,6 +55,16 @@ export type FlavorKey =
 	| "eyes-hearts"
 	| "eyes-open"
 	| "blush"
+	// v1.16.5: more of her face.
+	| "frown"
+	| "mouth-sad"
+	| "wince"
+	| "brows-raised"
+	| "brow-raise"
+	| "brows-furrow"
+	| "drool"
+	| "tears"
+	| "face-dry"
 	| "face-relax"
 	/** A face matched and was permitted, and BC did not take it. */
 	| "face-blocked"
@@ -218,6 +228,15 @@ const PUBLIC_LINES: Partial<Record<FlavorKey, string[]>> = {
 	"eyes-hearts": ["{name}'s eyes go soft, little hearts shining in them."],
 	"eyes-open": ["{name}'s eyes open again."],
 	blush: ["A deep blush rises in {name}'s cheeks."],
+	frown: ["{name}'s mouth turns down into a frown."],
+	"mouth-sad": ["{name}'s face falls, sad and soft."],
+	wince: ["{name} winces, {their} mouth pulling tight."],
+	"brows-raised": ["{name}'s eyebrows lift."],
+	"brow-raise": ["One of {name}'s eyebrows arches up."],
+	"brows-furrow": ["{name}'s brow furrows."],
+	drool: ["A thin line of drool slips from the corner of {name}'s mouth."],
+	tears: ["Tears well up and spill down {name}'s cheeks."],
+	"face-dry": ["{name}'s face is dry again."],
 	"face-relax": ["{name}'s face smooths out and goes quiet."],
 	"face-blocked": ["{name}'s face twitches, trying to obey, but will not quite do it."],
 	// Placing a restriction is invisible — nothing happens for anyone to see. Only bumping
@@ -347,6 +366,15 @@ const LINES: Record<FlavorKey, string[]> = {
 	"eyes-hearts": ["Your eyes go soft and full of hearts."],
 	"eyes-open": ["Your eyes open again."],
 	blush: ["Warmth floods into your cheeks, and you blush and blush."],
+	frown: ["Your mouth turns down into a frown."],
+	"mouth-sad": ["Your face falls. You feel small and sad, and you let it show."],
+	wince: ["You wince before you know why."],
+	"brows-raised": ["Your eyebrows lift."],
+	"brow-raise": ["One eyebrow arches up, all on its own."],
+	"brows-furrow": ["Your brow furrows."],
+	drool: ["Your mouth goes slack and you drool, and you can't seem to mind."],
+	tears: ["Tears well up and spill over. You let them."],
+	"face-dry": ["Your face is dry again."],
 	"face-relax": ["Your face smooths out and softens. It's yours again."],
 	"face-blocked": ["Your face tries to obey and can't quite do it."],
 	"speech-block": [

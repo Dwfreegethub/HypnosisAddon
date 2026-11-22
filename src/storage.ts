@@ -1604,7 +1604,7 @@ export function setEyesSaved(saved: EyesSaved | undefined): void {
 /** Her face before spoken face commands (v1.11.0, face.ts): per group, what it was and what we set. */
 export type FaceSaved = {
 	at: number;
-	groups: Partial<Record<"Eyes" | "Mouth" | "Blush", { was: string | null; set: string }>>;
+	groups: Partial<Record<"Eyes" | "Mouth" | "Blush" | "Eyebrows" | "Fluids", { was: string | null; set: string }>>;
 };
 export function getFaceSaved(): FaceSaved | undefined {
 	return loadSettings().faceSaved;

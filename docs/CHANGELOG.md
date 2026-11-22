@@ -18,6 +18,33 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.5) — more movements, gagged sounds, more faces
+
+DW asked what movement commands were missing, then "Build that group". From BC R134's activity list
+(Female3DCG.js), the batch without new machinery:
+- Self: `Wiggle` (TargetSelf only, most zones) for wiggle/wriggle/shake/sway/jiggle/bounce/shimmy +
+  your <part>, ADJACENT only (these words are patter); bare "wiggle"/"shake it" → pelvis then butt.
+  `Nod`; `StruggleArms`/`StruggleLegs` (BC gates on CantUseArms/CantUseFeet; "the more you
+  struggle" and "struggle to …" excluded); the `MoanGag*` sounds (BC gates on IsGagged +
+  Needs-GagItem). "moan" with no gag falls through to the moan face, so v1.11.0's "moan for me"
+  keeps working.
+- Aimed: `Cuddle` (no TargetSelf; arms, nose for nuzzle), `Kick`, `CollarGrab` ("collar"),
+  `HandGag` (mouth only), `PoliteKiss` ("peck", "politely kiss"; hand by default).
+- `ActivityVerb` gained adjacent / selfOnly / othersOnly / parts / defaultPart. A verb with its own
+  parts list never claims an unknown part (so "cover Rei's eyes" falls through). A default part
+  applies only when nothing follows the name ("grab me", not "grab me a drink").
+- `ACT_PARTS` = BODY_PARTS + hand + collar (BODY_PARTS itself unchanged, so the self-touch block
+  words are unchanged). "kiss my hand" now lands on the hand instead of falling through.
+- OBJECT_VERBS gained the new verbs, so "Missy, hug Rei" isn't cut at "Rei" (touch-others caught it).
+- `act:bare:<key>` trigger ids; describeAction uses activityWord (fixes "you massagehands your …").
+- Face: Eyebrows (Raised, OneRaised, Lowered) and Fluids (DroolMedium, TearsMedium) added to
+  FaceGroup; Mouth Frown/Sad/Pained. "face-dry" releases Fluids.
+- Left out, as reported to DW: Step / Sit / RestHead (need the target kneeling), item activities,
+  and things BC has no activity for (dance, twerk, bow).
+- test/movements.mjs (84). Mutation-checked: no adjacency, no moan fall-through, loose default,
+  self-only aimed, struggle patter, others-only on herself, only the first try (all fail). Not
+  live-tested.
+
 ### Changed 2026-11-22 (v1.16.4) — any full keyholder may ask to remove another
 
 DW, on finding the v1.16.3 option owner-only: "Any full keyholder with a popup, owner no popup".

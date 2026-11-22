@@ -21,7 +21,9 @@ import { getFaceSaved, setFaceSaved, FaceSaved } from "./storage";
 // before the trance, is what makes "open your eyes" give back her spiral eyes while she is still
 // under, and the waking order (this first, then eyes.ts) that takes the spirals off afterwards.
 
-export type FaceGroup = "Eyes" | "Mouth" | "Blush";
+// v1.16.5: Eyebrows (Raised, OneRaised, Lowered) and Fluids (DroolMedium, TearsMedium), both
+// always-present face groups in R134 Female3DCG (AllowNone false), set the same way.
+export type FaceGroup = "Eyes" | "Mouth" | "Blush" | "Eyebrows" | "Fluids";
 
 function faceItem(group: FaceGroup): any {
 	return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
