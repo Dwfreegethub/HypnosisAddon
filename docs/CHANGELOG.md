@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.15.0) — the update notice
+
+DW: players should hear when ECHS updates, as a beep with a short description and a changelog link.
+DW chose: ECHS shows it itself (BC's `ServerShowBeep`, a local toast plus the desktop notification,
+not a real beep from GreeterBot); the text written into the build (`UPDATE_NOTE`), not fetched;
+stable only; the beep plus a private chat line with the link.
+- `update.ts`, on the startup banner's poll, after the first-run notice. `lastSeenVersion` is in the
+  synced settings, so once per account. A fresh install records silently (the first-run notice owns
+  that load); an account from before the feature has no `lastSeenVersion` and gets it; dev records
+  silently; a downgrade says nothing; a build without a numeric version does nothing.
+- BC R134 checked: `ServerShowBeep(message, duration, options{onClick}, title)` (Server.js) and
+  LocalMessage content rendered as `innerHTML` (ChatRoom.js), which is what makes the link clickable.
+- Release step added to CLAUDE.md: set `UPDATE_NOTE` before each dev → main.
+- `test/update-notice.mjs` (24); banner suite now seeds a seen version. Mutation-checked: dev not
+  silent fails 2, notifying on a downgrade fails 1. Not live-tested.
+
 ### Added 2026-11-21 (v1.14.1) — keyholders reach the Trance Defaults and Inductions choices
 
 DW asked for the spirals and the other options on that tab, then the Inductions tab as well. They
