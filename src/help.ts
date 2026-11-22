@@ -152,9 +152,14 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
 	lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
 	lines.push(body(`"take a sip" · "drink up"   (Made to Act) — she sips the drink in her hand.`));
+	lines.push(body(`"wiggle your hips" · "shake your breasts" · "nod" · "struggle"   (Made to Act)`));
+	lines.push(dim(`   wiggle, shake, sway, jiggle, bounce + your <part>. "struggle" only while tied.`));
+	lines.push(dim(`   Gagged: "moan" · "whimper" · "groan" · "giggle" · "growl" · "mumble".`));
 	lines.push(body(`"kiss Rei" · "kiss Rei's nipples" · "kiss me" · "pinch my nipples"`));
 	lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) — the same verbs"));
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
+	lines.push(dim(`   Also "hug Rei" · "nuzzle me" · "kick Rei" · "grab Rei by the collar" ·`));
+	lines.push(dim(`   "cover my mouth" · "hand gag Rei" · "peck my hand".`));
 	return lines;
 }
 

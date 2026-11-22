@@ -19,6 +19,7 @@ Everything else in the add-on **stops** the subject from doing something. This m
 * **[Recognized Verbs](#recognized-verbs)**
 * **[Without Naming a Specific Part](#without-naming-a-specific-part)**
 * **[Taking a Sip](#taking-a-sip)**
+* **[Moving and Sounds](#moving-and-sounds)**
 * **[What Can Refuse an Action](#what-can-refuse-an-action)**
 * **[Touching Someone Else](#touching-someone-else)**
 * **[Storing in a Trigger](#storing-in-a-trigger)**
@@ -104,6 +105,32 @@ The wandering version always executes something valid, subtly guiding the hypnot
 
 ---
 
+## Moving and Sounds
+
+Since v1.16.5. Each is the game's own action, done by her, under **Made to Act**, and can be repeated (*"three times"*) or planted in a trigger like a touch.
+
+| Say | Effect |
+|---|---|
+| *"Missy, wiggle your hips"* · *"shake your breasts"* · *"sway your hips"* · *"jiggle your butt"* · *"bounce your chest"* | The game's **Wiggle** on that part. Works on most of her body: hips, bottom, breasts, belly, legs, feet, arms, hands, head, ears. The word has to come right before *your <part>*, so *"feel your body shake"* is still just patter. |
+| *"Missy, wiggle"* · *"wiggle for me"* · *"shimmy"* · *"shake it"* | Wiggles her hips (her bottom if her hips can't). |
+| *"Missy, nod"* · *"nod your head"* | The game's **Nod**. Not *"nod off"*. |
+| *"Missy, struggle"* · *"fight your bonds"* | She struggles against whatever ties her arms, or her legs. Only while she is tied; otherwise the hypnotist is told there is nothing to struggle against. *"The more you struggle"* and *"struggle to wake"* are patter and do nothing. |
+| *"Missy, cover your mouth"* · *"put your hand over your mouth"* | Her own hand over her mouth. |
+| *"Missy, grab your collar"* | Grabs her own collar, if she wears one. |
+
+**Through a gag.** These are the game's gagged sounds, so she has to be wearing a gag that makes them. Without one the hypnotist is told so, except for *"moan for me"*, which is then the moan face, as before.
+
+| Say | Sound |
+|---|---|
+| *"moan"* | Moans into the gag |
+| *"whimper"* · *"whine"* | Whimpers |
+| *"groan"* | Groans |
+| *"giggle"* | Giggles |
+| *"growl"* · *"grumble"* | An angry noise |
+| *"mumble"* · *"try to talk"* · *"talk through your gag"* | Tries to talk |
+
+---
+
 ## What Can Refuse an Action
 
 **Real physical limits always take precedence.** ECHS queries Bondage Club's engine before attempting an action. A locked chastity belt, bound wrists, being physically out of reach, or zones disabled in the subject's native BC arousal preferences will refuse the command cleanly. The script respects native game rules rather than forcing an illegal state.
@@ -129,6 +156,11 @@ The same verbs, aimed at a person instead of `your <part>`:
 | *"Missy, kiss Rei"* | Rei's lips. Kiss, spank and pet have a default spot (lips, bottom, head). Other verbs ask for a part. |
 | *"Missy, kiss Rei's nipples"* · *"Missy, lick Rei on the neck"* | The part you name. |
 | *"Missy, kiss me"* · *"Missy, pinch my nipples"* | Whoever said it, the hypnotist. |
+| *"Missy, hug Rei"* · *"cuddle me"* · *"snuggle Rei"* | A cuddle (since v1.16.5). *"Nuzzle me"* is the same with her nose. |
+| *"Missy, kick Rei"* · *"kick Rei's bottom"* | A kick, to the legs unless you name a part. |
+| *"Missy, grab Rei by the collar"* · *"grab my collar"* · *"grab me"* | Grabs their collar, if they wear one. *"Grab me a drink"* does nothing. |
+| *"Missy, cover my mouth"* · *"hand gag Rei"* · *"put your hand over Rei's mouth"* | Her hand over their mouth. |
+| *"Missy, peck my hand"* · *"politely kiss Rei"* | A polite kiss, on the hand unless you name a part (feet, lips). |
 
 * **Names are exact.** Use the person's full name or their nickname as shown in the room. A partial or misspelled name does nothing. If two people answer to the same name, nothing happens and the hypnotist is told why.
 * **Permission:** the subject needs *Made to Act*. For anyone other than the hypnotist, she also needs **Made to Touch Others**, which is off by default.

@@ -62,7 +62,7 @@ const BY_PERMISSION: Record<string, string> = {
 };
 
 /** Face expressions share postureControl with the poses; told apart by their ids. */
-const FACE_ID = /^(tongue|mouth|lip|smile|grin|smirk|pout|moan|eyes|blush|face)\b/;
+const FACE_ID = /^(tongue|mouth|lip|smile|grin|smirk|pout|moan|eyes|blush|face|frown|wince|brows?|drool|tears)\b/;
 
 /** Not in voice.ts's table. Each is checked against the real matcher in test/popup.mjs. */
 export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
@@ -75,6 +75,13 @@ export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
 	{ cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
 	{ cat: "touch", item: { id: "x-sip", label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
 	{ cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
+	// v1.16.5: BC's own movements and gagged sounds, under Made to Act like the touches.
+	{ cat: "body", item: { id: "x-wiggle", label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
+	{ cat: "body", item: { id: "x-nod", label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
+	{ cat: "body", item: { id: "x-struggle", label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
+	{ cat: "touch", item: { id: "x-hug-me", label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
+	{ cat: "touch", item: { id: "x-cover-mouth", label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
+	{ cat: "senses", item: { id: "x-gag-moan", label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } },
 ];
 
 function categoryFor(id: string, permission: string): string {

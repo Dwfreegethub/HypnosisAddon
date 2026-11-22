@@ -13,6 +13,22 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.5 · 22 November 2026
+
+- **More ways to move.** Under *Made to Act*, a hypnotist can now say *"wiggle your hips"*,
+  *"shake your breasts"*, *"sway your hips"*, *"nod"*, or *"struggle"* (only while tied up). Each is
+  the game's own action, done by the one under, and can be repeated or put in a trigger.
+- **Sounds through a gag.** While gagged: *"moan"*, *"whimper"*, *"groan"*, *"giggle"*, *"growl"*
+  and *"mumble"*.
+- **More to do to someone else:** *"hug Rei"*, *"nuzzle me"*, *"kick Rei"*, *"grab Rei by the
+  collar"*, *"cover my mouth"* (or *"hand gag Rei"*) and *"peck my hand"*. The same rules as
+  *"kiss Rei"*: anyone but the hypnotist also needs *Made to Touch Others*, and their own game
+  settings decide.
+- **More faces:** *"frown"*, *"look sad"*, *"wince"*, *"raise your eyebrows"*, *"raise an
+  eyebrow"*, *"furrow your brow"*, *"drool"* and *"cry"*. *"Dry your eyes"* takes the tears and
+  drool away, and *"relax your face"* everything.
+- All of these are on the ECHS popup's suggestion lists too.
+
 ## v1.16.4 · 22 November 2026
 
 - **Anyone with your full keys can ask to take back another keyholder's keys.** You get a popup and
