@@ -223,6 +223,7 @@ Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **C
 * **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset stay on that tab.
 * **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused.
 * When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
+* **Keyholders still can.** Anyone you have given your keys (`/echs keyholder`) can still change your Permissions, Trance Defaults, Awareness and Triggers tick boxes, and can end the lock. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
 * **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off wherever you load it from: FUSAM's Addon Manager, or your userscript manager. Export still works, so you can keep a backup.
 
 ---

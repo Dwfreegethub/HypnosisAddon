@@ -36,6 +36,7 @@ The tabs change with what is going on, and the window switches to the one you ne
 | **People** | Always | Who in the room you can hypnotize |
 | **Suggestions** | Someone is under **you** | What you can say to them |
 | **Triggers** | Always | Planting triggers, the ones you planted, and the ones in you |
+| **Keys** | Always | Who holds your keys, and the settings of anyone whose keys you hold |
 | **Commands** | Always | Every `/echs` command |
 
 When someone starts on you, it switches to **Me**; when someone goes under you, it switches to **Suggestions**. Otherwise it stays on whatever tab you picked.
@@ -105,6 +106,12 @@ Lines that need finishing end where you type on, and the status line says what's
 * **details** (`/echs triggers 2`), **forget** (`/echs forgettrigger 2`), and **forget all**, which asks first.
 * **How fast your triggers fade:** the six speeds, with yours highlighted.
 * Under your Extreme lock, *forget* and the speeds are faded: they still type, and say they will be refused.
+
+## Keys
+
+**Your keyholders:** whether your BC owner holds your keys (*off*, *take*, *grant*), the people you've named (*make grant*/*make take*, *remove*), and buttons to add someone in the room. These type the `/echs keyholder` command, like everything else; press Enter. The last changes made to your settings are listed underneath. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
+
+**Settings you hold keys to:** for anyone here who has given you their keys, their tick boxes from four settings tabs. **Clicking one asks their ECHS to switch it**; it doesn't type anything, because there is no chat line for it. The answer appears in the window. If you can only *take*, boxes that are off are faded. If their Extreme lock is on, **end their Extreme lock** appears: click it twice.
 
 ## Commands
 

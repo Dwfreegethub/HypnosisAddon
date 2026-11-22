@@ -18,6 +18,27 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.14.0) — keyholders: changing someone's settings for them
+
+job5.md (local), from a player's request about people locking themselves into Extreme with nobody
+able to help. DW's decisions: keyholders are her BC owner (if she allows it) plus anyone she names;
+per keyholder "take" (only switch off) or "grant" (on too); works through Extreme, and a keyholder
+may end the lock; reaches the Permissions, Trance Defaults, Awareness and Triggers tick boxes.
+- `keyholder.ts`. Rule 1: her client checks the sender, the key (`menu.ts remoteRows`, read from the
+  tabs themselves), the mode and any `needs`, then applies through `setFeature` + `onToggle`, the
+  same path as her own click, so switching a permission off releases what it held and hypnosis off
+  runs the hard floor. She is told who changed what (`[...]` added by tellPlayer) and it is logged
+  (`remoteLog`, last 20).
+- No new message type. Requests on `remote-request` (feature "settings"), which remote.ts already
+  handled by ignoring; replies on `state-response`; her answer to anyone's state-query carries
+  `keyholder` for that asker alone, so the keyholder's popup knows whose keys it holds without
+  extra traffic. A keyholder asks for a snapshot at most every 30 s from the tab.
+- Never reachable: safeword, reset, export/import, the keyholder list. Under her Extreme or session
+  lock, her own edits of the list are refused, as her other settings are.
+- Extreme warning, wiki (Consent and Safety, Settings Reference, Commands, the popup page), help.
+- `test/keyholder.mjs` (39) and `test/popup.mjs` (148). Mutation-checked: accepting a stranger fails
+  4, letting "take" switch on fails 1. Not live-tested.
+
 ### Changed 2026-11-21 (v1.13.6) — "RC" retired; dev builds show "D"
 
 DW: stable shows just the number, dev shows it with a D. `releaseLabel` is gone from package.json

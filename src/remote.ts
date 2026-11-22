@@ -6,6 +6,7 @@ import { getFeatures } from "./storage";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import { drawLeftTextFit } from "./panel";
 import { askPlanted, receivePlanted, plantedEntriesFor, plantedNote, plantedHeading, plantedTitle, plantedState } from "./planted";
+import { keyholderFields, receiveKeyholderFields, handleSettingsRequest } from "./keyholder";
 import {
 	getSessionView,
 	countdownRemaining,
@@ -406,6 +407,8 @@ export function installRemote(modApi: any): void {
 				...presenceFields(),
 				// Theirs only, and only if they asked. See planted.ts.
 				...(message.planted ? { planted: plantedEntriesFor(sender) } : {}),
+				// Whether the asker holds our keys, told to them alone (keyholder.ts, v1.14.0).
+				...keyholderFields(sender),
 			},
 			sender,
 		);
@@ -415,12 +418,18 @@ export function installRemote(modApi: any): void {
 		repliedToProbe.add(sender);
 		notePeer(sender, message);
 		if (message.planted !== undefined) receivePlanted(sender, findCharacterName(sender), message.planted);
+		receiveKeyholderFields(sender, message);
 	});
 
-	// The panel's Movement, Clothing and Kneel buttons are gone (DW, 2026-11-05). A hypnotist still on
-	// an older build can send this. Ignored quietly: with no handler, messaging.ts would print it on
-	// the subject's screen as raw text.
+	// A keyholder changing our settings (v1.14.0, keyholder.ts) rides on this type. Anything else is
+	// the panel's old Movement, Clothing and Kneel buttons, gone since DW 2026-11-05, which a hypnotist
+	// on an older build can still send: ignored quietly, since with no handler messaging.ts would print
+	// it on the subject's screen as raw text.
 	registerHiddenHandler("remote-request", (sender, message) => {
+		if (message.feature === "settings") {
+			handleSettingsRequest(sender, message);
+			return;
+		}
 		log(`ignored a remote-request (${String(message.feature)}) from ${sender}: an older build's button`);
 	});
 

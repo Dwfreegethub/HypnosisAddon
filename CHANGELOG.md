@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.14.0 · 21 November 2026
+
+- **Keyholders.** You can now let someone change your ECHS settings for you: anyone you name with
+  `/echs keyholder add <name>`, and your BC owner if you allow it. *take* lets them only switch
+  things off; *grant* lets them switch things on too. They reach the Permissions, Trance Defaults,
+  Awareness and Triggers tick boxes, from the popup's new **Keys** tab, while you're in a room
+  together. It works even under your Extreme lock, and a keyholder can end the lock for you. You are
+  told every change, and nobody holds your keys until you choose.
+
 ## v1.13.6 · 21 November 2026
 
 - **No more "RC".** Your version now shows as just the number, such as *v1.13.6*. If you use FUSAM's

@@ -20,7 +20,8 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { openSettingsScreen, EXTENSION_BUTTON_TEXT } from "./menu";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, settingsLocked } from "./menu";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestEndExtreme } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -38,7 +39,7 @@ import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest"
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
-import { listTriggers, getTriggerDecayRate, DECAY_RATES } from "./storage";
+import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -74,7 +75,7 @@ let timer: any = null;
 /** Which +/- groups are expanded. Session starts open: it is what a newcomer needs first. */
 const expanded = new Set<string>(["Session"]);
 let statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
-export type PopupTab = "me" | "people" | "suggest" | "triggers" | "commands";
+export type PopupTab = "me" | "people" | "suggest" | "triggers" | "keys" | "commands";
 let tab: PopupTab = "people";
 /** Which Suggestions groups are open. Trance first: waking and going deeper are needed most. */
 const suggestOpen = new Set<string>(["trance"]);
@@ -268,6 +269,7 @@ export function availableTabs(): PopupTab[] {
 	t.push("people");
 	if (popupSubjects().length) t.push("suggest");
 	t.push("triggers");
+	t.push("keys");
 	t.push("commands");
 	return t;
 }
@@ -282,6 +284,7 @@ function viewKey(): string {
 	}
 	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
 	if (tab === "triggers") parts.push(triggersKey());
+	if (tab === "keys") parts.push(keysKey());
 	return parts.join("#");
 }
 
@@ -603,7 +606,7 @@ function setStatus(node: any, text: string): void {
 	node.textContent = text;
 }
 
-const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", commands: "Commands" };
+const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", keys: "Keys", commands: "Commands" };
 
 /** The tab row and whichever tab is chosen. */
 function renderBody(): void {
@@ -623,6 +626,7 @@ function renderBody(): void {
 	else if (tab === "suggest") renderSuggest(bodyEl, statusEl);
 	else if (tab === "me") renderMe(bodyEl, statusEl);
 	else if (tab === "triggers") renderTriggers(bodyEl, statusEl);
+	else if (tab === "keys") renderKeys(bodyEl, statusEl);
 	else renderCommands(bodyEl, statusEl);
 	bodyEl.scrollTop = keep;
 	drawnTab = tab;
@@ -901,6 +905,189 @@ function renderTriggers(body: any, status: any): void {
 	});
 }
 
+// --- Keys (v1.14.0, job5.md) --------------------------------------------------------------------
+// Two parts. YOUR KEYHOLDERS: who may change your settings, typed as /echs keyholder commands like
+// everything else here (read-only under your own locks: the command refuses and says why). SETTINGS
+// YOU HOLD KEYS TO: the other person's tick boxes. A click there ACTS rather than types (there is no
+// chat line for it, the same exception as the Safeword button): it sends a request their ECHS
+// decides on, and the answer shows in the status line.
+
+const keysOpen = new Set<string>(["mine", "held"]);
+let chosenHolder: number | null = null;
+/** When we last asked each person for their settings from here: at most every KEYS_REASK_MS. */
+const keysAskedAt = new Map<number, number>();
+const KEYS_REASK_MS = 30_000;
+/** "End their Extreme lock" needs a second click within this long. */
+const END_EXTREME_ARM_MS = 5_000;
+let endExtremeArmedAt = 0;
+
+export function currentHolder(): { id: number; name: string; mode: KeyMode } | null {
+	const held = heldKeys();
+	return held.find((h) => h.id === chosenHolder) ?? held[0] ?? null;
+}
+
+function keysKey(): string {
+	const h = currentHolder();
+	const snap = h ? settingsOf(h.id) : null;
+	const res = h ? lastResult(h.id) : null;
+	return [
+		heldKeys().map((k) => `${k.id}:${k.mode}`).join(","),
+		h?.id ?? "",
+		JSON.stringify(snap),
+		res?.at ?? 0,
+		h ? askState(h.id) : "",
+		JSON.stringify(listKeyholders()),
+		getOwnerKeyMode() ?? "",
+		listRemoteChanges().length,
+		extremeLocked() ? "x" : "",
+		settingsLocked() ? "l" : "",
+	].join("|");
+}
+
+function keysGroup(body: any, key: string, title: string, fill: (list: any) => void): void {
+	const isOpen = keysOpen.has(key);
+	const head = el("button", "echs-pop-group", `${isOpen ? "−" : "+"}  ${title}`);
+	head.type = "button";
+	head.addEventListener("click", () => {
+		if (keysOpen.has(key)) keysOpen.delete(key);
+		else keysOpen.add(key);
+		renderBody();
+	});
+	body.appendChild(head);
+	if (!isOpen) return;
+	const list = el("div", "echs-pop-list");
+	fill(list);
+	body.appendChild(list);
+}
+
+function renderKeys(body: any, status: any): void {
+	body.textContent = "";
+	const locked = extremeLocked() || settingsLocked();
+	const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
+	const typed = (text: string) => typeIt(status, text, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
+
+	// 1. Your keyholders.
+	keysGroup(body, "mine", "Your keyholders", (list) => {
+		list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. take = only switch off; grant = on and off."));
+		if (locked) list.appendChild(el("div", "echs-pop-hint", why));
+		const owner = getOwnerKeyMode();
+		list.appendChild(el("div", "echs-pop-person", "Your BC owner"));
+		const ownerRow = el("div", "echs-pop-buttons");
+		for (const m of ["off", "take", "grant"] as const) {
+			const c = chip(m, `/echs keyholder owner ${m}`, () => typed(`/echs keyholder owner ${m}`), locked);
+			if ((owner ?? "off") === m) c.className += " echs-pop-chip-on";
+			ownerRow.appendChild(c);
+		}
+		list.appendChild(ownerRow);
+		const named = listKeyholders();
+		for (const k of named) {
+			const row = el("div", "echs-pop-entry");
+			row.appendChild(el("div", "echs-pop-person", `${k.name} · ${k.mode}`));
+			const chips = el("div", "echs-pop-buttons");
+			const other = k.mode === "take" ? "grant" : "take";
+			chips.appendChild(chip(`make ${other}`, "", () => typed(`/echs keyholder add ${k.id}${other === "grant" ? " grant" : ""}`), locked));
+			chips.appendChild(chip("remove", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
+			row.appendChild(chips);
+			list.appendChild(row);
+		}
+		const candidates = popupPeople().filter((p) => !named.some((k) => k.id === p.id));
+		if (candidates.length) {
+			list.appendChild(el("div", "echs-pop-hint", "Add someone here:"));
+			for (const p of candidates) {
+				const row = el("div", "echs-pop-entry");
+				row.appendChild(el("div", "echs-pop-person", p.name));
+				const chips = el("div", "echs-pop-buttons");
+				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
+				chips.appendChild(chip("add (take)", "", () => typed(`/echs keyholder add ${target}`), locked));
+				chips.appendChild(chip("add (grant)", "", () => typed(`/echs keyholder add ${target} grant`), locked));
+				row.appendChild(chips);
+				list.appendChild(row);
+			}
+		}
+		const recent = listRemoteChanges().slice(-3).reverse();
+		if (recent.length) {
+			list.appendChild(el("div", "echs-pop-hint", "Last changes to your settings:"));
+			for (const c of recent) list.appendChild(el("div", "echs-pop-desc", `${c.byName} ${c.what}`));
+		}
+	});
+
+	// 2. Settings you hold keys to.
+	const held = heldKeys();
+	if (!held.length) return;
+	const who = currentHolder()!;
+	const now = Date.now();
+	if (now - (keysAskedAt.get(who.id) ?? 0) >= KEYS_REASK_MS) {
+		keysAskedAt.set(who.id, now);
+		requestSettings(who.id);
+	}
+	keysGroup(body, "held", `Settings you hold keys to`, (list) => {
+		if (held.length > 1) {
+			const row = el("div", "echs-pop-buttons");
+			for (const h of held) {
+				const c = chip(h.name, "", () => {
+					chosenHolder = h.id;
+					renderBody();
+				});
+				if (h.id === who.id) c.className += " echs-pop-chip-on";
+				row.appendChild(c);
+			}
+			list.appendChild(row);
+		}
+		list.appendChild(el("div", "echs-pop-hint", who.mode === "grant" ? `${who.name}'s settings. You can switch them on and off.` : `${who.name}'s settings. You can only switch them off.`));
+		const snap = settingsOf(who.id);
+		const asking = askState(who.id);
+		if (!snap) {
+			list.appendChild(el("div", "echs-pop-empty", asking === "silent" ? `${who.name}'s ECHS did not answer.` : "Asking them…"));
+			return;
+		}
+		const res = lastResult(who.id);
+		if (res && now - res.at < 15_000) list.appendChild(el("div", "echs-pop-hint", res.text));
+		const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
+		let lastTab = "";
+		for (const r of remoteRows()) {
+			if (!on.has(r.key)) continue;
+			if (r.tab !== lastTab) {
+				lastTab = r.tab;
+				list.appendChild(el("div", "echs-pop-person", r.tab));
+			}
+			const isOn = on.get(r.key) === true;
+			const blocked = !isOn && who.mode !== "grant";
+			const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
+			b.type = "button";
+			b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+			b.addEventListener("click", () => {
+				requestSetting(who.id, r.key, !isOn);
+				setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
+			});
+			list.appendChild(b);
+		}
+		const refresh = chip("refresh", "Ask for their settings again", () => {
+			keysAskedAt.set(who.id, Date.now());
+			requestSettings(who.id);
+			setStatus(status, `Asked ${who.name}'s ECHS for their settings.`);
+		});
+		const tail = el("div", "echs-pop-buttons");
+		tail.appendChild(refresh);
+		if (snap.extreme) {
+			const armed = Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS;
+			tail.appendChild(
+				chip(armed ? "click again to end it" : "end their Extreme lock", "Ends their Extreme lock early; their settings stay as they are.", () => {
+					if (Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS) {
+						endExtremeArmedAt = 0;
+						requestEndExtreme(who.id);
+						setStatus(status, `Asked ${who.name}'s ECHS to end their Extreme lock…`);
+					} else {
+						endExtremeArmedAt = Date.now();
+						setStatus(status, "Click again within 5 seconds to end their Extreme lock.");
+						renderBody();
+					}
+				}),
+			);
+		}
+		list.appendChild(tail);
+	});
+}
+
 function typeIt(status: any, text: string, done: string): void {
 	if (fillChat(text)) setStatus(status, done);
 	else setStatus(status, "No chat box to type into. This works in a chat room.");
@@ -981,7 +1168,7 @@ const POPUP_CSS = `
 .echs-pop-x{background:none;border:1px solid #3b4f86;border-radius:4px;width:24px;height:24px;cursor:pointer}
 .echs-pop-x:hover{background:#26335c}
 .echs-pop-gear{font-size:15px;line-height:1;padding:0}
-.echs-pop-tabs{display:flex;gap:4px;padding:6px 8px 0}
+.echs-pop-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px 0}
 .echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px;background:none;cursor:pointer}
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
