@@ -18,6 +18,25 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.3) — keyholder Extreme (job6.md stage 6) and the keys lock
+
+DW: Extreme "Yes, with your acceptance". Keys lock: "an option for BC owner to take away your ability
+to give and take keys. Owner does not need get permission ... an option for people with full
+permission with pop up confirmation similar to the lock".
+- `handleAskedChange` replaces the v1.16.2 lock handler; the settings lock, the keys lock and Extreme
+  all use it. `handleUnlock(kind)` for both locks.
+- Choices made here, not by DW: the owner skips the popup only while holding her FULL keys (an owner
+  without keys can't reach her settings at all); the keys lock is lifted by any full keyholder and
+  ends after 7 days without its setter, like the settings lock; extending Extreme adds 30 days to its
+  current end (or from now if it has run out) as a "month" period.
+- Owner manages keyholders (DW, "BC owner can remove other keyholders as well"): `remove-keyholder`,
+  owner at full only, no popup; not the settings-lock holder while it holds (chosen here, so that
+  lock's promise holds). Snapshot `keyholders` for the owner only.
+- `test/keyholder-extreme.mjs` (45) and 10 popup checks. Owner removal mutation-checked too (any full
+  keyholder managing, owner at any level, locker removable: all fail). Mutation-checked: anyone skipping the ask,
+  the owner having to ask, any level, extend restarting the trial or counting from now, no late
+  check, no keys re-check, list editable, request-keys allowed: all fail. Not live-tested.
+
 ### Added 2026-11-22 (v1.16.2) — the keyholder lock (job6.md stage 5)
 
 DW: "Yes, but you must accept"; "Any Full keyholder unlocks, Ends if they're gone N days" (N = 7);

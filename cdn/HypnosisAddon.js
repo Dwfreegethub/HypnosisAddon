@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6358,23 +6358,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
     delete s.extremeLockStage;
     saveSettings();
   }
-  function getKeyLock() {
-    const l = loadSettings().keyLock;
+  function extendExtremeLock(now = Date.now()) {
+    const s = loadSettings();
+    const from = typeof s.extremeLockUntil === "number" && s.extremeLockUntil > now ? s.extremeLockUntil : now;
+    s.extremeLockUntil = from + EXTREME_MONTH_DAYS * 864e5;
+    s.extremeLockStage = "month";
+    saveSettings();
+    return { until: s.extremeLockUntil, stage: "month" };
+  }
+  function getKeyLock(kind = "settings") {
+    const l = loadSettings()[lockField(kind)];
     if (!l || typeof l.by !== "number" || typeof l.seenAt !== "number" || typeof l.at !== "number") return null;
     return { by: l.by, byName: typeof l.byName === "string" ? l.byName.slice(0, 60) : `#${l.by}`, at: l.at, seenAt: l.seenAt };
   }
-  function setKeyLock(by, byName, now = Date.now()) {
-    loadSettings().keyLock = { by, byName, at: now, seenAt: now };
+  function setKeyLock(by, byName, now = Date.now(), kind = "settings") {
+    loadSettings()[lockField(kind)] = { by, byName, at: now, seenAt: now };
     saveSettings();
   }
-  function touchKeyLock(now = Date.now()) {
-    const l = loadSettings().keyLock;
+  function touchKeyLock(now = Date.now(), kind = "settings") {
+    const l = loadSettings()[lockField(kind)];
     if (!l) return;
     l.seenAt = now;
     saveSettings();
   }
-  function clearKeyLock() {
-    delete loadSettings().keyLock;
+  function clearKeyLock(kind = "settings") {
+    delete loadSettings()[lockField(kind)];
     saveSettings();
   }
   function setSkillHonour(rung) {
@@ -6430,7 +6438,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6572,6 +6580,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "left", label: "Below, on the left" },
         { key: "off", label: "Off" }
       ];
+      lockField = (kind) => kind === "settings" ? "keyLock" : "keysLock";
       MAX_KEYHOLDERS = 10;
       MAX_REMOTE_LOG = 20;
       KEY_LEVELS = ["minimal", "moderate", "full"];
@@ -11046,7 +11055,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("and end the lock. minimal = only switch off; moderate = also shape your"),
       dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
       dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
-      dim("Full keys can ask to lock your settings; you must accept. Any full keyholder unlocks."),
+      dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
+      dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
       gap(),
       head("If something is holding you"),
       body("Wait for it to wear off \xB7 have whoever set it release you \xB7"),
@@ -11618,23 +11628,35 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const room = typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter : [];
     return room.some((c) => c?.MemberNumber === by);
   }
-  function keyLockHolder(now = Date.now()) {
-    const l = getKeyLock();
+  function keyLockHolder(now = Date.now(), kind = "settings") {
+    const l = getKeyLock(kind);
     if (!l) return null;
     if (lockerHere(l.by)) {
-      if (now - l.seenAt > SEEN_SAVE_MS) touchKeyLock(now);
+      if (now - l.seenAt > SEEN_SAVE_MS) touchKeyLock(now, kind);
       return { id: l.by, name: l.byName };
     }
     if (now - l.seenAt >= KEY_LOCK_IDLE_MS) {
-      clearKeyLock();
-      log(`keyholder lock by ${l.by} ended: not seen for 7 days`);
-      tellPlayer(`Your keyholder lock has ended: ${l.byName} hasn't been in a room with you for 7 days. Your settings are yours to change again.`);
+      clearKeyLock(kind);
+      log(`keyholder ${kind} lock by ${l.by} ended: not seen for 7 days`);
+      tellPlayer(
+        kind === "settings" ? `Your keyholder lock has ended: ${l.byName} hasn't been in a room with you for 7 days. Your settings are yours to change again.` : `Your keys lock has ended: ${l.byName} hasn't been in a room with you for 7 days. You can give and take back keys again.`
+      );
       return null;
     }
     return { id: l.by, name: l.byName };
   }
   function keyLocked(now = Date.now()) {
     return keyLockHolder(now) !== null;
+  }
+  function keysLockHolder(now = Date.now()) {
+    return keyLockHolder(now, "keys");
+  }
+  function keysLocked(now = Date.now()) {
+    return keysLockHolder(now) !== null;
+  }
+  function keysLockRefusal() {
+    const h = keysLockHolder();
+    return `${h?.name ?? "Your keyholder"} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it. /echs safeword always works.`;
   }
   function keyLockRefusal() {
     const h = keyLockHolder();
@@ -12753,7 +12775,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12826,7 +12848,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13662,7 +13684,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.2", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.3", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -13699,7 +13721,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.2", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.3", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -13741,7 +13763,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.2", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.3", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13939,6 +13961,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       extreme: extremeLocked(),
       // Who locked her settings (v1.16.2, job6.md §5), or "".
       keyLock: keyLockHolder()?.name ?? "",
+      // Who locked who holds her keys (v1.16.3), or "".
+      keysLock: keysLockHolder()?.name ?? "",
+      // Her named keyholders, for her BC owner at full keys only, who may take theirs back (v1.16.3).
+      ...ownerManages(member, mode) ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {},
       // `mode` is v1.14's word, for an older keyholder; `level` is the real one.
       mode: legacyWord(mode),
       level: mode,
@@ -13969,6 +13995,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!level2 || !characterFor5(sender)) {
       result(false, "That request did not make sense to their ECHS.");
       return "bad";
+    }
+    if (keysLocked()) {
+      result(false, "Who holds their keys is locked right now, so they can't give keys.");
+      tellPlayer(`${who} asked for your keys (${level2}), but who holds your keys is locked, so you can't give them now.`);
+      return "locked";
     }
     if (ownLocked()) {
       result(false, "Their settings are locked right now, so they can't give keys.");
@@ -14009,7 +14040,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (answer === "timeout") tellPlayer(`${who}'s request for your keys timed out, so nothing changed.`);
         return;
       }
-      if (ownLocked()) {
+      if (ownLocked() || keysLocked()) {
         result(false, "Their settings locked before they could answer, so nothing changed.");
         tellPlayer("Your settings are locked now, so the keys were not given.");
         return;
@@ -14026,21 +14057,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     return "asked";
   }
-  function handleLockRequest(sender, mode, who) {
+  function handleAskedChange(sender, mode, who, c, skipAsk = false) {
     const say = (ok, text2) => reply(sender, mode, { ok, text: text2 });
     if (mode !== "full") {
-      const text2 = `Your keys are ${mode}: locking their settings needs full keys.`;
+      const text2 = `Your keys are ${mode}: that needs full keys.`;
       say(false, text2);
       return text2;
     }
-    const holder = keyLockHolder();
-    if (holder) {
-      const text2 = `Their settings are already locked${holder.id === sender ? " by you" : ` by ${holder.name}`}.`;
-      say(false, text2);
-      return text2;
+    const refused = c.refusal();
+    if (refused) {
+      say(false, refused);
+      return refused;
+    }
+    const done = () => {
+      const r = c.apply();
+      noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: r.what });
+      tellPlayer(r.her);
+      log(`keyholder ${sender}: ${c.kind} applied`);
+      say(true, r.them);
+    };
+    if (skipAsk) {
+      done();
+      return "applied";
     }
     const now = Date.now();
-    if (now - (lockAskedBy.get(sender) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
+    const rateKey = `${c.kind}:${sender}`;
+    if (now - (lockAskedBy.get(rateKey) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
       const text2 = "You asked them recently. Wait a few minutes before asking again.";
       say(false, text2);
       return text2;
@@ -14050,40 +14092,154 @@ One of mods you are using is using an old version of SDK. It will work for now b
       say(false, text2);
       return text2;
     }
-    const asked = askPlayer({
+    const asked = askPlayer({ title: c.title, lines: c.lines, accept: c.accept, decline: "Decline" });
+    if (!asked) {
+      const text2 = "Their ECHS could not show them the request.";
+      say(false, text2);
+      return text2;
+    }
+    lockAskedBy.set(rateKey, now);
+    log(`${who} (#${sender}) asked: ${c.kind}`);
+    asked.then((answer) => {
+      if (answer !== "accept") {
+        say(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
+        if (answer === "timeout") tellPlayer(`${who}'s request ("${c.title}") timed out, so nothing changed.`);
+        return;
+      }
+      if (keyModeFor(sender) !== "full") {
+        say(false, "You no longer hold their full keys, so nothing changed.");
+        tellPlayer(`${who} no longer holds your full keys, so nothing changed.`);
+        return;
+      }
+      const late = c.refusal();
+      if (late) {
+        say(false, late);
+        return;
+      }
+      done();
+    });
+    return "asked";
+  }
+  function settingsLockChange(sender, who) {
+    return {
+      kind: "settings lock",
       title: `${who} asks to lock your settings`,
       lines: [
         "While locked, you can't change your ECHS settings; your keyholders still can. Any of your full keyholders can unlock them, and you can't take " + who + "'s keys back until then.",
         `It ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works, you can still switch ECHS off, and /echs reset confirm still wipes everything.`
       ],
       accept: "Lock my settings",
-      decline: "Decline"
-    });
-    if (!asked) {
-      const text2 = "Their ECHS could not show them the request.";
+      refusal: () => {
+        const h = keyLockHolder();
+        return h ? `Their settings are already locked${h.id === sender ? " by you" : ` by ${h.name}`}.` : null;
+      },
+      apply: () => {
+        setKeyLock(sender, who);
+        return {
+          her: `${who} locked your settings. Any of your full keyholders can unlock them; it ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works.`,
+          them: `${herName()} agreed: their settings are locked.`,
+          what: "locked your settings (you agreed)"
+        };
+      }
+    };
+  }
+  function keysLockChange(sender, who, byOwner) {
+    return {
+      kind: "keys lock",
+      title: `${who} asks to lock who holds your keys`,
+      lines: [
+        "While locked, you can't give anyone your keys or take anyone's back, and nobody can ask you for them. Your keyholders keep what they have.",
+        `Any of your full keyholders can unlock it. It ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works, and /echs reset confirm still wipes everything.`
+      ],
+      accept: "Lock my keys",
+      refusal: () => {
+        const h = keysLockHolder();
+        return h ? `Who holds their keys is already locked${h.id === sender ? " by you" : ` by ${h.name}`}.` : null;
+      },
+      apply: () => {
+        setKeyLock(sender, who, Date.now(), "keys");
+        return {
+          her: `${who}${byOwner ? " (your owner)" : ""} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it. It ends on its own if ${who} isn't in a room with you for 7 days.`,
+          them: byOwner ? `As their owner, you locked who holds their keys.` : `${herName()} agreed: who holds their keys is locked.`,
+          what: byOwner ? "locked who holds your keys (as your owner)" : "locked who holds your keys (you agreed)"
+        };
+      }
+    };
+  }
+  function extremeChange(sender, who) {
+    const extending = extremeLocked();
+    return {
+      kind: "extreme",
+      title: extending ? `${who} asks to extend your Extreme lock by ${EXTREME_MONTH_DAYS} days` : `${who} asks to put you under Extreme`,
+      lines: extending ? [
+        `Your Extreme lock would run ${EXTREME_MONTH_DAYS} days longer than it does now.`,
+        ...EXTREME_WARNING.slice(1, 3)
+      ] : EXTREME_WARNING,
+      accept: extending ? `Extend by ${EXTREME_MONTH_DAYS} days` : "Start Extreme",
+      // Asked on its own terms: if it was not locked when asked, it starts; if it was, it extends.
+      refusal: () => extremeLocked() !== extending ? "Their Extreme lock changed while they were deciding, so nothing changed. Ask again." : null,
+      apply: () => {
+        const lock = extending ? extendExtremeLock() : startExtremeLock("trial");
+        const until = new Date(lock.until).toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric" });
+        return {
+          her: extending ? `${who} extended your Extreme lock (you agreed): it now runs until ${until}. /echs safeword always ends a trance.` : `${who} put you under Extreme (you agreed): your settings are read-only until ${until}. /echs safeword always ends a trance.`,
+          them: extending ? `${herName()} agreed: their Extreme lock now runs until ${until}.` : `${herName()} agreed: they are under Extreme until ${until}.`,
+          what: extending ? `extended your Extreme lock to ${until} (you agreed)` : `started your Extreme lock, until ${until} (you agreed)`
+        };
+      }
+    };
+  }
+  function ownerManages(member, mode) {
+    return mode === "full" && isBcOwner(member);
+  }
+  function handleOwnerRemove(sender, mode, who, message) {
+    const say = (ok, text2) => reply(sender, mode, { ok, text: text2 });
+    if (!ownerManages(sender, mode)) {
+      const text2 = "Only their BC owner, holding their full keys, can take other keyholders' keys back.";
       say(false, text2);
       return text2;
     }
-    lockAskedBy.set(sender, now);
-    log(`${who} (#${sender}) asked to lock her settings`);
-    asked.then((answer) => {
-      if (answer !== "accept") {
-        say(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
-        if (answer === "timeout") tellPlayer(`${who}'s request to lock your settings timed out, so nothing changed.`);
-        return;
-      }
-      if (keyModeFor(sender) !== "full") {
-        say(false, "You no longer hold their full keys, so nothing changed.");
-        tellPlayer(`${who} no longer holds your full keys, so your settings were not locked.`);
-        return;
-      }
-      setKeyLock(sender, who);
-      noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: "locked your settings (you agreed)" });
-      tellPlayer(`${who} locked your settings. Any of your full keyholders can unlock them; it ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works.`);
-      log(`settings locked by keyholder ${sender}`);
-      say(true, `${herName()} agreed: their settings are locked.`);
-    });
-    return "asked";
+    const id = Number(message?.id);
+    const entry = listKeyholders().find((k) => k.id === id);
+    if (!entry || id === sender) {
+      const text2 = "That person doesn't hold their keys.";
+      say(false, text2);
+      return text2;
+    }
+    if (keyLockHolder()?.id === id) {
+      const text2 = `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
+      say(false, text2);
+      return text2;
+    }
+    removeKeyholder(id);
+    announceKeysTo(id);
+    const what = `took ${entry.name}'s keys back (as your owner)`;
+    noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+    tellPlayer(`${who} (your owner) took ${entry.name}'s keys back. They can no longer change your settings.`);
+    log(`owner ${sender} removed keyholder ${id}`);
+    say(true, `Done: ${entry.name} no longer holds their keys.`);
+    return "removed";
+  }
+  function handleUnlock(sender, mode, who, kind) {
+    const things = kind === "settings" ? "their settings" : "who holds their keys";
+    if (mode !== "full") {
+      const text2 = `Your keys are ${mode}: unlocking ${things} needs full keys.`;
+      reply(sender, mode, { ok: false, text: text2 });
+      return text2;
+    }
+    const holder = keyLockHolder(Date.now(), kind);
+    if (!holder) {
+      reply(sender, mode, { ok: true, text: kind === "settings" ? "Their settings are not locked by a keyholder." : "Who holds their keys is not locked." });
+      return "not locked";
+    }
+    clearKeyLock(kind);
+    const base = kind === "settings" ? "unlocked your settings" : "unlocked who holds your keys";
+    const what = holder.id === sender ? base : `${base} (${holder.name} had locked ${kind === "settings" ? "them" : "it"})`;
+    noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+    tellPlayer(`${who} (your keyholder) ${what}. ${kind === "settings" ? "They are yours to change again." : "You can give and take back keys again."}`);
+    log(`keyholder ${sender} lifted the ${kind} lock`);
+    reply(sender, mode, { ok: true, text: kind === "settings" ? "Their settings are unlocked." : "Who holds their keys is unlocked." });
+    return "unlocked";
   }
   function handleSettingsRequest(sender, message) {
     if (message?.action === "request-keys") return handleKeyRequest(sender, message);
@@ -14168,26 +14324,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       reply(sender, mode, { ok: true, text: `Done: ${choice.label} is now ${remoteChoiceLabel(choice, choice.get())}.` });
       return "chosen";
     }
-    if (action === "lock") return handleLockRequest(sender, mode, who);
-    if (action === "unlock") {
-      if (mode !== "full") {
-        const text2 = `Your keys are ${mode}: unlocking their settings needs full keys.`;
-        reply(sender, mode, { ok: false, text: text2 });
-        return text2;
-      }
-      const holder = keyLockHolder();
-      if (!holder) {
-        reply(sender, mode, { ok: true, text: "Their settings are not locked by a keyholder." });
-        return "not locked";
-      }
-      clearKeyLock();
-      const what = holder.id === sender ? "unlocked your settings" : `unlocked your settings (${holder.name} had locked them)`;
-      noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
-      tellPlayer(`${who} (your keyholder) ${what}. They are yours to change again.`);
-      log(`keyholder ${sender} unlocked the keyholder lock`);
-      reply(sender, mode, { ok: true, text: "Their settings are unlocked." });
-      return "unlocked";
-    }
+    if (action === "lock") return handleAskedChange(sender, mode, who, settingsLockChange(sender, who));
+    if (action === "unlock") return handleUnlock(sender, mode, who, "settings");
+    if (action === "lock-keys") return handleAskedChange(sender, mode, who, keysLockChange(sender, who, isBcOwner(sender)), isBcOwner(sender));
+    if (action === "unlock-keys") return handleUnlock(sender, mode, who, "keys");
+    if (action === "extreme") return handleAskedChange(sender, mode, who, extremeChange(sender, who));
+    if (action === "remove-keyholder") return handleOwnerRemove(sender, mode, who, message);
     if (action === "remove-trigger") {
       if (mode !== "full") {
         const text2 = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
@@ -14269,7 +14411,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         why: str(e.why, 200)
       })) : void 0;
       const keyLock = str(s.keyLock, 60);
-      snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...planted ? { planted } : {}, ...keyLock ? { keyLock } : {} }, at: Date.now() });
+      const keysLock = str(s.keysLock, 60);
+      const keyholders = Array.isArray(s.keyholders) ? s.keyholders.slice(0, 12).filter((k) => k && Number.isInteger(k.id) && k.id > 0 && KEY_LEVELS.includes(k.mode)).map((k) => ({ id: k.id, name: str(k.name, 60) || `#${k.id}`, mode: k.mode })) : void 0;
+      snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...planted ? { planted } : {}, ...keyLock ? { keyLock } : {}, ...keysLock ? { keysLock } : {}, ...keyholders ? { keyholders } : {} }, at: Date.now() });
       askedAt2.delete(sender);
     }
     const kr = message?.keyRequestResult;
@@ -14333,6 +14477,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function requestUnlock(member) {
     ask(member, { action: "unlock" });
+  }
+  function requestLockKeys(member) {
+    ask(member, { action: "lock-keys" });
+  }
+  function requestUnlockKeys(member) {
+    ask(member, { action: "unlock-keys" });
+  }
+  function requestRemoveKeyholder(member, id) {
+    ask(member, { action: "remove-keyholder", id });
+  }
+  function requestExtreme(member) {
+    ask(member, { action: "extreme" });
   }
   function requestRemoveTrigger(member, id) {
     ask(member, { action: "remove-trigger", id });
@@ -14944,6 +15100,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
             }
             if (ownLocked()) {
               reply2("Your settings are locked while a session is on you, and so is who holds your keys.");
+              return;
+            }
+            if (keysLocked()) {
+              reply2(keysLockRefusal());
               return;
             }
             const locker = keyLockHolder();
@@ -16645,7 +16805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.2"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.3"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -16980,6 +17140,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       settingsLocked() ? "l" : ""
     ].join("|");
   }
+  function isOwnerOf(member) {
+    try {
+      return roomOthers2().find((c) => c.MemberNumber === member)?.IsOwnedByPlayer?.() === true;
+    } catch {
+      return false;
+    }
+  }
   function askable() {
     const held = new Map(heldKeys().map((h) => [h.id, h.mode]));
     return popupPeople().filter((p) => canRequestKeys(p.id) && held.get(p.id) !== "full");
@@ -17001,8 +17168,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function renderKeys(body2, status) {
     body2.textContent = "";
-    const locked = ownLocked();
-    const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
+    const keysLocker = keysLockHolder();
+    const locked = ownLocked() || !!keysLocker;
+    const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : keysLocker ? `${keysLocker.name} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it.` : "Your settings are locked while a session is on you.";
     const locker = keyLockHolder();
     const typed = (text2) => typeIt(status, text2, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
     keysGroup(body2, "mine", "Your keyholders", (list) => {
@@ -17251,6 +17419,69 @@ One of mods you are using is using an old version of SDK. It will work for now b
             })
           );
         }
+        const owner = isOwnerOf(who.id);
+        if (snap.keysLock) {
+          const armed = Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS;
+          tail.appendChild(
+            chip(armed ? "click again to unlock their keys" : "unlock who holds their keys", "Lets them give and take back keys again. Click twice.", () => {
+              if (Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS) {
+                unlockKeysArmedAt = 0;
+                requestUnlockKeys(who.id);
+                setStatus(status, `Asked ${who.name}'s ECHS to unlock who holds their keys\u2026`);
+              } else {
+                unlockKeysArmedAt = Date.now();
+                setStatus(status, "Click again within 5 seconds to unlock who holds their keys.");
+                renderBody();
+              }
+            })
+          );
+        } else {
+          tail.appendChild(
+            chip(
+              "lock who holds their keys",
+              owner ? "As their owner, this locks it at once: they can't give or take back keys." : "Asks them to stop giving and taking back keys. They get a popup and must accept.",
+              () => {
+                requestLockKeys(who.id);
+                setStatus(status, owner ? `Locking who holds ${who.name}'s keys\u2026` : `Asked ${who.name} to let you lock who holds their keys. They have 30 seconds to accept.`);
+              }
+            )
+          );
+        }
+        tail.appendChild(
+          chip(snap.extreme ? "extend their Extreme lock" : "start Extreme for them", "They get the Extreme warning in a popup and must accept.", () => {
+            requestExtreme(who.id);
+            setStatus(status, `Asked ${who.name} to ${snap.extreme ? "extend their Extreme lock" : "go under Extreme"}. They have 30 seconds to accept.`);
+          })
+        );
+      }
+      if (snap.keysLock) list.appendChild(el2("div", "echs-pop-hint", `Who holds their keys is locked by ${snap.keysLock}.`));
+      if (snap.keyholders) {
+        list.appendChild(el2("div", "echs-pop-person", "Their other keyholders (you're their owner)"));
+        if (!snap.keyholders.length) list.appendChild(el2("div", "echs-pop-desc", "Nobody else holds their keys."));
+        for (const k of snap.keyholders) {
+          const armed = ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS;
+          const isLocker = snap.keyLock !== void 0 && snap.keyLock === k.name;
+          const row = el2("div", "echs-pop-buttons");
+          row.appendChild(el2("div", "echs-pop-desc", `${k.name} \xB7 ${k.mode}`));
+          row.appendChild(
+            chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : "Their keys are taken back at once. Click twice.", () => {
+              if (isLocker) {
+                setStatus(status, `${k.name} locked their settings, so they keep their keys until it is unlocked.`);
+                return;
+              }
+              if (ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS) {
+                ownerRemoveArmed = { id: 0, at: 0 };
+                requestRemoveKeyholder(who.id, k.id);
+                setStatus(status, `Taking ${k.name}'s keys to ${who.name}'s settings back\u2026`);
+              } else {
+                ownerRemoveArmed = { id: k.id, at: Date.now() };
+                setStatus(status, `Click again within 5 seconds to take ${k.name}'s keys back.`);
+                renderBody();
+              }
+            }, isLocker)
+          );
+          list.appendChild(row);
+        }
       }
       if (snap.extreme) {
         const armed = Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS;
@@ -17341,7 +17572,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -17404,6 +17635,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       heldTabsShut = /* @__PURE__ */ new Set(["Depth", "Stats", "Planted"]);
       removeArmed = { id: "", at: 0 };
       unlockArmedAt = 0;
+      unlockKeysArmedAt = 0;
+      ownerRemoveArmed = { id: 0, at: 0 };
       chosenHolder = null;
       keysAskedAt = /* @__PURE__ */ new Map();
       KEYS_REASK_MS = 3e4;
@@ -17572,7 +17805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -17599,7 +17832,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.2"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.3"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -17674,14 +17907,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.2"})`);
+      info(`script loaded (v${"1.16.3"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.2",
+          version: "1.16.3",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -17823,10 +18056,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.2";
+    page2.__ECHS_LOADED__ = "1.16.3";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

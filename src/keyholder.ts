@@ -49,6 +49,11 @@ import {
 	clearExtremeLock,
 	setKeyLock,
 	clearKeyLock,
+	removeKeyholder,
+	LockKind,
+	startExtremeLock,
+	extendExtremeLock,
+	EXTREME_MONTH_DAYS,
 	listTriggers,
 	forgetTrigger,
 	trustWith,
@@ -58,8 +63,8 @@ import { plantedEntryFor, MAX_PLANTED_ENTRIES } from "./planted";
 import { triggerStrength } from "./triggers";
 import { isTriggerInEffect } from "./voice";
 import { remoteRows, remoteChoices, remoteChoiceLabel, onToggle, MODERATE_TABS, ownLocked } from "./menu";
-import { keyLockHolder } from "./keylock";
-import { extremeLocked } from "./extreme";
+import { keyLockHolder, keysLockHolder, keysLocked } from "./keylock";
+import { extremeLocked, EXTREME_WARNING } from "./extreme";
 import { askPlayer, askOpen } from "./ask";
 import { compareVersions } from "./update";
 import { peerFor } from "./badge";
@@ -123,7 +128,7 @@ export function keyholderFields(asker: number): { keyholder?: "take" | "grant"; 
  * the trigger without naming its word; `word` is empty unless they may see it. */
 export type HeldTrigger = { id: string; word: string; when: string; does: string[]; strength: string; once: boolean; holding: boolean; by: string; removable: boolean; why: string };
 
-export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode; planted?: HeldTrigger[]; keyLock?: string };
+export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode; planted?: HeldTrigger[]; keyLock?: string; keysLock?: string; keyholders?: { id: number; name: string; mode: KeyMode }[] };
 
 /** A trigger's id on the wire: a hash of its key, so a hidden word never travels to name it. */
 export function triggerId(key: string): string {
@@ -182,6 +187,10 @@ function snapshotFor(member: number, mode: KeyMode): Record<string, unknown> {
 		extreme: extremeLocked(),
 		// Who locked her settings (v1.16.2, job6.md §5), or "".
 		keyLock: keyLockHolder()?.name ?? "",
+		// Who locked who holds her keys (v1.16.3), or "".
+		keysLock: keysLockHolder()?.name ?? "",
+		// Her named keyholders, for her BC owner at full keys only, who may take theirs back (v1.16.3).
+		...(ownerManages(member, mode) ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {}),
 		// `mode` is v1.14's word, for an older keyholder; `level` is the real one.
 		mode: legacyWord(mode),
 		level: mode,
@@ -236,6 +245,11 @@ function handleKeyRequest(sender: number, message: any): string {
 		result(false, "That request did not make sense to their ECHS.");
 		return "bad";
 	}
+	if (keysLocked()) {
+		result(false, "Who holds their keys is locked right now, so they can't give keys.");
+		tellPlayer(`${who} asked for your keys (${level}), but who holds your keys is locked, so you can't give them now.`);
+		return "locked";
+	}
 	if (ownLocked()) {
 		result(false, "Their settings are locked right now, so they can't give keys.");
 		tellPlayer(`${who} asked for your keys (${level}), but your settings are locked, so you can't give them now.`);
@@ -276,7 +290,7 @@ function handleKeyRequest(sender: number, message: any): string {
 			return;
 		}
 		// Checked again now: a lock may have begun while the box was up.
-		if (ownLocked()) {
+		if (ownLocked() || keysLocked()) {
 			result(false, "Their settings locked before they could answer, so nothing changed.");
 			tellPlayer("Your settings are locked now, so the keys were not given.");
 			return;
@@ -294,26 +308,51 @@ function handleKeyRequest(sender: number, message: any): string {
 	return "asked";
 }
 
-/** When each keyholder last asked to lock her settings, so a refused ask can't be repeated at once. */
-const lockAskedBy = new Map<number, number>();
+/** When each keyholder last asked her something with a popup (lock, keys lock, Extreme), by kind,
+ * so a refused ask can't be repeated at once. */
+const lockAskedBy = new Map<string, number>();
 
-/** A full keyholder asks to lock her settings (v1.16.2, job6.md §5, DW: "Yes, but you must accept").
- * She answers in the ask.ts popup; no answer in 30 s is a no. */
-function handleLockRequest(sender: number, mode: KeyMode, who: string): string {
+type AskedChange = {
+	/** For the rate limit, and the log. */
+	kind: string;
+	title: string;
+	lines: string[];
+	accept: string;
+	/** Refuse before asking (already locked, and so on), or null. */
+	refusal: () => string | null;
+	/** Make the change after she accepts. Returns what she is told and what the keyholder is told. */
+	apply: () => { her: string; them: string; what: string };
+};
+
+/** A full keyholder asks for something that needs her Accept (v1.16.2 job6.md §5, v1.16.3 §6 and the
+ * keys lock). She answers in the ask.ts popup; no answer in 30 s is a no. `skipAsk` (her BC owner and
+ * the keys lock, DW 2026-11-22: "Owner does not need get permission") applies it at once. */
+function handleAskedChange(sender: number, mode: KeyMode, who: string, c: AskedChange, skipAsk = false): string {
 	const say = (ok: boolean, text: string) => reply(sender, mode, { ok, text });
 	if (mode !== "full") {
-		const text = `Your keys are ${mode}: locking their settings needs full keys.`;
+		const text = `Your keys are ${mode}: that needs full keys.`;
 		say(false, text);
 		return text;
 	}
-	const holder = keyLockHolder();
-	if (holder) {
-		const text = `Their settings are already locked${holder.id === sender ? " by you" : ` by ${holder.name}`}.`;
-		say(false, text);
-		return text;
+	const refused = c.refusal();
+	if (refused) {
+		say(false, refused);
+		return refused;
+	}
+	const done = () => {
+		const r = c.apply();
+		noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: r.what });
+		tellPlayer(r.her);
+		log(`keyholder ${sender}: ${c.kind} applied`);
+		say(true, r.them);
+	};
+	if (skipAsk) {
+		done();
+		return "applied";
 	}
 	const now = Date.now();
-	if (now - (lockAskedBy.get(sender) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
+	const rateKey = `${c.kind}:${sender}`;
+	if (now - (lockAskedBy.get(rateKey) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
 		const text = "You asked them recently. Wait a few minutes before asking again.";
 		say(false, text);
 		return text;
@@ -323,41 +362,174 @@ function handleLockRequest(sender: number, mode: KeyMode, who: string): string {
 		say(false, text);
 		return text;
 	}
-	const asked = askPlayer({
+	const asked = askPlayer({ title: c.title, lines: c.lines, accept: c.accept, decline: "Decline" });
+	if (!asked) {
+		const text = "Their ECHS could not show them the request.";
+		say(false, text);
+		return text;
+	}
+	lockAskedBy.set(rateKey, now);
+	log(`${who} (#${sender}) asked: ${c.kind}`);
+	asked.then((answer) => {
+		if (answer !== "accept") {
+			say(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
+			if (answer === "timeout") tellPlayer(`${who}'s request ("${c.title}") timed out, so nothing changed.`);
+			return;
+		}
+		// Checked again now: they may have lost their keys, or it changed, while the box was up.
+		if (keyModeFor(sender) !== "full") {
+			say(false, "You no longer hold their full keys, so nothing changed.");
+			tellPlayer(`${who} no longer holds your full keys, so nothing changed.`);
+			return;
+		}
+		const late = c.refusal();
+		if (late) {
+			say(false, late);
+			return;
+		}
+		done();
+	});
+	return "asked";
+}
+
+/** The keyholder lock on her settings (job6.md §5, DW: "Yes, but you must accept"). */
+function settingsLockChange(sender: number, who: string): AskedChange {
+	return {
+		kind: "settings lock",
 		title: `${who} asks to lock your settings`,
 		lines: [
 			"While locked, you can't change your ECHS settings; your keyholders still can. Any of your full keyholders can unlock them, and you can't take " + who + "'s keys back until then.",
 			`It ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works, you can still switch ECHS off, and /echs reset confirm still wipes everything.`,
 		],
 		accept: "Lock my settings",
-		decline: "Decline",
-	});
-	if (!asked) {
-		const text = "Their ECHS could not show them the request.";
+		refusal: () => {
+			const h = keyLockHolder();
+			return h ? `Their settings are already locked${h.id === sender ? " by you" : ` by ${h.name}`}.` : null;
+		},
+		apply: () => {
+			setKeyLock(sender, who);
+			return {
+				her: `${who} locked your settings. Any of your full keyholders can unlock them; it ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works.`,
+				them: `${herName()} agreed: their settings are locked.`,
+				what: "locked your settings (you agreed)",
+			};
+		},
+	};
+}
+
+/** The keys lock (v1.16.3, DW 2026-11-22): she can't give or take back keys. */
+function keysLockChange(sender: number, who: string, byOwner: boolean): AskedChange {
+	return {
+		kind: "keys lock",
+		title: `${who} asks to lock who holds your keys`,
+		lines: [
+			"While locked, you can't give anyone your keys or take anyone's back, and nobody can ask you for them. Your keyholders keep what they have.",
+			`Any of your full keyholders can unlock it. It ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works, and /echs reset confirm still wipes everything.`,
+		],
+		accept: "Lock my keys",
+		refusal: () => {
+			const h = keysLockHolder();
+			return h ? `Who holds their keys is already locked${h.id === sender ? " by you" : ` by ${h.name}`}.` : null;
+		},
+		apply: () => {
+			setKeyLock(sender, who, Date.now(), "keys");
+			return {
+				her: `${who}${byOwner ? " (your owner)" : ""} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it. It ends on its own if ${who} isn't in a room with you for 7 days.`,
+				them: byOwner ? `As their owner, you locked who holds their keys.` : `${herName()} agreed: who holds their keys is locked.`,
+				what: byOwner ? "locked who holds your keys (as your owner)" : "locked who holds your keys (you agreed)",
+			};
+		},
+	};
+}
+
+/** Start or extend her Extreme lock (job6.md §6, DW: "Yes, with your acceptance"): the wizard's
+ * warning in the popup; the same lock as the wizard's (a trial first, then 30 days at a time). */
+function extremeChange(sender: number, who: string): AskedChange {
+	const extending = extremeLocked();
+	return {
+		kind: "extreme",
+		title: extending ? `${who} asks to extend your Extreme lock by ${EXTREME_MONTH_DAYS} days` : `${who} asks to put you under Extreme`,
+		lines: extending
+			? [
+					`Your Extreme lock would run ${EXTREME_MONTH_DAYS} days longer than it does now.`,
+					...EXTREME_WARNING.slice(1, 3),
+				]
+			: EXTREME_WARNING,
+		accept: extending ? `Extend by ${EXTREME_MONTH_DAYS} days` : "Start Extreme",
+		// Asked on its own terms: if it was not locked when asked, it starts; if it was, it extends.
+		refusal: () => (extremeLocked() !== extending ? "Their Extreme lock changed while they were deciding, so nothing changed. Ask again." : null),
+		apply: () => {
+			const lock = extending ? extendExtremeLock() : startExtremeLock("trial");
+			const until = new Date(lock.until).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+			return {
+				her: extending
+					? `${who} extended your Extreme lock (you agreed): it now runs until ${until}. /echs safeword always ends a trance.`
+					: `${who} put you under Extreme (you agreed): your settings are read-only until ${until}. /echs safeword always ends a trance.`,
+				them: extending ? `${herName()} agreed: their Extreme lock now runs until ${until}.` : `${herName()} agreed: they are under Extreme until ${until}.`,
+				what: extending ? `extended your Extreme lock to ${until} (you agreed)` : `started your Extreme lock, until ${until} (you agreed)`,
+			};
+		},
+	};
+}
+
+/** Her BC owner, holding her full keys, manages who else holds them (v1.16.3, DW 2026-11-22: "BC
+ * owner can remove other keyholders as well"), without asking her, as with the keys lock. */
+function ownerManages(member: number, mode: KeyMode | null): boolean {
+	return mode === "full" && isBcOwner(member);
+}
+
+/** Her owner takes someone else's keys back. Not the one holding her settings lock while it holds:
+ * that lock promises they keep full keys until a full keyholder unlocks it. */
+function handleOwnerRemove(sender: number, mode: KeyMode, who: string, message: any): string {
+	const say = (ok: boolean, text: string) => reply(sender, mode, { ok, text });
+	if (!ownerManages(sender, mode)) {
+		const text = "Only their BC owner, holding their full keys, can take other keyholders' keys back.";
 		say(false, text);
 		return text;
 	}
-	lockAskedBy.set(sender, now);
-	log(`${who} (#${sender}) asked to lock her settings`);
-	asked.then((answer) => {
-		if (answer !== "accept") {
-			say(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
-			if (answer === "timeout") tellPlayer(`${who}'s request to lock your settings timed out, so nothing changed.`);
-			return;
-		}
-		// Checked again now: they may have lost their keys or left while the box was up.
-		if (keyModeFor(sender) !== "full") {
-			say(false, "You no longer hold their full keys, so nothing changed.");
-			tellPlayer(`${who} no longer holds your full keys, so your settings were not locked.`);
-			return;
-		}
-		setKeyLock(sender, who);
-		noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: "locked your settings (you agreed)" });
-		tellPlayer(`${who} locked your settings. Any of your full keyholders can unlock them; it ends on its own if ${who} isn't in a room with you for 7 days. /echs safeword always works.`);
-		log(`settings locked by keyholder ${sender}`);
-		say(true, `${herName()} agreed: their settings are locked.`);
-	});
-	return "asked";
+	const id = Number(message?.id);
+	const entry = listKeyholders().find((k) => k.id === id);
+	if (!entry || id === sender) {
+		const text = "That person doesn't hold their keys.";
+		say(false, text);
+		return text;
+	}
+	if (keyLockHolder()?.id === id) {
+		const text = `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
+		say(false, text);
+		return text;
+	}
+	removeKeyholder(id);
+	announceKeysTo(id);
+	const what = `took ${entry.name}'s keys back (as your owner)`;
+	noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+	tellPlayer(`${who} (your owner) took ${entry.name}'s keys back. They can no longer change your settings.`);
+	log(`owner ${sender} removed keyholder ${id}`);
+	say(true, `Done: ${entry.name} no longer holds their keys.`);
+	return "removed";
+}
+
+/** Any full keyholder lifts a lock: her settings (job6.md §5) or who holds her keys (v1.16.3). */
+function handleUnlock(sender: number, mode: KeyMode, who: string, kind: LockKind): string {
+	const things = kind === "settings" ? "their settings" : "who holds their keys";
+	if (mode !== "full") {
+		const text = `Your keys are ${mode}: unlocking ${things} needs full keys.`;
+		reply(sender, mode, { ok: false, text });
+		return text;
+	}
+	const holder = keyLockHolder(Date.now(), kind);
+	if (!holder) {
+		reply(sender, mode, { ok: true, text: kind === "settings" ? "Their settings are not locked by a keyholder." : "Who holds their keys is not locked." });
+		return "not locked";
+	}
+	clearKeyLock(kind);
+	const base = kind === "settings" ? "unlocked your settings" : "unlocked who holds your keys";
+	const what = holder.id === sender ? base : `${base} (${holder.name} had locked ${kind === "settings" ? "them" : "it"})`;
+	noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+	tellPlayer(`${who} (your keyholder) ${what}. ${kind === "settings" ? "They are yours to change again." : "You can give and take back keys again."}`);
+	log(`keyholder ${sender} lifted the ${kind} lock`);
+	reply(sender, mode, { ok: true, text: kind === "settings" ? "Their settings are unlocked." : "Who holds their keys is unlocked." });
+	return "unlocked";
 }
 
 /** A keyholder's request, on this client as the SUBJECT. Returns what was said back, for the suite. */
@@ -451,26 +623,13 @@ export function handleSettingsRequest(sender: number, message: any): string {
 		reply(sender, mode, { ok: true, text: `Done: ${choice.label} is now ${remoteChoiceLabel(choice, choice.get())}.` });
 		return "chosen";
 	}
-	if (action === "lock") return handleLockRequest(sender, mode, who);
-	if (action === "unlock") {
-		if (mode !== "full") {
-			const text = `Your keys are ${mode}: unlocking their settings needs full keys.`;
-			reply(sender, mode, { ok: false, text });
-			return text;
-		}
-		const holder = keyLockHolder();
-		if (!holder) {
-			reply(sender, mode, { ok: true, text: "Their settings are not locked by a keyholder." });
-			return "not locked";
-		}
-		clearKeyLock();
-		const what = holder.id === sender ? "unlocked your settings" : `unlocked your settings (${holder.name} had locked them)`;
-		noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
-		tellPlayer(`${who} (your keyholder) ${what}. They are yours to change again.`);
-		log(`keyholder ${sender} unlocked the keyholder lock`);
-		reply(sender, mode, { ok: true, text: "Their settings are unlocked." });
-		return "unlocked";
-	}
+	if (action === "lock") return handleAskedChange(sender, mode, who, settingsLockChange(sender, who));
+	if (action === "unlock") return handleUnlock(sender, mode, who, "settings");
+	// Her BC owner holding full keys locks who holds her keys without asking (DW 2026-11-22).
+	if (action === "lock-keys") return handleAskedChange(sender, mode, who, keysLockChange(sender, who, isBcOwner(sender)), isBcOwner(sender));
+	if (action === "unlock-keys") return handleUnlock(sender, mode, who, "keys");
+	if (action === "extreme") return handleAskedChange(sender, mode, who, extremeChange(sender, who));
+	if (action === "remove-keyholder") return handleOwnerRemove(sender, mode, who, message);
 	if (action === "remove-trigger") {
 		if (mode !== "full") {
 			const text = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
@@ -582,7 +741,14 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 					}))
 			: undefined;
 		const keyLock = str(s.keyLock, 60);
-		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...(planted ? { planted } : {}), ...(keyLock ? { keyLock } : {}) }, at: Date.now() });
+		const keysLock = str(s.keysLock, 60);
+		const keyholders = Array.isArray(s.keyholders)
+			? s.keyholders
+					.slice(0, 12)
+					.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && KEY_LEVELS.includes(k.mode))
+					.map((k: any) => ({ id: k.id as number, name: str(k.name, 60) || `#${k.id}`, mode: k.mode as KeyMode }))
+			: undefined;
+		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...(planted ? { planted } : {}), ...(keyLock ? { keyLock } : {}), ...(keysLock ? { keysLock } : {}), ...(keyholders ? { keyholders } : {}) }, at: Date.now() });
 		askedAt.delete(sender);
 	}
 	// The answer to our request for their keys (v1.16.1): said in chat, since the popup may be shut.
@@ -665,6 +831,21 @@ export function requestLock(member: number): void {
 /** Unlock her settings (any full keyholder, v1.16.2). */
 export function requestUnlock(member: number): void {
 	ask(member, { action: "unlock" });
+}
+/** Lock who holds her keys (v1.16.3): her owner outright, anyone else with her Accept. */
+export function requestLockKeys(member: number): void {
+	ask(member, { action: "lock-keys" });
+}
+export function requestUnlockKeys(member: number): void {
+	ask(member, { action: "unlock-keys" });
+}
+/** As her BC owner, take someone else's keys back (v1.16.3). Her side checks we are her owner. */
+export function requestRemoveKeyholder(member: number, id: number): void {
+	ask(member, { action: "remove-keyholder", id });
+}
+/** Start or extend her Extreme lock (v1.16.3, job6.md §6); she answers in a popup. */
+export function requestExtreme(member: number): void {
+	ask(member, { action: "extreme" });
 }
 
 /** Ask her ECHS to remove one planted trigger (full keys, v1.16.2). Her side decides. */

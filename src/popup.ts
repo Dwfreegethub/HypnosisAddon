@@ -21,8 +21,8 @@
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
 import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, remoteChoiceLabel, REMOTE_TABS, MODERATE_TABS, settingsLocked, ownLocked } from "./menu";
-import { keyLockHolder } from "./keylock";
-import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, requestRemoveTrigger, requestLock, requestUnlock, keyLevelAllows, canRequestKeys } from "./keyholder";
+import { keyLockHolder, keysLockHolder } from "./keylock";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, requestRemoveTrigger, requestLock, requestUnlock, requestLockKeys, requestUnlockKeys, requestExtreme, requestRemoveKeyholder, keyLevelAllows, canRequestKeys } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -922,6 +922,10 @@ const heldTabsShut = new Set<string>(["Depth", "Stats", "Planted"]);
 let removeArmed = { id: "", at: 0 };
 /** The unlock button clicked once (v1.16.2): when. */
 let unlockArmedAt = 0;
+/** The keys-lock unlock button clicked once (v1.16.3): when. */
+let unlockKeysArmedAt = 0;
+/** An owner's "take their keys back" clicked once (v1.16.3): whose, and when. */
+let ownerRemoveArmed = { id: 0, at: 0 };
 let chosenHolder: number | null = null;
 /** When we last asked each person for their settings from here: at most every KEYS_REASK_MS. */
 const keysAskedAt = new Map<number, number>();
@@ -986,6 +990,16 @@ function keysKey(): string {
 	].join("|");
 }
 
+/** Are we this person's BC owner? BC's own check (R134 Character.js IsOwnedByPlayer). Only for the
+ * words on a button: their ECHS decides whether we are. */
+function isOwnerOf(member: number): boolean {
+	try {
+		return roomOthers().find((c) => c.MemberNumber === member)?.IsOwnedByPlayer?.() === true;
+	} catch {
+		return false;
+	}
+}
+
 /** Everyone here we could ask for keys (v1.16.1): runs a new enough ECHS, and we don't hold their full keys. */
 function askable(): { id: number; name: string }[] {
 	const held = new Map(heldKeys().map((h) => [h.id, h.mode]));
@@ -1011,8 +1025,13 @@ function keysGroup(body: any, key: string, title: string, fill: (list: any) => v
 function renderKeys(body: any, status: any): void {
 	body.textContent = "";
 	// Her own locks hold the list; the keyholder lock (v1.16.2) only keeps its keyholder's keys full.
-	const locked = ownLocked();
-	const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
+	const keysLocker = keysLockHolder();
+	const locked = ownLocked() || !!keysLocker;
+	const why = extremeLocked()
+		? "Your Extreme lock is on: who holds your keys can't change until it ends."
+		: keysLocker
+			? `${keysLocker.name} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it.`
+			: "Your settings are locked while a session is on you.";
 	const locker = keyLockHolder();
 	const typed = (text: string) => typeIt(status, text, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
 
@@ -1279,6 +1298,72 @@ function renderKeys(body: any, status: any): void {
 						setStatus(status, `Asked ${who.name} to let you lock their settings. They have 30 seconds to accept.`);
 					}),
 				);
+			}
+			// The keys lock (v1.16.3): their BC owner sets it outright; anyone else, they must accept.
+			const owner = isOwnerOf(who.id);
+			if (snap.keysLock) {
+				const armed = Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS;
+				tail.appendChild(
+					chip(armed ? "click again to unlock their keys" : "unlock who holds their keys", "Lets them give and take back keys again. Click twice.", () => {
+						if (Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS) {
+							unlockKeysArmedAt = 0;
+							requestUnlockKeys(who.id);
+							setStatus(status, `Asked ${who.name}'s ECHS to unlock who holds their keys…`);
+						} else {
+							unlockKeysArmedAt = Date.now();
+							setStatus(status, "Click again within 5 seconds to unlock who holds their keys.");
+							renderBody();
+						}
+					}),
+				);
+			} else {
+				tail.appendChild(
+					chip(
+						"lock who holds their keys",
+						owner ? "As their owner, this locks it at once: they can't give or take back keys." : "Asks them to stop giving and taking back keys. They get a popup and must accept.",
+						() => {
+							requestLockKeys(who.id);
+							setStatus(status, owner ? `Locking who holds ${who.name}'s keys…` : `Asked ${who.name} to let you lock who holds their keys. They have 30 seconds to accept.`);
+						},
+					),
+				);
+			}
+			// Extreme (job6.md §6): start it, or extend it by 30 days; they see the full warning and must accept.
+			tail.appendChild(
+				chip(snap.extreme ? "extend their Extreme lock" : "start Extreme for them", "They get the Extreme warning in a popup and must accept.", () => {
+					requestExtreme(who.id);
+					setStatus(status, `Asked ${who.name} to ${snap.extreme ? "extend their Extreme lock" : "go under Extreme"}. They have 30 seconds to accept.`);
+				}),
+			);
+		}
+		if (snap.keysLock) list.appendChild(el("div", "echs-pop-hint", `Who holds their keys is locked by ${snap.keysLock}.`));
+		// As their BC owner (v1.16.3): who else holds their keys, each with "take their keys back".
+		if (snap.keyholders) {
+			list.appendChild(el("div", "echs-pop-person", "Their other keyholders (you're their owner)"));
+			if (!snap.keyholders.length) list.appendChild(el("div", "echs-pop-desc", "Nobody else holds their keys."));
+			for (const k of snap.keyholders) {
+				const armed = ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS;
+				const isLocker = snap.keyLock !== undefined && snap.keyLock === k.name;
+				const row = el("div", "echs-pop-buttons");
+				row.appendChild(el("div", "echs-pop-desc", `${k.name} · ${k.mode}`));
+				row.appendChild(
+					chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : "Their keys are taken back at once. Click twice.", () => {
+						if (isLocker) {
+							setStatus(status, `${k.name} locked their settings, so they keep their keys until it is unlocked.`);
+							return;
+						}
+						if (ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS) {
+							ownerRemoveArmed = { id: 0, at: 0 };
+							requestRemoveKeyholder(who.id, k.id);
+							setStatus(status, `Taking ${k.name}'s keys to ${who.name}'s settings back…`);
+						} else {
+							ownerRemoveArmed = { id: k.id, at: Date.now() };
+							setStatus(status, `Click again within 5 seconds to take ${k.name}'s keys back.`);
+							renderBody();
+						}
+					}, isLocker),
+				);
+				list.appendChild(row);
 			}
 		}
 		if (snap.extreme) {
