@@ -153,6 +153,10 @@ Each hypnotist gets **2 tries** in a row (you can make it 3 on the Inductions ta
 * **Before the induction lands:** it is given up if they are not back within about 30 seconds, or are gone when it would land. It does **not** use up one of their tries.
 * **During a trance:** you are told *"[name] is not in the room. If they are not back within 5 minutes, this ends on its own."* If they return in time you are told they are back, and the trance carries on. If not, it ends exactly like any other ending. Triggers they planted and suggestions carried past waking stay.
 
+**If someone hypnotizes the hypnotist** (since v1.16.6):
+* **Before their induction on you lands:** the moment someone else's induction reaches them, theirs on you ends, as if they had let go. You are told, and it does **not** use up one of their tries. They are told too.
+* **During a trance:** nothing changes. You stay under them, and a hypnotist who is in a trance themselves can still guide you, if they can still speak.
+
 ---
 
 ## 9. How the Numbers Grow

@@ -18,6 +18,23 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.6) — a hypnotist hypnotized mid-induction loses it
+
+DW: "If the hypnotist is still in the process of hypnotizing someone and a hypno request comes in
+for them the 1st person should fail"; otherwise leave the chain alone (a trance carries on, and the
+"say" relay through a hypnotised hypnotist is left as it is, by DW's choice).
+- Hypnotist side: when we TAKE UP a session-attempt (after the refusals: hypnosis off, not in room,
+  away, cooldown, already under), `dropOwnInductions` sends the existing `session-wake` with
+  `inductionOnly: true` to every subject our view shows in AttemptMade / InductionInProgress, and
+  tells us. Taken up rather than merely arrived, so a request we refuse can't be used to break up
+  someone else's induction.
+- Subject side: `inductionOnly` lapses an induction (lapseInduction: no try used, no cooldown) and is
+  ignored in any other phase, so a stale view can't wake someone already under. A pre-1.16.6 subject
+  ignores the flag and ends the induction with endSession; only a stale view of a trance would wake
+  her there.
+- No new message type. test/hypnotist-interrupted.mjs (16), mutation-checked (no drop, flag ignored,
+  any phase, no lapse: all fail). Not live-tested.
+
 ### Added 2026-11-22 (v1.16.5) — more movements, gagged sounds, more faces
 
 DW asked what movement commands were missing, then "Build that group". From BC R134's activity list
