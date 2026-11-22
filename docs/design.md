@@ -950,18 +950,56 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
 
 - **Who:** her BC owner (`IsOwnedByCharacter`, only while she has set `keyholders.owner`) plus anyone
   she names, up to 10. Nobody by default.
-- **How far, per keyholder:** `take` may only switch tick boxes off; `grant` may switch them on too.
+- **How far, per keyholder:** since v1.16.0 (job6.md §1) three levels: `minimal` may only switch off;
+  `moderate` may also shape the trance (Trance Defaults and Awareness boxes, and remoteChoices marked
+  `moderate`); `full` everything. Saved `take` reads as minimal, `grant` as moderate (DW). The wire
+  carries `keyLevel` beside v1.14's `keyholder: take|grant`, so an older keyholder still works.
   Owner and named together give the wider.
 - **What:** the tick boxes of the Permissions, Trance Defaults, Awareness and Triggers tabs
   (`menu.ts remoteRows()`, read from the tabs so it cannot drift), and since v1.14.1 the choices
   that are not tick boxes (`remoteChoices()`: every Inductions control, and the screen effect, eyes,
-  eye colour and pulse colour; take = only the off choice, and one with no off needs grant). Never the safeword, reset, export/import, or the keyholder list.
+  eye colour and pulse colour; minimal = only the off choice; see keyLevelAllows). Never the safeword, reset, export/import, or the keyholder list.
 - **Through Extreme**, and a keyholder may end the lock: the documented way out DW chose. Her own
   edits of the list follow her locks (Extreme, and the session lock).
 - **Rule 1:** a request, decided on her client, applied through `setFeature` + `onToggle` like her own
   click, told to her, logged (`remoteLog`). Refusals told to the keyholder. Same room only.
 - **No new message type:** `remote-request` (feature "settings") and `state-response` fields, plus
   `keyholder` on her answer to that asker's state-query. Asked at most every 30 s from the popup.
+- **Full reaches further (v1.16.2, job6.md stage 3):** the Triggers tab's choices, trust decay
+  (Stats) and the Depth tab are `remoteChoices` with no `off` and no `moderate`, so only full keys pass
+  `keyLevelAllows`. Numbers (each gate's depth `depth:<key>`, trigger duration) are `range` choices:
+  a plain whole number in range, sent from step buttons. `reach:<key>` only on the gates she could
+  open herself; skill honour only the offered rungs. `depthDefaults` clears the overrides. Appended
+  after the v1.14.1 choices, and the keyholder keeps up to 80 (was 20), so an older keyholder still
+  gets the first 20 it knows.
+- **Keys lock and keyholder Extreme (v1.16.3):** both go through `handleAskedChange` (full keys only;
+  ask.ts popup; 3 min between asks per keyholder and kind; after Accept, full keys and the refusal are
+  checked again). The keys lock is `keysLock` beside `keyLock` (`LockKind`), read by the same
+  `keyLockHolder`; her BC owner at full skips the popup (DW). It holds `/echs keyholder add/remove/owner`
+  and request-keys. Extreme: not locked → `startExtremeLock("trial")`; locked → `extendExtremeLock`
+  (+30 days from its end, stage "month"); if that changed while she decided, nothing happens.
+- **Removing other keyholders (v1.16.3 owner, v1.16.4 any full, DW):** full keys get her other named
+  keyholders in the snapshot and may send `remove-keyholder` {id} through `handleAskedChange` (her
+  Accept; her BC owner skips it). Refused for the settings-lock holder while it holds, and for a
+  non-owner while the keys lock holds. The removed keyholder is told (`announceKeysTo`).
+- **Keyholder lock (v1.16.2, job6.md §5):** `remote-request` actions `lock` (full; she accepts in
+  ask.ts, 3 min between asks per keyholder) and `unlock` (any full). Stored as `keyLock {by, byName,
+  at, seenAt}`; `keylock.ts` reads it lazily: the locker in the room refreshes `seenAt` (saved at most
+  once a minute), 7 days without ends it and tells her. `settingsLocked() = ownLocked() || keyLocked()`;
+  `ownLocked()` (session, Extreme) still holds the keyholder list and giving keys on request, the
+  keyholder lock doesn't, except the locker keeps full keys. `/echs decay` and `triggerdecay` were
+  held only by Extreme and now also by this. The snapshot carries `keyLock` (the locker's name or "").
+- **Planted triggers (v1.16.2, job6.md §4):** a full keyholder's snapshot carries `planted` (up to
+  30, described by voice.ts's `plantedEntryOf` via planted.ts's registered describer). A trigger is
+  named by `triggerId` (FNV-1a of its key), so a hidden word never travels; the word is sent only to
+  its planter or if she shows herself her words. `remove-trigger` is checked on her side by
+  `removeRefusal`: Extreme lock, self-planted, holding her (her own forget's rule), then
+  `trustWith(keyholder) > trustWith(planter)`; the keyholder's own planting is always theirs to take.
+- **Requests (v1.16.1, job6.md §3):** `remote-request` action `request-keys` with a level; she
+  answers in ask.ts's popup (30 s, no answer = decline; one at a time), and the result rides
+  `state-response` as `keyRequestResult`. Checked on her side: her locks, what they already hold, one
+  ask per person per 3 min. The asker's side offers it only to peers on v1.16.1+ (an older client
+  would answer "not your keyholder"). Asking is not held by the asker's own locks.
 - **The popup's Keys tab** is the one place a click acts instead of typing (besides the Safeword
   button): a keyholder's box has no chat line to type.
 

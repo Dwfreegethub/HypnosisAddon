@@ -87,9 +87,10 @@ The **Planted triggers** button on their profile's spiral panel shows the same l
 | `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
 | `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
 | `/echs keyholder` | Lists who holds your keys (can change your settings for you) and the last changes they made. |
-| `/echs keyholder add <name\|number> [grant]` | Gives them your keys: **take** (only switch things off) by default, **grant** (on and off) with `grant`. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you). |
+| `/echs keyholder add <name\|number> [minimal\|moderate\|full]` | Gives them your keys at a level: **minimal** (only switch things off, the default), **moderate** (also shape your trance) or **full** (everything, including your Triggers tab choices and Depth tab). Typed again with another level, it changes theirs. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you). |
 | `/echs keyholder remove <name\|number>` | Takes their keys back. |
-| `/echs keyholder owner <off\|take\|grant>` | Whether your BC owner holds your keys, and how far. |
+| `/echs keyholder owner <off\|minimal\|moderate\|full>` | Whether your BC owner holds your keys, and at what level. |
+| `/echs keyholder request <name> [minimal\|moderate\|full]` | Asks someone here for their keys. They get a popup to accept or decline; no answer in 30 seconds is a no. One ask per person every 3 minutes. They need ECHS v1.16.1 or newer. |
 | `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. The **[x]** on the Stats tab does the same. |
 
 ---

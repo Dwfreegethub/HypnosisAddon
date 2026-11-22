@@ -18,6 +18,215 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.7) — UPDATE_NOTE for the stable release
+
+DW: "push everything to stable". UPDATE_NOTE (v1.15.0's still) set to 1.16.7 with a two-sentence
+summary of v1.15.0–v1.16.6. The root CHANGELOG line has no bold headline on purpose, so GreeterBot's
+announcement (bold headlines of the newest five versions) isn't padded with it.
+
+### Changed 2026-11-22 (v1.16.6) — a hypnotist hypnotized mid-induction loses it
+
+DW: "If the hypnotist is still in the process of hypnotizing someone and a hypno request comes in
+for them the 1st person should fail"; otherwise leave the chain alone (a trance carries on, and the
+"say" relay through a hypnotised hypnotist is left as it is, by DW's choice).
+- Hypnotist side: when we TAKE UP a session-attempt (after the refusals: hypnosis off, not in room,
+  away, cooldown, already under), `dropOwnInductions` sends the existing `session-wake` with
+  `inductionOnly: true` to every subject our view shows in AttemptMade / InductionInProgress, and
+  tells us. Taken up rather than merely arrived, so a request we refuse can't be used to break up
+  someone else's induction.
+- Subject side: `inductionOnly` lapses an induction (lapseInduction: no try used, no cooldown) and is
+  ignored in any other phase, so a stale view can't wake someone already under. A pre-1.16.6 subject
+  ignores the flag and ends the induction with endSession; only a stale view of a trance would wake
+  her there.
+- No new message type. test/hypnotist-interrupted.mjs (16), mutation-checked (no drop, flag ignored,
+  any phase, no lapse: all fail). Not live-tested.
+
+### Added 2026-11-22 (v1.16.5) — more movements, gagged sounds, more faces
+
+DW asked what movement commands were missing, then "Build that group". From BC R134's activity list
+(Female3DCG.js), the batch without new machinery:
+- Self: `Wiggle` (TargetSelf only, most zones) for wiggle/wriggle/shake/sway/jiggle/bounce/shimmy +
+  your <part>, ADJACENT only (these words are patter); bare "wiggle"/"shake it" → pelvis then butt.
+  `Nod`; `StruggleArms`/`StruggleLegs` (BC gates on CantUseArms/CantUseFeet; "the more you
+  struggle" and "struggle to …" excluded); the `MoanGag*` sounds (BC gates on IsGagged +
+  Needs-GagItem). "moan" with no gag falls through to the moan face, so v1.11.0's "moan for me"
+  keeps working.
+- Aimed: `Cuddle` (no TargetSelf; arms, nose for nuzzle), `Kick`, `CollarGrab` ("collar"),
+  `HandGag` (mouth only), `PoliteKiss` ("peck", "politely kiss"; hand by default).
+- `ActivityVerb` gained adjacent / selfOnly / othersOnly / parts / defaultPart. A verb with its own
+  parts list never claims an unknown part (so "cover Rei's eyes" falls through). A default part
+  applies only when nothing follows the name ("grab me", not "grab me a drink").
+- `ACT_PARTS` = BODY_PARTS + hand + collar (BODY_PARTS itself unchanged, so the self-touch block
+  words are unchanged). "kiss my hand" now lands on the hand instead of falling through.
+- OBJECT_VERBS gained the new verbs, so "Missy, hug Rei" isn't cut at "Rei" (touch-others caught it).
+- `act:bare:<key>` trigger ids; describeAction uses activityWord (fixes "you massagehands your …").
+- Face: Eyebrows (Raised, OneRaised, Lowered) and Fluids (DroolMedium, TearsMedium) added to
+  FaceGroup; Mouth Frown/Sad/Pained. "face-dry" releases Fluids.
+- Left out, as reported to DW: Step / Sit / RestHead (need the target kneeling), item activities,
+  and things BC has no activity for (dance, twerk, bow).
+- test/movements.mjs (84). Mutation-checked: no adjacency, no moan fall-through, loose default,
+  self-only aimed, struggle patter, others-only on herself, only the first try (all fail). Not
+  live-tested.
+
+### Changed 2026-11-22 (v1.16.4) — any full keyholder may ask to remove another
+
+DW, on finding the v1.16.3 option owner-only: "Any full keyholder with a popup, owner no popup".
+- `remove-keyholder` now goes through `handleAskedChange` (rate limit per target); the owner skips the
+  popup. Snapshot `keyholders` for any full keyholder. Not for a non-owner while the keys lock holds
+  (accepting would be her taking keys back, which that lock stops; chosen here).
+- Keys tab: non-owner "take their keys back" is one click (she must accept); the owner's stays two.
+- keyholder-extreme 50, popup 178. Mutation-checked (nobody asked, owner asked, keys lock ignored,
+  list for every level, locker removable: all fail). Not live-tested.
+
+### Added 2026-11-22 (v1.16.3) — keyholder Extreme (job6.md stage 6) and the keys lock
+
+DW: Extreme "Yes, with your acceptance". Keys lock: "an option for BC owner to take away your ability
+to give and take keys. Owner does not need get permission ... an option for people with full
+permission with pop up confirmation similar to the lock".
+- `handleAskedChange` replaces the v1.16.2 lock handler; the settings lock, the keys lock and Extreme
+  all use it. `handleUnlock(kind)` for both locks.
+- Choices made here, not by DW: the owner skips the popup only while holding her FULL keys (an owner
+  without keys can't reach her settings at all); the keys lock is lifted by any full keyholder and
+  ends after 7 days without its setter, like the settings lock; extending Extreme adds 30 days to its
+  current end (or from now if it has run out) as a "month" period.
+- Owner manages keyholders (DW, "BC owner can remove other keyholders as well"): `remove-keyholder`,
+  owner at full only, no popup; not the settings-lock holder while it holds (chosen here, so that
+  lock's promise holds). Snapshot `keyholders` for the owner only.
+- `test/keyholder-extreme.mjs` (45) and 10 popup checks. Owner removal mutation-checked too (any full
+  keyholder managing, owner at any level, locker removable: all fail). Mutation-checked: anyone skipping the ask,
+  the owner having to ask, any level, extend restarting the trial or counting from now, no late
+  check, no keys re-check, list editable, request-keys allowed: all fail. Not live-tested.
+
+### Added 2026-11-22 (v1.16.2) — the keyholder lock (job6.md stage 5)
+
+DW: "Yes, but you must accept"; "Any Full keyholder unlocks, Ends if they're gone N days" (N = 7);
+she can't remove the locking keyholder while locked; reset still works.
+- `src/keylock.ts` (lazy expiry, presence noted at most once a minute); storage `keyLock`.
+- `settingsLocked()` now includes it; new `ownLocked()` for the session/Extreme locks, which alone
+  still hold her keyholder list and giving keys on request. Under the keyholder lock the locker
+  can't be removed, lowered below full, or (if they hold full keys only as her owner) have the owner
+  keys lowered.
+- `fixedRowLocked()`: Hypnosis Enabled can be unticked under the keyholder lock (not under Extreme,
+  as before). `/echs decay` and `/echs triggerdecay` are now refused under it.
+- Actions `lock` (popup, 3 min between asks per keyholder, re-checks full keys after Accept) and
+  `unlock`. Snapshot `keyLock`. Keys tab: lock (one click; she must accept), unlock (two clicks).
+- `test/keylock.mjs` (38) and 6 popup checks. Mutation-checked: screen not locked, never expiring,
+  presence not refreshing, moderate locking (6), moderate unlocking, locker removable, locker or
+  owner lowerable, any answer locking, and the lock blocking key requests all fail. Not live-tested.
+
+### Added 2026-11-22 (v1.16.2) — full keys see and remove planted triggers (job6.md stage 4)
+
+DW: removal "Only if keyholder has a higher trust level than the person that added the trigger and not
+under extreme at all"; her trust in keyholder > her trust in planter (strictly).
+- Snapshot field `planted` for full keys only; `triggerId` hash instead of the word; word only for
+  its planter or when she has *Show trigger words* on. Action `remove-trigger` (`removeRefusal`).
+  Also refused while it holds her, the rule her own `/echs forgettrigger` has. The keyholder's own
+  planting is removable whatever the trust (they could already take it back by saying so).
+- voice.ts's planted-list entry builder is now `plantedEntryOf`, shared through planted.ts.
+- Keys tab "Planted in them (n)", folded; remove is two clicks; a faded one says why.
+- `test/keyholder-triggers.mjs` (27) and 5 popup checks. Mutation-checked: `>=` for trust fails 8, no
+  Extreme check fails 4, self-planted removable 2, words always sent 2, any level 1, list for every
+  level 1, holding ignored 4, no two-click 1. Not live-tested; the snapshot is now the biggest hidden
+  message ECHS sends (30 triggers + ~45 choices), watch for it not arriving.
+
+### Added 2026-11-22 (v1.16.2) — full keys reach Triggers choices and Depth (job6.md stage 3)
+
+DW: Full gets "the Triggers tab dropdowns, the Depth tab".
+- `menu.ts` `fullOnlyChoices()`: trigger scope, lifespan, duration, trigger decay, drop mode, trust
+  decay (tab "Stats", where her own control is), each gate's depth, chemical reach (illusion and
+  planting triggers only, as on her screen), chemicals count, skill honour (offered rungs: not the
+  CNC rung, which her own button doesn't reach either), reset depths. No `off`, no `moderate`: full
+  only, so even the most closed option needs full (DW's table has "—" for minimal and moderate).
+- `RemoteChoice.range` for numbers: plain whole numbers in range only ("045", "4.5", "1e1" refused),
+  so what she is told is what is saved. `labelOf` for how values read.
+- Snapshot cap on the keyholder side 20 → 80 (it is ~45 now). New choices appended after the
+  v1.14.1 ones, so a v1.16.1 keyholder still sees its 20.
+- Keys tab: tab headings fold (Depth and Stats start shut); numbers get step buttons.
+- `test/full-keys.mjs` (59) and 7 popup checks. Mutation-checked: any number accepted fails 9,
+  moderate allowed fails 15, cap of 20 fails 1, all skill rungs fails 1, nothing folded fails popup.
+  Not live-tested.
+
+### Added 2026-11-22 (v1.16.1) — requesting keys (job6.md stage 2)
+
+DW: a would-be keyholder can ask; "a pop up instead of a chat request. No answer is a decline".
+- `ask.ts`: one Accept/Decline box at a time, 30 s, driven by a once-a-second tick that reads the
+  clock (so a throttled background tab still times out). Stages 5 and 6 reuse it.
+- Her side (`handleKeyRequest`, before the keyholder check since the asker holds no keys yet):
+  refuses a bad level, under her Extreme or session lock (and tells her it came), when they already
+  hold that much, within 3 min of their last ask, or while another question is open. Re-checks her
+  locks after Accept. Only Accept changes anything.
+- Asker's side: `requestKeys` only for peers on v1.16.1+ (badge version), 3 min between asks; the
+  answer (`keyRequestResult`) is said in chat and shown under their name. Not held by the asker's
+  own locks: asking for someone else's keys is not one of her settings.
+- Keys tab "Ask for keys" group with a cycling **Request keys (level)** button (typed, like Give keys).
+- `test/key-request.mjs` (34). Mutation-checked: no timeout fails 3, treating any answer as Accept
+  fails 4. Not live-tested.
+
+### Changed 2026-11-22 (v1.16.0) — keyholder levels (job6.md stage 1)
+
+DW: take/grant read wrong ("make take"), and a middle level was wanted. Three levels: minimal (off
+only), moderate (also shapes the trance: Trance Defaults and Awareness boxes on, and remoteChoices
+marked `moderate`: screen effect, eyes, eye colour, pulse colour, attempts, induction time, sink
+deeper), full (everything). Toy mode, auto-answer, when-away and who-toy-mode-is-for stay full-only.
+- `keyLevelAllows(level, turnsOff, moderateOk)` decides on her side and greys on the keyholder's.
+- Conversion (DW): saved take -> minimal, grant -> MODERATE (full grows in later stages, so it is
+  re-given on purpose). Typed take/grant still parse (toKeyMode).
+- Wire: `keyLevel` beside v1.14's `keyholder: take|grant` (minimal -> take, else grant), and
+  `settings.level` beside `settings.mode`, so a v1.14 keyholder still sees her. A v1.14 subject's
+  "grant" reads as full on a new keyholder's side (it meant everything there).
+- Keys tab: one "Give keys (level)" button per person, cycling on repeat clicks (label = what is
+  typed); "Take keys back". DW chose typed, not acting on click.
+- Tests: keyholder 89 (+22), popup 152 (+4). Mutation-checked: moderate allowed everywhere fails 6;
+  grant -> full fails 3. Not live-tested.
+
+### Fixed 2026-11-22 (v1.15.3) — trigger words in OOC were concealed
+
+DW: "the addon is putting **** in place of trigger words in OOC. I agree it should not trigger if
+in OOC, but then it should not blank it out as well." Triggers read stripOOC's text (main.ts), but
+the conceal handler masked the whole drawn line. `concealInCharacter` now walks the line with the
+same depth rule as voice.ts stripOOC (unclosed "(" runs to the end; a stray ")" stays in character)
+and conceals each in-character run on its own, for the line and BC's ungarbled copy. Known gap: a
+phrase split by an aside ("sleepy (lol) time") fires but is not concealed. `test/conceal.mjs` +7,
+mutation-checked (the old whole-line masking fails 4).
+
+### Reverted 2026-11-22 (v1.15.2) — lastTogether taken back out
+
+DW, after a refresh on dev: the Stats tab still read as time since the last reset, and many people
+showed "just now" whom DW had not just interacted with. Undone at DW's word rather than chased: the
+field, its setter and the row's use of it are gone; normalise() deletes any saved `lastTogether`.
+Likely causes, for whoever picks it up: old entries fall back to `lastUpdated` (which decay had
+just reset), and passive trust growth (conversation in the room) counts as "together". The settings
+directions from v1.15.1 stay.
+
+### Fixed 2026-11-22 (v1.15.1) — "N days ago", and where settings are
+
+Two small offers DW took up.
+- Trust entries gain `lastTogether`, set only when `addInteractions` adds (delta > 0). Decay charges
+  `lastUpdated` (it is decay's clock), which reset the Stats tab's "N days ago" to "just now" (found
+  during the v1.12.8 rate-limit fix). The row reads `lastTogether ?? lastUpdated`, so old entries
+  show what they did before until the next interaction. `test/trust-burst.mjs` +5; mutation-checked
+  (never setting it fails 4).
+- The first-run notice ("Click the spiral to set up") and four wiki places (Settings Reference,
+  Sample Session, Troubleshooting ×2) pointed at a spiral on your OWN profile. There is none:
+  `remote.ts addSheetButton` skips the player's own sheet. They now name the popup's spiral button
+  and gear, or Preferences > Extensions.
+
+### Added 2026-11-21 (v1.15.0) — the update notice
+
+DW: players should hear when ECHS updates, as a beep with a short description and a changelog link.
+DW chose: ECHS shows it itself (BC's `ServerShowBeep`, a local toast plus the desktop notification,
+not a real beep from GreeterBot); the text written into the build (`UPDATE_NOTE`), not fetched;
+stable only; the beep plus a private chat line with the link.
+- `update.ts`, on the startup banner's poll, after the first-run notice. `lastSeenVersion` is in the
+  synced settings, so once per account. A fresh install records silently (the first-run notice owns
+  that load); an account from before the feature has no `lastSeenVersion` and gets it; dev records
+  silently; a downgrade says nothing; a build without a numeric version does nothing.
+- BC R134 checked: `ServerShowBeep(message, duration, options{onClick}, title)` (Server.js) and
+  LocalMessage content rendered as `innerHTML` (ChatRoom.js), which is what makes the link clickable.
+- Release step added to CLAUDE.md: set `UPDATE_NOTE` before each dev → main.
+- `test/update-notice.mjs` (24); banner suite now seeds a seen version. Mutation-checked: dev not
+  silent fails 2, notifying on a downgrade fails 1. Not live-tested.
+
 ### Added 2026-11-21 (v1.14.1) — keyholders reach the Trance Defaults and Inductions choices
 
 DW asked for the spirals and the other options on that tab, then the Inductions tab as well. They

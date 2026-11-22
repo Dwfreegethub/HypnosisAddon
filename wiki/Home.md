@@ -27,7 +27,7 @@ Want to see a whole scene first? **[A Sample Session](Sample-Session)** follows 
 
 ## What's New
 
-* **Keyholders:** give someone your keys (`/echs keyholder add <name>`, or your BC owner) and they can change your settings for you, even under Extreme, and end the lock. *take* only switches things off; *grant* can switch them on too. See **[Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you)**.
+* **Keyholders:** give someone your keys (`/echs keyholder add <name>`, or your BC owner) and they can change your settings for you, even under Extreme, and end the lock. Three levels: *minimal* only switches things off, *moderate* can also shape your trance, *full* can do everything. See **[Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you)**.
 * **The ECHS popup:** a spiral button in chat rooms opens a window that types for you: who you can hypnotize, every suggestion for whoever is under you (faded when it won't land), your own answers and ways out while you are under, trigger planting, and every command. Nothing is sent until you press Enter. See **[The ECHS Popup](The-ECHS-Popup)**.
 * **Two levels of holding still:** *"you cannot move"* stops only you, so others can still adjust your pose; *"no one can move you"* stops everyone, and the room is told you didn't budge. See **[Holding Still](What-to-Say#holding-still)**.
 * **Her face on command:** with Posture Control, *"close your eyes"*, *"open your mouth"*, *"smile"*, *"blush"* and more, until *"relax your face"* or waking. See **[What to Say](What-to-Say#face--posture-control--yielding-20)**.

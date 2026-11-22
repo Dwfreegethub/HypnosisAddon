@@ -40,3 +40,6 @@ export * as popupSuggest from "../src/popup-suggest";
 export * as popupTriggers from "../src/popup-triggers";
 export * as help from "../src/help";
 export * as keyholder from "../src/keyholder";
+export * as keylock from "../src/keylock";
+export * as ask from "../src/ask";
+export * as update from "../src/update";

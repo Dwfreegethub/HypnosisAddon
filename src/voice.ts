@@ -1,5 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
-import { registerPlantedSource, MAX_PLANTED_ENTRIES } from "./planted";
+import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
 	applyEffect,
@@ -605,10 +605,13 @@ function faceSuggestion(id: FlavorKey, group: FaceGroup, expression: string, exa
 }
 
 const EYE_FACE_IDS: FlavorKey[] = ["eyes-closed", "eyes-wide", "eyes-dazed", "eyes-hearts"];
-const MOUTH_FACE_IDS: FlavorKey[] = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan"];
+const MOUTH_FACE_IDS: FlavorKey[] = ["mouth-open", "mouth-parted", "tongue-out", "tongue-hang", "lip-bite", "smile", "grin", "smirk", "pout", "moan", "frown", "mouth-sad", "wince"];
+/** Eyebrows and fluids (v1.16.5). */
+const BROW_FACE_IDS: FlavorKey[] = ["brows-raised", "brow-raise", "brows-furrow"];
+const FLUID_FACE_IDS: FlavorKey[] = ["drool", "tears"];
 /** Every face command, applied or released. None is carried by "that will stay with you": DW
  * wants a face to last until it is relaxed or she wakes. */
-const FACE_IDS: FlavorKey[] = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-relax"];
+const FACE_IDS: FlavorKey[] = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, ...BROW_FACE_IDS, ...FLUID_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-dry", "face-relax"];
 
 /** A bare word ("smile", "pout") is matched unless it is a noun or about someone else: "a smile",
  * "your smile", "you make me smile", "I grin". */
@@ -651,6 +654,12 @@ const FACE_SUGGESTIONS: Suggestion[] = [
 	faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
 		/\bmoan (?:for me|for us|softly|quietly|for them)\b/,
 	], [NEGATED]),
+	// v1.16.5 (DW 2026-11-22): the rest of BC's mouth, eyebrows and fluids worth asking for.
+	faceSuggestion("frown", "Mouth", "Frown", ["frown"], [bare("frown")], [NEGATED]),
+	faceSuggestion("mouth-sad", "Mouth", "Sad", ["look sad", "you feel sad"], [
+		/\b(?:look|feel|you are|you re) (?:so |very )?sad\b/,
+	], [NEGATED]),
+	faceSuggestion("wince", "Mouth", "Pained", ["wince"], [bare("wince")], [NEGATED]),
 	{
 		id: "mouth-close",
 		examples: ["close your mouth", "tongue back in"],
@@ -696,6 +705,42 @@ const FACE_SUGGESTIONS: Suggestion[] = [
 			clearFace("Eyes");
 		},
 	},
+	// Eyebrows (v1.16.5). One raised before both: "raise an eyebrow" is not "raise your eyebrows".
+	faceSuggestion("brow-raise", "Eyebrows", "OneRaised", ["raise an eyebrow", "raise one eyebrow"], [
+		/\braise (?:an|one|a single) eyebrow\b/,
+		/\barch (?:an|one|your) eyebrow\b/,
+	], [NEGATED]),
+	faceSuggestion("brows-raised", "Eyebrows", "Raised", ["raise your eyebrows", "eyebrows up"], [
+		/\braise your (?:eye)?brows\b/,
+		/\b(?:eye)?brows up\b/,
+	], [NEGATED]),
+	faceSuggestion("brows-furrow", "Eyebrows", "Lowered", ["furrow your brow", "knit your brows"], [
+		/\b(?:furrow|knit|lower) your (?:eye)?brows?\b/,
+	], [NEGATED]),
+	// Fluids (v1.16.5). Not "cry out", which is a sound.
+	faceSuggestion("drool", "Fluids", "DroolMedium", ["drool", "drool for me"], [
+		bare("drool"),
+		/\b(?:let yourself|start to|begin to) drool\b/,
+	], [NEGATED]),
+	faceSuggestion("tears", "Fluids", "TearsMedium", ["cry", "cry for me", "tears roll down your cheeks"], [
+		/(?<!\b(?:i|we|a|your|my|her|his|their|the) )\bcry\b(?! out\b)/,
+		/\btears (?:roll|run|spill|stream|well up)\b/,
+		/\byour eyes (?:water|fill with tears|well up)\b/,
+	], [NEGATED]),
+	{
+		id: "face-dry",
+		examples: ["dry your eyes", "wipe your mouth"],
+		release: true,
+		releaseOf: FLUID_FACE_IDS,
+		permission: "postureControl",
+		patterns: [
+			/\b(?:dry|wipe) your (?:eyes|tears|face|mouth|chin)\b/,
+			/\bstop (?:crying|drooling)\b/,
+		],
+		run: () => {
+			clearFace("Fluids");
+		},
+	},
 	faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
 		bare("blush"),
 		/\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/,
@@ -704,7 +749,7 @@ const FACE_SUGGESTIONS: Suggestion[] = [
 		id: "face-relax",
 		examples: ["relax your face", "your face relaxes"],
 		release: true,
-		releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-relax"),
+		releaseOf: FACE_IDS.filter((f) => f !== "eyes-open" && f !== "mouth-close" && f !== "face-dry" && f !== "face-relax"),
 		permission: "postureControl",
 		patterns: [
 			/\brelax your (?:face|expression)\b/,
@@ -1566,6 +1611,10 @@ export const OBJECT_VERBS = new Set([
 	"grope", "squeeze", "fondle", "pinch", "spank", "smack", "slap", "scratch", "tickle", "pull",
 	"tug", "choke", "massage", "knead", "nibble", "lick", "kiss", "suck", "bite", "pet", "finger",
 	"masturbate", "pleasure", "caress", "stroke", "touch", "feel", "rub",
+	// v1.16.5: "Missy, hug Rei", "kick Rei", "grab Rei by the collar", "hand gag Rei", "cover
+	// Rei's mouth". The self-only movements are here too, to keep the check above simple.
+	"cuddle", "hug", "snuggle", "nuzzle", "kick", "grab", "peck", "gag", "cover", "put", "clamp", "on",
+	"wiggle", "wriggle", "shake", "sway", "jiggle", "bounce", "shimmy",
 ]);
 
 const bareWord = (w: string) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
@@ -3007,8 +3056,12 @@ export function describeAction(id: string): string {
 		if (base === "act:vague") return `you touch yourself somewhere${suffix}`;
 		if (base === "act:genital") return `you touch yourself between your legs${suffix}`;
 		if (base === "act:sip") return `you take a sip of your drink${suffix}`;
+		if (base.startsWith("act:bare:")) {
+			const key = base.slice("act:bare:".length);
+			return `${BARE_ACTS.find((a) => a.key === key)?.say ?? `you ${key}`}${suffix}`;
+		}
 		const [, activity, word] = base.split(":");
-		return `you ${activity.toLowerCase()} your ${word ?? "body"}${suffix}`;
+		return `you ${activityWord(activity)} your ${word ?? "body"}${suffix}`;
 	}
 	return SUGGESTIONS.find((s) => s.id === id)?.examples[0] ?? id;
 }
@@ -3353,26 +3406,29 @@ onWakeKeep((hypnotizedAt) => {
 });
 
 // The hypnotist's list (planted.ts): theirs only, in words, and a band rather than the number.
+/** One trigger in words: the planted list (the planter's) and, since v1.16.2, a full keyholder's. */
+function plantedEntryOf(t: Trigger): PlantedEntry {
+	const now = triggerStrength(t);
+	return {
+		word: t.phrase,
+		when: t.fireOn ? describeCondition(t) : "",
+		does: t.actions.map(describeAction),
+		strength:
+			now < TRIGGER_GHOST_THRESHOLD
+				? "a vague pull only"
+				: now >= t.plantedDepth
+					? "full strength"
+					: `fading, reaches ${tierLabel(tierOf(now))}`,
+		once: !!t.oneShot,
+		holding: isTriggerInEffect(t),
+	};
+}
+registerPlantedDescriber(plantedEntryOf);
 registerPlantedSource((hypnotist): PlantedEntry[] =>
 	listTriggers()
 		.filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0)
 		.slice(0, MAX_PLANTED_ENTRIES)
-		.map((t) => {
-			const now = triggerStrength(t);
-			return {
-				word: t.phrase,
-				when: t.fireOn ? describeCondition(t) : "",
-				does: t.actions.map(describeAction),
-				strength:
-					now < TRIGGER_GHOST_THRESHOLD
-						? "a vague pull only"
-						: now >= t.plantedDepth
-							? "full strength"
-							: `fading, reaches ${tierLabel(tierOf(now))}`,
-				once: !!t.oneShot,
-				holding: isTriggerInEffect(t),
-			};
-		}),
+		.map(plantedEntryOf),
 );
 
 /** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".
@@ -3572,7 +3628,37 @@ function handleBodyPartLine(sender: number, content: string): boolean {
 // wins, so the specific verbs sit above the catch-all Caress. Bare "touch yourself" is handled
 // separately (a random spot). No held-item activities here — those want a "with the <toy>"
 // extension later.
-export const ACTIVITY_VERBS: { activity: string; re: RegExp }[] = [
+export type ActivityVerb = {
+	activity: string;
+	re: RegExp;
+	/** Only as "<verb> your <part>", side by side (v1.16.5): shake, sway and bounce are patter too. */
+	adjacent?: boolean;
+	/** BC offers it only on herself, or only on someone else. */
+	selfOnly?: boolean;
+	othersOnly?: boolean;
+	/** Only these part words. A verb with a list never claims an unknown part: it falls through. */
+	parts?: string[];
+	/** Where it lands on someone else when no part is named. Only when nothing follows the name
+	 * ("grab me", "hug Rei"), so "grab me a drink" is left alone. */
+	defaultPart?: string;
+};
+/** The mouth, for the hand over it. */
+const MOUTH_WORDS = ["mouth", "lips"];
+export const ACTIVITY_VERBS: ActivityVerb[] = [
+	// v1.16.5 (DW 2026-11-22): BC's own movements. Wiggle is BC's self-only "wiggle" on most of the
+	// body (R134 Female3DCG TargetSelf); "wiggle your hips", "shake your breasts", "sway your hips".
+	{ activity: "Wiggle", re: /\b(?:wiggle|wriggle|shake|sway|jiggle|bounce|shimmy)\b/, adjacent: true, selfOnly: true },
+	// A hand over the mouth: hers or someone else's. "hand gag Rei" needs no part; "cover" does.
+	{ activity: "HandGag", re: /\bhand ?gag\b/, parts: MOUTH_WORDS, defaultPart: "mouth" },
+	{ activity: "HandGag", re: /\b(?:cover|(?:put|clamp|press) your hand (?:over|on))\b/, parts: MOUTH_WORDS, adjacent: true },
+	// BC's CollarGrab: the neck, and only on someone wearing a collar (BC's own check).
+	{ activity: "CollarGrab", re: /\bgrab\b/, parts: ["collar"], defaultPart: "collar" },
+	// Cuddle has no TargetSelf in BC: arms, or the nose for a nuzzle.
+	{ activity: "Cuddle", re: /\b(?:cuddle|hug|snuggle)\b/, othersOnly: true, parts: ["arms", "shoulders"], defaultPart: "arms" },
+	{ activity: "Cuddle", re: /\bnuzzle\b/, othersOnly: true, parts: ["nose"], defaultPart: "nose" },
+	{ activity: "Kick", re: /\bkick\b/, othersOnly: true, defaultPart: "legs" },
+	// A polite kiss: hands, feet, lips. "kiss my hand" stays an ordinary kiss.
+	{ activity: "PoliteKiss", re: /\b(?:peck|politely kiss)\b/, parts: ["hand", "hands", "feet", "toes", "lips", "mouth"], defaultPart: "hand" },
 	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
 	{ activity: "Pinch", re: /\bpinch\b/ },
 	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -3592,6 +3678,61 @@ export const ACTIVITY_VERBS: { activity: string; re: RegExp }[] = [
 	// The universal — Caress reaches almost every zone, so "touch your <anything>" lands.
 	{ activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ },
 ];
+/** Part words for activities: the self-touch dictionary plus two only the new verbs need (v1.16.5). */
+export const ACT_PARTS: Record<string, string[]> = { ...BODY_PARTS, hand: ["ItemHands"], collar: ["ItemNeck"] };
+/** The zones a part word names, or none. */
+export function partGroups(word: string | null | undefined): string[] {
+	return word ? ACT_PARTS[word] ?? [] : [];
+}
+/** What the hypnotist and the trigger list call an activity. */
+const ACT_WORD: Record<string, string> = {
+	MasturbateHand: "finger",
+	MassageHands: "massage",
+	HandGag: "put a hand over",
+	CollarGrab: "grab",
+	PoliteKiss: "kiss",
+	Cuddle: "cuddle",
+};
+export function activityWord(activity: string): string {
+	return ACT_WORD[activity] ?? activity.toLowerCase();
+}
+
+/** Moves with no part to name (v1.16.5, DW 2026-11-22), each a real BC activity on herself; the
+ * first that BC allows is done. The sounds are BC's gagged ones (Needs-GagItem): they need a gag
+ * that makes them, and "moan" without one is left to the moan face. */
+export type BareAct = { key: string; patterns: RegExp[]; tries: [string, string][]; gagged?: boolean; say: string };
+const bareNot = (word: string, after = "") => new RegExp(String.raw`${NOT_HERS}\b(?:${word})\b${after}`);
+export const BARE_ACTS: BareAct[] = [
+	// Not "nod off", which is drifting to sleep.
+	{ key: "nod", patterns: [bareNot("nod", String.raw`(?! off\b| out\b)`)], tries: [["Nod", "ItemHead"]], say: "you nod" },
+	{
+		key: "wiggle",
+		patterns: [bareNot("wiggle|wriggle|shimmy"), /\bshake (?:it|that)\b/],
+		tries: [["Wiggle", "ItemPelvis"], ["Wiggle", "ItemButt"]],
+		say: "you wiggle your hips",
+	},
+	// Only while bound (BC's CantUseArms / CantUseFeet). Not "struggle to wake" or "the more you
+	// struggle", which are patter: an order to struggle is said to her, not about her.
+	{
+		key: "struggle",
+		patterns: [new RegExp(String.raw`${NOT_HERS}(?<!\byou )(?<!\bmore )\bstruggle\b(?! to\b)`), /\bfight (?:against )?(?:your|the) (?:bonds|ropes|restraints|cuffs|chains|straps)\b/],
+		tries: [["StruggleArms", "ItemArms"], ["StruggleLegs", "ItemLegs"]],
+		say: "you struggle against your bonds",
+	},
+	{ key: "moan", patterns: [bareNot("moan")], tries: [["MoanGag", "ItemMouth"]], gagged: true, say: "you moan into your gag" },
+	{ key: "whimper", patterns: [bareNot("whimper|whine")], tries: [["MoanGagWhimper", "ItemMouth"]], gagged: true, say: "you whimper into your gag" },
+	{ key: "groan", patterns: [bareNot("groan")], tries: [["MoanGagGroan", "ItemMouth"]], gagged: true, say: "you groan into your gag" },
+	{ key: "giggle", patterns: [bareNot("giggle")], tries: [["MoanGagGiggle", "ItemMouth"]], gagged: true, say: "you giggle into your gag" },
+	{ key: "growl", patterns: [bareNot("growl|grumble")], tries: [["MoanGagAngry", "ItemMouth"]], gagged: true, say: "you growl into your gag" },
+	{
+		key: "mumble",
+		patterns: [bareNot("mumble"), /\btry to (?:talk|speak)\b/, /\b(?:talk|speak) (?:through|around|into) (?:your|the) gag\b/],
+		tries: [["MoanGagTalk", "ItemMouth"]],
+		gagged: true,
+		say: "you try to talk through your gag",
+	},
+];
+
 // A positive command never contains a negation; if one is present this is a block/stop, which
 // the body-part handler (run earlier) owns. Guards against "do not touch your breasts" being
 // read as a command to do it.
@@ -3617,6 +3758,7 @@ export type ActivityCommand = (
 	| { kind: "vague" }
 	| { kind: "sip" }
 	| { kind: "part"; activity: string; word: string }
+	| { kind: "bare"; key: string }
 ) & {
 	/** "touch your breasts three times" (v0.92.0). Present only when more than once. */
 	times?: number;
@@ -3647,13 +3789,16 @@ export function matchActivityCommand(content: string): ActivityCommand | null {
 	if (GENITAL_SELF.test(text)) return withTimes({ kind: "genital" as const });
 	if (VAGUE_SELF.test(text)) return withTimes({ kind: "vague" as const });
 	// Longest part word first, so "clitoris" is not shadowed by "clit" etc.
-	const words = Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length);
+	const words = Object.keys(ACT_PARTS).sort((a, b) => b.length - a.length);
 	for (const v of ACTIVITY_VERBS) {
-		if (!v.re.test(text)) continue;
-		for (const word of words) {
-			if (new RegExp(`\\byour ${word}\\b`).test(text)) return withTimes({ kind: "part" as const, activity: v.activity, word });
+		if (v.othersOnly || !v.re.test(text)) continue;
+		for (const word of v.parts ? words.filter((w) => v.parts!.includes(w)) : words) {
+			const at = v.adjacent ? new RegExp(`${v.re.source} your ${word}\\b`) : new RegExp(`\\byour ${word}\\b`);
+			if (at.test(text)) return withTimes({ kind: "part" as const, activity: v.activity, word });
 		}
 	}
+	const b = BARE_ACTS.find((a) => a.patterns.some((p) => p.test(text)));
+	if (b) return withTimes({ kind: "bare" as const, key: b.key });
 	return null;
 }
 
@@ -3667,6 +3812,7 @@ function activityActionId(cmd: ActivityCommand): string {
 	if (cmd.kind === "vague") return `act:vague${times}`;
 	if (cmd.kind === "genital") return `act:genital${times}`;
 	if (cmd.kind === "sip") return `act:sip${times}`;
+	if (cmd.kind === "bare") return `act:bare:${cmd.key}${times}`;
 	return `act:${cmd.activity}:${cmd.word}${times}`;
 }
 
@@ -3744,15 +3890,39 @@ function performActivityAction(fullId: string): boolean {
 	}
 	if (id === "act:genital") return runCommandedActivity("MasturbateHand", ["ItemVulva"]) != null;
 	if (id === "act:sip") return runCommandedActivity("SipItem", ["ItemMouth"]) != null;
+	if (id.startsWith("act:bare:")) return runBareAct(id.slice("act:bare:".length));
 	const [, activity, word] = id.split(":");
-	const groups = word ? BODY_PARTS[word] ?? [] : [];
+	const groups = partGroups(word);
 	return activity && groups.length ? runCommandedActivity(activity, groups) != null : false;
+}
+
+/** Does BC allow this move on her now (bound, gagged and so on are BC's to say)? */
+function bareActPossible(act: BareAct): boolean {
+	return act.tries.some(([activity, group]) => {
+		try {
+			return (ActivityAllowedForGroup(Player, group) || []).some((a: any) => a?.Activity?.Name === activity);
+		} catch {
+			return false;
+		}
+	});
+}
+
+/** Do one of the bare moves: the first of its tries that BC allows. */
+function runBareAct(key: string): boolean {
+	const act = BARE_ACTS.find((a) => a.key === key);
+	if (!act) return false;
+	return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
 }
 
 /** Returns true if the line was a compelled-activity command and has been dealt with. */
 function handleActivityCommand(sender: number, content: string): boolean {
 	const cmd = matchActivityCommand(content);
 	if (!cmd) return false;
+	// "Moan" with no gag in her mouth is the moan face, as it was before v1.16.5.
+	if (cmd.kind === "bare" && cmd.key === "moan") {
+		const act = BARE_ACTS.find((a) => a.key === "moan");
+		if (act && !bareActPossible(act)) return false;
+	}
 	if (!isSessionActiveWith(sender)) {
 		log(`heard an activity command from ${sender} but no active session with them`);
 		return true;
@@ -3800,6 +3970,21 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		});
 		return true;
 	}
+	if (cmd.kind === "bare") {
+		const act = BARE_ACTS.find((a) => a.key === cmd.key)!;
+		if (!runBareAct(cmd.key)) {
+			const why =
+				act.gagged ? "BC only makes that sound through a gag, and they aren't wearing one that does"
+				: cmd.key === "struggle" ? "there is nothing tying their arms or legs to struggle against"
+				: "something holding them won't let them";
+			tellHypnotist(sender, `[command] It won't land right now: ${why}.`);
+			return true;
+		}
+		tellPlayer("Your body does it without waiting for you to decide.");
+		noteLanded(sender);
+		repeatTouch(sender, cmd.times, () => runBareAct(cmd.key));
+		return true;
+	}
 	if (cmd.kind === "sip") {
 		if (!runCommandedActivity("SipItem", ["ItemMouth"])) {
 			tellHypnotist(sender, "[command] They can't take a sip right now: nothing to drink in their hand, their hands bound, or their mouth blocked.");
@@ -3811,10 +3996,10 @@ function handleActivityCommand(sender: number, content: string): boolean {
 		return true;
 	}
 	const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;
-	const groups = cmd.kind === "genital" ? ["ItemVulva"] : BODY_PARTS[cmd.word] ?? [];
+	const groups = cmd.kind === "genital" ? ["ItemVulva"] : partGroups(cmd.word);
 	const landed = runCommandedActivity(activity, groups);
 	if (!landed) {
-		tellHypnotist(sender, `[command] "${activity.toLowerCase()}" won't land there right now — bound, out of reach, or not somewhere it works.`);
+		tellHypnotist(sender, `[command] "${activityWord(activity)}" won't land there right now — bound, out of reach, or not somewhere it works.`);
 		return true;
 	}
 	tellPlayer("Your body does it without waiting for you to decide.");
@@ -3898,18 +4083,30 @@ export function matchTargetedActivityCommand(content: string, roster: string[]):
 	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
 	const names = [...new Set(roster.map((n) => normalize(String(n ?? ""))).filter((n) => n && n !== "me" && n !== "my"))]
 		.sort((a, b) => b.length - a.length);
-	const part = `(${Object.keys(BODY_PARTS).sort((a, b) => b.length - a.length).join("|")})`;
-	const hit = (rest: string, lead: string): { word: string | null; unknownPart?: string } | null => {
-		// normalize() turns "Rei's" into "rei s", so the possessive is a bare "s" token.
-		const m =
-			new RegExp(`^${lead}(?: s)? ${part}\\b`).exec(rest) ??
-			new RegExp(`^${lead} on (?:the|her|his|their|my) ${part}\\b`).exec(rest);
-		if (m) return { word: m[1] };
-		const other = new RegExp(`^${lead}(?: s| on (?:the|her|his|their|my)) ([a-z]+)`).exec(rest);
-		if (other) return { word: null, unknownPart: other[1] };
-		return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
-	};
+	const allWords = Object.keys(ACT_PARTS).sort((a, b) => b.length - a.length);
 	for (const v of ACTIVITY_VERBS) {
+		if (v.selfOnly) continue;
+		const part = `(${(v.parts ? allWords.filter((w) => v.parts!.includes(w)) : allWords).join("|")})`;
+		const hit = (rest: string, lead: string): { word: string | null; unknownPart?: string } | null => {
+			// normalize() turns "Rei's" into "rei s", so the possessive is a bare "s" token.
+			const m =
+				new RegExp(`^${lead}(?: s)? ${part}\\b`).exec(rest) ??
+				new RegExp(`^${lead} (?:on|by) (?:the|her|his|their|my) ${part}\\b`).exec(rest);
+			if (m) return { word: m[1] };
+			// A verb with its own short list never claims a part it doesn't know (v1.16.5).
+			if (!v.parts) {
+				const other = new RegExp(`^${lead}(?: s| on (?:the|her|his|their|my)) ([a-z]+)`).exec(rest);
+				if (other) return { word: null, unknownPart: other[1] };
+			}
+			// A default only when nothing else follows the name: "grab me", not "grab me a drink".
+			if (v.defaultPart) {
+				return new RegExp(`^${lead}(?: (?:now|please|gently|softly|tight|tightly|close|closer|hard|for me|for us))?$`).test(rest)
+					? { word: v.defaultPart }
+					: null;
+			}
+			if (v.parts) return null;
+			return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
+		};
 		for (const m of text.matchAll(new RegExp(`${v.re.source} (.+)$`, "g"))) {
 			const rest = m[m.length - 1];
 			// "feel my voice", "feel my hands on you" is ordinary patter, not an order to caress
@@ -4013,7 +4210,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 		return true;
 	}
 	const onHypnotist = target.MemberNumber === sender;
-	const verb = cmd.activity === "MasturbateHand" ? "finger" : cmd.activity.toLowerCase();
+	const verb = activityWord(cmd.activity);
 	if (!onHypnotist && !f.compelTouchOthers) {
 		tellHypnotist(sender, '[command] Refused — they have not enabled "Made to touch others".');
 		return true;
@@ -4042,7 +4239,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 		tellHypnotist(sender, `[command] Name a part — "${verb}" has no obvious spot. For example: "${verb} ${who} arms".`);
 		return true;
 	}
-	const groups = BODY_PARTS[word] ?? [];
+	const groups = partGroups(word);
 	const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
 	if (!landed) {
 		if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you — ${ownRefusalReason(target, word, groups)}.`);

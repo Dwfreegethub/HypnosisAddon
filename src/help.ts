@@ -152,9 +152,14 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
 	lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
 	lines.push(body(`"take a sip" · "drink up"   (Made to Act) — she sips the drink in her hand.`));
+	lines.push(body(`"wiggle your hips" · "shake your breasts" · "nod" · "struggle"   (Made to Act)`));
+	lines.push(dim(`   wiggle, shake, sway, jiggle, bounce + your <part>. "struggle" only while tied.`));
+	lines.push(dim(`   Gagged: "moan" · "whimper" · "groan" · "giggle" · "growl" · "mumble".`));
 	lines.push(body(`"kiss Rei" · "kiss Rei's nipples" · "kiss me" · "pinch my nipples"`));
 	lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) — the same verbs"));
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
+	lines.push(dim(`   Also "hug Rei" · "nuzzle me" · "kick Rei" · "grab Rei by the collar" ·`));
+	lines.push(dim(`   "cover my mouth" · "hand gag Rei" · "peck my hand".`));
 	return lines;
 }
 
@@ -354,10 +359,13 @@ function lastingLines(): HelpLine[] {
 		dim("movement and your voice back."),
 		gap(),
 		head("Keyholders"),
-		body("/echs keyholder add <name> [grant] gives someone your keys: they can"),
-		body("change your settings while you share a room, even under Extreme, and"),
-		body("end the lock. take = only switch off; grant = on too. Your BC owner:"),
-		dim("/echs keyholder owner take|grant. /echs keyholder lists them."),
+		body("/echs keyholder add <name> [minimal|moderate|full] gives someone your keys:"),
+		body("they can change your settings while you share a room, even under Extreme,"),
+		body("and end the lock. minimal = only switch off; moderate = also shape your"),
+		dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
+		dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
+		dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
+		dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you ·"),

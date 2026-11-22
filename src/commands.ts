@@ -36,8 +36,9 @@ import {
 	removeKeyholder,
 	listRemoteChanges,
 	KeyMode,
+	toKeyMode,
 } from "./storage";
-import { announceKeysTo } from "./keyholder";
+import { announceKeysTo, KEY_LEVEL_WORDS, requestKeys } from "./keyholder";
 import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
 import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
@@ -61,7 +62,8 @@ import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
 import { describeIcons } from "./badge";
 import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
-import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
+import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, ownLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
+import { keyLocked, keyLockHolder, keyLockRefusal, keysLocked, keysLockRefusal } from "./keylock";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -234,22 +236,21 @@ const COMMAND_TAGS = ["echs", "hypno"] as const;
 // fallback for `/echs help`, and the tail of the bare `/echs` menu. Built from menu.ts's
 // own label rather than repeating it, so the two cannot name different entries.
 /** What each keyholder mode lets them do, in the words the replies use. */
-const KEY_MODE_WORDS: Record<KeyMode, string> = {
-	take: "they can switch your settings OFF",
-	grant: "they can switch your settings on and off",
-};
+const KEY_MODE_WORDS = KEY_LEVEL_WORDS;
+/** The levels as typed, for usage lines. v1.14's take/grant still work (storage.ts toKeyMode). */
+const KEY_LEVEL_ARGS = "minimal|moderate|full";
 
 /** The keyholder list, as chat lines. */
 function describeKeyholders(): string[] {
 	const owner = getOwnerKeyMode();
 	const named = listKeyholders();
 	const lines = [
-		owner ? `Your BC owner holds your keys (${owner}).` : "Your BC owner does not hold your keys. /echs keyholder owner take|grant to allow it.",
-		named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : "Nobody else holds your keys. /echs keyholder add <name> [grant].",
+		owner ? `Your BC owner holds your keys (${owner}).` : `Your BC owner does not hold your keys. /echs keyholder owner ${KEY_LEVEL_ARGS} to allow it.`,
+		named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : `Nobody else holds your keys. /echs keyholder add <name> [${KEY_LEVEL_ARGS}].`,
 	];
 	const recent = listRemoteChanges().slice(-3);
 	if (recent.length) lines.push(`Last changes: ${recent.map((c) => `${c.byName} ${c.what}`).join("; ")}.`);
-	lines.push("take = only switch off; grant = on and off. Keyholders can also end your Extreme lock.");
+	lines.push("minimal = only switch off; moderate = also shape your trance; full = everything. Keyholders can also end your Extreme lock.");
 	return lines;
 }
 
@@ -669,6 +670,10 @@ const COMMANDS: HypnoCommand[] = [
 				reply(extremeRefusal());
 				return;
 			}
+			if (keyLocked()) {
+				reply(keyLockRefusal());
+				return;
+			}
 			setDecayRate(token as DecayRate);
 			reply(`trust decay set to ${token}`);
 		},
@@ -705,7 +710,7 @@ const COMMANDS: HypnoCommand[] = [
 			// The same lock as the Data tab's Import button. Without it this is the way round the
 			// lock, and the button's own clipboard-failure line points straight at it.
 			if (settingsLocked()) {
-				reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
+				reply(extremeLocked() ? extremeRefusal() : keyLocked() && !ownLocked() ? keyLockRefusal() : IMPORT_LOCKED_MESSAGE);
 				return;
 			}
 			const result = importSettings(args);
@@ -761,6 +766,10 @@ const COMMANDS: HypnoCommand[] = [
 				reply(extremeRefusal());
 				return;
 			}
+			if (keyLocked()) {
+				reply(keyLockRefusal());
+				return;
+			}
 			setTriggerDecayRate(rate.key);
 			reply(`Planted triggers now fade: ${rate.label} — ${describeDecayPace(rate.key)}.`);
 			reply(
@@ -773,8 +782,8 @@ const COMMANDS: HypnoCommand[] = [
 		// Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
 		Tag: "keyholder",
 		group: "Data",
-		args: "[add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]",
-		Description: "Choose who may change your ECHS settings for you (take = only switch off; grant = on too)",
+		args: `[add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}> | request <name> [${KEY_LEVEL_ARGS}]]`,
+		Description: "Choose who may change your ECHS settings for you (minimal = only switch off; moderate = also shape your trance; full = everything)",
 		Action: (args: string) => {
 			const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			const sub = (words[0] ?? "").toLowerCase();
@@ -782,19 +791,52 @@ const COMMANDS: HypnoCommand[] = [
 				for (const line of describeKeyholders()) reply(line);
 				return;
 			}
+			// Asking someone ELSE for their keys (v1.16.1, job6.md §3). Not one of her own settings, so
+			// not held by her locks; their ECHS shows them a popup and they decide.
+			if (sub === "request") {
+				const typedLevel = words.length > 2 ? toKeyMode((words[words.length - 1] ?? "").toLowerCase()) : null;
+				const token = words.slice(1, typedLevel ? -1 : undefined).join(" ");
+				const target = token ? resolveTarget(token) : null;
+				if (!target) {
+					reply(token ? `No one here matches "${token}".` : `Usage: /echs keyholder request <name> [${KEY_LEVEL_ARGS}]`);
+					return;
+				}
+				if (target.id === Player?.MemberNumber) {
+					reply("You can't ask yourself for your own keys.");
+					return;
+				}
+				reply(requestKeys(target.id, typedLevel ?? "minimal"));
+				return;
+			}
 			// The list is a setting like any other: read-only under her own locks (job5.md).
 			if (extremeLocked()) {
 				reply(extremeRefusal());
 				return;
 			}
-			if (settingsLocked()) {
+			if (ownLocked()) {
 				reply("Your settings are locked while a session is on you, and so is who holds your keys.");
 				return;
 			}
+			// The keys lock (v1.16.3): who holds her keys is not hers to change until it is lifted.
+			if (keysLocked()) {
+				reply(keysLockRefusal());
+				return;
+			}
+			// Under the keyholder lock (v1.16.2, job6.md §5) she still manages her list, but whoever
+			// locked it keeps full keys until it is unlocked or runs out.
+			const locker = keyLockHolder();
+			const lockerNamedFull = !!locker && listKeyholders().some((k) => k.id === locker.id && k.mode === "full");
+			const keepsLocker = (what: string) => reply(`${locker?.name} locked your settings, so ${what} while the lock holds. Any of your full keyholders can unlock it.`);
 			if (sub === "owner") {
-				const m = (words[1] ?? "").toLowerCase();
-				if (m !== "off" && m !== "take" && m !== "grant") {
-					reply("Usage: /echs keyholder owner <off|take|grant>");
+				const word = (words[1] ?? "").toLowerCase();
+				const m = word === "off" ? "off" : toKeyMode(word);
+				if (!m) {
+					reply(`Usage: /echs keyholder owner <off|${KEY_LEVEL_ARGS}>`);
+					return;
+				}
+				// The locker may hold full keys only as her owner; then her owner's keys stay full.
+				if (locker && !lockerNamedFull && m !== "full") {
+					keepsLocker("your BC owner's keys stay full");
 					return;
 				}
 				setOwnerKeyMode(m === "off" ? null : m);
@@ -807,14 +849,19 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			if (sub === "add" || sub === "remove") {
-				const grant = sub === "add" && (words[words.length - 1] ?? "").toLowerCase() === "grant";
-				const token = words.slice(1, grant ? -1 : undefined).join(" ");
+				// The level is the last word when it names one; no level is minimal, the least.
+				const typedLevel = sub === "add" && words.length > 2 ? toKeyMode((words[words.length - 1] ?? "").toLowerCase()) : null;
+				const token = words.slice(1, typedLevel ? -1 : undefined).join(" ");
 				if (!token) {
-					reply(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? " [grant]" : ""}`);
+					reply(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? ` [${KEY_LEVEL_ARGS}]` : ""}`);
 					return;
 				}
 				if (sub === "remove") {
 					const id = /^\d+$/.test(token) ? Number(token) : listKeyholders().find((k) => k.name.toLowerCase() === token.toLowerCase())?.id ?? resolveTarget(token)?.id;
+					if (locker && id === locker.id) {
+						keepsLocker("you can't take their keys back");
+						return;
+					}
 					if (!id || !removeKeyholder(id)) {
 						reply(`"${token}" is not one of your keyholders. /echs keyholder lists them.`);
 						return;
@@ -832,7 +879,11 @@ const COMMANDS: HypnoCommand[] = [
 					reply("You can't be your own keyholder.");
 					return;
 				}
-				const mode = grant ? "grant" : "take";
+				const mode: KeyMode = typedLevel ?? "minimal";
+				if (locker && target.id === locker.id && mode !== "full") {
+					keepsLocker("their keys stay full");
+					return;
+				}
 				if (!setKeyholder(target.id, target.name, mode)) {
 					reply("You already have the most keyholders allowed (10). Remove one first.");
 					return;
@@ -841,7 +892,7 @@ const COMMANDS: HypnoCommand[] = [
 				reply(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
 				return;
 			}
-			reply("Usage: /echs keyholder [add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]");
+			reply(`Usage: /echs keyholder [add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}> | request <name> [${KEY_LEVEL_ARGS}]]`);
 		},
 	},
 	{

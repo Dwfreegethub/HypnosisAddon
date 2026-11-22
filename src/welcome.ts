@@ -1,5 +1,6 @@
 import { tellPlayer } from "./notify";
-import { RELEASE_SUFFIX } from "./log";
+import { RELEASE_SUFFIX, warn } from "./log";
+import { maybeShowUpdateNotice } from "./update";
 import { wasWelcomeShown, markWelcomeShown, hasAnyPermissionGranted } from "./storage";
 
 // The first-run notice. Every permission — including hypnoEnabled — defaults off, and the
@@ -30,7 +31,7 @@ export function maybeShowFirstRunNotice(): void {
 	// purpose, fully set up — is already excluded upstream: normalise() back-fills welcomeShown
 	// for anyone whose starterState shows they finished setup.)
 	if (!hasAnyPermissionGranted()) {
-		tellPlayer("Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Click the spiral to set up.");
+		tellPlayer("Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. To set up, click the round spiral button in the room, then the gear; or Preferences > Extensions > ECHS Hypnosis.");
 		tellPlayer("Your reactions are visible to the room by default; Trance Defaults turns that off.");
 	}
 	markWelcomeShown();
@@ -91,7 +92,14 @@ export function startStartupBanner(): void {
 		if (ready) {
 			clearInterval(poll);
 			showStartupBanner();
+			// Read before the first-run notice marks itself shown: a fresh install gets that, not this.
+			const freshInstall = !wasWelcomeShown();
 			maybeShowFirstRunNotice();
+			try {
+				maybeShowUpdateNotice(freshInstall);
+			} catch (err) {
+				warn("update notice failed:", err);
+			}
 			return;
 		}
 		if (Date.now() - startedAt > BANNER_GIVE_UP_MS) clearInterval(poll);

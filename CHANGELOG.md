@@ -13,6 +13,112 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.7 · 22 November 2026
+
+- The note ECHS shows when this update reaches you, summing up v1.15.0 to v1.16.6 below.
+
+## v1.16.6 · 22 November 2026
+
+- **A hypnotist can't keep inducing while being hypnotized.** If someone starts hypnotizing a
+  person who is still in the middle of hypnotizing you, their induction on you ends, and you're
+  told. It doesn't use up one of their tries. A trance that has already taken hold carries on as
+  before. Both of you need this version or newer.
+
+## v1.16.5 · 22 November 2026
+
+- **More ways to move.** Under *Made to Act*, a hypnotist can now say *"wiggle your hips"*,
+  *"shake your breasts"*, *"sway your hips"*, *"nod"*, or *"struggle"* (only while tied up). Each is
+  the game's own action, done by the one under, and can be repeated or put in a trigger.
+- **Sounds through a gag.** While gagged: *"moan"*, *"whimper"*, *"groan"*, *"giggle"*, *"growl"*
+  and *"mumble"*.
+- **More to do to someone else:** *"hug Rei"*, *"nuzzle me"*, *"kick Rei"*, *"grab Rei by the
+  collar"*, *"cover my mouth"* (or *"hand gag Rei"*) and *"peck my hand"*. The same rules as
+  *"kiss Rei"*: anyone but the hypnotist also needs *Made to Touch Others*, and their own game
+  settings decide.
+- **More faces:** *"frown"*, *"look sad"*, *"wince"*, *"raise your eyebrows"*, *"raise an
+  eyebrow"*, *"furrow your brow"*, *"drool"* and *"cry"*. *"Dry your eyes"* takes the tears and
+  drool away, and *"relax your face"* everything.
+- All of these are on the ECHS popup's suggestion lists too.
+
+## v1.16.4 · 22 November 2026
+
+- **Anyone with your full keys can ask to take back another keyholder's keys.** You get a popup and
+  nothing changes unless you accept. Your BC owner (with your full keys) still doesn't need to ask.
+
+## v1.16.3 · 22 November 2026
+
+- **Extreme from a keyholder.** Someone with your full keys can ask to put you under Extreme, or to
+  extend it by 30 days. You see the whole Extreme warning in a popup, and nothing happens unless you
+  accept.
+- **The keys lock.** Locks who holds your keys: you can't give or take back keys while it holds. Your
+  BC owner, if they hold your full keys, can set it without asking; anyone else with your full keys
+  has to ask. Any full keyholder can lift it, and it ends on its own after 7 days without whoever set
+  it in a room with you.
+- **Your owner manages your keyholders.** Your BC owner, if they hold your full keys, can take
+  anyone else's keys back without asking. You're told each time.
+
+## v1.16.2 · 22 November 2026
+
+- **Full keys reach further.** Someone holding your **full** keys can now also set your Triggers tab
+  choices (who else can fire your triggers, how long they last, how fast they fade, drop triggers),
+  how fast trust fades, and your Depth tab (how deep each thing needs you, and the choices under
+  it). Minimal and moderate keys can't. You're told every change, as before.
+- On their side, the Keys tab shows these under **Triggers**, **Stats** and **Depth**; Depth and
+  Stats start folded. Numbers change with step buttons.
+- **Full keys see what is planted in you**, and can remove a trigger only if you trust them more
+  than whoever planted it. Never one you planted yourself, never one holding you, never under your
+  Extreme lock. The word is shown only to whoever planted it, unless you show yourself your words.
+- **The keyholder lock.** Someone with your full keys can ask to lock your settings; you get a popup
+  and nothing locks unless you accept. While it holds, only your keyholders can change your settings,
+  and any of your full keyholders can unlock them. It ends on its own if the one who locked it hasn't
+  been in a room with you for 7 days. The safeword, switching ECHS off and `/echs reset confirm`
+  always work.
+
+## v1.16.1 · 22 November 2026
+
+- **Ask for someone's keys.** On the Keys tab, **Request keys** (or `/echs keyholder request <name>
+  <level>`) asks them for their keys. They get a popup to accept or decline; no answer in 30 seconds
+  is a no. Nothing changes unless they accept, and the same person can ask again only after a few
+  minutes. Both of you need this version or newer.
+
+## v1.16.0 · 22 November 2026
+
+- **Three levels of keys.** *take* and *grant* are now **minimal**, **moderate** and **full**:
+  - **minimal**: they can only switch things off.
+  - **moderate**: they can also shape your trance: your Trance Defaults and Awareness, the screen
+    effect and eyes, induction time and how deep "sink deeper" goes. They still can't open new
+    permissions, triggers, toy mode or auto-answer.
+  - **full**: everything they can reach.
+- **Your keyholders moved over:** *take* became **minimal** and *grant* became **moderate**. If you
+  want someone to have full keys, give them again.
+- **New buttons on the Keys tab.** One **Give keys** button per person; click it again for the next
+  level. **Take keys back** removes someone. `/echs keyholder add <name> full` (or `minimal`,
+  `moderate`) does the same by typing.
+
+## v1.15.3 · 22 November 2026
+
+- **Trigger words in OOC show as typed.** A trigger never fires from something said in brackets,
+  and now it isn't hidden as "..." there either. Said in character, it is still hidden as before.
+
+## v1.15.2 · 22 November 2026
+
+- **"Days ago" on your trust list is back to how it was.** The v1.15.1 change didn't work as
+  intended, so it has been taken out. The clearer directions to your settings stay.
+
+## v1.15.1 · 22 November 2026
+
+- **"Days ago" on your trust list is right now.** On the Stats tab, each person's "3d ago" is when
+  you last did something together. It used to jump back to "just now" whenever trust slowly faded.
+- **Clearer directions to your settings.** The first-time notice and the wiki now say to click the
+  round spiral button in the room and then the gear (or Preferences > Extensions > ECHS Hypnosis).
+  They used to point at a spiral on your own profile, which isn't there.
+
+## v1.15.0 · 21 November 2026
+
+- **ECHS tells you when it updates.** The first time you load a new version, a beep pops up with a
+  short note on what changed; click it to open the full list. The same note stays in your chat with
+  a *What's new* link, so you can read it later. Only you see it, and only once per version.
+
 ## v1.14.1 · 21 November 2026
 
 - **Keyholders can change your spiral and your induction settings too.** On the **Keys** tab, a

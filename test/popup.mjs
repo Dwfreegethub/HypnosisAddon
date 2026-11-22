@@ -242,6 +242,8 @@ for (const c of cats) for (const it of c.items) for (const phrase of [it.phrase,
 		: it.id === "x-touch-self" ? !!voice.matchActivityCommand(line)
 		: it.id === "x-sip" ? voice.matchActivityCommand(line)?.kind === "sip"
 		: it.id === "x-kiss-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"
+		: it.id === "x-hug-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"
+		: ["x-wiggle", "x-nod", "x-struggle", "x-cover-mouth", "x-gag-moan"].includes(it.id) ? !!voice.matchActivityCommand(line)
 		: voice.matchSuggestion(line) === it.id;
 	if (!ok) wrong.push(`${it.id}: "${line}" -> ${voice.matchSuggestion(line)}`);
 }
@@ -509,15 +511,22 @@ check("Keys tab always offered", popup.availableTabs().includes("keys"), "a Keys
 popup.setPopupTab("keys");
 check("your keyholders shown", byText("−  Your keyholders").length === 1, "the Your keyholders group, open");
 const keyChip = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
-keyChip("grant").click();
-check("owner chip types the command", chatBox.value === "/echs keyholder owner grant" && chatSent.length === 0, `"/echs keyholder owner grant" typed, got "${chatBox.value}"`);
+// v1.16.0 (job6.md §2): one "Give keys" button per person, cycling; the owner's comes first.
+check("no take/grant buttons any more", !keyChip("grant") && !keyChip("add (take)") && !keyChip("make take"), "the old labels gone");
+keyChip("Give keys (minimal)").click();
+check("owner's Give keys types minimal first", chatBox.value === "/echs keyholder owner minimal" && chatSent.length === 0, `"/echs keyholder owner minimal" typed, got "${chatBox.value}"`);
+keyChip("Give keys (minimal)").click(); // the owner's again: its label is what was typed
+check("  a second click on it moves on", chatBox.value === "/echs keyholder owner moderate", `owner moderate, got "${chatBox.value}"`);
+keyChip("Give keys (minimal)").click(); // now the first minimal button is Alice's
+check("another person's button types its own label first", /^.echs keyholder add .+ minimal$/.test(chatBox.value), `an add at minimal, got "${chatBox.value}"`);
+check("  and the button now says so", !!keyChip("Give keys (moderate)"), "a moderate label");
 check("no held-keys group while we hold none", byText("−  Settings you hold keys to").length === 0, "no held-keys group");
 // Bea says we hold her keys, take only, and sends her settings.
 // As remote.ts's state-response handler passes it on (remote.ts is not installed here).
 KH.receiveKeyholderFields(B, { type: "state-response", version: "1.14.0", keyholder: "take", settings: { boxes: [{ key: "sightControl", on: true }, { key: "postureControl", on: false }], extreme: true, mode: "take" } });
 hidden = [];
 popup.popupTick();
-check("held-keys group for Bea", byText("−  Settings you hold keys to").length === 1 && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Bea's settings. You can only switch them off.")).length === 1, "Bea's settings, take wording");
+check("held-keys group for Bea", byText("−  Settings you hold keys to").length === 1 && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Bea's settings. You hold minimal keys")).length === 1, "Bea's settings, minimal wording (an older subject's take)");
 check("  asked her once for fresh settings", hidden.filter((m) => m.to === B && m.type === "remote-request" && m.action === "read").length === 1, "one read request to Bea");
 const box = (start) => findAll(win(), (n) => n.className.startsWith("echs-pop-item") && n.textContent.startsWith(start))[0];
 check("on box ticked, off box faded for take", box("☑ Sight")?.className.includes("echs-pop-off") === false && box("☐ Posture Control")?.className.includes("echs-pop-off"), "Sight ticked and live, Posture unticked and faded");
@@ -532,6 +541,85 @@ keyChip("end their Extreme lock").click();
 check("end Extreme: first click only arms", !hidden.some((m) => m.action === "end-extreme") && status().startsWith("Click again"), "no request yet, and a click-again status");
 keyChip("click again to end it").click();
 check("  second click sends it", hidden.some((m) => m.to === B && m.action === "end-extreme"), "an end-extreme request to Bea");
+// v1.16.2 (job6.md stage 3): full keys, the Depth tab folded shut, numbers as step buttons.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [{ key: "triggerScope", value: "friends" }, { key: "triggerDuration", value: "0" }, { key: "depth:sightControl", value: "40" }, { key: "depthDefaults", value: "changed" }], extreme: false, mode: "grant", level: "full" } });
+popup.popupTick();
+check("Depth starts folded", byText("+ Depth").length === 1 && !keyChip("+20"), "a + Depth heading and no depth step buttons");
+check("  Triggers is open, its choice named", byText("− Triggers").length === 1 && findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Who else can fire triggers planted in you: Hypnotist, Owner, Lovers and friends").length === 1, "the scope line");
+check("  duration reads plainly, can't go below 0", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent.endsWith(": until released")).length === 1 && keyChip("-5")?.className.includes("echs-pop-off"), "until released, -5 faded");
+byText("+ Depth")[0].click();
+check("unfolded: the depth and its tier", findAll(win(), (n) => n.className === "echs-pop-desc" && /^Sight: 40 \(.+\)$/.test(n.textContent)).length === 1, "Sight: 40 (tier)");
+check("  reset reads as some changed", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Depth requirements: some changed").length === 1, "some changed");
+hidden = [];
+findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === "+20")[0].click();
+const stepReq = hidden.find((m) => m.to === B && m.action === "choose");
+check("a step sends the new number", stepReq?.key === "depth:sightControl" && stepReq.value === "60", `depth:sightControl 60, got ${JSON.stringify(stepReq)}`);
+byText("− Depth")[0].click();
+check("  and folds again", byText("+ Depth").length === 1, "folded");
+// v1.16.2 (job6.md §4): what is planted in her, folded; remove takes two clicks; a refusal says why.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", planted: [
+	{ id: "0000000a", word: "", when: "", does: ["kneels"], strength: "full strength", once: false, holding: false, by: "Hyp", removable: true, why: "" },
+	{ id: "0000000b", word: "glow", when: "", does: ["sleeps"], strength: "full strength", once: true, holding: false, by: "themselves", removable: false, why: "They planted this in themselves: only they can remove it." },
+] } });
+popup.popupTick();
+check("planted list starts folded, with a count", byText("+ Planted in them (2)").length === 1 && !keyChip("remove"), "folded, no remove buttons");
+byText("+ Planted in them (2)")[0].click();
+check("  unfolded: hidden word and planter", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "A trigger word you can't see · planted by Hyp").length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"glow" · planted by themselves').length === 1, "both headlines");
+const removes = () => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && (n.textContent === "remove" || n.textContent === "click again to remove it"));
+hidden = [];
+removes()[1].click();
+check("not removable: says why, sends nothing", status() === "They planted this in themselves: only they can remove it." && !hidden.some((m) => m.action === "remove-trigger") && removes()[1].className.includes("echs-pop-off"), `the reason, got "${status()}"`);
+removes()[0].click();
+check("removable: first click only arms", !hidden.some((m) => m.action === "remove-trigger") && removes()[0].textContent === "click again to remove it", "armed, nothing sent");
+removes()[0].click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "remove-trigger" && m.id === "0000000a"), `a remove-trigger for 0000000a, got ${JSON.stringify(hidden)}`);
+// v1.16.2 (job6.md §5): lock asks her (one click; she must accept), unlock takes two clicks.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyLock: "Olive" } });
+popup.popupTick();
+check("locked: says by whom, offers unlock", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Their settings are locked by Olive")).length === 1 && !!keyChip("unlock their settings") && !keyChip("lock their settings"), "the locked line and an unlock button");
+hidden = [];
+keyChip("unlock their settings").click();
+check("  unlock: first click only arms", !hidden.some((m) => m.action === "unlock") && !!keyChip("click again to unlock"), "armed");
+keyChip("click again to unlock").click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "unlock"), JSON.stringify(hidden));
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyLock: "" } });
+popup.popupTick();
+hidden = [];
+keyChip("lock their settings").click();
+check("unlocked: lock asks at once", hidden.some((m) => m.to === B && m.action === "lock") && status().includes("30 seconds"), `a lock request, got ${JSON.stringify(hidden)}`);
+// v1.16.3: Extreme (job6.md §6) and the keys lock.
+hidden = [];
+keyChip("start Extreme for them").click();
+check("start Extreme asks", hidden.some((m) => m.to === B && m.action === "extreme") && !keyChip("extend their Extreme lock"), JSON.stringify(hidden));
+hidden = [];
+keyChip("lock who holds their keys").click();
+check("lock keys asks (not her owner)", hidden.some((m) => m.to === B && m.action === "lock-keys") && status().includes("30 seconds"), `${JSON.stringify(hidden)} "${status()}"`);
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.3", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: true, mode: "grant", level: "full", keyLock: "", keysLock: "Olive" } });
+popup.popupTick();
+check("keys locked: says by whom, offers unlock and extend", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent === "Who holds their keys is locked by Olive.").length === 1 && !!keyChip("unlock who holds their keys") && !!keyChip("extend their Extreme lock"), "the line and both buttons");
+hidden = [];
+keyChip("unlock who holds their keys").click();
+check("  unlock keys: first click arms", !hidden.some((m) => m.action === "unlock-keys") && !!keyChip("click again to unlock their keys"), "armed");
+keyChip("click again to unlock their keys").click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "unlock-keys"), JSON.stringify(hidden));
+// v1.16.3: as their owner, their other keyholders, each with take their keys back (two clicks).
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.3", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyholders: [{ id: 900, name: "Kay", mode: "moderate" }] } });
+popup.popupTick();
+check("full keys: their other keyholders listed", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Kay · moderate").length === 1 && !!keyChip("take their keys back") && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "Their other keyholders").length === 1, "Kay with a button");
+hidden = [];
+keyChip("take their keys back").click();
+check("  not their owner: one click asks them", hidden.some((m) => m.to === B && m.action === "remove-keyholder" && m.id === 900) && status().includes("30 seconds"), `${JSON.stringify(hidden)} "${status()}"`);
+// As their owner: two clicks, at once.
+const beaChar = ChatRoomCharacter.find((c) => c.MemberNumber === B);
+beaChar.IsOwnedByPlayer = () => true;
+popup.popupTick();
+check("  as their owner: says so", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "Their other keyholders (you're their owner)").length === 1, "owner heading");
+hidden = [];
+keyChip("take their keys back").click();
+check("  first click arms", !hidden.some((m) => m.action === "remove-keyholder") && !!keyChip("click again"), "armed");
+keyChip("click again").click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "remove-keyholder" && m.id === 900), JSON.stringify(hidden));
+delete beaChar.IsOwnedByPlayer;
 KH.resetKeyholderViews();
 popup.setPopupTab("people");
 popup.popupTick();

@@ -20,8 +20,9 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, REMOTE_TABS, settingsLocked } from "./menu";
-import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme } from "./keyholder";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, remoteChoiceLabel, REMOTE_TABS, MODERATE_TABS, settingsLocked, ownLocked } from "./menu";
+import { keyLockHolder, keysLockHolder } from "./keylock";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, requestRemoveTrigger, requestLock, requestUnlock, requestLockKeys, requestUnlockKeys, requestExtreme, requestRemoveKeyholder, keyLevelAllows, canRequestKeys } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -39,7 +40,7 @@ import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest"
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
-import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode } from "./storage";
+import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -912,7 +913,19 @@ function renderTriggers(body: any, status: any): void {
 // chat line for it, the same exception as the Safeword button): it sends a request their ECHS
 // decides on, and the answer shows in the status line.
 
-const keysOpen = new Set<string>(["mine", "held"]);
+const keysOpen = new Set<string>(["mine", "held", "ask"]);
+/** Which of a held person's tabs are folded shut (v1.16.2). Depth and Stats start shut: Depth alone
+ * is some twenty rows, and full keys are the only ones that can use them. */
+const heldTabsShut = new Set<string>(["Depth", "Stats", "Planted"]);
+/** A remove button clicked once (v1.16.2): the trigger it is armed for, and when. A second click
+ * within END_EXTREME_ARM_MS sends it, as ending an Extreme lock does. */
+let removeArmed = { id: "", at: 0 };
+/** The unlock button clicked once (v1.16.2): when. */
+let unlockArmedAt = 0;
+/** The keys-lock unlock button clicked once (v1.16.3): when. */
+let unlockKeysArmedAt = 0;
+/** An owner's "take their keys back" clicked once (v1.16.3): whose, and when. */
+let ownerRemoveArmed = { id: 0, at: 0 };
 let chosenHolder: number | null = null;
 /** When we last asked each person for their settings from here: at most every KEYS_REASK_MS. */
 const keysAskedAt = new Map<number, number>();
@@ -920,6 +933,37 @@ const KEYS_REASK_MS = 30_000;
 /** "End their Extreme lock" needs a second click within this long. */
 const END_EXTREME_ARM_MS = 5_000;
 let endExtremeArmedAt = 0;
+
+// "Give keys (level)" (v1.16.0, job6.md §2, DW): one button per person that cycles minimal → moderate
+// → full. Its label is what a click types; a second click on the same button moves on to the next
+// level and types that instead. Still typed, never done on click: Enter applies it.
+/** Per person ("owner" or a member number), the level their button shows, as an index. */
+const keyCycle = new Map<string, number>();
+/** The button that typed last, so only a repeat click advances. */
+let keyCycleLast = "";
+
+/** The level a "Give keys" button shows: one above what they hold (wrapping), minimal for nobody. */
+export function cycleLevel(key: string, held: KeyMode | null): KeyMode {
+	const i = keyCycle.get(key) ?? (held ? (keyRank(held) + 1) % KEY_LEVELS.length : 0);
+	return KEY_LEVELS[i];
+}
+
+/** A click on a "Give keys" button: advance if it was the last one clicked, and say which to type. */
+export function clickCycle(key: string, held: KeyMode | null): KeyMode {
+	let i = KEY_LEVELS.indexOf(cycleLevel(key, held));
+	if (keyCycleLast === key) i = (i + 1) % KEY_LEVELS.length;
+	keyCycle.set(key, i);
+	keyCycleLast = key;
+	return KEY_LEVELS[i];
+}
+
+/** For the suite. */
+export function resetKeyCycle(): void {
+	keyCycle.clear();
+	keyCycleLast = "";
+}
+
+const LEVEL_HINT = "minimal = only switch things off · moderate = also shape your trance · full = everything";
 
 export function currentHolder(): { id: number; name: string; mode: KeyMode } | null {
 	const held = heldKeys();
@@ -932,6 +976,8 @@ function keysKey(): string {
 	const res = h ? lastResult(h.id) : null;
 	return [
 		heldKeys().map((k) => `${k.id}:${k.mode}`).join(","),
+		// The Ask for keys group: who is here to ask, and their answers as they come.
+		askable().map((p) => `${p.id}:${lastResult(p.id)?.at ?? 0}`).join(","),
 		h?.id ?? "",
 		JSON.stringify(snap),
 		res?.at ?? 0,
@@ -942,6 +988,22 @@ function keysKey(): string {
 		extremeLocked() ? "x" : "",
 		settingsLocked() ? "l" : "",
 	].join("|");
+}
+
+/** Are we this person's BC owner? BC's own check (R134 Character.js IsOwnedByPlayer). Only for the
+ * words on a button: their ECHS decides whether we are. */
+function isOwnerOf(member: number): boolean {
+	try {
+		return roomOthers().find((c) => c.MemberNumber === member)?.IsOwnedByPlayer?.() === true;
+	} catch {
+		return false;
+	}
+}
+
+/** Everyone here we could ask for keys (v1.16.1): runs a new enough ECHS, and we don't hold their full keys. */
+function askable(): { id: number; name: string }[] {
+	const held = new Map(heldKeys().map((h) => [h.id, h.mode]));
+	return popupPeople().filter((p) => canRequestKeys(p.id) && held.get(p.id) !== "full");
 }
 
 function keysGroup(body: any, key: string, title: string, fill: (list: any) => void): void {
@@ -962,44 +1024,53 @@ function keysGroup(body: any, key: string, title: string, fill: (list: any) => v
 
 function renderKeys(body: any, status: any): void {
 	body.textContent = "";
-	const locked = extremeLocked() || settingsLocked();
-	const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
+	// Her own locks hold the list; the keyholder lock (v1.16.2) only keeps its keyholder's keys full.
+	const keysLocker = keysLockHolder();
+	const locked = ownLocked() || !!keysLocker;
+	const why = extremeLocked()
+		? "Your Extreme lock is on: who holds your keys can't change until it ends."
+		: keysLocker
+			? `${keysLocker.name} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it.`
+			: "Your settings are locked while a session is on you.";
+	const locker = keyLockHolder();
 	const typed = (text: string) => typeIt(status, text, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
 
 	// 1. Your keyholders.
 	keysGroup(body, "mine", "Your keyholders", (list) => {
-		list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. take = only switch off; grant = on and off."));
+		list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock."));
+		list.appendChild(el("div", "echs-pop-hint", LEVEL_HINT));
 		if (locked) list.appendChild(el("div", "echs-pop-hint", why));
+		if (locker) list.appendChild(el("div", "echs-pop-hint", `${locker.name} locked your settings: you can't change them, or take ${locker.name}'s keys back, until a full keyholder unlocks them. It ends on its own if ${locker.name} isn't in a room with you for 7 days.`));
+		const give = (key: string, held: KeyMode | null, command: (level: KeyMode) => string) =>
+			chip(`Give keys (${cycleLevel(key, held)})`, "Click again for the next level. Nothing happens until you press Enter.", () => {
+				typed(command(clickCycle(key, held)));
+				renderBody();
+			}, locked);
 		const owner = getOwnerKeyMode();
-		list.appendChild(el("div", "echs-pop-person", "Your BC owner"));
+		list.appendChild(el("div", "echs-pop-person", owner ? `Your BC owner · ${owner}` : "Your BC owner · no keys"));
 		const ownerRow = el("div", "echs-pop-buttons");
-		for (const m of ["off", "take", "grant"] as const) {
-			const c = chip(m, `/echs keyholder owner ${m}`, () => typed(`/echs keyholder owner ${m}`), locked);
-			if ((owner ?? "off") === m) c.className += " echs-pop-chip-on";
-			ownerRow.appendChild(c);
-		}
+		ownerRow.appendChild(give("owner", owner, (level) => `/echs keyholder owner ${level}`));
+		if (owner) ownerRow.appendChild(chip("Take keys back", "", () => typed("/echs keyholder owner off"), locked));
 		list.appendChild(ownerRow);
 		const named = listKeyholders();
 		for (const k of named) {
 			const row = el("div", "echs-pop-entry");
 			row.appendChild(el("div", "echs-pop-person", `${k.name} · ${k.mode}`));
 			const chips = el("div", "echs-pop-buttons");
-			const other = k.mode === "take" ? "grant" : "take";
-			chips.appendChild(chip(`make ${other}`, "", () => typed(`/echs keyholder add ${k.id}${other === "grant" ? " grant" : ""}`), locked));
-			chips.appendChild(chip("remove", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
+			chips.appendChild(give(String(k.id), k.mode, (level) => `/echs keyholder add ${k.id} ${level}`));
+			chips.appendChild(chip("Take keys back", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
 			row.appendChild(chips);
 			list.appendChild(row);
 		}
 		const candidates = popupPeople().filter((p) => !named.some((k) => k.id === p.id));
 		if (candidates.length) {
-			list.appendChild(el("div", "echs-pop-hint", "Add someone here:"));
+			list.appendChild(el("div", "echs-pop-hint", "Give someone here your keys:"));
 			for (const p of candidates) {
 				const row = el("div", "echs-pop-entry");
 				row.appendChild(el("div", "echs-pop-person", p.name));
 				const chips = el("div", "echs-pop-buttons");
 				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
-				chips.appendChild(chip("add (take)", "", () => typed(`/echs keyholder add ${target}`), locked));
-				chips.appendChild(chip("add (grant)", "", () => typed(`/echs keyholder add ${target} grant`), locked));
+				chips.appendChild(give(String(p.id), null, (level) => `/echs keyholder add ${target} ${level}`));
 				row.appendChild(chips);
 				list.appendChild(row);
 			}
@@ -1011,7 +1082,35 @@ function renderKeys(body: any, status: any): void {
 		}
 	});
 
-	// 2. Settings you hold keys to.
+	// 2. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, cycling the same way;
+	// their ECHS shows them a popup, and the answer comes back in chat and under their name here.
+	const canAsk = askable();
+	if (canAsk.length) {
+		keysGroup(body, "ask", "Ask for keys", (list) => {
+			list.appendChild(el("div", "echs-pop-hint", "Ask someone here for their keys. They get a popup to accept or decline; no answer in 30 seconds is a no."));
+			const heldNow = new Map(heldKeys().map((h) => [h.id, h.mode]));
+			for (const p of canAsk) {
+				const row = el("div", "echs-pop-entry");
+				const has = heldNow.get(p.id) ?? null;
+				row.appendChild(el("div", "echs-pop-person", has ? `${p.name} · you hold ${has}` : p.name));
+				const chips = el("div", "echs-pop-buttons");
+				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
+				const key = `ask:${p.id}`;
+				chips.appendChild(
+					chip(`Request keys (${cycleLevel(key, has)})`, "Click again for the next level. Nothing is sent until you press Enter.", () => {
+						typeIt(status, `/echs keyholder request ${target} ${clickCycle(key, has)}`, "Typed. Press Enter to ask.");
+						renderBody();
+					}),
+				);
+				row.appendChild(chips);
+				list.appendChild(row);
+				const res = lastResult(p.id);
+				if (res && Date.now() - res.at < 30_000) list.appendChild(el("div", "echs-pop-desc", res.text));
+			}
+		});
+	}
+
+	// 3. Settings you hold keys to.
 	const held = heldKeys();
 	if (!held.length) return;
 	const who = currentHolder()!;
@@ -1033,7 +1132,17 @@ function renderKeys(body: any, status: any): void {
 			}
 			list.appendChild(row);
 		}
-		list.appendChild(el("div", "echs-pop-hint", who.mode === "grant" ? `${who.name}'s settings. You can switch them on and off.` : `${who.name}'s settings. You can only switch them off.`));
+		list.appendChild(
+			el(
+				"div",
+				"echs-pop-hint",
+				who.mode === "full"
+					? `${who.name}'s settings. You hold full keys: you can switch them on and off, and set their Triggers choices, trust fading and Depth (open those below).`
+					: who.mode === "moderate"
+						? `${who.name}'s settings. You hold moderate keys: you can switch things off, and shape their trance (Trance Defaults, Awareness, how it looks and its pace).`
+						: `${who.name}'s settings. You hold minimal keys: you can only switch things off.`,
+			),
+		);
 		const snap = settingsOf(who.id);
 		const asking = askState(who.id);
 		if (!snap) {
@@ -1044,20 +1153,30 @@ function renderKeys(body: any, status: any): void {
 		if (res && now - res.at < 15_000) list.appendChild(el("div", "echs-pop-hint", res.text));
 		const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
 		// Tab by tab, in screen order: its tick boxes, then its choices (v1.14.1: Inductions and
-		// Trance Defaults), one row of chips each with the current one lit. Under "take" only the off
-		// choice can be clicked; the rest are faded and her ECHS would refuse them anyway.
+		// Trance Defaults), one row of chips each with the current one lit. What the keys' level can't
+		// set is faded (keyLevelAllows); her ECHS would refuse it anyway.
 		const chosen = new Map(snap.choices.map((c) => [c.key, c.value]));
 		for (const tab of REMOTE_TABS) {
 			const rows = remoteRows().filter((r) => r.tab === tab && on.has(r.key));
 			const choices = remoteChoices().filter((c) => c.tab === tab && chosen.has(c.key));
 			if (!rows.length && !choices.length) continue;
-			list.appendChild(el("div", "echs-pop-person", tab));
+			const shut = heldTabsShut.has(tab);
+			const head = el("button", "echs-pop-item echs-pop-person", `${shut ? "+" : "−"} ${tab}`);
+			head.type = "button";
+			head.title = shut ? `Show ${tab}` : `Hide ${tab}`;
+			head.addEventListener("click", () => {
+				if (heldTabsShut.has(tab)) heldTabsShut.delete(tab);
+				else heldTabsShut.add(tab);
+				renderBody();
+			});
+			list.appendChild(head);
+			if (shut) continue;
 			for (const r of rows) {
 				const isOn = on.get(r.key) === true;
-				const blocked = !isOn && who.mode !== "grant";
+				const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab));
 				const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
 				b.type = "button";
-				b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+				b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
 				b.addEventListener("click", () => {
 					requestSetting(who.id, r.key, !isOn);
 					setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
@@ -1066,11 +1185,30 @@ function renderKeys(body: any, status: any): void {
 			}
 			for (const c of choices) {
 				const value = chosen.get(c.key)!;
-				list.appendChild(el("div", "echs-pop-desc", `${c.label}: ${c.options.find((o) => o.key === value)?.label ?? value}`));
+				list.appendChild(el("div", "echs-pop-desc", `${c.label}: ${remoteChoiceLabel(c, value)}`));
 				const row = el("div", "echs-pop-buttons");
+				// A number (v1.16.2: a depth, the trigger duration): step buttons from where it is now.
+				if (c.range) {
+					const r = c.range;
+					const blocked = !keyLevelAllows(who.mode, false, !!c.moderate);
+					const at = Number(value);
+					for (const step of r.steps) {
+						const next = String(Math.min(r.max, Math.max(r.min, (Number.isFinite(at) ? at : r.min) + step)));
+						const label = step > 0 ? `+${step}` : String(step);
+						row.appendChild(
+							chip(label, blocked ? `Your ${who.mode} keys can't change this.` : `Set ${c.label} to ${remoteChoiceLabel(c, next)}`, () => {
+								if (next === value) return;
+								requestChoice(who.id, c.key, next);
+								setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${remoteChoiceLabel(c, next)}…`);
+							}, blocked || next === value),
+						);
+					}
+					list.appendChild(row);
+					continue;
+				}
 				for (const o of c.options) {
-					const blocked = who.mode !== "grant" && o.key !== c.off;
-					const ch = chip(o.label, blocked ? "You can only switch their settings off." : `Set ${c.label} to ${o.label}`, () => {
+					const blocked = !keyLevelAllows(who.mode, o.key === c.off, !!c.moderate);
+					const ch = chip(o.label, blocked ? `Your ${who.mode} keys can't choose this.` : `Set ${c.label} to ${o.label}`, () => {
 						if (o.key === value) return;
 						requestChoice(who.id, c.key, o.key);
 						setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}…`);
@@ -1081,6 +1219,52 @@ function renderKeys(body: any, status: any): void {
 				list.appendChild(row);
 			}
 		}
+		// What is planted in them (v1.16.2, job6.md §4): full keys only, so only a full snapshot has it.
+		if (who.mode === "full" && snap.planted) {
+			const shut = heldTabsShut.has("Planted");
+			const head = el("button", "echs-pop-item echs-pop-person", `${shut ? "+" : "−"} Planted in them (${snap.planted.length})`);
+			head.type = "button";
+			head.title = shut ? "Show what is planted in them" : "Hide it";
+			head.addEventListener("click", () => {
+				if (heldTabsShut.has("Planted")) heldTabsShut.delete("Planted");
+				else heldTabsShut.add("Planted");
+				renderBody();
+			});
+			list.appendChild(head);
+			if (!shut) {
+				if (!snap.planted.length) list.appendChild(el("div", "echs-pop-desc", "Nothing is planted in them."));
+				else
+					list.appendChild(
+						el("div", "echs-pop-hint", "You can remove one only if they trust you more than whoever planted it. Never one they planted in themselves, and never under their Extreme lock."),
+					);
+				for (const t of snap.planted) {
+					const title = t.word ? `"${t.word}"` : t.when || "A trigger word you can't see";
+					const state = [t.strength, t.once ? "works once" : "", t.holding ? "holding them now" : ""].filter(Boolean).join(", ");
+					list.appendChild(el("div", "echs-pop-person", `${title} · planted by ${t.by}`));
+					list.appendChild(el("div", "echs-pop-desc", [state, t.does.join("; ")].filter(Boolean).join(". ")));
+					const armed = removeArmed.id === t.id && now - removeArmed.at < END_EXTREME_ARM_MS;
+					const row = el("div", "echs-pop-buttons");
+					row.appendChild(
+						chip(armed ? "click again to remove it" : "remove", t.removable ? "Removes this trigger from them. Click twice." : t.why, () => {
+							if (!t.removable) {
+								setStatus(status, t.why);
+								return;
+							}
+							if (removeArmed.id === t.id && Date.now() - removeArmed.at < END_EXTREME_ARM_MS) {
+								removeArmed = { id: "", at: 0 };
+								requestRemoveTrigger(who.id, t.id);
+								setStatus(status, `Asked ${who.name}'s ECHS to remove that trigger…`);
+							} else {
+								removeArmed = { id: t.id, at: Date.now() };
+								setStatus(status, "Click again within 5 seconds to remove it.");
+								renderBody();
+							}
+						}, !t.removable),
+					);
+					list.appendChild(row);
+				}
+			}
+		}
 		const refresh = chip("refresh", "Ask for their settings again", () => {
 			keysAskedAt.set(who.id, Date.now());
 			requestSettings(who.id);
@@ -1088,6 +1272,107 @@ function renderKeys(body: any, status: any): void {
 		});
 		const tail = el("div", "echs-pop-buttons");
 		tail.appendChild(refresh);
+		// The keyholder lock (v1.16.2, job6.md §5): full keys ask to lock (she must accept), and any
+		// full keyholder may unlock.
+		if (snap.keyLock) list.appendChild(el("div", "echs-pop-hint", `Their settings are locked by ${snap.keyLock}: only keyholders can change them.`));
+		if (who.mode === "full") {
+			if (snap.keyLock) {
+				const armed = Date.now() - unlockArmedAt < END_EXTREME_ARM_MS;
+				tail.appendChild(
+					chip(armed ? "click again to unlock" : "unlock their settings", "Gives them back their own settings. Click twice.", () => {
+						if (Date.now() - unlockArmedAt < END_EXTREME_ARM_MS) {
+							unlockArmedAt = 0;
+							requestUnlock(who.id);
+							setStatus(status, `Asked ${who.name}'s ECHS to unlock their settings…`);
+						} else {
+							unlockArmedAt = Date.now();
+							setStatus(status, "Click again within 5 seconds to unlock their settings.");
+							renderBody();
+						}
+					}),
+				);
+			} else {
+				tail.appendChild(
+					chip("lock their settings", "Asks them to let only their keyholders change their settings. They get a popup and must accept.", () => {
+						requestLock(who.id);
+						setStatus(status, `Asked ${who.name} to let you lock their settings. They have 30 seconds to accept.`);
+					}),
+				);
+			}
+			// The keys lock (v1.16.3): their BC owner sets it outright; anyone else, they must accept.
+			const owner = isOwnerOf(who.id);
+			if (snap.keysLock) {
+				const armed = Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS;
+				tail.appendChild(
+					chip(armed ? "click again to unlock their keys" : "unlock who holds their keys", "Lets them give and take back keys again. Click twice.", () => {
+						if (Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS) {
+							unlockKeysArmedAt = 0;
+							requestUnlockKeys(who.id);
+							setStatus(status, `Asked ${who.name}'s ECHS to unlock who holds their keys…`);
+						} else {
+							unlockKeysArmedAt = Date.now();
+							setStatus(status, "Click again within 5 seconds to unlock who holds their keys.");
+							renderBody();
+						}
+					}),
+				);
+			} else {
+				tail.appendChild(
+					chip(
+						"lock who holds their keys",
+						owner ? "As their owner, this locks it at once: they can't give or take back keys." : "Asks them to stop giving and taking back keys. They get a popup and must accept.",
+						() => {
+							requestLockKeys(who.id);
+							setStatus(status, owner ? `Locking who holds ${who.name}'s keys…` : `Asked ${who.name} to let you lock who holds their keys. They have 30 seconds to accept.`);
+						},
+					),
+				);
+			}
+			// Extreme (job6.md §6): start it, or extend it by 30 days; they see the full warning and must accept.
+			tail.appendChild(
+				chip(snap.extreme ? "extend their Extreme lock" : "start Extreme for them", "They get the Extreme warning in a popup and must accept.", () => {
+					requestExtreme(who.id);
+					setStatus(status, `Asked ${who.name} to ${snap.extreme ? "extend their Extreme lock" : "go under Extreme"}. They have 30 seconds to accept.`);
+				}),
+			);
+		}
+		if (snap.keysLock) list.appendChild(el("div", "echs-pop-hint", `Who holds their keys is locked by ${snap.keysLock}.`));
+		// Who else holds their keys, each with "take their keys back" (v1.16.3 owner, v1.16.4 any full
+		// keyholder): their owner's is at once (two clicks); anyone else's asks them (one click).
+		if (snap.keyholders && who.mode === "full") {
+			const owner = isOwnerOf(who.id);
+			list.appendChild(el("div", "echs-pop-person", owner ? "Their other keyholders (you're their owner)" : "Their other keyholders"));
+			if (!snap.keyholders.length) list.appendChild(el("div", "echs-pop-desc", "Nobody else holds their keys."));
+			for (const k of snap.keyholders) {
+				const armed = ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS;
+				const isLocker = snap.keyLock !== undefined && snap.keyLock === k.name;
+				const row = el("div", "echs-pop-buttons");
+				row.appendChild(el("div", "echs-pop-desc", `${k.name} · ${k.mode}`));
+				row.appendChild(
+					chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : owner ? "As their owner, their keys are taken back at once. Click twice." : `Asks ${who.name} to take ${k.name}'s keys back. They must accept.`, () => {
+						if (isLocker) {
+							setStatus(status, `${k.name} locked their settings, so they keep their keys until it is unlocked.`);
+							return;
+						}
+						if (!owner) {
+							requestRemoveKeyholder(who.id, k.id);
+							setStatus(status, `Asked ${who.name} to take ${k.name}'s keys back. They have 30 seconds to accept.`);
+							return;
+						}
+						if (ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS) {
+							ownerRemoveArmed = { id: 0, at: 0 };
+							requestRemoveKeyholder(who.id, k.id);
+							setStatus(status, `Taking ${k.name}'s keys to ${who.name}'s settings back…`);
+						} else {
+							ownerRemoveArmed = { id: k.id, at: Date.now() };
+							setStatus(status, `Click again within 5 seconds to take ${k.name}'s keys back.`);
+							renderBody();
+						}
+					}, isLocker),
+				);
+				list.appendChild(row);
+			}
+		}
 		if (snap.extreme) {
 			const armed = Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS;
 			tail.appendChild(

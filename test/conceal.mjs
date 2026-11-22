@@ -95,6 +95,20 @@ storage.setFeature("showTriggerWords", false);
 	check("the ungarbled copy is masked too", metadata.OriginalMsg, "..., Missy");
 }
 
+// OOC (v1.15.3, DW 2026-11-22). A trigger never fires from an aside, so a word said in one is not
+// hidden either. Failure: "(...)" where the player typed their word out of character.
+check("OOC: a word in brackets shows", run(msg("(sleepy time is my favourite line)")), false);
+check("OOC: an unclosed aside shows too", run(msg("(lol sleepy time")), false);
+check("OOC: in character masked, the aside left", run(msg("sleepy time (sleepy time, lol)")), { msg: "... (sleepy time, lol)" });
+check("OOC: after the aside closes, masked again", run(msg("(brb) sleepy time")), { msg: "(brb) ..." });
+check("OOC: a doubled aside", run(msg("((sleepy time)) sleepy time")), { msg: "((sleepy time)) ..." });
+check("OOC: a smiley is not an aside", run(msg("sleepy time :)")), { msg: "... :)" });
+{
+	const metadata = { OriginalMsg: "(sleepy time) sleepy time" };
+	run({ data: { Content: "mmph", Type: "Chat", Sender: HYP }, msg: "mmph" }, metadata);
+	check("OOC: the ungarbled copy keeps its aside", metadata.OriginalMsg, "(sleepy time) ...");
+}
+
 // Strictness follows the trigger, and the subject's master toggle.
 storage.forgetAllTriggers();
 plant("sleepy", { strict: true });

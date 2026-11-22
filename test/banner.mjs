@@ -47,6 +47,8 @@ const check = (label, got, want) => {
 // and prints right after the banner on a fresh install; that pairing is test/first-run-login.mjs's
 // to check. Here only the banner should print, so the line counts below stay about the banner.
 storage.markWelcomeShown();
+// And has already seen this version, so the update notice (update.ts, test/update-notice.mjs) stays out of the counts.
+storage.setLastSeenVersion("999.0.0");
 
 // --- not in a room: nothing is printed, and the poll keeps waiting -----------------------
 // Failure looks like: local.length 1 here. That is the silent case — BC would drop the line

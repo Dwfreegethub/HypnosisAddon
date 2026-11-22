@@ -25,6 +25,8 @@ declare function ChatRoomSendChatMessage(msg: string): boolean;
 declare function ServerPlayerExtensionSettingsSync(name: string): void;
 declare function CommandCombine(add: any): void;
 declare function ChatRoomSendLocal(message: string, timeout?: number): void;
+/** R134 Server.js: a beep-style toast on this player's own screen (and a desktop notification). */
+declare function ServerShowBeep(message: string, duration: number, options?: { onClick?: () => void; silent?: boolean }, title?: string): void;
 declare function PreferenceRegisterExtensionSetting(setting: any): void;
 declare function DrawCheckbox(
 	left: number,

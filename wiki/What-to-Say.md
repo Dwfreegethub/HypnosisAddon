@@ -144,8 +144,13 @@ The subject's face changes the way they are told, and everyone in the room sees 
 | *"let your tongue hang out"* · *"tongue all the way out"* | Tongue all the way out, eyes rolled back |
 | *"bite your lip"* | Biting the lower lip |
 | *"smile"* · *"grin"* · *"smirk"* · *"pout"* · *"moan for me"* | That expression |
+| *"frown"* · *"look sad"* · *"wince"* | That expression (since v1.16.5) |
 | *"close your mouth"* · *"tongue back in"* | — *release* (mouth only) |
 | *"blush"* · *"your cheeks burn"* | A deep blush |
+| *"raise your eyebrows"* · *"raise an eyebrow"* · *"furrow your brow"* | Both eyebrows up, one up, or furrowed (since v1.16.5) |
+| *"drool"* · *"drool for me"* | Drool (since v1.16.5) |
+| *"cry"* · *"cry for me"* · *"tears roll down your cheeks"* | Tears (since v1.16.5). Not *"cry out"*. |
+| *"dry your eyes"* · *"wipe your mouth"* | — *release* (drool and tears) |
 | *"relax your face"* · *"your face relaxes"* | — *release* (the whole face) |
 
 **A face lasts until it is let go or the subject wakes.** Waking, the safeword, or turning hypnosis off puts the face back as it was before, and *"that will stay with you"* does not carry it past the wake. If the subject has spiral eyes on (Trance Defaults), *"close your eyes"* closes them and *"open your eyes"* brings the spirals back. A face the subject changes themselves in the meantime is theirs, and is left alone. A face can also be a trigger's action, like any other suggestion.
@@ -286,7 +291,7 @@ This **prevents** the subject from touching themselves. Commanding autonomous to
 
 ## Making Them Act
 
-Commands such as *"Missy, touch your breasts"* make the subject's character physically execute the activity in-game. This relies on a dedicated permission (**Made to Act**) with its own structured syntax. The same verbs can be aimed at the hypnotist (*"Missy, kiss me"*) or, with **Made to Touch Others** also ticked, at someone else in the room by name (*"Missy, kiss Rei"*). Full verb mappings, targeting rules, and restrictions are detailed in [Commanded Activities](Commanded-Activities).
+Commands such as *"Missy, touch your breasts"* make the subject's character physically execute the activity in-game. This relies on a dedicated permission (**Made to Act**) with its own structured syntax. The same verbs can be aimed at the hypnotist (*"Missy, kiss me"*) or, with **Made to Touch Others** also ticked, at someone else in the room by name (*"Missy, kiss Rei"*). Since v1.16.5 there are movements too: *"wiggle your hips"*, *"shake your breasts"*, *"nod"*, *"struggle"* while tied, and sounds through a gag (*"moan"*, *"whimper"*); and on someone else *"hug Rei"*, *"kick Rei"*, *"grab Rei by the collar"*, *"cover my mouth"*. Full verb mappings, targeting rules, and restrictions are detailed in [Commanded Activities](Commanded-Activities).
 
 ---
 

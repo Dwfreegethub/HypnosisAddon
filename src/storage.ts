@@ -559,6 +559,12 @@ interface HypnoAddonSettings {
 	keyholders?: { owner?: KeyMode; named?: NamedKeyholder[] };
 	/** The last remote changes made to her settings, newest last, for the Stats tab and the popup. */
 	remoteLog?: RemoteChange[];
+	/** The keyholder lock (v1.16.2, job6.md §5): a full keyholder locked her settings, with her
+	 * consent. `seenAt` is the last time they were in a room with her. Absent = no lock. */
+	keyLock?: KeyLockState;
+	/** The keys lock (v1.16.3, DW 2026-11-22): she can't give or take back keys. Set by her BC owner
+	 * outright, or by a full keyholder she agreed to. Same shape and expiry as keyLock. */
+	keysLock?: KeyLockState;
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -576,6 +582,9 @@ interface HypnoAddonSettings {
 	 * it can never nag. `normalise()` back-fills it true for anyone already configured, so an
 	 * upgrade does not greet every existing user. Sparse, like the other reversible defaults. */
 	welcomeShown?: boolean;
+	/** The last ECHS version this account loaded (v1.15.0, update.ts): a newer stable one gets the
+	 * update notice once. Absent on accounts from before the notice existed. */
+	lastSeenVersion?: string;
 	/** The player's OWN practice as a hypnotist, as an interaction COUNT through the shared
 	 * curve — never a stored value — exactly like `experience`. Transmitted (derived) on every
 	 * induction this player attempts; what the far side then does with it is their setting. */
@@ -804,6 +813,8 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// 0-100 value; convert it back through the curve so existing data survives rather than
 	// silently resetting to zero.
 	for (const entry of s.trust) {
+		// v1.15.1's lastTogether, taken back out in v1.15.2 (DW): drop it from saved data.
+		delete (entry as unknown as { lastTogether?: number }).lastTogether;
 		const legacy = (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
 		if (typeof entry.interactions !== "number" && typeof legacy === "number") {
 			entry.interactions = countFromValue(legacy, H_TRUST);
@@ -1344,6 +1355,14 @@ export function markWelcomeShown(): void {
 	loadSettings().welcomeShown = true;
 	saveSettings();
 }
+export function getLastSeenVersion(): string | undefined {
+	const v = loadSettings().lastSeenVersion;
+	return typeof v === "string" && /^\d+(\.\d+)*$/.test(v) ? v : undefined;
+}
+export function setLastSeenVersion(version: string): void {
+	loadSettings().lastSeenVersion = version;
+	saveSettings();
+}
 
 /** The permissions that let a hypnotist actually DO something to the subject — everything on
  * the Permissions tab except the master switch and the settings-lock, plus the two persistent
@@ -1585,7 +1604,7 @@ export function setEyesSaved(saved: EyesSaved | undefined): void {
 /** Her face before spoken face commands (v1.11.0, face.ts): per group, what it was and what we set. */
 export type FaceSaved = {
 	at: number;
-	groups: Partial<Record<"Eyes" | "Mouth" | "Blush", { was: string | null; set: string }>>;
+	groups: Partial<Record<"Eyes" | "Mouth" | "Blush" | "Eyebrows" | "Fluids", { was: string | null; set: string }>>;
 };
 export function getFaceSaved(): FaceSaved | undefined {
 	return loadSettings().faceSaved;
@@ -1680,18 +1699,37 @@ export function setPopupSize(size: { w: number; h: number } | null): void {
 }
 
 // --- Keyholders (v1.14.0, job5.md) ------------------------------------------------------------
-// Who may change her settings remotely, and how far. "take" may only switch things off; "grant" may
-// switch them on too. Her BC owner counts only while ownerMode is set. Sparse: absent = nobody.
-export type KeyMode = "take" | "grant";
+// Who may change her settings remotely, and how far. Her BC owner counts only while ownerMode is set.
+// Sparse: absent = nobody.
+//
+// LEVELS (v1.16.0, job6.md §1, DW 2026-11-22). Three replace v1.14's two: minimal may only switch
+// things off; moderate may also shape the trance (Trance Defaults, Awareness, the look of it, the
+// induction's pace and how deep "sink deeper" goes); full may do everything. Saved "take" reads as
+// minimal and "grant" as MODERATE (DW: full grows a lot, so a subject gives it again on purpose).
+export type KeyMode = "minimal" | "moderate" | "full";
 export type NamedKeyholder = { id: number; name: string; mode: KeyMode };
 export type RemoteChange = { at: number; by: number; byName: string; what: string };
+export type KeyLockState = { by: number; byName: string; at: number; seenAt: number };
+/** Which keyholder lock: her settings (job6.md §5), or who holds her keys (v1.16.3). */
+export type LockKind = "settings" | "keys";
+const lockField = (kind: LockKind): "keyLock" | "keysLock" => (kind === "settings" ? "keyLock" : "keysLock");
 const MAX_KEYHOLDERS = 10;
 const MAX_REMOTE_LOG = 20;
-const isMode = (m: unknown): m is KeyMode => m === "take" || m === "grant";
+export const KEY_LEVELS: readonly KeyMode[] = ["minimal", "moderate", "full"];
+/** A saved or typed level, v1.14's words included; null for anything else. */
+export function toKeyMode(m: unknown): KeyMode | null {
+	if (m === "minimal" || m === "moderate" || m === "full") return m;
+	if (m === "take") return "minimal";
+	if (m === "grant") return "moderate";
+	return null;
+}
+/** 0, 1, 2: minimal < moderate < full. */
+export function keyRank(m: KeyMode): number {
+	return KEY_LEVELS.indexOf(m);
+}
 
 export function getOwnerKeyMode(): KeyMode | null {
-	const m = loadSettings().keyholders?.owner;
-	return isMode(m) ? m : null;
+	return toKeyMode(loadSettings().keyholders?.owner);
 }
 export function setOwnerKeyMode(mode: KeyMode | null): void {
 	const s = loadSettings();
@@ -1705,9 +1743,9 @@ export function listKeyholders(): NamedKeyholder[] {
 	const named = loadSettings().keyholders?.named;
 	if (!Array.isArray(named)) return [];
 	return named
-		.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && isMode(k.mode))
+		.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && toKeyMode(k.mode))
 		.slice(0, MAX_KEYHOLDERS)
-		.map((k: any) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: k.mode }));
+		.map((k: any) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: toKeyMode(k.mode)! }));
 }
 /** Adds or updates one. Returns false when the list is full. */
 export function setKeyholder(id: number, name: string, mode: KeyMode): boolean {
@@ -1837,6 +1875,39 @@ export function clearExtremeLock(): void {
 	const s = loadSettings();
 	delete s.extremeLockUntil;
 	delete s.extremeLockStage;
+	saveSettings();
+}
+
+/** Extend the Extreme lock (v1.16.3, job6.md §6): 30 more days from when it would end (or from now,
+ * if it has run out), as a 30-day period. */
+export function extendExtremeLock(now: number = Date.now()): ExtremeLock {
+	const s = loadSettings();
+	const from = typeof s.extremeLockUntil === "number" && s.extremeLockUntil > now ? s.extremeLockUntil : now;
+	s.extremeLockUntil = from + EXTREME_MONTH_DAYS * 86_400_000;
+	s.extremeLockStage = "month";
+	saveSettings();
+	return { until: s.extremeLockUntil, stage: "month" };
+}
+
+/** A keyholder lock, or null. A malformed one (hand-edited, or from a bad import) reads as none. */
+export function getKeyLock(kind: LockKind = "settings"): KeyLockState | null {
+	const l = loadSettings()[lockField(kind)];
+	if (!l || typeof l.by !== "number" || typeof l.seenAt !== "number" || typeof l.at !== "number") return null;
+	return { by: l.by, byName: typeof l.byName === "string" ? l.byName.slice(0, 60) : `#${l.by}`, at: l.at, seenAt: l.seenAt };
+}
+export function setKeyLock(by: number, byName: string, now: number = Date.now(), kind: LockKind = "settings"): void {
+	loadSettings()[lockField(kind)] = { by, byName, at: now, seenAt: now };
+	saveSettings();
+}
+/** The locking keyholder was in a room with her. */
+export function touchKeyLock(now: number = Date.now(), kind: LockKind = "settings"): void {
+	const l = loadSettings()[lockField(kind)];
+	if (!l) return;
+	l.seenAt = now;
+	saveSettings();
+}
+export function clearKeyLock(kind: LockKind = "settings"): void {
+	delete loadSettings()[lockField(kind)];
 	saveSettings();
 }
 

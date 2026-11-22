@@ -45,6 +45,8 @@ The reasoning for each is in the Orientation section; this is the checklist.
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
    - **Keyholders (v1.14.0, DW):** someone she has given her keys (`src/keyholder.ts`) can still change her Permissions, Trance Defaults, Awareness and Triggers tick boxes (and, v1.14.1, the Inductions tab and the Trance Defaults screen effect, eyes and pulse colour choices) under the lock (unticking Hypnosis Enabled included) and can end the lock. That is a documented way out; her own list of keyholders is read-only under the lock.
+   - **Keyholder lock (v1.16.2, `src/keylock.ts`):** a full keyholder may lock her settings only after she accepts in the ask.ts popup. Her own edits are refused (`settingsLocked()`); keyholders still change them; any full keyholder unlocks; it ends after 7 days without the locker in a room with her. Never held by it: the safeword, `/echs reset confirm`, unticking Hypnosis Enabled (`fixedRowLocked`), her keyholder list except that the locker keeps full keys.
+   - **Keys lock (v1.16.3):** stops her giving or taking back keys (same machinery and 7 days as the keyholder lock). Her BC owner holding full keys sets it without asking (DW); anyone else with full keys needs her Accept. Any full keyholder lifts it. Full keys also see her other named keyholders and may ask to remove one (v1.16.4; her Accept, or none for her owner at full), never the holder of her settings lock, and only her owner while the keys lock holds. **Keyholder-started Extreme (v1.16.3, job6.md §6):** only with her Accept on the full EXTREME_WARNING; extending adds 30 days.
    - Never mention `exit_extreme` in help, the wiki or changelogs.
 3. **Never write `Player.Appearance` for the illusion.** It is server-synced and corruptible. The illusion is a shadow character on the subject's own screen.
 4. **Chemical depth never writes anything permanent nor lies to the subject about their own state.** That is the `earnedOnly` split in `depth.ts`.
@@ -67,6 +69,10 @@ The reasoning for each is in the Orientation section; this is the checklist.
   merged with a **merge commit** (`gh pr merge --merge`), never squashed: a squash would make every
   later release re-apply the same changes and conflict. Never delete `dev` when merging it. The
   first was #95 (v1.0.1 RC).
+- **Before a release (v1.15.0):** set `UPDATE_NOTE` in `src/update.ts` to the version going out and
+  one or two plain sentences from its CHANGELOG headlines (no `<`, `>` or `&`; it goes into chat as
+  HTML). That is what every stable player sees in the update beep. Forgotten, it says only "ECHS was
+  updated to vX".
 - **FUSAM** lists ECHS from GitHub Pages (`type: "script"`, since 2026-11-01):
   `dwfreegethub.github.io/HypnosisAddon/HypnosisAddon.js` is `main`'s `cdn/HypnosisAddon.js`
   (`stable`), `…/dev/HypnosisAddon.js` is `dev`'s, and `…/icon.png` is `pages/icon.png`.
