@@ -38,7 +38,7 @@ import {
 	KeyMode,
 	toKeyMode,
 } from "./storage";
-import { announceKeysTo } from "./keyholder";
+import { announceKeysTo, KEY_LEVEL_WORDS, requestKeys } from "./keyholder";
 import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
 import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
@@ -235,11 +235,7 @@ const COMMAND_TAGS = ["echs", "hypno"] as const;
 // fallback for `/echs help`, and the tail of the bare `/echs` menu. Built from menu.ts's
 // own label rather than repeating it, so the two cannot name different entries.
 /** What each keyholder mode lets them do, in the words the replies use. */
-const KEY_MODE_WORDS: Record<KeyMode, string> = {
-	minimal: "minimal keys: they can only switch your settings OFF",
-	moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
-	full: "full keys: they can switch everything they reach on and off",
-};
+const KEY_MODE_WORDS = KEY_LEVEL_WORDS;
 /** The levels as typed, for usage lines. v1.14's take/grant still work (storage.ts toKeyMode). */
 const KEY_LEVEL_ARGS = "minimal|moderate|full";
 
@@ -777,13 +773,30 @@ const COMMANDS: HypnoCommand[] = [
 		// Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
 		Tag: "keyholder",
 		group: "Data",
-		args: `[add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`,
+		args: `[add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}> | request <name> [${KEY_LEVEL_ARGS}]]`,
 		Description: "Choose who may change your ECHS settings for you (minimal = only switch off; moderate = also shape your trance; full = everything)",
 		Action: (args: string) => {
 			const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			const sub = (words[0] ?? "").toLowerCase();
 			if (!sub || sub === "list") {
 				for (const line of describeKeyholders()) reply(line);
+				return;
+			}
+			// Asking someone ELSE for their keys (v1.16.1, job6.md §3). Not one of her own settings, so
+			// not held by her locks; their ECHS shows them a popup and they decide.
+			if (sub === "request") {
+				const typedLevel = words.length > 2 ? toKeyMode((words[words.length - 1] ?? "").toLowerCase()) : null;
+				const token = words.slice(1, typedLevel ? -1 : undefined).join(" ");
+				const target = token ? resolveTarget(token) : null;
+				if (!target) {
+					reply(token ? `No one here matches "${token}".` : `Usage: /echs keyholder request <name> [${KEY_LEVEL_ARGS}]`);
+					return;
+				}
+				if (target.id === Player?.MemberNumber) {
+					reply("You can't ask yourself for your own keys.");
+					return;
+				}
+				reply(requestKeys(target.id, typedLevel ?? "minimal"));
 				return;
 			}
 			// The list is a setting like any other: read-only under her own locks (job5.md).
@@ -847,7 +860,7 @@ const COMMANDS: HypnoCommand[] = [
 				reply(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
 				return;
 			}
-			reply(`Usage: /echs keyholder [add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`);
+			reply(`Usage: /echs keyholder [add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}> | request <name> [${KEY_LEVEL_ARGS}]]`);
 		},
 	},
 	{

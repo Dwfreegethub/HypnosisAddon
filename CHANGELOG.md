@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.1 · 22 November 2026
+
+- **Ask for someone's keys.** On the Keys tab, **Request keys** (or `/echs keyholder request <name>
+  <level>`) asks them for their keys. They get a popup to accept or decline; no answer in 30 seconds
+  is a no. Nothing changes unless they accept, and the same person can ask again only after a few
+  minutes. Both of you need this version or newer.
+
 ## v1.16.0 · 22 November 2026
 
 - **Three levels of keys.** *take* and *grant* are now **minimal**, **moderate** and **full**:

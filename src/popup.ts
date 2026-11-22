@@ -21,7 +21,7 @@
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
 import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, REMOTE_TABS, MODERATE_TABS, settingsLocked } from "./menu";
-import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, keyLevelAllows } from "./keyholder";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, keyLevelAllows, canRequestKeys } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -912,7 +912,7 @@ function renderTriggers(body: any, status: any): void {
 // chat line for it, the same exception as the Safeword button): it sends a request their ECHS
 // decides on, and the answer shows in the status line.
 
-const keysOpen = new Set<string>(["mine", "held"]);
+const keysOpen = new Set<string>(["mine", "held", "ask"]);
 let chosenHolder: number | null = null;
 /** When we last asked each person for their settings from here: at most every KEYS_REASK_MS. */
 const keysAskedAt = new Map<number, number>();
@@ -963,6 +963,8 @@ function keysKey(): string {
 	const res = h ? lastResult(h.id) : null;
 	return [
 		heldKeys().map((k) => `${k.id}:${k.mode}`).join(","),
+		// The Ask for keys group: who is here to ask, and their answers as they come.
+		askable().map((p) => `${p.id}:${lastResult(p.id)?.at ?? 0}`).join(","),
 		h?.id ?? "",
 		JSON.stringify(snap),
 		res?.at ?? 0,
@@ -973,6 +975,12 @@ function keysKey(): string {
 		extremeLocked() ? "x" : "",
 		settingsLocked() ? "l" : "",
 	].join("|");
+}
+
+/** Everyone here we could ask for keys (v1.16.1): runs a new enough ECHS, and we don't hold their full keys. */
+function askable(): { id: number; name: string }[] {
+	const held = new Map(heldKeys().map((h) => [h.id, h.mode]));
+	return popupPeople().filter((p) => canRequestKeys(p.id) && held.get(p.id) !== "full");
 }
 
 function keysGroup(body: any, key: string, title: string, fill: (list: any) => void): void {
@@ -1043,7 +1051,35 @@ function renderKeys(body: any, status: any): void {
 		}
 	});
 
-	// 2. Settings you hold keys to.
+	// 2. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, cycling the same way;
+	// their ECHS shows them a popup, and the answer comes back in chat and under their name here.
+	const canAsk = askable();
+	if (canAsk.length) {
+		keysGroup(body, "ask", "Ask for keys", (list) => {
+			list.appendChild(el("div", "echs-pop-hint", "Ask someone here for their keys. They get a popup to accept or decline; no answer in 30 seconds is a no."));
+			const heldNow = new Map(heldKeys().map((h) => [h.id, h.mode]));
+			for (const p of canAsk) {
+				const row = el("div", "echs-pop-entry");
+				const has = heldNow.get(p.id) ?? null;
+				row.appendChild(el("div", "echs-pop-person", has ? `${p.name} · you hold ${has}` : p.name));
+				const chips = el("div", "echs-pop-buttons");
+				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
+				const key = `ask:${p.id}`;
+				chips.appendChild(
+					chip(`Request keys (${cycleLevel(key, has)})`, "Click again for the next level. Nothing is sent until you press Enter.", () => {
+						typeIt(status, `/echs keyholder request ${target} ${clickCycle(key, has)}`, "Typed. Press Enter to ask.");
+						renderBody();
+					}),
+				);
+				row.appendChild(chips);
+				list.appendChild(row);
+				const res = lastResult(p.id);
+				if (res && Date.now() - res.at < 30_000) list.appendChild(el("div", "echs-pop-desc", res.text));
+			}
+		});
+	}
+
+	// 3. Settings you hold keys to.
 	const held = heldKeys();
 	if (!held.length) return;
 	const who = currentHolder()!;

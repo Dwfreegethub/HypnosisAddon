@@ -358,6 +358,7 @@ function lastingLines(): HelpLine[] {
 		body("they can change your settings while you share a room, even under Extreme,"),
 		body("and end the lock. minimal = only switch off; moderate = also shape your"),
 		dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
+		dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you ·"),
