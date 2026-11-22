@@ -18,6 +18,16 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-22 (v1.15.3) — trigger words in OOC were concealed
+
+DW: "the addon is putting **** in place of trigger words in OOC. I agree it should not trigger if
+in OOC, but then it should not blank it out as well." Triggers read stripOOC's text (main.ts), but
+the conceal handler masked the whole drawn line. `concealInCharacter` now walks the line with the
+same depth rule as voice.ts stripOOC (unclosed "(" runs to the end; a stray ")" stays in character)
+and conceals each in-character run on its own, for the line and BC's ungarbled copy. Known gap: a
+phrase split by an aside ("sleepy (lol) time") fires but is not concealed. `test/conceal.mjs` +7,
+mutation-checked (the old whole-line masking fails 4).
+
 ### Reverted 2026-11-22 (v1.15.2) — lastTogether taken back out
 
 DW, after a refresh on dev: the Stats tab still read as time since the last reset, and many people

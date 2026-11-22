@@ -96,6 +96,33 @@ export function concealPhrases(text: string, phrases: { phrase: string; strict: 
 	return out;
 }
 
+/** Conceal only the IN-CHARACTER parts of a line (v1.15.3, DW 2026-11-22): a trigger never fires
+ * from an OOC aside (main.ts reads stripOOC's text), so a trigger word said in "( ... )" is not a
+ * trigger and shows as typed. The same depth rule as voice.ts stripOOC: "(" opens an aside, ")"
+ * closes one if one is open, an unclosed "(" runs to the end of the line, and a stray ")" (":)")
+ * is in character. Each in-character run is concealed on its own. Pure. */
+export function concealInCharacter(text: string, phrases: { phrase: string; strict: boolean }[]): string {
+	let out = "";
+	let run = "";
+	let depth = 0;
+	const flush = () => {
+		if (run) out += concealPhrases(run, phrases);
+		run = "";
+	};
+	for (const ch of text) {
+		if (ch === "(") {
+			if (depth === 0) flush();
+			depth++;
+			out += ch;
+		} else if (depth > 0) {
+			if (ch === ")") depth--;
+			out += ch;
+		} else run += ch;
+	}
+	flush();
+	return out;
+}
+
 /** The phrases to conceal in a line from `sender`: every stored trigger, the one being recorded,
  * and — for a planting line from the hypnotist who has us under — the phrase it is about to plant. */
 export function phrasesToConceal(sender: number, content: string): { phrase: string; strict: boolean }[] {
@@ -131,12 +158,12 @@ export function concealHandler(data: any, msg: string, metadata: any): { msg: st
 	if (!concealing(data) || typeof msg !== "string") return false;
 	const phrases = phrasesToConceal(data.Sender, String(data.Content ?? ""));
 	if (!phrases.length) return false;
-	const masked = concealPhrases(msg, phrases);
+	const masked = concealInCharacter(msg, phrases);
 	// BC shows a gagged sender's ungarbled text beside the garbled line when the viewer has "show
 	// ungarbled messages" on (ChatRoom.js: metadata.OriginalMsg, drawn in ChatRoomMessageDisplay).
 	// That copy would name the word in full.
 	if (metadata && typeof metadata.OriginalMsg === "string") {
-		metadata.OriginalMsg = concealPhrases(metadata.OriginalMsg, phrases);
+		metadata.OriginalMsg = concealInCharacter(metadata.OriginalMsg, phrases);
 	}
 	if (masked === msg) return false;
 	log("concealed a trigger word in a chat line");
