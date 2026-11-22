@@ -559,6 +559,9 @@ interface HypnoAddonSettings {
 	keyholders?: { owner?: KeyMode; named?: NamedKeyholder[] };
 	/** The last remote changes made to her settings, newest last, for the Stats tab and the popup. */
 	remoteLog?: RemoteChange[];
+	/** The keyholder lock (v1.16.2, job6.md §5): a full keyholder locked her settings, with her
+	 * consent. `seenAt` is the last time they were in a room with her. Absent = no lock. */
+	keyLock?: KeyLockState;
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -1703,6 +1706,7 @@ export function setPopupSize(size: { w: number; h: number } | null): void {
 export type KeyMode = "minimal" | "moderate" | "full";
 export type NamedKeyholder = { id: number; name: string; mode: KeyMode };
 export type RemoteChange = { at: number; by: number; byName: string; what: string };
+export type KeyLockState = { by: number; byName: string; at: number; seenAt: number };
 const MAX_KEYHOLDERS = 10;
 const MAX_REMOTE_LOG = 20;
 export const KEY_LEVELS: readonly KeyMode[] = ["minimal", "moderate", "full"];
@@ -1865,6 +1869,28 @@ export function clearExtremeLock(): void {
 	const s = loadSettings();
 	delete s.extremeLockUntil;
 	delete s.extremeLockStage;
+	saveSettings();
+}
+
+/** The keyholder lock, or null. A malformed one (hand-edited, or from a bad import) reads as none. */
+export function getKeyLock(): KeyLockState | null {
+	const l = loadSettings().keyLock;
+	if (!l || typeof l.by !== "number" || typeof l.seenAt !== "number" || typeof l.at !== "number") return null;
+	return { by: l.by, byName: typeof l.byName === "string" ? l.byName.slice(0, 60) : `#${l.by}`, at: l.at, seenAt: l.seenAt };
+}
+export function setKeyLock(by: number, byName: string, now: number = Date.now()): void {
+	loadSettings().keyLock = { by, byName, at: now, seenAt: now };
+	saveSettings();
+}
+/** The locking keyholder was in a room with her. */
+export function touchKeyLock(now: number = Date.now()): void {
+	const l = loadSettings().keyLock;
+	if (!l) return;
+	l.seenAt = now;
+	saveSettings();
+}
+export function clearKeyLock(): void {
+	delete loadSettings().keyLock;
 	saveSettings();
 }
 

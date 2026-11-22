@@ -62,7 +62,8 @@ import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
 import { describeIcons } from "./badge";
 import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
-import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
+import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, ownLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
+import { keyLocked, keyLockHolder, keyLockRefusal } from "./keylock";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -669,6 +670,10 @@ const COMMANDS: HypnoCommand[] = [
 				reply(extremeRefusal());
 				return;
 			}
+			if (keyLocked()) {
+				reply(keyLockRefusal());
+				return;
+			}
 			setDecayRate(token as DecayRate);
 			reply(`trust decay set to ${token}`);
 		},
@@ -705,7 +710,7 @@ const COMMANDS: HypnoCommand[] = [
 			// The same lock as the Data tab's Import button. Without it this is the way round the
 			// lock, and the button's own clipboard-failure line points straight at it.
 			if (settingsLocked()) {
-				reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
+				reply(extremeLocked() ? extremeRefusal() : keyLocked() && !ownLocked() ? keyLockRefusal() : IMPORT_LOCKED_MESSAGE);
 				return;
 			}
 			const result = importSettings(args);
@@ -761,6 +766,10 @@ const COMMANDS: HypnoCommand[] = [
 				reply(extremeRefusal());
 				return;
 			}
+			if (keyLocked()) {
+				reply(keyLockRefusal());
+				return;
+			}
 			setTriggerDecayRate(rate.key);
 			reply(`Planted triggers now fade: ${rate.label} — ${describeDecayPace(rate.key)}.`);
 			reply(
@@ -804,15 +813,25 @@ const COMMANDS: HypnoCommand[] = [
 				reply(extremeRefusal());
 				return;
 			}
-			if (settingsLocked()) {
+			if (ownLocked()) {
 				reply("Your settings are locked while a session is on you, and so is who holds your keys.");
 				return;
 			}
+			// Under the keyholder lock (v1.16.2, job6.md §5) she still manages her list, but whoever
+			// locked it keeps full keys until it is unlocked or runs out.
+			const locker = keyLockHolder();
+			const lockerNamedFull = !!locker && listKeyholders().some((k) => k.id === locker.id && k.mode === "full");
+			const keepsLocker = (what: string) => reply(`${locker?.name} locked your settings, so ${what} while the lock holds. Any of your full keyholders can unlock it.`);
 			if (sub === "owner") {
 				const word = (words[1] ?? "").toLowerCase();
 				const m = word === "off" ? "off" : toKeyMode(word);
 				if (!m) {
 					reply(`Usage: /echs keyholder owner <off|${KEY_LEVEL_ARGS}>`);
+					return;
+				}
+				// The locker may hold full keys only as her owner; then her owner's keys stay full.
+				if (locker && !lockerNamedFull && m !== "full") {
+					keepsLocker("your BC owner's keys stay full");
 					return;
 				}
 				setOwnerKeyMode(m === "off" ? null : m);
@@ -834,6 +853,10 @@ const COMMANDS: HypnoCommand[] = [
 				}
 				if (sub === "remove") {
 					const id = /^\d+$/.test(token) ? Number(token) : listKeyholders().find((k) => k.name.toLowerCase() === token.toLowerCase())?.id ?? resolveTarget(token)?.id;
+					if (locker && id === locker.id) {
+						keepsLocker("you can't take their keys back");
+						return;
+					}
 					if (!id || !removeKeyholder(id)) {
 						reply(`"${token}" is not one of your keyholders. /echs keyholder lists them.`);
 						return;
@@ -852,6 +875,10 @@ const COMMANDS: HypnoCommand[] = [
 					return;
 				}
 				const mode: KeyMode = typedLevel ?? "minimal";
+				if (locker && target.id === locker.id && mode !== "full") {
+					keepsLocker("their keys stay full");
+					return;
+				}
 				if (!setKeyholder(target.id, target.name, mode)) {
 					reply("You already have the most keyholders allowed (10). Remove one first.");
 					return;

@@ -539,6 +539,52 @@ keyChip("end their Extreme lock").click();
 check("end Extreme: first click only arms", !hidden.some((m) => m.action === "end-extreme") && status().startsWith("Click again"), "no request yet, and a click-again status");
 keyChip("click again to end it").click();
 check("  second click sends it", hidden.some((m) => m.to === B && m.action === "end-extreme"), "an end-extreme request to Bea");
+// v1.16.2 (job6.md stage 3): full keys, the Depth tab folded shut, numbers as step buttons.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [{ key: "triggerScope", value: "friends" }, { key: "triggerDuration", value: "0" }, { key: "depth:sightControl", value: "40" }, { key: "depthDefaults", value: "changed" }], extreme: false, mode: "grant", level: "full" } });
+popup.popupTick();
+check("Depth starts folded", byText("+ Depth").length === 1 && !keyChip("+20"), "a + Depth heading and no depth step buttons");
+check("  Triggers is open, its choice named", byText("− Triggers").length === 1 && findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Who else can fire triggers planted in you: Hypnotist, Owner, Lovers and friends").length === 1, "the scope line");
+check("  duration reads plainly, can't go below 0", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent.endsWith(": until released")).length === 1 && keyChip("-5")?.className.includes("echs-pop-off"), "until released, -5 faded");
+byText("+ Depth")[0].click();
+check("unfolded: the depth and its tier", findAll(win(), (n) => n.className === "echs-pop-desc" && /^Sight: 40 \(.+\)$/.test(n.textContent)).length === 1, "Sight: 40 (tier)");
+check("  reset reads as some changed", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Depth requirements: some changed").length === 1, "some changed");
+hidden = [];
+findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === "+20")[0].click();
+const stepReq = hidden.find((m) => m.to === B && m.action === "choose");
+check("a step sends the new number", stepReq?.key === "depth:sightControl" && stepReq.value === "60", `depth:sightControl 60, got ${JSON.stringify(stepReq)}`);
+byText("− Depth")[0].click();
+check("  and folds again", byText("+ Depth").length === 1, "folded");
+// v1.16.2 (job6.md §4): what is planted in her, folded; remove takes two clicks; a refusal says why.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", planted: [
+	{ id: "0000000a", word: "", when: "", does: ["kneels"], strength: "full strength", once: false, holding: false, by: "Hyp", removable: true, why: "" },
+	{ id: "0000000b", word: "glow", when: "", does: ["sleeps"], strength: "full strength", once: true, holding: false, by: "themselves", removable: false, why: "They planted this in themselves: only they can remove it." },
+] } });
+popup.popupTick();
+check("planted list starts folded, with a count", byText("+ Planted in them (2)").length === 1 && !keyChip("remove"), "folded, no remove buttons");
+byText("+ Planted in them (2)")[0].click();
+check("  unfolded: hidden word and planter", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "A trigger word you can't see · planted by Hyp").length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"glow" · planted by themselves').length === 1, "both headlines");
+const removes = () => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && (n.textContent === "remove" || n.textContent === "click again to remove it"));
+hidden = [];
+removes()[1].click();
+check("not removable: says why, sends nothing", status() === "They planted this in themselves: only they can remove it." && !hidden.some((m) => m.action === "remove-trigger") && removes()[1].className.includes("echs-pop-off"), `the reason, got "${status()}"`);
+removes()[0].click();
+check("removable: first click only arms", !hidden.some((m) => m.action === "remove-trigger") && removes()[0].textContent === "click again to remove it", "armed, nothing sent");
+removes()[0].click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "remove-trigger" && m.id === "0000000a"), `a remove-trigger for 0000000a, got ${JSON.stringify(hidden)}`);
+// v1.16.2 (job6.md §5): lock asks her (one click; she must accept), unlock takes two clicks.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyLock: "Olive" } });
+popup.popupTick();
+check("locked: says by whom, offers unlock", findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Their settings are locked by Olive")).length === 1 && !!keyChip("unlock their settings") && !keyChip("lock their settings"), "the locked line and an unlock button");
+hidden = [];
+keyChip("unlock their settings").click();
+check("  unlock: first click only arms", !hidden.some((m) => m.action === "unlock") && !!keyChip("click again to unlock"), "armed");
+keyChip("click again to unlock").click();
+check("  second click sends it", hidden.some((m) => m.to === B && m.action === "unlock"), JSON.stringify(hidden));
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyLock: "" } });
+popup.popupTick();
+hidden = [];
+keyChip("lock their settings").click();
+check("unlocked: lock asks at once", hidden.some((m) => m.to === B && m.action === "lock") && status().includes("30 seconds"), `a lock request, got ${JSON.stringify(hidden)}`);
 KH.resetKeyholderViews();
 popup.setPopupTab("people");
 popup.popupTick();

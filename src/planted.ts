@@ -1,6 +1,6 @@
 import { log } from "./log";
 import { sendHiddenMessage } from "./messaging";
-import { listPlantedNotes, savePlantedNote, PlantedEntry, PlantedNote } from "./storage";
+import { listPlantedNotes, savePlantedNote, PlantedEntry, PlantedNote, Trigger } from "./storage";
 
 // A hypnotist's list of the triggers they planted (v1.4.0; Eri, 2026-10-04; DW 2026-11-05).
 //
@@ -24,6 +24,15 @@ let source: (hypnotist: number) => PlantedEntry[] = () => [];
 export function registerPlantedSource(fn: (hypnotist: number) => PlantedEntry[]): void {
 	source = fn;
 }
+let describer: (t: Trigger) => PlantedEntry = (t) => ({ word: t.phrase, when: "", does: [], strength: "", once: !!t.oneShot, holding: false });
+/** One trigger in words, for anyone's list (v1.16.2: a full keyholder's too). Registered by voice.ts. */
+export function registerPlantedDescriber(fn: (t: Trigger) => PlantedEntry): void {
+	describer = fn;
+}
+export function plantedEntryFor(t: Trigger): PlantedEntry {
+	return describer(t);
+}
+
 /** Subject side: what this hypnotist planted in us. Theirs only, never anyone else's. */
 export function plantedEntriesFor(hypnotist: number): PlantedEntry[] {
 	return source(hypnotist).slice(0, MAX_PLANTED_ENTRIES);
