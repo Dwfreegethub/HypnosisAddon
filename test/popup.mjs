@@ -603,12 +603,21 @@ check("  second click sends it", hidden.some((m) => m.to === B && m.action === "
 // v1.16.3: as their owner, their other keyholders, each with take their keys back (two clicks).
 KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.3", keyholder: "grant", keyLevel: "full", settings: { boxes: [], choices: [], extreme: false, mode: "grant", level: "full", keyholders: [{ id: 900, name: "Kay", mode: "moderate" }] } });
 popup.popupTick();
-check("owner: their other keyholders listed", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Kay · moderate").length === 1 && !!keyChip("take their keys back"), "Kay with a button");
+check("full keys: their other keyholders listed", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent === "Kay · moderate").length === 1 && !!keyChip("take their keys back") && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "Their other keyholders").length === 1, "Kay with a button");
+hidden = [];
+keyChip("take their keys back").click();
+check("  not their owner: one click asks them", hidden.some((m) => m.to === B && m.action === "remove-keyholder" && m.id === 900) && status().includes("30 seconds"), `${JSON.stringify(hidden)} "${status()}"`);
+// As their owner: two clicks, at once.
+const beaChar = ChatRoomCharacter.find((c) => c.MemberNumber === B);
+beaChar.IsOwnedByPlayer = () => true;
+popup.popupTick();
+check("  as their owner: says so", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "Their other keyholders (you're their owner)").length === 1, "owner heading");
 hidden = [];
 keyChip("take their keys back").click();
 check("  first click arms", !hidden.some((m) => m.action === "remove-keyholder") && !!keyChip("click again"), "armed");
 keyChip("click again").click();
 check("  second click sends it", hidden.some((m) => m.to === B && m.action === "remove-keyholder" && m.id === 900), JSON.stringify(hidden));
+delete beaChar.IsOwnedByPlayer;
 KH.resetKeyholderViews();
 popup.setPopupTab("people");
 popup.popupTick();

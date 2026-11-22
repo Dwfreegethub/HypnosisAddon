@@ -18,6 +18,16 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.4) — any full keyholder may ask to remove another
+
+DW, on finding the v1.16.3 option owner-only: "Any full keyholder with a popup, owner no popup".
+- `remove-keyholder` now goes through `handleAskedChange` (rate limit per target); the owner skips the
+  popup. Snapshot `keyholders` for any full keyholder. Not for a non-owner while the keys lock holds
+  (accepting would be her taking keys back, which that lock stops; chosen here).
+- Keys tab: non-owner "take their keys back" is one click (she must accept); the owner's stays two.
+- keyholder-extreme 50, popup 178. Mutation-checked (nobody asked, owner asked, keys lock ignored,
+  list for every level, locker removable: all fail). Not live-tested.
+
 ### Added 2026-11-22 (v1.16.3) — keyholder Extreme (job6.md stage 6) and the keys lock
 
 DW: Extreme "Yes, with your acceptance". Keys lock: "an option for BC owner to take away your ability
