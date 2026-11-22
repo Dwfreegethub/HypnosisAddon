@@ -3,15 +3,18 @@
 //
 // DW'S DECISIONS (job5.md):
 //   - A keyholder is her BC owner, if she has said the owner may be one, or anyone she names.
-//   - Per keyholder she chooses "take" (may only switch things OFF) or "grant" (may switch them on).
+//   - Per keyholder she chooses a level (v1.16.0, job6.md §1): minimal (may only switch things OFF),
+//     moderate (may also shape the trance: Trance Defaults and Awareness boxes, and the choices
+//     marked `moderate` in menu.ts remoteChoices), full (everything reachable). v1.14's "take" reads
+//     as minimal and "grant" as moderate (storage.ts toKeyMode).
 //   - It works at any time, and through her Extreme lock; a keyholder may also END that lock.
 //   - It reaches the tick boxes on Permissions, Trance Defaults, Awareness and Triggers (menu.ts
 //     remoteRows), nothing else.
 //   - v1.14.1 (DW 2026-11-21): also the choices that are not tick boxes (menu.ts remoteChoices):
 //     every Inductions control, and on Trance Defaults the screen effect (the spiral), her eyes, her
-//     eye colour and the pulse colour. "take" may only set one to its off choice (None, Unchanged,
+//     eye colour and the pulse colour. minimal keys may only set one to its off choice (None, Unchanged,
 //     Ask me, Refuse, toy mode Off, Never deeper); one with no off (attempts, induction time, who toy
-//     mode is for, pulse colour) needs "grant".
+//     mode is for, pulse colour) needs more (v1.16.0: moderate or full, see keyLevelAllows).
 //
 // RULE 1. Every change is a REQUEST to her client, which alone decides: is the sender her keyholder,
 // is the box one a keyholder may reach, and if it turns something on, may this keyholder grant? Then
@@ -39,10 +42,11 @@ import {
 	getOwnerKeyMode,
 	listKeyholders,
 	KeyMode,
+	keyRank,
 	noteRemoteChange,
 	clearExtremeLock,
 } from "./storage";
-import { remoteRows, remoteChoices, onToggle } from "./menu";
+import { remoteRows, remoteChoices, onToggle, MODERATE_TABS } from "./menu";
 import { extremeLocked } from "./extreme";
 import { presenceFields } from "./badge";
 
@@ -73,25 +77,45 @@ export function keyModeFor(member: number): KeyMode | null {
 	if (!member || member === Player?.MemberNumber) return null;
 	const named = listKeyholders().find((k) => k.id === member)?.mode ?? null;
 	const owner = getOwnerKeyMode() && isBcOwner(member) ? getOwnerKeyMode() : null;
-	if (named === "grant" || owner === "grant") return "grant";
+	if (named && owner) return keyRank(named) >= keyRank(owner) ? named : owner;
 	return named ?? owner;
 }
 
+/** May a keyholder at `level` make this change? Switching something off (or to its off choice) is
+ * every level's; shaping the trance (`moderateOk`) is moderate's and full's; the rest is full's. */
+export function keyLevelAllows(level: KeyMode, turnsOff: boolean, moderateOk: boolean): boolean {
+	if (turnsOff || level === "full") return true;
+	return level === "moderate" && moderateOk;
+}
+
+/** The least level that may make a change keyLevelAllows refused, for the refusal's words. */
+function levelNeeded(moderateOk: boolean): KeyMode {
+	return moderateOk ? "moderate" : "full";
+}
+
+/** v1.14's word for a level, sent beside the new one so an older keyholder's ECHS still knows. */
+function legacyWord(level: KeyMode): "take" | "grant" {
+	return level === "minimal" ? "take" : "grant";
+}
+
 /** The fields her answer to a state-query carries for that asker: whether they hold her keys. */
-export function keyholderFields(asker: number): { keyholder?: KeyMode } {
+export function keyholderFields(asker: number): { keyholder?: "take" | "grant"; keyLevel?: KeyMode } {
 	const mode = keyModeFor(asker);
-	return mode ? { keyholder: mode } : {};
+	return mode ? { keyholder: legacyWord(mode), keyLevel: mode } : {};
 }
 
 export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode };
 
-function snapshotFor(member: number, mode: KeyMode): SettingsSnapshot {
+/** What her answer carries: SettingsSnapshot's fields, with the level as both words (see below). */
+function snapshotFor(member: number, mode: KeyMode): Record<string, unknown> {
 	const f = getFeatures();
 	return {
 		boxes: remoteRows().map((r) => ({ key: r.key, on: !!f[r.key] })),
 		choices: remoteChoices().map((c) => ({ key: c.key, value: c.get() })),
 		extreme: extremeLocked(),
-		mode,
+		// `mode` is v1.14's word, for an older keyholder; `level` is the real one.
+		mode: legacyWord(mode),
+		level: mode,
 	};
 }
 
@@ -101,7 +125,7 @@ function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: s
 			type: "state-response",
 			hypnoEnabled: getFeatures().hypnoEnabled,
 			...presenceFields(),
-			...(mode ? { keyholder: mode, settings: snapshotFor(to, mode) } : {}),
+			...(mode ? { keyholder: legacyWord(mode), keyLevel: mode, settings: snapshotFor(to, mode) } : {}),
 			...(result ? { settingsResult: result } : {}),
 		},
 		to,
@@ -135,8 +159,9 @@ export function handleSettingsRequest(sender: number, message: any): string {
 			reply(sender, mode, { ok: true, text: `${row.label} is already ${value ? "on" : "off"}.` });
 			return "unchanged";
 		}
-		if (value && mode !== "grant") {
-			const text = `You can only switch their settings off; turning on "${row.label}" needs them to let you grant.`;
+		const moderateOk = MODERATE_TABS.includes(row.tab);
+		if (!keyLevelAllows(mode, !value, moderateOk)) {
+			const text = `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
 			reply(sender, mode, { ok: false, text });
 			return text;
 		}
@@ -173,11 +198,12 @@ export function handleSettingsRequest(sender: number, message: any): string {
 			reply(sender, mode, { ok: true, text: `${choice.label} is already ${option.label}.` });
 			return "unchanged";
 		}
-		if (mode !== "grant" && value !== choice.off) {
+		if (!keyLevelAllows(mode, value === choice.off, !!choice.moderate)) {
 			const offLabel = choice.options.find((o) => o.key === choice.off)?.label;
+			const needed = levelNeeded(!!choice.moderate);
 			const text = offLabel
-				? `You can only switch their settings off; for ${choice.label} that is "${offLabel}". Anything else needs them to let you grant.`
-				: `Changing ${choice.label} needs them to let you grant.`;
+				? `Your keys are ${mode}: for ${choice.label} you can only choose "${offLabel}". Anything else needs ${needed} keys.`
+				: `Your keys are ${mode}: changing ${choice.label} needs ${needed} keys.`;
 			reply(sender, mode, { ok: false, text });
 			return text;
 		}
@@ -208,7 +234,11 @@ export function handleSettingsRequest(sender: number, message: any): string {
 /** Tell one person, now, whether they hold her keys: after she adds, changes or removes them. */
 export function announceKeysTo(member: number): void {
 	if (!characterFor(member)) return;
-	sendHiddenMessage({ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: keyModeFor(member) ?? "none" }, member);
+	const mode = keyModeFor(member);
+	sendHiddenMessage(
+		{ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
+		member,
+	);
 }
 
 // --- Keyholder side --------------------------------------------------------------------------------
@@ -221,14 +251,23 @@ const askedAt = new Map<number, number>();
 /** How long to wait for an answer before saying they did not answer. */
 export const SETTINGS_ASK_MS = 3000;
 
-const isMode = (m: unknown): m is KeyMode => m === "take" || m === "grant";
+/** The level an answer names: v1.16's `level`, or from an older subject v1.14's word. Their "grant"
+ * meant everything their ECHS reaches, so it reads as full here (unlike a saved "grant", which a
+ * subject's own storage turns into moderate). */
+function levelFromWire(level: unknown, legacy: unknown): KeyMode | null {
+	if (level === "minimal" || level === "moderate" || level === "full") return level;
+	if (legacy === "take") return "minimal";
+	if (legacy === "grant") return "full";
+	return null;
+}
 
 /** A state-response arrived (remote.ts). Picks out what concerns keys. Cleaned: it came over the wire. */
 export function receiveKeyholderFields(sender: number, message: any): void {
-	if (message?.keyholder === "none") {
+	const held = levelFromWire(message?.keyLevel, message?.keyholder);
+	if (message?.keyholder === "none" || message?.keyLevel === "none") {
 		holds.delete(sender);
 		snapshots.delete(sender);
-	} else if (isMode(message?.keyholder)) holds.set(sender, message.keyholder);
+	} else if (held) holds.set(sender, held);
 	const s = message?.settings;
 	if (s && Array.isArray(s.boxes) && s.boxes.length <= 80) {
 		const boxes = s.boxes
@@ -238,7 +277,7 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 		const choices = (Array.isArray(s.choices) ? s.choices.slice(0, 20) : [])
 			.filter((c: any) => c && typeof c.key === "string" && c.key.length <= 40 && typeof c.value === "string" && c.value.length <= 40)
 			.map((c: any) => ({ key: c.key as string, value: c.value as string }));
-		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: isMode(s.mode) ? s.mode : "take" }, at: Date.now() });
+		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal" }, at: Date.now() });
 		askedAt.delete(sender);
 	}
 	const r = message?.settingsResult;

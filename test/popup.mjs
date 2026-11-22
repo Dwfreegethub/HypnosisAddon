@@ -509,15 +509,22 @@ check("Keys tab always offered", popup.availableTabs().includes("keys"), "a Keys
 popup.setPopupTab("keys");
 check("your keyholders shown", byText("−  Your keyholders").length === 1, "the Your keyholders group, open");
 const keyChip = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
-keyChip("grant").click();
-check("owner chip types the command", chatBox.value === "/echs keyholder owner grant" && chatSent.length === 0, `"/echs keyholder owner grant" typed, got "${chatBox.value}"`);
+// v1.16.0 (job6.md §2): one "Give keys" button per person, cycling; the owner's comes first.
+check("no take/grant buttons any more", !keyChip("grant") && !keyChip("add (take)") && !keyChip("make take"), "the old labels gone");
+keyChip("Give keys (minimal)").click();
+check("owner's Give keys types minimal first", chatBox.value === "/echs keyholder owner minimal" && chatSent.length === 0, `"/echs keyholder owner minimal" typed, got "${chatBox.value}"`);
+keyChip("Give keys (minimal)").click(); // the owner's again: its label is what was typed
+check("  a second click on it moves on", chatBox.value === "/echs keyholder owner moderate", `owner moderate, got "${chatBox.value}"`);
+keyChip("Give keys (minimal)").click(); // now the first minimal button is Alice's
+check("another person's button types its own label first", /^.echs keyholder add .+ minimal$/.test(chatBox.value), `an add at minimal, got "${chatBox.value}"`);
+check("  and the button now says so", !!keyChip("Give keys (moderate)"), "a moderate label");
 check("no held-keys group while we hold none", byText("−  Settings you hold keys to").length === 0, "no held-keys group");
 // Bea says we hold her keys, take only, and sends her settings.
 // As remote.ts's state-response handler passes it on (remote.ts is not installed here).
 KH.receiveKeyholderFields(B, { type: "state-response", version: "1.14.0", keyholder: "take", settings: { boxes: [{ key: "sightControl", on: true }, { key: "postureControl", on: false }], extreme: true, mode: "take" } });
 hidden = [];
 popup.popupTick();
-check("held-keys group for Bea", byText("−  Settings you hold keys to").length === 1 && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Bea's settings. You can only switch them off.")).length === 1, "Bea's settings, take wording");
+check("held-keys group for Bea", byText("−  Settings you hold keys to").length === 1 && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith("Bea's settings. You hold minimal keys")).length === 1, "Bea's settings, minimal wording (an older subject's take)");
 check("  asked her once for fresh settings", hidden.filter((m) => m.to === B && m.type === "remote-request" && m.action === "read").length === 1, "one read request to Bea");
 const box = (start) => findAll(win(), (n) => n.className.startsWith("echs-pop-item") && n.textContent.startsWith(start))[0];
 check("on box ticked, off box faded for take", box("☑ Sight")?.className.includes("echs-pop-off") === false && box("☐ Posture Control")?.className.includes("echs-pop-off"), "Sight ticked and live, Posture unticked and faded");

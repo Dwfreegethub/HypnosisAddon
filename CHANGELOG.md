@@ -13,6 +13,20 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.0 · 22 November 2026
+
+- **Three levels of keys.** *take* and *grant* are now **minimal**, **moderate** and **full**:
+  - **minimal**: they can only switch things off.
+  - **moderate**: they can also shape your trance: your Trance Defaults and Awareness, the screen
+    effect and eyes, induction time and how deep "sink deeper" goes. They still can't open new
+    permissions, triggers, toy mode or auto-answer.
+  - **full**: everything they can reach.
+- **Your keyholders moved over:** *take* became **minimal** and *grant* became **moderate**. If you
+  want someone to have full keys, give them again.
+- **New buttons on the Keys tab.** One **Give keys** button per person; click it again for the next
+  level. **Take keys back** removes someone. `/echs keyholder add <name> full` (or `minimal`,
+  `moderate`) does the same by typing.
+
 ## v1.15.3 · 22 November 2026
 
 - **Trigger words in OOC show as typed.** A trigger never fires from something said in brackets,

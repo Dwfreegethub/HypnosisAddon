@@ -18,6 +18,23 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.0) — keyholder levels (job6.md stage 1)
+
+DW: take/grant read wrong ("make take"), and a middle level was wanted. Three levels: minimal (off
+only), moderate (also shapes the trance: Trance Defaults and Awareness boxes on, and remoteChoices
+marked `moderate`: screen effect, eyes, eye colour, pulse colour, attempts, induction time, sink
+deeper), full (everything). Toy mode, auto-answer, when-away and who-toy-mode-is-for stay full-only.
+- `keyLevelAllows(level, turnsOff, moderateOk)` decides on her side and greys on the keyholder's.
+- Conversion (DW): saved take -> minimal, grant -> MODERATE (full grows in later stages, so it is
+  re-given on purpose). Typed take/grant still parse (toKeyMode).
+- Wire: `keyLevel` beside v1.14's `keyholder: take|grant` (minimal -> take, else grant), and
+  `settings.level` beside `settings.mode`, so a v1.14 keyholder still sees her. A v1.14 subject's
+  "grant" reads as full on a new keyholder's side (it meant everything there).
+- Keys tab: one "Give keys (level)" button per person, cycling on repeat clicks (label = what is
+  typed); "Take keys back". DW chose typed, not acting on click.
+- Tests: keyholder 89 (+22), popup 152 (+4). Mutation-checked: moderate allowed everywhere fails 6;
+  grant -> full fails 3. Not live-tested.
+
 ### Fixed 2026-11-22 (v1.15.3) — trigger words in OOC were concealed
 
 DW: "the addon is putting **** in place of trigger words in OOC. I agree it should not trigger if
