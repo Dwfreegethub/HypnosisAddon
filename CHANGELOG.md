@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.6 · 22 November 2026
+
+- **A hypnotist can't keep inducing while being hypnotized.** If someone starts hypnotizing a
+  person who is still in the middle of hypnotizing you, their induction on you ends, and you're
+  told. It doesn't use up one of their tries. A trance that has already taken hold carries on as
+  before. Both of you need this version or newer.
+
 ## v1.16.5 · 22 November 2026
 
 - **More ways to move.** Under *Made to Act*, a hypnotist can now say *"wiggle your hips"*,

@@ -2341,6 +2341,22 @@ export function requestInduction(memberNumber: number): void {
 	else requestAttempt(memberNumber);
 }
 
+/** Someone is hypnotizing us while we are still inducing someone else (v1.16.6, DW 2026-11-22: "If
+ * the hypnotist is still in the process of hypnotizing someone and a hypno request comes in for
+ * them the 1st person should fail"). Every induction we have under way, by our view of it, is
+ * ended on the subject's side with the wake message we already send, flagged so it can only end an
+ * induction and never a trance (a stale view must not wake someone already under; DW: an existing
+ * trance carries on). Only a request we take up counts, so a refused one (hypnosis off, away,
+ * already under) changes nothing. */
+function dropOwnInductions(byName: string): void {
+	for (const [member, view] of views) {
+		if (view.phase !== "AttemptMade" && view.phase !== "InductionInProgress") continue;
+		sendHiddenMessage({ type: "session-wake", inductionOnly: true }, member);
+		notify(`${byName} is reaching for you, so your induction on ${findCharacterName(member)} ends.`);
+		log(`dropped our induction on ${member}: being hypnotized by ${byName}`);
+	}
+}
+
 export function requestWake(memberNumber: number): void {
 	sendHiddenMessage({ type: "session-wake" }, memberNumber);
 	log(`sent session-wake to ${memberNumber}`);
@@ -2454,6 +2470,8 @@ export function installSession(): void {
 		// the relationship are the subject's, and the far side never learns the result.
 		session.honouredSkill = honourSkill(getSkillHonour(), Number(message.skill ?? 0), trustWith(sender));
 		session.promptName = who;
+		// Reached for while still reaching for someone else: theirs fails (v1.16.6).
+		dropOwnInductions(who);
 		if (answer.kind === "toy") {
 			toyInduction(who);
 			return;
@@ -2550,9 +2568,15 @@ export function installSession(): void {
 	// Gating a release on the hypnotist being present would mean the one message that ends a
 	// trance is the one that stops working the moment they are gone — the exact trap the
 	// safeword exists to make impossible. Nothing that lets go is ever gated in this file.
-	registerHiddenHandler("session-wake", (sender) => {
+	registerHiddenHandler("session-wake", (sender, message) => {
 		if (session.hypnotistId !== sender) return;
 		if (session.phase === "Idle") return;
+		// Their own induction dropped because someone is hypnotizing them (v1.16.6): it ends as a
+		// lapse, and never touches a trance.
+		if (message?.inductionOnly) {
+			if (session.phase === "AttemptMade" || session.phase === "InductionInProgress") lapseInduction("is being hypnotized themselves, and lets go of you");
+			return;
+		}
 		endSession("they woke you");
 	});
 
