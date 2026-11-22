@@ -14,10 +14,10 @@ A worked example, end to end: two people, the actual lines typed in room chat, a
 
 Missy installs the script, reloads Bondage Club, and sees this startup notice in her local chat log:
 
-[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Open settings to configure.]
+[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. To set up, click the round spiral button in the room, then the gear; or Preferences > Extensions > ECHS Hypnosis.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 
-She clicks the **spiral icon on her player profile card** (or navigates to **Preferences → Extensions → ECHS Hypnosis**) to run the wizard. She picks the **Balanced** template, which turns on *Hypnosis Enabled*, the basic session restrictions, and **Allow triggers to be planted in you** — so she can test triggers straight away.
+She clicks the **round spiral button** in the room and then the **gear** in the ECHS popup (or navigates to **Preferences → Extensions → ECHS Hypnosis**) to run the wizard. She picks the **Balanced** template, which turns on *Hypnosis Enabled*, the basic session restrictions, and **Allow triggers to be planted in you** — so she can test triggers straight away.
 
 Elena does not need any permissions switched on to act as a hypnotist—her own settings govern only what can be done to *her* avatar.
 

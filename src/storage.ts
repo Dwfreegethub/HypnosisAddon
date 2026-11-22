@@ -163,7 +163,12 @@ export interface TrustEntry {
 	/** Interaction COUNT, not a 0-100 value — see curve.ts for why. Derive the trust
 	 * value with `trustWith()`; never store one. */
 	interactions: number;
+	/** When the count last changed, decay included: decay reads it as its clock. Not "last seen". */
 	lastUpdated: number;
+	/** When trust last GREW from something you did together (v1.15.1). Decay never touches it, so
+	 * the Stats tab's "N days ago" stops resetting to "just now" whenever decay is charged. Absent
+	 * on entries from before it; lastUpdated stands in for those. */
+	lastTogether?: number;
 }
 
 /** A planted trigger. Persistent — this is the first thing the add-on stores that outlives
@@ -807,6 +812,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	// 0-100 value; convert it back through the curve so existing data survives rather than
 	// silently resetting to zero.
 	for (const entry of s.trust) {
+		if (entry.lastTogether !== undefined && (typeof entry.lastTogether !== "number" || !Number.isFinite(entry.lastTogether))) delete entry.lastTogether;
 		const legacy = (entry as unknown as { relationshipTrust?: number }).relationshipTrust;
 		if (typeof entry.interactions !== "number" && typeof legacy === "number") {
 			entry.interactions = countFromValue(legacy, H_TRUST);
@@ -1064,6 +1070,7 @@ export function addInteractions(memberId: number, memberName: string, delta: num
 	if (isRealName(memberName)) entry.memberName = memberName;
 	if (accountName) entry.accountName = accountName;
 	entry.lastUpdated = Date.now();
+	if (delta > 0) entry.lastTogether = entry.lastUpdated;
 	saveSettings();
 	return entry;
 }

@@ -5,7 +5,7 @@
 
 ---
 
-Open settings via the **spiral icon on your player profile card**, or navigate to **Preferences → Extensions → ECHS Hypnosis**. Setting categories run down the left edge.
+Open settings with the **gear** in [the ECHS popup](The-ECHS-Popup) (the round spiral button in a chat room), or go to **Preferences → Extensions → ECHS Hypnosis**. *(The spiral on a profile card is only on other players' profiles; it opens the hypnosis panel for them, not your settings.)* Setting categories run down the left edge.
 
 Everything in these menus represents a **permission** (*"Do I allow this to be done to me?"*) or a **depth threshold** (*"How deep must I be?"*). Ticking a toggle simply defines your boundaries — it never forces an effect on you on its own.
 

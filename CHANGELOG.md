@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.15.1 · 22 November 2026
+
+- **"Days ago" on your trust list is right now.** On the Stats tab, each person's "3d ago" is when
+  you last did something together. It used to jump back to "just now" whenever trust slowly faded.
+- **Clearer directions to your settings.** The first-time notice and the wiki now say to click the
+  round spiral button in the room and then the gear (or Preferences > Extensions > ECHS Hypnosis).
+  They used to point at a spiral on your own profile, which isn't there.
+
 ## v1.15.0 · 21 November 2026
 
 - **ECHS tells you when it updates.** The first time you load a new version, a beep pops up with a

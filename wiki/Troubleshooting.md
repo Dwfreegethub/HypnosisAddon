@@ -33,15 +33,15 @@
 
 **Did you see these lines when you first loaded in?**
 
-[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. Open settings to configure.]
+[Erotic Chat Hypnosis Suite (ECHS) — nothing is switched on yet. To set up, click the round spiral button in the room, then the gear; or Preferences > Extensions > ECHS Hypnosis.]
 [Your reactions are visible to the room by default; Trance Defaults turns that off.]
 
-If so, the script is running properly — **it simply starts completely turned off**. Every permission begins disabled by default, including the master switch. Click the spiral icon on your player profile card (or go to **Preferences → Extensions → ECHS Hypnosis**) and run the Setup Wizard. See [Getting Started](Getting-Started). *(This notice appears only on a fresh install, so returning players will not see it on every login).*
+If so, the script is running properly — **it simply starts completely turned off**. Every permission begins disabled by default, including the master switch. Click the round spiral button in the room, then the **gear** in the ECHS popup (or go to **Preferences → Extensions → ECHS Hypnosis**), and run the Setup Wizard. See [Getting Started](Getting-Started). *(This notice appears only on a fresh install, so returning players will not see it on every login).*
 
 **If a red note in the bottom-right corner says ECHS could not load:**  
 ECHS downloads its newest version each time the game opens, and this time it could not reach either place it downloads from. Refresh the page. If the note keeps coming back, report it and say which Bondage Club address you play on.
 
-**If there is no spiral icon on your player profile card and nothing in the browser console:**  
+**If there is no ECHS line in your chat, no round spiral button in the room, no spiral on other players' profiles, and nothing in the browser console:**  
 The userscript is not executing. A userscript with an incorrect `@match` pattern will fail silently without error. Because Bondage Club is hosted across multiple domains and mirrors, verify that your userscript manager (Tampermonkey, Violentmonkey, etc.) lists the script as active and enabled on the exact URL you are visiting. If you load ECHS through FUSAM, open the **Addon Manager** and check that ECHS is set to **stable** (or **dev**) and not **None**.
 
 ---

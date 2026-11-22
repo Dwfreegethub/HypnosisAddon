@@ -18,6 +18,19 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-22 (v1.15.1) — "N days ago", and where settings are
+
+Two small offers DW took up.
+- Trust entries gain `lastTogether`, set only when `addInteractions` adds (delta > 0). Decay charges
+  `lastUpdated` (it is decay's clock), which reset the Stats tab's "N days ago" to "just now" (found
+  during the v1.12.8 rate-limit fix). The row reads `lastTogether ?? lastUpdated`, so old entries
+  show what they did before until the next interaction. `test/trust-burst.mjs` +5; mutation-checked
+  (never setting it fails 4).
+- The first-run notice ("Click the spiral to set up") and four wiki places (Settings Reference,
+  Sample Session, Troubleshooting ×2) pointed at a spiral on your OWN profile. There is none:
+  `remote.ts addSheetButton` skips the player's own sheet. They now name the popup's spiral button
+  and gear, or Preferences > Extensions.
+
 ### Added 2026-11-21 (v1.15.0) — the update notice
 
 DW: players should hear when ECHS updates, as a beep with a short description and a changelog link.
