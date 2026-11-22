@@ -27,8 +27,8 @@ import { getLastSeenVersion, setLastSeenVersion } from "./storage";
 
 /** The note for the release this build belongs to. Plain words: it goes into chat as HTML. */
 export const UPDATE_NOTE: { version: string; text: string } = {
-	version: "1.15.0",
-	text: "ECHS now tells you when it updates, with what changed. Keyholders can also change your spiral and your Inductions settings.",
+	version: "1.16.7",
+	text: "ECHS now tells you when it updates. This one brings keyholder levels (minimal, moderate, full), asking for keys, keyholder locks, and new movements and faces such as wiggle, nod, hug, frown and cry.",
 };
 
 export const CHANGELOG_URL = "https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md";

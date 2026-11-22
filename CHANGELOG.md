@@ -13,6 +13,10 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.7 · 22 November 2026
+
+- The note ECHS shows when this update reaches you, summing up v1.15.0 to v1.16.6 below.
+
 ## v1.16.6 · 22 November 2026
 
 - **A hypnotist can't keep inducing while being hypnotized.** If someone starts hypnotizing a
