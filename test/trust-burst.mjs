@@ -51,17 +51,6 @@ runTimers();
 check("a second of frames sends nothing more", syncs, 1);
 check("  and charges nothing twice", storage.listTrust()[0].interactions, charged);
 
-// --- "N days ago" is when you were last together, not when decay ran (v1.15.1) ------------------
-// Failure: "just now" (or "0m ago"), the decay charge above having reset the clock it showed.
-check("the row says 10d ago after decay was charged", / · 10d ago$/.test(rows.find((r) => r.memberId === 1000)?.detail ?? ""), true);
-check("  decay did not touch lastTogether", storage.listTrust()[0].lastTogether, 1_000_000_000);
-check("  an entry from before the field falls back to lastUpdated", (() => { const e = storage.listTrust()[1]; delete e.lastTogether; return / · just now$/.test(trust.trustStatRows().find((r) => r.memberId === e.memberId)?.detail ?? ""); })(), true);
-storage.addInteractions(1000, "P0", 1);
-check("  and something together moves it", storage.listTrust().find((t) => t.memberId === 1000).lastTogether, clock);
-storage.addInteractions(1000, "P0", -1);
-check("  but losing trust does not", storage.listTrust().find((t) => t.memberId === 1000).lastTogether, clock);
-runTimers();
-
 // --- /echs logtrust ------------------------------------------------------------------------------
 clock += 3 * DAY;
 syncs = 0;

@@ -252,8 +252,7 @@ export function trustStatRows(query: string = ""): TrustStatRow[] {
 			memberId: t.memberId,
 			name: trustEntryLabel(t),
 			trust: trustWith(t.memberId).toFixed(1),
-			// When you last did something together, not when decay last ran (v1.15.1).
-			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastTogether ?? t.lastUpdated)}`,
+			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastUpdated)}`,
 		}));
 }
 

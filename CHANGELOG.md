@@ -13,6 +13,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.15.2 · 22 November 2026
+
+- **"Days ago" on your trust list is back to how it was.** The v1.15.1 change didn't work as
+  intended, so it has been taken out. The clearer directions to your settings stay.
+
 ## v1.15.1 · 22 November 2026
 
 - **"Days ago" on your trust list is right now.** On the Stats tab, each person's "3d ago" is when

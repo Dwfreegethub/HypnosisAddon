@@ -18,6 +18,15 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Reverted 2026-11-22 (v1.15.2) — lastTogether taken back out
+
+DW, after a refresh on dev: the Stats tab still read as time since the last reset, and many people
+showed "just now" whom DW had not just interacted with. Undone at DW's word rather than chased: the
+field, its setter and the row's use of it are gone; normalise() deletes any saved `lastTogether`.
+Likely causes, for whoever picks it up: old entries fall back to `lastUpdated` (which decay had
+just reset), and passive trust growth (conversation in the room) counts as "together". The settings
+directions from v1.15.1 stay.
+
 ### Fixed 2026-11-22 (v1.15.1) — "N days ago", and where settings are
 
 Two small offers DW took up.
