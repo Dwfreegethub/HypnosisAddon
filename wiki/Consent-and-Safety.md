@@ -128,6 +128,7 @@ Choosing the **Extreme** setup template, and confirming its warning, makes your 
 Since v1.14.0 you can give someone your **keys**: they can then change your ECHS settings from their side, while you're both in the same room.
 
 * **Who:** anyone you name with `/echs keyholder add <name> <level>`, and your **BC owner** if you allow it with `/echs keyholder owner <level>`. Nobody holds your keys until you choose. The popup's **Keys** tab does the same with **Give keys** buttons.
+* **Being asked:** someone can ask for your keys (`/echs keyholder request`, or **Request keys** on their Keys tab). You get a popup saying who and at what level, with **Give … keys** and **Decline**. **No answer in 30 seconds is a no**, and nothing changes unless you click to give. The same person can ask again only after 3 minutes. While your Extreme lock (or a session lock) is on you can't give keys, so the request is turned down and you're told it came.
 * **How far, per keyholder** (since v1.16.0; before it, *take* and *grant*):
   * **minimal**: they can only switch things **off**, and set a choice to its off option. Nothing new can be opened.
   * **moderate**: as minimal, and they can also **shape your trance**: switch your **Trance Defaults** and **Awareness** boxes on and off, and pick any screen effect, eyes, eye colour, pulse colour, induction time, attempts and how deep "sink deeper" goes. They still can't switch **Permissions** or **Triggers** on, or turn on toy mode, auto-answer or who toy mode is for.

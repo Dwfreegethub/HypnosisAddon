@@ -965,6 +965,11 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
   click, told to her, logged (`remoteLog`). Refusals told to the keyholder. Same room only.
 - **No new message type:** `remote-request` (feature "settings") and `state-response` fields, plus
   `keyholder` on her answer to that asker's state-query. Asked at most every 30 s from the popup.
+- **Requests (v1.16.1, job6.md §3):** `remote-request` action `request-keys` with a level; she
+  answers in ask.ts's popup (30 s, no answer = decline; one at a time), and the result rides
+  `state-response` as `keyRequestResult`. Checked on her side: her locks, what they already hold, one
+  ask per person per 3 min. The asker's side offers it only to peers on v1.16.1+ (an older client
+  would answer "not your keyholder"). Asking is not held by the asker's own locks.
 - **The popup's Keys tab** is the one place a click acts instead of typing (besides the Safeword
   button): a keyholder's box has no chat line to type.
 

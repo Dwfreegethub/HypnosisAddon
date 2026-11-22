@@ -43,11 +43,16 @@ import {
 	listKeyholders,
 	KeyMode,
 	keyRank,
+	KEY_LEVELS,
+	setKeyholder,
 	noteRemoteChange,
 	clearExtremeLock,
 } from "./storage";
-import { remoteRows, remoteChoices, onToggle, MODERATE_TABS } from "./menu";
+import { remoteRows, remoteChoices, onToggle, MODERATE_TABS, settingsLocked } from "./menu";
 import { extremeLocked } from "./extreme";
+import { askPlayer, askOpen } from "./ask";
+import { compareVersions } from "./update";
+import { peerFor } from "./badge";
 import { presenceFields } from "./badge";
 
 // --- Subject side ----------------------------------------------------------------------------------
@@ -132,8 +137,101 @@ function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: s
 	);
 }
 
+// --- Requests for her keys (v1.16.1, job6.md §3) ---------------------------------------------------
+// Anyone here may ask for her keys at a level; she answers in a popup (ask.ts), and no answer in 30 s
+// is a Decline (DW). Nothing changes unless she clicks Accept. One ask per person every
+// KEY_REQUEST_GAP_MS, checked on her side whatever the asker's client does. Under her own locks her
+// list is read-only, so the request is refused and she is told it came.
+
+/** What each level lets a keyholder do, in plain words. Shared with commands.ts. */
+export const KEY_LEVEL_WORDS: Record<KeyMode, string> = {
+	minimal: "minimal keys: they can only switch your settings OFF",
+	moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+	full: "full keys: they can switch everything they reach on and off",
+};
+/** How long before the same person may ask again. */
+export const KEY_REQUEST_GAP_MS = 3 * 60_000;
+/** The first version that answers a request; older ones would say "not your keyholder". */
+export const KEY_REQUEST_SINCE = "1.16.1";
+const requestedFrom = new Map<number, number>();
+
+function herName(): string {
+	return (Player?.Nickname || Player?.Name || "They") as string;
+}
+
+/** Answer one request on her side. Returns what happened, for the suite. */
+function handleKeyRequest(sender: number, message: any): string {
+	const who = nameOf(sender);
+	const current = keyModeFor(sender);
+	const result = (ok: boolean, text: string) =>
+		sendHiddenMessage({ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyRequestResult: { ok, text } }, sender);
+	const level = KEY_LEVELS.find((l) => l === message?.level) ?? null;
+	if (!level || !characterFor(sender)) {
+		result(false, "That request did not make sense to their ECHS.");
+		return "bad";
+	}
+	if (extremeLocked() || settingsLocked()) {
+		result(false, "Their settings are locked right now, so they can't give keys.");
+		tellPlayer(`${who} asked for your keys (${level}), but your settings are locked, so you can't give them now.`);
+		return "locked";
+	}
+	if (current && keyRank(current) >= keyRank(level)) {
+		result(false, `You already hold their keys (${current}).`);
+		return "has";
+	}
+	const now = Date.now();
+	if (now - (requestedFrom.get(sender) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
+		result(false, "You asked them recently. Wait a few minutes before asking again.");
+		return "too soon";
+	}
+	if (askOpen()) {
+		result(false, "They are answering another question. Try again in a moment.");
+		return "busy";
+	}
+	const asked = askPlayer({
+		title: `${who} asks for your keys`,
+		lines: [
+			`They want ${KEY_LEVEL_WORDS[level]}.`,
+			"A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. You can take your keys back at any time.",
+		],
+		accept: `Give ${level} keys`,
+		decline: "Decline",
+	});
+	if (!asked) {
+		result(false, "Their ECHS could not show them the request.");
+		return "no page";
+	}
+	requestedFrom.set(sender, now);
+	log(`${who} (#${sender}) asked for ${level} keys`);
+	asked.then((answer) => {
+		if (answer !== "accept") {
+			result(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
+			if (answer === "timeout") tellPlayer(`${who}'s request for your keys timed out, so nothing changed.`);
+			return;
+		}
+		// Checked again now: a lock may have begun while the box was up.
+		if (extremeLocked() || settingsLocked()) {
+			result(false, "Their settings locked before they could answer, so nothing changed.");
+			tellPlayer("Your settings are locked now, so the keys were not given.");
+			return;
+		}
+		if (!setKeyholder(sender, who, level)) {
+			result(false, "They already have the most keyholders allowed.");
+			tellPlayer("You already have the most keyholders allowed (10). Take someone's keys back first.");
+			return;
+		}
+		announceKeysTo(sender);
+		result(true, `${herName()} gave you ${level} keys.`);
+		tellPlayer(`You gave ${who} ${KEY_LEVEL_WORDS[level]}. Take them back any time with /echs keyholder remove ${who}.`);
+		log(`gave ${who} (#${sender}) ${level} keys on request`);
+	});
+	return "asked";
+}
+
 /** A keyholder's request, on this client as the SUBJECT. Returns what was said back, for the suite. */
 export function handleSettingsRequest(sender: number, message: any): string {
+	// A request for her keys comes from someone who does not hold them yet, so before the check below.
+	if (message?.action === "request-keys") return handleKeyRequest(sender, message);
 	const mode = keyModeFor(sender);
 	const who = nameOf(sender);
 	if (!mode) {
@@ -280,6 +378,13 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal" }, at: Date.now() });
 		askedAt.delete(sender);
 	}
+	// The answer to our request for their keys (v1.16.1): said in chat, since the popup may be shut.
+	const kr = message?.keyRequestResult;
+	if (kr && typeof kr.text === "string") {
+		const text = kr.text.slice(0, 200);
+		results.set(sender, { ok: kr.ok === true, text, at: Date.now() });
+		tellPlayer(`${nameOf(sender)}: ${text}`);
+	}
 	const r = message?.settingsResult;
 	if (r && typeof r.text === "string") {
 		results.set(sender, { ok: r.ok === true, text: r.text.slice(0, 200), at: Date.now() });
@@ -321,12 +426,35 @@ export function requestSetting(member: number, key: string, value: boolean): voi
 export function requestChoice(member: number, key: string, value: string): void {
 	ask(member, { action: "choose", key, value });
 }
+/** Can this person answer a request for their keys? Their ECHS must be new enough. */
+export function canRequestKeys(member: number): boolean {
+	const v = peerFor(member)?.version ?? "";
+	return /^\d+(\.\d+)*$/.test(v) && compareVersions(v, KEY_REQUEST_SINCE) >= 0;
+}
+
+/** When we last asked each person for their keys, so a second click does not send again at once. */
+const keysAskedOf = new Map<number, number>();
+
+/** Ask someone for their keys. Returns what to tell the player. */
+export function requestKeys(member: number, level: KeyMode, now: number = Date.now()): string {
+	const name = nameOf(member);
+	if (!characterFor(member)) return `${name} is not in this room.`;
+	if (!canRequestKeys(member)) return `${name}'s ECHS can't answer a request for keys (they need v${KEY_REQUEST_SINCE} or newer).`;
+	const since = now - (keysAskedOf.get(member) ?? -Infinity);
+	if (since < KEY_REQUEST_GAP_MS) return `You asked ${name} recently. Try again in ${Math.ceil((KEY_REQUEST_GAP_MS - since) / 60_000)} min.`;
+	keysAskedOf.set(member, now);
+	sendHiddenMessage({ type: "remote-request", feature: "settings", action: "request-keys", level }, member);
+	return `Asked ${name} for ${level} keys. They have 30 seconds to answer.`;
+}
+
 export function requestEndExtreme(member: number): void {
 	ask(member, { action: "end-extreme" });
 }
 
 /** For the suite. */
 export function resetKeyholderViews(): void {
+	keysAskedOf.clear();
+	requestedFrom.clear();
 	holds.clear();
 	snapshots.clear();
 	results.clear();

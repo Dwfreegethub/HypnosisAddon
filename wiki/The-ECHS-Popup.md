@@ -111,6 +111,8 @@ Lines that need finishing end where you type on, and the status line says what's
 
 **Your keyholders:** your BC owner, the people you've named, and everyone else here, each with a **Give keys (level)** button. Its label is what it types; click it again for the next level (minimal → moderate → full → minimal). Anyone who holds your keys also has **Take keys back**. These type the `/echs keyholder` command, like everything else; press Enter. The last changes made to your settings are listed underneath. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
 
+**Ask for keys:** everyone here whose ECHS can answer (v1.16.1 or newer), unless you already hold their full keys, with a **Request keys (level)** button that cycles like Give keys. Press Enter to send. They get a popup; their answer shows in chat and under their name.
+
 **Settings you hold keys to:** for anyone here who has given you their keys, their tick boxes from four settings tabs, and a row of buttons for each choice on their Inductions tab and for their screen effect (the spiral), eyes, eye colour and pulse colour. **Clicking one asks their ECHS to switch it**; it doesn't type anything, because there is no chat line for it. The answer appears in the window. Whatever your level of keys can't do is faded: with **minimal** keys, boxes that are off and every choice but the one that switches it off; with **moderate**, the Permissions and Triggers boxes that are off, and toy mode, auto-answer and who toy mode is for. If their Extreme lock is on, **end their Extreme lock** appears: click it twice.
 
 ## Commands

@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.1) — requesting keys (job6.md stage 2)
+
+DW: a would-be keyholder can ask; "a pop up instead of a chat request. No answer is a decline".
+- `ask.ts`: one Accept/Decline box at a time, 30 s, driven by a once-a-second tick that reads the
+  clock (so a throttled background tab still times out). Stages 5 and 6 reuse it.
+- Her side (`handleKeyRequest`, before the keyholder check since the asker holds no keys yet):
+  refuses a bad level, under her Extreme or session lock (and tells her it came), when they already
+  hold that much, within 3 min of their last ask, or while another question is open. Re-checks her
+  locks after Accept. Only Accept changes anything.
+- Asker's side: `requestKeys` only for peers on v1.16.1+ (badge version), 3 min between asks; the
+  answer (`keyRequestResult`) is said in chat and shown under their name. Not held by the asker's
+  own locks: asking for someone else's keys is not one of her settings.
+- Keys tab "Ask for keys" group with a cycling **Request keys (level)** button (typed, like Give keys).
+- `test/key-request.mjs` (34). Mutation-checked: no timeout fails 3, treating any answer as Accept
+  fails 4. Not live-tested.
+
 ### Changed 2026-11-22 (v1.16.0) — keyholder levels (job6.md stage 1)
 
 DW: take/grant read wrong ("make take"), and a middle level was wanted. Three levels: minimal (off
