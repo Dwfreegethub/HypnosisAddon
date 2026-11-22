@@ -66,6 +66,13 @@ function startedLines(): HelpLine[] {
 		body("own client decides whether anything lands. Nobody is ever made to"),
 		body("do anything — their settings answer for them."),
 		gap(),
+		head("The ECHS popup"),
+		body("In a chat room, the round spiral button on the left opens a window"),
+		body("that TYPES for you: who you can hypnotize, what to say to someone"),
+		body("under you, your own answers, triggers, and every command. Nothing"),
+		body("is sent until you press Enter. Drag it anywhere; switch it off at"),
+		dim("Trance Defaults > ECHS popup in rooms."),
+		gap(),
 		head("As the subject"),
 		body("1. Tick the permissions you want to allow. Everything is off until"),
 		body("   you say so — a fresh install does nothing on purpose."),
@@ -144,6 +151,7 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   pinch · spank · slap · scratch · tickle · pull · lick · kiss · bite ·"));
 	lines.push(dim("   massage · pet. Bare \"touch yourself\" wanders; name a part to steer it."));
 	lines.push(dim(`   Add "three times" to repeat a touch, up to five.`));
+	lines.push(body(`"take a sip" · "drink up"   (Made to Act) — she sips the drink in her hand.`));
 	lines.push(body(`"kiss Rei" · "kiss Rei's nipples" · "kiss me" · "pinch my nipples"`));
 	lines.push(dim("   (Made to Act, + Made to Touch Others for anyone but you) — the same verbs"));
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
@@ -315,7 +323,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, after you wake up, ..."   "Missy, when you open your eyes, ..."`),
 		body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
 		dim("Then \"remember trigger\". Once, unless you say it works every time;"),
-		dim("never while they are under. Their safeword clears the after-waking ones."),
+		dim("never while they are under. Waking from anyone's trance sets off the"),
+		dim("after-waking ones; their safeword clears them."),
 		gap(),
 		head("Firing, releasing and removing one"),
 		body(`Say the phrase — it works with no session, which is the point.`),
@@ -343,6 +352,12 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, forget what I said"          ← takes it back`),
 		dim("Trance defaults can never be carried, so you always wake with your"),
 		dim("movement and your voice back."),
+		gap(),
+		head("Keyholders"),
+		body("/echs keyholder add <name> [grant] gives someone your keys: they can"),
+		body("change your settings while you share a room, even under Extreme, and"),
+		body("end the lock. take = only switch off; grant = on too. Your BC owner:"),
+		dim("/echs keyholder owner take|grant. /echs keyholder lists them."),
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you ·"),

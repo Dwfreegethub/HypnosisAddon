@@ -72,6 +72,8 @@ import {
 	ECHS_ICON_SPOTS,
 	getEchsIconSpot,
 	setEchsIconSpot,
+	getPopupEnabled,
+	setPopupEnabled,
 	TOY_SCOPES,
 	getToyMode,
 	setToyMode,
@@ -80,6 +82,8 @@ import {
 	nextInductionSeconds,
 	getToyScope,
 	setToyScope,
+	ATTEMPT_LIMITS,
+	INDUCTION_TIMES,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -269,14 +273,16 @@ const TABS: Tab[] = [
 		],
 		scrollExtra: {
 			// The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
-			// where others' icons go.
-			height: () => tranceDropdownsHeight() + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight(),
+			// where others' icons go, then the ECHS popup (job4.md).
+			height: () => tranceDropdownsHeight() + pulseControlsHeight() + 2 * (CYCLE_GAP + attemptControlHeight()),
 			draw: (top, width) => {
 				drawTranceDropdowns(top, width, settingsLocked());
 				const pulseTop = top + tranceDropdownsHeight();
 				drawPulseControls(pulseTop, width);
-				// The viewer's own display choice, so not greyed by a lock: it changes nothing about her.
-				drawCycle(ICON_SPOT_CONTROL, pulseTop + pulseControlsHeight() + CYCLE_GAP, width, false);
+				// The viewer's own display choices, so not greyed by a lock: they change nothing about her.
+				const iconTop = pulseTop + pulseControlsHeight() + CYCLE_GAP;
+				drawCycle(ICON_SPOT_CONTROL, iconTop, width, false);
+				drawCycle(POPUP_CONTROL, iconTop + attemptControlHeight() + CYCLE_GAP, width, false);
 			},
 			click: (top) => {
 				const pulseTop = top + tranceDropdownsHeight();
@@ -288,6 +294,12 @@ const TABS: Tab[] = [
 				if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
 					ICON_SPOT_CONTROL.cycle();
 					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
+					return true;
+				}
+				const popupTop = pulseTop + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight() + CYCLE_GAP;
+				if (MouseIn(BOX_LEFT, popupTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
+					POPUP_CONTROL.cycle();
+					log(`setting now: ${POPUP_CONTROL.label()}`);
 					return true;
 				}
 				return false;
@@ -359,6 +371,28 @@ const TABS: Tab[] = [
 const STATS_TAB = TABS[TABS.length - 1];
 const BASE_TABS = TABS.slice(0, TABS.length - 1);
 let showAdvanced = false;
+
+/** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, and (v1.14.1)
+ * remoteChoices() on Inductions and Trance Defaults. In screen order. */
+export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers"];
+
+export type RemoteRow = { key: keyof FeatureToggles; label: string; tab: string; heading: string; needs?: keyof FeatureToggles };
+
+/** Every tick box a keyholder may switch, read from the tabs themselves so the remote can never
+ * offer one the settings screen does not have, or miss one it gains. In screen order. */
+export function remoteRows(): RemoteRow[] {
+	const out: RemoteRow[] = [];
+	for (const tab of TABS.filter((t) => REMOTE_TABS.includes(t.name))) {
+		for (const r of tab.fixedRows ?? []) out.push({ key: r.key, label: r.label, tab: tab.name, heading: "", needs: r.needs });
+		let heading = "";
+		for (const item of tab.rows ?? []) {
+			if (isHeading(item)) heading = item.heading;
+			else out.push({ key: item.key, label: item.label, tab: tab.name, heading, needs: item.needs });
+		}
+	}
+	return out;
+}
+
 function visibleTabs(): Tab[] {
 	return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
 }
@@ -868,6 +902,49 @@ const PULSE_COLOR_CONTROL: CycleControl = {
 	},
 };
 
+/** A choice (not a tick box) a keyholder may set (v1.14.1, DW 2026-11-21): every control on the
+ * Inductions tab, and on Trance Defaults the screen effect (the spiral), her eyes, her eye colour and
+ * the pulse colour. `off` is the one choice a "take" keyholder may set, the one that switches the
+ * thing off; a choice with no off (a number, a colour, who toy mode is for) needs "grant". */
+export type RemoteChoice = { key: string; label: string; tab: string; options: { key: string; label: string }[]; off?: string; get: () => string; set: (value: string) => void };
+
+/** The choices, through the same setters as her own dropdowns, so their side effects (the fade
+ * coming off, her eyes redone mid-trance) happen as they would for her. Custom pulse colour is left
+ * out: it needs a hex code typed on her screen. */
+export function remoteChoices(): RemoteChoice[] {
+	const fromDropdown = (key: string, label: string, id: string, off: string): RemoteChoice => {
+		const d = TRANCE_DROPDOWNS.find((x) => x.id === id)!;
+		return { key, label, tab: "Trance Defaults", options: d.options, off, get: d.get, set: d.set };
+	};
+	const inductions = (key: string, label: string, options: { key: string; label: string }[], get: () => string, set: (v: string) => void, off?: string): RemoteChoice =>
+		({ key, label, tab: "Inductions", options, off, get, set });
+	return [
+		// The Inductions tab, in its screen order.
+		inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v))),
+		inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v))),
+		inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
+		inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
+		inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => (getToyMode() ? "on" : "off"), (v) => setToyMode(v === "on"), "off"),
+		inductions("toyScope", "Toy mode is for", TOY_SCOPES, getToyScope, setToyScope),
+		inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never"),
+		// Trance Defaults.
+		fromDropdown("screenEffect", "Screen effect", SCREEN_EFFECT_ID, "none"),
+		fromDropdown("tranceEyes", "Eyes while under", TRANCE_EYES_ID, ""),
+		fromDropdown("tranceEyeColor", "Eye colour while under", TRANCE_EYE_COLOR_ID, ""),
+		{
+			key: "pulseColor",
+			label: "Pulse colour",
+			tab: "Trance Defaults",
+			options: PULSE_COLORS.filter((c) => c.key !== "custom").map((c) => ({ key: c.key, label: c.label })),
+			get: getPulseColor,
+			set: (value) => {
+				setPulseColor(value);
+				pulseHexError = "";
+			},
+		},
+	];
+}
+
 /** Where other players' ECHS icons are drawn (v1.7.0). Last on the Trance Defaults tab. */
 const ICON_SPOT_CONTROL: CycleControl = {
 	label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
@@ -880,6 +957,17 @@ const ICON_SPOT_CONTROL: CycleControl = {
 		const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
 		setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
 	},
+};
+
+/** The floating ECHS window in chat rooms (job4.md). On by default. Last on the Trance Defaults tab. */
+const POPUP_CONTROL: CycleControl = {
+	label: () => `ECHS popup in rooms: ${getPopupEnabled() ? "On" : "Off"}`,
+	caption: () =>
+		getPopupEnabled()
+			? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it."
+			: "No spiral button in rooms. The /echs commands still work as typed.",
+	tooltip: "Show or hide the ECHS popup and its button in chat rooms",
+	cycle: () => setPopupEnabled(!getPopupEnabled()),
 };
 
 // The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes
@@ -2054,6 +2142,17 @@ export const EXTENSION_BUTTON_TEXT = "ECHS Hypnosis";
  * Every BC global it touches is typeof-guarded: if a future release renames one, this returns
  * false rather than throwing, and the caller points the user at the manual path instead. */
 export async function openHelpScreen(): Promise<boolean> {
+	return enterSettings(true);
+}
+
+/** Open Preferences > Extensions > ECHS Hypnosis on its first tab, no guide: the ECHS popup's gear
+ * (v1.13.4, DW). The same entry as `/echs help`, checked again against R134 (Preference.js
+ * PreferenceOpenSubscreen, Extensions.js's list click). Leaving it is the game's own way back. */
+export async function openSettingsScreen(): Promise<boolean> {
+	return enterSettings(false);
+}
+
+async function enterSettings(withHelp: boolean): Promise<boolean> {
 	try {
 		if (typeof PreferenceOpenSubscreen !== "function" || typeof PreferenceExtensionsSettings === "undefined") {
 			return false;
@@ -2068,7 +2167,7 @@ export async function openHelpScreen(): Promise<boolean> {
 			ElementWrap(PreferenceIDs.subscreen)?.toggleAttribute("hidden", true);
 		}
 		screen.load?.();
-		openHelp();
+		if (withHelp) openHelp();
 		return true;
 	} catch {
 		return false;

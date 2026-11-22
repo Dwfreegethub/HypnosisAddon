@@ -1812,6 +1812,8 @@ export interface SuggestionHelp {
 	 * same as `examples`. The test still checks `examples`, so display can read however it likes. */
 	display: string[];
 	release: boolean;
+	/** For a release, the ids it gives back. The ECHS popup lists it under them. */
+	releaseOf: string[];
 	/** The tier this needs, as a label. Looked up from the permission rather than stored on
 	 * the suggestion, so the help screen and the gate cannot disagree. */
 	depthTier?: string;
@@ -1837,6 +1839,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		examples: s.examples,
 		display: s.displayExamples ?? s.examples,
 		release: !!s.release,
+		releaseOf: s.releaseOf === undefined ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
 		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));
 }
@@ -3003,6 +3006,7 @@ export function describeAction(id: string): string {
 		const suffix = times > 1 ? ` ${times} times` : "";
 		if (base === "act:vague") return `you touch yourself somewhere${suffix}`;
 		if (base === "act:genital") return `you touch yourself between your legs${suffix}`;
+		if (base === "act:sip") return `you take a sip of your drink${suffix}`;
 		const [, activity, word] = base.split(":");
 		return `you ${activity.toLowerCase()} your ${word ?? "body"}${suffix}`;
 	}
@@ -3093,6 +3097,11 @@ const REINFORCE = [
 	/\b(?:that|the|your) triggers? (?:is|are) (?:stronger|deeper) now\b/,
 	/\blet (?:that|the|your) triggers? (?:settle|sink) deeper\b/,
 ];
+
+/** Pure: is this the reinforcing wording? For the popup's suite. */
+export function isReinforceLine(content: string): boolean {
+	return REINFORCE.some((p) => p.test(normalize(content)));
+}
 
 function handleReinforcement(sender: number, content: string): boolean {
 	const text = normalize(content);
@@ -3451,6 +3460,15 @@ const WALK_LEAVE_PATTERNS = [
 	/\bstay\b/,
 ];
 
+/** Which walking-trance wording a line is, ignoring whether she is walking. Pure; for the popup's
+ * suite, which checks that what the popup types is what this file listens for. */
+export function walkingLineKind(content: string): "enter" | "leave" | null {
+	const text = normalize(content);
+	if (WALK_ENTER_PATTERNS.some((p) => p.test(text))) return "enter";
+	if (WALK_LEAVE_PATTERNS.some((p) => p.test(text))) return "leave";
+	return null;
+}
+
 /** Returns true if the line changed walking-trance mode and has been dealt with. */
 function handleWalkingTrance(sender: number, content: string): boolean {
 	const text = normalize(content);
@@ -3582,10 +3600,22 @@ const COMMAND_NEGATION = /\b(?:not|never|cannot|can ?not|dont|do ?not|wont|will 
 const GENITAL_SELF = /\b(?:finger|masturbate|pleasure|play with) yourself\b/;
 /** Bare generic self-touch — too vague, so it wanders (see handleActivityCommand). */
 const VAGUE_SELF = /\b(?:touch|feel|caress|stroke|rub|please) yourself\b/;
+/** "Take a sip" (v1.13.5; a player's report, DW 2026-11-21): she sips the drink in her hand. BC's
+ * own SipItem, on her own mouth, with herself as actor, exactly as if she clicked it (R134
+ * Female3DCG.js: Target ItemMouth, TargetSelf, Prerequisite TargetCanUseTongue + Needs-SipItem +
+ * UseHands, so BC refuses it when she holds nothing sippable, her hands are bound or her mouth is
+ * blocked). Under Made to Act, as touching herself is. A crafted ECHS drink doses her the usual way
+ * (drugs.ts reads her own handheld on SipItem), within her own drink settings. */
+const SIP_SELF = [
+	/\b(?:take|have) (?:a |another )?(?:sip|drink|swallow)\b/,
+	/\bsip (?:your|from your|it|that|some)\b/,
+	/\bdrink (?:up|your|some|it|that|from your)\b/,
+];
 
 export type ActivityCommand = (
 	| { kind: "genital" }
 	| { kind: "vague" }
+	| { kind: "sip" }
 	| { kind: "part"; activity: string; word: string }
 ) & {
 	/** "touch your breasts three times" (v0.92.0). Present only when more than once. */
@@ -3613,6 +3643,7 @@ export function matchActivityCommand(content: string): ActivityCommand | null {
 	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
 	const times = repeatCount(content);
 	const withTimes = <T extends object>(cmd: T): T & { times?: number } => (times > 1 ? { ...cmd, times } : cmd);
+	if (SIP_SELF.some((p) => p.test(text))) return withTimes({ kind: "sip" as const });
 	if (GENITAL_SELF.test(text)) return withTimes({ kind: "genital" as const });
 	if (VAGUE_SELF.test(text)) return withTimes({ kind: "vague" as const });
 	// Longest part word first, so "clitoris" is not shadowed by "clit" etc.
@@ -3635,6 +3666,7 @@ function activityActionId(cmd: ActivityCommand): string {
 	const times = cmd.times && cmd.times > 1 ? `*${cmd.times}` : "";
 	if (cmd.kind === "vague") return `act:vague${times}`;
 	if (cmd.kind === "genital") return `act:genital${times}`;
+	if (cmd.kind === "sip") return `act:sip${times}`;
 	return `act:${cmd.activity}:${cmd.word}${times}`;
 }
 
@@ -3711,6 +3743,7 @@ function performActivityAction(fullId: string): boolean {
 		return zone ? runCommandedActivity("Caress", [zone]) != null : false;
 	}
 	if (id === "act:genital") return runCommandedActivity("MasturbateHand", ["ItemVulva"]) != null;
+	if (id === "act:sip") return runCommandedActivity("SipItem", ["ItemMouth"]) != null;
 	const [, activity, word] = id.split(":");
 	const groups = word ? BODY_PARTS[word] ?? [] : [];
 	return activity && groups.length ? runCommandedActivity(activity, groups) != null : false;
@@ -3765,6 +3798,16 @@ function handleActivityCommand(sender: number, content: string): boolean {
 			const pick = pickVagueZone();
 			return pick ? runCommandedActivity("Caress", [pick]) != null : false;
 		});
+		return true;
+	}
+	if (cmd.kind === "sip") {
+		if (!runCommandedActivity("SipItem", ["ItemMouth"])) {
+			tellHypnotist(sender, "[command] They can't take a sip right now: nothing to drink in their hand, their hands bound, or their mouth blocked.");
+			return true;
+		}
+		tellPlayer("You lift your drink and sip before you've thought about it.");
+		noteLanded(sender);
+		repeatTouch(sender, cmd.times, () => runCommandedActivity("SipItem", ["ItemMouth"]) != null);
 		return true;
 	}
 	const activity = cmd.kind === "genital" ? "MasturbateHand" : cmd.activity;

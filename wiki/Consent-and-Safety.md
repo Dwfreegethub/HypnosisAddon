@@ -121,7 +121,18 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 > ⚠️ **Purge / Clear Refusal:** `/echs forgettrigger` and **Purge** on the Planted tab **refuse to delete a trigger while that specific trigger is actively holding you**. **Clear All** (and `/echs forgettrigger all`) will not run while any trigger is holding you or a session is running, and asks you to confirm before removing anything. Use `/echs safeword` instead for an immediate clean break.
 
 ### The one lock you can choose: Extreme
-Choosing the **Extreme** setup template, and confirming its warning, makes your settings read-only for 7 days, then 30 days at a time if you choose to renew. It is never permanent, and it is the only thing that can stop you unticking Hypnosis Enabled or removing a planted trigger. While it is on, new triggers can still be planted, but neither you nor the person who planted one can remove it. `/echs safeword` still works exactly as above, `/echs reset confirm` ends the lock early (erasing all your trust, triggers and stats along with your settings), and you can always switch ECHS off in your userscript manager. See [Settings Reference](Settings-Reference#the-extreme-lock).
+Choosing the **Extreme** setup template, and confirming its warning, makes your settings read-only for 7 days, then 30 days at a time if you choose to renew. It is never permanent, and it is the only thing that can stop you unticking Hypnosis Enabled or removing a planted trigger. While it is on, new triggers can still be planted, but neither you nor the person who planted one can remove it. `/echs safeword` still works exactly as above, `/echs reset confirm` ends the lock early (erasing all your trust, triggers and stats along with your settings), and you can always switch ECHS off in your userscript manager. See [Settings Reference](Settings-Reference#the-extreme-lock). Your [keyholders](#keyholders-someone-who-can-change-your-settings-for-you), if you have chosen any, can still change your settings and can end the lock.
+
+### Keyholders: someone who can change your settings for you
+
+Since v1.14.0 you can give someone your **keys**: they can then change your ECHS settings from their side, while you're both in the same room.
+
+* **Who:** anyone you name with `/echs keyholder add <name>`, and your **BC owner** if you allow it with `/echs keyholder owner take` (or `grant`). Nobody holds your keys until you choose. The popup's **Keys** tab does the same with buttons.
+* **How far, per keyholder:** **take** means they can only switch things **off** (make you stricter). **grant** means they can switch them on too. `/echs keyholder add <name> grant` gives grant.
+* **What they can reach:** the tick boxes on the **Permissions, Trance Defaults, Awareness and Triggers** tabs, and (since v1.14.1) everything on your **Inductions** tab and the Trance Defaults choices: your **screen effect** (none, grey fade or the spiral), your **eyes** and **eye colour** while under, and the **pulse colour**. With *take* they can only switch those off: None, Unchanged, Ask me, Refuse, toy mode Off or Never deeper. Your attempts, induction time, who toy mode is for and the pulse colour need *grant*. Nothing else. Never your safeword, `/echs reset`, export or import, or who holds your keys.
+* **Even under Extreme.** Your keyholders can still change your settings while your Extreme lock is on, and **they can end the lock for you**. That is the point of it. Under the lock, your own list of keyholders is read-only, like your other settings.
+* **You always know.** Every change tells you who did what (*"Kay (your keyholder) turned off Sight"*), and `/echs keyholder` lists your keyholders and the last changes.
+* **Your client still decides.** A keyholder sends a request; your ECHS checks they are your keyholder and that the change is allowed before making it. Remove someone at any time with `/echs keyholder remove <name>` (unless your Extreme lock is on).
 
 ---
 
@@ -131,6 +142,7 @@ Choosing the **Extreme** setup template, and confirming its warning, makes your 
 * **Public Emotes:** Noticeable physical reactions (freezing, failing to speak) emit as standard room emotes.
 * **Perception Effects:** Purely mental effects (failing to notice an item or seeing a clothing illusion) never emit room emotes.
 * **Hiding Emotes:** Disable **Trance Defaults → Others See Your Reactions** to keep all reactions private.
+* **The popup:** other ECHS players' **[popup](The-ECHS-Popup)** lists who in the room runs ECHS; untick **Trance Defaults → Show others that I run ECHS** to stay off it. While you are under, your ECHS tells **only the person who has you under** which kinds of suggestion you allow and whether you are deep enough for each (never your depth itself), so their list can fade what won't land. Your ECHS still checks every line by your own settings.
 
 ---
 

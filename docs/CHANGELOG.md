@@ -18,6 +18,141 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.14.1) — keyholders reach the Trance Defaults and Inductions choices
+
+DW asked for the spirals and the other options on that tab, then the Inductions tab as well. They
+are dropdowns and cycle buttons, not tick boxes, so v1.14.0's remote could not reach them. DW chose:
+keyholders (not a popup quick switch for the player); on Trance Defaults all four (screen effect,
+eyes, eye colour, pulse colour); and the whole Inductions tab.
+- Off choices for "take" on Inductions: Ask me, Refuse (when away), toy mode Off, Never deeper.
+  Attempts, induction time and who toy mode is for have no off, so they need grant.
+- `menu.ts remoteChoices()` wraps the tab's own dropdown setters (and the pulse colour's), so the
+  side effects are hers: None takes the fade off at once, her eyes are redone mid-trance.
+- "take" may only set the off choice (None / Unchanged). Going from a heavy spiral to a light one
+  is not counted as taking: it keeps the rule one line. The pulse colour has no off, so it needs
+  grant. Custom pulse colour is unreachable (it needs a hex typed on her screen).
+- New action `choose` on the same `remote-request`; the snapshot gains `choices`. A v1.14.0 subject
+  sends none (the popup shows none) and answers `choose` with "did not understand".
+- `test/keyholder.mjs` 54. Mutation-checked: dropping the take rule fails 3, an empty `choices`
+  fails 1. Not live-tested.
+
+### Added 2026-11-21 (v1.14.0) — keyholders: changing someone's settings for them
+
+job5.md (local), from a player's request about people locking themselves into Extreme with nobody
+able to help. DW's decisions: keyholders are her BC owner (if she allows it) plus anyone she names;
+per keyholder "take" (only switch off) or "grant" (on too); works through Extreme, and a keyholder
+may end the lock; reaches the Permissions, Trance Defaults, Awareness and Triggers tick boxes.
+- `keyholder.ts`. Rule 1: her client checks the sender, the key (`menu.ts remoteRows`, read from the
+  tabs themselves), the mode and any `needs`, then applies through `setFeature` + `onToggle`, the
+  same path as her own click, so switching a permission off releases what it held and hypnosis off
+  runs the hard floor. She is told who changed what (`[...]` added by tellPlayer) and it is logged
+  (`remoteLog`, last 20).
+- No new message type. Requests on `remote-request` (feature "settings"), which remote.ts already
+  handled by ignoring; replies on `state-response`; her answer to anyone's state-query carries
+  `keyholder` for that asker alone, so the keyholder's popup knows whose keys it holds without
+  extra traffic. A keyholder asks for a snapshot at most every 30 s from the tab.
+- Never reachable: safeword, reset, export/import, the keyholder list. Under her Extreme or session
+  lock, her own edits of the list are refused, as her other settings are.
+- Extreme warning, wiki (Consent and Safety, Settings Reference, Commands, the popup page), help.
+- `test/keyholder.mjs` (39) and `test/popup.mjs` (148). Mutation-checked: accepting a stranger fails
+  4, letting "take" switch on fails 1. Not live-tested.
+
+### Changed 2026-11-21 (v1.13.6) — "RC" retired; dev builds show "D"
+
+DW: stable shows just the number, dev shows it with a D. `releaseLabel` is gone from package.json
+(the 1.0 "RC" ran 1.0.0 to 1.13.5).
+- **Decided at load, not at build.** dev and main commit the same `cdn/HypnosisAddon.js` once dev is
+  merged into main, so a D written into the file would reach stable with the next release; stamping
+  it per branch would mean a conflict in the generated files at every release. Instead `log.ts` reads
+  `document.currentScript.src` at load: FUSAM's dev channel loads GitHub Pages' `/dev/` copy by
+  `<script src>`, so it matches; FUSAM stable, the Tampermonkey loader (jsDelivr) and the bookmark
+  loader (inline) do not. `init_log()` runs on the entry's synchronous first line, before
+  `init_main` is queued, so `currentScript` is still set (checked on the real bundle).
+- The local `dist/HypnosisAddon.user.js` build sets `__LOCAL_BUILD__` and shows the D too.
+- `test/version-label.mjs` (10): the label per address, and the real bundle run as a browser would
+  (currentScript only during the first run); ignoring the address fails it. GreeterBot's announcer
+  reads `## v<number>` and needs no change.
+
+### Added 2026-11-21 (v1.13.5 RC) — "take a sip"
+
+A player's report (feedback 2026-11-13): "take a sip" did nothing as a command under trance; there was
+no spoken sip. Now a commanded activity (`matchActivityCommand` kind `sip`, `act:sip` in triggers):
+BC's own `SipItem` on her own `ItemMouth`, herself as actor, through `runCommandedActivity` — so BC's
+prerequisites decide (R134 Female3DCG.js: TargetCanUseTongue, Needs-SipItem, UseHands). Under Made to
+Act (DW's choice over a permission of its own: her drink settings already decide whether a tagged
+drink touches her hypnosis). A refusal names the likely reasons. drugs.ts already reads her own
+handheld on SipItem, so an ECHS drink doses as when she sips it herself. Popup Touch list. Checked in
+`test/activity.mjs` (wordings, conversation not read as one, permission, BC's refusal, the SipItem
+call) and `test/popup.mjs`.
+
+### Added 2026-11-21 (v1.13.4 RC) — a gear on the popup opens the ECHS settings
+
+DW asked. `menu.ts` `openSettingsScreen()` shares `openHelpScreen()`'s path into Preferences >
+Extensions > ECHS Hypnosis (checked again against R134: Preference.js `PreferenceOpenSubscreen`,
+Extensions.js's list click), without opening the guide. The popup hides itself on that screen (it
+shows only in a room) and is open again on return. A failure says the manual path (rule 5).
+`test/popup.mjs`: 137 checks.
+
+### Changed 2026-11-21 (v1.13.3 RC) — the held orgasm is said ever more rarely
+
+A player's report, passed on by DW 2026-11-21: denied and wearing something that drives arousal, the
+"held at the edge" line came every minute or two. `denial.ts` said it at most once a minute, both
+privately and as a room emote, for as long as the toy ran.
+- **Now an episode** (`heldAnnouncement`): the first hold is said to her and the room; repeats are
+  private only, at 2, 4, 8, then 15-minute gaps (capped); five minutes with no hold ends the episode.
+- `test/denial.mjs`: the schedule step by step, and through the real hook the room told once per
+  episode and her twice in ten minutes of climbs; sending repeats to the room again fails 2.
+
+### Added 2026-11-21 (v1.13.2 RC) — the popup can be resized
+
+DW asked. The browser's own grip (CSS `resize: both`), so nothing fights BC for the mouse; a
+ResizeObserver saves the size (`popupSize`) once it has stayed put 400 ms, and only when the player
+set one (an inline size), so an untouched window saves nothing. Clamped to between 260×220 and the
+screen when applied. Double-click on the title bar (not on its buttons) clears it. The window's
+default height is now fixed (`min(460px, 70vh)`) rather than following its content, so it no
+longer jumps as groups open. `test/popup.mjs`: 131 checks.
+
+### Changed 2026-11-21 (v1.13.1 RC) — wake compulsions arm on any trance's wake
+
+A player's report (feedback 2026-11-20, and passed on by DW 2026-11-21): a planter's "when you open
+your eyes, take something off" only went off when the planter was the one who had her under. That
+was Build 6's rule
+(v0.90.0): `onWake` armed a wake compulsion only when the trance ending was its installer's. Players
+read "when you wake" as every time, and the arrive/speak compulsions never asked who.
+- **Decided (DW):** any trance's ordinary wake or timeout arms it. Considered and not chosen: the
+  word triggers' "who can use it" rule (the subject's scope defaults to Hypnotist only, so the reported
+  case would still not work), and keeping it with better help text.
+- Unchanged: it still fires as its installer's (`fireTrigger(t, t.installedBy)`), never while she is
+  under, and the safeword / hard floor still discard it (`onTotalStop`).
+- `test/compulsion.mjs` now checks another hypnotist's wake arms it, it goes off, and it holds as
+  the installer's; with the old rule restored, those three fail.
+
+### Added 2026-11-21 (v1.13.0 RC) — the ECHS popup
+
+DW, 2026-11-21 (job4.md, local): players find ECHS hard to use because the typed commands and
+wordings are hard to find; newer add-ons use floating windows. Built in five stages on
+`feat/echs-popup`, each committed with its own suite checks; the decisions are in design.md, *The
+ECHS Popup*, and the player page is `wiki/The-ECHS-Popup.md`.
+- **Typing, never sending,** was DW's choice: it teaches the wording, and lets the player edit or
+  whisper. The Safeword button is the one exception (rule 2).
+- **Generated lists.** Commands from `commandHelp`, suggestions from `suggestionHelp` (now carrying
+  `releaseOf`, so each release is listed under what it undoes, DW), trigger wordings from the help
+  screen. `test/popup.mjs` (121 checks) runs every typed phrase, name in front, through the real
+  matchers and parsers. It caught "kiss me" needing the targeted matcher, and two greying bugs (a
+  group of only always-allowed lines read "not allowed"; a group whose only lit lines were releases
+  never did).
+- **People lists ECHS players, reversing v0.35.0's "never a directory".** DW's call, made knowingly;
+  the existing "Show others that I run ECHS" box opts out of both the spiral and the list.
+- **Greying on the existing message.** `session-update` gains `gates` (depth.ts `gateReport`); no new
+  type, because an older client prints unknown types as raw text, and an older hypnotist ignores the
+  field. Re-sent from the persist heartbeat only when it changes (mutation-checked).
+- **No flood.** People sends nothing (badge.ts already knows); the Triggers tab asks each person's
+  planted list at most once per 30 s (mutation-checked); the subject's trigger list prunes only on a
+  redraw, not per tick, after v1.12.8's lesson.
+- `voice.ts` exports three pure checks for the suite (`walkingLineKind`, `isReinforceLine`, and
+  `releaseOf` on `suggestionHelp`); no matching behaviour changed.
+- **Not live-tested.** design.md *Needs Testing* lists it; the steps are `script_test.md` A–J.
+
 ### Changed 2026-11-19 (v1.12.9 RC) — one account sync per frame
 
 From DW's ask after v1.12.8 to look for other places ECHS sends more to BC than it needs to. The

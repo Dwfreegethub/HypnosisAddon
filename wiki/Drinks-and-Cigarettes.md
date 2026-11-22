@@ -18,7 +18,7 @@ Craft the item in Bondage Club's crafting screen and put a tag in its **name or 
 Capital letters don't matter, so `[Echs:Relax]` works too. Anyone can craft one, and the person handing you the drink doesn't need ECHS.
 
 **Items that work:**
-- **Drinks:** a crafted **Filled Glass** or **Mug**. It takes effect when someone uses the **Sip** action on your mouth with it. Sipping your own drink counts too.
+- **Drinks:** a crafted **Filled Glass** or **Mug**. It takes effect when someone uses the **Sip** action on your mouth with it. Sipping your own drink counts too, and so does a hypnotist's *"Missy, take a sip"* with **Made to Act** on (see [Taking a Sip](Commanded-Activities#taking-a-sip)).
 - **Cigarettes:** a crafted **Cigarette**, either in your mouth slot or held in your hand with the **In Mouth** option. Held "In Hand", it does nothing.
 
 ---

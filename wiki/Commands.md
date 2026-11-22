@@ -10,6 +10,7 @@ Most features are **spoken**, not typed — see [What to Say](What-to-Say). Thes
 * **Used to typing `/hypno`?** That's the old name, and it still works exactly like `/echs`.
 * `/echs help` opens the built-in guide.
 * `/echs commands` lists every registered command.
+* **Rather not type them?** The **Commands** tab of **[the ECHS popup](The-ECHS-Popup)** lists them all and types the one you click.
 
 **Every command starts with `/echs`.**
 
@@ -85,6 +86,10 @@ The **Planted triggers** button on their profile's spiral panel shows the same l
 | `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
 | `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
 | `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
+| `/echs keyholder` | Lists who holds your keys (can change your settings for you) and the last changes they made. |
+| `/echs keyholder add <name\|number> [grant]` | Gives them your keys: **take** (only switch things off) by default, **grant** (on and off) with `grant`. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you). |
+| `/echs keyholder remove <name\|number>` | Takes their keys back. |
+| `/echs keyholder owner <off\|take\|grant>` | Whether your BC owner holds your keys, and how far. |
 | `/echs forgettrust <name\|number>` | Permanently deletes a saved player trust record from your history. The **[x]** on the Stats tab does the same. |
 
 ---

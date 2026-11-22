@@ -268,6 +268,45 @@ export function depthAllows(
 	return have >= requiredDepth(key);
 }
 
+// --- What a hypnotist's popup may show as landing (job4.md stage 4) -----------------------------
+// The subject's client sends its own hypnotist, and only them, which suggestion permissions would
+// land right now: granted and deep enough ("ok"), granted but too shallow ("deeper"). Everything else
+// is not granted. It rides on the session-update the subject already sends (session.ts), so an older
+// hypnotist build simply ignores the extra field. Rule 1: this is a HINT for greying the list; the
+// subject's client still decides every line when it is spoken, by the same depthAllows above.
+// Only these keys: what the popup's suggestions need, not every toggle (trance defaults and the like
+// are nobody else's business). test/popup.mjs fails if a suggestion's permission is missing here.
+export const SUGGESTION_GATE_KEYS: (keyof FeatureToggles)[] = [
+	"postureControl",
+	"movementRestriction",
+	"followControl",
+	"speechRestriction",
+	"hearingControl",
+	"sightControl",
+	"clothingRestriction",
+	"undressControl",
+	"illusionControl",
+	"suppressClothing",
+	"suppressBondage",
+	"suppressActivities",
+	"arousalControl",
+	"selfTouchControl",
+	"compelActivity",
+];
+
+export type GateReport = { ok: string[]; deeper: string[] };
+
+export function gateReport(features: FeatureToggles): GateReport {
+	const ok: string[] = [];
+	const deeper: string[] = [];
+	for (const key of SUGGESTION_GATE_KEYS) {
+		if (!features[key]) continue;
+		if (depthAllows(key)) ok.push(key);
+		else deeper.push(key);
+	}
+	return { ok, deeper };
+}
+
 /** The advice after a depth refusal, only where it is true (DW, 2026-11-05). "Sink deeper" raises full
  * depth and never earned, so it helps a feature that reads full depth and does nothing for one that
  * reads earned. Empty, or a sentence with its leading space, to go straight after the refusal. */

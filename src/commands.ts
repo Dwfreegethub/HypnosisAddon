@@ -29,7 +29,15 @@ import {
 	DECAY_RATES,
 	DecayRate,
 	RelationKind,
+	getOwnerKeyMode,
+	setOwnerKeyMode,
+	listKeyholders,
+	setKeyholder,
+	removeKeyholder,
+	listRemoteChanges,
+	KeyMode,
 } from "./storage";
+import { announceKeysTo } from "./keyholder";
 import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
 import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
@@ -225,6 +233,26 @@ const COMMAND_TAGS = ["echs", "hypno"] as const;
 // Where the full guide lives if the on-screen jump can't run — the manual path is the
 // fallback for `/echs help`, and the tail of the bare `/echs` menu. Built from menu.ts's
 // own label rather than repeating it, so the two cannot name different entries.
+/** What each keyholder mode lets them do, in the words the replies use. */
+const KEY_MODE_WORDS: Record<KeyMode, string> = {
+	take: "they can switch your settings OFF",
+	grant: "they can switch your settings on and off",
+};
+
+/** The keyholder list, as chat lines. */
+function describeKeyholders(): string[] {
+	const owner = getOwnerKeyMode();
+	const named = listKeyholders();
+	const lines = [
+		owner ? `Your BC owner holds your keys (${owner}).` : "Your BC owner does not hold your keys. /echs keyholder owner take|grant to allow it.",
+		named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : "Nobody else holds your keys. /echs keyholder add <name> [grant].",
+	];
+	const recent = listRemoteChanges().slice(-3);
+	if (recent.length) lines.push(`Last changes: ${recent.map((c) => `${c.byName} ${c.what}`).join("; ")}.`);
+	lines.push("take = only switch off; grant = on and off. Keyholders can also end your Extreme lock.");
+	return lines;
+}
+
 const GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} — the ? button (or the Help button in the remote panel).`;
 
 /** The bare `/echs` menu: a short, friendly signpost rather than a wall of commands.
@@ -739,6 +767,81 @@ const COMMANDS: HypnoCommand[] = [
 				"Deeper plantings fade more slowly, and neglect compounds: the longer one goes " +
 					"unused the faster it sheds. Firing it slows that; only a re-induction resets it.",
 			);
+		},
+	},
+	{
+		// Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
+		Tag: "keyholder",
+		group: "Data",
+		args: "[add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]",
+		Description: "Choose who may change your ECHS settings for you (take = only switch off; grant = on too)",
+		Action: (args: string) => {
+			const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			const sub = (words[0] ?? "").toLowerCase();
+			if (!sub || sub === "list") {
+				for (const line of describeKeyholders()) reply(line);
+				return;
+			}
+			// The list is a setting like any other: read-only under her own locks (job5.md).
+			if (extremeLocked()) {
+				reply(extremeRefusal());
+				return;
+			}
+			if (settingsLocked()) {
+				reply("Your settings are locked while a session is on you, and so is who holds your keys.");
+				return;
+			}
+			if (sub === "owner") {
+				const m = (words[1] ?? "").toLowerCase();
+				if (m !== "off" && m !== "take" && m !== "grant") {
+					reply("Usage: /echs keyholder owner <off|take|grant>");
+					return;
+				}
+				setOwnerKeyMode(m === "off" ? null : m);
+				for (const c of others()) announceKeysTo(c.MemberNumber);
+				reply(
+					m === "off"
+						? "Your BC owner is not your keyholder now (unless you named them too)."
+						: `Your BC owner is your keyholder: ${KEY_MODE_WORDS[m]}, while you are in a room together, even under Extreme, and they can end your Extreme lock.`,
+				);
+				return;
+			}
+			if (sub === "add" || sub === "remove") {
+				const grant = sub === "add" && (words[words.length - 1] ?? "").toLowerCase() === "grant";
+				const token = words.slice(1, grant ? -1 : undefined).join(" ");
+				if (!token) {
+					reply(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? " [grant]" : ""}`);
+					return;
+				}
+				if (sub === "remove") {
+					const id = /^\d+$/.test(token) ? Number(token) : listKeyholders().find((k) => k.name.toLowerCase() === token.toLowerCase())?.id ?? resolveTarget(token)?.id;
+					if (!id || !removeKeyholder(id)) {
+						reply(`"${token}" is not one of your keyholders. /echs keyholder lists them.`);
+						return;
+					}
+					announceKeysTo(id);
+					reply(`Removed. They can no longer change your settings${getOwnerKeyMode() ? " (unless they are your BC owner, which you allow)" : ""}.`);
+					return;
+				}
+				const target = resolveTarget(token);
+				if (!target) {
+					reply(`No one here matches "${token}". Use their member number if they are not in the room.`);
+					return;
+				}
+				if (target.id === Player?.MemberNumber) {
+					reply("You can't be your own keyholder.");
+					return;
+				}
+				const mode = grant ? "grant" : "take";
+				if (!setKeyholder(target.id, target.name, mode)) {
+					reply("You already have the most keyholders allowed (10). Remove one first.");
+					return;
+				}
+				announceKeysTo(target.id);
+				reply(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
+				return;
+			}
+			reply("Usage: /echs keyholder [add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]");
 		},
 	},
 	{

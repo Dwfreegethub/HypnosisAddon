@@ -14,6 +14,7 @@ import { installSuppression, installHearingFilter, hearsLine, markUnheard } from
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
 import { installBadge } from "./badge";
+import { installPopup } from "./popup";
 import { installTriggers } from "./triggers";
 import { installDrugs } from "./drugs";
 import { installSelfTouch } from "./selftouch";
@@ -328,6 +329,8 @@ safely("ECHS icon over players", () => installBadge(modApi));
 safely("/echs command registration", installCommands);
 safely("preference menu registration", installMenu);
 safely("remote (Information Sheet) registration", () => installRemote(modApi));
+// The floating ECHS window (job4.md). After the commands, whose list it shows.
+safely("ECHS popup", installPopup);
 
 // The in-room Agree / Ignore / Fight box. After installSession, whose state it reads.
 safely("induction prompt box", () => installPrompt(modApi));

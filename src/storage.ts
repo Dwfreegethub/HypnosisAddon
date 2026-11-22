@@ -547,6 +547,18 @@ interface HypnoAddonSettings {
 	pulseColor?: string;
 	/** Where she sees OTHER players' ECHS icons, one of ECHS_ICON_SPOTS (v1.7.0). Absent means "top". */
 	echsIconSpot?: string;
+	/** The ECHS popup (job4.md, DW 2026-11-21): on by default, so only switching it OFF is stored. */
+	popupOff?: boolean;
+	/** Where the popup window and its launcher were last dragged to, in page pixels. Absent means
+	 * the default spot. Clamped back on screen when drawn, so a smaller window never loses them. */
+	popupPos?: { x: number; y: number };
+	popupLauncherPos?: { x: number; y: number };
+	/** The popup window's size once the player has resized it (v1.13.2). Absent means the default. */
+	popupSize?: { w: number; h: number };
+	/** Who may change her settings remotely (v1.14.0, job5.md). Absent = nobody. */
+	keyholders?: { owner?: KeyMode; named?: NamedKeyholder[] };
+	/** The last remote changes made to her settings, newest last, for the Stats tab and the popup. */
+	remoteLog?: RemoteChange[];
 	/** Her own colour for it, as "#RRGGBB", used while pulseColor is "custom". Kept when she picks
 	 * another, so going back finds it. */
 	pulseCustom?: string;
@@ -1630,6 +1642,97 @@ export function setEchsIconSpot(key: string): void {
 	const s = loadSettings();
 	if (key === "top") delete s.echsIconSpot;
 	else if (ECHS_ICON_SPOTS.some((r) => r.key === key)) s.echsIconSpot = key;
+	saveSettings();
+}
+
+/** The ECHS popup (job4.md). A display choice for the viewer alone, so no lock applies to it. */
+export function getPopupEnabled(): boolean {
+	return loadSettings().popupOff !== true;
+}
+export function setPopupEnabled(on: boolean): void {
+	const s = loadSettings();
+	if (on) delete s.popupOff;
+	else s.popupOff = true;
+	saveSettings();
+}
+export type PopupSpot = "window" | "launcher";
+export function getPopupPos(which: PopupSpot): { x: number; y: number } | null {
+	const p = which === "window" ? loadSettings().popupPos : loadSettings().popupLauncherPos;
+	return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : null;
+}
+export function setPopupPos(which: PopupSpot, x: number, y: number): void {
+	const s = loadSettings();
+	const p = { x: Math.round(x), y: Math.round(y) };
+	if (which === "window") s.popupPos = p;
+	else s.popupLauncherPos = p;
+	saveSettings();
+}
+/** The popup window's size after the player resized it (v1.13.2), or null for the default. */
+export function getPopupSize(): { w: number; h: number } | null {
+	const z = loadSettings().popupSize;
+	return z && Number.isFinite(z.w) && Number.isFinite(z.h) && z.w > 0 && z.h > 0 ? z : null;
+}
+export function setPopupSize(size: { w: number; h: number } | null): void {
+	const s = loadSettings();
+	if (size) s.popupSize = { w: Math.round(size.w), h: Math.round(size.h) };
+	else delete s.popupSize;
+	saveSettings();
+}
+
+// --- Keyholders (v1.14.0, job5.md) ------------------------------------------------------------
+// Who may change her settings remotely, and how far. "take" may only switch things off; "grant" may
+// switch them on too. Her BC owner counts only while ownerMode is set. Sparse: absent = nobody.
+export type KeyMode = "take" | "grant";
+export type NamedKeyholder = { id: number; name: string; mode: KeyMode };
+export type RemoteChange = { at: number; by: number; byName: string; what: string };
+const MAX_KEYHOLDERS = 10;
+const MAX_REMOTE_LOG = 20;
+const isMode = (m: unknown): m is KeyMode => m === "take" || m === "grant";
+
+export function getOwnerKeyMode(): KeyMode | null {
+	const m = loadSettings().keyholders?.owner;
+	return isMode(m) ? m : null;
+}
+export function setOwnerKeyMode(mode: KeyMode | null): void {
+	const s = loadSettings();
+	const k = { ...(s.keyholders ?? {}) };
+	if (mode) k.owner = mode;
+	else delete k.owner;
+	s.keyholders = k;
+	saveSettings();
+}
+export function listKeyholders(): NamedKeyholder[] {
+	const named = loadSettings().keyholders?.named;
+	if (!Array.isArray(named)) return [];
+	return named
+		.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && isMode(k.mode))
+		.slice(0, MAX_KEYHOLDERS)
+		.map((k: any) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: k.mode }));
+}
+/** Adds or updates one. Returns false when the list is full. */
+export function setKeyholder(id: number, name: string, mode: KeyMode): boolean {
+	const list = listKeyholders().filter((k) => k.id !== id);
+	if (list.length >= MAX_KEYHOLDERS) return false;
+	const s = loadSettings();
+	s.keyholders = { ...(s.keyholders ?? {}), named: [...list, { id, name: name.slice(0, 60), mode }] };
+	saveSettings();
+	return true;
+}
+export function removeKeyholder(id: number): boolean {
+	const list = listKeyholders();
+	if (!list.some((k) => k.id === id)) return false;
+	const s = loadSettings();
+	s.keyholders = { ...(s.keyholders ?? {}), named: list.filter((k) => k.id !== id) };
+	saveSettings();
+	return true;
+}
+export function listRemoteChanges(): RemoteChange[] {
+	const log = loadSettings().remoteLog;
+	return Array.isArray(log) ? log.filter((e: any) => e && Number.isFinite(e.at) && typeof e.what === "string").slice(-MAX_REMOTE_LOG) : [];
+}
+export function noteRemoteChange(change: RemoteChange): void {
+	const s = loadSettings();
+	s.remoteLog = [...listRemoteChanges(), change].slice(-MAX_REMOTE_LOG);
 	saveSettings();
 }
 

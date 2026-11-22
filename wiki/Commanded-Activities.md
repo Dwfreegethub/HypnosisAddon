@@ -18,6 +18,7 @@ Everything else in the add-on **stops** the subject from doing something. This m
 * **[The Grammar](#the-grammar)**
 * **[Recognized Verbs](#recognized-verbs)**
 * **[Without Naming a Specific Part](#without-naming-a-specific-part)**
+* **[Taking a Sip](#taking-a-sip)**
 * **[What Can Refuse an Action](#what-can-refuse-an-action)**
 * **[Touching Someone Else](#touching-someone-else)**
 * **[Storing in a Trigger](#storing-in-a-trigger)**
@@ -86,6 +87,20 @@ Words grouped on the same row trigger the same underlying game activity. **First
 The wandering version always executes something valid, subtly guiding the hypnotist toward more precise commands without stalling the scene.
 
 *(Note: Held-toy activities are not currently supported. Extending syntax like "with the <toy>" is under consideration for a future update.)*
+
+---
+
+## Taking a Sip
+
+| Say | Effect |
+|---|---|
+| *"Missy, take a sip"* · *"have a drink"* · *"sip your drink"* · *"drink up"* | She sips the drink in her hand: the game's own **Sip** action, done by her. |
+| *"Missy, take a sip three times"* | Three sips, one after another (up to five). |
+
+* It needs **Made to Act**, like the touches.
+* She has to be holding something she can sip from (a filled glass or a mug), with her hands free and her mouth not blocked. If she isn't, the hypnotist is told she can't right now.
+* A crafted **ECHS drink** works on her as if she'd sipped it herself, within her own drink settings. See [Drinks and Cigarettes](Drinks-and-Cigarettes).
+* It can be planted in a trigger, like a touch.
 
 ---
 

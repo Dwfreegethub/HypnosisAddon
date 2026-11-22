@@ -6,11 +6,83 @@ Your userscript manager installs updates on its own, so you are usually on the n
 already. To check which one you have, look at the first line ECHS prints in your chat when the
 game loads, or at the title of the ECHS settings screen.
 
-ECHS is at its **1.0 release candidate**. Every change below passes the automated checks, but not
-every one has been tried in a live room yet. If something behaves differently from what is written
+Your version is the number on that line, such as *v1.13.6*. A **D** after it means a dev build
+(FUSAM's dev channel). Up to v1.13.5 every version carried "RC" (release candidate) instead. Every
+change below passes the automated checks, but not every one has been tried in a live room yet. If something behaves differently from what is written
 here, please report it and say which version your chat line shows.
 
 ---
+
+## v1.14.1 · 21 November 2026
+
+- **Keyholders can change your spiral and your induction settings too.** On the **Keys** tab, a
+  keyholder now also sees everything on your **Inductions** tab (attempts, induction time, your
+  automatic answer, when you're away, toy mode and who it's for, how deep "sink deeper" goes) and
+  your Trance Defaults choices: the screen effect (none, grey fade or the spiral), your eyes and eye
+  colour while under, and the pulse colour. *take* can only switch them off (None, Unchanged, Ask
+  me, Refuse, toy mode Off, Never deeper); *grant* can pick any of them. You're told every change,
+  as before.
+
+## v1.14.0 · 21 November 2026
+
+- **Keyholders.** You can now let someone change your ECHS settings for you: anyone you name with
+  `/echs keyholder add <name>`, and your BC owner if you allow it. *take* lets them only switch
+  things off; *grant* lets them switch things on too. They reach the Permissions, Trance Defaults,
+  Awareness and Triggers tick boxes, from the popup's new **Keys** tab, while you're in a room
+  together. It works even under your Extreme lock, and a keyholder can end the lock for you. You are
+  told every change, and nobody holds your keys until you choose.
+
+## v1.13.6 · 21 November 2026
+
+- **No more "RC".** Your version now shows as just the number, such as *v1.13.6*. If you use FUSAM's
+  dev channel, it shows a **D** after it, so you can tell a dev build apart at a glance.
+
+## v1.13.5 RC · 21 November 2026
+
+- **"Take a sip."** A hypnotist can now say *"Missy, take a sip"* (or *"have a drink"*, *"sip your
+  drink"*, *"drink up"*) and she sips the drink in her hand. It needs **Made to Act**, and a glass or
+  mug in her hand with her hands and mouth free. A crafted ECHS drink works as usual. It's also on
+  the popup's Touch list.
+
+## v1.13.4 RC · 21 November 2026
+
+- **A gear on the ECHS popup** takes you straight to the ECHS settings.
+
+## v1.13.3 RC · 21 November 2026
+
+- **Less spam while denied.** Held at the edge by *"you cannot cum"* while wearing something that
+  keeps arousal up, you and the room were told every minute. Now the room is told once, and you are
+  told again less and less often: after 2 minutes, then 4, 8, and at most every 15 minutes. Five
+  quiet minutes and it starts over.
+
+## v1.13.2 RC · 21 November 2026
+
+- **The ECHS popup can be resized.** Drag its bottom-right corner; it remembers the size, as it does
+  where you put it. Double-click its title bar to put it back to the normal size.
+
+## v1.13.1 RC · 21 November 2026
+
+- **"When you wake" triggers go off after any trance.** A trigger such as *"when you open your
+  eyes, take something off"* only went off after a trance with whoever planted it, so it seemed
+  not to work when someone else had you under. It now goes off whenever you wake from a trance,
+  whoever put you under. Your safeword still clears it.
+
+## v1.13.0 RC · 21 November 2026
+
+- **The ECHS popup.** In a chat room, a round spiral button on the left opens a small window you can
+  drag anywhere. It types into your chat box for you, so you don't have to remember the wording;
+  nothing is sent until you press Enter.
+  - **People:** everyone in the room running ECHS. Click a name to start an induction.
+  - **Suggestions,** while someone is under you: everything you can say, in groups, typed with their
+    name. What they haven't allowed is faded, and what needs them deeper is marked.
+  - **Me,** while someone is hypnotizing you: Agree, Ignore or Fight, and Wake, Stay or Fight while
+    you are under, with your depth.
+  - **Triggers:** how to plant and shape one, the ones you planted (say it, release, remove), and
+    the ones in you.
+  - **Commands:** every `/echs` command.
+  - The red **Safeword** button at the bottom always works, at once.
+  - It's on for everyone; turn it off under Trance Defaults, **ECHS popup in rooms**. Unticking
+    **Show others that I run ECHS** keeps you off other players' People list.
 
 ## v1.12.9 RC · 19 November 2026
 

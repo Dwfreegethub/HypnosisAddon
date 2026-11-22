@@ -151,6 +151,8 @@ reasoning, and the evidence it was checked rather than assumed, is under Known B
 | `effects.ts` | The Emoticon-item technique for injecting BC effects (`Freeze`, `BlockWardrobe`, `DenialMode`) |
 | `recovery.ts` | Surviving a disconnect; clearing orphaned effects on every load |
 | `remote.ts` | The hypnotist's panel, hooked onto the subject's Information Sheet |
+| `popup.ts` | The ECHS popup (v1.13.0): launcher, draggable window, its five tabs. See *The ECHS Popup* |
+| `popup-suggest.ts`, `popup-triggers.ts` | Pure: the popup's suggestion groups (from voice.ts) and trigger wordings |
 | `menu.ts` | The subject's settings screen — seven tabs: Permissions, Trance Defaults, Awareness, Triggers, Planted, Depth, and Stats behind Advanced |
 | `panel.ts` | Shared canvas chrome for the settings and help screens: tab geometry, borders, `CONTENT_LEFT` |
 | `help.ts` | The help screen, generated *from* the pattern library and command table so it cannot fall behind them |
@@ -900,6 +902,68 @@ A temporary, OOC support role — entirely separate from Architect. No RP framin
 A special override flag for a designated super-user (working name: `/hypno proxy @player God`). Would grant view and override ability across all subjects except the invoking player themselves. If implemented, scope, consent model, and logging requirements need full design. Flagged for future discussion — do not implement without explicit sign-off.
 
 ---
+
+## The ECHS Popup (built v1.13.0, job4.md)
+
+DW, 2026-11-21: players found ECHS hard to use because the typed commands and wordings are hard to
+find, and newer add-ons open floating windows. `popup.ts` is ECHS's: a draggable spiral launcher in
+chat rooms and a draggable window (DOM, not canvas, so dragging does not fight BC's click handling).
+Player page: `wiki/The-ECHS-Popup.md`. Settled decisions:
+
+- **It types; it never sends.** Every item fills BC's `InputChat` (firing its `input` listener for the
+  length counter) and focuses it; the player presses Enter, and may edit or whisper first. **One
+  exception: the Safeword button runs `safeword()` at once** (rule 2: no second step in the way).
+- **On by default**, switched under Trance Defaults (`popupOff`, sparse). A viewer's display choice,
+  so no lock applies. Positions saved once per drag (`popupPos`, `popupLauncherPos`), clamped on screen.
+  Hidden outside `CurrentScreen === "ChatRoom"` and while `CurrentCharacter` (an item menu) is open.
+- **Generated, never hand-listed where a list exists:** Commands from `commandHelp()`; Suggestions from
+  `suggestionHelp()` (`popup-suggest.ts` groups them, puts each release under what its `releaseOf`
+  names, and offers the other real `examples` one level down); trigger wordings in
+  `popup-triggers.ts` are the help screen's. `test/popup.mjs` runs every typed phrase, name in front,
+  through voice.ts's matchers and parsers, so a reworded pattern fails the build.
+- **People lists everyone in the room running ECHS. This reverses the v0.35.0 rule** that presence is
+  never shown ("a directory of who has the add-on installed"). DW chose it knowingly (job4.md §3). It
+  reuses badge.ts's room-wide ask, so opening it sends nothing. **Opt-out is the existing "Show others
+  that I run ECHS" box** (one box for the spiral and the list, DW): that client still answers, because
+  the remote needs it, and the viewer's client honours its `showIcon` flag. A click types
+  `/echs induce <name>`, or the member number when the name is ambiguous or would not survive the
+  command's parsing.
+- **Greying (stage 4) rides on `session-update`, never a new message type** (an older client prints an
+  unknown type as raw text). The subject's client adds `gates` (depth.ts `gateReport`: permission keys
+  that are granted and deep enough, `ok`, or granted but too shallow, `deeper`), only while
+  Hypnotized, only to its own hypnotist, only the keys in `SUGGESTION_GATE_KEYS`, never a depth
+  figure. The persist heartbeat re-sends it when it changes. The hypnotist's client validates it
+  (`readGates`; malformed = none). **A hint only (rule 1):** faded lines still type and say they won't
+  land; releases, wake and deeper are never faded; no report (older subject) = nothing faded.
+- **Me tab** (subject): Agree/Ignore/Fight while asked; Wake/Fight/Agree/Ignore/effects (+ Stay when
+  asked) while under, and "Depth: <tier>" from full depth (rule 4), hidden under the Extreme lock.
+- **Triggers tab:** planting lines for whoever is under you; per person here, the planted.ts list
+  (asked at most once per 30 s per person from the tab) with say it / release / remove; the
+  subject's own triggers numbered exactly as `/echs triggers` (from `sweptTriggers`, read only on a
+  redraw), with forget, forget all and the fade speeds faded and saying "will be refused" under the
+  Extreme lock. Never mentions the undocumented way out of the lock.
+
+## Keyholders (built v1.14.0, job5.md)
+
+DW, 2026-11-21, from a player's request about people locking themselves into Extreme with nobody able
+to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and Safety > Keyholders):
+
+- **Who:** her BC owner (`IsOwnedByCharacter`, only while she has set `keyholders.owner`) plus anyone
+  she names, up to 10. Nobody by default.
+- **How far, per keyholder:** `take` may only switch tick boxes off; `grant` may switch them on too.
+  Owner and named together give the wider.
+- **What:** the tick boxes of the Permissions, Trance Defaults, Awareness and Triggers tabs
+  (`menu.ts remoteRows()`, read from the tabs so it cannot drift), and since v1.14.1 the choices
+  that are not tick boxes (`remoteChoices()`: every Inductions control, and the screen effect, eyes,
+  eye colour and pulse colour; take = only the off choice, and one with no off needs grant). Never the safeword, reset, export/import, or the keyholder list.
+- **Through Extreme**, and a keyholder may end the lock: the documented way out DW chose. Her own
+  edits of the list follow her locks (Extreme, and the session lock).
+- **Rule 1:** a request, decided on her client, applied through `setFeature` + `onToggle` like her own
+  click, told to her, logged (`remoteLog`). Refusals told to the keyholder. Same room only.
+- **No new message type:** `remote-request` (feature "settings") and `state-response` fields, plus
+  `keyholder` on her answer to that asker's state-query. Asked at most every 30 s from the popup.
+- **The popup's Keys tab** is the one place a click acts instead of typing (besides the Safeword
+  button): a keyholder's box has no chat line to type.
 
 ## Hard Limits
 
@@ -4005,7 +4069,7 @@ the trance-defaults table stranded between Stage 3 and Stage 4.
 - ~~**Decide whether `/hypno triggers full` ships.**~~ **Done in v0.40.0.** Room-admin idea dropped — admin is a chat-room property and a subject can make their own room. `full` is now gated on a testing check and does not exist outside it; visibility ships as a player setting instead. ~~**Release step: flip `TESTING_MODE` in `log.ts`.**~~ — **no longer a release step, as of v0.73.0:** testing mode is now `isTestingMode()`, read live from the room name, so the shipped build is safe by default and there is no flag to remember.
 - **Public/private review as new flavor is added.** Every new flavor key is private unless it is given a public variant, so the safe default is silence — but a genuinely observable effect that nobody remembers to give a public line will simply be invisible to the room. Worth a pass whenever a batch of new effects lands.
 - ~~Decide what, if anything, the **Hidden Activities** toggle should gate~~ — removed in v0.14.0 and replaced by "Lock settings while a session is on you" (named "…while in trance" until v0.65.1, when it was widened to cover the induction as well).
-- ~~**H icon detection**~~ — done in v0.35.0, as a 3-second probe. The icon deliberately still appears for everyone: hiding it would turn the Information Sheet into a directory of who has the add-on installed.
+- ~~**H icon detection**~~ — done in v0.35.0, as a 3-second probe. The icon deliberately still appears for everyone: hiding it would turn the Information Sheet into a directory of who has the add-on installed. **Reversed for the popup in v1.13.0 (DW, 2026-11-21):** its People tab does list who runs ECHS; see *The ECHS Popup*. The sheet's icon still shows on everyone.
 - **Command authority** — by default only the hypnotist who established the session can issue commands to the subject. Add a hypnotist command to expand control to additional players ("allow [name] to command you"), revocable at any time. Ties into the permission hierarchy / Architect role already on the list.
 - **Body part protection (others touching you)** — self-touch is done (`ActivityRun` hook). Blocking others from touching you needs a different approach since `ActivityRun` executes on the actor's client, not the subject's. Research needed.
 - **Carry touch restrictions to nearby people (planned)** — extend the body-part block and body-part-only (inverse) restrictions so they apply to *other players* touching the subject, not just self-touch. Under the subject-authoritative model this is harder: the activity runs on the toucher's client, so enforcement needs either a message-back mechanism (subject client notices and emits a correction) or cooperation from a shared signal. Complexity note: blocking others' activities without their add-on installed may require a different approach than the hook used for self-touch.
@@ -4345,6 +4409,10 @@ hypnotist) remains a separate, larger idea and is not planned.
 ---
 
 ## Needs Testing
+
+**Open, v1.13.0 (2026-11-21): the ECHS popup has had no live run at all.** Every stage is unit-tested
+(test/popup.mjs) but none has been in a real room. The steps are `script_test.md` sections A–J
+(local): the launcher and drag, People, Suggestions and greying (two clients), Me, and Triggers.
 
 *Last reconciled against the code 2026-09-21, at v0.80.0. Three items are open: 8 (decay in play),
 10 (the Data tab's Reset button) and 11 (a hypnotist leaving the room). Everything else on this list

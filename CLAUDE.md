@@ -5,9 +5,12 @@ another: induction, spoken suggestions, persistent triggers, the clothing illusi
 and a trust-and-depth gating system underneath all of it.
 
 **Version:** `package.json` is the single source of truth; the on-screen banner derives from it.
-Since 1.0.0 (2026-10-28) it may also carry `releaseLabel` ("RC"), which is shown after the number
-and never put into it: the number is also the jsDelivr tag and what userscript managers compare.
-Going final means deleting `releaseLabel`, with a patch bump. Reasoning in `docs/CHANGELOG.md`.
+**The label after it (since v1.13.6, DW 2026-11-21): stable shows just the number; a dev build shows
+it with " D" after it.** The add-on decides at load, from where it was loaded (`src/log.ts`,
+`RELEASE_SUFFIX`): FUSAM's dev channel and the local `dist/` test build show the D; FUSAM stable and
+the loaders don't. Never put a label into `package.json` or the version itself: dev and main commit
+the same bundle, and the number is also the jsDelivr tag and what userscript managers compare. Root
+`CHANGELOG.md` headings are `## v1.13.6 · <date>`, with no label. ("RC" ran from 1.0.0 to 1.13.5.)
 
 ## Where the facts live — do not copy them here
 
@@ -41,6 +44,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
    - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All, `/echs forgettrigger` and the planter's spoken removal are refused: triggers can only be added (DW, 2026-11-05).
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
+   - **Keyholders (v1.14.0, DW):** someone she has given her keys (`src/keyholder.ts`) can still change her Permissions, Trance Defaults, Awareness and Triggers tick boxes (and, v1.14.1, the Inductions tab and the Trance Defaults screen effect, eyes and pulse colour choices) under the lock (unticking Hypnosis Enabled included) and can end the lock. That is a documented way out; her own list of keyholders is read-only under the lock.
    - Never mention `exit_extreme` in help, the wiki or changelogs.
 3. **Never write `Player.Appearance` for the illusion.** It is server-synced and corruptible. The illusion is a shadow character on the subject's own screen.
 4. **Chemical depth never writes anything permanent nor lies to the subject about their own state.** That is the `earnedOnly` split in `depth.ts`.

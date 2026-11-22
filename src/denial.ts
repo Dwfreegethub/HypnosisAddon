@@ -1,5 +1,6 @@
 import { log, warn } from "./log";
-import { announce } from "./flavor";
+import { announce, flavor } from "./flavor";
+import { tellPlayer } from "./notify";
 import { applyEffect } from "./effects";
 import { getFeatures } from "./storage";
 import { orgasmDeniedByUs, denialCarrierLost } from "./arousal";
@@ -67,10 +68,42 @@ export const DENIAL_HOLD = 99;
  * game), per ActivityOrgasmStart / ActivityOrgasmGameGenerate. */
 const ORGASM_HAPPENING = 2;
 
-/** The held orgasm is announced at most this often. A toy at full power reaches the top again
- * every few seconds, and one line per climb would flood both the subject's chat and the room. */
-const ANNOUNCE_EVERY_MS = 60_000;
-let lastAnnounced = 0;
+// HOW OFTEN IT IS SAID (v1.13.3; a player's report, DW 2026-11-21). A toy at full power brings her
+// back to the top every few seconds. Until v1.13.3 the held orgasm was said once a minute, to her and
+// to the room, for as long as the toy ran, which read as spam. Now an EPISODE of being held:
+//   - the first hold is said to her and to the room, as before;
+//   - after that, to her only, at a widening gap: 2, 4, 8, then every 15 minutes at most;
+//   - the room is not told again within the episode;
+//   - five minutes with no hold (the toy is off, arousal has fallen) ends it; the next hold is a first.
+export const DENIAL_FIRST_REPEAT_MS = 2 * 60_000;
+export const DENIAL_MAX_REPEAT_MS = 15 * 60_000;
+export const DENIAL_EPISODE_GAP_MS = 5 * 60_000;
+let lastHoldAt = 0;
+let nextSayAt = 0;
+let repeatGap = DENIAL_FIRST_REPEAT_MS;
+
+/** What, if anything, to say for a hold at `now`: "first" (her and the room), "repeat" (her only),
+ * or null. Exported for the suite. */
+export function heldAnnouncement(now: number = Date.now()): "first" | "repeat" | null {
+	const newEpisode = lastHoldAt === 0 || now - lastHoldAt >= DENIAL_EPISODE_GAP_MS;
+	lastHoldAt = now;
+	if (newEpisode) {
+		repeatGap = DENIAL_FIRST_REPEAT_MS;
+		nextSayAt = now + repeatGap;
+		return "first";
+	}
+	if (now < nextSayAt) return null;
+	repeatGap = Math.min(repeatGap * 2, DENIAL_MAX_REPEAT_MS);
+	nextSayAt = now + repeatGap;
+	return "repeat";
+}
+
+/** For the suite: forget any episode. */
+export function resetDenialAnnouncements(): void {
+	lastHoldAt = 0;
+	nextSayAt = 0;
+	repeatGap = DENIAL_FIRST_REPEAT_MS;
+}
 
 function isPlayer(C: any): boolean {
 	return !!C && (C === Player || C.IsPlayer?.() === true);
@@ -117,11 +150,9 @@ function hold(): void {
 			log("a queued orgasm was cancelled by denial");
 		}
 	}
-	const now = Date.now();
-	if (now - lastAnnounced >= ANNOUNCE_EVERY_MS) {
-		lastAnnounced = now;
-		announce("orgasm-held");
-	}
+	const say = heldAnnouncement();
+	if (say === "first") announce("orgasm-held");
+	else if (say === "repeat") tellPlayer(flavor("orgasm-held"));
 	log(`orgasm held by denial, arousal kept at ${DENIAL_HOLD}`);
 }
 

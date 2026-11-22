@@ -1,7 +1,7 @@
 **[What's New (changelog)](https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md)**
 
 **Mid-scene quick card**
-* Stop everything: `/echs safeword`
+* Stop everything: `/echs safeword`, or the popup's red button
 * Wake them: *"Missy, wake up"*
 * Let them move: *"Missy, you can move again"*
 * Did my line match? `/echs match <line>`
@@ -12,6 +12,7 @@
 **Start here**
 * [Home](Home)
 * [Getting Started](Getting-Started)
+* [The ECHS Popup](The-ECHS-Popup)
 * [What to Say](What-to-Say)
 * [A Sample Session](Sample-Session)
 * [Consent and Safety](Consent-and-Safety)

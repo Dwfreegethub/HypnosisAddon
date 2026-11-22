@@ -7,6 +7,10 @@ declare const ChatRoomCharacter: any[];
 declare const ChatRoomHideIconState: number;
 /** R133 Game.js:4. */
 declare const GameVersion: string;
+/** R134 Common.js:9 — the screen being shown, e.g. "ChatRoom". */
+declare const CurrentScreen: string | undefined;
+/** R134 Common.js:13 — the character whose item menu is open, or null. */
+declare const CurrentCharacter: any;
 // The current chat room's server data, or null when not in a room. `.Name` is the room name.
 declare const ChatRoomData: { Name?: string } | null;
 // BC's shared asset definitions. Item.Asset points into this array, so mutating an entry
