@@ -13,6 +13,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.4 · 22 November 2026
+
+- **Anyone with your full keys can ask to take back another keyholder's keys.** You get a popup and
+  nothing changes unless you accept. Your BC owner (with your full keys) still doesn't need to ask.
+
 ## v1.16.3 · 22 November 2026
 
 - **Extreme from a keyholder.** Someone with your full keys can ask to put you under Extreme, or to

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -12775,7 +12775,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.4"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12848,7 +12848,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.4"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13684,7 +13684,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.3", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.4", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -13721,7 +13721,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.3", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.4", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -13763,7 +13763,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.3", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.4", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13963,8 +13963,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       keyLock: keyLockHolder()?.name ?? "",
       // Who locked who holds her keys (v1.16.3), or "".
       keysLock: keysLockHolder()?.name ?? "",
-      // Her named keyholders, for her BC owner at full keys only, who may take theirs back (v1.16.3).
-      ...ownerManages(member, mode) ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {},
+      // Her other named keyholders, for full keys, who may take theirs back (v1.16.3 owner, v1.16.4 any).
+      ...mode === "full" ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {},
       // `mode` is v1.14's word, for an older keyholder; `level` is the real one.
       mode: legacyWord(mode),
       level: mode,
@@ -14189,36 +14189,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     };
   }
-  function ownerManages(member, mode) {
-    return mode === "full" && isBcOwner(member);
-  }
-  function handleOwnerRemove(sender, mode, who, message) {
-    const say = (ok, text2) => reply(sender, mode, { ok, text: text2 });
-    if (!ownerManages(sender, mode)) {
-      const text2 = "Only their BC owner, holding their full keys, can take other keyholders' keys back.";
-      say(false, text2);
-      return text2;
-    }
-    const id = Number(message?.id);
-    const entry = listKeyholders().find((k) => k.id === id);
-    if (!entry || id === sender) {
-      const text2 = "That person doesn't hold their keys.";
-      say(false, text2);
-      return text2;
-    }
-    if (keyLockHolder()?.id === id) {
-      const text2 = `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
-      say(false, text2);
-      return text2;
-    }
-    removeKeyholder(id);
-    announceKeysTo(id);
-    const what = `took ${entry.name}'s keys back (as your owner)`;
-    noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
-    tellPlayer(`${who} (your owner) took ${entry.name}'s keys back. They can no longer change your settings.`);
-    log(`owner ${sender} removed keyholder ${id}`);
-    say(true, `Done: ${entry.name} no longer holds their keys.`);
-    return "removed";
+  function removeKeyholderChange(sender, who, id, byOwner) {
+    const name = () => listKeyholders().find((k) => k.id === id)?.name ?? `#${id}`;
+    return {
+      kind: `remove keyholder ${id}`,
+      title: `${who} asks to take ${name()}'s keys back`,
+      lines: [
+        `${name()} would no longer hold your keys, and could no longer change your settings. You can give them keys again later.`
+      ],
+      accept: `Take ${name()}'s keys back`,
+      refusal: () => {
+        const entry = listKeyholders().find((k) => k.id === id);
+        if (!entry || id === sender) return "That person doesn't hold their keys.";
+        if (keyLockHolder()?.id === id) return `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
+        if (!byOwner && keysLocked()) return "Who holds their keys is locked, so only their owner can take keys back.";
+        return null;
+      },
+      apply: () => {
+        const n = name();
+        removeKeyholder(id);
+        announceKeysTo(id);
+        return {
+          her: byOwner ? `${who} (your owner) took ${n}'s keys back. They can no longer change your settings.` : `${who} took ${n}'s keys back (you agreed). They can no longer change your settings.`,
+          them: `Done: ${n} no longer holds their keys.`,
+          what: byOwner ? `took ${n}'s keys back (as your owner)` : `took ${n}'s keys back (you agreed)`
+        };
+      }
+    };
   }
   function handleUnlock(sender, mode, who, kind) {
     const things = kind === "settings" ? "their settings" : "who holds their keys";
@@ -14329,7 +14326,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (action === "lock-keys") return handleAskedChange(sender, mode, who, keysLockChange(sender, who, isBcOwner(sender)), isBcOwner(sender));
     if (action === "unlock-keys") return handleUnlock(sender, mode, who, "keys");
     if (action === "extreme") return handleAskedChange(sender, mode, who, extremeChange(sender, who));
-    if (action === "remove-keyholder") return handleOwnerRemove(sender, mode, who, message);
+    if (action === "remove-keyholder") {
+      const byOwner = isBcOwner(sender);
+      return handleAskedChange(sender, mode, who, removeKeyholderChange(sender, who, Number(message?.id), byOwner), byOwner);
+    }
     if (action === "remove-trigger") {
       if (mode !== "full") {
         const text2 = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
@@ -16805,7 +16805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.3"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.4"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17455,8 +17455,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         );
       }
       if (snap.keysLock) list.appendChild(el2("div", "echs-pop-hint", `Who holds their keys is locked by ${snap.keysLock}.`));
-      if (snap.keyholders) {
-        list.appendChild(el2("div", "echs-pop-person", "Their other keyholders (you're their owner)"));
+      if (snap.keyholders && who.mode === "full") {
+        const owner = isOwnerOf(who.id);
+        list.appendChild(el2("div", "echs-pop-person", owner ? "Their other keyholders (you're their owner)" : "Their other keyholders"));
         if (!snap.keyholders.length) list.appendChild(el2("div", "echs-pop-desc", "Nobody else holds their keys."));
         for (const k of snap.keyholders) {
           const armed = ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS;
@@ -17464,9 +17465,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
           const row = el2("div", "echs-pop-buttons");
           row.appendChild(el2("div", "echs-pop-desc", `${k.name} \xB7 ${k.mode}`));
           row.appendChild(
-            chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : "Their keys are taken back at once. Click twice.", () => {
+            chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : owner ? "As their owner, their keys are taken back at once. Click twice." : `Asks ${who.name} to take ${k.name}'s keys back. They must accept.`, () => {
               if (isLocker) {
                 setStatus(status, `${k.name} locked their settings, so they keep their keys until it is unlocked.`);
+                return;
+              }
+              if (!owner) {
+                requestRemoveKeyholder(who.id, k.id);
+                setStatus(status, `Asked ${who.name} to take ${k.name}'s keys back. They have 30 seconds to accept.`);
                 return;
               }
               if (ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS) {
@@ -17805,7 +17811,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.4"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -17832,7 +17838,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.3"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.4"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -17907,14 +17913,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.3"})`);
+      info(`script loaded (v${"1.16.4"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.3",
+          version: "1.16.4",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18056,10 +18062,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.4"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.3";
+    page2.__ECHS_LOADED__ = "1.16.4";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

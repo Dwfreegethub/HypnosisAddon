@@ -978,9 +978,10 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
   `keyLockHolder`; her BC owner at full skips the popup (DW). It holds `/echs keyholder add/remove/owner`
   and request-keys. Extreme: not locked → `startExtremeLock("trial")`; locked → `extendExtremeLock`
   (+30 days from its end, stage "month"); if that changed while she decided, nothing happens.
-- **Owner manages keyholders (v1.16.3, DW):** her BC owner at full keys (`ownerManages`) gets her
-  named keyholders in the snapshot and may send `remove-keyholder` {id}; no popup. Refused for the
-  settings-lock holder while it holds. The removed keyholder is told (`announceKeysTo`).
+- **Removing other keyholders (v1.16.3 owner, v1.16.4 any full, DW):** full keys get her other named
+  keyholders in the snapshot and may send `remove-keyholder` {id} through `handleAskedChange` (her
+  Accept; her BC owner skips it). Refused for the settings-lock holder while it holds, and for a
+  non-owner while the keys lock holds. The removed keyholder is told (`announceKeysTo`).
 - **Keyholder lock (v1.16.2, job6.md §5):** `remote-request` actions `lock` (full; she accepts in
   ask.ts, 3 min between asks per keyholder) and `unlock` (any full). Stored as `keyLock {by, byName,
   at, seenAt}`; `keylock.ts` reads it lazily: the locker in the room refreshes `seenAt` (saved at most

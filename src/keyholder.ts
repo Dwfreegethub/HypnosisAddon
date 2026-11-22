@@ -189,8 +189,8 @@ function snapshotFor(member: number, mode: KeyMode): Record<string, unknown> {
 		keyLock: keyLockHolder()?.name ?? "",
 		// Who locked who holds her keys (v1.16.3), or "".
 		keysLock: keysLockHolder()?.name ?? "",
-		// Her named keyholders, for her BC owner at full keys only, who may take theirs back (v1.16.3).
-		...(ownerManages(member, mode) ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {}),
+		// Her other named keyholders, for full keys, who may take theirs back (v1.16.3 owner, v1.16.4 any).
+		...(mode === "full" ? { keyholders: listKeyholders().filter((k) => k.id !== member).map((k) => ({ id: k.id, name: k.name.slice(0, 60), mode: k.mode })) } : {}),
 		// `mode` is v1.14's word, for an older keyholder; `level` is the real one.
 		mode: legacyWord(mode),
 		level: mode,
@@ -472,41 +472,40 @@ function extremeChange(sender: number, who: string): AskedChange {
 	};
 }
 
-/** Her BC owner, holding her full keys, manages who else holds them (v1.16.3, DW 2026-11-22: "BC
- * owner can remove other keyholders as well"), without asking her, as with the keys lock. */
-function ownerManages(member: number, mode: KeyMode | null): boolean {
-	return mode === "full" && isBcOwner(member);
-}
-
-/** Her owner takes someone else's keys back. Not the one holding her settings lock while it holds:
- * that lock promises they keep full keys until a full keyholder unlocks it. */
-function handleOwnerRemove(sender: number, mode: KeyMode, who: string, message: any): string {
-	const say = (ok: boolean, text: string) => reply(sender, mode, { ok, text });
-	if (!ownerManages(sender, mode)) {
-		const text = "Only their BC owner, holding their full keys, can take other keyholders' keys back.";
-		say(false, text);
-		return text;
-	}
-	const id = Number(message?.id);
-	const entry = listKeyholders().find((k) => k.id === id);
-	if (!entry || id === sender) {
-		const text = "That person doesn't hold their keys.";
-		say(false, text);
-		return text;
-	}
-	if (keyLockHolder()?.id === id) {
-		const text = `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
-		say(false, text);
-		return text;
-	}
-	removeKeyholder(id);
-	announceKeysTo(id);
-	const what = `took ${entry.name}'s keys back (as your owner)`;
-	noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
-	tellPlayer(`${who} (your owner) took ${entry.name}'s keys back. They can no longer change your settings.`);
-	log(`owner ${sender} removed keyholder ${id}`);
-	say(true, `Done: ${entry.name} no longer holds their keys.`);
-	return "removed";
+/** Taking someone else's keys back (v1.16.3 owner; v1.16.4 any full keyholder, DW 2026-11-22: "Any
+ * full keyholder with a popup, owner no popup"). Her BC owner at full keys does it outright; any other
+ * full keyholder needs her Accept. Never the one holding her settings lock while it holds (that lock
+ * promises they keep full keys), and not by a non-owner while her keys lock holds (accepting would
+ * be her taking keys back, which that lock stops). */
+function removeKeyholderChange(sender: number, who: string, id: number, byOwner: boolean): AskedChange {
+	const name = () => listKeyholders().find((k) => k.id === id)?.name ?? `#${id}`;
+	return {
+		kind: `remove keyholder ${id}`,
+		title: `${who} asks to take ${name()}'s keys back`,
+		lines: [
+			`${name()} would no longer hold your keys, and could no longer change your settings. You can give them keys again later.`,
+		],
+		accept: `Take ${name()}'s keys back`,
+		refusal: () => {
+			const entry = listKeyholders().find((k) => k.id === id);
+			if (!entry || id === sender) return "That person doesn't hold their keys.";
+			if (keyLockHolder()?.id === id) return `${entry.name} locked their settings, so they keep their keys until a full keyholder unlocks them.`;
+			if (!byOwner && keysLocked()) return "Who holds their keys is locked, so only their owner can take keys back.";
+			return null;
+		},
+		apply: () => {
+			const n = name();
+			removeKeyholder(id);
+			announceKeysTo(id);
+			return {
+				her: byOwner
+					? `${who} (your owner) took ${n}'s keys back. They can no longer change your settings.`
+					: `${who} took ${n}'s keys back (you agreed). They can no longer change your settings.`,
+				them: `Done: ${n} no longer holds their keys.`,
+				what: byOwner ? `took ${n}'s keys back (as your owner)` : `took ${n}'s keys back (you agreed)`,
+			};
+		},
+	};
 }
 
 /** Any full keyholder lifts a lock: her settings (job6.md §5) or who holds her keys (v1.16.3). */
@@ -629,7 +628,10 @@ export function handleSettingsRequest(sender: number, message: any): string {
 	if (action === "lock-keys") return handleAskedChange(sender, mode, who, keysLockChange(sender, who, isBcOwner(sender)), isBcOwner(sender));
 	if (action === "unlock-keys") return handleUnlock(sender, mode, who, "keys");
 	if (action === "extreme") return handleAskedChange(sender, mode, who, extremeChange(sender, who));
-	if (action === "remove-keyholder") return handleOwnerRemove(sender, mode, who, message);
+	if (action === "remove-keyholder") {
+		const byOwner = isBcOwner(sender);
+		return handleAskedChange(sender, mode, who, removeKeyholderChange(sender, who, Number(message?.id), byOwner), byOwner);
+	}
 	if (action === "remove-trigger") {
 		if (mode !== "full") {
 			const text = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
@@ -839,7 +841,7 @@ export function requestLockKeys(member: number): void {
 export function requestUnlockKeys(member: number): void {
 	ask(member, { action: "unlock-keys" });
 }
-/** As her BC owner, take someone else's keys back (v1.16.3). Her side checks we are her owner. */
+/** Take someone else's keys back (full keys; v1.16.4). Her owner at once; anyone else, she must accept. */
 export function requestRemoveKeyholder(member: number, id: number): void {
 	ask(member, { action: "remove-keyholder", id });
 }

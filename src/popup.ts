@@ -1337,9 +1337,11 @@ function renderKeys(body: any, status: any): void {
 			);
 		}
 		if (snap.keysLock) list.appendChild(el("div", "echs-pop-hint", `Who holds their keys is locked by ${snap.keysLock}.`));
-		// As their BC owner (v1.16.3): who else holds their keys, each with "take their keys back".
-		if (snap.keyholders) {
-			list.appendChild(el("div", "echs-pop-person", "Their other keyholders (you're their owner)"));
+		// Who else holds their keys, each with "take their keys back" (v1.16.3 owner, v1.16.4 any full
+		// keyholder): their owner's is at once (two clicks); anyone else's asks them (one click).
+		if (snap.keyholders && who.mode === "full") {
+			const owner = isOwnerOf(who.id);
+			list.appendChild(el("div", "echs-pop-person", owner ? "Their other keyholders (you're their owner)" : "Their other keyholders"));
 			if (!snap.keyholders.length) list.appendChild(el("div", "echs-pop-desc", "Nobody else holds their keys."));
 			for (const k of snap.keyholders) {
 				const armed = ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS;
@@ -1347,9 +1349,14 @@ function renderKeys(body: any, status: any): void {
 				const row = el("div", "echs-pop-buttons");
 				row.appendChild(el("div", "echs-pop-desc", `${k.name} · ${k.mode}`));
 				row.appendChild(
-					chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : "Their keys are taken back at once. Click twice.", () => {
+					chip(armed ? "click again" : "take their keys back", isLocker ? `${k.name} locked their settings, so they keep their keys until it is unlocked.` : owner ? "As their owner, their keys are taken back at once. Click twice." : `Asks ${who.name} to take ${k.name}'s keys back. They must accept.`, () => {
 						if (isLocker) {
 							setStatus(status, `${k.name} locked their settings, so they keep their keys until it is unlocked.`);
+							return;
+						}
+						if (!owner) {
+							requestRemoveKeyholder(who.id, k.id);
+							setStatus(status, `Asked ${who.name} to take ${k.name}'s keys back. They have 30 seconds to accept.`);
 							return;
 						}
 						if (ownerRemoveArmed.id === k.id && Date.now() - ownerRemoveArmed.at < END_EXTREME_ARM_MS) {
