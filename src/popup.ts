@@ -20,8 +20,8 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, settingsLocked } from "./menu";
-import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestEndExtreme } from "./keyholder";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, REMOTE_TABS, settingsLocked } from "./menu";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -1043,23 +1043,43 @@ function renderKeys(body: any, status: any): void {
 		const res = lastResult(who.id);
 		if (res && now - res.at < 15_000) list.appendChild(el("div", "echs-pop-hint", res.text));
 		const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
-		let lastTab = "";
-		for (const r of remoteRows()) {
-			if (!on.has(r.key)) continue;
-			if (r.tab !== lastTab) {
-				lastTab = r.tab;
-				list.appendChild(el("div", "echs-pop-person", r.tab));
+		// Tab by tab, in screen order: its tick boxes, then its choices (v1.14.1: Inductions and
+		// Trance Defaults), one row of chips each with the current one lit. Under "take" only the off
+		// choice can be clicked; the rest are faded and her ECHS would refuse them anyway.
+		const chosen = new Map(snap.choices.map((c) => [c.key, c.value]));
+		for (const tab of REMOTE_TABS) {
+			const rows = remoteRows().filter((r) => r.tab === tab && on.has(r.key));
+			const choices = remoteChoices().filter((c) => c.tab === tab && chosen.has(c.key));
+			if (!rows.length && !choices.length) continue;
+			list.appendChild(el("div", "echs-pop-person", tab));
+			for (const r of rows) {
+				const isOn = on.get(r.key) === true;
+				const blocked = !isOn && who.mode !== "grant";
+				const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
+				b.type = "button";
+				b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+				b.addEventListener("click", () => {
+					requestSetting(who.id, r.key, !isOn);
+					setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
+				});
+				list.appendChild(b);
 			}
-			const isOn = on.get(r.key) === true;
-			const blocked = !isOn && who.mode !== "grant";
-			const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
-			b.type = "button";
-			b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
-			b.addEventListener("click", () => {
-				requestSetting(who.id, r.key, !isOn);
-				setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
-			});
-			list.appendChild(b);
+			for (const c of choices) {
+				const value = chosen.get(c.key)!;
+				list.appendChild(el("div", "echs-pop-desc", `${c.label}: ${c.options.find((o) => o.key === value)?.label ?? value}`));
+				const row = el("div", "echs-pop-buttons");
+				for (const o of c.options) {
+					const blocked = who.mode !== "grant" && o.key !== c.off;
+					const ch = chip(o.label, blocked ? "You can only switch their settings off." : `Set ${c.label} to ${o.label}`, () => {
+						if (o.key === value) return;
+						requestChoice(who.id, c.key, o.key);
+						setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}…`);
+					}, blocked && o.key !== value);
+					if (o.key === value) ch.className += " echs-pop-chip-on";
+					row.appendChild(ch);
+				}
+				list.appendChild(row);
+			}
 		}
 		const refresh = chip("refresh", "Ask for their settings again", () => {
 			keysAskedAt.set(who.id, Date.now());

@@ -18,6 +18,24 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-21 (v1.14.1) — keyholders reach the Trance Defaults and Inductions choices
+
+DW asked for the spirals and the other options on that tab, then the Inductions tab as well. They
+are dropdowns and cycle buttons, not tick boxes, so v1.14.0's remote could not reach them. DW chose:
+keyholders (not a popup quick switch for the player); on Trance Defaults all four (screen effect,
+eyes, eye colour, pulse colour); and the whole Inductions tab.
+- Off choices for "take" on Inductions: Ask me, Refuse (when away), toy mode Off, Never deeper.
+  Attempts, induction time and who toy mode is for have no off, so they need grant.
+- `menu.ts remoteChoices()` wraps the tab's own dropdown setters (and the pulse colour's), so the
+  side effects are hers: None takes the fade off at once, her eyes are redone mid-trance.
+- "take" may only set the off choice (None / Unchanged). Going from a heavy spiral to a light one
+  is not counted as taking: it keeps the rule one line. The pulse colour has no off, so it needs
+  grant. Custom pulse colour is unreachable (it needs a hex typed on her screen).
+- New action `choose` on the same `remote-request`; the snapshot gains `choices`. A v1.14.0 subject
+  sends none (the popup shows none) and answers `choose` with "did not understand".
+- `test/keyholder.mjs` 54. Mutation-checked: dropping the take rule fails 3, an empty `choices`
+  fails 1. Not live-tested.
+
 ### Added 2026-11-21 (v1.14.0) — keyholders: changing someone's settings for them
 
 job5.md (local), from a player's request about people locking themselves into Extreme with nobody

@@ -44,7 +44,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
    - While the player's own **Extreme lock** is on (`src/extreme.ts`), Hypnosis Enabled cannot be unticked, and Planted-tab Purge/Clear All, `/echs forgettrigger` and the planter's spoken removal are refused: triggers can only be added (DW, 2026-11-05).
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
-   - **Keyholders (v1.14.0, DW):** someone she has given her keys (`src/keyholder.ts`) can still change her Permissions, Trance Defaults, Awareness and Triggers tick boxes under the lock (unticking Hypnosis Enabled included) and can end the lock. That is a documented way out; her own list of keyholders is read-only under the lock.
+   - **Keyholders (v1.14.0, DW):** someone she has given her keys (`src/keyholder.ts`) can still change her Permissions, Trance Defaults, Awareness and Triggers tick boxes (and, v1.14.1, the Inductions tab and the Trance Defaults screen effect, eyes and pulse colour choices) under the lock (unticking Hypnosis Enabled included) and can end the lock. That is a documented way out; her own list of keyholders is read-only under the lock.
    - Never mention `exit_extreme` in help, the wiki or changelogs.
 3. **Never write `Player.Appearance` for the illusion.** It is server-synced and corruptible. The illusion is a shadow character on the subject's own screen.
 4. **Chemical depth never writes anything permanent nor lies to the subject about their own state.** That is the `earnedOnly` split in `depth.ts`.

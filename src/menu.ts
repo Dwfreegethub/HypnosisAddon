@@ -82,6 +82,8 @@ import {
 	nextInductionSeconds,
 	getToyScope,
 	setToyScope,
+	ATTEMPT_LIMITS,
+	INDUCTION_TIMES,
 } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -370,8 +372,9 @@ const STATS_TAB = TABS[TABS.length - 1];
 const BASE_TABS = TABS.slice(0, TABS.length - 1);
 let showAdvanced = false;
 
-/** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, nothing else. */
-export const REMOTE_TABS = ["Permissions", "Trance Defaults", "Awareness", "Triggers"];
+/** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, and (v1.14.1)
+ * remoteChoices() on Inductions and Trance Defaults. In screen order. */
+export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers"];
 
 export type RemoteRow = { key: keyof FeatureToggles; label: string; tab: string; heading: string; needs?: keyof FeatureToggles };
 
@@ -898,6 +901,49 @@ const PULSE_COLOR_CONTROL: CycleControl = {
 		pulseHexError = "";
 	},
 };
+
+/** A choice (not a tick box) a keyholder may set (v1.14.1, DW 2026-11-21): every control on the
+ * Inductions tab, and on Trance Defaults the screen effect (the spiral), her eyes, her eye colour and
+ * the pulse colour. `off` is the one choice a "take" keyholder may set, the one that switches the
+ * thing off; a choice with no off (a number, a colour, who toy mode is for) needs "grant". */
+export type RemoteChoice = { key: string; label: string; tab: string; options: { key: string; label: string }[]; off?: string; get: () => string; set: (value: string) => void };
+
+/** The choices, through the same setters as her own dropdowns, so their side effects (the fade
+ * coming off, her eyes redone mid-trance) happen as they would for her. Custom pulse colour is left
+ * out: it needs a hex code typed on her screen. */
+export function remoteChoices(): RemoteChoice[] {
+	const fromDropdown = (key: string, label: string, id: string, off: string): RemoteChoice => {
+		const d = TRANCE_DROPDOWNS.find((x) => x.id === id)!;
+		return { key, label, tab: "Trance Defaults", options: d.options, off, get: d.get, set: d.set };
+	};
+	const inductions = (key: string, label: string, options: { key: string; label: string }[], get: () => string, set: (v: string) => void, off?: string): RemoteChoice =>
+		({ key, label, tab: "Inductions", options, off, get, set });
+	return [
+		// The Inductions tab, in its screen order.
+		inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v))),
+		inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v))),
+		inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
+		inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
+		inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => (getToyMode() ? "on" : "off"), (v) => setToyMode(v === "on"), "off"),
+		inductions("toyScope", "Toy mode is for", TOY_SCOPES, getToyScope, setToyScope),
+		inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never"),
+		// Trance Defaults.
+		fromDropdown("screenEffect", "Screen effect", SCREEN_EFFECT_ID, "none"),
+		fromDropdown("tranceEyes", "Eyes while under", TRANCE_EYES_ID, ""),
+		fromDropdown("tranceEyeColor", "Eye colour while under", TRANCE_EYE_COLOR_ID, ""),
+		{
+			key: "pulseColor",
+			label: "Pulse colour",
+			tab: "Trance Defaults",
+			options: PULSE_COLORS.filter((c) => c.key !== "custom").map((c) => ({ key: c.key, label: c.label })),
+			get: getPulseColor,
+			set: (value) => {
+				setPulseColor(value);
+				pulseHexError = "";
+			},
+		},
+	];
+}
 
 /** Where other players' ECHS icons are drawn (v1.7.0). Last on the Trance Defaults tab. */
 const ICON_SPOT_CONTROL: CycleControl = {
