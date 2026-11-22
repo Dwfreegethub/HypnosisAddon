@@ -576,6 +576,9 @@ interface HypnoAddonSettings {
 	 * it can never nag. `normalise()` back-fills it true for anyone already configured, so an
 	 * upgrade does not greet every existing user. Sparse, like the other reversible defaults. */
 	welcomeShown?: boolean;
+	/** The last ECHS version this account loaded (v1.15.0, update.ts): a newer stable one gets the
+	 * update notice once. Absent on accounts from before the notice existed. */
+	lastSeenVersion?: string;
 	/** The player's OWN practice as a hypnotist, as an interaction COUNT through the shared
 	 * curve — never a stored value — exactly like `experience`. Transmitted (derived) on every
 	 * induction this player attempts; what the far side then does with it is their setting. */
@@ -1342,6 +1345,14 @@ export function wasWelcomeShown(): boolean {
 }
 export function markWelcomeShown(): void {
 	loadSettings().welcomeShown = true;
+	saveSettings();
+}
+export function getLastSeenVersion(): string | undefined {
+	const v = loadSettings().lastSeenVersion;
+	return typeof v === "string" && /^\d+(\.\d+)*$/.test(v) ? v : undefined;
+}
+export function setLastSeenVersion(version: string): void {
+	loadSettings().lastSeenVersion = version;
 	saveSettings();
 }
 

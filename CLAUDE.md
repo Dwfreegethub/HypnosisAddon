@@ -67,6 +67,10 @@ The reasoning for each is in the Orientation section; this is the checklist.
   merged with a **merge commit** (`gh pr merge --merge`), never squashed: a squash would make every
   later release re-apply the same changes and conflict. Never delete `dev` when merging it. The
   first was #95 (v1.0.1 RC).
+- **Before a release (v1.15.0):** set `UPDATE_NOTE` in `src/update.ts` to the version going out and
+  one or two plain sentences from its CHANGELOG headlines (no `<`, `>` or `&`; it goes into chat as
+  HTML). That is what every stable player sees in the update beep. Forgotten, it says only "ECHS was
+  updated to vX".
 - **FUSAM** lists ECHS from GitHub Pages (`type: "script"`, since 2026-11-01):
   `dwfreegethub.github.io/HypnosisAddon/HypnosisAddon.js` is `main`'s `cdn/HypnosisAddon.js`
   (`stable`), `…/dev/HypnosisAddon.js` is `dev`'s, and `…/icon.png` is `pages/icon.png`.

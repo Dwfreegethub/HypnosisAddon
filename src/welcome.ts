@@ -1,5 +1,6 @@
 import { tellPlayer } from "./notify";
-import { RELEASE_SUFFIX } from "./log";
+import { RELEASE_SUFFIX, warn } from "./log";
+import { maybeShowUpdateNotice } from "./update";
 import { wasWelcomeShown, markWelcomeShown, hasAnyPermissionGranted } from "./storage";
 
 // The first-run notice. Every permission — including hypnoEnabled — defaults off, and the
@@ -91,7 +92,14 @@ export function startStartupBanner(): void {
 		if (ready) {
 			clearInterval(poll);
 			showStartupBanner();
+			// Read before the first-run notice marks itself shown: a fresh install gets that, not this.
+			const freshInstall = !wasWelcomeShown();
 			maybeShowFirstRunNotice();
+			try {
+				maybeShowUpdateNotice(freshInstall);
+			} catch (err) {
+				warn("update notice failed:", err);
+			}
 			return;
 		}
 		if (Date.now() - startedAt > BANNER_GIVE_UP_MS) clearInterval(poll);

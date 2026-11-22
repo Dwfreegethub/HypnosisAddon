@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.15.0 · 21 November 2026
+
+- **ECHS tells you when it updates.** The first time you load a new version, a beep pops up with a
+  short note on what changed; click it to open the full list. The same note stays in your chat with
+  a *What's new* link, so you can read it later. Only you see it, and only once per version.
+
 ## v1.14.1 · 21 November 2026
 
 - **Keyholders can change your spiral and your induction settings too.** On the **Keys** tab, a
