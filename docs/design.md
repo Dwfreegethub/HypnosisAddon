@@ -953,8 +953,9 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
 - **How far, per keyholder:** `take` may only switch tick boxes off; `grant` may switch them on too.
   Owner and named together give the wider.
 - **What:** the tick boxes of the Permissions, Trance Defaults, Awareness and Triggers tabs
-  (`menu.ts remoteRows()`, read from the tabs so it cannot drift). Never the safeword, reset,
-  export/import, or the keyholder list.
+  (`menu.ts remoteRows()`, read from the tabs so it cannot drift), and since v1.14.1 the choices
+  that are not tick boxes (`remoteChoices()`: every Inductions control, and the screen effect, eyes,
+  eye colour and pulse colour; take = only the off choice, and one with no off needs grant). Never the safeword, reset, export/import, or the keyholder list.
 - **Through Extreme**, and a keyholder may end the lock: the documented way out DW chose. Her own
   edits of the list follow her locks (Extreme, and the session lock).
 - **Rule 1:** a request, decided on her client, applied through `setFeature` + `onToggle` like her own

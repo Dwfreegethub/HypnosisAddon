@@ -111,7 +111,7 @@ Lines that need finishing end where you type on, and the status line says what's
 
 **Your keyholders:** whether your BC owner holds your keys (*off*, *take*, *grant*), the people you've named (*make grant*/*make take*, *remove*), and buttons to add someone in the room. These type the `/echs keyholder` command, like everything else; press Enter. The last changes made to your settings are listed underneath. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
 
-**Settings you hold keys to:** for anyone here who has given you their keys, their tick boxes from four settings tabs. **Clicking one asks their ECHS to switch it**; it doesn't type anything, because there is no chat line for it. The answer appears in the window. If you can only *take*, boxes that are off are faded. If their Extreme lock is on, **end their Extreme lock** appears: click it twice.
+**Settings you hold keys to:** for anyone here who has given you their keys, their tick boxes from four settings tabs, and a row of buttons for each choice on their Inductions tab and for their screen effect (the spiral), eyes, eye colour and pulse colour. **Clicking one asks their ECHS to switch it**; it doesn't type anything, because there is no chat line for it. The answer appears in the window. If you can only *take*, boxes that are off are faded, and so is every choice but the one that switches it off (None, Unchanged, Ask me, Refuse, Off, Never deeper). If their Extreme lock is on, **end their Extreme lock** appears: click it twice.
 
 ## Commands
 

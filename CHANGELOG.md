@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.14.1 · 21 November 2026
+
+- **Keyholders can change your spiral and your induction settings too.** On the **Keys** tab, a
+  keyholder now also sees everything on your **Inductions** tab (attempts, induction time, your
+  automatic answer, when you're away, toy mode and who it's for, how deep "sink deeper" goes) and
+  your Trance Defaults choices: the screen effect (none, grey fade or the spiral), your eyes and eye
+  colour while under, and the pulse colour. *take* can only switch them off (None, Unchanged, Ask
+  me, Refuse, toy mode Off, Never deeper); *grant* can pick any of them. You're told every change,
+  as before.
+
 ## v1.14.0 · 21 November 2026
 
 - **Keyholders.** You can now let someone change your ECHS settings for you: anyone you name with

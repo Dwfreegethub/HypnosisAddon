@@ -7,6 +7,11 @@
 //   - It works at any time, and through her Extreme lock; a keyholder may also END that lock.
 //   - It reaches the tick boxes on Permissions, Trance Defaults, Awareness and Triggers (menu.ts
 //     remoteRows), nothing else.
+//   - v1.14.1 (DW 2026-11-21): also the choices that are not tick boxes (menu.ts remoteChoices):
+//     every Inductions control, and on Trance Defaults the screen effect (the spiral), her eyes, her
+//     eye colour and the pulse colour. "take" may only set one to its off choice (None, Unchanged,
+//     Ask me, Refuse, toy mode Off, Never deeper); one with no off (attempts, induction time, who toy
+//     mode is for, pulse colour) needs "grant".
 //
 // RULE 1. Every change is a REQUEST to her client, which alone decides: is the sender her keyholder,
 // is the box one a keyholder may reach, and if it turns something on, may this keyholder grant? Then
@@ -37,7 +42,7 @@ import {
 	noteRemoteChange,
 	clearExtremeLock,
 } from "./storage";
-import { remoteRows, onToggle } from "./menu";
+import { remoteRows, remoteChoices, onToggle } from "./menu";
 import { extremeLocked } from "./extreme";
 import { presenceFields } from "./badge";
 
@@ -78,11 +83,16 @@ export function keyholderFields(asker: number): { keyholder?: KeyMode } {
 	return mode ? { keyholder: mode } : {};
 }
 
-export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; extreme: boolean; mode: KeyMode };
+export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode };
 
 function snapshotFor(member: number, mode: KeyMode): SettingsSnapshot {
 	const f = getFeatures();
-	return { boxes: remoteRows().map((r) => ({ key: r.key, on: !!f[r.key] })), extreme: extremeLocked(), mode };
+	return {
+		boxes: remoteRows().map((r) => ({ key: r.key, on: !!f[r.key] })),
+		choices: remoteChoices().map((c) => ({ key: c.key, value: c.get() })),
+		extreme: extremeLocked(),
+		mode,
+	};
 }
 
 function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: string }): void {
@@ -145,6 +155,40 @@ export function handleSettingsRequest(sender: number, message: any): string {
 		reply(sender, mode, { ok: true, text: `Done: ${row.label} is now ${value ? "on" : "off"}.` });
 		return "set";
 	}
+	if (action === "choose") {
+		const choice = remoteChoices().find((c) => c.key === message?.key);
+		if (!choice) {
+			const text = "That is not something a keyholder can change.";
+			reply(sender, mode, { ok: false, text });
+			return text;
+		}
+		const value = typeof message?.value === "string" ? message.value : "";
+		const option = choice.options.find((o) => o.key === value);
+		if (!option) {
+			const text = `That is not one of the choices for ${choice.label}.`;
+			reply(sender, mode, { ok: false, text });
+			return text;
+		}
+		if (choice.get() === value) {
+			reply(sender, mode, { ok: true, text: `${choice.label} is already ${option.label}.` });
+			return "unchanged";
+		}
+		if (mode !== "grant" && value !== choice.off) {
+			const offLabel = choice.options.find((o) => o.key === choice.off)?.label;
+			const text = offLabel
+				? `You can only switch their settings off; for ${choice.label} that is "${offLabel}". Anything else needs them to let you grant.`
+				: `Changing ${choice.label} needs them to let you grant.`;
+			reply(sender, mode, { ok: false, text });
+			return text;
+		}
+		choice.set(value);
+		const what = `set ${choice.label} to ${option.label}`;
+		noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+		tellPlayer(`${who} (your keyholder) ${what}.`);
+		log(`keyholder ${sender} ${what}`);
+		reply(sender, mode, { ok: true, text: `Done: ${choice.label} is now ${option.label}.` });
+		return "chosen";
+	}
 	if (action === "end-extreme") {
 		if (!extremeLocked()) {
 			reply(sender, mode, { ok: true, text: "Their Extreme lock is not on." });
@@ -190,7 +234,11 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 		const boxes = s.boxes
 			.filter((b: any) => b && typeof b.key === "string" && b.key.length <= 40)
 			.map((b: any) => ({ key: b.key as string, on: b.on === true }));
-		snapshots.set(sender, { snap: { boxes, extreme: s.extreme === true, mode: isMode(s.mode) ? s.mode : "take" }, at: Date.now() });
+		// Choices arrived in v1.14.1; an older subject sends none, and the popup shows none.
+		const choices = (Array.isArray(s.choices) ? s.choices.slice(0, 20) : [])
+			.filter((c: any) => c && typeof c.key === "string" && c.key.length <= 40 && typeof c.value === "string" && c.value.length <= 40)
+			.map((c: any) => ({ key: c.key as string, value: c.value as string }));
+		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: isMode(s.mode) ? s.mode : "take" }, at: Date.now() });
 		askedAt.delete(sender);
 	}
 	const r = message?.settingsResult;
@@ -230,6 +278,9 @@ export function requestSettings(member: number): void {
 }
 export function requestSetting(member: number, key: string, value: boolean): void {
 	ask(member, { action: "set", key, value });
+}
+export function requestChoice(member: number, key: string, value: string): void {
+	ask(member, { action: "choose", key, value });
 }
 export function requestEndExtreme(member: number): void {
 	ask(member, { action: "end-extreme" });
