@@ -142,6 +142,11 @@ Since v1.14.0 you can give someone your **keys**: they can then change your ECHS
   * You can't take back the keys of the one who locked them, or lower them below full. You can still give keys to others and take theirs back.
   * It **ends on its own** if the one who locked it hasn't been in a room with you for **7 days**.
   * `/echs safeword` always works, you can still untick **Hypnosis Enabled** to switch ECHS off, and `/echs reset confirm` still wipes everything, the lock included.
+* **The keys lock** (since v1.16.3). Locks **who holds your keys**: while it holds you can't give anyone your keys or take anyone's back, and nobody can ask you for them. Your keyholders keep what they have.
+  * Your **BC owner**, if they hold your **full** keys, can set it **without asking you**. Anyone else with your full keys has to ask, and you get a popup like the keyholder lock's.
+  * Any of your full keyholders can lift it. It ends on its own if whoever set it hasn't been in a room with you for **7 days**. `/echs safeword` and `/echs reset confirm` always work.
+* **Your owner manages your keyholders** (since v1.16.3). Your **BC owner**, if they hold your **full** keys, sees who else holds your keys and can **take anyone's keys back** without asking you. You're told each time. The one exception: whoever locked your settings keeps their keys until the lock is lifted.
+* **Extreme from a keyholder** (since v1.16.3). Someone with your **full** keys can ask to put you under Extreme, or to extend it by 30 days. You get a popup with the whole Extreme warning, and **nothing happens unless you accept**. It is the same lock as choosing Extreme in setup: 7 days first, then 30 days at a time.
 * **Even under Extreme.** Your keyholders can still change your settings while your Extreme lock is on, and **they can end the lock for you**. That is the point of it. Under the lock, your own list of keyholders is read-only, like your other settings.
 * **You always know.** Every change tells you who did what (*"Kay (your keyholder) turned off Sight"*), and `/echs keyholder` lists your keyholders and the last changes.
 * **Your client still decides.** A keyholder sends a request; your ECHS checks they are your keyholder and that the change is allowed before making it. Remove someone at any time with `/echs keyholder remove <name>` (unless your Extreme lock is on).

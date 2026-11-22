@@ -13,6 +13,18 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.3 · 22 November 2026
+
+- **Extreme from a keyholder.** Someone with your full keys can ask to put you under Extreme, or to
+  extend it by 30 days. You see the whole Extreme warning in a popup, and nothing happens unless you
+  accept.
+- **The keys lock.** Locks who holds your keys: you can't give or take back keys while it holds. Your
+  BC owner, if they hold your full keys, can set it without asking; anyone else with your full keys
+  has to ask. Any full keyholder can lift it, and it ends on its own after 7 days without whoever set
+  it in a room with you.
+- **Your owner manages your keyholders.** Your BC owner, if they hold your full keys, can take
+  anyone else's keys back without asking. You're told each time.
+
 ## v1.16.2 · 22 November 2026
 
 - **Full keys reach further.** Someone holding your **full** keys can now also set your Triggers tab

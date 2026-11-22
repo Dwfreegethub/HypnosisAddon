@@ -972,6 +972,15 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
   open herself; skill honour only the offered rungs. `depthDefaults` clears the overrides. Appended
   after the v1.14.1 choices, and the keyholder keeps up to 80 (was 20), so an older keyholder still
   gets the first 20 it knows.
+- **Keys lock and keyholder Extreme (v1.16.3):** both go through `handleAskedChange` (full keys only;
+  ask.ts popup; 3 min between asks per keyholder and kind; after Accept, full keys and the refusal are
+  checked again). The keys lock is `keysLock` beside `keyLock` (`LockKind`), read by the same
+  `keyLockHolder`; her BC owner at full skips the popup (DW). It holds `/echs keyholder add/remove/owner`
+  and request-keys. Extreme: not locked → `startExtremeLock("trial")`; locked → `extendExtremeLock`
+  (+30 days from its end, stage "month"); if that changed while she decided, nothing happens.
+- **Owner manages keyholders (v1.16.3, DW):** her BC owner at full keys (`ownerManages`) gets her
+  named keyholders in the snapshot and may send `remove-keyholder` {id}; no popup. Refused for the
+  settings-lock holder while it holds. The removed keyholder is told (`announceKeysTo`).
 - **Keyholder lock (v1.16.2, job6.md §5):** `remote-request` actions `lock` (full; she accepts in
   ask.ts, 3 min between asks per keyholder) and `unlock` (any full). Stored as `keyLock {by, byName,
   at, seenAt}`; `keylock.ts` reads it lazily: the locker in the room refreshes `seenAt` (saved at most

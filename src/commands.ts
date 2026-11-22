@@ -63,7 +63,7 @@ import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
 import { describeIcons } from "./badge";
 import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, ownLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
-import { keyLocked, keyLockHolder, keyLockRefusal } from "./keylock";
+import { keyLocked, keyLockHolder, keyLockRefusal, keysLocked, keysLockRefusal } from "./keylock";
 import {
 	DEPTH_GATES,
 	tierOf,
@@ -815,6 +815,11 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			if (ownLocked()) {
 				reply("Your settings are locked while a session is on you, and so is who holds your keys.");
+				return;
+			}
+			// The keys lock (v1.16.3): who holds her keys is not hers to change until it is lifted.
+			if (keysLocked()) {
+				reply(keysLockRefusal());
 				return;
 			}
 			// Under the keyholder lock (v1.16.2, job6.md §5) she still manages her list, but whoever
