@@ -13,6 +13,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.15.3 · 22 November 2026
+
+- **Trigger words in OOC show as typed.** A trigger never fires from something said in brackets,
+  and now it isn't hidden as "..." there either. Said in character, it is still hidden as before.
+
 ## v1.15.2 · 22 November 2026
 
 - **"Days ago" on your trust list is back to how it was.** The v1.15.1 change didn't work as
