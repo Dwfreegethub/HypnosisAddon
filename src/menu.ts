@@ -904,9 +904,24 @@ const PULSE_COLOR_CONTROL: CycleControl = {
 
 /** A choice (not a tick box) a keyholder may set (v1.14.1, DW 2026-11-21): every control on the
  * Inductions tab, and on Trance Defaults the screen effect (the spiral), her eyes, her eye colour and
- * the pulse colour. `off` is the one choice a "take" keyholder may set, the one that switches the
- * thing off; a choice with no off (a number, a colour, who toy mode is for) needs "grant". */
-export type RemoteChoice = { key: string; label: string; tab: string; options: { key: string; label: string }[]; off?: string; get: () => string; set: (value: string) => void };
+ * the pulse colour. `off` is the one choice a minimal keyholder may set, the one that switches the
+ * thing off; a choice with no off (a number, a colour, who toy mode is for) needs more.
+ * `moderate` (v1.16.0, job6.md §1): a moderate keyholder may pick any option, because it shapes the
+ * trance rather than opening something new. Without it, only full may pick beyond `off`. */
+export type RemoteChoice = {
+	key: string;
+	label: string;
+	tab: string;
+	options: { key: string; label: string }[];
+	off?: string;
+	moderate?: boolean;
+	get: () => string;
+	set: (value: string) => void;
+};
+
+/** Tabs whose tick boxes a moderate keyholder may switch ON too (v1.16.0, job6.md §1, DW): how the
+ * trance is, not what may be done to her. Permissions and Triggers stay off-only below full. */
+export const MODERATE_TABS = ["Trance Defaults", "Awareness"];
 
 /** The choices, through the same setters as her own dropdowns, so their side effects (the fade
  * coming off, her eyes redone mid-trance) happen as they would for her. Custom pulse colour is left
@@ -914,19 +929,19 @@ export type RemoteChoice = { key: string; label: string; tab: string; options: {
 export function remoteChoices(): RemoteChoice[] {
 	const fromDropdown = (key: string, label: string, id: string, off: string): RemoteChoice => {
 		const d = TRANCE_DROPDOWNS.find((x) => x.id === id)!;
-		return { key, label, tab: "Trance Defaults", options: d.options, off, get: d.get, set: d.set };
+		return { key, label, tab: "Trance Defaults", options: d.options, off, moderate: true, get: d.get, set: d.set };
 	};
-	const inductions = (key: string, label: string, options: { key: string; label: string }[], get: () => string, set: (v: string) => void, off?: string): RemoteChoice =>
-		({ key, label, tab: "Inductions", options, off, get, set });
+	const inductions = (key: string, label: string, options: { key: string; label: string }[], get: () => string, set: (v: string) => void, off?: string, moderate = false): RemoteChoice =>
+		({ key, label, tab: "Inductions", options, off, moderate, get, set });
 	return [
 		// The Inductions tab, in its screen order.
-		inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v))),
-		inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v))),
+		inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v)), undefined, true),
+		inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), undefined, true),
 		inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
 		inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
 		inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => (getToyMode() ? "on" : "off"), (v) => setToyMode(v === "on"), "off"),
 		inductions("toyScope", "Toy mode is for", TOY_SCOPES, getToyScope, setToyScope),
-		inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never"),
+		inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never", true),
 		// Trance Defaults.
 		fromDropdown("screenEffect", "Screen effect", SCREEN_EFFECT_ID, "none"),
 		fromDropdown("tranceEyes", "Eyes while under", TRANCE_EYES_ID, ""),
@@ -935,6 +950,7 @@ export function remoteChoices(): RemoteChoice[] {
 			key: "pulseColor",
 			label: "Pulse colour",
 			tab: "Trance Defaults",
+			moderate: true,
 			options: PULSE_COLORS.filter((c) => c.key !== "custom").map((c) => ({ key: c.key, label: c.label })),
 			get: getPulseColor,
 			set: (value) => {

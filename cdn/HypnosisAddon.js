@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.15.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6249,9 +6249,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else delete s.popupSize;
     saveSettings();
   }
+  function toKeyMode(m) {
+    if (m === "minimal" || m === "moderate" || m === "full") return m;
+    if (m === "take") return "minimal";
+    if (m === "grant") return "moderate";
+    return null;
+  }
+  function keyRank(m) {
+    return KEY_LEVELS.indexOf(m);
+  }
   function getOwnerKeyMode() {
-    const m = loadSettings().keyholders?.owner;
-    return isMode(m) ? m : null;
+    return toKeyMode(loadSettings().keyholders?.owner);
   }
   function setOwnerKeyMode(mode) {
     const s = loadSettings();
@@ -6264,7 +6272,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function listKeyholders() {
     const named = loadSettings().keyholders?.named;
     if (!Array.isArray(named)) return [];
-    return named.filter((k) => k && Number.isInteger(k.id) && k.id > 0 && isMode(k.mode)).slice(0, MAX_KEYHOLDERS).map((k) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: k.mode }));
+    return named.filter((k) => k && Number.isInteger(k.id) && k.id > 0 && toKeyMode(k.mode)).slice(0, MAX_KEYHOLDERS).map((k) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: toKeyMode(k.mode) }));
   }
   function setKeyholder(id, name, mode) {
     const list = listKeyholders().filter((k) => k.id !== id);
@@ -6403,7 +6411,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_KEYHOLDERS, MAX_REMOTE_LOG, isMode, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6547,7 +6555,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       MAX_KEYHOLDERS = 10;
       MAX_REMOTE_LOG = 20;
-      isMode = (m) => m === "take" || m === "grant";
+      KEY_LEVELS = ["minimal", "moderate", "full"];
       MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
@@ -11005,10 +11013,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("movement and your voice back."),
       gap(),
       head("Keyholders"),
-      body("/echs keyholder add <name> [grant] gives someone your keys: they can"),
-      body("change your settings while you share a room, even under Extreme, and"),
-      body("end the lock. take = only switch off; grant = on too. Your BC owner:"),
-      dim("/echs keyholder owner take|grant. /echs keyholder lists them."),
+      body("/echs keyholder add <name> [minimal|moderate|full] gives someone your keys:"),
+      body("they can change your settings while you share a room, even under Extreme,"),
+      body("and end the lock. minimal = only switch off; moderate = also shape your"),
+      dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
       gap(),
       head("If something is holding you"),
       body("Wait for it to wear off \xB7 have whoever set it release you \xB7"),
@@ -11829,18 +11837,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function remoteChoices() {
     const fromDropdown = (key, label, id, off2) => {
       const d = TRANCE_DROPDOWNS.find((x) => x.id === id);
-      return { key, label, tab: "Trance Defaults", options: d.options, off: off2, get: d.get, set: d.set };
+      return { key, label, tab: "Trance Defaults", options: d.options, off: off2, moderate: true, get: d.get, set: d.set };
     };
-    const inductions = (key, label, options, get, set, off2) => ({ key, label, tab: "Inductions", options, off: off2, get, set });
+    const inductions = (key, label, options, get, set, off2, moderate = false) => ({ key, label, tab: "Inductions", options, off: off2, moderate, get, set });
     return [
       // The Inductions tab, in its screen order.
-      inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v))),
-      inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v))),
+      inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v)), void 0, true),
+      inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), void 0, true),
       inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
       inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
       inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => getToyMode() ? "on" : "off", (v) => setToyMode(v === "on"), "off"),
       inductions("toyScope", "Toy mode is for", TOY_SCOPES, getToyScope, setToyScope),
-      inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never"),
+      inductions("deepestTier", '"Sink deeper" stops at', DEEPEST_TIERS, getDeepestTier, setDeepestTier, "never", true),
       // Trance Defaults.
       fromDropdown("screenEffect", "Screen effect", SCREEN_EFFECT_ID, "none"),
       fromDropdown("tranceEyes", "Eyes while under", TRANCE_EYES_ID, ""),
@@ -11849,6 +11857,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         key: "pulseColor",
         label: "Pulse colour",
         tab: "Trance Defaults",
+        moderate: true,
         options: PULSE_COLORS.filter((c) => c.key !== "custom").map((c) => ({ key: c.key, label: c.label })),
         get: getPulseColor,
         set: (value) => {
@@ -12605,7 +12614,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.15.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12678,7 +12687,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.15.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -12960,7 +12969,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, MODERATE_TABS, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -13268,6 +13277,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           pulseHexError = "";
         }
       };
+      MODERATE_TABS = ["Trance Defaults", "Awareness"];
       ICON_SPOT_CONTROL = {
         label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
         caption: () => getEchsIconSpot() === "off" ? "You see no spiral over anyone. Others still see yours, if the box above is ticked." : "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
@@ -13415,7 +13425,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.15.3", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.0", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -13457,7 +13467,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.15.3", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13595,12 +13605,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!member || member === Player?.MemberNumber) return null;
     const named = listKeyholders().find((k) => k.id === member)?.mode ?? null;
     const owner = getOwnerKeyMode() && isBcOwner(member) ? getOwnerKeyMode() : null;
-    if (named === "grant" || owner === "grant") return "grant";
+    if (named && owner) return keyRank(named) >= keyRank(owner) ? named : owner;
     return named ?? owner;
+  }
+  function keyLevelAllows(level2, turnsOff, moderateOk) {
+    if (turnsOff || level2 === "full") return true;
+    return level2 === "moderate" && moderateOk;
+  }
+  function levelNeeded(moderateOk) {
+    return moderateOk ? "moderate" : "full";
+  }
+  function legacyWord(level2) {
+    return level2 === "minimal" ? "take" : "grant";
   }
   function keyholderFields(asker) {
     const mode = keyModeFor(asker);
-    return mode ? { keyholder: mode } : {};
+    return mode ? { keyholder: legacyWord(mode), keyLevel: mode } : {};
   }
   function snapshotFor(member, mode) {
     const f = getFeatures();
@@ -13608,7 +13628,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       boxes: remoteRows().map((r) => ({ key: r.key, on: !!f[r.key] })),
       choices: remoteChoices().map((c) => ({ key: c.key, value: c.get() })),
       extreme: extremeLocked(),
-      mode
+      // `mode` is v1.14's word, for an older keyholder; `level` is the real one.
+      mode: legacyWord(mode),
+      level: mode
     };
   }
   function reply(to, mode, result) {
@@ -13617,7 +13639,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         type: "state-response",
         hypnoEnabled: getFeatures().hypnoEnabled,
         ...presenceFields(),
-        ...mode ? { keyholder: mode, settings: snapshotFor(to, mode) } : {},
+        ...mode ? { keyholder: legacyWord(mode), keyLevel: mode, settings: snapshotFor(to, mode) } : {},
         ...result ? { settingsResult: result } : {}
       },
       to
@@ -13649,8 +13671,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         reply(sender, mode, { ok: true, text: `${row.label} is already ${value ? "on" : "off"}.` });
         return "unchanged";
       }
-      if (value && mode !== "grant") {
-        const text2 = `You can only switch their settings off; turning on "${row.label}" needs them to let you grant.`;
+      const moderateOk = MODERATE_TABS.includes(row.tab);
+      if (!keyLevelAllows(mode, !value, moderateOk)) {
+        const text2 = `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
         reply(sender, mode, { ok: false, text: text2 });
         return text2;
       }
@@ -13687,9 +13710,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         reply(sender, mode, { ok: true, text: `${choice.label} is already ${option.label}.` });
         return "unchanged";
       }
-      if (mode !== "grant" && value !== choice.off) {
+      if (!keyLevelAllows(mode, value === choice.off, !!choice.moderate)) {
         const offLabel = choice.options.find((o) => o.key === choice.off)?.label;
-        const text2 = offLabel ? `You can only switch their settings off; for ${choice.label} that is "${offLabel}". Anything else needs them to let you grant.` : `Changing ${choice.label} needs them to let you grant.`;
+        const needed = levelNeeded(!!choice.moderate);
+        const text2 = offLabel ? `Your keys are ${mode}: for ${choice.label} you can only choose "${offLabel}". Anything else needs ${needed} keys.` : `Your keys are ${mode}: changing ${choice.label} needs ${needed} keys.`;
         reply(sender, mode, { ok: false, text: text2 });
         return text2;
       }
@@ -13718,18 +13742,29 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function announceKeysTo(member) {
     if (!characterFor5(member)) return;
-    sendHiddenMessage({ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: keyModeFor(member) ?? "none" }, member);
+    const mode = keyModeFor(member);
+    sendHiddenMessage(
+      { type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
+      member
+    );
+  }
+  function levelFromWire(level2, legacy) {
+    if (level2 === "minimal" || level2 === "moderate" || level2 === "full") return level2;
+    if (legacy === "take") return "minimal";
+    if (legacy === "grant") return "full";
+    return null;
   }
   function receiveKeyholderFields(sender, message) {
-    if (message?.keyholder === "none") {
+    const held = levelFromWire(message?.keyLevel, message?.keyholder);
+    if (message?.keyholder === "none" || message?.keyLevel === "none") {
       holds.delete(sender);
       snapshots.delete(sender);
-    } else if (isMode2(message?.keyholder)) holds.set(sender, message.keyholder);
+    } else if (held) holds.set(sender, held);
     const s = message?.settings;
     if (s && Array.isArray(s.boxes) && s.boxes.length <= 80) {
       const boxes = s.boxes.filter((b) => b && typeof b.key === "string" && b.key.length <= 40).map((b) => ({ key: b.key, on: b.on === true }));
       const choices = (Array.isArray(s.choices) ? s.choices.slice(0, 20) : []).filter((c) => c && typeof c.key === "string" && c.key.length <= 40 && typeof c.value === "string" && c.value.length <= 40).map((c) => ({ key: c.key, value: c.value }));
-      snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: isMode2(s.mode) ? s.mode : "take" }, at: Date.now() });
+      snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal" }, at: Date.now() });
       askedAt2.delete(sender);
     }
     const r = message?.settingsResult;
@@ -13768,7 +13803,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function requestEndExtreme(member) {
     ask(member, { action: "end-extreme" });
   }
-  var holds, snapshots, results, askedAt2, SETTINGS_ASK_MS, isMode2;
+  var holds, snapshots, results, askedAt2, SETTINGS_ASK_MS;
   var init_keyholder = __esm({
     "src/keyholder.ts"() {
       init_log();
@@ -13783,7 +13818,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       results = /* @__PURE__ */ new Map();
       askedAt2 = /* @__PURE__ */ new Map();
       SETTINGS_ASK_MS = 3e3;
-      isMode2 = (m) => m === "take" || m === "grant";
     }
   });
 
@@ -13858,12 +13892,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const owner = getOwnerKeyMode();
     const named = listKeyholders();
     const lines = [
-      owner ? `Your BC owner holds your keys (${owner}).` : "Your BC owner does not hold your keys. /echs keyholder owner take|grant to allow it.",
-      named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : "Nobody else holds your keys. /echs keyholder add <name> [grant]."
+      owner ? `Your BC owner holds your keys (${owner}).` : `Your BC owner does not hold your keys. /echs keyholder owner ${KEY_LEVEL_ARGS} to allow it.`,
+      named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : `Nobody else holds your keys. /echs keyholder add <name> [${KEY_LEVEL_ARGS}].`
     ];
     const recent = listRemoteChanges().slice(-3);
     if (recent.length) lines.push(`Last changes: ${recent.map((c) => `${c.byName} ${c.what}`).join("; ")}.`);
-    lines.push("take = only switch off; grant = on and off. Keyholders can also end your Extreme lock.");
+    lines.push("minimal = only switch off; moderate = also shape your trance; full = everything. Keyholders can also end your Extreme lock.");
     return lines;
   }
   function menuLines() {
@@ -13984,7 +14018,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       description: c.Description
     }));
   }
-  var suppressNextAction, lastInduced, isNumber, COMMAND_TAGS, KEY_MODE_WORDS, GUIDE_LOCATION, COMMANDS;
+  var suppressNextAction, lastInduced, isNumber, COMMAND_TAGS, KEY_MODE_WORDS, KEY_LEVEL_ARGS, GUIDE_LOCATION, COMMANDS;
   var init_commands = __esm({
     "src/commands.ts"() {
       init_log();
@@ -14013,9 +14047,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       isNumber = (w) => w !== "" && Number.isFinite(Number(w));
       COMMAND_TAGS = ["echs", "hypno"];
       KEY_MODE_WORDS = {
-        take: "they can switch your settings OFF",
-        grant: "they can switch your settings on and off"
+        minimal: "minimal keys: they can only switch your settings OFF",
+        moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+        full: "full keys: they can switch everything they reach on and off"
       };
+      KEY_LEVEL_ARGS = "minimal|moderate|full";
       GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
       COMMANDS = [
         // --- Session flow. These stay usable in any state; safeword especially must
@@ -14322,8 +14358,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
           // Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
           Tag: "keyholder",
           group: "Data",
-          args: "[add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]",
-          Description: "Choose who may change your ECHS settings for you (take = only switch off; grant = on too)",
+          args: `[add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`,
+          Description: "Choose who may change your ECHS settings for you (minimal = only switch off; moderate = also shape your trance; full = everything)",
           Action: (args) => {
             const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
             const sub = (words[0] ?? "").toLowerCase();
@@ -14340,9 +14376,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
               return;
             }
             if (sub === "owner") {
-              const m = (words[1] ?? "").toLowerCase();
-              if (m !== "off" && m !== "take" && m !== "grant") {
-                reply2("Usage: /echs keyholder owner <off|take|grant>");
+              const word = (words[1] ?? "").toLowerCase();
+              const m = word === "off" ? "off" : toKeyMode(word);
+              if (!m) {
+                reply2(`Usage: /echs keyholder owner <off|${KEY_LEVEL_ARGS}>`);
                 return;
               }
               setOwnerKeyMode(m === "off" ? null : m);
@@ -14353,10 +14390,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
               return;
             }
             if (sub === "add" || sub === "remove") {
-              const grant = sub === "add" && (words[words.length - 1] ?? "").toLowerCase() === "grant";
-              const token = words.slice(1, grant ? -1 : void 0).join(" ");
+              const typedLevel = sub === "add" && words.length > 2 ? toKeyMode((words[words.length - 1] ?? "").toLowerCase()) : null;
+              const token = words.slice(1, typedLevel ? -1 : void 0).join(" ");
               if (!token) {
-                reply2(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? " [grant]" : ""}`);
+                reply2(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? ` [${KEY_LEVEL_ARGS}]` : ""}`);
                 return;
               }
               if (sub === "remove") {
@@ -14378,7 +14415,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
                 reply2("You can't be your own keyholder.");
                 return;
               }
-              const mode = grant ? "grant" : "take";
+              const mode = typedLevel ?? "minimal";
               if (!setKeyholder(target.id, target.name, mode)) {
                 reply2("You already have the most keyholders allowed (10). Remove one first.");
                 return;
@@ -14387,7 +14424,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               reply2(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
               return;
             }
-            reply2("Usage: /echs keyholder [add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]");
+            reply2(`Usage: /echs keyholder [add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`);
           }
         },
         {
@@ -16022,7 +16059,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el("div", "echs-pop-head");
     head2.appendChild(el("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el("span", "echs-pop-ver", `v${"1.15.3"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.16.0"}${RELEASE_SUFFIX}`));
     const gear = el("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -16323,6 +16360,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
       list.appendChild(rates);
     });
   }
+  function cycleLevel(key, held) {
+    const i = keyCycle.get(key) ?? (held ? (keyRank(held) + 1) % KEY_LEVELS.length : 0);
+    return KEY_LEVELS[i];
+  }
+  function clickCycle(key, held) {
+    let i = KEY_LEVELS.indexOf(cycleLevel(key, held));
+    if (keyCycleLast === key) i = (i + 1) % KEY_LEVELS.length;
+    keyCycle.set(key, i);
+    keyCycleLast = key;
+    return KEY_LEVELS[i];
+  }
   function currentHolder() {
     const held = heldKeys();
     return held.find((h) => h.id === chosenHolder) ?? held[0] ?? null;
@@ -16365,38 +16413,38 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
     const typed = (text2) => typeIt(status, text2, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
     keysGroup(body2, "mine", "Your keyholders", (list) => {
-      list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. take = only switch off; grant = on and off."));
+      list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock."));
+      list.appendChild(el("div", "echs-pop-hint", LEVEL_HINT));
       if (locked) list.appendChild(el("div", "echs-pop-hint", why));
+      const give = (key, held2, command) => chip(`Give keys (${cycleLevel(key, held2)})`, "Click again for the next level. Nothing happens until you press Enter.", () => {
+        typed(command(clickCycle(key, held2)));
+        renderBody();
+      }, locked);
       const owner = getOwnerKeyMode();
-      list.appendChild(el("div", "echs-pop-person", "Your BC owner"));
+      list.appendChild(el("div", "echs-pop-person", owner ? `Your BC owner \xB7 ${owner}` : "Your BC owner \xB7 no keys"));
       const ownerRow = el("div", "echs-pop-buttons");
-      for (const m of ["off", "take", "grant"]) {
-        const c = chip(m, `/echs keyholder owner ${m}`, () => typed(`/echs keyholder owner ${m}`), locked);
-        if ((owner ?? "off") === m) c.className += " echs-pop-chip-on";
-        ownerRow.appendChild(c);
-      }
+      ownerRow.appendChild(give("owner", owner, (level2) => `/echs keyholder owner ${level2}`));
+      if (owner) ownerRow.appendChild(chip("Take keys back", "", () => typed("/echs keyholder owner off"), locked));
       list.appendChild(ownerRow);
       const named = listKeyholders();
       for (const k of named) {
         const row = el("div", "echs-pop-entry");
         row.appendChild(el("div", "echs-pop-person", `${k.name} \xB7 ${k.mode}`));
         const chips = el("div", "echs-pop-buttons");
-        const other = k.mode === "take" ? "grant" : "take";
-        chips.appendChild(chip(`make ${other}`, "", () => typed(`/echs keyholder add ${k.id}${other === "grant" ? " grant" : ""}`), locked));
-        chips.appendChild(chip("remove", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
+        chips.appendChild(give(String(k.id), k.mode, (level2) => `/echs keyholder add ${k.id} ${level2}`));
+        chips.appendChild(chip("Take keys back", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
         row.appendChild(chips);
         list.appendChild(row);
       }
       const candidates = popupPeople().filter((p) => !named.some((k) => k.id === p.id));
       if (candidates.length) {
-        list.appendChild(el("div", "echs-pop-hint", "Add someone here:"));
+        list.appendChild(el("div", "echs-pop-hint", "Give someone here your keys:"));
         for (const p of candidates) {
           const row = el("div", "echs-pop-entry");
           row.appendChild(el("div", "echs-pop-person", p.name));
           const chips = el("div", "echs-pop-buttons");
           const target = induceTarget(roomOthers2().find((c) => c.MemberNumber === p.id), roomOthers2());
-          chips.appendChild(chip("add (take)", "", () => typed(`/echs keyholder add ${target}`), locked));
-          chips.appendChild(chip("add (grant)", "", () => typed(`/echs keyholder add ${target} grant`), locked));
+          chips.appendChild(give(String(p.id), null, (level2) => `/echs keyholder add ${target} ${level2}`));
           row.appendChild(chips);
           list.appendChild(row);
         }
@@ -16428,7 +16476,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         list.appendChild(row);
       }
-      list.appendChild(el("div", "echs-pop-hint", who.mode === "grant" ? `${who.name}'s settings. You can switch them on and off.` : `${who.name}'s settings. You can only switch them off.`));
+      list.appendChild(
+        el(
+          "div",
+          "echs-pop-hint",
+          who.mode === "full" ? `${who.name}'s settings. You hold full keys: you can switch them on and off.` : who.mode === "moderate" ? `${who.name}'s settings. You hold moderate keys: you can switch things off, and shape their trance (Trance Defaults, Awareness, how it looks and its pace).` : `${who.name}'s settings. You hold minimal keys: you can only switch things off.`
+        )
+      );
       const snap = settingsOf(who.id);
       const asking = askState(who.id);
       if (!snap) {
@@ -16446,10 +16500,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         list.appendChild(el("div", "echs-pop-person", tab2));
         for (const r of rows) {
           const isOn = on.get(r.key) === true;
-          const blocked = !isOn && who.mode !== "grant";
+          const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab));
           const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "\u2611" : "\u2610"} ${r.label}`);
           b.type = "button";
-          b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+          b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
           b.addEventListener("click", () => {
             requestSetting(who.id, r.key, !isOn);
             setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"\u2026`);
@@ -16461,8 +16515,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
           list.appendChild(el("div", "echs-pop-desc", `${c.label}: ${c.options.find((o) => o.key === value)?.label ?? value}`));
           const row = el("div", "echs-pop-buttons");
           for (const o of c.options) {
-            const blocked = who.mode !== "grant" && o.key !== c.off;
-            const ch = chip(o.label, blocked ? "You can only switch their settings off." : `Set ${c.label} to ${o.label}`, () => {
+            const blocked = !keyLevelAllows(who.mode, o.key === c.off, !!c.moderate);
+            const ch = chip(o.label, blocked ? `Your ${who.mode} keys can't choose this.` : `Set ${c.label} to ${o.label}`, () => {
               if (o.key === value) return;
               requestChoice(who.id, c.key, o.key);
               setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}\u2026`);
@@ -16569,7 +16623,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -16633,6 +16687,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       KEYS_REASK_MS = 3e4;
       END_EXTREME_ARM_MS = 5e3;
       endExtremeArmedAt = 0;
+      keyCycle = /* @__PURE__ */ new Map();
+      keyCycleLast = "";
+      LEVEL_HINT = "minimal = only switch things off \xB7 moderate = also shape your trance \xB7 full = everything";
       POPUP_CSS = `
 .echs-pop-launcher{position:fixed;z-index:1000;width:${LAUNCHER_SIZE}px;height:${LAUNCHER_SIZE}px;border-radius:50%;
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
@@ -16799,7 +16856,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.15.3", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -16843,7 +16900,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.15.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -16870,7 +16927,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el2 = document.createElement("div");
-    el2.textContent = `ECHS v${"1.15.3"}${RELEASE_SUFFIX} loaded`;
+    el2.textContent = `ECHS v${"1.16.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
@@ -16945,14 +17002,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.15.3"})`);
+      info(`script loaded (v${"1.16.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.15.3",
+          version: "1.16.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -17094,10 +17151,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.15.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.15.3";
+    page2.__ECHS_LOADED__ = "1.16.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

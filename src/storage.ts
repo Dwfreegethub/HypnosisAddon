@@ -1693,18 +1693,33 @@ export function setPopupSize(size: { w: number; h: number } | null): void {
 }
 
 // --- Keyholders (v1.14.0, job5.md) ------------------------------------------------------------
-// Who may change her settings remotely, and how far. "take" may only switch things off; "grant" may
-// switch them on too. Her BC owner counts only while ownerMode is set. Sparse: absent = nobody.
-export type KeyMode = "take" | "grant";
+// Who may change her settings remotely, and how far. Her BC owner counts only while ownerMode is set.
+// Sparse: absent = nobody.
+//
+// LEVELS (v1.16.0, job6.md §1, DW 2026-11-22). Three replace v1.14's two: minimal may only switch
+// things off; moderate may also shape the trance (Trance Defaults, Awareness, the look of it, the
+// induction's pace and how deep "sink deeper" goes); full may do everything. Saved "take" reads as
+// minimal and "grant" as MODERATE (DW: full grows a lot, so a subject gives it again on purpose).
+export type KeyMode = "minimal" | "moderate" | "full";
 export type NamedKeyholder = { id: number; name: string; mode: KeyMode };
 export type RemoteChange = { at: number; by: number; byName: string; what: string };
 const MAX_KEYHOLDERS = 10;
 const MAX_REMOTE_LOG = 20;
-const isMode = (m: unknown): m is KeyMode => m === "take" || m === "grant";
+export const KEY_LEVELS: readonly KeyMode[] = ["minimal", "moderate", "full"];
+/** A saved or typed level, v1.14's words included; null for anything else. */
+export function toKeyMode(m: unknown): KeyMode | null {
+	if (m === "minimal" || m === "moderate" || m === "full") return m;
+	if (m === "take") return "minimal";
+	if (m === "grant") return "moderate";
+	return null;
+}
+/** 0, 1, 2: minimal < moderate < full. */
+export function keyRank(m: KeyMode): number {
+	return KEY_LEVELS.indexOf(m);
+}
 
 export function getOwnerKeyMode(): KeyMode | null {
-	const m = loadSettings().keyholders?.owner;
-	return isMode(m) ? m : null;
+	return toKeyMode(loadSettings().keyholders?.owner);
 }
 export function setOwnerKeyMode(mode: KeyMode | null): void {
 	const s = loadSettings();
@@ -1718,9 +1733,9 @@ export function listKeyholders(): NamedKeyholder[] {
 	const named = loadSettings().keyholders?.named;
 	if (!Array.isArray(named)) return [];
 	return named
-		.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && isMode(k.mode))
+		.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && toKeyMode(k.mode))
 		.slice(0, MAX_KEYHOLDERS)
-		.map((k: any) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: k.mode }));
+		.map((k: any) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: toKeyMode(k.mode)! }));
 }
 /** Adds or updates one. Returns false when the list is full. */
 export function setKeyholder(id: number, name: string, mode: KeyMode): boolean {

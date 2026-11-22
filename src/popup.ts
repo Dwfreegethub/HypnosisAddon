@@ -20,8 +20,8 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, REMOTE_TABS, settingsLocked } from "./menu";
-import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme } from "./keyholder";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, REMOTE_TABS, MODERATE_TABS, settingsLocked } from "./menu";
+import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, keyLevelAllows } from "./keyholder";
 import {
 	safeword,
 	getSessionView,
@@ -39,7 +39,7 @@ import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest"
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
-import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode } from "./storage";
+import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -921,6 +921,37 @@ const KEYS_REASK_MS = 30_000;
 const END_EXTREME_ARM_MS = 5_000;
 let endExtremeArmedAt = 0;
 
+// "Give keys (level)" (v1.16.0, job6.md §2, DW): one button per person that cycles minimal → moderate
+// → full. Its label is what a click types; a second click on the same button moves on to the next
+// level and types that instead. Still typed, never done on click: Enter applies it.
+/** Per person ("owner" or a member number), the level their button shows, as an index. */
+const keyCycle = new Map<string, number>();
+/** The button that typed last, so only a repeat click advances. */
+let keyCycleLast = "";
+
+/** The level a "Give keys" button shows: one above what they hold (wrapping), minimal for nobody. */
+export function cycleLevel(key: string, held: KeyMode | null): KeyMode {
+	const i = keyCycle.get(key) ?? (held ? (keyRank(held) + 1) % KEY_LEVELS.length : 0);
+	return KEY_LEVELS[i];
+}
+
+/** A click on a "Give keys" button: advance if it was the last one clicked, and say which to type. */
+export function clickCycle(key: string, held: KeyMode | null): KeyMode {
+	let i = KEY_LEVELS.indexOf(cycleLevel(key, held));
+	if (keyCycleLast === key) i = (i + 1) % KEY_LEVELS.length;
+	keyCycle.set(key, i);
+	keyCycleLast = key;
+	return KEY_LEVELS[i];
+}
+
+/** For the suite. */
+export function resetKeyCycle(): void {
+	keyCycle.clear();
+	keyCycleLast = "";
+}
+
+const LEVEL_HINT = "minimal = only switch things off · moderate = also shape your trance · full = everything";
+
 export function currentHolder(): { id: number; name: string; mode: KeyMode } | null {
 	const held = heldKeys();
 	return held.find((h) => h.id === chosenHolder) ?? held[0] ?? null;
@@ -968,38 +999,39 @@ function renderKeys(body: any, status: any): void {
 
 	// 1. Your keyholders.
 	keysGroup(body, "mine", "Your keyholders", (list) => {
-		list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. take = only switch off; grant = on and off."));
+		list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock."));
+		list.appendChild(el("div", "echs-pop-hint", LEVEL_HINT));
 		if (locked) list.appendChild(el("div", "echs-pop-hint", why));
+		const give = (key: string, held: KeyMode | null, command: (level: KeyMode) => string) =>
+			chip(`Give keys (${cycleLevel(key, held)})`, "Click again for the next level. Nothing happens until you press Enter.", () => {
+				typed(command(clickCycle(key, held)));
+				renderBody();
+			}, locked);
 		const owner = getOwnerKeyMode();
-		list.appendChild(el("div", "echs-pop-person", "Your BC owner"));
+		list.appendChild(el("div", "echs-pop-person", owner ? `Your BC owner · ${owner}` : "Your BC owner · no keys"));
 		const ownerRow = el("div", "echs-pop-buttons");
-		for (const m of ["off", "take", "grant"] as const) {
-			const c = chip(m, `/echs keyholder owner ${m}`, () => typed(`/echs keyholder owner ${m}`), locked);
-			if ((owner ?? "off") === m) c.className += " echs-pop-chip-on";
-			ownerRow.appendChild(c);
-		}
+		ownerRow.appendChild(give("owner", owner, (level) => `/echs keyholder owner ${level}`));
+		if (owner) ownerRow.appendChild(chip("Take keys back", "", () => typed("/echs keyholder owner off"), locked));
 		list.appendChild(ownerRow);
 		const named = listKeyholders();
 		for (const k of named) {
 			const row = el("div", "echs-pop-entry");
 			row.appendChild(el("div", "echs-pop-person", `${k.name} · ${k.mode}`));
 			const chips = el("div", "echs-pop-buttons");
-			const other = k.mode === "take" ? "grant" : "take";
-			chips.appendChild(chip(`make ${other}`, "", () => typed(`/echs keyholder add ${k.id}${other === "grant" ? " grant" : ""}`), locked));
-			chips.appendChild(chip("remove", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
+			chips.appendChild(give(String(k.id), k.mode, (level) => `/echs keyholder add ${k.id} ${level}`));
+			chips.appendChild(chip("Take keys back", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
 			row.appendChild(chips);
 			list.appendChild(row);
 		}
 		const candidates = popupPeople().filter((p) => !named.some((k) => k.id === p.id));
 		if (candidates.length) {
-			list.appendChild(el("div", "echs-pop-hint", "Add someone here:"));
+			list.appendChild(el("div", "echs-pop-hint", "Give someone here your keys:"));
 			for (const p of candidates) {
 				const row = el("div", "echs-pop-entry");
 				row.appendChild(el("div", "echs-pop-person", p.name));
 				const chips = el("div", "echs-pop-buttons");
 				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
-				chips.appendChild(chip("add (take)", "", () => typed(`/echs keyholder add ${target}`), locked));
-				chips.appendChild(chip("add (grant)", "", () => typed(`/echs keyholder add ${target} grant`), locked));
+				chips.appendChild(give(String(p.id), null, (level) => `/echs keyholder add ${target} ${level}`));
 				row.appendChild(chips);
 				list.appendChild(row);
 			}
@@ -1033,7 +1065,17 @@ function renderKeys(body: any, status: any): void {
 			}
 			list.appendChild(row);
 		}
-		list.appendChild(el("div", "echs-pop-hint", who.mode === "grant" ? `${who.name}'s settings. You can switch them on and off.` : `${who.name}'s settings. You can only switch them off.`));
+		list.appendChild(
+			el(
+				"div",
+				"echs-pop-hint",
+				who.mode === "full"
+					? `${who.name}'s settings. You hold full keys: you can switch them on and off.`
+					: who.mode === "moderate"
+						? `${who.name}'s settings. You hold moderate keys: you can switch things off, and shape their trance (Trance Defaults, Awareness, how it looks and its pace).`
+						: `${who.name}'s settings. You hold minimal keys: you can only switch things off.`,
+			),
+		);
 		const snap = settingsOf(who.id);
 		const asking = askState(who.id);
 		if (!snap) {
@@ -1044,8 +1086,8 @@ function renderKeys(body: any, status: any): void {
 		if (res && now - res.at < 15_000) list.appendChild(el("div", "echs-pop-hint", res.text));
 		const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
 		// Tab by tab, in screen order: its tick boxes, then its choices (v1.14.1: Inductions and
-		// Trance Defaults), one row of chips each with the current one lit. Under "take" only the off
-		// choice can be clicked; the rest are faded and her ECHS would refuse them anyway.
+		// Trance Defaults), one row of chips each with the current one lit. What the keys' level can't
+		// set is faded (keyLevelAllows); her ECHS would refuse it anyway.
 		const chosen = new Map(snap.choices.map((c) => [c.key, c.value]));
 		for (const tab of REMOTE_TABS) {
 			const rows = remoteRows().filter((r) => r.tab === tab && on.has(r.key));
@@ -1054,10 +1096,10 @@ function renderKeys(body: any, status: any): void {
 			list.appendChild(el("div", "echs-pop-person", tab));
 			for (const r of rows) {
 				const isOn = on.get(r.key) === true;
-				const blocked = !isOn && who.mode !== "grant";
+				const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab));
 				const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
 				b.type = "button";
-				b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+				b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
 				b.addEventListener("click", () => {
 					requestSetting(who.id, r.key, !isOn);
 					setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
@@ -1069,8 +1111,8 @@ function renderKeys(body: any, status: any): void {
 				list.appendChild(el("div", "echs-pop-desc", `${c.label}: ${c.options.find((o) => o.key === value)?.label ?? value}`));
 				const row = el("div", "echs-pop-buttons");
 				for (const o of c.options) {
-					const blocked = who.mode !== "grant" && o.key !== c.off;
-					const ch = chip(o.label, blocked ? "You can only switch their settings off." : `Set ${c.label} to ${o.label}`, () => {
+					const blocked = !keyLevelAllows(who.mode, o.key === c.off, !!c.moderate);
+					const ch = chip(o.label, blocked ? `Your ${who.mode} keys can't choose this.` : `Set ${c.label} to ${o.label}`, () => {
 						if (o.key === value) return;
 						requestChoice(who.id, c.key, o.key);
 						setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}…`);

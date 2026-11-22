@@ -36,6 +36,7 @@ import {
 	removeKeyholder,
 	listRemoteChanges,
 	KeyMode,
+	toKeyMode,
 } from "./storage";
 import { announceKeysTo } from "./keyholder";
 import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
@@ -235,21 +236,24 @@ const COMMAND_TAGS = ["echs", "hypno"] as const;
 // own label rather than repeating it, so the two cannot name different entries.
 /** What each keyholder mode lets them do, in the words the replies use. */
 const KEY_MODE_WORDS: Record<KeyMode, string> = {
-	take: "they can switch your settings OFF",
-	grant: "they can switch your settings on and off",
+	minimal: "minimal keys: they can only switch your settings OFF",
+	moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+	full: "full keys: they can switch everything they reach on and off",
 };
+/** The levels as typed, for usage lines. v1.14's take/grant still work (storage.ts toKeyMode). */
+const KEY_LEVEL_ARGS = "minimal|moderate|full";
 
 /** The keyholder list, as chat lines. */
 function describeKeyholders(): string[] {
 	const owner = getOwnerKeyMode();
 	const named = listKeyholders();
 	const lines = [
-		owner ? `Your BC owner holds your keys (${owner}).` : "Your BC owner does not hold your keys. /echs keyholder owner take|grant to allow it.",
-		named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : "Nobody else holds your keys. /echs keyholder add <name> [grant].",
+		owner ? `Your BC owner holds your keys (${owner}).` : `Your BC owner does not hold your keys. /echs keyholder owner ${KEY_LEVEL_ARGS} to allow it.`,
+		named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : `Nobody else holds your keys. /echs keyholder add <name> [${KEY_LEVEL_ARGS}].`,
 	];
 	const recent = listRemoteChanges().slice(-3);
 	if (recent.length) lines.push(`Last changes: ${recent.map((c) => `${c.byName} ${c.what}`).join("; ")}.`);
-	lines.push("take = only switch off; grant = on and off. Keyholders can also end your Extreme lock.");
+	lines.push("minimal = only switch off; moderate = also shape your trance; full = everything. Keyholders can also end your Extreme lock.");
 	return lines;
 }
 
@@ -773,8 +777,8 @@ const COMMANDS: HypnoCommand[] = [
 		// Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
 		Tag: "keyholder",
 		group: "Data",
-		args: "[add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]",
-		Description: "Choose who may change your ECHS settings for you (take = only switch off; grant = on too)",
+		args: `[add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`,
+		Description: "Choose who may change your ECHS settings for you (minimal = only switch off; moderate = also shape your trance; full = everything)",
 		Action: (args: string) => {
 			const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			const sub = (words[0] ?? "").toLowerCase();
@@ -792,9 +796,10 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			if (sub === "owner") {
-				const m = (words[1] ?? "").toLowerCase();
-				if (m !== "off" && m !== "take" && m !== "grant") {
-					reply("Usage: /echs keyholder owner <off|take|grant>");
+				const word = (words[1] ?? "").toLowerCase();
+				const m = word === "off" ? "off" : toKeyMode(word);
+				if (!m) {
+					reply(`Usage: /echs keyholder owner <off|${KEY_LEVEL_ARGS}>`);
 					return;
 				}
 				setOwnerKeyMode(m === "off" ? null : m);
@@ -807,10 +812,11 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			if (sub === "add" || sub === "remove") {
-				const grant = sub === "add" && (words[words.length - 1] ?? "").toLowerCase() === "grant";
-				const token = words.slice(1, grant ? -1 : undefined).join(" ");
+				// The level is the last word when it names one; no level is minimal, the least.
+				const typedLevel = sub === "add" && words.length > 2 ? toKeyMode((words[words.length - 1] ?? "").toLowerCase()) : null;
+				const token = words.slice(1, typedLevel ? -1 : undefined).join(" ");
 				if (!token) {
-					reply(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? " [grant]" : ""}`);
+					reply(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? ` [${KEY_LEVEL_ARGS}]` : ""}`);
 					return;
 				}
 				if (sub === "remove") {
@@ -832,7 +838,7 @@ const COMMANDS: HypnoCommand[] = [
 					reply("You can't be your own keyholder.");
 					return;
 				}
-				const mode = grant ? "grant" : "take";
+				const mode: KeyMode = typedLevel ?? "minimal";
 				if (!setKeyholder(target.id, target.name, mode)) {
 					reply("You already have the most keyholders allowed (10). Remove one first.");
 					return;
@@ -841,7 +847,7 @@ const COMMANDS: HypnoCommand[] = [
 				reply(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
 				return;
 			}
-			reply("Usage: /echs keyholder [add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]");
+			reply(`Usage: /echs keyholder [add <name|number> [${KEY_LEVEL_ARGS}] | remove <name|number> | owner <off|${KEY_LEVEL_ARGS}>]`);
 		},
 	},
 	{
