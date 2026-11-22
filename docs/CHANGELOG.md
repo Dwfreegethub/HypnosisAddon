@@ -18,6 +18,12 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.7) — UPDATE_NOTE for the stable release
+
+DW: "push everything to stable". UPDATE_NOTE (v1.15.0's still) set to 1.16.7 with a two-sentence
+summary of v1.15.0–v1.16.6. The root CHANGELOG line has no bold headline on purpose, so GreeterBot's
+announcement (bold headlines of the newest five versions) isn't padded with it.
+
 ### Changed 2026-11-22 (v1.16.6) — a hypnotist hypnotized mid-induction loses it
 
 DW: "If the hypnotist is still in the process of hypnotizing someone and a hypno request comes in
