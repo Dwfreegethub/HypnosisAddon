@@ -13,6 +13,23 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.2 · 22 November 2026
+
+- **Full keys reach further.** Someone holding your **full** keys can now also set your Triggers tab
+  choices (who else can fire your triggers, how long they last, how fast they fade, drop triggers),
+  how fast trust fades, and your Depth tab (how deep each thing needs you, and the choices under
+  it). Minimal and moderate keys can't. You're told every change, as before.
+- On their side, the Keys tab shows these under **Triggers**, **Stats** and **Depth**; Depth and
+  Stats start folded. Numbers change with step buttons.
+- **Full keys see what is planted in you**, and can remove a trigger only if you trust them more
+  than whoever planted it. Never one you planted yourself, never one holding you, never under your
+  Extreme lock. The word is shown only to whoever planted it, unless you show yourself your words.
+- **The keyholder lock.** Someone with your full keys can ask to lock your settings; you get a popup
+  and nothing locks unless you accept. While it holds, only your keyholders can change your settings,
+  and any of your full keyholders can unlock them. It ends on its own if the one who locked it hasn't
+  been in a room with you for 7 days. The safeword, switching ECHS off and `/echs reset confirm`
+  always work.
+
 ## v1.16.1 · 22 November 2026
 
 - **Ask for someone's keys.** On the Keys tab, **Request keys** (or `/echs keyholder request <name>

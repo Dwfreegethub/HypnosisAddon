@@ -1,5 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
-import { registerPlantedSource, MAX_PLANTED_ENTRIES } from "./planted";
+import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
 	applyEffect,
@@ -3353,26 +3353,29 @@ onWakeKeep((hypnotizedAt) => {
 });
 
 // The hypnotist's list (planted.ts): theirs only, in words, and a band rather than the number.
+/** One trigger in words: the planted list (the planter's) and, since v1.16.2, a full keyholder's. */
+function plantedEntryOf(t: Trigger): PlantedEntry {
+	const now = triggerStrength(t);
+	return {
+		word: t.phrase,
+		when: t.fireOn ? describeCondition(t) : "",
+		does: t.actions.map(describeAction),
+		strength:
+			now < TRIGGER_GHOST_THRESHOLD
+				? "a vague pull only"
+				: now >= t.plantedDepth
+					? "full strength"
+					: `fading, reaches ${tierLabel(tierOf(now))}`,
+		once: !!t.oneShot,
+		holding: isTriggerInEffect(t),
+	};
+}
+registerPlantedDescriber(plantedEntryOf);
 registerPlantedSource((hypnotist): PlantedEntry[] =>
 	listTriggers()
 		.filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0)
 		.slice(0, MAX_PLANTED_ENTRIES)
-		.map((t) => {
-			const now = triggerStrength(t);
-			return {
-				word: t.phrase,
-				when: t.fireOn ? describeCondition(t) : "",
-				does: t.actions.map(describeAction),
-				strength:
-					now < TRIGGER_GHOST_THRESHOLD
-						? "a vague pull only"
-						: now >= t.plantedDepth
-							? "full strength"
-							: `fading, reaches ${tierLabel(tierOf(now))}`,
-				once: !!t.oneShot,
-				holding: isTriggerInEffect(t),
-			};
-		}),
+		.map(plantedEntryOf),
 );
 
 /** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".

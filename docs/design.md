@@ -965,6 +965,26 @@ to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and 
   click, told to her, logged (`remoteLog`). Refusals told to the keyholder. Same room only.
 - **No new message type:** `remote-request` (feature "settings") and `state-response` fields, plus
   `keyholder` on her answer to that asker's state-query. Asked at most every 30 s from the popup.
+- **Full reaches further (v1.16.2, job6.md stage 3):** the Triggers tab's choices, trust decay
+  (Stats) and the Depth tab are `remoteChoices` with no `off` and no `moderate`, so only full keys pass
+  `keyLevelAllows`. Numbers (each gate's depth `depth:<key>`, trigger duration) are `range` choices:
+  a plain whole number in range, sent from step buttons. `reach:<key>` only on the gates she could
+  open herself; skill honour only the offered rungs. `depthDefaults` clears the overrides. Appended
+  after the v1.14.1 choices, and the keyholder keeps up to 80 (was 20), so an older keyholder still
+  gets the first 20 it knows.
+- **Keyholder lock (v1.16.2, job6.md §5):** `remote-request` actions `lock` (full; she accepts in
+  ask.ts, 3 min between asks per keyholder) and `unlock` (any full). Stored as `keyLock {by, byName,
+  at, seenAt}`; `keylock.ts` reads it lazily: the locker in the room refreshes `seenAt` (saved at most
+  once a minute), 7 days without ends it and tells her. `settingsLocked() = ownLocked() || keyLocked()`;
+  `ownLocked()` (session, Extreme) still holds the keyholder list and giving keys on request, the
+  keyholder lock doesn't, except the locker keeps full keys. `/echs decay` and `triggerdecay` were
+  held only by Extreme and now also by this. The snapshot carries `keyLock` (the locker's name or "").
+- **Planted triggers (v1.16.2, job6.md §4):** a full keyholder's snapshot carries `planted` (up to
+  30, described by voice.ts's `plantedEntryOf` via planted.ts's registered describer). A trigger is
+  named by `triggerId` (FNV-1a of its key), so a hidden word never travels; the word is sent only to
+  its planter or if she shows herself her words. `remove-trigger` is checked on her side by
+  `removeRefusal`: Extreme lock, self-planted, holding her (her own forget's rule), then
+  `trustWith(keyholder) > trustWith(planter)`; the keyholder's own planting is always theirs to take.
 - **Requests (v1.16.1, job6.md §3):** `remote-request` action `request-keys` with a level; she
   answers in ask.ts's popup (30 s, no answer = decline; one at a time), and the result rides
   `state-response` as `keyRequestResult`. Checked on her side: her locks, what they already hold, one

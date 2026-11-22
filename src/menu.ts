@@ -40,6 +40,8 @@ import {
 	setSkillHonour,
 	nextSkillHonour,
 	SKILL_HONOUR_RUNGS,
+	SKILL_HONOUR_OFFERED,
+	getDepthOverride,
 	DEEPEST_TIERS,
 	getDeepestTier,
 	setDeepestTier,
@@ -85,6 +87,7 @@ import {
 	ATTEMPT_LIMITS,
 	INDUCTION_TIMES,
 } from "./storage";
+import type { TriggerScope, DecayRate, DropMode } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
@@ -118,6 +121,7 @@ import {
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import { shouldShowWizard, startWizard, drawWizard, clickWizard } from "./wizard";
 import { extremeLocked, extremeExpired, extremeBannerText, extremeRefusal, renewalPrompt, answerRenewal } from "./extreme";
+import { keyLocked, keyLockRefusal, keyLockBannerText } from "./keylock";
 import {
 	TITLE_Y,
 	PANEL_LEFT,
@@ -373,8 +377,9 @@ const BASE_TABS = TABS.slice(0, TABS.length - 1);
 let showAdvanced = false;
 
 /** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, and (v1.14.1)
- * remoteChoices() on Inductions and Trance Defaults. In screen order. */
-export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers"];
+ * remoteChoices() on Inductions and Trance Defaults; (v1.16.2, job6.md stage 3) for full keys the
+ * Triggers tab's choices, the Depth tab, and trust fading from Stats. In screen order. */
+export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats"];
 
 export type RemoteRow = { key: keyof FeatureToggles; label: string; tab: string; heading: string; needs?: keyof FeatureToggles };
 
@@ -915,9 +920,19 @@ export type RemoteChoice = {
 	options: { key: string; label: string }[];
 	off?: string;
 	moderate?: boolean;
+	/** A number rather than a list (v1.16.2): any whole number from min to max, offered on the
+	 * keyholder's side as step buttons. `options` is then empty. */
+	range?: { min: number; max: number; steps: number[] };
+	/** How a value reads, when it is not simply one of `options` (a number, or a state no one picks). */
+	labelOf?: (value: string) => string;
 	get: () => string;
 	set: (value: string) => void;
 };
+
+/** How a choice's value reads: its own labelOf, else its option's label, else the value itself. */
+export function remoteChoiceLabel(c: RemoteChoice, value: string): string {
+	return c.labelOf?.(value) ?? c.options.find((o) => o.key === value)?.label ?? value;
+}
 
 /** Tabs whose tick boxes a moderate keyholder may switch ON too (v1.16.0, job6.md §1, DW): how the
  * trance is, not what may be done to her. Permissions and Triggers stay off-only below full. */
@@ -958,7 +973,67 @@ export function remoteChoices(): RemoteChoice[] {
 				pulseHexError = "";
 			},
 		},
+		// Full keys only from here (v1.16.2, job6.md stage 3, DW): no `off`, no `moderate`. Appended,
+		// so a v1.16.1 keyholder, which keeps the first 20, still sees everything it knows.
+		...fullOnlyChoices(),
 	];
+}
+
+/** The Triggers tab's choices, trust fading (on Stats), and the Depth tab. */
+function fullOnlyChoices(): RemoteChoice[] {
+	const full = (tab: string, key: string, label: string, options: { key: string; label: string }[], get: () => string, set: (v: string) => void): RemoteChoice =>
+		({ key, label, tab, options, get, set });
+	const depthLabel = (v: string) => `${v} (${tierLabel(tierOf(Number(v)))})`;
+	const out: RemoteChoice[] = [
+		full("Triggers", "triggerScope", "Who else can fire triggers planted in you", TRIGGER_SCOPES, getTriggerScope, (v) => setTriggerScope(v as TriggerScope)),
+		full("Triggers", "triggerLifespan", "Longest a new trigger lasts", TRIGGER_LIFESPANS.map((l) => ({ key: String(l.minutes), label: l.label })), () => String(getTriggerLifespan()), (v) => setTriggerLifespan(Number(v))),
+		{
+			key: "triggerDuration",
+			label: "Minutes a fired trigger lasts (0 = until released)",
+			tab: "Triggers",
+			options: [],
+			range: { min: 0, max: 1440, steps: [-60, -5, 5, 60] },
+			labelOf: (v) => (v === "0" ? "until released" : `${v} min`),
+			get: () => String(getTriggerDuration()),
+			set: (v) => setTriggerDuration(Number(v)),
+		},
+		full("Triggers", "triggerDecay", "Triggers fade without reinforcement", DECAY_RATES, getTriggerDecayRate, (v) => setTriggerDecayRate(v as DecayRate)),
+		full("Triggers", "dropTriggers", "Drop triggers", DROP_MODES, getDropMode, (v) => setDropMode(v as DropMode)),
+		full("Stats", "trustDecay", "Trust fades when you don't see someone", DECAY_RATES, getDecayRate, (v) => setDecayRate(v as DecayRate)),
+	];
+	for (const gate of DEPTH_GATES) {
+		out.push({
+			key: `depth:${gate.key}`,
+			label: gate.label,
+			tab: "Depth",
+			options: [],
+			range: { min: 0, max: MAX_GATE_DEPTH, steps: [-20, -5, 5, 20] },
+			labelOf: depthLabel,
+			get: () => String(requiredDepth(gate.key)),
+			set: (v) => setDepthOverride(gate.key, Number(v)),
+		});
+		if (isChemicalToggleable(gate.key)) {
+			out.push(
+				full("Depth", `reach:${gate.key}`, `${gate.label}: may arousal reach it`, [{ key: "earned", label: "Earned only" }, { key: "arousal", label: "Arousal ok" }], () => (getChemicalReach(gate.key) ? "arousal" : "earned"), (v) => setChemicalReach(gate.key, v === "arousal")),
+			);
+		}
+	}
+	out.push(
+		full("Depth", "chemicalScope", "Chemicals count", CHEMICAL_SCOPES, () => getChemicalScope(), (v) => setChemicalScope(v)),
+		// The offered rungs only: the last ("skill can beat my resistance") is not on her own button either.
+		full("Depth", "skillHonour", "A hypnotist's skill", SKILL_HONOUR_OFFERED, getSkillHonour, setSkillHonour),
+		{
+			key: "depthDefaults",
+			label: "Depth requirements",
+			tab: "Depth",
+			// Only "defaults" can be picked; "changed" is how it reads once anyone has moved one.
+			options: [{ key: "defaults", label: "Reset to defaults" }],
+			labelOf: (v) => (v === "defaults" ? "all at their defaults" : "some changed"),
+			get: () => (DEPTH_GATES.some((g) => getDepthOverride(g.key) !== undefined) ? "changed" : "defaults"),
+			set: () => clearDepthOverrides(),
+		},
+	);
+	return out;
 }
 
 /** Where other players' ECHS icons are drawn (v1.7.0). Last on the Trance Defaults tab. */
@@ -2081,12 +2156,26 @@ const LOCK_BANNER_BACK = "#ffe3a3";
 const LOCK_BANNER_TEXT = "#5c3d00";
 
 export function settingsLocked(): boolean {
+	return ownLocked() || keyLocked();
+}
+
+/** Her own locks: a session on her (if she asked for that) and Extreme. Unlike the keyholder lock,
+ * these also hold her keyholder list (v1.16.2: under the keyholder lock she still manages it, except
+ * that whoever locked it keeps full keys). */
+export function ownLocked(): boolean {
 	return (getFeatures().lockedWhileHypnotized && isSessionLive()) || extremeLocked();
+}
+
+/** May she not click this top-of-tab box to `next`? Locked as the rest of the screen is, except that
+ * switching ECHS off always works under the keyholder lock (job6.md §5). */
+export function fixedRowLocked(key: keyof FeatureToggles, next: boolean): boolean {
+	if (!settingsLocked()) return false;
+	return !(key === "hypnoEnabled" && !next && !ownLocked());
 }
 
 /** The hover text on a locked control: which lock, and until when. */
 function lockedTip(): string {
-	return extremeLocked() ? extremeRefusal() : "Locked until this session ends";
+	return extremeLocked() ? extremeRefusal() : keyLocked() ? keyLockRefusal() : "Locked until this session ends";
 }
 
 // --- The Extreme renewal prompt (v0.99.0, job2.md §4B) -------------------------------------------
@@ -2250,7 +2339,9 @@ function runSettings(): void {
 		drawLeftTextFit(
 			extremeLocked()
 				? extremeBannerText()
-				: "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
+				: keyLocked() && !ownLocked()
+					? keyLockBannerText()
+					: "Read-only: locked while someone is working on you, until the session ends. /echs safeword always works.",
 			BOX_LEFT,
 			BLURB_Y,
 			PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40,
@@ -2397,8 +2488,8 @@ export function installMenu(): void {
 			// The fixed rows above the list.
 			const fixed = (tab.fixedRows ?? []).find((_, i) => MouseIn(fixedLeft(i), ROWS_TOP, BOX_SIZE, BOX_SIZE));
 			if (fixed) {
-				if (settingsLocked()) return;
 				const next = !getFeatures()[fixed.key];
+				if (fixedRowLocked(fixed.key, next)) return;
 				setFeature(fixed.key, next);
 				onToggle(fixed.key, next);
 				log(`${fixed.key} set to ${next}`);

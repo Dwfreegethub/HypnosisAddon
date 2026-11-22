@@ -359,6 +359,7 @@ function lastingLines(): HelpLine[] {
 		body("and end the lock. minimal = only switch off; moderate = also shape your"),
 		dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
 		dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
+		dim("Full keys can ask to lock your settings; you must accept. Any full keyholder unlocks."),
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you ·"),

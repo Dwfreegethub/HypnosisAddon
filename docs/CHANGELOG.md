@@ -18,6 +18,55 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.2) — the keyholder lock (job6.md stage 5)
+
+DW: "Yes, but you must accept"; "Any Full keyholder unlocks, Ends if they're gone N days" (N = 7);
+she can't remove the locking keyholder while locked; reset still works.
+- `src/keylock.ts` (lazy expiry, presence noted at most once a minute); storage `keyLock`.
+- `settingsLocked()` now includes it; new `ownLocked()` for the session/Extreme locks, which alone
+  still hold her keyholder list and giving keys on request. Under the keyholder lock the locker
+  can't be removed, lowered below full, or (if they hold full keys only as her owner) have the owner
+  keys lowered.
+- `fixedRowLocked()`: Hypnosis Enabled can be unticked under the keyholder lock (not under Extreme,
+  as before). `/echs decay` and `/echs triggerdecay` are now refused under it.
+- Actions `lock` (popup, 3 min between asks per keyholder, re-checks full keys after Accept) and
+  `unlock`. Snapshot `keyLock`. Keys tab: lock (one click; she must accept), unlock (two clicks).
+- `test/keylock.mjs` (38) and 6 popup checks. Mutation-checked: screen not locked, never expiring,
+  presence not refreshing, moderate locking (6), moderate unlocking, locker removable, locker or
+  owner lowerable, any answer locking, and the lock blocking key requests all fail. Not live-tested.
+
+### Added 2026-11-22 (v1.16.2) — full keys see and remove planted triggers (job6.md stage 4)
+
+DW: removal "Only if keyholder has a higher trust level than the person that added the trigger and not
+under extreme at all"; her trust in keyholder > her trust in planter (strictly).
+- Snapshot field `planted` for full keys only; `triggerId` hash instead of the word; word only for
+  its planter or when she has *Show trigger words* on. Action `remove-trigger` (`removeRefusal`).
+  Also refused while it holds her, the rule her own `/echs forgettrigger` has. The keyholder's own
+  planting is removable whatever the trust (they could already take it back by saying so).
+- voice.ts's planted-list entry builder is now `plantedEntryOf`, shared through planted.ts.
+- Keys tab "Planted in them (n)", folded; remove is two clicks; a faded one says why.
+- `test/keyholder-triggers.mjs` (27) and 5 popup checks. Mutation-checked: `>=` for trust fails 8, no
+  Extreme check fails 4, self-planted removable 2, words always sent 2, any level 1, list for every
+  level 1, holding ignored 4, no two-click 1. Not live-tested; the snapshot is now the biggest hidden
+  message ECHS sends (30 triggers + ~45 choices), watch for it not arriving.
+
+### Added 2026-11-22 (v1.16.2) — full keys reach Triggers choices and Depth (job6.md stage 3)
+
+DW: Full gets "the Triggers tab dropdowns, the Depth tab".
+- `menu.ts` `fullOnlyChoices()`: trigger scope, lifespan, duration, trigger decay, drop mode, trust
+  decay (tab "Stats", where her own control is), each gate's depth, chemical reach (illusion and
+  planting triggers only, as on her screen), chemicals count, skill honour (offered rungs: not the
+  CNC rung, which her own button doesn't reach either), reset depths. No `off`, no `moderate`: full
+  only, so even the most closed option needs full (DW's table has "—" for minimal and moderate).
+- `RemoteChoice.range` for numbers: plain whole numbers in range only ("045", "4.5", "1e1" refused),
+  so what she is told is what is saved. `labelOf` for how values read.
+- Snapshot cap on the keyholder side 20 → 80 (it is ~45 now). New choices appended after the
+  v1.14.1 ones, so a v1.16.1 keyholder still sees its 20.
+- Keys tab: tab headings fold (Depth and Stats start shut); numbers get step buttons.
+- `test/full-keys.mjs` (59) and 7 popup checks. Mutation-checked: any number accepted fails 9,
+  moderate allowed fails 15, cap of 20 fails 1, all skill rungs fails 1, nothing folded fails popup.
+  Not live-tested.
+
 ### Added 2026-11-22 (v1.16.1) — requesting keys (job6.md stage 2)
 
 DW: a would-be keyholder can ask; "a pop up instead of a chat request. No answer is a decline".

@@ -45,6 +45,7 @@ The reasoning for each is in the Orientation section; this is the checklist.
    - The player chooses that lock in setup, after a warning.
    - The safeword is untouched. `/echs reset confirm` and switching the userscript off remain ways out, and so does the undocumented `/echs exit_extreme`.
    - **Keyholders (v1.14.0, DW):** someone she has given her keys (`src/keyholder.ts`) can still change her Permissions, Trance Defaults, Awareness and Triggers tick boxes (and, v1.14.1, the Inductions tab and the Trance Defaults screen effect, eyes and pulse colour choices) under the lock (unticking Hypnosis Enabled included) and can end the lock. That is a documented way out; her own list of keyholders is read-only under the lock.
+   - **Keyholder lock (v1.16.2, `src/keylock.ts`):** a full keyholder may lock her settings only after she accepts in the ask.ts popup. Her own edits are refused (`settingsLocked()`); keyholders still change them; any full keyholder unlocks; it ends after 7 days without the locker in a room with her. Never held by it: the safeword, `/echs reset confirm`, unticking Hypnosis Enabled (`fixedRowLocked`), her keyholder list except that the locker keeps full keys.
    - Never mention `exit_extreme` in help, the wiki or changelogs.
 3. **Never write `Player.Appearance` for the illusion.** It is server-synced and corruptible. The illusion is a shadow character on the subject's own screen.
 4. **Chemical depth never writes anything permanent nor lies to the subject about their own state.** That is the `earnedOnly` split in `depth.ts`.
