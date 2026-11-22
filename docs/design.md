@@ -943,6 +943,27 @@ Player page: `wiki/The-ECHS-Popup.md`. Settled decisions:
   redraw), with forget, forget all and the fade speeds faded and saying "will be refused" under the
   Extreme lock. Never mentions the undocumented way out of the lock.
 
+## Keyholders (built v1.14.0, job5.md)
+
+DW, 2026-11-21, from a player's request about people locking themselves into Extreme with nobody able
+to help. Settled decisions (code: `keyholder.ts`; player page: wiki Consent and Safety > Keyholders):
+
+- **Who:** her BC owner (`IsOwnedByCharacter`, only while she has set `keyholders.owner`) plus anyone
+  she names, up to 10. Nobody by default.
+- **How far, per keyholder:** `take` may only switch tick boxes off; `grant` may switch them on too.
+  Owner and named together give the wider.
+- **What:** the tick boxes of the Permissions, Trance Defaults, Awareness and Triggers tabs
+  (`menu.ts remoteRows()`, read from the tabs so it cannot drift). Never the safeword, reset,
+  export/import, or the keyholder list.
+- **Through Extreme**, and a keyholder may end the lock: the documented way out DW chose. Her own
+  edits of the list follow her locks (Extreme, and the session lock).
+- **Rule 1:** a request, decided on her client, applied through `setFeature` + `onToggle` like her own
+  click, told to her, logged (`remoteLog`). Refusals told to the keyholder. Same room only.
+- **No new message type:** `remote-request` (feature "settings") and `state-response` fields, plus
+  `keyholder` on her answer to that asker's state-query. Asked at most every 30 s from the popup.
+- **The popup's Keys tab** is the one place a click acts instead of typing (besides the Safeword
+  button): a keyholder's box has no chat line to type.
+
 ## Hard Limits
 
 > **Related:** *Meta-Consent Layer* is the OOC sibling of this — hard limits are absolute per

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.13.6. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.14.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1548,7 +1548,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       EXTREME_SESSION_MINUTES = 60;
       EXTREME_WARNING = [
         `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
-        "/echs safeword always ends a trance, locked or not.",
+        "/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
         "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
         `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
       ];
@@ -6240,6 +6240,48 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else delete s.popupSize;
     saveSettings();
   }
+  function getOwnerKeyMode() {
+    const m = loadSettings().keyholders?.owner;
+    return isMode(m) ? m : null;
+  }
+  function setOwnerKeyMode(mode) {
+    const s = loadSettings();
+    const k = { ...s.keyholders ?? {} };
+    if (mode) k.owner = mode;
+    else delete k.owner;
+    s.keyholders = k;
+    saveSettings();
+  }
+  function listKeyholders() {
+    const named = loadSettings().keyholders?.named;
+    if (!Array.isArray(named)) return [];
+    return named.filter((k) => k && Number.isInteger(k.id) && k.id > 0 && isMode(k.mode)).slice(0, MAX_KEYHOLDERS).map((k) => ({ id: k.id, name: typeof k.name === "string" ? k.name.slice(0, 60) : `#${k.id}`, mode: k.mode }));
+  }
+  function setKeyholder(id, name, mode) {
+    const list = listKeyholders().filter((k) => k.id !== id);
+    if (list.length >= MAX_KEYHOLDERS) return false;
+    const s = loadSettings();
+    s.keyholders = { ...s.keyholders ?? {}, named: [...list, { id, name: name.slice(0, 60), mode }] };
+    saveSettings();
+    return true;
+  }
+  function removeKeyholder(id) {
+    const list = listKeyholders();
+    if (!list.some((k) => k.id === id)) return false;
+    const s = loadSettings();
+    s.keyholders = { ...s.keyholders ?? {}, named: list.filter((k) => k.id !== id) };
+    saveSettings();
+    return true;
+  }
+  function listRemoteChanges() {
+    const log2 = loadSettings().remoteLog;
+    return Array.isArray(log2) ? log2.filter((e) => e && Number.isFinite(e.at) && typeof e.what === "string").slice(-MAX_REMOTE_LOG) : [];
+  }
+  function noteRemoteChange(change) {
+    const s = loadSettings();
+    s.remoteLog = [...listRemoteChanges(), change].slice(-MAX_REMOTE_LOG);
+    saveSettings();
+  }
   function getPulseColor() {
     return loadSettings().pulseColor ?? PULSE_COLORS[0].key;
   }
@@ -6352,7 +6394,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, MAX_KEYHOLDERS, MAX_REMOTE_LOG, isMode, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6494,6 +6536,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "left", label: "Below, on the left" },
         { key: "off", label: "Off" }
       ];
+      MAX_KEYHOLDERS = 10;
+      MAX_REMOTE_LOG = 20;
+      isMode = (m) => m === "take" || m === "grant";
       MAX_PLANTED_SUBJECTS = 50;
       EXTREME_TRIAL_DAYS = 7;
       EXTREME_MONTH_DAYS = 30;
@@ -10329,171 +10374,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/badge.ts
-  function me() {
-    return typeof Player === "object" ? Player?.MemberNumber : void 0;
-  }
-  function presenceFields() {
-    return { version: "1.13.6", showIcon: getFeatures().showEchsIcon !== false };
-  }
-  function notePeer(sender, message) {
-    if (sender === me()) return;
-    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
-    const known = peers.get(sender);
-    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
-  }
-  function peerFor(member) {
-    return peers.get(member);
-  }
-  function announce2() {
-    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
-    lastAnnounceAt = Date.now();
-    announcedShow = getFeatures().showEchsIcon !== false;
-    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
-    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
-  }
-  function onRoomSync() {
-    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
-    if (key !== roomKey) {
-      roomKey = key;
-      peers.clear();
-      askedAfterJoin.clear();
-      announce2();
-      return;
-    }
-    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
-  }
-  function onMemberJoin(member) {
-    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
-    askedAfterJoin.add(member);
-    setTimeout(() => {
-      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
-    }, ARRIVAL_ASK_MS);
-  }
-  function isInRoom(member) {
-    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
-  }
-  function iconFor(C) {
-    if (!C || typeof C.MemberNumber !== "number") return null;
-    if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.13.6", show: true } : null;
-    }
-    const peer = peers.get(C.MemberNumber);
-    return peer && peer.show ? peer : null;
-  }
-  function drawIcon(C, charX, charY, zoom) {
-    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
-    const spot = ICON_SPOTS[getEchsIconSpot()];
-    if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
-    if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");
-    const peer = iconFor(C);
-    if (!peer) return;
-    diag.drawn++;
-    const size = ICON_SIZE * zoom;
-    const x = charX + spot.x * zoom;
-    const y = charY + spot.y * zoom;
-    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
-    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
-    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
-      const text2 = `ECHS ${peer.version ? `v${peer.version}` : "(older version)"}`;
-      MainCanvas.save();
-      MainCanvas.font = CommonGetFont(HOVER_FONT_SIZE);
-      MainCanvas.textAlign = "center";
-      MainCanvas.textBaseline = "middle";
-      const w = Math.ceil(MainCanvas.measureText(text2).width) + 16;
-      const h = HOVER_FONT_SIZE + 10;
-      const cx = x + size / 2;
-      DrawRect(cx - w / 2, y + size + 4, w, h, "rgba(0, 0, 0, 0.75)");
-      DrawText(text2, cx, y + size + 4 + h / 2, "White");
-      MainCanvas.restore();
-    }
-  }
-  function hook(modApi2, name, priority, fn) {
-    try {
-      modApi2.hookFunction(name, priority, fn);
-      diag.hooked.push(name);
-    } catch (err) {
-      diag.hookFailed.push(`${name}: ${String(err?.message ?? err).slice(0, 120)}`);
-    }
-  }
-  function bctHoverOnly() {
-    try {
-      return Player?.BCT?.bctSettings?.allIconOnlyShowOnHover === true;
-    } catch {
-      return false;
-    }
-  }
-  function describeIcons() {
-    const lines = [];
-    lines.push(`ECHS icons: hooked ${diag.hooked.join(", ") || "nothing"}${diag.hookFailed.length ? `; FAILED ${diag.hookFailed.join("; ")}` : ""}.`);
-    lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
-    if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1e3)}s ago: ${diag.lastError}`);
-    if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
-    if (bctHoverOnly()) lines.push("BCT is set to show icons only on hover, so the spiral shows only while your mouse is over the top of a character. That setting is in BCT's own settings.");
-    lines.push(
-      `Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. BC icons shown: ${typeof ChatRoomHideIconState === "number" ? ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})` : "unknown"}. Game ${typeof GameVersion === "string" ? GameVersion : "?"}.`
-    );
-    const here = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.filter((c) => c?.MemberNumber !== me()) : [];
-    if (!here.length) lines.push("Nobody else is in the room.");
-    for (const c of here) {
-      const p = peers.get(c.MemberNumber);
-      lines.push(`  ${c.Nickname || c.Name} (#${c.MemberNumber}): ${p ? `ECHS ${p.version ? `v${p.version}` : "(older)"}${p.show ? "" : ", chose to hide it"}` : "not heard from (no ECHS, or not answered yet)"}`);
-    }
-    return lines;
-  }
-  function installBadge(modApi2) {
-    hook(modApi2, "ChatRoomSync", 10, (args, next) => {
-      const result = next(args);
-      try {
-        onRoomSync();
-      } catch (err) {
-        log("ECHS icon: room sync failed", err);
-      }
-      return result;
-    });
-    hook(modApi2, "ChatRoomSyncMemberJoin", 10, (args, next) => {
-      const result = next(args);
-      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
-      return result;
-    });
-    hook(modApi2, "ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
-      const result = next(args);
-      diag.calls++;
-      try {
-        const [C, x, y, zoom] = args;
-        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
-        else diag.lastSkip = `BC passed no position (${typeof x}, ${typeof y})`;
-      } catch (err) {
-        diag.lastError = String(err?.stack ?? err).slice(0, 300);
-        diag.lastErrorAt = Date.now();
-      }
-      return result;
-    });
-  }
-  var ICON_SPOTS, ICON_SIZE, HOVER_FONT_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, diag, ARRIVAL_ASK_MS;
-  var init_badge = __esm({
-    "src/badge.ts"() {
-      init_log();
-      init_messaging();
-      init_storage();
-      init_icon();
-      ICON_SPOTS = {
-        top: { x: 228, y: 2 },
-        left: { x: 15, y: 50 }
-      };
-      ICON_SIZE = 30;
-      HOVER_FONT_SIZE = 20;
-      peers = /* @__PURE__ */ new Map();
-      roomKey = "";
-      lastAnnounceAt = 0;
-      announcedShow = null;
-      askedAfterJoin = /* @__PURE__ */ new Set();
-      REANNOUNCE_MS = 6e4;
-      diag = { hooked: [], hookFailed: [], calls: 0, drawn: 0, lastError: "", lastErrorAt: 0, lastSkip: "" };
-      ARRIVAL_ASK_MS = 4e3;
-    }
-  });
-
   // src/panel.ts
   function tabTop(index) {
     return PANEL_TOP + index * (TAB_HEIGHT + TAB_GAP);
@@ -11115,6 +10995,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("Trance defaults can never be carried, so you always wake with your"),
       dim("movement and your voice back."),
       gap(),
+      head("Keyholders"),
+      body("/echs keyholder add <name> [grant] gives someone your keys: they can"),
+      body("change your settings while you share a room, even under Extreme, and"),
+      body("end the lock. take = only switch off; grant = on too. Your BC owner:"),
+      dim("/echs keyholder owner take|grant. /echs keyholder lists them."),
+      gap(),
       head("If something is holding you"),
       body("Wait for it to wear off \xB7 have whoever set it release you \xB7"),
       body("/echs safeword, which always works from any state."),
@@ -11683,6 +11569,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   // src/menu.ts
   function isHeading(item) {
     return item.heading !== void 0;
+  }
+  function remoteRows() {
+    const out = [];
+    for (const tab2 of TABS2.filter((t) => REMOTE_TABS.includes(t.name))) {
+      for (const r of tab2.fixedRows ?? []) out.push({ key: r.key, label: r.label, tab: tab2.name, heading: "", needs: r.needs });
+      let heading = "";
+      for (const item of tab2.rows ?? []) {
+        if (isHeading(item)) heading = item.heading;
+        else out.push({ key: item.key, label: item.label, tab: tab2.name, heading, needs: item.needs });
+      }
+    }
+    return out;
   }
   function visibleTabs() {
     return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
@@ -12666,7 +12564,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.14.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -12739,7 +12637,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.13.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.14.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13021,7 +12919,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -13197,6 +13095,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       STATS_TAB = TABS2[TABS2.length - 1];
       BASE_TABS = TABS2.slice(0, TABS2.length - 1);
       showAdvanced = false;
+      REMOTE_TABS = ["Permissions", "Trance Defaults", "Awareness", "Triggers"];
       ADVANCED_BUTTON_HEIGHT = 52;
       activeTab2 = 0;
       HELP_LEFT2 = 1700;
@@ -13470,6 +13369,342 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/badge.ts
+  function me() {
+    return typeof Player === "object" ? Player?.MemberNumber : void 0;
+  }
+  function presenceFields() {
+    return { version: "1.14.0", showIcon: getFeatures().showEchsIcon !== false };
+  }
+  function notePeer(sender, message) {
+    if (sender === me()) return;
+    const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
+    const known = peers.get(sender);
+    peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+  }
+  function peerFor(member) {
+    return peers.get(member);
+  }
+  function announce2() {
+    if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
+    lastAnnounceAt = Date.now();
+    announcedShow = getFeatures().showEchsIcon !== false;
+    sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
+    log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
+  }
+  function onRoomSync() {
+    const key = typeof ChatRoomData === "object" && ChatRoomData ? String(ChatRoomData.Name ?? "") : "";
+    if (key !== roomKey) {
+      roomKey = key;
+      peers.clear();
+      askedAfterJoin.clear();
+      announce2();
+      return;
+    }
+    if (Date.now() - lastAnnounceAt >= REANNOUNCE_MS) announce2();
+  }
+  function onMemberJoin(member) {
+    if (typeof member !== "number" || member === me() || askedAfterJoin.has(member)) return;
+    askedAfterJoin.add(member);
+    setTimeout(() => {
+      if (!peers.has(member) && isInRoom(member)) sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() }, member);
+    }, ARRIVAL_ASK_MS);
+  }
+  function isInRoom(member) {
+    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
+  }
+  function iconFor(C) {
+    if (!C || typeof C.MemberNumber !== "number") return null;
+    if (C.MemberNumber === me()) {
+      return getFeatures().showEchsIcon !== false ? { version: "1.14.0", show: true } : null;
+    }
+    const peer = peers.get(C.MemberNumber);
+    return peer && peer.show ? peer : null;
+  }
+  function drawIcon(C, charX, charY, zoom) {
+    if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce2();
+    const spot = ICON_SPOTS[getEchsIconSpot()];
+    if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
+    if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");
+    const peer = iconFor(C);
+    if (!peer) return;
+    diag.drawn++;
+    const size = ICON_SIZE * zoom;
+    const x = charX + spot.x * zoom;
+    const y = charY + spot.y * zoom;
+    DrawCircle(x + size / 2, y + size / 2, size / 2, Math.max(1, zoom), "#2c2352", "rgba(255, 255, 255, 0.85)");
+    DrawImageResize(SPIRAL_ICON, x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
+    if (typeof MouseIn === "function" && MouseIn(x, y, size, size)) {
+      const text2 = `ECHS ${peer.version ? `v${peer.version}` : "(older version)"}`;
+      MainCanvas.save();
+      MainCanvas.font = CommonGetFont(HOVER_FONT_SIZE);
+      MainCanvas.textAlign = "center";
+      MainCanvas.textBaseline = "middle";
+      const w = Math.ceil(MainCanvas.measureText(text2).width) + 16;
+      const h = HOVER_FONT_SIZE + 10;
+      const cx = x + size / 2;
+      DrawRect(cx - w / 2, y + size + 4, w, h, "rgba(0, 0, 0, 0.75)");
+      DrawText(text2, cx, y + size + 4 + h / 2, "White");
+      MainCanvas.restore();
+    }
+  }
+  function hook(modApi2, name, priority, fn) {
+    try {
+      modApi2.hookFunction(name, priority, fn);
+      diag.hooked.push(name);
+    } catch (err) {
+      diag.hookFailed.push(`${name}: ${String(err?.message ?? err).slice(0, 120)}`);
+    }
+  }
+  function bctHoverOnly() {
+    try {
+      return Player?.BCT?.bctSettings?.allIconOnlyShowOnHover === true;
+    } catch {
+      return false;
+    }
+  }
+  function describeIcons() {
+    const lines = [];
+    lines.push(`ECHS icons: hooked ${diag.hooked.join(", ") || "nothing"}${diag.hookFailed.length ? `; FAILED ${diag.hookFailed.join("; ")}` : ""}.`);
+    lines.push(`Drawn ${diag.drawn} times in ${diag.calls} calls since the page loaded.${diag.calls === 0 ? " BC (or another add-on) never asked us to draw: tell DW which add-ons you run." : ""}`);
+    if (diag.lastError) lines.push(`Last drawing error, ${Math.round((Date.now() - diag.lastErrorAt) / 1e3)}s ago: ${diag.lastError}`);
+    if (diag.lastSkip) lines.push(`Not drawn because ${diag.lastSkip}.`);
+    if (bctHoverOnly()) lines.push("BCT is set to show icons only on hover, so the spiral shows only while your mouse is over the top of a character. That setting is in BCT's own settings.");
+    lines.push(
+      `Yours shows to others: ${getFeatures().showEchsIcon !== false ? "yes" : "no"}. Where you see them: ${getEchsIconSpot()}. BC icons shown: ${typeof ChatRoomHideIconState === "number" ? ChatRoomHideIconState === 0 ? "yes" : `no (state ${ChatRoomHideIconState})` : "unknown"}. Game ${typeof GameVersion === "string" ? GameVersion : "?"}.`
+    );
+    const here = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.filter((c) => c?.MemberNumber !== me()) : [];
+    if (!here.length) lines.push("Nobody else is in the room.");
+    for (const c of here) {
+      const p = peers.get(c.MemberNumber);
+      lines.push(`  ${c.Nickname || c.Name} (#${c.MemberNumber}): ${p ? `ECHS ${p.version ? `v${p.version}` : "(older)"}${p.show ? "" : ", chose to hide it"}` : "not heard from (no ECHS, or not answered yet)"}`);
+    }
+    return lines;
+  }
+  function installBadge(modApi2) {
+    hook(modApi2, "ChatRoomSync", 10, (args, next) => {
+      const result = next(args);
+      try {
+        onRoomSync();
+      } catch (err) {
+        log("ECHS icon: room sync failed", err);
+      }
+      return result;
+    });
+    hook(modApi2, "ChatRoomSyncMemberJoin", 10, (args, next) => {
+      const result = next(args);
+      onMemberJoin(args[0]?.SourceMemberNumber ?? args[0]?.Character?.MemberNumber);
+      return result;
+    });
+    hook(modApi2, "ChatRoomDrawCharacterStatusIcons", 0, (args, next) => {
+      const result = next(args);
+      diag.calls++;
+      try {
+        const [C, x, y, zoom] = args;
+        if (typeof x === "number" && typeof y === "number") drawIcon(C, x, y, typeof zoom === "number" ? zoom : 1);
+        else diag.lastSkip = `BC passed no position (${typeof x}, ${typeof y})`;
+      } catch (err) {
+        diag.lastError = String(err?.stack ?? err).slice(0, 300);
+        diag.lastErrorAt = Date.now();
+      }
+      return result;
+    });
+  }
+  var ICON_SPOTS, ICON_SIZE, HOVER_FONT_SIZE, peers, roomKey, lastAnnounceAt, announcedShow, askedAfterJoin, REANNOUNCE_MS, diag, ARRIVAL_ASK_MS;
+  var init_badge = __esm({
+    "src/badge.ts"() {
+      init_log();
+      init_messaging();
+      init_storage();
+      init_icon();
+      ICON_SPOTS = {
+        top: { x: 228, y: 2 },
+        left: { x: 15, y: 50 }
+      };
+      ICON_SIZE = 30;
+      HOVER_FONT_SIZE = 20;
+      peers = /* @__PURE__ */ new Map();
+      roomKey = "";
+      lastAnnounceAt = 0;
+      announcedShow = null;
+      askedAfterJoin = /* @__PURE__ */ new Set();
+      REANNOUNCE_MS = 6e4;
+      diag = { hooked: [], hookFailed: [], calls: 0, drawn: 0, lastError: "", lastErrorAt: 0, lastSkip: "" };
+      ARRIVAL_ASK_MS = 4e3;
+    }
+  });
+
+  // src/keyholder.ts
+  function characterFor5(member) {
+    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c) => c?.MemberNumber === member) ?? null;
+  }
+  function nameOf2(member) {
+    const c = characterFor5(member);
+    return c?.Nickname || c?.Name || `#${member}`;
+  }
+  function isBcOwner(member) {
+    const C = characterFor5(member);
+    try {
+      return !!C && Player?.IsOwnedByCharacter?.(C) === true;
+    } catch {
+      return false;
+    }
+  }
+  function keyModeFor(member) {
+    if (!member || member === Player?.MemberNumber) return null;
+    const named = listKeyholders().find((k) => k.id === member)?.mode ?? null;
+    const owner = getOwnerKeyMode() && isBcOwner(member) ? getOwnerKeyMode() : null;
+    if (named === "grant" || owner === "grant") return "grant";
+    return named ?? owner;
+  }
+  function keyholderFields(asker) {
+    const mode = keyModeFor(asker);
+    return mode ? { keyholder: mode } : {};
+  }
+  function snapshotFor(member, mode) {
+    const f = getFeatures();
+    return { boxes: remoteRows().map((r) => ({ key: r.key, on: !!f[r.key] })), extreme: extremeLocked(), mode };
+  }
+  function reply(to, mode, result) {
+    sendHiddenMessage(
+      {
+        type: "state-response",
+        hypnoEnabled: getFeatures().hypnoEnabled,
+        ...presenceFields(),
+        ...mode ? { keyholder: mode, settings: snapshotFor(to, mode) } : {},
+        ...result ? { settingsResult: result } : {}
+      },
+      to
+    );
+  }
+  function handleSettingsRequest(sender, message) {
+    const mode = keyModeFor(sender);
+    const who = nameOf2(sender);
+    if (!mode) {
+      const text2 = "They have not made you their keyholder, so you cannot change their settings.";
+      reply(sender, null, { ok: false, text: text2 });
+      return text2;
+    }
+    const action = String(message?.action ?? "");
+    if (action === "read") {
+      reply(sender, mode);
+      return "read";
+    }
+    if (action === "set") {
+      const row = remoteRows().find((r) => r.key === message?.key);
+      if (!row) {
+        const text2 = "That is not something a keyholder can change.";
+        reply(sender, mode, { ok: false, text: text2 });
+        return text2;
+      }
+      const value = message?.value === true;
+      const current2 = !!getFeatures()[row.key];
+      if (value === current2) {
+        reply(sender, mode, { ok: true, text: `${row.label} is already ${value ? "on" : "off"}.` });
+        return "unchanged";
+      }
+      if (value && mode !== "grant") {
+        const text2 = `You can only switch their settings off; turning on "${row.label}" needs them to let you grant.`;
+        reply(sender, mode, { ok: false, text: text2 });
+        return text2;
+      }
+      if (value && row.needs && !getFeatures()[row.needs]) {
+        const needsLabel = remoteRows().find((r) => r.key === row.needs)?.label ?? row.needs;
+        const text2 = `"${row.label}" needs "${needsLabel}" on first.`;
+        reply(sender, mode, { ok: false, text: text2 });
+        return text2;
+      }
+      setFeature(row.key, value);
+      onToggle(row.key, value);
+      const what = `turned ${value ? "on" : "off"} ${row.label}`;
+      noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
+      tellPlayer(`${who} (your keyholder) ${what}.`);
+      log(`keyholder ${sender} ${what}`);
+      reply(sender, mode, { ok: true, text: `Done: ${row.label} is now ${value ? "on" : "off"}.` });
+      return "set";
+    }
+    if (action === "end-extreme") {
+      if (!extremeLocked()) {
+        reply(sender, mode, { ok: true, text: "Their Extreme lock is not on." });
+        return "not locked";
+      }
+      clearExtremeLock();
+      noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: "ended your Extreme lock" });
+      tellPlayer(`${who} (your keyholder) ended your Extreme lock. Your settings are editable again; nothing in them has changed.`);
+      log(`keyholder ${sender} ended the Extreme lock`);
+      reply(sender, mode, { ok: true, text: "Their Extreme lock is ended. Their settings are editable again." });
+      return "ended";
+    }
+    reply(sender, mode, { ok: false, text: "Their ECHS did not understand that request." });
+    return "unknown";
+  }
+  function announceKeysTo(member) {
+    if (!characterFor5(member)) return;
+    sendHiddenMessage({ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: keyModeFor(member) ?? "none" }, member);
+  }
+  function receiveKeyholderFields(sender, message) {
+    if (message?.keyholder === "none") {
+      holds.delete(sender);
+      snapshots.delete(sender);
+    } else if (isMode2(message?.keyholder)) holds.set(sender, message.keyholder);
+    const s = message?.settings;
+    if (s && Array.isArray(s.boxes) && s.boxes.length <= 80) {
+      const boxes = s.boxes.filter((b) => b && typeof b.key === "string" && b.key.length <= 40).map((b) => ({ key: b.key, on: b.on === true }));
+      snapshots.set(sender, { snap: { boxes, extreme: s.extreme === true, mode: isMode2(s.mode) ? s.mode : "take" }, at: Date.now() });
+      askedAt2.delete(sender);
+    }
+    const r = message?.settingsResult;
+    if (r && typeof r.text === "string") {
+      results.set(sender, { ok: r.ok === true, text: r.text.slice(0, 200), at: Date.now() });
+      askedAt2.delete(sender);
+    }
+  }
+  function heldKeys() {
+    return [...holds.entries()].filter(([id]) => characterFor5(id)).map(([id, mode]) => ({ id, name: nameOf2(id), mode }));
+  }
+  function settingsOf(member) {
+    return snapshots.get(member)?.snap ?? null;
+  }
+  function lastResult(member) {
+    return results.get(member) ?? null;
+  }
+  function askState(member, now = Date.now()) {
+    const at = askedAt2.get(member);
+    if (at == null) return null;
+    return now - at < SETTINGS_ASK_MS ? "asking" : "silent";
+  }
+  function ask(member, body2) {
+    askedAt2.set(member, Date.now());
+    sendHiddenMessage({ type: "remote-request", feature: "settings", ...body2 }, member);
+  }
+  function requestSettings(member) {
+    ask(member, { action: "read" });
+  }
+  function requestSetting(member, key, value) {
+    ask(member, { action: "set", key, value });
+  }
+  function requestEndExtreme(member) {
+    ask(member, { action: "end-extreme" });
+  }
+  var holds, snapshots, results, askedAt2, SETTINGS_ASK_MS, isMode2;
+  var init_keyholder = __esm({
+    "src/keyholder.ts"() {
+      init_log();
+      init_notify();
+      init_messaging();
+      init_storage();
+      init_menu();
+      init_extreme();
+      init_badge();
+      holds = /* @__PURE__ */ new Map();
+      snapshots = /* @__PURE__ */ new Map();
+      results = /* @__PURE__ */ new Map();
+      askedAt2 = /* @__PURE__ */ new Map();
+      SETTINGS_ASK_MS = 3e3;
+      isMode2 = (m) => m === "take" || m === "grant";
+    }
+  });
+
   // src/commands.ts
   function consumeSuppressFlag() {
     if (!suppressNextAction) return false;
@@ -13503,10 +13738,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lastInduced = target;
     const view = getSessionView(target.id);
     requestInduction(target.id);
-    reply(
+    reply2(
       view?.phase === "AttemptFailed" ? `Trying ${target.name} again.` : `Attempting an induction on ${target.name}.`
     );
-    reply("They decide how to respond, on their own client. Watch for what happens next.");
+    reply2("They decide how to respond, on their own client. Watch for what happens next.");
   }
   function targetOrAsk(token, usage) {
     const resolved = resolveTarget(token);
@@ -13515,10 +13750,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!token.trim() && pool.length === 1) {
       return { id: pool[0].MemberNumber, name: pool[0].Name };
     }
-    reply(token.trim() ? `No one here matches "${token.trim()}".` : "Who? Give a name or member number.");
-    reply(usage);
-    if (!pool.length) reply("Nobody else is in the room \u2014 you'll need a member number.");
-    else reply(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
+    reply2(token.trim() ? `No one here matches "${token.trim()}".` : "Who? Give a name or member number.");
+    reply2(usage);
+    if (!pool.length) reply2("Nobody else is in the room \u2014 you'll need a member number.");
+    else reply2(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
     return null;
   }
   function splitNameAndTail(args, max, isTail) {
@@ -13533,9 +13768,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function firstWord(args) {
     return (args ?? "").trim().split(/\s+/)[0] ?? "";
   }
-  function reply(message) {
+  function reply2(message) {
     log(message);
     tellPlayer(message);
+  }
+  function describeKeyholders() {
+    const owner = getOwnerKeyMode();
+    const named = listKeyholders();
+    const lines = [
+      owner ? `Your BC owner holds your keys (${owner}).` : "Your BC owner does not hold your keys. /echs keyholder owner take|grant to allow it.",
+      named.length ? `Named: ${named.map((k) => `${k.name} (#${k.id}, ${k.mode})`).join(", ")}.` : "Nobody else holds your keys. /echs keyholder add <name> [grant]."
+    ];
+    const recent = listRemoteChanges().slice(-3);
+    if (recent.length) lines.push(`Last changes: ${recent.map((c) => `${c.byName} ${c.what}`).join("; ")}.`);
+    lines.push("take = only switch off; grant = on and off. Keyholders can also end your Extreme lock.");
+    return lines;
   }
   function menuLines() {
     return [
@@ -13573,15 +13820,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         Description: "Open the full on-screen guide",
         Action: () => {
           openHelpScreen().then((ok) => {
-            if (!ok) reply(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`);
-          }).catch(() => reply(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`));
+            if (!ok) reply2(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`);
+          }).catch(() => reply2(`Couldn't open the guide from here. It's under ${GUIDE_LOCATION}`));
         }
       },
       {
         Tag: "commands",
         Description: "List every typed command",
         Action: () => {
-          for (const line of commandListLines()) reply(line);
+          for (const line of commandListLines()) reply2(line);
         }
       }
     ];
@@ -13593,10 +13840,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // on purpose: a registered subcommand would be listed by BC's own /help (DW: keep it hidden).
       Action: (args) => {
         if ((args ?? "").trim().toLowerCase() === "exit_extreme") {
-          reply(exitExtreme());
+          reply2(exitExtreme());
           return;
         }
-        for (const line of menuLines()) reply(line);
+        for (const line of menuLines()) reply2(line);
       },
       // Fold the argument hint into the Description BC renders, so its own help screen
       // shows it too rather than only our summary line.
@@ -13613,7 +13860,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: args ? `${args} \u2014 ${Description}` : Description,
           Action: group === "Testing" ? (a) => {
             if (!isTestingMode()) {
-              reply("Not available \u2014 join the Hypno Testing room to use this test command.");
+              reply2("Not available \u2014 join the Hypno Testing room to use this test command.");
               return;
             }
             cmd.Action(a);
@@ -13625,26 +13872,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function sendToBot(args) {
     if (!isTestingMode()) {
-      reply("Not available \u2014 join the Hypno Testing room to use the test bot.");
+      reply2("Not available \u2014 join the Hypno Testing room to use the test bot.");
       return;
     }
     const text2 = (args ?? "").trim();
     if (!text2) {
-      reply("Usage: /echs bot <command> \u2014 e.g. /echs bot next, /echs bot run 2, /echs bot ok.");
-      reply("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
+      reply2("Usage: /echs bot <command> \u2014 e.g. /echs bot next, /echs bot run 2, /echs bot ok.");
+      reply2("Goes over the hidden channel, so it works while you cannot speak. BC's own /bot reaches the test bot too.");
       return;
     }
     const hypnotist = currentHypnotistId();
     const target = hypnotist ?? (others().length === 1 ? others()[0].MemberNumber : null);
     if (target == null) {
-      reply(
+      reply2(
         others().length ? `Not in a session, and more than one person is here: ${others().map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}.` : "Nobody else is in the room to send it to."
       );
       return;
     }
     sendHiddenMessage({ type: "test-command", text: text2 }, target);
     const name = findCharacter(target)?.Name ?? `#${target}`;
-    reply(`Sent "${text2}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
+    reply2(`Sent "${text2}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
     log(`/echs bot -> ${target}: ${text2}`);
   }
   function commandHelp() {
@@ -13655,7 +13902,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       description: c.Description
     }));
   }
-  var suppressNextAction, lastInduced, isNumber, COMMAND_TAGS, GUIDE_LOCATION, COMMANDS;
+  var suppressNextAction, lastInduced, isNumber, COMMAND_TAGS, KEY_MODE_WORDS, GUIDE_LOCATION, COMMANDS;
   var init_commands = __esm({
     "src/commands.ts"() {
       init_log();
@@ -13666,6 +13913,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_arousal();
       init_drugs();
       init_storage();
+      init_keyholder();
       init_trust();
       init_storage();
       init_triggers();
@@ -13682,6 +13930,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lastInduced = null;
       isNumber = (w) => w !== "" && Number.isFinite(Number(w));
       COMMAND_TAGS = ["echs", "hypno"];
+      KEY_MODE_WORDS = {
+        take: "they can switch your settings OFF",
+        grant: "they can switch your settings on and off"
+      };
       GUIDE_LOCATION = `Preferences > Extensions > ${EXTENSION_BUTTON_TEXT} \u2014 the ? button (or the Help button in the remote panel).`;
       COMMANDS = [
         // --- Session flow. These stay usable in any state; safeword especially must
@@ -13711,8 +13963,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Give a hypnotist your trust: their next induction in 5 minutes skips the question and goes easier",
           Action: (args) => {
             const target = wholeName(args) ? targetOrAsk(wholeName(args), "usage: /echs trust <name or member number>") : null;
-            if (!wholeName(args)) reply("Who? usage: /echs trust <name or member number>");
-            if (target) reply(giveTrust(target.id, target.name));
+            if (!wholeName(args)) reply2("Who? usage: /echs trust <name or member number>");
+            if (target) reply2(giveTrust(target.id, target.name));
           }
         },
         {
@@ -13742,21 +13994,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Session",
           Description: "Show everything currently affecting you, and what would survive a reconnect",
           Action: () => {
-            for (const line of describeCurrentState()) reply(line);
+            for (const line of describeCurrentState()) reply2(line);
             const held = listTriggers().filter(isTriggerInEffect);
-            reply(
+            reply2(
               held.length ? `triggers holding you: ${held.map((t) => `"${t.actions.join(", ")}" (by ${t.installedByName})`).join("; ")}` : "no trigger is holding you"
             );
-            reply(describeCarry());
-            reply(describeSavedState());
-            reply("Out of any of it: /echs safeword.");
+            reply2(describeCarry());
+            reply2(describeSavedState());
+            reply2("Out of any of it: /echs safeword.");
           }
         },
         {
           Tag: "session",
           group: "Session",
           Description: "Show your session state and which permissions are granted",
-          Action: () => reply(describeSession())
+          Action: () => reply2(describeSession())
         },
         {
           // Crafted drinks and cigarettes (drugs.ts). The level fades on its own and is never saved,
@@ -13764,7 +14016,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "drugs",
           group: "Session",
           Description: "Show how much a crafted drink or cigarette is affecting you",
-          Action: () => reply(describeDrugs())
+          Action: () => reply2(describeDrugs())
         },
         {
           // Bypasses matching, permissions and the session entirely — calls BC's pose
@@ -13775,11 +14027,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Kneel directly, bypassing matching, permissions and session",
           Action: () => {
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             setSuggestedPose("Kneel");
-            reply(
+            reply2(
               `pose set directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
             );
           }
@@ -13790,11 +14042,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Stand directly, bypassing matching, permissions and session",
           Action: () => {
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             setSuggestedPose(null);
-            reply(
+            reply2(
               `pose reset directly. ActivePose=${JSON.stringify(Player?.ActivePose)} PoseMapping.BodyLower=${Player?.PoseMapping?.BodyLower} IsKneeling=${Player?.IsKneeling?.()}`
             );
           }
@@ -13808,10 +14060,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Report what a spoken phrase would trigger, and why not",
           Action: (args) => {
             if (!args.trim()) {
-              reply("usage: /echs match <phrase to test>");
+              reply2("usage: /echs match <phrase to test>");
               return;
             }
-            reply(`"${args.trim()}" \u2192 ${describeMatch(args)}`);
+            reply2(`"${args.trim()}" \u2192 ${describeMatch(args)}`);
           }
         },
         {
@@ -13826,13 +14078,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
             const value = tail.length ? Number(tail[0]) : NaN;
             if (!Number.isFinite(value)) {
-              reply(usage);
+              reply2(usage);
               return;
             }
             const target = targetOrAsk(token, usage);
             if (!target) return;
             const entry = setTrustValue(target.id, target.name, value);
-            reply(
+            reply2(
               `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
             );
           }
@@ -13850,9 +14102,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const parts = args.trim().split(/\s+/).filter(Boolean);
             if (!parts.length) {
               const all = listRelationshipOverrides();
-              reply(all.length ? "test overrides:" : "no relationship overrides set");
-              all.forEach((o) => reply(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} \u2192 ${o.kind}`));
-              reply(usage);
+              reply2(all.length ? "test overrides:" : "no relationship overrides set");
+              all.forEach((o) => reply2(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} \u2192 ${o.kind}`));
+              reply2(usage);
               return;
             }
             const KINDS = ["none", "friend", "lover", "owner", "clear"];
@@ -13860,14 +14112,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const token = split.name;
             const kind = (split.tail[0] ?? parts[parts.length - 1]).toLowerCase();
             if (!["none", "friend", "lover", "owner", "clear"].includes(kind)) {
-              reply(usage);
+              reply2(usage);
               return;
             }
             const target = targetOrAsk(token, usage);
             if (!target) return;
             setRelationshipOverride(target.id, kind === "clear" ? null : kind);
-            reply(`${target.name}: ${describeRelationship(target.id)}`);
-            reply(
+            reply2(`${target.name}: ${describeRelationship(target.id)}`);
+            reply2(
               `  access \u2014 session ${accessFor(target.id, "session").toFixed(1)}, arousal ${accessFor(target.id, "arousal").toFixed(1)}, deceptive ${accessFor(target.id, "deceptive").toFixed(1)}, persistent ${accessFor(target.id, "persistent").toFixed(1)}`
             );
           }
@@ -13880,19 +14132,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const token = firstWord(args).toLowerCase();
             if (!token) {
-              reply(`trust decay: ${getDecayRate()} \u2014 ${DECAY_RATES.map((r) => r.key).join(", ")}`);
+              reply2(`trust decay: ${getDecayRate()} \u2014 ${DECAY_RATES.map((r) => r.key).join(", ")}`);
               return;
             }
             if (!DECAY_RATES.some((r) => r.key === token)) {
-              reply(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
+              reply2(`usage: /echs decay <${DECAY_RATES.map((r) => r.key).join("|")}>`);
               return;
             }
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             setDecayRate(token);
-            reply(`trust decay set to ${token}`);
+            reply2(`trust decay set to ${token}`);
           }
         },
         {
@@ -13903,10 +14155,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const value = Number(firstWord(args));
             if (!Number.isFinite(value)) {
-              reply("usage: /echs setexp <0-100>");
+              reply2("usage: /echs setexp <0-100>");
               return;
             }
-            reply(`experience \u2192 ${setExperienceValue(value).toFixed(1)}`);
+            reply2(`experience \u2192 ${setExperienceValue(value).toFixed(1)}`);
           }
         },
         {
@@ -13914,8 +14166,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
           group: "Data",
           Description: "Print your settings as a blob you can copy and keep",
           Action: () => {
-            reply("Copy the line below. /echs import <blob> restores it.");
-            reply(exportSettings());
+            reply2("Copy the line below. /echs import <blob> restores it.");
+            reply2(exportSettings());
           }
         },
         {
@@ -13925,11 +14177,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Replace all settings with a previously exported blob",
           Action: (args) => {
             if (settingsLocked()) {
-              reply(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
+              reply2(extremeLocked() ? extremeRefusal() : IMPORT_LOCKED_MESSAGE);
               return;
             }
             const result = importSettings(args);
-            reply(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
+            reply2(result.ok ? `Imported: ${result.message}` : `Import failed: ${result.message}`);
           }
         },
         {
@@ -13941,16 +14193,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             if (firstWord(args).toLowerCase() !== "confirm") {
               if (isHypnotized()) {
-                reply(
+                reply2(
                   "This erases all trust, experience and settings. You are also in a trance right now \u2014 resetting will end it and release everything first. Run: /echs reset confirm"
                 );
-                reply("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
+                reply2("(If you only want out of the trance, /echs safeword does that and keeps your settings.)");
                 return;
               }
-              reply("This erases all trust, experience and settings. Run: /echs reset confirm");
+              reply2("This erases all trust, experience and settings. Run: /echs reset confirm");
               return;
             }
-            reply(resetSettings());
+            reply2(resetSettings());
           }
         },
         {
@@ -13964,24 +14216,96 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const token = firstWord(args).toLowerCase();
             if (!token) {
-              reply(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"} \u2014 ${describeDecayPace()}.`);
-              reply(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+              reply2(`Triggers fade: ${DECAY_RATES.find((r) => r.key === getTriggerDecayRate())?.label ?? "Never"} \u2014 ${describeDecayPace()}.`);
+              reply2(`Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
               return;
             }
             const rate = DECAY_RATES.find((r) => r.key === token);
             if (!rate) {
-              reply(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
+              reply2(`No such rate "${token}". Options: ${DECAY_RATES.map((r) => r.key).join(", ")}.`);
               return;
             }
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             setTriggerDecayRate(rate.key);
-            reply(`Planted triggers now fade: ${rate.label} \u2014 ${describeDecayPace(rate.key)}.`);
-            reply(
+            reply2(`Planted triggers now fade: ${rate.label} \u2014 ${describeDecayPace(rate.key)}.`);
+            reply2(
               "Deeper plantings fade more slowly, and neglect compounds: the longer one goes unused the faster it sheds. Firing it slows that; only a re-induction resets it."
             );
+          }
+        },
+        {
+          // Keyholders (v1.14.0, job5.md): who may change your settings from their side, and how far.
+          Tag: "keyholder",
+          group: "Data",
+          args: "[add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]",
+          Description: "Choose who may change your ECHS settings for you (take = only switch off; grant = on too)",
+          Action: (args) => {
+            const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
+            const sub = (words[0] ?? "").toLowerCase();
+            if (!sub || sub === "list") {
+              for (const line of describeKeyholders()) reply2(line);
+              return;
+            }
+            if (extremeLocked()) {
+              reply2(extremeRefusal());
+              return;
+            }
+            if (settingsLocked()) {
+              reply2("Your settings are locked while a session is on you, and so is who holds your keys.");
+              return;
+            }
+            if (sub === "owner") {
+              const m = (words[1] ?? "").toLowerCase();
+              if (m !== "off" && m !== "take" && m !== "grant") {
+                reply2("Usage: /echs keyholder owner <off|take|grant>");
+                return;
+              }
+              setOwnerKeyMode(m === "off" ? null : m);
+              for (const c of others()) announceKeysTo(c.MemberNumber);
+              reply2(
+                m === "off" ? "Your BC owner is not your keyholder now (unless you named them too)." : `Your BC owner is your keyholder: ${KEY_MODE_WORDS[m]}, while you are in a room together, even under Extreme, and they can end your Extreme lock.`
+              );
+              return;
+            }
+            if (sub === "add" || sub === "remove") {
+              const grant = sub === "add" && (words[words.length - 1] ?? "").toLowerCase() === "grant";
+              const token = words.slice(1, grant ? -1 : void 0).join(" ");
+              if (!token) {
+                reply2(`Usage: /echs keyholder ${sub} <name or member number>${sub === "add" ? " [grant]" : ""}`);
+                return;
+              }
+              if (sub === "remove") {
+                const id = /^\d+$/.test(token) ? Number(token) : listKeyholders().find((k) => k.name.toLowerCase() === token.toLowerCase())?.id ?? resolveTarget(token)?.id;
+                if (!id || !removeKeyholder(id)) {
+                  reply2(`"${token}" is not one of your keyholders. /echs keyholder lists them.`);
+                  return;
+                }
+                announceKeysTo(id);
+                reply2(`Removed. They can no longer change your settings${getOwnerKeyMode() ? " (unless they are your BC owner, which you allow)" : ""}.`);
+                return;
+              }
+              const target = resolveTarget(token);
+              if (!target) {
+                reply2(`No one here matches "${token}". Use their member number if they are not in the room.`);
+                return;
+              }
+              if (target.id === Player?.MemberNumber) {
+                reply2("You can't be your own keyholder.");
+                return;
+              }
+              const mode = grant ? "grant" : "take";
+              if (!setKeyholder(target.id, target.name, mode)) {
+                reply2("You already have the most keyholders allowed (10). Remove one first.");
+                return;
+              }
+              announceKeysTo(target.id);
+              reply2(`${target.name} is your keyholder: ${KEY_MODE_WORDS[mode]}, while you are in a room together, even under Extreme, and they can end your Extreme lock. Remove them any time with /echs keyholder remove ${target.name}.`);
+              return;
+            }
+            reply2("Usage: /echs keyholder [add <name|number> [grant] | remove <name|number> | owner <off|take|grant>]");
           }
         },
         {
@@ -14000,13 +14324,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const full = isTestingMode() && words.includes("full");
             const number = words.find((w) => w !== "full");
             if (number !== void 0) {
-              describeTriggerDetail(Number(number), full).forEach(reply);
+              describeTriggerDetail(Number(number), full).forEach(reply2);
               return;
             }
             const lines = describeTriggerList(full);
-            lines.forEach(reply);
+            lines.forEach(reply2);
             if (lines.length > 1) {
-              reply(
+              reply2(
                 "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
               );
             }
@@ -14020,46 +14344,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const token = args.trim().toLowerCase();
             if (!token) {
-              reply("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
+              reply2("usage: /echs forgettrigger <number|all>  (see /echs triggers)");
               return;
             }
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             const all = listTriggers();
             if (token === "all" || token === "all confirm") {
               if (!all.length) {
-                reply("no triggers planted");
+                reply2("no triggers planted");
                 return;
               }
               const refusal = clearAllRefusal();
               if (refusal) {
-                reply(refusal);
+                reply2(refusal);
                 return;
               }
               if (token === "all") {
-                reply(
+                reply2(
                   `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
                 );
                 return;
               }
-              reply(`forgot ${forgetAllTriggers()} trigger(s)`);
+              reply2(`forgot ${forgetAllTriggers()} trigger(s)`);
               return;
             }
             const index = Number(token);
             if (!Number.isInteger(index) || index < 1 || index > all.length) {
-              reply(`no trigger ${token} \u2014 you have ${all.length}. See /echs triggers.`);
+              reply2(`no trigger ${token} \u2014 you have ${all.length}. See /echs triggers.`);
               return;
             }
             if (isTriggerInEffect(all[index - 1])) {
-              reply(
+              reply2(
                 `Trigger ${index} is holding you right now, so it can't be deleted. Wait for it to wear off, have whoever set it release you, or use /echs safeword \u2014 that always works, from any state.`
               );
               return;
             }
             const gone = forgetTrigger(all[index - 1].key);
-            reply(gone ? `forgot trigger ${index}` : "nothing removed");
+            reply2(gone ? `forgot trigger ${index}` : "nothing removed");
           }
         },
         {
@@ -14076,19 +14400,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
             if (token) {
               const id = findPlantedSubject(token) ?? resolveTarget(token)?.id ?? null;
               if (id == null) {
-                reply(`No one here, and nobody in your notes, matches "${token}".`);
+                reply2(`No one here, and nobody in your notes, matches "${token}".`);
                 return;
               }
               subjects = [id];
             } else {
               subjects = plantedSubjects();
               if (!subjects.length) {
-                reply("You have no notes on any planted triggers yet. A trigger is noted when it is saved.");
+                reply2("You have no notes on any planted triggers yet. A trigger is noted when it is saved.");
                 return;
               }
             }
-            const nameOf2 = (id) => resolveTarget(String(id))?.name ?? `#${id}`;
-            const print = () => subjects.forEach((id) => describePlanted(id, nameOf2(id)).forEach(reply));
+            const nameOf3 = (id) => resolveTarget(String(id))?.name ?? `#${id}`;
+            const print = () => subjects.forEach((id) => describePlanted(id, nameOf3(id)).forEach(reply2));
             const asking = subjects.filter((id) => here.has(id));
             subjects.filter((id) => !here.has(id)).forEach(forgetAsked);
             if (!asking.length) {
@@ -14103,13 +14427,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "icons",
           group: "Diagnostics",
           Description: "Why the spiral over ECHS players is or isn't showing on your screen",
-          Action: () => describeIcons().forEach(reply)
+          Action: () => describeIcons().forEach(reply2)
         },
         {
           Tag: "storage",
           group: "Diagnostics",
           Description: "Where settings loaded from, and what each source holds",
-          Action: () => describeStorage().forEach(reply)
+          Action: () => describeStorage().forEach(reply2)
         },
         {
           // Browser-console diagnostics, off by default so other mod developers' devtools stay
@@ -14121,14 +14445,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const word = firstWord(args).toLowerCase();
             if (word && word !== "on" && word !== "off") {
-              reply("usage: /echs debug [on|off] \u2014 with nothing, it switches to the other setting.");
+              reply2("usage: /echs debug [on|off] \u2014 with nothing, it switches to the other setting.");
               return;
             }
             const on = word ? word === "on" : !isDebugFlagOn();
             const saved = setDebugFlag(on);
-            reply(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that \u2014 it lasts until you reload.)"}`);
-            if (on) reply("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level \u2014 switch that on to see them.");
-            else if (isDebugLogging()) reply("They stay on while you're in the Hypno Testing room.");
+            reply2(`Console debug lines are now ${on ? "ON" : "OFF"} for this browser.${saved ? "" : " (Couldn't save that \u2014 it lasts until you reload.)"}`);
+            if (on) reply2("They are filed under the console's Verbose (Chrome) or Debug (Firefox) level \u2014 switch that on to see them.");
+            else if (isDebugLogging()) reply2("They stay on while you're in the Hypno Testing room.");
           }
         },
         {
@@ -14140,13 +14464,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Show your own hypnotist skill, and how it is read",
           Action: () => {
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             const v = skillValue();
-            reply(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
-            reply("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
-            reply(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
+            reply2(`Your skill reads ${v.toFixed(1)}/100, from ${skillCount().toFixed(2)} of practice (every attempt counts, a success counts more).`);
+            reply2("It travels with each induction you attempt. How much of it lands is the other person's setting \u2014 you are never told.");
+            reply2(`Your own honour of others' skill is set to: ${SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust"}.`);
           }
         },
         {
@@ -14166,12 +14490,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Try again on the last person you attempted",
           Action: () => {
             if (!lastInduced) {
-              reply("You haven't attempted anyone yet this session \u2014 use /echs induce [name].");
+              reply2("You haven't attempted anyone yet this session \u2014 use /echs induce [name].");
               return;
             }
             const still = others().some((c) => c?.MemberNumber === lastInduced.id);
             if (!still) {
-              reply(`${lastInduced.name} isn't in the room any more.`);
+              reply2(`${lastInduced.name} isn't in the room any more.`);
               return;
             }
             startInduction(lastInduced);
@@ -14184,18 +14508,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Show the induction chance for each choice against someone",
           Action: (args) => {
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             const target = targetOrAsk(wholeName(args), "usage: /echs chance [name or member number]");
-            if (target) describeChances(target.id).forEach(reply);
+            if (target) describeChances(target.id).forEach(reply2);
           }
         },
         {
           Tag: "freeze",
           group: "Testing",
           Description: "Apply the Freeze effect to yourself",
-          Action: () => reply(
+          Action: () => reply2(
             applyEffect("Freeze") ? "Freeze applied" : "Freeze failed \u2014 no Emoticon item found"
           )
         },
@@ -14203,7 +14527,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "unfreeze",
           group: "Testing",
           Description: "Remove the Freeze effect from yourself",
-          Action: () => reply(
+          Action: () => reply2(
             removeEffect("Freeze") ? "Freeze removed" : "Freeze wasn't applied"
           )
         },
@@ -14218,26 +14542,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const what = firstWord(args).toLowerCase();
             if (!arousalAvailable()) {
-              reply(
+              reply2(
                 "arousal is switched off for this character \u2014 set Preferences > Arousal to something other than Inactive"
               );
               return;
             }
             if (what === "orgasm") {
-              reply(`forced orgasm: ${forceOrgasm()}`);
+              reply2(`forced orgasm: ${forceOrgasm()}`);
               return;
             }
             if (what === "deny" || what === "allow") {
               setOrgasmDenied(what === "deny");
-              reply(`orgasm denial ${what === "deny" ? "applied" : "released"} (DenialMode effect)`);
+              reply2(`orgasm denial ${what === "deny" ? "applied" : "released"} (DenialMode effect)`);
               return;
             }
             if (!(what in AROUSAL_LEVELS)) {
-              reply(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
+              reply2(`usage: /echs arousal ${Object.keys(AROUSAL_LEVELS).join("|")}|orgasm|deny|allow`);
               return;
             }
             setArousalLevel(what);
-            reply(
+            reply2(
               `arousal set to ${what} (${AROUSAL_LEVELS[what]}). Progress=${Player?.ArousalSettings?.Progress} Active=${Player?.ArousalSettings?.Active}`
             );
           }
@@ -14250,13 +14574,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             if (firstWord(args).toLowerCase() === "drop") {
               if (extremeLocked()) {
-                reply(extremeRefusal());
+                reply2(extremeRefusal());
                 return;
               }
-              reply(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
+              reply2(releaseCarried("dropped by command") ? "carried suggestions released" : "nothing was carried");
               return;
             }
-            reply(describeCarry());
+            reply2(describeCarry());
           }
         },
         {
@@ -14270,7 +14594,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const word = firstWord(args).toLowerCase();
             if (word === "on") freezeAppearance();
             else if (word === "off") clearIllusion();
-            reply(describeIllusion());
+            reply2(describeIllusion());
           }
         },
         {
@@ -14279,7 +14603,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Arm a one-shot swallow of the next incoming Action message",
           Action: () => {
             suppressNextAction = true;
-            reply(
+            reply2(
               "armed: next incoming Action-type message will be logged and suppressed"
             );
           }
@@ -14292,7 +14616,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const on = firstWord(args).toLowerCase() !== "off";
             const ok = on ? applyEffect("BlockWardrobe") : removeEffect("BlockWardrobe");
-            reply(
+            reply2(
               ok ? `wardrobe block ${on ? "ON" : "OFF"}` : "wardrobe block failed \u2014 no Emoticon item found"
             );
           }
@@ -14306,7 +14630,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const target = targetOrAsk(wholeName(args), "usage: /echs ping [name or member number]");
             if (!target) return;
             sendHiddenMessage({ type: "ping", at: Date.now() }, target.id);
-            reply(`sent ping to ${target.name} (${target.id})`);
+            reply2(`sent ping to ${target.name} (${target.id})`);
           }
         },
         {
@@ -14319,13 +14643,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const { name: token, tail } = splitNameAndTail(args, 1, isNumber);
             const delta = tail.length ? Number(tail[0]) : wholeName(args) ? NaN : 1;
             if (!Number.isFinite(delta)) {
-              reply(usage);
+              reply2(usage);
               return;
             }
             const target = targetOrAsk(token, usage);
             if (!target) return;
             const entry = addInteractions(target.id, target.name, delta);
-            reply(
+            reply2(
               `trust with ${trustEntryLabel(entry)} \u2192 ${trustWith(target.id).toFixed(1)} (${entry.interactions.toFixed(1)} interactions)`
             );
           }
@@ -14345,17 +14669,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Action: (args) => {
             const token = wholeName(args);
             if (!token) {
-              reply("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
+              reply2("Usage: /echs forgettrust <name|number>. /echs logtrust lists them with their numbers.");
               return;
             }
             const byNumber = /^\d+$/.test(token) ? Number(token) : null;
             const entry = byNumber ? listTrustRaw().find((t) => t.memberId === byNumber) : listTrustRaw().find((t) => t.memberName?.toLowerCase() === token.toLowerCase());
             if (!entry) {
-              reply(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
+              reply2(`No stored trust entry matches "${token}". /echs logtrust shows what is stored.`);
               return;
             }
             forgetTrust(entry.memberId);
-            reply(`Forgot ${trustEntryLabel(entry)} \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
+            reply2(`Forgot ${trustEntryLabel(entry)} \u2014 ${entry.interactions.toFixed(1)} interactions gone.`);
           }
         },
         {
@@ -14372,19 +14696,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "TESTING: force the current trance depth, and optionally the earned half",
           Action: (args) => {
             if (!isTestingMode()) {
-              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              reply2("Not available \u2014 join the Hypno Testing room to use this.");
               return;
             }
             const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
             if (!parts.length) {
-              reply(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
-              reply("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
+              reply2(`Depth now: ${currentDepth()} full / ${currentDepthEarned()} earned (${tierLabel(tierOf(currentDepth()))}).`);
+              reply2("Usage: /echs depth <0-100> [earned]. Try `/echs depth 80 20` for an aroused-but-unearned trance.");
               return;
             }
             const full = Math.max(0, Math.min(100, Number(parts[0]) || 0));
             const earned = parts.length > 1 ? Math.max(0, Math.min(100, Number(parts[1]) || 0)) : full;
             setCurrentDepths(full, earned);
-            reply(
+            reply2(
               `Depth forced to ${currentDepth()} full / ${currentDepthEarned()} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. This does NOT start a session; it only sets the number gates read. For suggestions to land you also need a live session \u2014 see /echs trance.`
             );
           }
@@ -14410,7 +14734,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "TESTING: go straight under with someone, at a chosen depth, skipping the roll",
           Action: (args) => {
             if (!isTestingMode()) {
-              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              reply2("Not available \u2014 join the Hypno Testing room to use this.");
               return;
             }
             const isDepth = (w) => /^\d{1,3}$/.test(w) && Number(w) <= 100;
@@ -14421,10 +14745,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const earned = depths.length > 1 ? Number(depths[1]) : full;
             const refused = forceTrance(target.id, full, earned);
             if (refused) {
-              reply(`Can't: ${refused}.`);
+              reply2(`Can't: ${refused}.`);
               return;
             }
-            reply(
+            reply2(
               `Under with ${target.name} (${target.id}) at depth ${full} full / ${Math.min(full, earned)} earned \u2014 ${tierLabel(tierOf(currentDepth()))}. No roll, no trust awarded. /echs wake to come out.`
             );
           }
@@ -14448,34 +14772,34 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "TESTING: wind a planted trigger's decay clock back, so fading can be watched",
           Action: (args) => {
             if (!isTestingMode()) {
-              reply("Not available \u2014 join the Hypno Testing room to use this.");
+              reply2("Not available \u2014 join the Hypno Testing room to use this.");
               return;
             }
             const parts = (args ?? "").trim().split(/\s+/).filter(Boolean);
             const days = parts.length ? Number(parts[0]) : 1;
             if (!Number.isFinite(days)) {
-              reply("Usage: /echs agetrigger [days] [number] \u2014 see /echs triggers for the numbering.");
-              reply("Bare, it ages every planted trigger by one day. A number picks just that one.");
-              reply("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
-              reply(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
+              reply2("Usage: /echs agetrigger [days] [number] \u2014 see /echs triggers for the numbering.");
+              reply2("Bare, it ages every planted trigger by one day. A number picks just that one.");
+              reply2("Relative, so `1` twice is two days. A negative number winds the clock forward again.");
+              reply2(`Triggers currently fade: ${describeDecayPace()}. /echs triggerdecay changes that.`);
               return;
             }
             const index = parts.length > 1 ? Number(parts[1]) : void 0;
             if (index !== void 0 && !Number.isInteger(index)) {
-              reply(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
+              reply2(`"${parts[1]}" is not a trigger number. /echs triggers lists them by number.`);
               return;
             }
             const result = ageTriggers(days, index);
             if (result.refusal) {
-              reply(`Can't: ${result.refusal}.`);
+              reply2(`Can't: ${result.refusal}.`);
               return;
             }
-            reply(`Aged ${result.aged} trigger(s) by ${days} day(s) \u2014 strength before and after:`);
-            result.lines.forEach(reply);
-            reply(
+            reply2(`Aged ${result.aged} trigger(s) by ${days} day(s) \u2014 strength before and after:`);
+            result.lines.forEach(reply2);
+            reply2(
               "The firing credit is untouched \u2014 only the clock moved. One aged to nothing is swept on the next /echs triggers, unless it is holding you."
             );
-            reply(`Undo this exact move with /echs agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
+            reply2(`Undo this exact move with /echs agetrigger ${-days}${index !== void 0 ? ` ${index}` : ""}.`);
           }
         },
         {
@@ -14486,12 +14810,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Description: "Show every depth gate, what it needs, and whether you are deep enough now",
           Action: () => {
             if (extremeLocked()) {
-              reply(extremeRefusal());
+              reply2(extremeRefusal());
               return;
             }
             const full = currentDepth();
             const earned = currentDepthEarned();
-            reply(
+            reply2(
               `Depth ${full} full / ${earned} earned \u2014 ${tierLabel(tierOf(full))}. Chemicals: ${arousalCounts() ? "arousal counts" : "arousal does NOT count"}. ${describeDrugs()}`
             );
             const features = getFeatures();
@@ -14499,7 +14823,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               const granted = !!features[gate.key];
               const deep = depthAllows(gate.key, full, earned);
               const verdict = !granted ? "OFF (permission)" : deep ? "ready" : "too shallow";
-              reply(
+              reply2(
                 `  ${verdict.padEnd(16)} ${gate.label} \u2014 needs ${depthLabel(requiredDepth(gate.key))}${gate.earnedOnly ? ", earned only" : ""}`
               );
             }
@@ -14509,7 +14833,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "logtrust",
           group: "Testing",
           Description: "List stored trust and experience, with the counts behind them",
-          Action: () => describeTrust().forEach(reply)
+          Action: () => describeTrust().forEach(reply2)
         }
       ];
     }
@@ -14860,7 +15184,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
           hypnoEnabled: getFeatures().hypnoEnabled,
           ...presenceFields(),
           // Theirs only, and only if they asked. See planted.ts.
-          ...message.planted ? { planted: plantedEntriesFor(sender) } : {}
+          ...message.planted ? { planted: plantedEntriesFor(sender) } : {},
+          // Whether the asker holds our keys, told to them alone (keyholder.ts, v1.14.0).
+          ...keyholderFields(sender)
         },
         sender
       );
@@ -14869,8 +15195,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       repliedToProbe.add(sender);
       notePeer(sender, message);
       if (message.planted !== void 0) receivePlanted(sender, findCharacterName2(sender), message.planted);
+      receiveKeyholderFields(sender, message);
     });
     registerHiddenHandler("remote-request", (sender, message) => {
+      if (message.feature === "settings") {
+        handleSettingsRequest(sender, message);
+        return;
+      }
       log(`ignored a remote-request (${String(message.feature)}) from ${sender}: an older build's button`);
     });
     modApi2.hookFunction(
@@ -14967,6 +15298,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_help();
       init_panel();
       init_planted();
+      init_keyholder();
       init_session();
       SHEET_SCREEN_ID = "information-sheet-screen";
       ECHS_SHEET_BUTTON_ID = "echs-information-sheet-remote";
@@ -15379,6 +15711,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     t.push("people");
     if (popupSubjects().length) t.push("suggest");
     t.push("triggers");
+    t.push("keys");
     t.push("commands");
     return t;
   }
@@ -15392,6 +15725,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
     if (tab === "triggers") parts.push(triggersKey());
+    if (tab === "keys") parts.push(keysKey());
     return parts.join("#");
   }
   function subjectSide() {
@@ -15585,7 +15919,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el("div", "echs-pop-head");
     head2.appendChild(el("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el("span", "echs-pop-ver", `v${"1.13.6"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el("span", "echs-pop-ver", `v${"1.14.0"}${RELEASE_SUFFIX}`));
     const gear = el("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -15653,6 +15987,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else if (tab === "suggest") renderSuggest(bodyEl, statusEl);
     else if (tab === "me") renderMe(bodyEl, statusEl);
     else if (tab === "triggers") renderTriggers(bodyEl, statusEl);
+    else if (tab === "keys") renderKeys(bodyEl, statusEl);
     else renderCommands(bodyEl, statusEl);
     bodyEl.scrollTop = keep;
     drawnTab = tab;
@@ -15885,6 +16220,165 @@ One of mods you are using is using an old version of SDK. It will work for now b
       list.appendChild(rates);
     });
   }
+  function currentHolder() {
+    const held = heldKeys();
+    return held.find((h) => h.id === chosenHolder) ?? held[0] ?? null;
+  }
+  function keysKey() {
+    const h = currentHolder();
+    const snap = h ? settingsOf(h.id) : null;
+    const res = h ? lastResult(h.id) : null;
+    return [
+      heldKeys().map((k) => `${k.id}:${k.mode}`).join(","),
+      h?.id ?? "",
+      JSON.stringify(snap),
+      res?.at ?? 0,
+      h ? askState(h.id) : "",
+      JSON.stringify(listKeyholders()),
+      getOwnerKeyMode() ?? "",
+      listRemoteChanges().length,
+      extremeLocked() ? "x" : "",
+      settingsLocked() ? "l" : ""
+    ].join("|");
+  }
+  function keysGroup(body2, key, title, fill) {
+    const isOpen = keysOpen.has(key);
+    const head2 = el("button", "echs-pop-group", `${isOpen ? "\u2212" : "+"}  ${title}`);
+    head2.type = "button";
+    head2.addEventListener("click", () => {
+      if (keysOpen.has(key)) keysOpen.delete(key);
+      else keysOpen.add(key);
+      renderBody();
+    });
+    body2.appendChild(head2);
+    if (!isOpen) return;
+    const list = el("div", "echs-pop-list");
+    fill(list);
+    body2.appendChild(list);
+  }
+  function renderKeys(body2, status) {
+    body2.textContent = "";
+    const locked = extremeLocked() || settingsLocked();
+    const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : "Your settings are locked while a session is on you.";
+    const typed = (text2) => typeIt(status, text2, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
+    keysGroup(body2, "mine", "Your keyholders", (list) => {
+      list.appendChild(el("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock. take = only switch off; grant = on and off."));
+      if (locked) list.appendChild(el("div", "echs-pop-hint", why));
+      const owner = getOwnerKeyMode();
+      list.appendChild(el("div", "echs-pop-person", "Your BC owner"));
+      const ownerRow = el("div", "echs-pop-buttons");
+      for (const m of ["off", "take", "grant"]) {
+        const c = chip(m, `/echs keyholder owner ${m}`, () => typed(`/echs keyholder owner ${m}`), locked);
+        if ((owner ?? "off") === m) c.className += " echs-pop-chip-on";
+        ownerRow.appendChild(c);
+      }
+      list.appendChild(ownerRow);
+      const named = listKeyholders();
+      for (const k of named) {
+        const row = el("div", "echs-pop-entry");
+        row.appendChild(el("div", "echs-pop-person", `${k.name} \xB7 ${k.mode}`));
+        const chips = el("div", "echs-pop-buttons");
+        const other = k.mode === "take" ? "grant" : "take";
+        chips.appendChild(chip(`make ${other}`, "", () => typed(`/echs keyholder add ${k.id}${other === "grant" ? " grant" : ""}`), locked));
+        chips.appendChild(chip("remove", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
+        row.appendChild(chips);
+        list.appendChild(row);
+      }
+      const candidates = popupPeople().filter((p) => !named.some((k) => k.id === p.id));
+      if (candidates.length) {
+        list.appendChild(el("div", "echs-pop-hint", "Add someone here:"));
+        for (const p of candidates) {
+          const row = el("div", "echs-pop-entry");
+          row.appendChild(el("div", "echs-pop-person", p.name));
+          const chips = el("div", "echs-pop-buttons");
+          const target = induceTarget(roomOthers2().find((c) => c.MemberNumber === p.id), roomOthers2());
+          chips.appendChild(chip("add (take)", "", () => typed(`/echs keyholder add ${target}`), locked));
+          chips.appendChild(chip("add (grant)", "", () => typed(`/echs keyholder add ${target} grant`), locked));
+          row.appendChild(chips);
+          list.appendChild(row);
+        }
+      }
+      const recent = listRemoteChanges().slice(-3).reverse();
+      if (recent.length) {
+        list.appendChild(el("div", "echs-pop-hint", "Last changes to your settings:"));
+        for (const c of recent) list.appendChild(el("div", "echs-pop-desc", `${c.byName} ${c.what}`));
+      }
+    });
+    const held = heldKeys();
+    if (!held.length) return;
+    const who = currentHolder();
+    const now = Date.now();
+    if (now - (keysAskedAt.get(who.id) ?? 0) >= KEYS_REASK_MS) {
+      keysAskedAt.set(who.id, now);
+      requestSettings(who.id);
+    }
+    keysGroup(body2, "held", `Settings you hold keys to`, (list) => {
+      if (held.length > 1) {
+        const row = el("div", "echs-pop-buttons");
+        for (const h of held) {
+          const c = chip(h.name, "", () => {
+            chosenHolder = h.id;
+            renderBody();
+          });
+          if (h.id === who.id) c.className += " echs-pop-chip-on";
+          row.appendChild(c);
+        }
+        list.appendChild(row);
+      }
+      list.appendChild(el("div", "echs-pop-hint", who.mode === "grant" ? `${who.name}'s settings. You can switch them on and off.` : `${who.name}'s settings. You can only switch them off.`));
+      const snap = settingsOf(who.id);
+      const asking = askState(who.id);
+      if (!snap) {
+        list.appendChild(el("div", "echs-pop-empty", asking === "silent" ? `${who.name}'s ECHS did not answer.` : "Asking them\u2026"));
+        return;
+      }
+      const res = lastResult(who.id);
+      if (res && now - res.at < 15e3) list.appendChild(el("div", "echs-pop-hint", res.text));
+      const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
+      let lastTab = "";
+      for (const r of remoteRows()) {
+        if (!on.has(r.key)) continue;
+        if (r.tab !== lastTab) {
+          lastTab = r.tab;
+          list.appendChild(el("div", "echs-pop-person", r.tab));
+        }
+        const isOn = on.get(r.key) === true;
+        const blocked = !isOn && who.mode !== "grant";
+        const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "\u2611" : "\u2610"} ${r.label}`);
+        b.type = "button";
+        b.title = blocked ? "You can only switch their settings off." : `Switch ${isOn ? "off" : "on"}`;
+        b.addEventListener("click", () => {
+          requestSetting(who.id, r.key, !isOn);
+          setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"\u2026`);
+        });
+        list.appendChild(b);
+      }
+      const refresh = chip("refresh", "Ask for their settings again", () => {
+        keysAskedAt.set(who.id, Date.now());
+        requestSettings(who.id);
+        setStatus(status, `Asked ${who.name}'s ECHS for their settings.`);
+      });
+      const tail = el("div", "echs-pop-buttons");
+      tail.appendChild(refresh);
+      if (snap.extreme) {
+        const armed = Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS;
+        tail.appendChild(
+          chip(armed ? "click again to end it" : "end their Extreme lock", "Ends their Extreme lock early; their settings stay as they are.", () => {
+            if (Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS) {
+              endExtremeArmedAt = 0;
+              requestEndExtreme(who.id);
+              setStatus(status, `Asked ${who.name}'s ECHS to end their Extreme lock\u2026`);
+            } else {
+              endExtremeArmedAt = Date.now();
+              setStatus(status, "Click again within 5 seconds to end their Extreme lock.");
+              renderBody();
+            }
+          })
+        );
+      }
+      list.appendChild(tail);
+    });
+  }
   function typeIt(status, text2, done) {
     if (fillChat(text2)) setStatus(status, done);
     else setStatus(status, "No chat box to type into. This works in a chat room.");
@@ -15955,12 +16449,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
       init_commands();
       init_menu();
+      init_keyholder();
       init_session();
       init_depth();
       init_extreme();
@@ -16008,10 +16503,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       shownName = (c) => c?.Nickname || c?.Name || `#${c?.MemberNumber}`;
       sizeWatch = null;
       sizeTimer = null;
-      TAB_LABELS = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", commands: "Commands" };
+      TAB_LABELS = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", keys: "Keys", commands: "Commands" };
       triggerOpen = /* @__PURE__ */ new Set(["plant", "mine"]);
       plantedAskedAt = /* @__PURE__ */ new Map();
       PLANTED_REASK_MS = 3e4;
+      keysOpen = /* @__PURE__ */ new Set(["mine", "held"]);
+      chosenHolder = null;
+      keysAskedAt = /* @__PURE__ */ new Map();
+      KEYS_REASK_MS = 3e4;
+      END_EXTREME_ARM_MS = 5e3;
+      endExtremeArmedAt = 0;
       POPUP_CSS = `
 .echs-pop-launcher{position:fixed;z-index:1000;width:${LAUNCHER_SIZE}px;height:${LAUNCHER_SIZE}px;border-radius:50%;
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
@@ -16028,7 +16529,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 .echs-pop-x{background:none;border:1px solid #3b4f86;border-radius:4px;width:24px;height:24px;cursor:pointer}
 .echs-pop-x:hover{background:#26335c}
 .echs-pop-gear{font-size:15px;line-height:1;padding:0}
-.echs-pop-tabs{display:flex;gap:4px;padding:6px 8px 0}
+.echs-pop-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px 0}
 .echs-pop-tab{padding:3px 10px;border:1px solid #3b4f86;border-bottom:none;border-radius:4px 4px 0 0;font-size:12px;background:none;cursor:pointer}
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
@@ -16172,7 +16673,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.13.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.14.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -16193,7 +16694,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el2 = document.createElement("div");
-    el2.textContent = `ECHS v${"1.13.6"}${RELEASE_SUFFIX} loaded`;
+    el2.textContent = `ECHS v${"1.14.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el2.style, {
       position: "fixed",
       bottom: "4px",
@@ -16267,14 +16768,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.13.6"})`);
+      info(`script loaded (v${"1.14.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.13.6",
+          version: "1.14.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -16416,10 +16917,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.13.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.14.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.13.6";
+    page2.__ECHS_LOADED__ = "1.14.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

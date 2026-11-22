@@ -369,6 +369,27 @@ const TABS: Tab[] = [
 const STATS_TAB = TABS[TABS.length - 1];
 const BASE_TABS = TABS.slice(0, TABS.length - 1);
 let showAdvanced = false;
+
+/** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, nothing else. */
+export const REMOTE_TABS = ["Permissions", "Trance Defaults", "Awareness", "Triggers"];
+
+export type RemoteRow = { key: keyof FeatureToggles; label: string; tab: string; heading: string; needs?: keyof FeatureToggles };
+
+/** Every tick box a keyholder may switch, read from the tabs themselves so the remote can never
+ * offer one the settings screen does not have, or miss one it gains. In screen order. */
+export function remoteRows(): RemoteRow[] {
+	const out: RemoteRow[] = [];
+	for (const tab of TABS.filter((t) => REMOTE_TABS.includes(t.name))) {
+		for (const r of tab.fixedRows ?? []) out.push({ key: r.key, label: r.label, tab: tab.name, heading: "", needs: r.needs });
+		let heading = "";
+		for (const item of tab.rows ?? []) {
+			if (isHeading(item)) heading = item.heading;
+			else out.push({ key: item.key, label: item.label, tab: tab.name, heading, needs: item.needs });
+		}
+	}
+	return out;
+}
+
 function visibleTabs(): Tab[] {
 	return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
 }
