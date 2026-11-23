@@ -18,6 +18,21 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.8) — "using ECHS since" on the Stats tab
+
+A player asked to track how long someone has had ECHS active (as BCX does). DW: "just the date and
+just the player using it", only since a reset.
+- `usingSince` in the settings: set by defaultSettings (so a reset starts it again), dropped by
+  normalise if not a number or more than a day in the future. A save from before this has none;
+  `getUsingSince` sets it on first read and saves it, so it doesn't move on every load. Synced with
+  the account like the rest. An import keeps the imported date.
+- Shown on the Experience row's detail ("… · using ECHS since 3 Nov 2026"), not a row of its own:
+  the trust list's rows and the page buttons leave no room. Month names fixed, not the locale's.
+- Not shown to others, not sent anywhere. The other half of the request (spotting BC started
+  without ECHS) is not built.
+- test/using-since.mjs (11), mutation-checked (not saved, future kept, reset keeps the date, wrong
+  month: all fail).
+
 ### Changed 2026-11-22 (v1.16.7) — UPDATE_NOTE for the stable release
 
 DW: "push everything to stable". UPDATE_NOTE (v1.15.0's still) set to 1.16.7 with a two-sentence
