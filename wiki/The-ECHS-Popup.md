@@ -98,6 +98,7 @@ Lines that need finishing end where you type on, and the status line says what's
 **What you planted**, for each person here you have planted in: their answer about your own triggers (never anyone else's), with each one's strength and what it does, and:
 
 * **say it** (fires it), **release** (lets go of it while it holds them), **remove** (deletes it for good).
+* A compulsion has no word, so its row has **release** and **remove** only. They type *"you are released from the compulsion"* and *"forget your compulsions"*, which act on every compulsion you planted in them.
 * A compulsion has no word, so only **↺ remove everything I planted** takes it away.
 * It asks them at most twice a minute, so leaving the tab open can't flood the room.
 

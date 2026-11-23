@@ -37,7 +37,7 @@ import {
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest";
-import { PLANT_GROUPS, plantedLines, FORGET_ALL, TriggerLine } from "./popup-triggers";
+import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
 import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
@@ -881,7 +881,16 @@ function renderTriggers(body: any, status: any): void {
 						chips.appendChild(chip(line.label, text, () => typeIt(status, text, `Typed. Press Enter to say it to ${p.name}.`)));
 					}
 					row.appendChild(chips);
-				} else row.appendChild(el("div", "echs-pop-desc", "No word: only “remove everything I planted” below takes it away."));
+				} else {
+					// A compulsion (v1.16.10): no word, so these type the lines that cover all of yours.
+					row.appendChild(el("div", "echs-pop-desc", "No word: release and remove act on every compulsion you planted in them."));
+					const chips = el("div", "echs-pop-buttons");
+					for (const line of COMPULSION_LINES) {
+						const text = suggestionText(p.name, line.phrase);
+						chips.appendChild(chip(line.label, text, () => typeIt(status, text, `Typed. Press Enter to say it to ${p.name}.`)));
+					}
+					row.appendChild(chips);
+				}
 				list.appendChild(row);
 			}
 			if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));

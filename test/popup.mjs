@@ -371,6 +371,9 @@ if (!fire.includes("sleepy time")) plantedWrong.push("say it");
 if (!voice.isTriggerReleaseLine(rel)) plantedWrong.push(`release "${rel}"`);
 if (voice.parseTriggerRemoval(rem)?.phrase !== "sleepy time") plantedWrong.push(`remove "${rem}"`);
 if (voice.parseTriggerRemoval(`Bea, ${T.FORGET_ALL.phrase}`)?.kind !== "all") plantedWrong.push("remove everything");
+const [cRel, cRem] = T.COMPULSION_LINES.map((l) => `Bea, ${l.phrase}`);
+if (!voice.isCompulsionReleaseLine(cRel) || !voice.isTriggerReleaseLine(cRel)) plantedWrong.push(`compulsion release "${cRel}"`);
+if (voice.parseTriggerRemoval(cRem)?.kind !== "compulsions") plantedWrong.push(`compulsion remove "${cRem}"`);
 if (voice.isTriggerRemovalLine(rel) || voice.isTriggerReleaseLine(rem)) plantedWrong.push("release and remove overlap");
 check("release / remove / remove all parse", plantedWrong.length === 0, `each read as intended, wrong: ${plantedWrong.join("; ")}`);
 
@@ -429,7 +432,12 @@ popup.setPopupTab("people"); popup.setPopupTab("triggers"); popup.popupTick();
 check("not asked again within 30s", asks() - asksBefore <= 1, `still at most one ask after reopening, got ${asks() - asksBefore}`);
 const chipIn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label);
 check("a row per planted trigger", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"sleepy time"').length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "when Rei comes in").length === 1, "rows for sleepy time and the compulsion");
-check("one set of chips (the compulsion has none)", chipIn("release").length === 1 && chipIn("remove").length === 1 && chipIn("say it").length === 1, `say it / release / remove once, got ${chipIn("release").length}`);
+// v1.16.10: the compulsion row has release / remove too (no "say it": it has no word).
+check("chips on both rows, say it only on the word", chipIn("release").length === 2 && chipIn("remove").length === 2 && chipIn("say it").length === 1, `release / remove twice, say it once, got ${chipIn("release").length} / ${chipIn("say it").length}`);
+chipIn("release")[1].click();
+check("compulsion release typed", chatBox.value === "Bea, you are released from the compulsion", `got "${chatBox.value}"`);
+chipIn("remove")[1].click();
+check("compulsion remove typed", chatBox.value === "Bea, forget your compulsions", `got "${chatBox.value}"`);
 chipIn("release")[0].click();
 check("release typed", chatBox.value === "Bea, you are released from sleepy time", `got "${chatBox.value}"`);
 chipIn("remove")[0].click();

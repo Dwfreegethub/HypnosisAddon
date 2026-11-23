@@ -166,5 +166,81 @@ handler.Callback({}, rei, "", { ActivityName: "Lick", TargetMemberNumber: Player
 drainPaced();
 check("  aimed at her: it fires", spoken, ["Hey!"]);
 
+// --- releasing and removing compulsions (v1.16.10) --------------------------------------------------
+// Failure: no way to let go of one holding her without deleting everything; someone else's words
+// doing it; "forget your compulsions" taking the word triggers too; or the words read as a trigger
+// word called "the compulsion".
+check("parse: release", [voice.isCompulsionReleaseLine("Missy, you are released from the compulsion"), voice.isCompulsionReleaseLine("Missy, I release you from all your compulsions"), voice.isCompulsionReleaseLine("Missy, you are released from sleepy time")], [true, true, false]);
+check("parse: remove", [voice.parseTriggerRemoval("Missy, forget your compulsions")?.kind, voice.parseTriggerRemoval("Missy, remove the compulsion")?.kind, voice.parseTriggerRemoval("Missy, forget every trigger I gave you")?.kind, voice.parseTriggerRemoval("Missy, forget the trigger sleepy time")?.kind], ["compulsions", "compulsions", "all", "one"]);
+// A one-time one is used up when it lets go, as a word trigger is, and the planter is told so.
+reset();
+plant("Missy, when anyone licks you, you cannot move");
+session.wakeByHypnotist(HYP);
+clock += 60_000;
+voice.noteActivity(REI, "Lick");
+drainPaced();
+toHyp = [];
+say("Missy, you are released from the compulsion");
+check("one-time: lets go, used up, and says so", [compulsions().length, /it was one-time, so it is used up/.test(toHyp.join(" "))], [0, true]);
+// An every-time one stays planted.
+reset();
+plant("Missy, when anyone kisses you, you cannot move", ["Missy, this trigger works every time"]);
+under();
+say("Missy, your trigger word is ember glow");
+say("Missy, you cannot move");
+say("Missy, remember trigger");
+session.wakeByHypnotist(HYP);
+const comp = () => compulsions()[0];
+const word = () => storage.listTriggers().find((t) => !t.fireOn);
+check("set up: a compulsion and a word", [compulsions().length, word()?.phrase], [1, "ember glow"]);
+voice.noteActivity(REI, "Kiss");
+drainPaced();
+check("  the kiss: it holds her", voice.isTriggerInEffect(comp()), true);
+toHyp = [];
+say("Missy, you are released from the compulsion", OTHER_HYP);
+check("someone else's release: still holding", voice.isTriggerInEffect(comp()), true);
+say("Missy, you are released from the compulsion");
+check("the planter's release: lets go", voice.isTriggerInEffect(comp()), false);
+check("  still planted", compulsions().length, 1);
+check("  the planter told", /Released\. The compulsion holding them let go; still planted\./.test(toHyp.join(" ")), true);
+check("  not read as a word called 'the compulsion'", toHyp.some((m) => m.includes('Nothing called')), false);
+// The one who SET IT OFF may release it too, while it holds (DW: "when someone gropes you... then
+// who can free you of it"). Failure: Rei can't, Rei can once it has let go, or Rei can remove it.
+clock += 20_000;
+voice.noteActivity(REI, "Kiss");
+drainPaced();
+check("Rei kisses her again: held", voice.isTriggerInEffect(comp()), true);
+say("Missy, you are released from the compulsion", OTHER_HYP);
+check("  a bystander's release: still held", voice.isTriggerInEffect(comp()), true);
+say("Missy, you are released from the compulsion", REI);
+check("  Rei, who set it off, releases it", voice.isTriggerInEffect(comp()), false);
+check("  still planted", compulsions().length, 1);
+said = [];
+toHyp = [];
+say("Missy, you are released from the compulsion", REI);
+check("  once it has let go, Rei's words do nothing", [said.some((m) => m.includes("lets go")), toHyp.length], [false, 0]);
+say("Missy, forget your compulsions", REI);
+check("  Rei can't remove it", compulsions().length, 1);
+clock += 20_000;
+voice.noteActivity(OTHER_HYP, "Kiss");
+drainPaced();
+say("Missy, you are released from the compulsion", REI);
+check("  set off by someone else now: Rei can't", voice.isTriggerInEffect(comp()), true);
+say("Missy, you are released from the compulsion", OTHER_HYP);
+check("  but the one who did can", voice.isTriggerInEffect(comp()), false);
+toHyp = [];
+say("Missy, you are released from the compulsion");
+check("nothing holding: says so", /no compulsion of yours was holding them/.test(toHyp.join(" ")), true);
+toHyp = [];
+say("Missy, forget your compulsions", OTHER_HYP);
+check("someone else's removal: nothing goes", compulsions().length, 1);
+say("Missy, forget your compulsions");
+check("removal: the compulsion goes", compulsions().length, 0);
+check("  the word trigger stays", word()?.phrase, "ember glow");
+check("  the planter told", /Removed the 1 compulsion you planted in them\. Your trigger word stays\./.test(toHyp.join(" ")), true);
+toHyp = [];
+say("Missy, forget your compulsions");
+check("none left: says so", /No compulsion of yours is planted in them/.test(toHyp.join(" ")), true);
+
 console.log(`act-compulsion: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

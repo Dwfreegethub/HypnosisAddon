@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.10 · 22 November 2026
+
+- **Releasing a compulsion.** *"Missy, you are released from the compulsion"* lets go of a
+  compulsion holding her, as *"you are released from sleepy time"* does for a word. *"Missy,
+  forget your compulsions"* removes your compulsions but keeps your trigger words. The one who
+  planted it can release it, and so can whoever set it off (the one who groped you, say) while
+  it holds you. Only the one who planted it can remove it.
+- On the popup, a compulsion you planted now has **release** and **remove** buttons, which type
+  those lines for you.
+
 ## v1.16.9 · 22 November 2026
 
 - **"When anyone kisses you…"** A compulsion can now wait for something done to you: *"Missy,
