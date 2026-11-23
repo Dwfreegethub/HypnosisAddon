@@ -717,6 +717,12 @@ function suggestButton(it: SuggestItem, name: string, status: any, gate: Gate): 
 	const main = say(it.phrase, `${it.release ? "↺ " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
 	row.appendChild(main);
 	if (gate === "deeper") row.appendChild(el("span", "echs-pop-state echs-pop-tag", "deeper"));
+	// Over the moment it lands; in a trigger, no expiry timer (v1.16.11).
+	if (it.instant) {
+		const tag = el("span", "echs-pop-state echs-pop-tag", "instant");
+		tag.title = "Over the moment it lands. In a trigger it starts no expiry timer.";
+		row.appendChild(tag);
+	}
 	const isOpen = altOpen.has(it.id);
 	if (it.alternates.length) {
 		const more = el("button", "echs-pop-more", isOpen ? "−" : `+${it.alternates.length}`);

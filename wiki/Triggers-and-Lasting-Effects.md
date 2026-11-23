@@ -259,6 +259,17 @@ Carry-forward suggestions allow active trance commands to persist after waking:
 
 ---
 
+## 10b. Instant Actions and Lasting Ones
+
+Since v1.16.11, what a trigger does is one of two kinds:
+
+* **Instant:** over the moment it lands. Making you cum, taking clothes off, setting your arousal, anything you are made to do (*touch yourself*, *kiss me*, *take a sip*, *wiggle*), words you are made to say, a drop into trance, and any release. The popup and the help screen mark these **instant**.
+* **Lasting:** holds you until it is released or wears off. *You cannot move*, *you cannot see*, *you cannot speak*, *kneel*, faces, *you cannot touch yourself*, and the like.
+
+A trigger made only of instant actions starts no timer: it fires, and it is done. A one-time one is gone at once, and it never counts as holding you, so `/echs forgettrigger` works on it straight away. A trigger with anything lasting in it holds you for your trigger duration, as before, and lets go of the lasting part when that runs out.
+
+---
+
 ## 11. Commanded Activities in Triggers
 
 Physical self-actions can be stored in triggers (e.g., *"Missy, touch your breasts"* recorded under *"good girl"*). See [Commanded Activities](Commanded-Activities). When triggered, game activities execute one by one with a short delay between each action.
@@ -267,7 +278,7 @@ Physical self-actions can be stored in triggers (e.g., *"Missy, touch your breas
 
 ## 12. What to Do If You Are Held
 
-If a trigger or lasting suggestion is holding your character:
+If a trigger or lasting suggestion is holding your character (an instant one never does; see [Instant Actions](#10b-instant-actions-and-lasting-ones)):
 * Wait for the trigger duration timer to expire.
 * Have the hypnotist release you by name (*"Missy, you are released from sleepy time"*).
 * **Use your safeword:** Type `/echs safeword` to immediately purge all active holds, trances, and lingering effects. It also discards any compulsion waiting for you to wake.

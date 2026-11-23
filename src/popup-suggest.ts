@@ -25,6 +25,8 @@ export type SuggestItem = {
 	/** Other REAL wordings that also work (voice.ts examples, never display merges), one level down
 	 * in the list (DW, 2026-11-21). Each is checked against the matchers in test/popup.mjs. */
 	alternates: string[];
+	/** Over the moment it lands: in a trigger it has no expiry timer (v1.16.11). Shown as such. */
+	instant?: boolean;
 	/** For a release, the ids it gives back, so it can be listed under them. */
 	releaseOf?: string[];
 };
@@ -72,16 +74,16 @@ export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
 	{ cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
 	{ cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
 	{ cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
-	{ cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
-	{ cat: "touch", item: { id: "x-sip", label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
-	{ cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
+	{ cat: "touch", item: { id: "x-touch-self", instant: true, label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
+	{ cat: "touch", item: { id: "x-sip", instant: true, label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
+	{ cat: "touch", item: { id: "x-kiss-me", instant: true, label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
 	// v1.16.5: BC's own movements and gagged sounds, under Made to Act like the touches.
-	{ cat: "body", item: { id: "x-wiggle", label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
-	{ cat: "body", item: { id: "x-nod", label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
-	{ cat: "body", item: { id: "x-struggle", label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
-	{ cat: "touch", item: { id: "x-hug-me", label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
-	{ cat: "touch", item: { id: "x-cover-mouth", label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
-	{ cat: "senses", item: { id: "x-gag-moan", label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } },
+	{ cat: "body", item: { id: "x-wiggle", instant: true, label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
+	{ cat: "body", item: { id: "x-nod", instant: true, label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
+	{ cat: "body", item: { id: "x-struggle", instant: true, label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
+	{ cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
+	{ cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
+	{ cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } },
 ];
 
 function categoryFor(id: string, permission: string): string {
@@ -100,6 +102,7 @@ export function suggestCategories(): SuggestCategory[] {
 			label: s.display[0] ?? s.examples[0],
 			phrase: s.examples[0],
 			release: s.release,
+			instant: s.instant || undefined,
 			permission: s.permission,
 			alternates: s.examples.slice(1),
 			releaseOf: s.releaseOf,

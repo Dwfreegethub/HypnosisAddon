@@ -228,6 +228,11 @@ interface Suggestion {
 	/** Reverses this suggestion. Used when a trigger is released by name — the release
 	 * has to undo exactly what that trigger applied, not everything of that kind. */
 	undo?: () => void;
+	/** A one-off event, not a hold (v1.16.11; a player's suggestion, DW 2026-11-22): done the moment
+	 * it lands, nothing to let go of. In a trigger it arms no expiry timer, so a trigger made only of
+	 * these is over when it fires (a one-time one gone at once), and never "holding" her. Releases
+	 * count as instant too. Like a compel or a "say". */
+	instant?: boolean;
 	/** Wordings that land, for the help screen. Kept beside the patterns rather than in
 	 * help.ts on purpose: a duplicated source of truth always eventually drifts, which is
 	 * the same lesson the generated /echs summary already learned. Every entry must have
@@ -769,6 +774,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// movement-block's "stuck", and "you cannot stand it" by the posture entry.
 	{
 		id: "arousal-none",
+		instant: true,
 		examples: ["you are not aroused", "your arousal fades", "you feel no desire"],
 		permission: "arousalControl",
 		patterns: [
@@ -781,6 +787,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-light",
+		instant: true,
 		examples: ["you are lightly aroused", "you feel a little warm"],
 		permission: "arousalControl",
 		patterns: [
@@ -793,6 +800,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-high",
+		instant: true,
 		examples: ["you are very aroused", "you are desperate", "you need it badly"],
 		permission: "arousalControl",
 		patterns: [
@@ -805,6 +813,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "arousal-full",
+		instant: true,
 		examples: ["you are right on the edge", "you are so close"],
 		permission: "arousalControl",
 		patterns: [
@@ -861,6 +870,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "orgasm-force",
+		instant: true,
 		examples: ["come for me", "cum for me", "you will come now"],
 		displayExamples: ["come/cum for me", "you will come now"],
 		permission: "arousalControl",
@@ -1091,6 +1101,7 @@ const SUGGESTIONS: Suggestion[] = [
 	// single-garment patterns must not eat it. Same first-match-wins rule as releases.
 	{
 		id: "undress-all",
+		instant: true,
 		examples: ["take everything off", "strip"],
 		permission: "undressControl",
 		patterns: [
@@ -1109,6 +1120,7 @@ const SUGGESTIONS: Suggestion[] = [
 	},
 	{
 		id: "undress",
+		instant: true,
 		examples: ["take something off", "undress"],
 		permission: "undressControl",
 		patterns: [
@@ -1862,6 +1874,8 @@ export interface SuggestionHelp {
 	 * same as `examples`. The test still checks `examples`, so display can read however it likes. */
 	display: string[];
 	release: boolean;
+	/** Over the moment it lands; in a trigger, no expiry timer (v1.16.11). Never set on a release. */
+	instant: boolean;
 	/** For a release, the ids it gives back. The ECHS popup lists it under them. */
 	releaseOf: string[];
 	/** The tier this needs, as a label. Looked up from the permission rather than stored on
@@ -1889,6 +1903,7 @@ export function suggestionHelp(): SuggestionHelp[] {
 		examples: s.examples,
 		display: s.displayExamples ?? s.examples,
 		release: !!s.release,
+		instant: !!s.instant && !s.release,
 		releaseOf: s.releaseOf === undefined ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
 		depthTier: s.release ? undefined : tierLabelFor(s.permission),
 	}));
@@ -2806,7 +2821,10 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			tooWeak++;
 			continue;
 		}
-		holding++;
+		// An instant one (an orgasm, undressing, an arousal level, a release) is over when it lands:
+		// counted with the compels, so it arms no expiry and never holds her (v1.16.11).
+		if (suggestion.instant || suggestion.release) compels++;
+		else holding++;
 		steps.push(() => {
 			const outcome = suggestion.run(speaker) || suggestion.id;
 			// A word someone said aloud was aimed at her, so the room may watch her try. A compulsion

@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.11 · 22 November 2026
+
+- **Instant actions.** Making someone cum, undressing them or setting their arousal is over the
+  moment it lands, so a trigger that only does those no longer "holds" them for minutes after.
+  A one-time one is gone at once, `/echs forgettrigger` works on it straight away, and there is no
+  "loosens on its own" message long after the fact. A trigger that also does something lasting
+  (*you cannot move*) still holds for its time. The popup and help mark the instant lines.
+  Thanks to the player who suggested it.
+
 ## v1.16.10 · 22 November 2026
 
 - **Releasing a compulsion.** *"Missy, you are released from the compulsion"* lets go of a
