@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.9 · 22 November 2026
+
+- **"When anyone kisses you…"** A compulsion can now wait for something done to you: *"Missy,
+  when anyone kisses you, you will blush"*, or *"when Rei spanks you, …"*, or *"when I tickle
+  you, …"*. It can wait for a kiss, touch, hug, pet, spank, slap, tickle, pinch, grope, lick, bite
+  or kick, your hair being pulled, or anything at all. The full list is on the wiki's Triggers page.
+- **The popup's Triggers tab** now shows the planting lines, compulsions included, even when
+  nobody is under you (greyed, so you can read them first). It also has a *works every time* line,
+  and *when anyone … you* opens the list of what they can do: click one and it types the start.
+
 ## v1.16.8 · 22 November 2026
 
 - **"Using ECHS since".** Your Stats tab now shows the date you started using ECHS, next to your

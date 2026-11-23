@@ -138,6 +138,28 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *"Missy, when Rei comes in, …"* | When Rei next enters the room. |
 | *"Missy, when I come back, …"* | When the hypnotist returns to the room. |
 | *"Missy, when Rei speaks, …"* · *"when you hear Rei's voice, …"* | When Rei next says anything in chat. |
+| *"Missy, when anyone kisses you, …"* · *"when Rei spanks you, …"* · *"when I tickle you, …"* | When someone does that to you with one of the game's activities (since v1.16.9). The list is below. |
+
+**What "when anyone … you" can wait for** (since v1.16.9). *Anyone* can be a name or *I* instead:
+
+| Say | Which of the game's activities count |
+|---|---|
+| *kisses you* (or *pecks you*) | Kiss, French kiss, polite kiss |
+| *touches you* (or *caresses*, *strokes*, *rubs*, *massages you*) | Any touch by hand: caress, massage, grope, pinch, tickle, pet, scratch, pull, cuddle and the like |
+| *hugs you* (or *cuddles*, *snuggles*, *nuzzles you*) | Cuddle |
+| *pets you* (or *pats you*) | Pet |
+| *spanks you* (or *smacks you*) | Spank |
+| *slaps you* | Slap |
+| *tickles you* | Tickle |
+| *pinches you* | Pinch |
+| *gropes you* (or *fondles*, *squeezes you*) | Grope |
+| *licks you* | Lick |
+| *bites you* (or *nibbles you*) | Bite, nibble |
+| *pulls your hair* (or *tugs*) | Pull |
+| *kicks you* | Kick |
+| *does anything to you* | Any activity at all |
+
+The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.
 
 Whatever follows the condition on the same line is recorded, just as on its own line: a suggestion, words to say, or a drop. The hypnotist can also end the line at the condition and give the suggestions on the lines that follow.
 
@@ -146,7 +168,7 @@ Whatever follows the condition on the same line is recorded, just as on its own 
 * **If you are bound and can't take the pose:** the room is told nothing, however often it goes off. You are told privately, once, and how to remove it.
 * **The clock keeps running:** a compulsion timed from waking keeps counting while you are logged off, and goes off soon after you are back in a room if its time has passed.
 * **Any trance starts the clock:** waking from anyone's trance sets it off, not only the trance of whoever planted it (since v1.13.1). It still goes off as theirs.
-* **Your safeword clears them:** any compulsion waiting for you to wake is discarded by `/echs safeword`. Compulsions waiting for a person are kept, as ordinary triggers are.
+* **Your safeword clears them:** any compulsion waiting for you to wake is discarded by `/echs safeword`. Compulsions waiting for a person (coming in, speaking, or doing something to you) are kept, as ordinary triggers are.
 * A line such as *"Missy, when you wake up you will feel refreshed"*, with nothing that can be kept after the condition, is not stored. You stay in trance and the hypnotist is told. If the same line also says *"wake up"*, it wakes you as usual.
 
 Compulsions otherwise work like any trigger: the same permissions, strength, fading and options, and they show in your trigger list with the condition in place of a word.

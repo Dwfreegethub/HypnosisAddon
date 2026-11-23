@@ -1,4 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
+import { COMPULSION_ACTS } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
@@ -2121,11 +2122,19 @@ const COND_SPEAK = new RegExp(
 	String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`,
 );
 
+// "when anyone kisses you, ..." (v1.16.9): something done TO her with a BC activity. The verb list is
+// compulsion-acts.ts's; the body part after "your" is not checked. "you" as the doer is no one.
+const COND_ACTS = COMPULSION_ACTS.map((a) => ({
+	key: a.key,
+	re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} you(?:r [a-z]+)?\b`),
+}));
+
 /** What a condition line asks for, before the name is resolved against the room. `rest` is what
  * follows the clause ("you will kneel"), lower-cased; "" when the line ends at the clause. */
 export type ParsedCondition =
 	| { fireOn: "wake"; delayMs: number; rest: string }
-	| { fireOn: "arrive" | "speak"; who: string; rest: string };
+	| { fireOn: "arrive" | "speak"; who: string; rest: string }
+	| { fireOn: "act"; who: string; act: string; rest: string };
 
 /** Does this line plant a compulsion that watches a person (arrival or speech)? */
 function personCondition(content: string): boolean {
@@ -2157,6 +2166,10 @@ export function parseCondition(content: string): ParsedCondition | null {
 	if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
 	m = COND_SPEAK.exec(text);
 	if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
+	for (const a of COND_ACTS) {
+		m = a.re.exec(text);
+		if (m) return { fireOn: "act", who: m[1], act: a.key, rest: after(m) };
+	}
 	return null;
 }
 
@@ -2281,7 +2294,7 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 	} else {
 		const watch = resolveWatch(parsed.who, sender);
 		if (!watch) return false; // "when she comes in" names nobody we can watch for
-		condition = { fireOn: parsed.fireOn, ...watch };
+		condition = { fireOn: parsed.fireOn, ...watch, ...(parsed.fireOn === "act" ? { act: parsed.act } : {}) };
 	}
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
 	const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
@@ -2545,13 +2558,29 @@ function speakForSubject(text: string): void {
 // Scope is not asked (nobody said anything to fire it); every action still re-checks its own
 // permission and the trigger's strength in fireTrigger, as every trigger does.
 
-/** Arrival or speech: fire whatever this member's arrival or voice was waiting for. */
-function fireEventCompulsions(event: "arrive" | "speak", member: number): void {
+/** Arrival, speech or an activity: fire whatever this member's arrival, voice or touch was waiting
+ * for. An activity compulsion rests ACT_REST_MS after it fires (v1.16.9), so one that answers a
+ * kiss with a kiss can't ping-pong between two clients, nor a run of clicks fire it ten times. */
+const ACT_REST_MS = 15_000;
+const actFiredAt = new Map<string, number>();
+function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number, activity = ""): void {
 	if (isHypnotized()) return;
-	const due = compulsionsFor(event, member);
+	const now = Date.now();
+	const due = compulsionsFor(event, member, activity).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
 	for (const t of due) {
+		if (event === "act") actFiredAt.set(t.key, now);
 		log(`compulsion (${event}) set off by ${member}`);
 		fireTrigger(t, t.installedBy);
+	}
+}
+
+/** A BC activity aimed at her (v1.16.9), from the message handler in installCompulsions: may be
+ * what a "when anyone kisses you" compulsion waits for. */
+export function noteActivity(member: number, activity: string): void {
+	try {
+		fireEventCompulsions("act", member, activity);
+	} catch (err) {
+		warn("activity compulsion failed:", err);
 	}
 }
 
@@ -2591,6 +2620,25 @@ export function checkDueCompulsions(now: number = Date.now()): number {
  * clearAllTimers(), and this has to outlive all of them. */
 export function installCompulsions(): void {
 	if (compulsionPoll) return;
+	// "when anyone kisses you" (v1.16.9): BC's activity message names her as the target. Read only,
+	// never stopped or rewritten, as the drinks handler does.
+	if (typeof ChatRoomRegisterMessageHandler === "function") {
+		ChatRoomRegisterMessageHandler({
+			Description: "HypnosisAddon: activity compulsions",
+			Priority: 200,
+			Callback: (_data: any, sender: any, _msg: string, metadata: any) => {
+				try {
+					const by = sender?.MemberNumber;
+					if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
+						noteActivity(by, String(metadata.ActivityName));
+					}
+				} catch (err) {
+					warn("activity compulsion handler failed:", err);
+				}
+				return false;
+			},
+		});
+	}
 	compulsionPoll = setInterval(() => {
 		try {
 			checkDueCompulsions();

@@ -8,6 +8,8 @@
 //
 // Pure: no DOM, no BC globals. popup.ts draws it.
 
+import { compulsionActList, COMPULSION_ACTS } from "./compulsion-acts";
+
 export type TriggerLine = {
 	id: string;
 	label: string;
@@ -19,6 +21,9 @@ export type TriggerLine = {
 	sample?: string;
 	/** Undoes or cancels rather than adds. */
 	release?: boolean;
+	/** A line that opens a list to pick from instead of typing at once (v1.16.9, DW: "can I also get
+	 * this list to help build it"). Each choice types its own phrase, to be finished as `finish`. */
+	choices?: { label: string; phrase: string }[];
 };
 export type TriggerGroup = { key: string; title: string; hint?: string; lines: TriggerLine[] };
 
@@ -40,6 +45,7 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 		hint: "Their own settings still cap how long it lasts and who may fire it.",
 		lines: [
 			{ id: "once", label: "this trigger works only once", phrase: "this trigger works only once" },
+			{ id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
 			{ id: "lasts", label: "it lasts 2 hours", phrase: "it lasts 2 hours" },
 			{ id: "anyone", label: "anyone can use it", phrase: "anyone can use it" },
 			{ id: "only-me", label: "only I can use it", phrase: "only I can use it" },
@@ -54,12 +60,21 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 	{
 		key: "compel",
 		title: "Compulsions (waiting for something, not a word)",
-		hint: "Then the suggestion, then remember trigger. Once, unless you say it works every time.",
+		hint: `Then the suggestion, then remember trigger. Once, unless you say it works every time. "When anyone …" can be: ${compulsionActList()}. Or a name instead of anyone.`,
 		lines: [
 			{ id: "after-wake", label: "five minutes after you wake, …", phrase: "five minutes after you wake, ", finish: "what they will do", sample: "five minutes after you wake, you will kneel" },
 			{ id: "on-wake", label: "when you open your eyes, …", phrase: "when you open your eyes, ", finish: "what they will do", sample: "when you open your eyes, you will kneel" },
 			{ id: "arrive", label: "when … comes in, …", phrase: "when ", finish: "who, then comes in, then what they will do", sample: "when Rei comes in, you will kneel" },
 			{ id: "speak", label: "when I speak, …", phrase: "when I speak, ", finish: "what they will do", sample: "when I speak, you will kneel" },
+			{
+				id: "act",
+				label: "when anyone … you, … (pick what they do)",
+				phrase: "when anyone kisses you, ",
+				finish: "what they will do. Change \"anyone\" to a name or \"I\" if you like",
+				sample: "when anyone kisses you, you will kneel",
+				choices: COMPULSION_ACTS.map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
+			},
+			{ id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
 		],
 	},
 	{

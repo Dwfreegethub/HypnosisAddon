@@ -351,13 +351,19 @@ for (const g of T.PLANT_GROUPS) for (const l of g.lines) {
 	const line = `Bea, ${l.sample ?? l.phrase}`;
 	const ctl = voice.parseTriggerControl(line);
 	const ok =
-		g.key === "shape" && !expectKind[l.id] ? ctl?.kind === "option"
+		(g.key === "shape" || l.id === "every") && !expectKind[l.id] ? ctl?.kind === "option"
 		: g.key === "compel" ? ctl?.kind === "condition" && voice.parseCondition(line)?.rest === "you will kneel"
 		: g.key === "keep" ? voice.isReinforceLine(line)
 		: ctl?.kind === expectKind[l.id];
 	if (!ok) plantWrong.push(`${l.id}: "${line}" -> ${JSON.stringify(ctl)}`);
 	if (!!l.finish !== !!l.sample) plantWrong.push(`${l.id}: a line to finish needs a sample, and only then`);
+	// Each choice in a list, finished, is the condition it names (v1.16.9).
+	for (const ch of l.choices ?? []) {
+		const p = voice.parseCondition(`Bea, ${ch.phrase}you will kneel`);
+		if (p?.fireOn !== "act" || p.rest !== "you will kneel" || !ch.phrase.includes(ch.label)) plantWrong.push(`${l.id} choice "${ch.label}": ${JSON.stringify(p)}`);
+	}
 }
+check("the 'when anyone' list has every act", (T.PLANT_GROUPS.find((g) => g.key === "compel")?.lines.find((l) => l.id === "act")?.choices ?? []).length, 14);
 check("every planting line parses", plantWrong.length === 0, `each line read as intended, wrong: ${plantWrong.join("; ")}`);
 const plantedWrong = [];
 const [fire, rel, rem] = T.plantedLines("sleepy time").map((l) => `Bea, ${l.phrase}`);
@@ -374,6 +380,17 @@ check("Triggers tab always offered", popup.availableTabs().includes("triggers"),
 popup.setPopupTab("triggers");
 const hint = (start) => findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith(start)).length === 1;
 check("nobody under: says how to start", hint("To plant a trigger, put someone under first"), "the put-someone-under-first line");
+// v1.16.9: the planting groups show, greyed, with nobody under (DW: the compulsions seemed missing).
+const grpBtn = (t) => findAll(win(), (n) => n.className?.startsWith?.("echs-pop-group") && n.textContent.endsWith(t))[0];
+check("nobody under: Compulsions group still listed", !!grpBtn("Compulsions (waiting for something, not a word)"), "the Compulsions group");
+grpBtn("Compulsions (waiting for something, not a word)")?.click();
+const greyed = findAll(win(), (n) => n.className === "echs-pop-item echs-pop-off" && n.textContent === "when anyone … you, … (pick what they do)")[0];
+check("  greyed, with the new 'when anyone' line", !!greyed, "a greyed 'when anyone' line");
+chatBox.value = "";
+greyed?.click();
+check("  a click types nothing and says why", chatBox.value === "" && status().includes("Nobody is under you"), `nothing typed, got "${chatBox.value}" / "${status()}"`);
+check("  the hint lists what 'anyone' can do", hint("Then the suggestion") && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.includes("kisses you, touches you, hugs you")).length === 1, "the act list in the hint");
+grpBtn("Compulsions (waiting for something, not a word)")?.click();
 update(B, { phase: "Hypnotized", attempts: 1 });
 popup.setPopupTab("triggers");
 popup.popupTick();
@@ -381,6 +398,15 @@ check("someone under: planting for them", popup.getPopupTab() === "triggers" || 
 popup.setPopupTab("triggers");
 check("planting names them", hint("Planting in Bea."), "the Planting in Bea line");
 const trigBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-item") && n.textContent.replace(/^↺ /, "") === label)[0];
+// v1.16.9: "when anyone …" opens its list; a choice types the start of the line.
+grpBtn("Compulsions (waiting for something, not a word)")?.click();
+trigBtn("+ when anyone … you, … (pick what they do)")?.click();
+const spankChip = findAll(win(), (n) => n.className === "echs-pop-chip" && n.textContent === "spanks you")[0];
+check("'when anyone' opens the list", !!spankChip && !!trigBtn("− when anyone … you, … (pick what they do)"), "a spanks-you chip under an open line");
+spankChip?.click();
+check("  a choice types the start, to finish", chatBox.value === "Bea, when anyone spanks you, " && status().includes("Change \"anyone\""), `"Bea, when anyone spanks you, ", got "${chatBox.value}" / "${status()}"`);
+trigBtn("− when anyone … you, … (pick what they do)")?.click();
+grpBtn("Compulsions (waiting for something, not a word)")?.click();
 trigBtn("your trigger word is …").click();
 check("start: typed to finish", chatBox.value === "Bea, your trigger word is " && status().includes("Finish it (the word or phrase)"), `"Bea, your trigger word is " and a finish-it status, got "${chatBox.value}" / "${status()}"`);
 trigBtn("remember trigger").click();

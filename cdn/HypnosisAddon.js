@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.8. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.9. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1017,6 +1017,47 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lastResync = 0;
       REPEAT_QUIET_MS = 6e4;
       toldPoses = /* @__PURE__ */ new Map();
+    }
+  });
+
+  // src/compulsion-acts.ts
+  function compulsionAct(key) {
+    return COMPULSION_ACTS.find((a) => a.key === key);
+  }
+  function actMatches(key, activityName) {
+    const act = compulsionAct(key);
+    if (!act || !activityName) return false;
+    return act.activities.length === 0 || act.activities.includes(activityName);
+  }
+  function compulsionActList() {
+    return COMPULSION_ACTS.map((a) => a.label).join(", ");
+  }
+  var COMPULSION_ACTS, COMPULSION_ACT_KEYS;
+  var init_compulsion_acts = __esm({
+    "src/compulsion-acts.ts"() {
+      COMPULSION_ACTS = [
+        { key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
+        {
+          key: "touch",
+          label: "touches you",
+          base: "touch you",
+          verb: String.raw`(?:touch|touches|caress|caresses|strokes?|rubs?|massages?)`,
+          activities: ["Caress", "MassageHands", "MassageFeet", "Grope", "Pinch", "Tickle", "Pet", "Scratch", "Pull", "MasturbateHand", "Cuddle"]
+        },
+        { key: "hug", label: "hugs you", base: "hug you", verb: String.raw`(?:hugs?|cuddles?|snuggles?|nuzzles?)`, activities: ["Cuddle"] },
+        { key: "pet", label: "pets you", base: "pet you", verb: String.raw`(?:pets?|pats?|headpats?)`, activities: ["Pet"] },
+        { key: "spank", label: "spanks you", base: "spank you", verb: String.raw`(?:spanks?|smacks?)`, activities: ["Spank"] },
+        { key: "slap", label: "slaps you", base: "slap you", verb: String.raw`(?:slaps?)`, activities: ["Slap"] },
+        { key: "tickle", label: "tickles you", base: "tickle you", verb: String.raw`(?:tickles?)`, activities: ["Tickle"] },
+        { key: "pinch", label: "pinches you", base: "pinch you", verb: String.raw`(?:pinch|pinches)`, activities: ["Pinch"] },
+        { key: "grope", label: "gropes you", base: "grope you", verb: String.raw`(?:gropes?|fondles?|squeezes?)`, activities: ["Grope"] },
+        { key: "lick", label: "licks you", base: "lick you", verb: String.raw`(?:licks?)`, activities: ["Lick"] },
+        { key: "bite", label: "bites you", base: "bite you", verb: String.raw`(?:bites?|nibbles?)`, activities: ["Bite", "Nibble"] },
+        { key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
+        { key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
+        { key: "any", label: "does anything to you", base: "do anything to you", verb: String.raw`(?:(?:do|does) (?:anything|something)(?: at all)? to|uses? an activity on|plays? with)`, activities: [] }
+      ];
+      COMPULSION_ACT_KEYS = COMPULSION_ACTS.map((a) => a.key);
     }
   });
 
@@ -5737,6 +5778,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (t.dueAt !== void 0 && !(typeof t.dueAt === "number" && t.dueAt > 0)) delete t.dueAt;
         if (t.watchName !== void 0 && typeof t.watchName !== "string") delete t.watchName;
         if (t.watchMember !== void 0 && typeof t.watchMember !== "number") delete t.watchMember;
+        if (t.act !== void 0 && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
       }
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
@@ -6484,6 +6526,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
       init_log();
+      init_compulsion_acts();
       init_curve();
       init_session();
       SETTINGS_KEY = "HypnosisAddon";
@@ -6514,7 +6557,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       SKILL_HONOUR_OFFERED = SKILL_HONOUR_RUNGS.slice(0, 4);
       DEFAULT_SKILL_HONOUR = "floored";
       DEFAULT_MAX_ATTEMPTS = 2;
-      TRIGGER_CONDITIONS = ["wake", "arrive", "speak"];
+      TRIGGER_CONDITIONS = ["wake", "arrive", "speak", "act"];
       TRIGGER_SCOPE_KEYS = [
         "hypnotist",
         "owner",
@@ -6999,7 +7042,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function describeConditionFor(c, installerId, subject) {
     const verbWake = subject === "they" ? "they wake" : "you wake";
     if (c.fireOn === "wake") return c.delayMs ? `${describeSpan(c.delayMs)} after ${verbWake}` : `the moment ${verbWake}`;
-    const who = c.watchName === "*" ? "anyone" : c.watchMember === installerId ? subject === "they" ? "you" : "the one who set it" : c.watchName ?? "someone";
+    const who = c.watchName === "*" ? "anyone" : c.watchMember === installerId ? subject === "they" ? "you" : "the one who set it" : c.watchName ? c.watchName.replace(/(^|\s)([a-z])/g, (_m, sp, ch) => sp + ch.toUpperCase()) : "someone";
+    if (c.fireOn === "act") {
+      const act = compulsionAct(c.act);
+      const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
+      const words = act ? plural ? act.base : act.label : "does something to you";
+      return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}`;
+    }
     return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
   }
   function describeCondition(t) {
@@ -7030,12 +7079,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function nameKey(s) {
     return String(s ?? "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
   }
-  function compulsionsFor(event, member) {
+  function compulsionsFor(event, member, activity = "") {
     if (member === Player?.MemberNumber) return [];
     const C = characterFor4(member);
     const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
     return listTriggers().filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
+      if (event === "act" && !actMatches(t.act, activity)) return false;
       if (t.watchName === "*") return true;
       if (t.watchMember === member) return true;
       return !!t.watchName && names.includes(t.watchName);
@@ -7286,6 +7336,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (condition.fireOn === "wake") trigger.delayMs = condition.delayMs ?? 0;
       if (condition.watchName !== void 0) trigger.watchName = condition.watchName;
       if (condition.watchMember !== void 0) trigger.watchMember = condition.watchMember;
+      if (condition.act !== void 0) trigger.act = condition.act;
     }
     const isDrop = trigger.actions.includes(DROP_ACTION);
     if (recording.oneShot === true || !!condition && recording.oneShot !== false || isDrop && (recording.oneShot !== false || getDropMode() === "once")) {
@@ -7364,6 +7415,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "src/triggers.ts"() {
       init_log();
       init_notify();
+      init_compulsion_acts();
       init_storage();
       init_session();
       init_ladder();
@@ -7839,6 +7891,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
     m = COND_SPEAK.exec(text2);
     if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
+    for (const a of COND_ACTS) {
+      m = a.re.exec(text2);
+      if (m) return { fireOn: "act", who: m[1], act: a.key, rest: after(m) };
+    }
     return null;
   }
   function isRecordableAction(text2) {
@@ -7909,7 +7965,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } else {
       const watch = resolveWatch(parsed.who, sender);
       if (!watch) return false;
-      condition = { fireOn: parsed.fireOn, ...watch };
+      condition = { fireOn: parsed.fireOn, ...watch, ...parsed.fireOn === "act" ? { act: parsed.act } : {} };
     }
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
     const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
@@ -8083,12 +8139,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log(`spoke for the subject: ${text2}`);
   }
-  function fireEventCompulsions(event, member) {
+  function fireEventCompulsions(event, member, activity = "") {
     if (isHypnotized()) return;
-    const due = compulsionsFor(event, member);
+    const now = Date.now();
+    const due = compulsionsFor(event, member, activity).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
     for (const t of due) {
+      if (event === "act") actFiredAt.set(t.key, now);
       log(`compulsion (${event}) set off by ${member}`);
       fireTrigger(t, t.installedBy);
+    }
+  }
+  function noteActivity2(member, activity) {
+    try {
+      fireEventCompulsions("act", member, activity);
+    } catch (err) {
+      warn("activity compulsion failed:", err);
     }
   }
   function noteArrival(member) {
@@ -8114,6 +8179,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function installCompulsions() {
     if (compulsionPoll) return;
+    if (typeof ChatRoomRegisterMessageHandler === "function") {
+      ChatRoomRegisterMessageHandler({
+        Description: "HypnosisAddon: activity compulsions",
+        Priority: 200,
+        Callback: (_data, sender, _msg, metadata) => {
+          try {
+            const by = sender?.MemberNumber;
+            if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
+              noteActivity2(by, String(metadata.ActivityName));
+            }
+          } catch (err) {
+            warn("activity compulsion handler failed:", err);
+          }
+          return false;
+        }
+      });
+    }
     compulsionPoll = setInterval(() => {
       try {
         checkDueCompulsions();
@@ -9184,10 +9266,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, COMPULSION_POLL_MS, compulsionPoll, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
+      init_compulsion_acts();
       init_planted();
       init_teardown();
       init_effects();
@@ -10389,6 +10472,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       COND_SPEAK = new RegExp(
         String.raw`\b${COND_LEAD} ([a-z]+) (?:speaks?|talks?|says (?:anything|something)|speaks? to you|talks? to you)\b|\b(?:when|as soon as) you hear ([a-z]+) s voice\b`
       );
+      COND_ACTS = COMPULSION_ACTS.map((a) => ({
+        key: a.key,
+        re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} you(?:r [a-z]+)?\b`)
+      }));
       PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
       rereadingRest = false;
       TRIGGER_STEP_BASE_MS = 1200;
@@ -10398,6 +10485,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       forcedLineTimes = [];
       forcedCapNoticeAt = 0;
       FORCED_ECHOES = [];
+      ACT_REST_MS = 15e3;
+      actFiredAt = /* @__PURE__ */ new Map();
       COMPULSION_POLL_MS = 5e3;
       compulsionPoll = null;
       holdStartedAt = /* @__PURE__ */ new Map();
@@ -11237,6 +11326,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, five minutes after you wake, you will kneel"`),
       body(`"Missy, after you wake up, ..."   "Missy, when you open your eyes, ..."`),
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
+      body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
+      dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
+      dim("kicks you, pulls your hair, or does anything to you (any activity)."),
       dim('Then "remember trigger". Once, unless you say it works every time;'),
       dim("never while they are under. Waking from anyone's trance sets off the"),
       dim("after-waking ones; their safeword clears them."),
@@ -12999,7 +13091,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.8"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.9"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13072,7 +13164,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.8"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.9"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13908,7 +14000,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.8", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.9", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -13945,7 +14037,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.8", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.9", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -13987,7 +14079,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.8", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.9", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -16667,6 +16759,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var PLANT_GROUPS, FORGET_ALL;
   var init_popup_triggers = __esm({
     "src/popup-triggers.ts"() {
+      init_compulsion_acts();
       PLANT_GROUPS = [
         {
           key: "plant",
@@ -16684,6 +16777,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           hint: "Their own settings still cap how long it lasts and who may fire it.",
           lines: [
             { id: "once", label: "this trigger works only once", phrase: "this trigger works only once" },
+            { id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
             { id: "lasts", label: "it lasts 2 hours", phrase: "it lasts 2 hours" },
             { id: "anyone", label: "anyone can use it", phrase: "anyone can use it" },
             { id: "only-me", label: "only I can use it", phrase: "only I can use it" },
@@ -16698,12 +16792,21 @@ One of mods you are using is using an old version of SDK. It will work for now b
         {
           key: "compel",
           title: "Compulsions (waiting for something, not a word)",
-          hint: "Then the suggestion, then remember trigger. Once, unless you say it works every time.",
+          hint: `Then the suggestion, then remember trigger. Once, unless you say it works every time. "When anyone \u2026" can be: ${compulsionActList()}. Or a name instead of anyone.`,
           lines: [
             { id: "after-wake", label: "five minutes after you wake, \u2026", phrase: "five minutes after you wake, ", finish: "what they will do", sample: "five minutes after you wake, you will kneel" },
             { id: "on-wake", label: "when you open your eyes, \u2026", phrase: "when you open your eyes, ", finish: "what they will do", sample: "when you open your eyes, you will kneel" },
             { id: "arrive", label: "when \u2026 comes in, \u2026", phrase: "when ", finish: "who, then comes in, then what they will do", sample: "when Rei comes in, you will kneel" },
-            { id: "speak", label: "when I speak, \u2026", phrase: "when I speak, ", finish: "what they will do", sample: "when I speak, you will kneel" }
+            { id: "speak", label: "when I speak, \u2026", phrase: "when I speak, ", finish: "what they will do", sample: "when I speak, you will kneel" },
+            {
+              id: "act",
+              label: "when anyone \u2026 you, \u2026 (pick what they do)",
+              phrase: "when anyone kisses you, ",
+              finish: 'what they will do. Change "anyone" to a name or "I" if you like',
+              sample: "when anyone kisses you, you will kneel",
+              choices: COMPULSION_ACTS.map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` }))
+            },
+            { id: "every", label: "this trigger works every time", phrase: "this trigger works every time" }
           ]
         },
         {
@@ -17036,7 +17139,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.8"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.9"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17260,10 +17363,46 @@ One of mods you are using is using an old version of SDK. It will work for now b
       for (const g of PLANT_GROUPS)
         triggerGroup(body2, g.key, g.title, (list) => {
           if (g.hint) list.appendChild(el2("div", "echs-pop-hint", g.hint));
-          for (const line of g.lines) list.appendChild(triggerLineButton(line, who.name, status));
+          for (const line of g.lines) {
+            if (!line.choices) {
+              list.appendChild(triggerLineButton(line, who.name, status));
+              continue;
+            }
+            const key = `choices-${g.key}-${line.id}`;
+            const isOpen = triggerOpen.has(key);
+            const b = el2("button", "echs-pop-item echs-pop-say", `${isOpen ? "\u2212" : "+"} ${line.label}`);
+            b.type = "button";
+            b.setAttribute?.("aria-expanded", String(isOpen));
+            b.addEventListener("click", () => {
+              if (triggerOpen.has(key)) triggerOpen.delete(key);
+              else triggerOpen.add(key);
+              renderBody();
+            });
+            list.appendChild(b);
+            if (!isOpen) continue;
+            const chips = el2("div", "echs-pop-buttons");
+            for (const choice of line.choices) {
+              const text2 = suggestionText(who.name, choice.phrase);
+              chips.appendChild(chip(choice.label, text2, () => typeIt(status, text2, `Typed. Finish it (${line.finish}), then press Enter.`)));
+            }
+            list.appendChild(chips);
+          }
         });
     } else {
-      body2.appendChild(el2("div", "echs-pop-hint", "To plant a trigger, put someone under first. The planting lines appear here."));
+      body2.appendChild(el2("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are below to read."));
+      for (const g of PLANT_GROUPS)
+        triggerGroup(body2, g.key, g.title, (list) => {
+          if (g.hint) list.appendChild(el2("div", "echs-pop-hint", g.hint));
+          for (const line of g.lines) {
+            const b = el2("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, `${line.release ? "\u21BA " : ""}${line.label}`);
+            b.type = "button";
+            b.title = "Put someone under first.";
+            b.addEventListener("click", () => {
+              setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
+            });
+            list.appendChild(b);
+          }
+        });
     }
     for (const p of plantedPeople()) {
       triggerGroup(body2, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
@@ -18042,7 +18181,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.8"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.9"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18069,7 +18208,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.8"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.9"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18144,14 +18283,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.8"})`);
+      info(`script loaded (v${"1.16.9"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.8",
+          version: "1.16.9",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18293,10 +18432,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.8"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.9"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.8";
+    page2.__ECHS_LOADED__ = "1.16.9";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

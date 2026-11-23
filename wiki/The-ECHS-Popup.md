@@ -86,11 +86,11 @@ While someone is under you, their ECHS tells yours which kinds of suggestion the
 
 Three parts. Each line types with the right name, as on Suggestions.
 
-**Planting** (while someone is under you; it needs a Deep trance, on earned depth):
+**Planting** (while someone is under you; it needs a Deep trance, on earned depth). With nobody under you, the same lines are shown greyed so you can read them; clicking one says to put someone under first:
 
 1. **Plant a trigger:** *your trigger word is …* (type the word, then Enter), then what it does, picked from Suggestions, then *remember trigger*. *↺ cancel the trigger* starts again.
-2. **Shape it** (before *remember trigger*): works only once, lasts 2 hours, who can use it (anyone, only you, their owner, lovers or friends), only when they hear it exactly, a drop into trance, or making them say something three times.
-3. **Compulsions**, waiting for a moment instead of a word: *five minutes after you wake, …*, *when you open your eyes, …*, *when someone comes in, …*, *when I speak, …*.
+2. **Shape it** (before *remember trigger*): works only once, works every time, lasts 2 hours, who can use it (anyone, only you, their owner, lovers or friends), only when they hear it exactly, a drop into trance, or making them say something three times.
+3. **Compulsions**, waiting for a moment instead of a word: *five minutes after you wake, …*, *when you open your eyes, …*, *when someone comes in, …*, *when I speak, …*, *when anyone … you, …*, and *this trigger works every time*. Clicking *when anyone … you* opens the list of what they can do (kisses you, spanks you, tickles you, hugs you and the rest); clicking one types *"Bea, when anyone spanks you, "* for you to finish. Change *anyone* to a name or *I* if you like.
 4. **Keep one strong:** *that trigger holds*, while they are under with you.
 
 Lines that need finishing end where you type on, and the status line says what's missing. More on how all of this works: **[Triggers and Lasting Effects](Triggers-and-Lasting-Effects)**.
