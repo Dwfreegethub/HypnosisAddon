@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.10. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.11. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7809,6 +7809,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       examples: s.examples,
       display: s.displayExamples ?? s.examples,
       release: !!s.release,
+      instant: !!s.instant && !s.release,
       releaseOf: s.releaseOf === void 0 ? [] : Array.isArray(s.releaseOf) ? [...s.releaseOf] : [s.releaseOf],
       depthTier: s.release ? void 0 : tierLabelFor(s.permission)
     }));
@@ -8300,7 +8301,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         tooWeak++;
         continue;
       }
-      holding++;
+      if (suggestion.instant || suggestion.release) compels++;
+      else holding++;
       steps.push(() => {
         const outcome = suggestion.run(speaker) || suggestion.id;
         if (outcome === "pose-blocked" && trigger.fireOn) tellPoseRefused(trigger);
@@ -9565,6 +9567,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // movement-block's "stuck", and "you cannot stand it" by the posture entry.
         {
           id: "arousal-none",
+          instant: true,
           examples: ["you are not aroused", "your arousal fades", "you feel no desire"],
           permission: "arousalControl",
           patterns: [
@@ -9577,6 +9580,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           id: "arousal-light",
+          instant: true,
           examples: ["you are lightly aroused", "you feel a little warm"],
           permission: "arousalControl",
           patterns: [
@@ -9589,6 +9593,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           id: "arousal-high",
+          instant: true,
           examples: ["you are very aroused", "you are desperate", "you need it badly"],
           permission: "arousalControl",
           patterns: [
@@ -9601,6 +9606,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           id: "arousal-full",
+          instant: true,
           examples: ["you are right on the edge", "you are so close"],
           permission: "arousalControl",
           patterns: [
@@ -9657,6 +9663,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           id: "orgasm-force",
+          instant: true,
           examples: ["come for me", "cum for me", "you will come now"],
           displayExamples: ["come/cum for me", "you will come now"],
           permission: "arousalControl",
@@ -9893,6 +9900,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // single-garment patterns must not eat it. Same first-match-wins rule as releases.
         {
           id: "undress-all",
+          instant: true,
           examples: ["take everything off", "strip"],
           permission: "undressControl",
           patterns: [
@@ -9911,6 +9919,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           id: "undress",
+          instant: true,
           examples: ["take something off", "undress"],
           permission: "undressControl",
           patterns: [
@@ -11188,6 +11197,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const gateBits = [];
       if (!sug.release) gateBits.push(sug.permission);
       if (sug.depthTier) gateBits.push(`${sug.depthTier}+`);
+      if (sug.instant) gateBits.push("instant");
       const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
       lines.push({
         text: `${sug.display.map((e) => `"${e}"`).join("  \xB7  ")}${gate}`,
@@ -11368,6 +11378,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, only I can use it"    "your owner / lovers / friends can use it"`),
       body(`"Missy, only when you hear it exactly"   \u2190 whole words only`),
       dim("Their own settings still cap how long it lasts and who may fire it."),
+      dim("Lines marked instant (cum, undress, arousal, made to act, say) are over"),
+      dim("when they land: no timer. A trigger of only those is done once it fires."),
       body(`"Missy, you will drop into trance"   \u2190 an instant drop`),
       dim("Drops need Drop triggers on (Triggers tab); each works once unless they allow more."),
       body(`"Missy, you will say 'I obey' three times"   \u2190 words, aloud`),
@@ -13145,7 +13157,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.10"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.11"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13218,7 +13230,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.10"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.11"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14054,7 +14066,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.10", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.11", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14091,7 +14103,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.10", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.11", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14133,7 +14145,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.10", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.11", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -16718,6 +16730,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         label: s.display[0] ?? s.examples[0],
         phrase: s.examples[0],
         release: s.release,
+        instant: s.instant || void 0,
         permission: s.permission,
         alternates: s.examples.slice(1),
         releaseOf: s.releaseOf
@@ -16787,16 +16800,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
         { cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
         { cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
-        { cat: "touch", item: { id: "x-touch-self", label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
-        { cat: "touch", item: { id: "x-sip", label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
-        { cat: "touch", item: { id: "x-kiss-me", label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
+        { cat: "touch", item: { id: "x-touch-self", instant: true, label: "touch yourself", phrase: "touch yourself", release: false, permission: "compelActivity", alternates: ["touch your breasts", "pinch your nipples"] } },
+        { cat: "touch", item: { id: "x-sip", instant: true, label: "take a sip (of the drink in their hand)", phrase: "take a sip", release: false, permission: "compelActivity", alternates: ["sip your drink", "drink up"] } },
+        { cat: "touch", item: { id: "x-kiss-me", instant: true, label: "kiss me", phrase: "kiss me", release: false, permission: "compelActivity", alternates: ["pinch my nipples"] } },
         // v1.16.5: BC's own movements and gagged sounds, under Made to Act like the touches.
-        { cat: "body", item: { id: "x-wiggle", label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
-        { cat: "body", item: { id: "x-nod", label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
-        { cat: "body", item: { id: "x-struggle", label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
-        { cat: "touch", item: { id: "x-hug-me", label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
-        { cat: "touch", item: { id: "x-cover-mouth", label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
-        { cat: "senses", item: { id: "x-gag-moan", label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
+        { cat: "body", item: { id: "x-wiggle", instant: true, label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
+        { cat: "body", item: { id: "x-nod", instant: true, label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
+        { cat: "body", item: { id: "x-struggle", instant: true, label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
+        { cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
+        { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
+        { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
       ];
       LEADS = { body: ["kneel"] };
     }
@@ -17197,7 +17210,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.10"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.11"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17341,6 +17354,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const main = say(it.phrase, `${it.release ? "\u21BA " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
     row.appendChild(main);
     if (gate === "deeper") row.appendChild(el2("span", "echs-pop-state echs-pop-tag", "deeper"));
+    if (it.instant) {
+      const tag = el2("span", "echs-pop-state echs-pop-tag", "instant");
+      tag.title = "Over the moment it lands. In a trigger it starts no expiry timer.";
+      row.appendChild(tag);
+    }
     const isOpen = altOpen.has(it.id);
     if (it.alternates.length) {
       const more = el2("button", "echs-pop-more", isOpen ? "\u2212" : `+${it.alternates.length}`);
@@ -18247,7 +18265,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.10"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.11"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18274,7 +18292,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.10"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.11"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18349,14 +18367,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.10"})`);
+      info(`script loaded (v${"1.16.11"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.10",
+          version: "1.16.11",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18498,10 +18516,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.10"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.11"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.10";
+    page2.__ECHS_LOADED__ = "1.16.11";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

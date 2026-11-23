@@ -18,6 +18,25 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-22 (v1.16.11) — instant actions arm no expiry timer
+
+A player's suggestion via DW: "some commands like orgasm command should be marked as instant
+command and would not cause the need for a expire timer ... others would still need a timer like
+you cannot move." DW: yes.
+- Compels (act:) and say: were already one-off. But every SUGGESTION counted as `holding` in
+  fireTrigger, including the seven with no undo at all: orgasm-force, undress, undress-all,
+  arousal-none/light/high/full. A trigger of only those was marked active, armed the auto-release,
+  kept a spent one-time trigger until it ran out, refused /echs forgettrigger, and said "loosens on
+  its own" minutes after an orgasm.
+- `instant?: boolean` on Suggestion, set on those seven. Releases (release: true) are counted as
+  instant too (a release in a trigger holds nothing), but not marked in the help: obviously over.
+- fireTrigger counts instant suggestions with the compels. A mixed trigger still holds and times
+  out for its lasting part; undoTrigger already no-ops the instant ones.
+- Shown: SuggestionHelp.instant → help gate "(…, instant)"; popup items get an "instant" tag beside
+  the button (like "deeper"), made-to-act extras too. Wiki: Triggers 10b, Settings, Popup.
+- test/instant.mjs (15). Mutation-checked: the old every-suggestion-holds rule (4 fail), nothing
+  holds (2 fail).
+
 ### Added 2026-11-22 (v1.16.10) — releasing and removing compulsions
 
 DW: "Is there a way to be released from compulsion like there is from a normal trigger", then

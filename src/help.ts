@@ -131,6 +131,7 @@ function vocabularyLines(): HelpLine[] {
 		const gateBits: string[] = [];
 		if (!sug.release) gateBits.push(sug.permission);
 		if (sug.depthTier) gateBits.push(`${sug.depthTier}+`);
+		if (sug.instant) gateBits.push("instant");
 		const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
 		lines.push({
 			text: `${sug.display.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
@@ -318,6 +319,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, only I can use it"    "your owner / lovers / friends can use it"`),
 		body(`"Missy, only when you hear it exactly"   ← whole words only`),
 		dim("Their own settings still cap how long it lasts and who may fire it."),
+		dim("Lines marked instant (cum, undress, arousal, made to act, say) are over"),
+		dim("when they land: no timer. A trigger of only those is done once it fires."),
 		body(`"Missy, you will drop into trance"   ← an instant drop`),
 		dim("Drops need Drop triggers on (Triggers tab); each works once unless they allow more."),
 		body(`"Missy, you will say 'I obey' three times"   ← words, aloud`),

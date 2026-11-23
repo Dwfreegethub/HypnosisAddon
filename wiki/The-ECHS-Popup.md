@@ -70,6 +70,7 @@ While someone is under you, their ECHS tells yours which kinds of suggestion the
 
 * A **faded** line is something they haven't allowed. A whole group with nothing allowed reads **(not allowed)**.
 * A line tagged **deeper** is allowed, but needs them deeper first. *Sink deeper* (in Trance) is the way there.
+* A line tagged **instant** is over the moment it lands (an orgasm, undressing, arousal, made-to-act actions). In a trigger it starts no timer. Untagged lines hold them until released or until the trigger wears off.
 * Faded lines still type when you click them, and the status line tells you it won't land. Their ECHS always has the final say.
 * **↺** lines, *wake up* and *sink deeper* are never faded: giving something back and ending a trance are always allowed.
 * If they tick a permission, or go deeper, mid-trance, the list catches up within a few seconds.
