@@ -18,6 +18,21 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-22 (v1.16.12) — "whenever" compulsions; options on the same line
+
+DW's compulsion "wasn't staying": it was her own 15-minute lifespan cap, working as designed and
+reported at save. Probing other wordings then found two real gaps, fixed at DW's go:
+- COND_LEAD lacked "whenever / every time / each time / any time", so "Missy, whenever anyone gropes
+  you, come for me" was read as a live command (she came at once, nothing planted). Added to the
+  lead for every person and wake condition; those leads set `every`, applied as the once:false
+  option at the start of the recording. Plain "when" stays one-time, as specified.
+- "…, this trigger works every time" on the condition line: parseTriggerControl checked OPTIONS
+  before CONDITIONS, so the line was an option with nothing recording, and the rest ran live. Now a
+  condition is checked first; option clauses are taken out of the rest (and out of the raw line,
+  so a "say" doesn't swallow them) and applied, the hypnotist told each.
+- act-compulsion.mjs +13. Mutation-checked: no every lead (4), options left in the rest (4), raw
+  line not cleaned (3).
+
 ### Changed 2026-11-22 (v1.16.11) — instant actions arm no expiry timer
 
 A player's suggestion via DW: "some commands like orgasm command should be marked as instant

@@ -60,7 +60,7 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 	{
 		key: "compel",
 		title: "Compulsions (waiting for something, not a word)",
-		hint: `Then the suggestion, then remember trigger. Once, unless you say it works every time. "When anyone …" can be: ${compulsionActList()}. Or a name instead of anyone.`,
+		hint: `Then the suggestion, then remember trigger. Once, unless you say it works every time (or start with "whenever"). "When anyone …" can be: ${compulsionActList()}. Or a name instead of anyone.`,
 		lines: [
 			{ id: "after-wake", label: "five minutes after you wake, …", phrase: "five minutes after you wake, ", finish: "what they will do", sample: "five minutes after you wake, you will kneel" },
 			{ id: "on-wake", label: "when you open your eyes, …", phrase: "when you open your eyes, ", finish: "what they will do", sample: "when you open your eyes, you will kneel" },

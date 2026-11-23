@@ -59,6 +59,13 @@ check("does anything to you", c("Missy, when anyone does anything to you, you wi
 check("'you' doing it is no one", c("Missy, when you kiss me, you will kneel"), null);
 check("an ordinary command is not one", c("Missy, kiss me"), null);
 check("still a condition for the setup parser", voice.parseTriggerControl("Missy, when anyone kisses you, you will kneel")?.kind, "condition");
+// v1.16.12: "whenever" / "every time" start one and mean every time; plain "when" does not.
+check("whenever: every time", c("Missy, whenever anyone gropes you, you will kneel"), { fireOn: "act", who: "anyone", act: "grope", rest: "you will kneel", every: true });
+check("every time Rei comes in", c("Missy, every time Rei comes in, you will kneel"), { fireOn: "arrive", who: "rei", rest: "you will kneel", every: true });
+check("each time I speak", c("Missy, each time I speak, you will kneel")?.every, true);
+check("plain when: not every time", c("Missy, when anyone gropes you, you will kneel")?.every, undefined);
+check("a condition with an option on the line is a condition", voice.parseTriggerControl("Missy, when anyone gropes you, you will kneel, this trigger works every time")?.kind, "condition");
+check("an option line alone is still an option", voice.parseTriggerControl("Missy, this trigger works every time")?.kind, "option");
 // Every entry on the list plants, in both forms (the popup's hint and the help promise all of them).
 const listWrong = [];
 check("the list is not empty", compulsionActs.COMPULSION_ACTS.length > 10, true);
@@ -148,6 +155,26 @@ session.wakeByHypnotist(HYP);
 voice.noteActivity(REI, "Scratch");
 drainPaced();
 check("'anything': any activity fires it", spoken, ["Eep."]);
+
+// --- planting with "whenever" and with options on the same line (v1.16.12) ----------------------------
+// Failure: "whenever" performs the action on the spot and plants nothing, or a same-line "works every
+// time" loses the whole compulsion (DW hit the 15-minute lifespan, but these two were found then).
+reset();
+t = plant("Missy, whenever anyone gropes you, you will say 'Oh!'");
+check("whenever: planted, every time", [t?.act, t?.oneShot === true], ["grope", false]);
+check("  nothing said at planting", spoken, []);
+reset();
+t = plant("Missy, when anyone gropes you, you will say 'Oh!', this trigger works every time");
+check("same line: planted, every time", [t?.act, t?.oneShot === true, t?.actions], ["grope", false, ["say:1:Oh!"]]);
+check("  the option noted to the hypnotist", /it will work every time/.test(toHyp.join(" ") + " " + said.join(" ")), true);
+reset();
+t = plant("Missy, when anyone gropes you, you will say 'Oh!' and this trigger works only once");
+check("same line, 'and … only once': one-time", [t?.act, t?.oneShot, t?.actions], ["grope", true, ["say:1:Oh!"]]);
+session.wakeByHypnotist(HYP);
+clock += 60_000;
+voice.noteActivity(REI, "Grope");
+drainPaced();
+check("  and it fires", spoken, ["Oh!"]);
 
 // --- the game's activity message ----------------------------------------------------------------------
 // Failure: an activity aimed at someone else sets hers off.
