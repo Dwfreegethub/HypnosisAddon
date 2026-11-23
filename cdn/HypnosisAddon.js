@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.12. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.13. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5779,6 +5779,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (t.watchName !== void 0 && typeof t.watchName !== "string") delete t.watchName;
         if (t.watchMember !== void 0 && typeof t.watchMember !== "number") delete t.watchMember;
         if (t.act !== void 0 && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
+        if (t.gate !== void 0 && typeof t.gate !== "string") delete t.gate;
       }
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
@@ -6113,14 +6114,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function saveTrigger(trigger) {
     const settings = loadSettings();
     if (!trigger.key) trigger.key = trigger.phrase;
-    settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key);
+    const replaced = settings.triggers.find((t) => t.key === trigger.key);
+    settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key && !(replaced && isReactionOf(t, replaced)));
     settings.triggers.push(trigger);
     saveSettings();
+  }
+  function isReactionOf(t, parent) {
+    return !!t.gate && t.gate === parent.key && t.installedBy === parent.installedBy && t.key !== parent.key;
   }
   function forgetTrigger(key) {
     const settings = loadSettings();
     const before = settings.triggers.length;
-    settings.triggers = settings.triggers.filter((t) => t.key !== key);
+    const gone = settings.triggers.filter((t) => t.key === key);
+    settings.triggers = settings.triggers.filter((t) => t.key !== key && !gone.some((g) => isReactionOf(t, g)));
     saveSettings();
     return before - settings.triggers.length;
   }
@@ -7047,9 +7053,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const act = compulsionAct(c.act);
       const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
       const words = act ? plural ? act.base : act.label : "does something to you";
-      return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}`;
+      const gated2 = c.gate ? subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on" : "";
+      return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}${gated2}`;
     }
-    return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
+    const gated = c.gate ? subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on" : "";
+    return (c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`) + gated;
   }
   function describeCondition(t) {
     if (!t.fireOn) return null;
@@ -7079,12 +7087,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function nameKey(s) {
     return String(s ?? "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
   }
-  function compulsionsFor(event, member, activity = "") {
+  function compulsionsFor(event, member, activity = "", isOn = () => false) {
     if (member === Player?.MemberNumber) return [];
     const C = characterFor4(member);
     const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
-    return listTriggers().filter((t) => {
+    const all = listTriggers();
+    return all.filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
+      if (t.gate) {
+        const word = all.find((p) => isReactionOf(t, p));
+        if (!word || !isOn(word)) return false;
+      }
       if (event === "act" && !actMatches(t.act, activity)) return false;
       if (t.watchName === "*") return true;
       if (t.watchMember === member) return true;
@@ -7106,7 +7119,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function describeRecording() {
     if (!recording) return "not recording a trigger";
-    return `recording ${recordingLabel()} \u2014 ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
+    const reactions = recording.reactions?.length ? `; ${recording.reactions.length} reaction(s)` : "";
+    return `recording ${recordingLabel()} \u2014 ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}${reactions}`;
+  }
+  function isRecordingWord() {
+    return !!recording && !recording.condition;
+  }
+  function recordedActionCount() {
+    return recording?.actions.length ?? 0;
+  }
+  function addReaction(condition, from) {
+    if (!recording || recording.condition) return null;
+    const actions = recording.actions.splice(from);
+    if (!actions.length) return null;
+    (recording.reactions ?? (recording.reactions = [])).push({ condition, actions });
+    tellHypnotist(
+      recording.hypnotistId,
+      `[trigger] Added a reaction to "${recording.phrase}": ${describeConditionFor(condition, recording.hypnotistId, "they")}, ${actions.join(", ")}. It works every time, but only while "${recording.phrase}" holds them.`
+    );
+    return "Something in you waits to be switched on.";
   }
   function applyRecordingOption(option) {
     if (!recording) return null;
@@ -7303,7 +7334,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function commitRecording(isHolding = () => false) {
     if (!recording) return "";
-    if (!recording.actions.length) {
+    if (!recording.actions.length && !recording.reactions?.length) {
       tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for ${recordingLabel()}, so nothing was saved.`);
       recording = null;
       return "Whatever it was, it comes to nothing.";
@@ -7361,7 +7392,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (getFeatures().strictTriggerMatch && !trigger.strict) {
       notes.push("Her settings make every trigger fire on the whole words only.");
     }
+    const reactions = recording.condition ? [] : recording.reactions ?? [];
+    const children = reactions.map((r, i) => {
+      const child = {
+        phrase: "",
+        actions: r.actions.slice(),
+        installedBy: trigger.installedBy,
+        installedByName: trigger.installedByName,
+        installedAt: trigger.installedAt,
+        plantedDepth: trigger.plantedDepth,
+        plantedChemical: trigger.plantedChemical,
+        reinforcedAt: trigger.reinforcedAt,
+        firings: 0,
+        key: `react-${trigger.installedBy}-${trigger.installedAt}-${i}`,
+        fireOn: r.condition.fireOn,
+        gate: trigger.key
+      };
+      if (r.condition.watchName !== void 0) child.watchName = r.condition.watchName;
+      if (r.condition.watchMember !== void 0) child.watchMember = r.condition.watchMember;
+      if (r.condition.act !== void 0) child.act = r.condition.act;
+      if (trigger.expiresAt) child.expiresAt = trigger.expiresAt;
+      trigger.actions.push(`${REACT_PREFIX}${child.key}`);
+      return child;
+    });
     saveTrigger(trigger);
+    for (const child of children) saveTrigger(child);
     const count = trigger.actions.length;
     const options = describeOptions(trigger);
     log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
@@ -7410,7 +7465,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function installerHasSession(trigger) {
     return isSessionActiveWith(trigger.installedBy);
   }
-  var MIN_PHRASE_LENGTH, MAX_ACTIONS, TRIGGER_DECAY_PER_DAY, DECAY_GRACE_DAYS, TIER_HOLD, CHEMICAL_DECAY_PER_DAY, FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION, TRIGGER_GHOST_THRESHOLD, MAX_WAKE_DELAY_MS, MAX_REQUESTED_LIFESPAN_MS, recording, COLLISION_REFUSAL_CAP, COLLISION_WINDOW_MS, collisionRefusalCount, collisionWindowStart, COLLISION_FLAT, COLLISION_VAGUE, DROP_ACTION, SAY_PREFIX, MAX_SAY_TIMES, MAX_SAY_LENGTH, TRIGGER_SCOPES;
+  var MIN_PHRASE_LENGTH, MAX_ACTIONS, TRIGGER_DECAY_PER_DAY, DECAY_GRACE_DAYS, TIER_HOLD, CHEMICAL_DECAY_PER_DAY, FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION, TRIGGER_GHOST_THRESHOLD, MAX_WAKE_DELAY_MS, MAX_REQUESTED_LIFESPAN_MS, recording, REACT_PREFIX, COLLISION_REFUSAL_CAP, COLLISION_WINDOW_MS, collisionRefusalCount, collisionWindowStart, COLLISION_FLAT, COLLISION_VAGUE, DROP_ACTION, SAY_PREFIX, MAX_SAY_TIMES, MAX_SAY_LENGTH, TRIGGER_SCOPES;
   var init_triggers = __esm({
     "src/triggers.ts"() {
       init_log();
@@ -7476,6 +7531,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         for (const t of wake) forgetTrigger(t.key);
         if (wake.length) log(`total stop discarded ${wake.length} wake compulsion(s)`);
       });
+      REACT_PREFIX = "react:";
       COLLISION_REFUSAL_CAP = 4;
       COLLISION_WINDOW_MS = 10 * 6e4;
       collisionRefusalCount = 0;
@@ -7955,9 +8011,59 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return null;
   }
+  function takeOptions(rest, raw) {
+    const options = [];
+    for (let guard = 0; guard < 5 && rest; guard++) {
+      const found = OPTION_PATTERNS.map(({ pattern, option }) => ({ m: pattern.exec(rest), option })).find((x) => x.m);
+      if (!found?.m) break;
+      const opt = found.option(found.m);
+      if (opt) options.push(opt);
+      const words = found.m[0].trim().split(" ").filter(Boolean);
+      if (words.length) raw = raw.replace(new RegExp(String.raw`(?:[\s,;:.!?-]*\b(?:and|then|so)\b)?[\s,;:.!?-]*${words.join(String.raw`[^a-z0-9]+`)}[\s,;:.!?-]*`, "i"), " ");
+      rest = (rest.slice(0, found.m.index) + " " + rest.slice(found.m.index + found.m[0].length)).replace(/\s+/g, " ").replace(/(?:\s*\b(?:and|then|so)\b)+\s*$/, "").trim();
+    }
+    return { rest, raw, options };
+  }
+  function recordRest(sender, rest, raw) {
+    const say = SAY_NORM.test(rest) ? parseSayClause(raw) : null;
+    if (say) {
+      const sayLine = recordAction(sayActionId(say.text, say.times));
+      if (sayLine) tellPlayer(sayLine);
+      return;
+    }
+    if (TRIGGER_DROP.some((p) => p.test(rest))) {
+      const dropLine = recordAction(DROP_ACTION);
+      if (dropLine) tellPlayer(dropLine);
+      return;
+    }
+    rereadingRest = true;
+    try {
+      handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${rest}`);
+    } finally {
+      rereadingRest = false;
+    }
+  }
+  function handleReactionLine(sender, content, parsed) {
+    if (parsed.fireOn === "wake") return false;
+    const watch = resolveWatch(parsed.who, sender);
+    if (!watch) return false;
+    const condition = { fireOn: parsed.fireOn, ...watch, ...parsed.fireOn === "act" ? { act: parsed.act } : {} };
+    const taken = takeOptions(parsed.rest, content);
+    if (!taken.rest) {
+      tellHypnotist(sender, '[trigger] A reaction needs what they will do on the same line: "Missy, whenever anyone gropes you, come for me".');
+      return true;
+    }
+    const from = recordedActionCount();
+    recordRest(sender, taken.rest, taken.raw);
+    const line = addReaction(condition, from);
+    if (line) tellPlayer(line);
+    else tellHypnotist(sender, "[trigger] Nothing after that could be kept as a reaction, so none was added.");
+    return true;
+  }
   function handleConditionStart(sender, content, parsed) {
     if (parsed.fireOn === "wake" && parsed.rest && isWakeLine(parsed.rest)) return false;
     if (isRecording()) {
+      if (parsed.fireOn !== "wake" && isRecordingWord()) return handleReactionLine(sender, content, parsed);
       tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
       return true;
     }
@@ -7977,21 +8083,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const note = applyRecordingOption({ kind: "once", value: false });
       if (note) optionNotes.push(note);
     }
-    let rest = parsed.rest;
-    let raw = content;
-    for (let guard = 0; guard < 5 && rest; guard++) {
-      const found = OPTION_PATTERNS.map(({ pattern, option }) => ({ m: pattern.exec(rest), option })).find((x) => x.m);
-      if (!found?.m) break;
-      const opt = found.option(found.m);
-      if (opt) {
-        const note = applyRecordingOption(opt);
-        if (note) optionNotes.push(note);
-      }
-      const words = found.m[0].trim().split(" ").filter(Boolean);
-      if (words.length) raw = raw.replace(new RegExp(String.raw`(?:[\s,;:.!?-]*\b(?:and|then|so)\b)?[\s,;:.!?-]*${words.join(String.raw`[^a-z0-9]+`)}[\s,;:.!?-]*`, "i"), " ");
-      rest = (rest.slice(0, found.m.index) + " " + rest.slice(found.m.index + found.m[0].length)).replace(/\s+/g, " ").replace(/(?:\s*\b(?:and|then|so)\b)+\s*$/, "").trim();
+    const taken = takeOptions(parsed.rest, content);
+    for (const opt of taken.options) {
+      const note = applyRecordingOption(opt);
+      if (note) optionNotes.push(note);
     }
-    parsed = { ...parsed, rest };
+    const raw = taken.raw;
+    parsed = { ...parsed, rest: taken.rest };
     const tellLine = () => {
       if (line) tellPlayer(line);
       for (const n of optionNotes) tellPlayer(n);
@@ -8166,9 +8264,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`spoke for the subject: ${text2}`);
   }
   function fireEventCompulsions(event, member, activity = "") {
-    if (isHypnotized()) return;
+    const under = isHypnotized();
     const now = Date.now();
-    const due = compulsionsFor(event, member, activity).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
+    const due = compulsionsFor(event, member, activity, isTriggerInEffect).filter((t) => !under || !!t.gate).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
     for (const t of due) {
       if (event === "act") actFiredAt.set(t.key, now);
       compulsionSetOffBy.set(t.key, member);
@@ -8258,8 +8356,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let holding = 0;
     let compels = 0;
     let tooWeak = 0;
+    let reactions = 0;
     for (const id of trigger.actions) {
       if (id === DROP_ACTION) continue;
+      if (id.startsWith(REACT_PREFIX)) {
+        if (!listTriggers().some((t) => t.key === id.slice(REACT_PREFIX.length))) continue;
+        holding++;
+        reactions++;
+        continue;
+      }
       const say = parseSayAction(id);
       if (say) {
         if (!features.forcedSpeech) {
@@ -8338,6 +8443,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       `trigger "${trigger.phrase}" firing ${steps.length} step(s) \u2014 ${holding} holding, ${compels} compel \u2014 at strength ${strength}${tooWeak ? ` (${tooWeak} too weak)` : ""}`
     );
     noteTriggerFired(trigger);
+    if (reactions) steps.push(() => tellPlayer("Something in you switches on, waiting to be touched."));
     if (steps.length || trigger.actions.includes(DROP_ACTION)) pulse();
     if (holding) {
       markActive(timerKey(trigger));
@@ -8445,6 +8551,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function undoTrigger(trigger) {
     for (const id of trigger.actions) {
+      if (id.startsWith(REACT_PREFIX)) {
+        const r = listTriggers().find((t) => t.key === id.slice(REACT_PREFIX.length));
+        if (r && isTriggerInEffect(r)) undoTrigger(r);
+        continue;
+      }
       if (id.startsWith("touch:")) {
         const word = id.slice("touch:".length);
         if (word === "all") setAllSelfTouchBlocked(false);
@@ -8506,6 +8617,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
     }
     if (id === DROP_ACTION) return "you drop straight into trance";
+    if (id.startsWith(REACT_PREFIX)) {
+      const r = listTriggers().find((t) => t.key === id.slice(REACT_PREFIX.length));
+      if (!r) return "a reaction that is gone";
+      const what = describeConditionFor({ ...r, gate: void 0 }, r.installedBy, "you");
+      return `while it holds you, ${what}: ${r.actions.map(describeAction).join("; ")}`;
+    }
     const say = parseSayAction(id);
     if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
     if (id.startsWith("act:")) {
@@ -11423,6 +11540,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("never while they are under. Waking from anyone's trance sets off the"),
       dim("after-waking ones; their safeword clears them."),
       gap(),
+      head("Reactions: a word that switches something on"),
+      body(`"Missy, your trigger word is sensitive"`),
+      body(`"Missy, whenever anyone gropes you, come for me"   "...remember trigger"`),
+      dim('Said while planting a word, a "whenever" line becomes part of it: once'),
+      dim("the word is said, every grope sets it off, in or out of trance, until"),
+      dim("the word lets go (their trigger duration, a release, or the safeword)."),
+      gap(),
       head("Firing, releasing and removing one"),
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
       body(`"Missy, you are released from sleepy time" releases that one by name.`),
@@ -13184,7 +13308,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.12"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.13"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13257,7 +13381,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.12"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.13"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14093,7 +14217,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.12", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.13", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14130,7 +14254,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.12", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.13", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14172,7 +14296,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.12", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.13", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -16880,6 +17004,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { id: "friends", label: "your friends can use it", phrase: "your friends can use it" },
             { id: "exact", label: "only when you hear it exactly (whole words)", phrase: "only when you hear it exactly" },
             { id: "drop", label: "you will drop into trance (needs Drop triggers on)", phrase: "you will drop into trance" },
+            {
+              id: "react",
+              label: "whenever anyone \u2026 you, \u2026 (a reaction while it holds them)",
+              phrase: "whenever anyone gropes you, ",
+              finish: "what they will do, on this line. It works only while this trigger holds them",
+              sample: "whenever anyone gropes you, you will kneel",
+              choices: COMPULSION_ACTS.map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` }))
+            },
             { id: "say", label: "you will say '\u2026' three times (needs Made to Speak)", phrase: "you will say '", finish: "the words, then ' three times", sample: "you will say 'I obey' three times" }
           ]
         },
@@ -17237,7 +17369,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.12"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.13"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18292,7 +18424,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.12"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.13"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18319,7 +18451,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.12"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.13"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18394,14 +18526,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.12"})`);
+      info(`script loaded (v${"1.16.13"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.12",
+          version: "1.16.13",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18543,10 +18675,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.12"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.13"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.12";
+    page2.__ECHS_LOADED__ = "1.16.13";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

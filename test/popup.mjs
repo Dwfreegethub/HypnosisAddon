@@ -345,7 +345,7 @@ check("safeword ends it: Me gone", popup.subjectSide() === null && popup.getPopu
 const T = (await import("./harness-bundle.mjs")).popupTriggers;
 // Every planting line, name in front (finished with its sample where it needs finishing), is read
 // by the parsers as what it says it is.
-const expectKind = { start: "start", commit: "commit", cancel: "cancel", drop: "drop", say: "say" };
+const expectKind = { start: "start", commit: "commit", cancel: "cancel", drop: "drop", say: "say", react: "condition" };
 const plantWrong = [];
 for (const g of T.PLANT_GROUPS) for (const l of g.lines) {
 	const line = `Bea, ${l.sample ?? l.phrase}`;

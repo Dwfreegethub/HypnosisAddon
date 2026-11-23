@@ -235,6 +235,9 @@ export interface Trigger {
 	watchMember?: number;
 	/** `act` (v1.16.9): what they do to her, a compulsion-acts.ts key ("kiss", "spank", "any"). */
 	act?: string;
+	/** A REACTION (v1.16.13; DW 2026-11-22, "sensitive"): this compulsion belongs to the word trigger
+	 * whose key this is (same installer), and is switched on only while that trigger holds her. */
+	gate?: string;
 }
 
 /** The non-phrase conditions a trigger can fire on. */
@@ -797,6 +800,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (t.watchName !== undefined && typeof t.watchName !== "string") delete t.watchName;
 			if (t.watchMember !== undefined && typeof t.watchMember !== "number") delete t.watchMember;
 			if (t.act !== undefined && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
+			if (t.gate !== undefined && typeof t.gate !== "string") delete t.gate;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the
@@ -1312,16 +1316,25 @@ export function saveTrigger(trigger: Trigger): void {
 	// A record built without a key is a phrase trigger; say so here too, not only in normalise,
 	// or a key-less save would match every other key-less record and delete them all.
 	if (!trigger.key) trigger.key = trigger.phrase;
-	settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key);
+	// A replaced trigger takes its reactions with it (v1.16.13): they belonged to the old one.
+	const replaced = settings.triggers.find((t) => t.key === trigger.key);
+	settings.triggers = settings.triggers.filter((t) => t.key !== trigger.key && !(replaced && isReactionOf(t, replaced)));
 	settings.triggers.push(trigger);
 	saveSettings();
 }
 
 /** Remove by key. Returns how many went. */
+/** Is `t` a reaction belonging to `parent` (v1.16.13)? */
+export function isReactionOf(t: Trigger, parent: Trigger): boolean {
+	return !!t.gate && t.gate === parent.key && t.installedBy === parent.installedBy && t.key !== parent.key;
+}
+
 export function forgetTrigger(key: string): number {
 	const settings = loadSettings();
 	const before = settings.triggers.length;
-	settings.triggers = settings.triggers.filter((t) => t.key !== key);
+	// Its reactions go with it (v1.16.13).
+	const gone = settings.triggers.filter((t) => t.key === key);
+	settings.triggers = settings.triggers.filter((t) => t.key !== key && !gone.some((g) => isReactionOf(t, g)));
 	saveSettings();
 	return before - settings.triggers.length;
 }

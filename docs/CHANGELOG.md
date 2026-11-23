@@ -18,6 +18,29 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.13) — reactions: a word that switches compulsions on
+
+DW: a trigger "sensitive" that, once set off, adds a reaction to groping. My first design (a
+compulsion "only while you are sensitive" plus a separate word) DW called clunky; agreed instead:
+the reaction is part of the word, planted in the same three steps.
+- A person condition said while a WORD is recording (isRecordingWord) is a reaction, not "finish
+  the one you are setting up first". Its rest is recorded through the ordinary paths and the new
+  actions moved out of the word into `recording.reactions` (one line per reaction; options in it
+  are dropped). Wake conditions are not reactions.
+- Commit: each reaction is saved as its own compulsion (`gate` = the word's key, same installer,
+  key react-<installer>-<installedAt>-<i>, expiry copied); the word carries `react:<key>` per
+  reaction. That id counts as HOLDING in fireTrigger (so the word has a time to be on, the trigger
+  duration, 0 = until released) and applies nothing; she is told "Something in you switches on".
+- compulsionsFor takes an isOn callback: a gated compulsion fires only while its word is in effect.
+  Reactions fire in trance too (DW wasn't asked twice; chosen because the word itself fires in or
+  out of trance); plain compulsions still wait for her to be awake. The 15 s act rest applies.
+- undoTrigger of the word undoes whatever its reactions are holding. storage: forgetTrigger and a
+  replacing saveTrigger take the word's reactions with them (isReactionOf).
+- Shown as "…, while "sensitive" is on" to the planter and "…, while one of your triggers is on" to
+  her (her list never shows the word). Popup: a reaction line with the act pick-list in Shape it.
+- test/reactions.mjs (23). Mutation-checked: no gate check (5), reactions not in trance (1), no
+  cascade on forget (2) or replace (1), reaction line not a reaction (6).
+
 ### Fixed 2026-11-22 (v1.16.12) — "whenever" compulsions; options on the same line
 
 DW's compulsion "wasn't staying": it was her own 15-minute lifespan cap, working as designed and

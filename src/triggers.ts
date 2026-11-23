@@ -7,6 +7,7 @@ import {
 	saveTrigger,
 	forgetTrigger,
 	updateTriggers,
+	isReactionOf,
 	getTriggerDecayRate,
 	getTriggerScope,
 	getTriggerLifespan,
@@ -504,6 +505,9 @@ interface Recording {
 	strict?: boolean;
 	/** A delayed compulsion: fires on a condition rather than a phrase (Build 6). */
 	condition?: TriggerCondition;
+	/** Reactions recorded into a WORD trigger (v1.16.13): each becomes a compulsion switched on only
+	 * while the word holds her ("sensitive": whenever anyone gropes you, come for me). */
+	reactions?: { condition: TriggerCondition; actions: string[] }[];
 }
 
 /** What a delayed compulsion waits for (trigger overhaul Build 6). Parsed in voice.ts. */
@@ -517,6 +521,8 @@ export interface TriggerCondition {
 	watchMember?: number;
 	/** act (v1.16.9): what they do to her, a compulsion-acts.ts key. */
 	act?: string;
+	/** A reaction (v1.16.13): the key of the word trigger that switches it on. */
+	gate?: string;
 }
 
 /** The longest "after you wake" an installer may ask for. */
@@ -538,9 +544,11 @@ export function describeConditionFor(c: TriggerCondition, installerId: number, s
 		const act = compulsionAct(c.act);
 		const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
 		const words = act ? (plural ? act.base : act.label) : "does something to you";
-		return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}`;
+		const gated = c.gate ? (subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on") : "";
+		return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}${gated}`;
 	}
-	return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
+	const gated = c.gate ? (subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on") : "";
+	return (c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`) + gated;
 }
 
 /** A stored trigger's condition in the SUBJECT's words, or null for a phrase trigger. Includes
@@ -660,12 +668,23 @@ function nameKey(s: unknown): string {
 
 /** Arrival, speech or activity compulsions this member sets off. Never the subject themself.
  * `activity` is the BC activity name, for "act" (v1.16.9). */
-export function compulsionsFor(event: "arrive" | "speak" | "act", member: number, activity = ""): Trigger[] {
+export function compulsionsFor(
+	event: "arrive" | "speak" | "act",
+	member: number,
+	activity = "",
+	isOn: (t: Trigger) => boolean = () => false,
+): Trigger[] {
 	if (member === Player?.MemberNumber) return [];
 	const C = characterFor(member);
 	const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
-	return listTriggers().filter((t) => {
+	const all = listTriggers();
+	return all.filter((t) => {
 		if (t.fireOn !== event || !triggerCanFire(t)) return false;
+		// A reaction (v1.16.13): only while its word holds her.
+		if (t.gate) {
+			const word = all.find((p) => isReactionOf(t, p));
+			if (!word || !isOn(word)) return false;
+		}
 		if (event === "act" && !actMatches(t.act, activity)) return false;
 		if (t.watchName === "*") return true;
 		if (t.watchMember === member) return true;
@@ -691,7 +710,42 @@ export function resolveWatch(said: string, installerId: number): { watchName: st
 
 export function describeRecording(): string {
 	if (!recording) return "not recording a trigger";
-	return `recording ${recordingLabel()} — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}`;
+	const reactions = recording.reactions?.length ? `; ${recording.reactions.length} reaction(s)` : "";
+	return `recording ${recordingLabel()} — ${recording.actions.length} action(s): ${recording.actions.join(", ") || "none yet"}${reactions}`;
+}
+
+// --- reactions (v1.16.13; DW 2026-11-22, "sensitive") ------------------------------------------------
+// "Missy, your trigger word is sensitive" · "Missy, whenever anyone gropes you, come for me" ·
+// "remember trigger": the condition line, said while a WORD trigger is being recorded, becomes a
+// reaction of that word. Each reaction is stored as its own compulsion with `gate` = the word's key;
+// it fires only while the word holds her, in or out of trance, every time (with the 15 s rest).
+
+/** The id a word trigger carries for each of its reactions: it makes the word HOLD (so the reactions
+ * have a time to be on in) and names the reaction's own key. */
+export const REACT_PREFIX = "react:";
+
+/** Is a WORD trigger (not a compulsion) being recorded? Reactions belong only to one. */
+export function isRecordingWord(): boolean {
+	return !!recording && !recording.condition;
+}
+
+/** How many actions are recorded so far, so the caller can take the ones a reaction line added. */
+export function recordedActionCount(): number {
+	return recording?.actions.length ?? 0;
+}
+
+/** Move the actions recorded since `from` out of the word and into a new reaction. Returns the
+ * subject's line, or null when there was nothing to move (the caller tells the hypnotist). */
+export function addReaction(condition: TriggerCondition, from: number): string | null {
+	if (!recording || recording.condition) return null;
+	const actions = recording.actions.splice(from);
+	if (!actions.length) return null;
+	(recording.reactions ??= []).push({ condition, actions });
+	tellHypnotist(
+		recording.hypnotistId,
+		`[trigger] Added a reaction to "${recording.phrase}": ${describeConditionFor(condition, recording.hypnotistId, "they")}, ${actions.join(", ")}. It works every time, but only while "${recording.phrase}" holds them.`,
+	);
+	return "Something in you waits to be switched on.";
 }
 
 /** Apply an option the installer spoke while recording. Returns the message for the SUBJECT, or
@@ -1009,7 +1063,7 @@ export function recordAction(id: string): string | null {
 /** Commit. Returns a message for the subject. */
 export function commitRecording(isHolding: (t: Trigger) => boolean = () => false): string {
 	if (!recording) return "";
-	if (!recording.actions.length) {
+	if (!recording.actions.length && !recording.reactions?.length) {
 		tellHypnotist(recording.hypnotistId, `[trigger] Nothing was recorded for ${recordingLabel()}, so nothing was saved.`);
 		recording = null;
 		return "Whatever it was, it comes to nothing.";
@@ -1088,7 +1142,33 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	if (getFeatures().strictTriggerMatch && !trigger.strict) {
 		notes.push("Her settings make every trigger fire on the whole words only.");
 	}
+	// Reactions (v1.16.13): each its own compulsion, gated on this word. The word carries one
+	// react: id per reaction, which is what makes it hold while they are on.
+	const reactions = recording.condition ? [] : (recording.reactions ?? []);
+	const children: Trigger[] = reactions.map((r, i) => {
+		const child: Trigger = {
+			phrase: "",
+			actions: r.actions.slice(),
+			installedBy: trigger.installedBy,
+			installedByName: trigger.installedByName,
+			installedAt: trigger.installedAt,
+			plantedDepth: trigger.plantedDepth,
+			plantedChemical: trigger.plantedChemical,
+			reinforcedAt: trigger.reinforcedAt,
+			firings: 0,
+			key: `react-${trigger.installedBy}-${trigger.installedAt}-${i}`,
+			fireOn: r.condition.fireOn,
+			gate: trigger.key,
+		};
+		if (r.condition.watchName !== undefined) child.watchName = r.condition.watchName;
+		if (r.condition.watchMember !== undefined) child.watchMember = r.condition.watchMember;
+		if (r.condition.act !== undefined) child.act = r.condition.act;
+		if (trigger.expiresAt) child.expiresAt = trigger.expiresAt;
+		trigger.actions.push(`${REACT_PREFIX}${child.key}`);
+		return child;
+	});
 	saveTrigger(trigger);
+	for (const child of children) saveTrigger(child);
 	const count = trigger.actions.length;
 	const options = describeOptions(trigger);
 	log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);

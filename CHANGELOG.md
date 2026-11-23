@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.13 · 22 November 2026
+
+- **Reactions: a trigger word that switches something on.** Plant *"sensitive"* with a
+  *whenever* line in it: *"Missy, your trigger word is sensitive"*, *"Missy, whenever anyone gropes
+  you, come for me"*, *"Missy, remember trigger"*. Groping does nothing until someone says
+  "sensitive"; then every grope makes her come, until the word lets go (her trigger duration, a
+  release, or the safeword). One word can carry several reactions. On the popup it's in *Shape it*.
+
 ## v1.16.12 · 22 November 2026
 
 - **"Whenever…"** *"Missy, whenever anyone gropes you, come for me"* now plants a compulsion that
