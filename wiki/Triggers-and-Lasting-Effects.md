@@ -164,7 +164,8 @@ The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss
 Whatever follows the condition on the same line is recorded, just as on its own line: a suggestion, words to say, or a drop. The hypnotist can also end the line at the condition and give the suggestions on the lines that follow.
 
 * **Never while you are under:** a compulsion only goes off after the trance is over.
-* **Once by default:** it is used up when it fires, unless the hypnotist says *"it works every time"*.
+* **Once by default:** it is used up when it fires, unless the hypnotist says *"this trigger works every time"*, either on its own line before *"remember trigger"* or at the end of the same line (*"Missy, when anyone gropes you, come for me, this trigger works every time"*). Starting with **whenever** or **every time** means every time by itself: *"Missy, whenever anyone gropes you, …"*, *"Missy, every time Rei comes in, …"* (since v1.16.12).
+* **Her lifespan limit still applies:** if the subject's **Longest a new trigger lasts** setting is, say, 15 minutes, an every-time compulsion works every time for 15 minutes and is then gone. The hypnotist is told when they save it.
 * **If you are bound and can't take the pose:** the room is told nothing, however often it goes off. You are told privately, once, and how to remove it.
 * **The clock keeps running:** a compulsion timed from waking keeps counting while you are logged off, and goes off soon after you are back in a room if its time has passed.
 * **Any trance starts the clock:** waking from anyone's trance sets it off, not only the trance of whoever planted it (since v1.13.1). It still goes off as theirs.

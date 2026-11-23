@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.12 · 22 November 2026
+
+- **"Whenever…"** *"Missy, whenever anyone gropes you, come for me"* now plants a compulsion that
+  works every time. So does *"every time Rei comes in, …"*. Before, ECHS didn't know "whenever",
+  so she came on the spot and nothing was planted.
+- **All on one line.** *"Missy, when anyone gropes you, come for me, this trigger works every
+  time"* now works, the same as saying the last part on its own line.
+
 ## v1.16.11 · 22 November 2026
 
 - **Instant actions.** Making someone cum, undressing them or setting their arousal is over the

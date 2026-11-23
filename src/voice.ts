@@ -2122,7 +2122,10 @@ export function parseSayClause(raw: string): { text: string; times: number } | n
 // · "when I speak, you will say 'yes'". Matched on the digit-keeping normalisation the options use,
 // since "5 minutes" must survive. Checked before TRIGGER_START, whose "when you hear (.+)" would
 // otherwise read "when you hear Rei's voice" as a trigger word.
-const COND_LEAD = String.raw`(?:when|as soon as|the moment|once)`;
+// v1.16.12 (DW 2026-11-22): "whenever" / "every time" / "each time" / "any time" start one too,
+// and mean it works every time without being told (EVERY_LEAD).
+const COND_LEAD = String.raw`(?:whenever|every time|each time|any time|when|as soon as|the moment|once)`;
+const EVERY_LEAD = /^\s*(?:whenever|every time|each time|any time)\b/;
 // v0.92.4 (DW, 2026-09-26: "after you wake" lines woke her instead of planting). These all plant
 // now: "after you wake", "upon waking", "when you awaken", "once you are awake again". Not "on
 // waking": "come on, you, wake up" would read as a condition.
@@ -2146,10 +2149,11 @@ const COND_ACTS = COMPULSION_ACTS.map((a) => ({
 
 /** What a condition line asks for, before the name is resolved against the room. `rest` is what
  * follows the clause ("you will kneel"), lower-cased; "" when the line ends at the clause. */
-export type ParsedCondition =
+export type ParsedCondition = (
 	| { fireOn: "wake"; delayMs: number; rest: string }
 	| { fireOn: "arrive" | "speak"; who: string; rest: string }
-	| { fireOn: "act"; who: string; act: string; rest: string };
+	| { fireOn: "act"; who: string; act: string; rest: string }
+) & { every?: true };
 
 /** Does this line plant a compulsion that watches a person (arrival or speech)? */
 function personCondition(content: string): boolean {
@@ -2175,15 +2179,17 @@ export function parseCondition(content: string): ParsedCondition | null {
 		if (option?.kind !== "lifespan" || option.ms <= 0) return null;
 		return { fireOn: "wake", delayMs: option.ms, rest: after(m) };
 	}
+	// "whenever …" means every time (v1.16.12).
+	const every = (m: RegExpExecArray) => (EVERY_LEAD.test(m[0]) ? { every: true as const } : {});
 	m = COND_WAKE_NOW.exec(text);
-	if (m) return { fireOn: "wake", delayMs: 0, rest: after(m) };
+	if (m) return { fireOn: "wake", delayMs: 0, rest: after(m), ...every(m) };
 	m = COND_ARRIVE.exec(text);
-	if (m) return { fireOn: "arrive", who: m[1], rest: after(m) };
+	if (m) return { fireOn: "arrive", who: m[1], rest: after(m), ...every(m) };
 	m = COND_SPEAK.exec(text);
-	if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m) };
+	if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m), ...every(m) };
 	for (const a of COND_ACTS) {
 		m = a.re.exec(text);
-		if (m) return { fireOn: "act", who: m[1], act: a.key, rest: after(m) };
+		if (m) return { fireOn: "act", who: m[1], act: a.key, rest: after(m), ...every(m) };
 	}
 	return null;
 }
@@ -2238,10 +2244,12 @@ export function parseTriggerControl(content: string): TriggerControl {
 	if (!text || isSelfReferential(text)) return null;
 	if (TRIGGER_CANCEL.some((p) => p.test(text))) return { kind: "cancel" };
 	if (TRIGGER_COMMIT.some((p) => p.test(text))) return { kind: "commit" };
-	const option = parseTriggerOption(content);
-	if (option) return { kind: "option", option };
+	// A condition first (v1.16.12): a line that starts a compulsion and also says "this trigger works
+	// every time" is a compulsion with an option, not an option on nothing.
 	const condition = parseCondition(content);
 	if (condition) return { kind: "condition", condition };
+	const option = parseTriggerOption(content);
+	if (option) return { kind: "option", option };
 	for (const pattern of TRIGGER_START) {
 		const match = pattern.exec(text);
 		if (!match) continue;
@@ -2314,22 +2322,52 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
 	const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
 	if (!isRecording()) return true; // refused, and the refusal already went to the hypnotist
-	if (!parsed.rest) {
+	// Options said on the same line ("…, this trigger works every time") are applied and taken out of
+	// what is recorded; "whenever …" is every time by itself (v1.16.12).
+	const optionNotes: string[] = [];
+	if (parsed.every) {
+		const note = applyRecordingOption({ kind: "once", value: false });
+		if (note) optionNotes.push(note);
+	}
+	let rest = parsed.rest;
+	// The raw line loses the same words, so words to say (read from it) do not swallow them.
+	let raw = content;
+	for (let guard = 0; guard < 5 && rest; guard++) {
+		const found = OPTION_PATTERNS.map(({ pattern, option }) => ({ m: pattern.exec(rest), option })).find((x) => x.m);
+		if (!found?.m) break;
+		const opt = found.option(found.m);
+		if (opt) {
+			const note = applyRecordingOption(opt);
+			if (note) optionNotes.push(note);
+		}
+		const words = found.m[0].trim().split(" ").filter(Boolean);
+		if (words.length) raw = raw.replace(new RegExp(String.raw`(?:[\s,;:.!?-]*\b(?:and|then|so)\b)?[\s,;:.!?-]*${words.join(String.raw`[^a-z0-9]+`)}[\s,;:.!?-]*`, "i"), " ");
+		rest = (rest.slice(0, found.m.index) + " " + rest.slice(found.m.index + found.m[0].length))
+			.replace(/\s+/g, " ")
+			.replace(/(?:\s*\b(?:and|then|so)\b)+\s*$/, "")
+			.trim();
+	}
+	parsed = { ...parsed, rest };
+	const tellLine = () => {
 		if (line) tellPlayer(line);
+		for (const n of optionNotes) tellPlayer(n);
+	};
+	if (!parsed.rest) {
+		tellLine();
 		return true;
 	}
 	const before = describeRecording();
 	// Words to say come from the RAW line — they are spoken back verbatim.
-	const say = SAY_NORM.test(parsed.rest) ? parseSayClause(content) : null;
+	const say = SAY_NORM.test(parsed.rest) ? parseSayClause(raw) : null;
 	if (say) {
 		const sayLine = recordAction(sayActionId(say.text, say.times));
-		if (line) tellPlayer(line);
+		tellLine();
 		if (sayLine) tellPlayer(sayLine);
 		return true;
 	}
 	if (TRIGGER_DROP.some((p) => p.test(parsed.rest))) {
 		const dropLine = recordAction(DROP_ACTION);
-		if (line) tellPlayer(line);
+		tellLine();
 		if (dropLine) tellPlayer(dropLine);
 		return true;
 	}
@@ -2357,7 +2395,7 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 		tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
 		return false;
 	}
-	if (line) tellPlayer(line);
+	tellLine();
 	return true;
 }
 
