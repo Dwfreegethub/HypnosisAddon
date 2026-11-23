@@ -2563,12 +2563,16 @@ function speakForSubject(text: string): void {
  * kiss with a kiss can't ping-pong between two clients, nor a run of clicks fire it ten times. */
 const ACT_REST_MS = 15_000;
 const actFiredAt = new Map<string, number>();
+/** Who last set off each arrival, speech or activity compulsion (v1.16.10): they may release it
+ * while it holds her. In memory only; after a reload only the planter can. */
+const compulsionSetOffBy = new Map<string, number>();
 function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number, activity = ""): void {
 	if (isHypnotized()) return;
 	const now = Date.now();
 	const due = compulsionsFor(event, member, activity).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
 	for (const t of due) {
 		if (event === "act") actFiredAt.set(t.key, now);
+		compulsionSetOffBy.set(t.key, member);
 		log(`compulsion (${event}) set off by ${member}`);
 		fireTrigger(t, t.installedBy);
 	}
@@ -2860,9 +2864,25 @@ const TRIGGER_RELEASE = [
 	/\brelease (?:the )?trigger (.+)$/,
 ];
 
+// Releasing compulsions (v1.16.10; DW 2026-11-22). A compulsion has no word to name, so it is
+// released as "the compulsion": every compulsion the speaker planted that is holding her lets go,
+// and stays planted. Checked before the word release, which would read "the compulsion" as a word.
+const COMPULSION_WORDS = String.raw`(?:(?:the|your|that|this|those|these|all|every|of|my)\s+)*compulsions?\b`;
+const COMPULSION_RELEASE = [
+	new RegExp(String.raw`\byou are (?:now )?released from ${COMPULSION_WORDS}`),
+	new RegExp(String.raw`\bi release you from ${COMPULSION_WORDS}`),
+	new RegExp(String.raw`\brelease ${COMPULSION_WORDS}`),
+];
+
+/** Pure: "you are released from the compulsion" and its kin. */
+export function isCompulsionReleaseLine(content: string): boolean {
+	const text = normalize(content);
+	return !!text && COMPULSION_RELEASE.some((p) => p.test(text));
+}
+
 export function isTriggerReleaseLine(content: string): boolean {
 	const text = normalize(content);
-	return !!text && TRIGGER_RELEASE.some((p) => p.test(text));
+	return !!text && (TRIGGER_RELEASE.some((p) => p.test(text)) || COMPULSION_RELEASE.some((p) => p.test(text)));
 }
 
 // --- The hypnotist removing a trigger they planted (v1.3.0, DW 2026-11-02) ---------------------
@@ -2878,6 +2898,8 @@ export function isTriggerReleaseLine(content: string): boolean {
 const TRIGGER_REMOVE_ALL = [
 	/\b(?:forget|remove|erase|delete) (?:every|all) (?:of )?(?:the |my |your )?triggers?\b/,
 ];
+/** "forget your compulsions" (v1.16.10): every compulsion the speaker planted, word triggers kept. */
+const TRIGGER_REMOVE_COMPULSIONS = new RegExp(String.raw`\b(?:forget|remove|erase|delete) ${COMPULSION_WORDS}`);
 const TRIGGER_REMOVE = [
 	/\b(?:forget|remove|erase|delete) (?:the |that |your )?trigger (?:word |phrase )?(.+)$/,
 	/\bthe trigger (.+?) is gone(?: now)?$/,
@@ -2885,7 +2907,7 @@ const TRIGGER_REMOVE = [
 /** Only a removal when it names one of their triggers: "I take back what I said" is conversation. */
 const TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
 
-export type TriggerRemoval = { kind: "all" } | { kind: "one"; phrase: string; soft?: boolean } | null;
+export type TriggerRemoval = { kind: "all" } | { kind: "compulsions" } | { kind: "one"; phrase: string; soft?: boolean } | null;
 
 /** Pure: what removal, if any, this line asks for. A captured phrase that is only her name ("forget
  * the trigger, Missy") is no removal, so it can still cancel a trigger being set up. */
@@ -2893,6 +2915,7 @@ export function parseTriggerRemoval(content: string): TriggerRemoval {
 	const text = normalize(content);
 	if (!text) return null;
 	if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+	if (TRIGGER_REMOVE_COMPULSIONS.test(text)) return { kind: "compulsions" };
 	for (const pattern of TRIGGER_REMOVE) {
 		const match = pattern.exec(text);
 		if (!match) continue;
@@ -2917,7 +2940,7 @@ function removeTrigger(trigger: Trigger): boolean {
 /** Told to a planter whose removal the subject's Extreme lock refused (rule 5). Only ever said when
  * they named a trigger of their own, so it confirms nobody else's word. */
 const EXTREME_REMOVAL_REFUSED =
-	'[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" still lets go of one holding them.';
+	'[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
 
 function handleTriggerRemoval(sender: number, line: string): boolean {
 	const parsed = parseTriggerRemoval(line);
@@ -2942,6 +2965,25 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 		tellPlayer(held ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
 		return true;
 	}
+	if (parsed.kind === "compulsions") {
+		const theirs = mine.filter((t) => t.fireOn);
+		if (!theirs.length) {
+			tellHypnotist(sender, "[trigger] No compulsion of yours is planted in them.");
+			return true;
+		}
+		if (extremeLocked()) {
+			tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+			return true;
+		}
+		const held = theirs.map(removeTrigger).filter(Boolean).length;
+		const kept = mine.length - theirs.length;
+		tellHypnotistWithList(
+			sender,
+			`[trigger] Removed ${theirs.length === 1 ? "the 1 compulsion" : `all ${theirs.length} compulsions`} you planted in them.${held ? " What was holding them lets go." : ""}${kept ? ` Your ${kept === 1 ? "trigger word stays" : `${kept} trigger words stay`}.` : ""}`,
+		);
+		tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
+		return true;
+	}
 	// Longest phrase first, as the release does. Their phrase triggers only: a compulsion has no word.
 	const trigger = mine
 		.filter((t) => !t.fireOn && !!t.phrase && parsed.phrase.includes(t.phrase))
@@ -2956,7 +2998,7 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 		// Her name was said, so this is no stranger's passing remark; told always.
 		tellHypnotist(
 			sender,
-			`[trigger] Nothing of yours called "${parsed.phrase}" is planted in them. For one with no word ("when someone comes in"), say "forget every trigger I gave you".`,
+			`[trigger] Nothing of yours called "${parsed.phrase}" is planted in them. For one with no word ("when someone comes in"), say "forget your compulsions".`,
 		);
 		return true;
 	}
@@ -3157,6 +3199,32 @@ function scheduleAutoRelease(trigger: Trigger): void {
 function handleTriggerRelease(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return false;
+	if (COMPULSION_RELEASE.some((p) => p.test(text))) {
+		// The one who planted them, or (DW 2026-11-22) the one who SET IT OFF, for that compulsion and
+		// only while it holds: "when anyone gropes you" set off by Zed while the planter is away
+		// would otherwise leave nobody but her safeword. Nobody else: there is no secret word to know.
+		const isHolding = (t: Trigger) => isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0;
+		const mine = listTriggers().filter((t) => t.fireOn && t.installedBy === sender);
+		const setOff = listTriggers().filter((t) => t.fireOn && t.installedBy !== sender && compulsionSetOffBy.get(t.key) === sender && isHolding(t));
+		if (!mine.length && !setOff.length) {
+			if (isSessionActiveWith(sender) || listTriggers().some((t) => t.installedBy === sender))
+				tellHypnotist(sender, "[trigger] No compulsion of yours is planted in them.");
+			return true;
+		}
+		const held = [...mine.filter(isHolding), ...setOff];
+		for (const t of held) undoTrigger(t);
+		if (held.length) {
+			tellPlayer("Whatever was holding you lets go.");
+			// A one-time compulsion that has gone off is used up once it lets go, as a word trigger is.
+			const kept = held.filter((t) => listTriggers().some((x) => x.key === t.key)).length;
+			const what = held.length === 1 ? "The compulsion" : `${held.length} compulsions`;
+			const after = kept === held.length ? "still planted" : kept === 0 ? (held.length === 1 ? "it was one-time, so it is used up" : "they were one-time, so they are used up") : `${kept} still planted, the one-time ones used up`;
+			tellHypnotist(sender, `[trigger] Released. ${what} holding them let go; ${after}.`);
+		} else {
+			tellHypnotist(sender, "[trigger] Released, but no compulsion of yours was holding them right now. They are still planted.");
+		}
+		return true;
+	}
 	for (const pattern of TRIGGER_RELEASE) {
 		const match = pattern.exec(text);
 		if (!match) continue;

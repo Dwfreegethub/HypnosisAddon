@@ -109,8 +109,8 @@ These exits cannot be disabled, locked, or overridden by any hypnotic command, t
 | **Emergency Safeword** | **`/echs safeword`** | Universal hard stop. Bypasses all mutes and freezes. Purges trance, active triggers, and waking compulsions. |
 | **Self-Waking** | **`/echs wake`** | Pulls yourself out of a *shallow* trance. Refuses if deep. |
 | **Hypnotist Wake** | Spoken (*"wake up"*, *"you are awake"*, *"come back to me"*) or the **Wake Up** button | Hypnotist commands wake immediately without gates. A trigger that was holding you before the trance keeps holding until its time is up; the safeword clears it. |
-| **Targeted Release** | *"Missy, you are released from [trigger]"* | Hypnotist clears a specific trigger's hold. |
-| **Hypnotist Removal** | *"Missy, forget the trigger [trigger]"* or *"Missy, forget every trigger I gave you"* | The hypnotist who planted it deletes it for good. Only theirs; works outside trance. Refused during Extreme lock. |
+| **Targeted Release** | *"Missy, you are released from [trigger]"* · *"…from the compulsion"* | Hypnotist clears a specific trigger's hold, or the hold of their compulsions. |
+| **Hypnotist Removal** | *"Missy, forget the trigger [trigger]"*, *"Missy, forget your compulsions"* or *"Missy, forget every trigger I gave you"* | The hypnotist who planted it deletes it for good. Only theirs; works outside trance. Refused during Extreme lock. |
 | **Master Toggle** | Untick **Hypnosis Enabled** | Completely disables the add-on from preferences (except during Extreme lock). |
 | **Early Extreme Exit** | **`/echs reset confirm`** | Breaks the Extreme progressive lock early; wipes all ECHS data back to factory defaults. |
 | **Session Timers** | 30-Minute Timeout | After 30 minutes (60 under an Extreme lock) you are asked whether to stay under for as long again. Only a yes from you extends it; no answer within a minute ends the trance. |

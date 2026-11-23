@@ -18,6 +18,33 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.10) — releasing and removing compulsions
+
+DW: "Is there a way to be released from compulsion like there is from a normal trigger", then
+"Build 1 and 2, and 3 too" (release wording, popup buttons, remove-compulsions-only).
+- Before: release-by-name was word triggers only (a compulsion has none, and v1.2.2 kept the empty
+  phrase from matching). A compulsion holding her let go only by its timer, the safeword, or
+  "forget every trigger I gave you", which deleted the planter's word triggers too.
+- "you are released from the compulsion" / "I release you from your compulsions" / "release the
+  compulsion": every compulsion the SPEAKER planted that is holding her lets go. Installer only,
+  unlike the word release (which the scope opens): there is no secret word, so nothing else
+  narrows who can say it. Checked before the word release, which would read "the compulsion" as a
+  word and answer "Nothing called…". Counted as a release line, so it never fires anything.
+- Then (DW: "for a compulsion that is say triggered when someone gropes you.. Then who can free you
+  of it"): the person who SET IT OFF may release it too, that compulsion only and only while it
+  holds. Recorded in memory per compulsion key when an arrival / speech / activity fires it (the
+  last one to set it off wins); after a reload only the planter can. Removal stays planter-only.
+  Tests: Rei releases what Rei set off; a bystander can't; Rei can't once it has let go, nor after
+  someone else set it off again, nor remove it. Mutation-checked (no holding check, not recorded).
+- A one-time compulsion that has gone off is used up once it lets go (undoTrigger, as for a word
+  trigger); the planter is told "still planted" or "used up", so neither is a surprise.
+- "forget your compulsions": removal kind "compulsions", the planter's compulsions only; their words
+  stay and the message says so. Refused under the Extreme lock like every removal.
+- Popup: compulsion rows in "What you planted" get release / remove chips typing those lines (DW:
+  someone else clicks it, and it types the words). No "say it": nothing to say.
+- act-compulsion.mjs +24, popup.mjs +5. Mutation-checked: anyone may release, removal taking words
+  too, no compulsion release: each fails.
+
 ### Added 2026-11-22 (v1.16.9) — "when anyone X you" compulsions; planting lines always shown
 
 DW: "I don't think that the Trigger compulsions are in the Window", then "can we do 'When anyone X'
