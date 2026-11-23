@@ -174,6 +174,24 @@ Whatever follows the condition on the same line is recorded, just as on its own 
 
 Compulsions otherwise work like any trigger: the same permissions, strength, fading and options, and they show in your trigger list with the condition in place of a word.
 
+### Reactions: A Word That Switches Something On
+
+Since v1.16.13, a trigger word can carry **reactions**: things that happen every time someone does something to you, but only while that word is holding you. The hypnotist plants it like any trigger, with a *whenever* line in the middle:
+
+1. *"Missy, your trigger word is sensitive"*
+2. *"Missy, whenever anyone gropes you, come for me"* (as many of these as they like: *"whenever anyone kisses you, moan"*, *"whenever Rei speaks, kneel"*; normal suggestions such as *"you are very aroused"* can go in too)
+3. *"Missy, remember trigger"*
+
+Then:
+
+* **Before the word is said,** groping does nothing.
+* **Once someone says "sensitive",** it holds you like *you cannot move* does, and every grope sets the reaction off, from anyone, in or out of trance (with a 15-second rest between).
+* **It switches off** when the word lets go: after your trigger duration (*Minutes a fired trigger lasts*; 0 = until released), when the hypnotist says *"Missy, you are released from sensitive"*, or with your safeword. Anything a reaction is holding you in lets go with it.
+* **Saying the word again** starts the time over.
+* **Removing the word** (*"forget the trigger sensitive"*) removes its reactions too, and planting the same word again replaces them.
+
+Each reaction is said on one line: the *whenever* part and what you will do. What anyone can do to set one off is the same list as for compulsions (above). In your trigger list, a reaction shows as a compulsion *"…, while one of your triggers is on"*.
+
 ---
 
 ## 6. Trigger Scope: Who Can Fire Your Triggers?

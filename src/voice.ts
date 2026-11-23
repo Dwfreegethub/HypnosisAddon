@@ -101,6 +101,11 @@ import {
 	resolveWatch,
 	describeRecording,
 	compulsionsFor,
+	addReaction,
+	recordedActionCount,
+	isRecordingWord,
+	REACT_PREFIX,
+	describeConditionFor,
 	dueCompulsions,
 	describeCondition,
 } from "./triggers";
@@ -2295,6 +2300,69 @@ export function parseTriggerControl(content: string): TriggerControl {
  * not something said to the room that should set anything off. */
 let rereadingRest = false;
 
+/** Options said inside a condition line ("…, this trigger works every time"), taken out of the rest
+ * (normalised) and out of the raw line (words to say are read from it), and returned (v1.16.12). */
+function takeOptions(rest: string, raw: string): { rest: string; raw: string; options: TriggerOption[] } {
+	const options: TriggerOption[] = [];
+	for (let guard = 0; guard < 5 && rest; guard++) {
+		const found = OPTION_PATTERNS.map(({ pattern, option }) => ({ m: pattern.exec(rest), option })).find((x) => x.m);
+		if (!found?.m) break;
+		const opt = found.option(found.m);
+		if (opt) options.push(opt);
+		const words = found.m[0].trim().split(" ").filter(Boolean);
+		if (words.length) raw = raw.replace(new RegExp(String.raw`(?:[\s,;:.!?-]*\b(?:and|then|so)\b)?[\s,;:.!?-]*${words.join(String.raw`[^a-z0-9]+`)}[\s,;:.!?-]*`, "i"), " ");
+		rest = (rest.slice(0, found.m.index) + " " + rest.slice(found.m.index + found.m[0].length))
+			.replace(/\s+/g, " ")
+			.replace(/(?:\s*\b(?:and|then|so)\b)+\s*$/, "")
+			.trim();
+	}
+	return { rest, raw, options };
+}
+
+/** Record what a condition line asks for (its rest) into the open recording: words to say from the
+ * raw line, a drop, or anything else re-read through the ordinary paths. */
+function recordRest(sender: number, rest: string, raw: string): void {
+	const say = SAY_NORM.test(rest) ? parseSayClause(raw) : null;
+	if (say) {
+		const sayLine = recordAction(sayActionId(say.text, say.times));
+		if (sayLine) tellPlayer(sayLine);
+		return;
+	}
+	if (TRIGGER_DROP.some((p) => p.test(rest))) {
+		const dropLine = recordAction(DROP_ACTION);
+		if (dropLine) tellPlayer(dropLine);
+		return;
+	}
+	rereadingRest = true;
+	try {
+		handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${rest}`);
+	} finally {
+		rereadingRest = false;
+	}
+}
+
+/** A condition line said while a WORD trigger is being recorded (v1.16.13; DW, "sensitive"): a
+ * reaction of that word. "Missy, whenever anyone gropes you, come for me" while "sensitive" is
+ * recording: groping makes her come, every time, but only while "sensitive" holds her. The whole
+ * reaction is one line; options in it are dropped (a reaction is every time, while the word is on). */
+function handleReactionLine(sender: number, content: string, parsed: ParsedCondition): boolean {
+	if (parsed.fireOn === "wake") return false;
+	const watch = resolveWatch(parsed.who, sender);
+	if (!watch) return false;
+	const condition: TriggerCondition = { fireOn: parsed.fireOn, ...watch, ...(parsed.fireOn === "act" ? { act: parsed.act } : {}) };
+	const taken = takeOptions(parsed.rest, content);
+	if (!taken.rest) {
+		tellHypnotist(sender, '[trigger] A reaction needs what they will do on the same line: "Missy, whenever anyone gropes you, come for me".');
+		return true;
+	}
+	const from = recordedActionCount();
+	recordRest(sender, taken.rest, taken.raw);
+	const line = addReaction(condition, from);
+	if (line) tellPlayer(line);
+	else tellHypnotist(sender, "[trigger] Nothing after that could be kept as a reaction, so none was added.");
+	return true;
+}
+
 /** "five minutes after you wake, you will kneel": begin recording a delayed compulsion, then
  * record what follows the clause through the ordinary paths, exactly as if said on its own line.
  *
@@ -2308,6 +2376,8 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 	// wake-up with some patter, not a compulsion. Left to the wake handler, as before.
 	if (parsed.fireOn === "wake" && parsed.rest && isWakeLine(parsed.rest)) return false;
 	if (isRecording()) {
+		// While a word is being recorded, a person condition is a reaction of it (v1.16.13).
+		if (parsed.fireOn !== "wake" && isRecordingWord()) return handleReactionLine(sender, content, parsed);
 		tellHypnotist(sender, '[trigger] Finish the one you are setting up first: say "remember trigger" to keep it, or "forget the trigger".');
 		return true;
 	}
@@ -2329,25 +2399,13 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 		const note = applyRecordingOption({ kind: "once", value: false });
 		if (note) optionNotes.push(note);
 	}
-	let rest = parsed.rest;
-	// The raw line loses the same words, so words to say (read from it) do not swallow them.
-	let raw = content;
-	for (let guard = 0; guard < 5 && rest; guard++) {
-		const found = OPTION_PATTERNS.map(({ pattern, option }) => ({ m: pattern.exec(rest), option })).find((x) => x.m);
-		if (!found?.m) break;
-		const opt = found.option(found.m);
-		if (opt) {
-			const note = applyRecordingOption(opt);
-			if (note) optionNotes.push(note);
-		}
-		const words = found.m[0].trim().split(" ").filter(Boolean);
-		if (words.length) raw = raw.replace(new RegExp(String.raw`(?:[\s,;:.!?-]*\b(?:and|then|so)\b)?[\s,;:.!?-]*${words.join(String.raw`[^a-z0-9]+`)}[\s,;:.!?-]*`, "i"), " ");
-		rest = (rest.slice(0, found.m.index) + " " + rest.slice(found.m.index + found.m[0].length))
-			.replace(/\s+/g, " ")
-			.replace(/(?:\s*\b(?:and|then|so)\b)+\s*$/, "")
-			.trim();
+	const taken = takeOptions(parsed.rest, content);
+	for (const opt of taken.options) {
+		const note = applyRecordingOption(opt);
+		if (note) optionNotes.push(note);
 	}
-	parsed = { ...parsed, rest };
+	const raw = taken.raw;
+	parsed = { ...parsed, rest: taken.rest };
 	const tellLine = () => {
 		if (line) tellPlayer(line);
 		for (const n of optionNotes) tellPlayer(n);
@@ -2620,9 +2678,13 @@ const actFiredAt = new Map<string, number>();
  * while it holds her. In memory only; after a reload only the planter can. */
 const compulsionSetOffBy = new Map<string, number>();
 function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number, activity = ""): void {
-	if (isHypnotized()) return;
+	// A compulsion is post-hypnotic and waits for her to be awake; a reaction (v1.16.13) works while
+	// its word holds her, in or out of trance, as the word itself does.
+	const under = isHypnotized();
 	const now = Date.now();
-	const due = compulsionsFor(event, member, activity).filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
+	const due = compulsionsFor(event, member, activity, isTriggerInEffect)
+		.filter((t) => !under || !!t.gate)
+		.filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
 	for (const t of due) {
 		if (event === "act") actFiredAt.set(t.key, now);
 		compulsionSetOffBy.set(t.key, member);
@@ -2764,8 +2826,17 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	let holding = 0;
 	let compels = 0;
 	let tooWeak = 0;
+	let reactions = 0;
 	for (const id of trigger.actions) {
 		if (id === DROP_ACTION) continue; // handled above
+		// A reaction this word switches on (v1.16.13): it holds, so the reactions have a time to be on
+		// in, and is undone when the word lets go. Nothing to apply now.
+		if (id.startsWith(REACT_PREFIX)) {
+			if (!listTriggers().some((t) => t.key === id.slice(REACT_PREFIX.length))) continue;
+			holding++;
+			reactions++;
+			continue;
+		}
 		// Words to say ("say:<n>:<text>"). A one-off event like a compel: nothing to hold, nothing
 		// to release. Each repetition is its own paced step, so a mantra is said, not pasted.
 		const say = parseSayAction(id);
@@ -2881,6 +2952,7 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	// A holding action grips the subject, so it arms the auto-release even though it is applied on
 	// a paced tick — the few seconds of drain is nothing against a release measured in minutes,
 	// and a teardown clears the drain and the release together. A compel holds nothing.
+	if (reactions) steps.push(() => tellPlayer("Something in you switches on, waiting to be touched."));
 	if (steps.length || trigger.actions.includes(DROP_ACTION)) pulse();
 	if (holding) {
 		markActive(timerKey(trigger));
@@ -3079,6 +3151,12 @@ export function isTriggerRemovalLine(content: string): boolean {
  * anything else that needs to let go — one path, so they can't drift apart. */
 function undoTrigger(trigger: Trigger): void {
 	for (const id of trigger.actions) {
+		// The word letting go ends what its reactions are holding too (v1.16.13).
+		if (id.startsWith(REACT_PREFIX)) {
+			const r = listTriggers().find((t) => t.key === id.slice(REACT_PREFIX.length));
+			if (r && isTriggerInEffect(r)) undoTrigger(r);
+			continue;
+		}
 		if (id.startsWith("touch:")) {
 			const word = id.slice("touch:".length);
 			if (word === "all") setAllSelfTouchBlocked(false);
@@ -3194,6 +3272,12 @@ export function describeAction(id: string): string {
 		return word === "all" ? "you cannot touch yourself" : `you cannot touch your ${word}`;
 	}
 	if (id === DROP_ACTION) return "you drop straight into trance";
+	if (id.startsWith(REACT_PREFIX)) {
+		const r = listTriggers().find((t) => t.key === id.slice(REACT_PREFIX.length));
+		if (!r) return "a reaction that is gone";
+		const what = describeConditionFor({ ...(r as TriggerCondition), gate: undefined }, r.installedBy, "you");
+		return `while it holds you, ${what}: ${r.actions.map(describeAction).join("; ")}`;
+	}
 	const say = parseSayAction(id);
 	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
 	if (id.startsWith("act:")) {
