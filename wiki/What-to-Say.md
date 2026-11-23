@@ -309,7 +309,7 @@ To configure subconscious triggers that activate days later or suggestions that 
 | *"you will say 'I obey' three times"* | Words said aloud (needs **Made to Speak**). |
 | *"touch your breasts three times"* | A touch, repeated (up to five; one action slot). |
 | *"take a sip"* · *"drink up"* | She sips the drink in her hand ([Taking a Sip](Commanded-Activities#taking-a-sip)). |
-| *"five minutes after you wake, …"* · *"when Rei comes in, …"* · *"when Rei speaks, …"* | A compulsion: no word, waits for that instead. |
+| *"five minutes after you wake, …"* · *"when Rei comes in, …"* · *"when Rei speaks, …"* · *"when anyone kisses you, …"* | A compulsion: no word, waits for that instead. [What *anyone* can do](Triggers-and-Lasting-Effects#5-compulsions-waiting-for-something-not-a-word). |
 
 Every trigger, including a compulsion or one named and filled on a single line (*"Missy, when you hear ember glow, kneel"*), is saved only by *"Missy, remember trigger"*. *"Missy, forget the trigger"* cancels it.
 

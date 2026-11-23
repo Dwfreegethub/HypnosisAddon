@@ -1,5 +1,6 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import { log, warn } from "./log";
+import { COMPULSION_ACT_KEYS } from "./compulsion-acts";
 import { valueFromCount, countFromValue, H_TRUST, H_EXPERIENCE } from "./curve";
 // A deliberate cycle: session.ts imports this module, and this module imports it back. DW's
 // call, made 2026-09-12 with the cost stated — see the Known Bug #4 note in design.md. It is
@@ -223,19 +224,21 @@ export interface Trigger {
 	 * `wake`: `delayMs` after the subject wakes from a trance with its installer.
 	 * `arrive`: when the watched person enters the room. `speak`: when they speak.
 	 * These have `phrase: ""` and a synthetic `key` — design.md, "Trigger Storage". */
-	fireOn?: "wake" | "arrive" | "speak";
+	fireOn?: "wake" | "arrive" | "speak" | "act";
 	/** `wake` only: how long after waking. */
 	delayMs?: number;
 	/** `wake` only: wall-clock time it is due, set when the trance ends. Absent = dormant. */
 	dueAt?: number;
 	/** `arrive`/`speak`: whose arrival or voice. "*" = anyone but the subject. */
 	watchName?: string;
-	/** `arrive`/`speak`: their member number, when they could be identified at planting. */
+	/** `arrive`/`speak`/`act`: their member number, when they could be identified at planting. */
 	watchMember?: number;
+	/** `act` (v1.16.9): what they do to her, a compulsion-acts.ts key ("kiss", "spank", "any"). */
+	act?: string;
 }
 
 /** The non-phrase conditions a trigger can fire on. */
-export const TRIGGER_CONDITIONS = ["wake", "arrive", "speak"] as const;
+export const TRIGGER_CONDITIONS = ["wake", "arrive", "speak", "act"] as const;
 
 export type TriggerScope =
 	| "hypnotist"
@@ -793,6 +796,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (t.dueAt !== undefined && !(typeof t.dueAt === "number" && t.dueAt > 0)) delete t.dueAt;
 			if (t.watchName !== undefined && typeof t.watchName !== "string") delete t.watchName;
 			if (t.watchMember !== undefined && typeof t.watchMember !== "number") delete t.watchMember;
+			if (t.act !== undefined && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the

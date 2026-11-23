@@ -1,5 +1,6 @@
 import { log, isTestingMode } from "./log";
 import { tellPlayer } from "./notify";
+import { compulsionAct, actMatches } from "./compulsion-acts";
 import {
 	getFeatures,
 	listTriggers,
@@ -507,13 +508,15 @@ interface Recording {
 
 /** What a delayed compulsion waits for (trigger overhaul Build 6). Parsed in voice.ts. */
 export interface TriggerCondition {
-	fireOn: "wake" | "arrive" | "speak";
+	fireOn: "wake" | "arrive" | "speak" | "act";
 	/** wake: how long after. 0 = the moment they wake. */
 	delayMs?: number;
 	/** arrive/speak: who, as a normalised name, or "*" for anyone. */
 	watchName?: string;
 	/** arrive/speak: their member number, when known. */
 	watchMember?: number;
+	/** act (v1.16.9): what they do to her, a compulsion-acts.ts key. */
+	act?: string;
 }
 
 /** The longest "after you wake" an installer may ask for. */
@@ -528,7 +531,15 @@ export function describeConditionFor(c: TriggerCondition, installerId: number, s
 			? "anyone"
 			: c.watchMember === installerId
 				? subject === "they" ? "you" : "the one who set it"
-				: (c.watchName ?? "someone");
+				: c.watchName
+					? c.watchName.replace(/(^|\s)([a-z])/g, (_m: string, sp: string, ch: string) => sp + ch.toUpperCase()) // "rei" reads "Rei" (v1.16.9)
+					: "someone";
+	if (c.fireOn === "act") {
+		const act = compulsionAct(c.act);
+		const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
+		const words = act ? (plural ? act.base : act.label) : "does something to you";
+		return `when ${who} ${subject === "they" ? words.replace(/\byou\b/, "them").replace(/\byour\b/, "their") : words}`;
+	}
 	return c.fireOn === "arrive" ? `when ${who} comes in` : `when ${who} speaks`;
 }
 
@@ -647,13 +658,15 @@ function nameKey(s: unknown): string {
 		.trim();
 }
 
-/** Arrival or speech compulsions this member sets off. Never the subject themself. */
-export function compulsionsFor(event: "arrive" | "speak", member: number): Trigger[] {
+/** Arrival, speech or activity compulsions this member sets off. Never the subject themself.
+ * `activity` is the BC activity name, for "act" (v1.16.9). */
+export function compulsionsFor(event: "arrive" | "speak" | "act", member: number, activity = ""): Trigger[] {
 	if (member === Player?.MemberNumber) return [];
 	const C = characterFor(member);
 	const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
 	return listTriggers().filter((t) => {
 		if (t.fireOn !== event || !triggerCanFire(t)) return false;
+		if (event === "act" && !actMatches(t.act, activity)) return false;
 		if (t.watchName === "*") return true;
 		if (t.watchMember === member) return true;
 		return !!t.watchName && names.includes(t.watchName);
@@ -1038,6 +1051,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		if (condition.fireOn === "wake") trigger.delayMs = condition.delayMs ?? 0;
 		if (condition.watchName !== undefined) trigger.watchName = condition.watchName;
 		if (condition.watchMember !== undefined) trigger.watchMember = condition.watchMember;
+		if (condition.act !== undefined) trigger.act = condition.act;
 	}
 	// A drop trigger is one-time unless its installer said "every time" AND she allows more than
 	// once (decision 10: unspecified means one-time, and her setting is the ceiling).

@@ -18,6 +18,32 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-22 (v1.16.9) — "when anyone X you" compulsions; planting lines always shown
+
+DW: "I don't think that the Trigger compulsions are in the Window", then "can we do 'When anyone X'
+and make a list that X can be".
+- The compulsions WERE on the popup's Triggers tab, but only while someone was under you, inside a
+  closed group. With nobody under, the planting groups now show greyed (a click types nothing and
+  says why). "this trigger works every time" added to Shape and Compulsions: the hint promised it
+  and no line typed it.
+- New condition `fireOn: "act"` with `act` (a compulsion-acts.ts key). The list lives in one pure
+  file that voice.ts (parser), help, the popup hint and the wiki read. Read on the subject's
+  client from BC's activity message (ActivityName, TargetMemberNumber = her), via a
+  ChatRoomRegisterMessageHandler that never stops the message, as the drinks handler does (rule 1;
+  no new hidden message).
+- Who: anyone, a name, or I, through resolveWatch as arrival and speech do. "you" as the doer is
+  refused by the regex ("when you kiss me" is not a condition). The body part after "your" is not
+  checked; said so in the wiki rather than half-supported.
+- Rests 15 s after firing (in memory): an every-time "when anyone kisses you, kiss me" on two
+  subjects could otherwise ping-pong between clients, and a run of clicks would fire it per click.
+- Safeword keeps them, as it keeps arrival and speech compulsions.
+- Popup: the "when anyone … you" line opens the list as chips (DW: "can I also get this list to
+  help build it"); a chip types "Name, when anyone spanks you, " to finish. TriggerLine.choices,
+  built from the same list; popup.mjs checks every choice parses as its act.
+- Watched names now read capitalised ("when Rei comes in", was "when rei comes in"), all kinds.
+- test/act-compulsion.mjs (34), popup.mjs (+7). Mutation-checked: no activity filter, no rest,
+  handler ignoring the target, planting groups hidden again: each fails.
+
 ### Added 2026-11-22 (v1.16.8) — "using ECHS since" on the Stats tab
 
 A player asked to track how long someone has had ECHS active (as BCX does). DW: "just the date and

@@ -820,10 +820,49 @@ function renderTriggers(body: any, status: any): void {
 		for (const g of PLANT_GROUPS)
 			triggerGroup(body, g.key, g.title, (list) => {
 				if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
-				for (const line of g.lines) list.appendChild(triggerLineButton(line, who.name, status));
+				for (const line of g.lines) {
+					if (!line.choices) {
+						list.appendChild(triggerLineButton(line, who.name, status));
+						continue;
+					}
+					// A line with a list: the button opens it, and each choice types its own start.
+					const key = `choices-${g.key}-${line.id}`;
+					const isOpen = triggerOpen.has(key);
+					const b = el("button", "echs-pop-item echs-pop-say", `${isOpen ? "−" : "+"} ${line.label}`);
+					b.type = "button";
+					b.setAttribute?.("aria-expanded", String(isOpen));
+					b.addEventListener("click", () => {
+						if (triggerOpen.has(key)) triggerOpen.delete(key);
+						else triggerOpen.add(key);
+						renderBody();
+					});
+					list.appendChild(b);
+					if (!isOpen) continue;
+					const chips = el("div", "echs-pop-buttons");
+					for (const choice of line.choices) {
+						const text = suggestionText(who.name, choice.phrase);
+						chips.appendChild(chip(choice.label, text, () => typeIt(status, text, `Typed. Finish it (${line.finish}), then press Enter.`)));
+					}
+					list.appendChild(chips);
+				}
 			});
 	} else {
-		body.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first. The planting lines appear here."));
+		// Shown greyed rather than hidden (DW, 2026-11-22: the compulsions seemed missing), so the
+		// lines can be read before anyone is under; a click says why it typed nothing.
+		body.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are below to read."));
+		for (const g of PLANT_GROUPS)
+			triggerGroup(body, g.key, g.title, (list) => {
+				if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
+				for (const line of g.lines) {
+					const b = el("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, `${line.release ? "↺ " : ""}${line.label}`);
+					b.type = "button";
+					b.title = "Put someone under first.";
+					b.addEventListener("click", () => {
+						setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
+					});
+					list.appendChild(b);
+				}
+			});
 	}
 	// 2. What you planted, per person here.
 	for (const p of plantedPeople()) {
