@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.8 · 22 November 2026
+
+- **"Using ECHS since".** Your Stats tab now shows the date you started using ECHS, next to your
+  experience. It counts from your last reset, and only you see it. If you had ECHS already, it
+  starts from the first time you look.
+
 ## v1.16.7 · 22 November 2026
 
 - The note ECHS shows when this update reaches you, summing up v1.15.0 to v1.16.6 below.

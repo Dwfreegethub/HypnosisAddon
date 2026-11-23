@@ -530,6 +530,10 @@ interface HypnoAddonSettings {
 	/** Her face before a spoken face command changed it (v1.11.0, face.ts), kept until it is put
 	 * back. Here, not in memory, for the same reason as eyesSaved. */
 	faceSaved?: FaceSaved;
+	/** When this save began (v1.16.8; a player's request, DW 2026-11-22: just the date, just for
+	 * the player, only since a reset). Shown on her own Stats tab. A reset makes a fresh save, so it
+	 * starts again; a save from before this has none and starts the first time it is read. */
+	usingSince?: number;
 	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
 	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
 	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
@@ -657,6 +661,7 @@ function defaultSettings(): HypnoAddonSettings {
 		triggerScope: "hypnotist",
 		// A new or reset save already has the Friends rung, so nothing it later chooses is moved.
 		friendsRung: true,
+		usingSince: Date.now(),
 		triggerDurationMinutes: 5,
 		triggerLifespanMinutes: 0,
 		dropTriggers: "off",
@@ -737,6 +742,8 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.inductionSeconds !== undefined && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+	// Not a time, or in the future: dropped, and it starts again from when it is next read.
+	if (s.usingSince !== undefined && (typeof s.usingSince !== "number" || !Number.isFinite(s.usingSince) || s.usingSince > Date.now() + 86_400_000)) delete s.usingSince;
 	if (s.friendsRung !== true) {
 		if (s.triggerScope === "whitelist") s.triggerScope = "friends";
 		if (s.toyScope === "whitelist") s.toyScope = "friends";
@@ -909,6 +916,17 @@ export function flushAccountSync(): void {
 	} catch (err) {
 		warn("could not send ECHS settings to the server; they are kept on this device and go with the next save", err);
 	}
+}
+
+/** Since when she has used ECHS, counted from her last reset (v1.16.8). A save from before this
+ * version has no date: it starts now, and is saved so it stays put. */
+export function getUsingSince(): number {
+	const s = loadSettings();
+	if (typeof s.usingSince !== "number") {
+		s.usingSince = Date.now();
+		saveSettings();
+	}
+	return s.usingSince;
 }
 
 export function getTrust(memberId: number): TrustEntry | undefined {

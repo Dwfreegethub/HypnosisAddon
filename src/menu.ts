@@ -7,6 +7,7 @@ import {
 	setFeature,
 	FeatureToggles,
 	experienceValue,
+	getUsingSince,
 	rawExperience,
 	exportSettings,
 	importSettings,
@@ -1981,6 +1982,13 @@ function drawTrustSearch(): void {
  * who you are closest to, and how far ahead of everyone else they are — and a dropdown
  * showing one person at a time throws that away while also being a worse way to find
  * anyone in a list of forty. */
+/** "3 Nov 2026", the same on every browser. */
+export function usingSinceText(at: number): string {
+	const d = new Date(at);
+	const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+	return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function drawStats(): void {
 	const line = (y: number, name: string, value: string, detail: string, color = "Black") => {
 		drawLeftTextFit(name, STAT_NAME_X, y, STAT_NAME_MAX, color);
@@ -1997,7 +2005,8 @@ function drawStats(): void {
 		drawDataButtons();
 		return;
 	}
-	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions`);
+	// Since when she has used ECHS (v1.16.8): on the Experience row, so the trust list keeps its room.
+	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions · using ECHS since ${usingSinceText(getUsingSince())}`);
 	line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
 
 	// Nobody at all, and there is nothing to search. A search with no matches keeps its box.

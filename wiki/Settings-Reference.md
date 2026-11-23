@@ -191,6 +191,7 @@ Accessible via the **Advanced** toggle below the tabs:
 * **Find:** A search box beside the trust list. Type any part of someone's nickname, account name or member number and the list narrows as you type. Someone who was last seen before this box existed can only be found by the one name that was stored for them, until you next see them.
 * **[x]:** Deletes that person's trust, the same as `/echs forgettrust`. It asks first: the button reads *Sure?* for 5 seconds, and a second click deletes. It cannot be undone. Greyed out while your settings are locked.
 * **Trust & Experience Records:** A breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*.
+* **Using ECHS since** (since v1.16.8): on the Experience line, the date you started using ECHS, counted from your last reset (`/echs reset confirm` starts it again). Only you see it. If you had ECHS before v1.16.8, it counts from the first time you open the Stats tab on that version.
 * **Trust fades when you don't see someone:** How fast trust fades without contact (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*).
 * **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#10-data--backup).
 
