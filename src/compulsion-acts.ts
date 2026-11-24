@@ -58,6 +58,12 @@ export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "bite", label: "bites you", base: "bite you", verb: String.raw`(?:bites?|nibbles?)`, activities: ["Bite", "Nibble"] },
 	{ key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
 	{ key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
+	// Penetration (v1.16.16, DW, from a player's suggestion). R134 ActivityDictionary: PenetrateSlow /
+	// PenetrateFast are "Rei slowly / roughly penetrates Missy's vagina / butt / mouth with her
+	// ActivityAsset" (a strap-on, a dildo, a penis). The Reverse ones are the other way round: "Rei
+	// fucks Missy's strap-on with her pussy / ass", so they are "rides you".
+	{ key: "fuck", label: "fucks you", base: "fuck you", verb: String.raw`(?:fucks?|penetrates?|screws?)`, activities: ["PenetrateSlow", "PenetrateFast"] },
+	{ key: "ride", label: "rides you", base: "ride you", verb: String.raw`(?:rides?)`, activities: ["ReversePenetratePussy", "ReversePenetrateAss"] },
 	// Items put on her (v1.16.15, DW 2026-11-23, from a player's suggestion). Seen from BC's own
 	// "ActionUse"/"ActionSwap" message naming her as the target (R134 Dialog.js, ChatRoom.js
 	// ChatRoomPublishAction), so only items put on through the game's item menu count.
