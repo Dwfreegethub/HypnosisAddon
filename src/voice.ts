@@ -3949,6 +3949,10 @@ export const ACTIVITY_VERBS: ActivityVerb[] = [
 	// item that allows it), the target's zone naked and empty, mouth open; no UseHands, so a worn
 	// strap-on works while she is bound (a hand-held dildo needs her hands: Activity.js).
 	{ activity: "PenetrateSlow", re: /\b(?:fuck|penetrate|screw|pound)\b/, othersOnly: true, parts: PENETRATE_WORDS, defaultPart: "pussy" },
+	// v1.16.18 (DW): "Missy, suck my strap-on". BC's SuckPenetrateItem: on ItemVulva, needs the
+	// TARGET's strap-on (TargetNeeds-PenetrateItem), her tongue (UseTongue: not gagged) and the zone
+	// bare. Only strap-on words, so "suck my cock" stays BC's plain Suck as before.
+	{ activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo"] },
 	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
 	{ activity: "Pinch", re: /\bpinch\b/ },
 	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -3969,7 +3973,15 @@ export const ACTIVITY_VERBS: ActivityVerb[] = [
 	{ activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ },
 ];
 /** Part words for activities: the self-touch dictionary plus two only the new verbs need (v1.16.5). */
-export const ACT_PARTS: Record<string, string[]> = { ...BODY_PARTS, hand: ["ItemHands"], collar: ["ItemNeck"] };
+export const ACT_PARTS: Record<string, string[]> = {
+	...BODY_PARTS,
+	hand: ["ItemHands"],
+	collar: ["ItemNeck"],
+	// A strap-on is worn over the vulva; BC's SuckPenetrateItem targets ItemVulva (v1.16.18).
+	strap: ["ItemVulva"],
+	strapon: ["ItemVulva"],
+	dildo: ["ItemVulva"],
+};
 /** The zones a part word names, or none. */
 export function partGroups(word: string | null | undefined): string[] {
 	return word ? ACT_PARTS[word] ?? [] : [];
@@ -3979,6 +3991,7 @@ const ACT_WORD: Record<string, string> = {
 	MasturbateHand: "finger",
 	PenetrateSlow: "fuck",
 	PenetrateFast: "fuck",
+	SuckPenetrateItem: "suck",
 	MassageHands: "massage",
 	HandGag: "put a hand over",
 	CollarGrab: "grab",
@@ -4557,6 +4570,10 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 		// Her own state, so said whoever it was aimed at (v1.16.17, DW: no strap-on, declined).
 		if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem()) {
 			tellHypnotist(sender, "[command] Refused — they aren't wearing a strap-on, or anything else to do that with.");
+			return true;
+		}
+		if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
+			tellHypnotist(sender, `[command] "suck" didn't land on you — you need a strap-on on, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
 			return true;
 		}
 		if (onHypnotist && cmd.activity.startsWith("Penetrate")) {

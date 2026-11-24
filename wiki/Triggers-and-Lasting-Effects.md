@@ -158,6 +158,7 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *pulls your hair* (or *tugs*) | Pull |
 | *kicks you* | Kick |
 | *fucks you* (or *penetrates*, *screws you*; since v1.16.16) | Slow or fast penetration, with a strap-on, a dildo or anything else the game allows; pussy, butt or mouth |
+| *sucks your strap-on* (or *sucks on your strap-on*, *your dildo*; since v1.16.18) | Someone sucking the strap-on you're wearing |
 | *does anything to you* | Any activity at all |
 
 **Items put on you** (since v1.16.15). The same kind of compulsion can wait for someone putting a restraint on you, or locking one, through the game's item menu. *Anyone* can be a name or *I* here too: *"Missy, whenever anyone gags you, you are very aroused"*.

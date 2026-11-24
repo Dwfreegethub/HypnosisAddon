@@ -80,6 +80,11 @@ check("'fuck me a sandwich' is not an order", m("Missy, fuck me a sandwich"), nu
 check("not a self command", m("Missy, fuck yourself"), null);
 check("negated: nothing", m("Missy, don't fuck me"), null);
 
+// "Suck my strap-on" (v1.16.18). Failure: "suck my cock" changed from BC's plain Suck, or no part read.
+check("suck my strap-on", m("Missy, suck my strap-on"), P("SuckPenetrateItem", "me", "strap"));
+check("suck on Rei's strap-on, suck my dildo", [m("Missy, suck on Rei's strap-on"), m("Missy, suck my dildo")], [P("SuckPenetrateItem", "rei", "strap"), P("SuckPenetrateItem", "me", "dildo")]);
+check("suck my cock is still plain Suck", m("Missy, suck my cock")?.activity, "Suck");
+
 // --- the handler ----------------------------------------------------------------------------------
 storage.setFeature("hypnoEnabled", true);
 storage.setFeature("compelActivity", true);
@@ -103,6 +108,16 @@ ALLOWED[HYP] = {};
 reset();
 say("Missy, fuck me");
 check("BC refuses: nothing run, and what to check", [runCalls.length, /has to be bare and empty/.test(lastReport())], [0, true]);
+
+// Suck: BC offers it only while the target wears the strap-on (TargetNeeds-PenetrateItem).
+ALLOWED[HYP] = { ItemVulva: ["SuckPenetrateItem"] };
+reset();
+say("Missy, suck my strap-on");
+check("suck my strap-on: on the hypnotist's vulva, by her", lastRun(), { actor: 1, acted: HYP, activity: "SuckPenetrateItem", group: "ItemVulva" });
+ALLOWED[HYP] = {};
+reset();
+say("Missy, suck my strap-on");
+check("BC refuses: what to check", [runCalls.length, /you need a strap-on on/.test(lastReport())], [0, true]);
 
 // Someone else still needs "Made to touch others".
 reset();
