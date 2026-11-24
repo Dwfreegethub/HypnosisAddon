@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.14. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.15. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1027,14 +1027,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function actMatches(key, activityName) {
     const act = compulsionAct(key);
     if (!act || !activityName) return false;
+    const item = /^(item|lock):(.+)$/.exec(activityName);
+    if (act.items) {
+      if (!item || item[1] === "lock" !== !!act.lock) return false;
+      const group = item[2];
+      return act.items.length === 0 ? group.startsWith("Item") : act.items.includes(group);
+    }
+    if (item) return false;
     return act.activities.length === 0 || act.activities.includes(activityName);
   }
   function compulsionActList() {
     return COMPULSION_ACTS.map((a) => a.label).join(", ");
   }
-  var COMPULSION_ACTS, COMPULSION_ACT_KEYS;
+  var DEFAULT_ACT_OBJECT, itemEvent, lockEvent, COMPULSION_ACTS, COMPULSION_ACT_KEYS;
   var init_compulsion_acts = __esm({
     "src/compulsion-acts.ts"() {
+      DEFAULT_ACT_OBJECT = String.raw`you(?:r [a-z]+)?`;
+      itemEvent = (group) => `item:${group}`;
+      lockEvent = (group) => `lock:${group}`;
       COMPULSION_ACTS = [
         { key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
         {
@@ -1055,6 +1065,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "bite", label: "bites you", base: "bite you", verb: String.raw`(?:bites?|nibbles?)`, activities: ["Bite", "Nibble"] },
         { key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
         { key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
+        // Items put on her (v1.16.15, DW 2026-11-23, from a player's suggestion). Seen from BC's own
+        // "ActionUse"/"ActionSwap" message naming her as the target (R134 Dialog.js, ChatRoom.js
+        // ChatRoomPublishAction), so only items put on through the game's item menu count.
+        { key: "gag", label: "gags you", base: "gag you", verb: String.raw`(?:gags?|puts? a gag (?:on|in))`, object: String.raw`you(?:r mouth)?`, activities: [], items: ["ItemMouth", "ItemMouth2", "ItemMouth3"] },
+        { key: "blindfold", label: "blindfolds you", base: "blindfold you", verb: String.raw`(?:blindfolds?|hoods?|puts? a (?:blindfold|hood) on)`, object: "you", activities: [], items: ["ItemHead"] },
+        { key: "collar", label: "collars you", base: "collar you", verb: String.raw`(?:collars?|puts? a collar on)`, object: "you", activities: [], items: ["ItemNeck"] },
+        { key: "arms", label: "ties your arms", base: "tie your arms", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?)`, object: String.raw`your (?:arms|wrists|hands)(?: together| up)?`, activities: [], items: ["ItemArms", "ItemHands"] },
+        { key: "legs", label: "ties your legs", base: "tie your legs", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?)`, object: String.raw`your (?:legs|ankles|feet|thighs)(?: together)?`, activities: [], items: ["ItemLegs", "ItemFeet", "ItemBoots"] },
+        { key: "bind", label: "ties you up", base: "tie you up", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?|puts? (?:something|anything) on)`, object: String.raw`you(?: up| down)?`, activities: [], items: [] },
+        { key: "lock", label: "locks something on you", base: "lock something on you", verb: String.raw`(?:locks?)`, object: String.raw`(?:(?:something|anything) on you|you(?:r [a-z]+)?(?: up)?)`, activities: [], items: [], lock: true },
         { key: "any", label: "does anything to you", base: "do anything to you", verb: String.raw`(?:(?:do|does) (?:anything|something)(?: at all)? to|uses? an activity on|plays? with)`, activities: [] }
       ];
       COMPULSION_ACT_KEYS = COMPULSION_ACTS.map((a) => a.key);
@@ -8306,11 +8326,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return due.length;
   }
+  function itemEventOf(data, metadata) {
+    if (data?.Type !== "Action" || metadata?.TargetMemberNumber !== Player?.MemberNumber) return null;
+    if (data.Content === "ActionAddLock") {
+      const group2 = metadata?.GroupName;
+      return typeof group2 === "string" ? lockEvent(group2) : null;
+    }
+    if (data.Content !== "ActionUse" && data.Content !== "ActionSwap") return null;
+    const next = metadata?.Assets?.NextAsset;
+    if (!next || next.Wear === false) return null;
+    const group = next.Group?.Name ?? metadata?.GroupName;
+    return typeof group === "string" ? itemEvent(group) : null;
+  }
   function installCompulsions() {
     if (compulsionPoll) return;
     if (typeof ChatRoomRegisterMessageHandler === "function") {
       ChatRoomRegisterMessageHandler({
-        Description: "HypnosisAddon: activity compulsions",
+        Description: "HypnosisAddon: activity compulsions (and items)",
         Priority: 200,
         Callback: (_data, sender, _msg, metadata) => {
           try {
@@ -8318,6 +8350,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
             if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
               noteActivity2(by, String(metadata.ActivityName));
             }
+            const item = itemEventOf(_data, metadata);
+            if (item && typeof by === "number") noteActivity2(by, item);
           } catch (err) {
             warn("activity compulsion handler failed:", err);
           }
@@ -10673,7 +10707,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
       COND_ACTS = COMPULSION_ACTS.map((a) => ({
         key: a.key,
-        re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} you(?:r [a-z]+)?\b`)
+        re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} ${a.object ?? DEFAULT_ACT_OBJECT}\b`)
       }));
       PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
       rereadingRest = false;
@@ -11539,6 +11573,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
       dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
       dim("kicks you, pulls your hair, or does anything to you (any activity)."),
+      body(`"Missy, whenever anyone gags you, ..."   "when Rei ties your arms, ..."`),
+      dim("Or blindfolds, collars, ties your legs, ties you up (any restraint), or locks"),
+      dim("something on you: items put on through the game's item menu."),
       dim('Then "remember trigger". Once, unless you say it works every time'),
       dim('(on its own line or the same one), or start with "whenever" / "every time";'),
       dim("never while they are under. Waking from anyone's trance sets off the"),
@@ -13312,7 +13349,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.14"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.15"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13385,7 +13422,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.14"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.15"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14221,7 +14258,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.14", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.15", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14258,7 +14295,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.14", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.15", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14300,7 +14337,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.14", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.15", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17373,7 +17410,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.14"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.15"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18428,7 +18465,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.14"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.15"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18455,7 +18492,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.14"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.15"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18530,14 +18567,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.14"})`);
+      info(`script loaded (v${"1.16.15"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.14",
+          version: "1.16.15",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18679,10 +18716,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.14"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.15"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.14";
+    page2.__ECHS_LOADED__ = "1.16.15";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

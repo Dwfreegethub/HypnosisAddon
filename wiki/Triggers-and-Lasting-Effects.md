@@ -159,6 +159,20 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *kicks you* | Kick |
 | *does anything to you* | Any activity at all |
 
+**Items put on you** (since v1.16.15). The same kind of compulsion can wait for someone putting a restraint on you, or locking one, through the game's item menu. *Anyone* can be a name or *I* here too: *"Missy, whenever anyone gags you, you are very aroused"*.
+
+| Say | Which slots count |
+|---|---|
+| *gags you* (or *puts a gag on you*, *puts a gag in your mouth*) | Any of the three mouth slots |
+| *blindfolds you* (or *hoods you*) | Head (blindfolds and hoods) |
+| *collars you* (or *puts a collar on you*) | Neck |
+| *ties your arms* (or *cuffs*, *binds* *your wrists* / *your hands*) | Arms, hands |
+| *ties your legs* (or *your ankles*, *your feet*, *your thighs*) | Legs, feet, boots |
+| *ties you up* (or *binds*, *cuffs*, *restrains you*, *puts something on you*) | Any restraint slot |
+| *locks something on you* (or *locks your gag*, *locks you up*) | A lock added to any item |
+
+An item swapped for another counts; taking one off doesn't. Clothing doesn't count, and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
+
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.
 
 Whatever follows the condition on the same line is recorded, just as on its own line: a suggestion, words to say, or a drop. The hypnotist can also end the line at the condition and give the suggestions on the lines that follow.
