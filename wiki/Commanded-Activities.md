@@ -161,11 +161,14 @@ The same verbs, aimed at a person instead of `your <part>`:
 | *"Missy, grab Rei by the collar"* · *"grab my collar"* · *"grab me"* | Grabs their collar, if they wear one. *"Grab me a drink"* does nothing. |
 | *"Missy, cover my mouth"* · *"hand gag Rei"* · *"put your hand over Rei's mouth"* | Her hand over their mouth. |
 | *"Missy, peck my hand"* · *"politely kiss Rei"* | A polite kiss, on the hand unless you name a part (feet, lips). |
+| *"Missy, fuck me"* · *"fuck me with your strap-on"* · *"fuck Rei"* | With her strap-on (since v1.16.17): slow penetration, the pussy unless you name a part. |
+| *"Missy, fuck me hard"* · *"fuck my ass roughly"* · *"fuck Rei's mouth"* | *Hard*, *rough* or *fast* anywhere on the line makes it fast. Parts: pussy, ass (or butt), mouth. *"Penetrate"*, *"screw"* and *"pound"* work too. |
 
 * **Names are exact.** Use the person's full name or their nickname as shown in the room. A partial or misspelled name does nothing. If two people answer to the same name, nothing happens and the hypnotist is told why.
 * **Permission:** the subject needs *Made to Act*. For anyone other than the hypnotist, she also needs **Made to Touch Others**, which is off by default.
 * **The other person's own game settings decide.** ECHS asks Bondage Club whether the subject could do this to them by clicking: their arousal zones and activity settings, and the item permission they give the subject. If the game says no, it does not happen. The other person needs no add-on.
 * **What the hypnotist is told when it doesn't land:** on their own body, which of their own settings stopped it. On anyone else, only that it didn't land and never why, so the command can't be used to learn a stranger's settings.
+* **Fucking needs a strap-on** (or anything else the game lets her penetrate with). Without one, the hypnotist is told she isn't wearing one. A worn strap-on still works while she is tied up; a hand-held dildo doesn't. The game also wants the spot bare and empty: no clothing, chastity belt or toy in the way, and an open mouth for a mouth.
 * **`feel` is not used here.** *"Feel my hands on you"* is ordinary hypnotic patter, so it never aims a touch at anyone.
 * **Not yet in triggers.** A touch aimed at a person cannot be recorded into a trigger yet. Saying one while a trigger records is refused.
 

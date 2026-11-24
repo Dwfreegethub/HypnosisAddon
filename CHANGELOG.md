@@ -13,12 +13,19 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.17 · 23 November 2026
+
+- **"Missy, fuck me."** With *Made to Act* she uses her strap-on on you: slowly, in the pussy, unless
+  you say *hard* (or *rough*, *fast*) or name her ass or mouth. *"Fuck Rei"* works too with *Made to
+  Touch Others*. Without a strap-on on, it's refused and you're told why. Being tied up doesn't stop
+  a worn strap-on.
+- **"rides you" is gone again.** The game has no activity for it, so it could never go off.
+
 ## v1.16.16 · 23 November 2026
 
 - **"When anyone fucks you" and "rides you".** *"Missy, whenever anyone fucks you, you are very
   aroused"* waits for someone penetrating her with a strap-on or anything else the game allows
-  (pussy, butt or mouth). *"rides you"* waits for someone riding her strap-on. Both are in the popup's
-  list.
+  (pussy, butt or mouth). It's in the popup's list.
 
 ## v1.16.15 · 23 November 2026
 

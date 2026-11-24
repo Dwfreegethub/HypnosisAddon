@@ -123,6 +123,8 @@ declare function ActivityGetGroupOrMirror(family: string, groupName: string): an
 declare function ActivityAllowedForGroup(character: any, groupName: string): any[];
 // Activity.js — PERFORM an activity: runs arousal + progress and sends the room's Type:"Activity"
 // message, so a commanded touch renders exactly like the subject clicking it.
+// R134 Character.js: the worn items whose AllowActivity includes `activity` (a strap-on for "PenetrateItem").
+declare function CharacterItemsForActivity(C: any, activity: string): any[];
 declare function ActivityRun(actor: any, acted: any, targetGroup: any, itemActivity: any, sendMessage?: boolean): void;
 // Assets — resolve a group name to its group object (for ActivityRun's targetGroup arg).
 declare function AssetGroupGet(family: string, groupName: string): any;
