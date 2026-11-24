@@ -37,6 +37,10 @@ export const DEFAULT_ACT_OBJECT = String.raw`you(?:r [a-z]+)?`;
  * name ever reads as one. Built by the message handler in voice.ts installCompulsions. */
 export const itemEvent = (group: string): string => `item:${group}`;
 export const lockEvent = (group: string): string => `lock:${group}`;
+/** Kinds of item that are not one slot (v1.16.19). Sent as extra item events (`item:@chaste`) beside
+ * the slot's own, so no slot act ever counts them twice: "@" never starts with "Item". */
+export const KIND_CHASTE = "@chaste";
+export const KIND_VIBE = "@vibe";
 
 export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
@@ -75,6 +79,14 @@ export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "arms", label: "ties your arms", base: "tie your arms", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?)`, object: String.raw`your (?:arms|wrists|hands)(?: together| up)?`, activities: [], items: ["ItemArms", "ItemHands"] },
 	{ key: "legs", label: "ties your legs", base: "tie your legs", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?)`, object: String.raw`your (?:legs|ankles|feet|thighs)(?: together)?`, activities: [], items: ["ItemLegs", "ItemFeet", "ItemBoots"] },
 	{ key: "bind", label: "ties you up", base: "tie you up", verb: String.raw`(?:ties?|binds?|cuffs?|restrains?|puts? (?:something|anything) on)`, object: String.raw`you(?: up| down)?`, activities: [], items: [] },
+	// v1.16.19 (DW): any item the game marks chaste (Chaste, BreastChaste, ButtChaste: belts, cages,
+	// bras, shields, and also diapers and the vacbed), in any slot. Above "lock", whose "locks you"
+	// would otherwise claim "locks you in chastity".
+	{ key: "chastity", label: "locks you in chastity", base: "lock you in chastity", verb: String.raw`(?:locks?|puts?)`, object: String.raw`you in(?:to)? (?:a )?chastity(?: belt| cage| bra)?`, activities: [], items: [KIND_CHASTE] },
+	// Plugs and vibes are separate (DW). A plug is anything in the butt slot (plugs, tails, beads).
+	{ key: "plug", label: "plugs you", base: "plug you", verb: String.raw`(?:plugs?|puts? an? (?:butt ?)?plug in)`, object: String.raw`you(?:r (?:ass|butt|bottom))?`, activities: [], items: ["ItemButt"] },
+	// A vibe: a vibrator, egg or dildo in the vulva slot, not a cage or cockring (see voice.ts itemEventsOf).
+	{ key: "vibe", label: "puts a vibrator in you", base: "put a vibrator in you", verb: String.raw`(?:puts? an? (?:vibrator|vibe|dildo|egg|toy) (?:in|inside))`, object: String.raw`you(?:r pussy)?`, activities: [], items: [KIND_VIBE] },
 	{ key: "lock", label: "locks something on you", base: "lock something on you", verb: String.raw`(?:locks?)`, object: String.raw`(?:(?:something|anything) on you|you(?:r [a-z]+)?(?: up)?)`, activities: [], items: [], lock: true },
 	{ key: "any", label: "does anything to you", base: "do anything to you", verb: String.raw`(?:(?:do|does) (?:anything|something)(?: at all)? to|uses? an activity on|plays? with)`, activities: [] },
 ];

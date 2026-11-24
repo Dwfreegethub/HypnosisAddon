@@ -220,6 +220,8 @@ declare function ChatRoomSendEmote(message: string): void;
 // leaving orphans; pass Refresh=false while looping and refresh once at the end.
 declare function InventoryRemove(character: any, assetGroup: string, refresh?: boolean): void;
 declare function InventoryGet(character: any, assetGroup: string): any;
+// R134 Inventory.js: does the item (with its current option) carry this effect.
+declare function InventoryItemHasEffect(item: any, effect?: string, checkProperties?: boolean): boolean;
 // R133 Character.js: "Eyes" sets both eyes (it recurses into Eyes2); refuses an expression the group
 // does not allow. See eyes.ts.
 // R133 Inventory.js / Appearance.js, for taking an eye shadow off and putting it back (eyes.ts).

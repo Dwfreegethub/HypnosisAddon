@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.19 · 23 November 2026
+
+- **Chastity, plugs and vibes.** Three more things a compulsion can wait for: *"whenever anyone
+  locks you in chastity, …"* (any chastity item: belt, cage, bra, shield), *"whenever anyone plugs
+  you, …"* (a butt plug or tail) and *"whenever anyone puts a vibrator in you, …"* (a vibe, egg or
+  dildo). All three are in the popup's list.
+
 ## v1.16.18 · 23 November 2026
 
 - **"Suck my strap-on."** *"Missy, suck my strap-on"* (or *"suck on Rei's strap-on"*) has her suck
