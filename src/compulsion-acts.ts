@@ -40,6 +40,14 @@ export const lockEvent = (group: string): string => `lock:${group}`;
 /** Kinds of item that are not one slot (v1.16.19). Sent as extra item events (`item:@chaste`) beside
  * the slot's own, so no slot act ever counts them twice: "@" never starts with "Item". */
 export const KIND_CHASTE = "@chaste";
+/** A kind's event carries the slot it was put in, so a hold can watch it (v1.16.20). */
+export const kindEvent = (kind: string, group: string): string => `item:${kind}|${group}`;
+/** The slot an item or lock event is about: "item:@chaste|ItemPelvis" and "item:ItemPelvis" both
+ * give "ItemPelvis". Null for an activity. */
+export function eventSlot(event: string): string | null {
+	const m = /^(?:item|lock):(?:@[a-z]+\|)?(.+)$/.exec(event);
+	return m ? m[1] : null;
+}
 export const KIND_VIBE = "@vibe";
 
 export const COMPULSION_ACTS: CompulsionAct[] = [
@@ -105,7 +113,7 @@ export function actMatches(key: string | undefined, activityName: string): boole
 	const item = /^(item|lock):(.+)$/.exec(activityName);
 	if (act.items) {
 		if (!item || (item[1] === "lock") !== !!act.lock) return false;
-		const group = item[2];
+		const group = item[2].split("|")[0];
 		return act.items.length === 0 ? group.startsWith("Item") : act.items.includes(group);
 	}
 	if (item) return false;

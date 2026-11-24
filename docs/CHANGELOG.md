@@ -18,6 +18,30 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.20) — item compulsions that hold while the item is on
+
+DW asked whether an item compulsion could keep her in its state until the item comes off, rather
+than fire once. Decided (one question at a time): an option line, not the default; instant effects
+repeat every 2 minutes; only arousal levels and orgasm repeat, not undressing.
+
+- Option `whileWorn` ("this trigger holds while you wear it", "it lasts until it comes off"), applied
+  only when the recording is an item compulsion; otherwise the hypnotist is told it's ignored (rule 5).
+- Firing: `fireEventCompulsions` records `wornHold` (slot, the asset now worn there, and `lock` for a
+  lock compulsion) on the stored trigger, so a reload keeps it. fireTrigger then marks it active
+  with NO auto-release, even when it has only instant actions, and markSpent treats it as holding.
+  Kind events now carry their slot (`item:@chaste|ItemPelvis`, `eventSlot()`) so a chastity hold
+  knows which slot to watch. A second event while it holds (a gag swapped) updates the watch
+  instead of firing on top of itself.
+- `checkWornHolds`, on the existing 5-second compulsion poll: an item no longer in the slot (or a
+  different one, or the lock gone) lets go via undoTrigger and tells her; a hold released some other
+  way (the words, the safeword) just drops its watch; otherwise arousal-* and orgasm-force repeat
+  every WORN_REPEAT_MS, gated by her permission now and the trigger's strength, as a firing is.
+  Polled rather than read from BC's removal message, so struggling out, keys and other add-ons count.
+- Restore: a worn hold has no deadline, so recovery restores it with no clock and the poll resumes.
+
+`test/worn-hold.mjs` (27), mutation-checked five ways (timer kept, never lets go, everything repeats,
+no spacing, swap re-fires). Live test: script_test.md Z6.
+
 ### Added 2026-11-23 (v1.16.19) — chastity, plug and vibe compulsions
 
 DW, item 3 of the strap-on suggestion: chastity = any chaste item; plugs and vibes separate. Live R134

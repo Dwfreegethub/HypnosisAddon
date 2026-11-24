@@ -87,18 +87,18 @@ check("a chat line: nothing", voice.itemEventOf({ Type: "Chat", Content: "Action
 // or a kind counted as a slot ("ties you up" firing twice).
 const evs = (next, group) => voice.itemEventsOf(...msg("ActionUse", Player.MemberNumber, next, group));
 const withEffect = (Group, Name, Effect) => ({ ...asset(Group, Name), Effect });
-check("a chastity belt: its slot, and chaste", evs(withEffect("ItemPelvis", "MetalChastityBelt", ["Chaste"])), ["item:ItemPelvis", "item:@chaste"]);
-check("a chastity bra (BreastChaste)", evs(withEffect("ItemBreast", "MetalChastityBra", ["BreastChaste"])), ["item:ItemBreast", "item:@chaste"]);
-check("a cage in the vulva slot: chaste, not a vibe", evs(withEffect("ItemVulva", "FlatChastityCage", ["Chaste"])), ["item:ItemVulva", "item:@chaste"]);
-check("a dildo (FillVulva): a vibe", evs(withEffect("ItemVulva", "PenisDildo", ["FillVulva"])), ["item:ItemVulva", "item:@vibe"]);
-check("an egg (UseRemote): a vibe", evs(withEffect("ItemVulva", "VibratingEgg", ["UseRemote"])), ["item:ItemVulva", "item:@vibe"]);
-check("Ben Wa balls (no effect, by name): a vibe", evs(asset("ItemVulva", "BenWaBalls")), ["item:ItemVulva", "item:@vibe"]);
-check("a remote-run cage (Chaste, UseRemote): still not a vibe", evs(withEffect("ItemVulva", "TechnoChastityCage", ["Chaste", "UseRemote"])), ["item:ItemVulva", "item:@chaste"]);
+check("a chastity belt: its slot, and chaste", evs(withEffect("ItemPelvis", "MetalChastityBelt", ["Chaste"])), ["item:ItemPelvis", "item:@chaste|ItemPelvis"]);
+check("a chastity bra (BreastChaste)", evs(withEffect("ItemBreast", "MetalChastityBra", ["BreastChaste"])), ["item:ItemBreast", "item:@chaste|ItemBreast"]);
+check("a cage in the vulva slot: chaste, not a vibe", evs(withEffect("ItemVulva", "FlatChastityCage", ["Chaste"])), ["item:ItemVulva", "item:@chaste|ItemVulva"]);
+check("a dildo (FillVulva): a vibe", evs(withEffect("ItemVulva", "PenisDildo", ["FillVulva"])), ["item:ItemVulva", "item:@vibe|ItemVulva"]);
+check("an egg (UseRemote): a vibe", evs(withEffect("ItemVulva", "VibratingEgg", ["UseRemote"])), ["item:ItemVulva", "item:@vibe|ItemVulva"]);
+check("Ben Wa balls (no effect, by name): a vibe", evs(asset("ItemVulva", "BenWaBalls")), ["item:ItemVulva", "item:@vibe|ItemVulva"]);
+check("a remote-run cage (Chaste, UseRemote): still not a vibe", evs(withEffect("ItemVulva", "TechnoChastityCage", ["Chaste", "UseRemote"])), ["item:ItemVulva", "item:@chaste|ItemVulva"]);
 check("a cockring: neither", evs(withEffect("ItemVulva", "BasicCockring", ["CanEdge"])), ["item:ItemVulva"]);
 check("a butt plug: just its slot", evs(asset("ItemButt", "BlackButtPlug")), ["item:ItemButt"]);
 // The effect only on the option she was put in it with: read off the worn item.
 globalThis.InventoryGet = (C, g) => (C === Player && g === "ItemPelvis" ? { Asset: { Name: "OrnateChastityBelt" }, Property: { Effect: ["Chaste"] } } : null);
-check("chaste only by its option: seen on the worn item", evs(asset("ItemPelvis", "OrnateChastityBelt")), ["item:ItemPelvis", "item:@chaste"]);
+check("chaste only by its option: seen on the worn item", evs(asset("ItemPelvis", "OrnateChastityBelt")), ["item:ItemPelvis", "item:@chaste|ItemPelvis"]);
 delete globalThis.InventoryGet;
 
 // --- which slot counts for which act ---------------------------------------------------------------
@@ -108,7 +108,7 @@ check("gag: not the arms", m("gag", "item:ItemArms"), false);
 check("arms vs legs", [m("arms", "item:ItemHands"), m("arms", "item:ItemFeet"), m("legs", "item:ItemFeet"), m("legs", "item:ItemArms")], [true, false, true, false]);
 check("ties you up: any restraint slot, not clothing", [m("bind", "item:ItemDevices"), m("bind", "item:Cloth")], [true, false]);
 check("a lock is not an item going on, and back", [m("lock", "lock:ItemArms"), m("lock", "item:ItemArms"), m("bind", "lock:ItemArms")], [true, false, false]);
-check("a kind is not a slot", [m("bind", "item:@chaste"), m("chastity", "item:@chaste"), m("chastity", "item:ItemPelvis"), m("vibe", "item:@vibe"), m("plug", "item:ItemButt"), m("plug", "item:@vibe")], [false, true, false, true, true, false]);
+check("a kind is not a slot", [m("bind", "item:@chaste|ItemPelvis"), m("chastity", "item:@chaste|ItemPelvis"), m("chastity", "item:ItemPelvis"), m("vibe", "item:@vibe|ItemVulva"), m("plug", "item:ItemButt"), m("plug", "item:@vibe|ItemVulva")], [false, true, false, true, true, false]);
 check("activities and items never mix", [m("any", "item:ItemMouth"), m("kiss", "item:ItemMouth"), m("gag", "Kiss")], [false, false, false]);
 
 // Penetration (v1.16.16): activities, not items. Failure: "fucks you" taking the wrong activity or

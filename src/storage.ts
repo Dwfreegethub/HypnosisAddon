@@ -243,6 +243,13 @@ export interface Trigger {
 	/** A REACTION (v1.16.13; DW 2026-11-22, "sensitive"): this compulsion belongs to the word trigger
 	 * whose key this is (same installer), and is switched on only while that trigger holds her. */
 	gate?: string;
+	/** v1.16.20 (DW): an item compulsion that holds while the item stays on ("this trigger holds
+	 * while you wear it"): no duration timer; it lets go when the item comes off, and its arousal
+	 * and orgasm repeat every 2 minutes meanwhile. */
+	whileWorn?: true;
+	/** While a whileWorn trigger holds: the slot and item it is waiting on (and, for a lock compulsion,
+	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. */
+	wornHold?: { group: string; asset: string; lock?: true };
 }
 
 /** The non-phrase conditions a trigger can fire on. */
@@ -806,6 +813,8 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (t.watchMember !== undefined && typeof t.watchMember !== "number") delete t.watchMember;
 			if (t.act !== undefined && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
 			if (t.gate !== undefined && typeof t.gate !== "string") delete t.gate;
+			if (t.whileWorn !== undefined && t.whileWorn !== true) delete t.whileWorn;
+			if (t.wornHold !== undefined && (typeof t.wornHold?.group !== "string" || typeof t.wornHold?.asset !== "string")) delete t.wornHold;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the
