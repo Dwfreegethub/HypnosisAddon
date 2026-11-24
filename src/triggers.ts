@@ -789,7 +789,7 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 				break;
 			}
 			recording.whileWorn = true;
-			noted = "it holds for as long as they wear the item and lets go when it comes off; arousal and orgasm repeat every 2 minutes meanwhile";
+			noted = "it holds for as long as they wear the item and lets go when it comes off; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)";
 			break;
 	}
 	log(`trigger ${recordingLabel()} option: ${noted}`);

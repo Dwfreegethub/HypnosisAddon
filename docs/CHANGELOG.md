@@ -18,6 +18,16 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-23 (v1.16.21) — held-while-worn repeats slow down
+
+A review of v1.16.20 pointed out that every 2 minutes for as long as the item is worn would be
+spammy, an orgasm most of all (it shows in the room). DW chose, one question at a time: arousal 2, 2,
+2, 5, then every 10 minutes; orgasm 5, 10, then every 20. `WORN_REPEAT_MINUTES` holds both
+schedules (the last gap repeats), `wornRepeatGapMs(kind, n)` reads them, and each held trigger keeps
+a clock and count per kind, so a trigger with both runs them independently. In memory only: a reload
+starts the slow-down again from the top. `test/worn-hold.mjs` +4 (the gaps, and arousal landing at
+minutes 2, 4, 6, 11, 21 of a held gag).
+
 ### Added 2026-11-23 (v1.16.20) — item compulsions that hold while the item is on
 
 DW asked whether an item compulsion could keep her in its state until the item comes off, rather

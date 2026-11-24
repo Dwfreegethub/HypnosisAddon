@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.21 · 23 November 2026
+
+- **Held item compulsions slow down.** While the item stays on, arousal comes back after 2, 2 and 2
+  minutes, then 5, then every 10; an orgasm after 5, then 10, then every 20. Before, both came every
+  2 minutes, which got spammy.
+
 ## v1.16.20 · 23 November 2026
 
 - **Item compulsions can hold while the item is on.** Add *"Missy, this trigger holds while you
