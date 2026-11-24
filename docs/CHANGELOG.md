@@ -18,6 +18,14 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-23 (v1.16.24) — toys before the penis when nothing is named
+
+DW, on a male subject wearing a dildo gag: "if someone put a dildo gag on someone they want it to be
+used... only use Penis if requested." With no tool named, runCommandedActivity now sorts BC's
+ItemActivities by `toolRank`: dildo gag 0, strap-on 1, dildo in hand 2, anything else 3, penis 9
+(stable sort, so BC's order holds within a rank). A named tool still filters exactly as in v1.16.23.
+`test/fuck-command.mjs` +4, mutation-checked (taking BC's first fails 2).
+
 ### Added 2026-11-23 (v1.16.23) — "fuck me" in the popup; choosing the dildo
 
 DW: "Where are the fuck with dildo options." The v1.16.17/18 commands were only typed; the Suggestions

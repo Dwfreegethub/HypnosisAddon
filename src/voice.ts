@@ -4342,7 +4342,9 @@ function runCommandedActivity(activityName: string, groupNames: string[], target
 		} catch {
 			allowed = [];
 		}
-		const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
+		const matching = allowed.filter((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
+		// Nothing named: toys first, the penis last (stable sort keeps BC's order otherwise).
+		const itemActivity = tool ? matching[0] : [...matching].sort((x, y) => toolRank(x?.Item) - toolRank(y?.Item))[0];
 		if (!itemActivity) continue;
 		const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
 		if (!groupObj) continue;
@@ -4574,6 +4576,19 @@ const TOOL_GROUPS: Record<PenetrateTool, (g: string) => boolean> = {
 	cock: (g) => g === "Pussy",
 };
 const TOOL_NAME: Record<PenetrateTool, string> = { strap: "a strap-on", dildo: "a dildo in hand", gag: "a dildo gag", cock: "a cock" };
+/** With nothing named, which to use first (v1.16.24, DW: "if someone put a dildo gag on someone they
+ * want it to be used... only use the penis if requested"): toys before the body, the gag first.
+ * Lower is sooner; an activity with no item ranks with the toys and keeps BC's order. */
+function toolRank(item: any): number {
+	if (!item) return 3;
+	const g = String(item?.Asset?.Group?.Name ?? "");
+	if (TOOL_GROUPS.gag(g)) return 0;
+	if (TOOL_GROUPS.strap(g)) return 1;
+	if (TOOL_GROUPS.dildo(g)) return 2;
+	if (TOOL_GROUPS.cock(g)) return 9;
+	return 3;
+}
+
 /** Does this BC item (from an ItemActivity or her appearance) count as `tool`? No tool: anything. */
 function itemIsTool(item: any, tool?: PenetrateTool): boolean {
 	return !tool || TOOL_GROUPS[tool](String(item?.Asset?.Group?.Name ?? ""));

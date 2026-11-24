@@ -143,6 +143,20 @@ tools = ["ItemMouth"];
 reset();
 say("Missy, fuck my mouth with your gag");
 check("with the dildo gag she has: lands, on the mouth", [usedTool.at(-1), lastRun()?.group], ["ItemMouth", "ItemMouth"]);
+// v1.16.24 (DW): nothing named, a dildo gag on: the gag, not the penis BC lists first. Only "with your
+// cock" uses the penis. Failure: the penis by default while a toy is on.
+tools = ["Pussy", "ItemMouth"];
+reset();
+say("Missy, fuck me");
+check("nothing named, penis and dildo gag: the gag", usedTool.at(-1), "ItemMouth");
+say("Missy, fuck me with your cock");
+check("  'with your cock': the penis", usedTool.at(-1), "Pussy");
+tools = ["Pussy", "ItemHandheld", "ItemPelvis"];
+say("Missy, fuck me");
+check("nothing named, penis, dildo and strap-on: the strap-on", usedTool.at(-1), "ItemPelvis");
+tools = ["Pussy"];
+say("Missy, fuck me");
+check("only the penis: the penis", usedTool.at(-1), "Pussy");
 globalThis.ActivityRun = realRun;
 
 // Someone else still needs "Made to touch others".

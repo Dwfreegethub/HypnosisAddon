@@ -13,6 +13,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.24 · 23 November 2026
+
+- **"Fuck me" uses the toy she has on.** With nothing named, a dildo gag goes first, then a strap-on,
+  then a dildo in hand; a penis only when you say *"with your cock"* (or it's all there is).
+
 ## v1.16.23 · 23 November 2026
 
 - **"Fuck me" in the popup, and with a dildo.** The *Suggestions* tab now has *"fuck me"* (and *hard*,
