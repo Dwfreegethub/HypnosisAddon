@@ -146,6 +146,24 @@ session.safeword();
 voice.checkWornHolds(clock);
 check("safeword: not held, watch dropped", [only() ? voice.isTriggerInEffect(only()) : false, only()?.wornHold], [false, undefined]);
 
+// --- slowing down (v1.16.21, DW): arousal 2,2,2,5 then 10; orgasm 5,10 then 20 -------------------------
+// Failure: every 2 minutes for ever (the spam a review pointed out), or orgasm on the arousal clock.
+const gaps = (kind, n) => Array.from({ length: n }, (_, i) => voice.wornRepeatGapMs(kind, i) / MIN);
+check("arousal gaps", gaps("arousal", 7), [2, 2, 2, 5, 10, 10, 10]);
+check("orgasm gaps", gaps("orgasm", 5), [5, 10, 20, 20, 20]);
+check("which kind", [voice.wornRepeatKind("arousal-full"), voice.wornRepeatKind("orgasm-force"), voice.wornRepeatKind("undress")], ["arousal", "orgasm", null]);
+reset();
+plant(["Missy, whenever anyone gags you, you are very aroused", "Missy, this trigger holds while you wear it"]);
+putOn("ItemMouth", "BallGag");
+const t0 = clock;
+const repeatsAt = [];
+for (let m = 1; m <= 30; m++) {
+	const n0 = arousalSet.length;
+	voice.checkWornHolds(t0 + m * MIN);
+	if (arousalSet.length > n0) repeatsAt.push(m);
+}
+check("arousal repeats at minutes 2, 4, 6, 11, 21", repeatsAt, [2, 4, 6, 11, 21]);
+
 // --- only arousal and orgasm repeat (DW) -------------------------------------------------------------------
 check("repeats: arousal and orgasm, not undressing", [voice.repeatsWhileWorn("arousal-high"), voice.repeatsWhileWorn("orgasm-force"), voice.repeatsWhileWorn("undress-all"), voice.repeatsWhileWorn("freeze")], [true, true, false, false]);
 

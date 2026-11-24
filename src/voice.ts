@@ -2707,7 +2707,7 @@ function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number,
 		log(`compulsion (${event}) set off by ${member}`);
 		if (hold) {
 			t.wornHold = hold;
-			wornRepeatAt.set(t.key, now);
+			startWornRepeats(t.key, now);
 			updateTriggers();
 		}
 		fireTrigger(t, t.installedBy);
@@ -2812,16 +2812,37 @@ function itemHasEffect(asset: any, group: string, effect: string): boolean {
 // --- Held while worn (v1.16.20, DW 2026-11-23) ------------------------------------------------
 // An item compulsion planted with "this trigger holds while you wear it" holds until the item comes
 // off: polled, not read from BC's removal message, so struggling out, a key, or another add-on
-// taking it off are seen too. Meanwhile its arousal and orgasm repeat every 2 minutes (DW). The
+// taking it off are seen too. Meanwhile its arousal and orgasm repeat, slowing down (v1.16.21). The
 // release words and the safeword end it as they end any hold; the poll then forgets the watch.
 
-/** How often a held item compulsion's arousal and orgasm are applied again (DW: every 2 minutes). */
-export const WORN_REPEAT_MS = 2 * 60_000;
-const wornRepeatAt = new Map<string, number>();
+/** The gaps between repeats while worn, in minutes; the last one then repeats for as long as it is
+ * worn. v1.16.21 (DW, after a review said every 2 minutes would be spammy): arousal 2, 2, 2, 5,
+ * then every 10; an orgasm shows in the room each time, so it is slower: 5, 10, then every 20. */
+export const WORN_REPEAT_MINUTES = { arousal: [2, 2, 2, 5, 10], orgasm: [5, 10, 20] } as const;
+export type WornRepeatKind = keyof typeof WORN_REPEAT_MINUTES;
 
-/** Which of a trigger's actions repeat while worn (DW: arousal and orgasm, not undressing). */
+/** How long after repeat `n` (0 = the firing) the next one comes. Exported for the tests. */
+export function wornRepeatGapMs(kind: WornRepeatKind, n: number): number {
+	const gaps = WORN_REPEAT_MINUTES[kind];
+	return gaps[Math.min(n, gaps.length - 1)] * 60_000;
+}
+
+/** Per held trigger and kind: when it last happened and how many repeats so far. In memory: a reload
+ * starts the slow-down again from the top, which is the gentle side. */
+const wornRepeats = new Map<string, Record<WornRepeatKind, { at: number; n: number }>>();
+function startWornRepeats(key: string, now: number): void {
+	wornRepeats.set(key, { arousal: { at: now, n: 0 }, orgasm: { at: now, n: 0 } });
+}
+
+/** Which of a trigger's actions repeat while worn (DW: arousal and orgasm, not undressing), and as
+ * which kind; null for one that doesn't. */
+export function wornRepeatKind(id: string): WornRepeatKind | null {
+	if (id.startsWith("arousal-")) return "arousal";
+	if (id === "orgasm-force") return "orgasm";
+	return null;
+}
 export function repeatsWhileWorn(id: string): boolean {
-	return id.startsWith("arousal-") || id === "orgasm-force";
+	return wornRepeatKind(id) !== null;
 }
 
 /** The item she wears in a slot, by name, or "". */
@@ -2857,13 +2878,13 @@ export function checkWornHolds(now: number = Date.now()): number {
 		if (!isTriggerInEffect(t)) {
 			// Released some other way (the words, the safeword): stop watching.
 			delete t.wornHold;
-			wornRepeatAt.delete(t.key);
+			wornRepeats.delete(t.key);
 			updateTriggers();
 			continue;
 		}
 		if (!wornStillOn(t.wornHold)) {
 			delete t.wornHold;
-			wornRepeatAt.delete(t.key);
+			wornRepeats.delete(t.key);
 			updateTriggers();
 			undoTrigger(t);
 			tellPlayer("As it comes off, whatever it was holding in you lets go.");
@@ -2871,25 +2892,30 @@ export function checkWornHolds(now: number = Date.now()): number {
 			released++;
 			continue;
 		}
-		const last = wornRepeatAt.get(t.key);
-		if (last === undefined) {
-			wornRepeatAt.set(t.key, now); // after a reload: the clock starts again
+		const clocks = wornRepeats.get(t.key);
+		if (!clocks) {
+			startWornRepeats(t.key, now); // after a reload: the slow-down starts again
 			continue;
 		}
-		if (now - last < WORN_REPEAT_MS || !triggersArmed()) continue;
-		wornRepeatAt.set(t.key, now);
-		repeatWornActions(t);
+		if (!triggersArmed()) continue;
+		for (const kind of Object.keys(clocks) as WornRepeatKind[]) {
+			const c = clocks[kind];
+			if (now - c.at < wornRepeatGapMs(kind, c.n)) continue;
+			c.at = now;
+			c.n++;
+			repeatWornActions(t, kind);
+		}
 	}
 	return released;
 }
 
-/** Apply a held trigger's arousal and orgasm again, gated as a firing is: her permission now, and
+/** Apply a held trigger's arousal (or orgasm) again, gated as a firing is: her permission now, and
  * the trigger's own strength. */
-function repeatWornActions(t: Trigger): void {
+function repeatWornActions(t: Trigger, kind: WornRepeatKind): void {
 	const features = getFeatures();
 	const strength = triggerStrength(t);
 	for (const id of t.actions) {
-		if (!repeatsWhileWorn(id)) continue;
+		if (wornRepeatKind(id) !== kind) continue;
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
 		if (!suggestion || permissionReason(suggestion, features)) continue;
 		if (!depthAllows(keyFor(suggestion, features), strength, strength)) continue;

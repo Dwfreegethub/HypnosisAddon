@@ -245,7 +245,7 @@ export interface Trigger {
 	gate?: string;
 	/** v1.16.20 (DW): an item compulsion that holds while the item stays on ("this trigger holds
 	 * while you wear it"): no duration timer; it lets go when the item comes off, and its arousal
-	 * and orgasm repeat every 2 minutes meanwhile. */
+	 * and orgasm repeat meanwhile, slowing down (voice.ts WORN_REPEAT_MINUTES). */
 	whileWorn?: true;
 	/** While a whileWorn trigger holds: the slot and item it is waiting on (and, for a lock compulsion,
 	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. */
