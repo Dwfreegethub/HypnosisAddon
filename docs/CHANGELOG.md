@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-23 (v1.16.14) — the Stats tab's "last interacted" date
+
+DW: after a restart, people on the Stats tab showed "0 min" whom DW had not just interacted with.
+The row read the trust entry's `lastUpdated`, which is decay's clock: `applyDecay` charges on read
+and sets it to now, so opening the tab with decay on reset everyone owed at least one step. That bug
+dates from trust decay itself; the v1.15.1 `lastTogether` attempt (reverted in v1.15.2) also counted
+ambient room chat and fell back to the polluted `lastUpdated`.
+
+DW decided: directed only, and blank the old dates. Trust entries gain `lastInteracted`, set by
+`addInteractions(..., direct = true)`: a directed conversation line (whisper or her name) and the
+induction accelerator. Ambient chat, decay, `/echs trust` adjustments and `setTrustValue` never move
+it. No fallback to `lastUpdated`: entries saved before it read "last —" until the next direct
+interaction. The row shows a date ("last today", "last Nov 20", "last Jan 5 2025"), not "N ago".
+Keyholder lock timeouts are unaffected: they use their own `seenAt`. `test/last-interacted.mjs`
+(16), mutation-checked (showing `lastUpdated` and counting ambient chat fails 4).
+
 ### Added 2026-11-22 (v1.16.13) — reactions: a word that switches compulsions on
 
 DW: a trigger "sensitive" that, once set off, adds a reaction to groping. My first design (a

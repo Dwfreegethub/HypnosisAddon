@@ -164,7 +164,12 @@ export interface TrustEntry {
 	/** Interaction COUNT, not a 0-100 value — see curve.ts for why. Derive the trust
 	 * value with `trustWith()`; never store one. */
 	interactions: number;
+	/** Decay's clock: when the count last moved, decay included. Never shown (v1.16.14). */
 	lastUpdated: number;
+	/** When this person last interacted with her directly: a whisper, a line with her name, an
+	 * induction (v1.16.14, DW). Ambient room chat and decay never move it. The Stats tab shows it
+	 * as a date. Missing on entries saved before it existed: they show a dash until next time. */
+	lastInteracted?: number;
 }
 
 /** A planted trigger. Persistent — this is the first thing the add-on stores that outlives
@@ -837,6 +842,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			log(`migrated trust for ${entry.memberName}: value ${legacy} → ${entry.interactions.toFixed(1)} interactions`);
 		}
 		entry.interactions ??= 0;
+		if (entry.lastInteracted !== undefined && typeof entry.lastInteracted !== "number") delete entry.lastInteracted;
 	}
 	return s;
 }
@@ -1087,7 +1093,14 @@ function isRealName(name: string): boolean {
 
 /** Add (or with a negative delta, remove) interactions. The only way trust moves —
  * conversation, the induction accelerator and decay all come through here. */
-export function addInteractions(memberId: number, memberName: string, delta: number, accountName?: string): TrustEntry {
+export function addInteractions(
+	memberId: number,
+	memberName: string,
+	delta: number,
+	accountName?: string,
+	/** True for a direct interaction (whisper, her name, induction): moves `lastInteracted`. */
+	direct: boolean = false,
+): TrustEntry {
 	const settings = loadSettings();
 	let entry = settings.trust.find((t) => t.memberId === memberId);
 	if (!entry) {
@@ -1098,6 +1111,7 @@ export function addInteractions(memberId: number, memberName: string, delta: num
 	if (isRealName(memberName)) entry.memberName = memberName;
 	if (accountName) entry.accountName = accountName;
 	entry.lastUpdated = Date.now();
+	if (direct) entry.lastInteracted = entry.lastUpdated;
 	saveSettings();
 	return entry;
 }

@@ -67,7 +67,7 @@ export function noteConversation(sender: number, senderName: string, directed: b
 	if (now - last < RATE_LIMIT_MS) return;
 	lastCounted.set(sender, now);
 	const gain = directed ? DIRECTED_MULTIPLIER : 1;
-	const entry = addInteractions(sender, senderName, gain, characterFor(sender)?.Name);
+	const entry = addInteractions(sender, senderName, gain, characterFor(sender)?.Name, directed);
 	log(
 		`trust +${gain} with ${trustEntryLabel(entry)} (${directed ? "directed" : "ambient"}) → ` +
 			`${entry.interactions.toFixed(1)} interactions = ${valueFromCount(entry.interactions, H_TRUST).toFixed(1)}`,
@@ -84,7 +84,7 @@ export function noteInductionAttempt(): void {
 /** Called additionally when an induction succeeds. Both halves of the accelerator: trust
  * with that specific hypnotist, and the deeper practice of actually going under. */
 export function noteInductionSuccess(hypnotistId: number, hypnotistName: string): void {
-	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS, characterFor(hypnotistId)?.Name);
+	const entry = addInteractions(hypnotistId, hypnotistName, INDUCTION_INTERACTIONS, characterFor(hypnotistId)?.Name, true);
 	const exp = addExperience(INDUCTION_EXPERIENCE);
 	log(
 		`induction accelerator: +${INDUCTION_INTERACTIONS} interactions with ${trustEntryLabel(entry)} → ` +
@@ -107,14 +107,20 @@ export interface TrustStatRow {
 	detail: string;
 }
 
-function agoText(timestamp: number): string {
-	if (!timestamp) return "never";
-	const mins = Math.floor((Date.now() - timestamp) / 60_000);
-	if (mins < 1) return "just now";
-	if (mins < 60) return `${mins}m ago`;
-	const hours = Math.floor(mins / 60);
-	if (hours < 24) return `${hours}h ago`;
-	return `${Math.floor(hours / 24)}d ago`;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The Stats tab's "last interacted" (v1.16.14, DW): a date, not "N ago". Today reads "last today";
+ * this year "Nov 20"; older "Nov 20 2025". No date (an entry from before v1.16.14, or someone
+ * who has only chatted nearby) reads "—". Exported for the tests. */
+export function interactedText(timestamp: number | undefined, now: number = Date.now()): string {
+	if (!timestamp) return "last —";
+	const d = new Date(timestamp);
+	const n = new Date(now);
+	if (d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()) {
+		return "last today";
+	}
+	const day = `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+	return `last ${d.getFullYear() === n.getFullYear() ? day : `${day} ${d.getFullYear()}`}`;
 }
 
 /** Per-person rows for the settings screen's Stats tab, strongest first. Shows the
@@ -252,7 +258,7 @@ export function trustStatRows(query: string = ""): TrustStatRow[] {
 			memberId: t.memberId,
 			name: trustEntryLabel(t),
 			trust: trustWith(t.memberId).toFixed(1),
-			detail: `${t.interactions.toFixed(1)} interactions · ${agoText(t.lastUpdated)}`,
+			detail: `${t.interactions.toFixed(1)} interactions · ${interactedText(t.lastInteracted)}`,
 		}));
 }
 
