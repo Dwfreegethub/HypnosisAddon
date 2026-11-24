@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.23. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.24. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -9221,7 +9221,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       } catch {
         allowed = [];
       }
-      const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
+      const matching = allowed.filter((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
+      const itemActivity = tool ? matching[0] : [...matching].sort((x, y) => toolRank(x?.Item) - toolRank(y?.Item))[0];
       if (!itemActivity) continue;
       const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
       if (!groupObj) continue;
@@ -9365,6 +9366,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     tellHypnotist(sender, "[command] Too vague \u2014 her hands wander on their own. Name a part to steer them.");
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
+  }
+  function toolRank(item) {
+    if (!item) return 3;
+    const g = String(item?.Asset?.Group?.Name ?? "");
+    if (TOOL_GROUPS.gag(g)) return 0;
+    if (TOOL_GROUPS.strap(g)) return 1;
+    if (TOOL_GROUPS.dildo(g)) return 2;
+    if (TOOL_GROUPS.cock(g)) return 9;
+    return 3;
   }
   function itemIsTool(item, tool) {
     return !tool || TOOL_GROUPS[tool](String(item?.Asset?.Group?.Name ?? ""));
@@ -13590,7 +13600,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.23"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.24"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13663,7 +13673,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.23"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.24"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14499,7 +14509,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.23", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.24", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14536,7 +14546,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.23", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.24", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14578,7 +14588,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.23", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.24", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17665,7 +17675,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.23"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.24"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18735,7 +18745,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.23"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.24"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18762,7 +18772,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.23"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.24"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18837,14 +18847,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.23"})`);
+      info(`script loaded (v${"1.16.24"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.23",
+          version: "1.16.24",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18986,10 +18996,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.23"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.24"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.23";
+    page2.__ECHS_LOADED__ = "1.16.24";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
