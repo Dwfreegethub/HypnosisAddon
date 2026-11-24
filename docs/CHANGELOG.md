@@ -18,6 +18,29 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.17) — "Missy, fuck me"; "rides you" taken out
+
+DW, the commanded half of a player's strap-on suggestion: slow by default, "hard" for fast, the
+pussy by default, declined without a strap-on, and asked whether bondage stops it. Live R134
+Female3DCG: PenetrateSlow/Fast need ZoneAccessible, TargetMouthOpen, VulvaEmpty, AssEmpty,
+Needs-PenetrateItem and ZoneNaked, no UseHands. Activity.js ActivityGenerateItemActivitiesFromNeed
+drops only ItemHandheld penetrators when the actor can't use her hands, so a worn strap-on works
+while bound (DW's guess was right). A new ACTIVITY_VERBS entry (PenetrateSlow, othersOnly, parts
+pussy/ass/mouth and synonyms, default pussy); matchTargetedActivityCommand swaps in PenetrateFast
+when hard/rough/fast is on the line; the default-part tail now takes "with your <thing>" and more
+adverbs, and "<verb> me in the <part>" is read like "on the". No strap-on (R134 Character.js
+CharacterItemsForActivity(Player, "PenetrateItem") empty) is refused with the reason, for any target,
+since it is her own state; a refusal on the hypnotist's own body names what to check.
+
+Found on the way: addressee scoping cut "Missy, fuck Rei" to "Missy, fuck", because "fuck" was not
+in OBJECT_VERBS (the list of verbs whose following name is an object, not a new addressee). Added
+fuck/penetrate/screw/pound.
+
+"rides you" (v1.16.16) is removed: ActivityDictionary.csv still carries ReversePenetratePussy/Ass
+text, but R134 Female3DCG defines no such activity, so it could never fire (rule 5). It was on dev
+for under an hour; a saved one loses its act in normalise and never fires. "Ride me" as a command
+is impossible for the same reason. `test/fuck-command.mjs` (17), item-compulsion updated.
+
 ### Added 2026-11-23 (v1.16.16) — "fucks you" and "rides you"
 
 DW chose reading (a) of a player's strap-on suggestion first: a compulsion when someone does it to

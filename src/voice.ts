@@ -1633,6 +1633,8 @@ export const OBJECT_VERBS = new Set([
 	// Rei's mouth". The self-only movements are here too, to keep the check above simple.
 	"cuddle", "hug", "snuggle", "nuzzle", "kick", "grab", "peck", "gag", "cover", "put", "clamp", "on",
 	"wiggle", "wriggle", "shake", "sway", "jiggle", "bounce", "shimmy",
+	// v1.16.17: "Missy, fuck Rei".
+	"fuck", "penetrate", "screw", "pound",
 ]);
 
 const bareWord = (w: string) => w.replace(/[^A-Za-z]/g, "").toLowerCase();
@@ -3922,6 +3924,10 @@ export type ActivityVerb = {
 };
 /** The mouth, for the hand over it. */
 const MOUTH_WORDS = ["mouth", "lips"];
+/** Where a strap-on goes (v1.16.17). BC's PenetrateSlow/Fast target ItemVulva, ItemButt, ItemMouth. */
+const PENETRATE_WORDS = ["pussy", "vulva", "cunt", "ass", "butt", "bottom", "mouth"];
+/** Said anywhere on a "fuck me" line, it is the fast one. */
+const PENETRATE_FAST = /\b(?:hard|harder|rough|roughly|fast|faster)\b/;
 export const ACTIVITY_VERBS: ActivityVerb[] = [
 	// v1.16.5 (DW 2026-11-22): BC's own movements. Wiggle is BC's self-only "wiggle" on most of the
 	// body (R134 Female3DCG TargetSelf); "wiggle your hips", "shake your breasts", "sway your hips".
@@ -3937,6 +3943,12 @@ export const ACTIVITY_VERBS: ActivityVerb[] = [
 	{ activity: "Kick", re: /\bkick\b/, othersOnly: true, defaultPart: "legs" },
 	// A polite kiss: hands, feet, lips. "kiss my hand" stays an ordinary kiss.
 	{ activity: "PoliteKiss", re: /\b(?:peck|politely kiss)\b/, parts: ["hand", "hands", "feet", "toes", "lips", "mouth"], defaultPart: "hand" },
+	// v1.16.17 (DW, from a player's suggestion): "Missy, fuck me", "fuck Rei's ass", "fuck me hard".
+	// BC's PenetrateSlow, swapped for PenetrateFast when the line says hard/rough/fast (see
+	// matchTargetedActivityCommand). R134 Female3DCG: Needs-PenetrateItem (a strap-on or other worn
+	// item that allows it), the target's zone naked and empty, mouth open; no UseHands, so a worn
+	// strap-on works while she is bound (a hand-held dildo needs her hands: Activity.js).
+	{ activity: "PenetrateSlow", re: /\b(?:fuck|penetrate|screw|pound)\b/, othersOnly: true, parts: PENETRATE_WORDS, defaultPart: "pussy" },
 	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
 	{ activity: "Pinch", re: /\bpinch\b/ },
 	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -3965,6 +3977,8 @@ export function partGroups(word: string | null | undefined): string[] {
 /** What the hypnotist and the trigger list call an activity. */
 const ACT_WORD: Record<string, string> = {
 	MasturbateHand: "finger",
+	PenetrateSlow: "fuck",
+	PenetrateFast: "fuck",
 	MassageHands: "massage",
 	HandGag: "put a hand over",
 	CollarGrab: "grab",
@@ -4357,6 +4371,13 @@ export interface TargetedActivityCommand {
  * and "<verb> my <part>". `roster` is every name that may be aimed at — this is pure, so the
  * grammar is testable without a room. Longest name first, so "Rei Chan" is not read as "Rei". */
 export function matchTargetedActivityCommand(content: string, roster: string[]): TargetedActivityCommand | null {
+	const cmd = matchTargetedRaw(content, roster);
+	// "fuck me hard" (v1.16.17, DW): slow by default, fast when the line says so.
+	if (cmd?.activity === "PenetrateSlow" && PENETRATE_FAST.test(normalize(content))) return { ...cmd, activity: "PenetrateFast" };
+	return cmd;
+}
+
+function matchTargetedRaw(content: string, roster: string[]): TargetedActivityCommand | null {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text) || COMMAND_NEGATION.test(text)) return null;
 	const names = [...new Set(roster.map((n) => normalize(String(n ?? ""))).filter((n) => n && n !== "me" && n !== "my"))]
@@ -4369,7 +4390,7 @@ export function matchTargetedActivityCommand(content: string, roster: string[]):
 			// normalize() turns "Rei's" into "rei s", so the possessive is a bare "s" token.
 			const m =
 				new RegExp(`^${lead}(?: s)? ${part}\\b`).exec(rest) ??
-				new RegExp(`^${lead} (?:on|by) (?:the|her|his|their|my) ${part}\\b`).exec(rest);
+				new RegExp(`^${lead} (?:on|by|in) (?:the|her|his|their|my) ${part}\\b`).exec(rest);
 			if (m) return { word: m[1] };
 			// A verb with its own short list never claims a part it doesn't know (v1.16.5).
 			if (!v.parts) {
@@ -4378,7 +4399,9 @@ export function matchTargetedActivityCommand(content: string, roster: string[]):
 			}
 			// A default only when nothing else follows the name: "grab me", not "grab me a drink".
 			if (v.defaultPart) {
-				return new RegExp(`^${lead}(?: (?:now|please|gently|softly|tight|tightly|close|closer|hard|for me|for us))?$`).test(rest)
+				// "fuck me hard with your strap on" (v1.16.17): adverbs either side of a "with your <thing>".
+				const adv = "(?: (?:now|please|gently|softly|tight|tightly|close|closer|hard|harder|rough|roughly|slowly|slow|fast|faster|deep|deeply|for me|for us))*";
+				return new RegExp(`^${lead}${adv}(?: with (?:your|her|his|their|the|that) [a-z]+(?: on)?)?${adv}$`).test(rest)
 					? { word: v.defaultPart }
 					: null;
 			}
@@ -4453,6 +4476,17 @@ function ownRefusalReason(hyp: any, word: string, groups: string[]): string {
 	);
 }
 
+/** Is she wearing something BC lets her penetrate with (a strap-on)? R134 Character.js
+ * CharacterItemsForActivity(C, "PenetrateItem"): a worn item whose AllowActivity has it. */
+function wearsPenetrateItem(): boolean {
+	try {
+		if (typeof CharacterItemsForActivity === "function") return CharacterItemsForActivity(Player, "PenetrateItem").length > 0;
+	} catch {
+		/* fall through */
+	}
+	return (Player?.Appearance ?? []).some((i: any) => [...(i?.Property?.AllowActivity ?? []), ...(i?.Asset?.AllowActivity ?? [])].includes("PenetrateItem"));
+}
+
 /** Returns true if the line was an activity command aimed at someone else, and has been dealt
  * with. Runs before the self grammar; a line with "your <part>" never matches here. */
 function handleTargetedActivityCommand(sender: number, content: string): boolean {
@@ -4520,6 +4554,15 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 	const groups = partGroups(word);
 	const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
 	if (!landed) {
+		// Her own state, so said whoever it was aimed at (v1.16.17, DW: no strap-on, declined).
+		if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem()) {
+			tellHypnotist(sender, "[command] Refused — they aren't wearing a strap-on, or anything else to do that with.");
+			return true;
+		}
+		if (onHypnotist && cmd.activity.startsWith("Penetrate")) {
+			tellHypnotist(sender, `[command] "${verb}" didn't land on you — your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there.`);
+			return true;
+		}
 		if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you — ${ownRefusalReason(target, word, groups)}.`);
 		else tellHypnotist(sender, `[command] "${verb}" didn't land.`);
 		return true;
