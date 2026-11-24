@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.23) — "fuck me" in the popup; choosing the dildo
+
+DW: "Where are the fuck with dildo options." The v1.16.17/18 commands were only typed; the Suggestions
+tab had no entry. Added x-fuck-me (alternates hard, with your dildo / strap-on / dildo gag, my ass,
+my mouth) and x-suck-strapon, both checked against the matcher in test/popup.mjs.
+
+Live R134 Female3DCG, AllowActivity "PenetrateItem": StraponPanties (ItemPelvis), StrapOnSmooth/Studs
+(ItemDevices), DoubleEndDildo (ItemVulva), LargeDildo/SmallDildo/GrilledSausage (ItemHandheld),
+DildoGag (ItemMouth), Penis (Pussy), and UnicornHorn/DildocornHorn/Tentacles. BC offers one
+ItemActivity per such item (Activity.js ActivityGenerateItemActivitiesFromNeed; ItemHandheld only
+when her hands are usable), and runCommandedActivity took the first. Now "with your dildo / strap-on /
+gag / cock" sets `tool`, which filters both the ItemActivity chosen and the no-tool refusal by item
+group (TOOL_GROUPS); no tool said keeps the old first-found behaviour. A tool she lacks is refused
+naming it. `test/fuck-command.mjs` +6, mutation-checked (dropping the filter uses the strap-on for
+"with your dildo").
+
 ### Fixed 2026-11-23 (v1.16.22) — the item compulsions in the popup
 
 DW: "I want to test the bondage item related triggers, but I don't see them in the window." They were

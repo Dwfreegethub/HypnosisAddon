@@ -3,14 +3,16 @@
 const HYP = 246108;
 const REI = 300, ELLA = 400;
 
-let ALLOWED = {};
-let strapOn = false;  // memberNumber -> { groupName: [activityName] }
+let ALLOWED = {};  // memberNumber -> { groupName: [activityName] }
 const runCalls = [];
+// What she holds or wears that can penetrate: BC offers one ItemActivity per such item.
+let tools = []; // e.g. ["ItemPelvis", "ItemHandheld"]
+const toolItem = (g) => ({ Asset: { Name: `toy-${g}`, Group: { Name: g } } });
 globalThis.ActivityAllowedForGroup = (char, groupName) =>
-	((ALLOWED[char?.MemberNumber] || {})[groupName] || [])
-		// BC's Needs-PenetrateItem: no strap-on, no penetration offered.
-		.filter((name) => !name.startsWith("Penetrate") || strapOn)
-		.map((name) => ({ Activity: { Name: name }, Group: groupName }));
+	((ALLOWED[char?.MemberNumber] || {})[groupName] || []).flatMap((name) =>
+		// BC's Needs-PenetrateItem: one entry per item she can do it with, none without.
+		name.startsWith("Penetrate") ? tools.map((g) => ({ Activity: { Name: name }, Group: groupName, Item: toolItem(g) })) : [{ Activity: { Name: name }, Group: groupName }],
+	);
 globalThis.AssetGroupGet = (_family, groupName) => ({ Name: groupName });
 globalThis.ActivityRun = (actor, acted, groupObj, itemActivity) =>
 	runCalls.push({ actor: actor?.MemberNumber, acted: acted?.MemberNumber, activity: itemActivity?.Activity?.Name, group: groupObj?.Name });
@@ -59,7 +61,7 @@ const lastRun = () => runCalls[runCalls.length - 1];
 const lastReport = () => toHyp.filter((t) => t.startsWith("[command]")).at(-1) ?? "";
 const reset = () => { runCalls.length = 0; toHyp.length = 0; };
 
-globalThis.CharacterItemsForActivity = (C, activity) => (C === Player && activity === "PenetrateItem" && strapOn ? [{ Asset: { Name: "StrapOn" } }] : []);
+globalThis.CharacterItemsForActivity = (C, activity) => (C === Player && activity === "PenetrateItem" ? tools.map(toolItem) : []);
 
 // --- the grammar, pure ------------------------------------------------------------------------
 const R = ["Rei", "GameBot"];
@@ -68,7 +70,10 @@ const P = (activity, target, word) => ({ activity, target, word });
 check("fuck me: slow, her pussy", m("Missy, fuck me"), P("PenetrateSlow", "me", "pussy"));
 check("fuck me hard: fast", m("Missy, fuck me hard"), P("PenetrateFast", "me", "pussy"));
 check("with your strap-on, either side of hard", [m("Missy, fuck me with your strap-on"), m("Missy, fuck me hard with your strap-on"), m("Missy, fuck me with your strap-on, hard")],
-	[P("PenetrateSlow", "me", "pussy"), P("PenetrateFast", "me", "pussy"), P("PenetrateFast", "me", "pussy")]);
+	[{ ...P("PenetrateSlow", "me", "pussy"), tool: "strap" }, { ...P("PenetrateFast", "me", "pussy"), tool: "strap" }, { ...P("PenetrateFast", "me", "pussy"), tool: "strap" }]);
+// v1.16.23: say what with. Failure: the wrong tool read, or "with your dildo gag" read as a dildo in hand.
+check("with your dildo / dildo gag / cock", [m("Missy, fuck me with your dildo")?.tool, m("Missy, fuck me with your dildo gag")?.tool, m("Missy, fuck my ass with your gag")?.tool, m("Missy, fuck me with your cock")?.tool], ["dildo", "gag", "gag", "cock"]);
+check("no tool said: none chosen", "tool" in (m("Missy, fuck me hard") ?? {}), false);
 check("roughly / fast before the verb", [m("Missy, roughly fuck me")?.activity, m("Missy, fuck me fast")?.activity], ["PenetrateFast", "PenetrateFast"]);
 check("my ass, my mouth", [m("Missy, fuck my ass"), m("Missy, fuck my mouth")], [P("PenetrateSlow", "me", "ass"), P("PenetrateSlow", "me", "mouth")]);
 check("in the ass", m("Missy, fuck me in the ass"), P("PenetrateSlow", "me", "ass"));
@@ -93,9 +98,9 @@ ALLOWED[HYP] = { ItemVulva: ["PenetrateSlow", "PenetrateFast"], ItemButt: ["Pene
 
 reset();
 say("Missy, fuck me");
-check("no strap-on: refused, and says why", [runCalls.length, /aren't wearing a strap-on/.test(lastReport())], [0, true]);
+check("nothing to fuck with: refused, and says why", [runCalls.length, /nothing to do that with/.test(lastReport())], [0, true]);
 
-strapOn = true;
+tools = ["ItemPelvis"];
 reset();
 say("Missy, fuck me");
 check("with one: slow, on the hypnotist's vulva, by her", lastRun(), { actor: 1, acted: HYP, activity: "PenetrateSlow", group: "ItemVulva" });
@@ -118,6 +123,27 @@ ALLOWED[HYP] = {};
 reset();
 say("Missy, suck my strap-on");
 check("BC refuses: what to check", [runCalls.length, /you need a strap-on on/.test(lastReport())], [0, true]);
+
+// --- choosing what with (v1.16.23) -------------------------------------------------------------------
+// Failure: "with your dildo" uses the strap-on she also wears, or a missing tool lands with another.
+const usedTool = [];
+const realRun = globalThis.ActivityRun;
+globalThis.ActivityRun = (actor, acted, groupObj, itemActivity) => { usedTool.push(itemActivity?.Item?.Asset?.Group?.Name ?? null); return realRun(actor, acted, groupObj, itemActivity); };
+ALLOWED[HYP] = { ItemVulva: ["PenetrateSlow", "PenetrateFast"], ItemMouth: ["PenetrateSlow"] };
+tools = ["ItemPelvis", "ItemHandheld"];
+reset();
+say("Missy, fuck me with your dildo");
+check("with your dildo: the one in her hand, not the strap-on", usedTool.at(-1), "ItemHandheld");
+say("Missy, fuck me with your strap-on");
+check("with your strap-on: the strap-on", usedTool.at(-1), "ItemPelvis");
+reset();
+say("Missy, fuck me with your dildo gag");
+check("with a dildo gag she hasn't got: refused, naming it", [runCalls.length, /don't have a dildo gag/.test(lastReport())], [0, true]);
+tools = ["ItemMouth"];
+reset();
+say("Missy, fuck my mouth with your gag");
+check("with the dildo gag she has: lands, on the mouth", [usedTool.at(-1), lastRun()?.group], ["ItemMouth", "ItemMouth"]);
+globalThis.ActivityRun = realRun;
 
 // Someone else still needs "Made to touch others".
 reset();

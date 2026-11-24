@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.22. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.23. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -9212,7 +9212,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     return reachable.length ? reachable[Math.floor(Math.random() * reachable.length)] : null;
   }
-  function runCommandedActivity(activityName, groupNames, target = Player) {
+  function runCommandedActivity(activityName, groupNames, target = Player, tool) {
     const family = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
     for (const groupName of groupNames) {
       let allowed = [];
@@ -9221,7 +9221,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       } catch {
         allowed = [];
       }
-      const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName);
+      const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
       if (!itemActivity) continue;
       const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
       if (!groupObj) continue;
@@ -9366,10 +9366,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
   }
+  function itemIsTool(item, tool) {
+    return !tool || TOOL_GROUPS[tool](String(item?.Asset?.Group?.Name ?? ""));
+  }
   function matchTargetedActivityCommand(content, roster) {
     const cmd = matchTargetedRaw(content, roster);
-    if (cmd?.activity === "PenetrateSlow" && PENETRATE_FAST.test(normalize(content))) return { ...cmd, activity: "PenetrateFast" };
-    return cmd;
+    if (!cmd?.activity.startsWith("Penetrate")) return cmd;
+    const text2 = normalize(content);
+    const tool = TOOL_WORDS.find(([re]) => re.test(text2))?.[1];
+    const fast = PENETRATE_FAST.test(text2);
+    return { ...cmd, ...fast ? { activity: "PenetrateFast" } : {}, ...tool ? { tool } : {} };
   }
   function matchTargetedRaw(content, roster) {
     const text2 = normalize(content);
@@ -9388,7 +9394,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         if (v.defaultPart) {
           const adv = "(?: (?:now|please|gently|softly|tight|tightly|close|closer|hard|harder|rough|roughly|slowly|slow|fast|faster|deep|deeply|for me|for us))*";
-          return new RegExp(`^${lead}${adv}(?: with (?:your|her|his|their|the|that) [a-z]+(?: on)?)?${adv}$`).test(rest) ? { word: v.defaultPart } : null;
+          return new RegExp(`^${lead}${adv}(?: with (?:your|her|his|their|the|that|a) [a-z]+(?: on| gag)?)?${adv}$`).test(rest) ? { word: v.defaultPart } : null;
         }
         if (v.parts) return null;
         return new RegExp(`^${lead}\\b`).test(rest) ? { word: null } : null;
@@ -9433,12 +9439,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return "something blocks it in BC \u2014 your arousal settings for that activity or zone, or they cannot reach (gagged, hands bound, too far away)";
   }
-  function wearsPenetrateItem() {
+  function wearsPenetrateItem(tool) {
     try {
-      if (typeof CharacterItemsForActivity === "function") return CharacterItemsForActivity(Player, "PenetrateItem").length > 0;
+      if (typeof CharacterItemsForActivity === "function") return CharacterItemsForActivity(Player, "PenetrateItem").some((i) => itemIsTool(i, tool));
     } catch {
     }
-    return (Player?.Appearance ?? []).some((i) => [...i?.Property?.AllowActivity ?? [], ...i?.Asset?.AllowActivity ?? []].includes("PenetrateItem"));
+    return (Player?.Appearance ?? []).some(
+      (i) => [...i?.Property?.AllowActivity ?? [], ...i?.Asset?.AllowActivity ?? []].includes("PenetrateItem") && itemIsTool(i, tool)
+    );
   }
   function handleTargetedActivityCommand(sender, content) {
     const roster = roomOthers();
@@ -9502,10 +9510,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     const groups = partGroups(word);
-    const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
+    const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target, cmd.tool);
     if (!landed) {
-      if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem()) {
-        tellHypnotist(sender, "[command] Refused \u2014 they aren't wearing a strap-on, or anything else to do that with.");
+      if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem(cmd.tool)) {
+        tellHypnotist(
+          sender,
+          cmd.tool ? `[command] Refused \u2014 they don't have ${TOOL_NAME[cmd.tool]} to do that with.` : "[command] Refused \u2014 they have nothing to do that with: no strap-on, dildo in hand or dildo gag."
+        );
         return true;
       }
       if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
@@ -9513,7 +9524,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return true;
       }
       if (onHypnotist && cmd.activity.startsWith("Penetrate")) {
-        tellHypnotist(sender, `[command] "${verb}" didn't land on you \u2014 your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there.`);
+        tellHypnotist(sender, `[command] "${verb}" didn't land on you \u2014 your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there. A dildo in hand needs their hands free; a dildo gag needs nothing else over their mouth.`);
         return true;
       }
       if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you \u2014 ${ownRefusalReason(target, word, groups)}.`);
@@ -9666,7 +9677,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -11138,6 +11149,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "ItemNipples"
       ];
       DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
+      TOOL_WORDS = [
+        [/\bwith (?:your|her|the|that|a) (?:dildo )?gag\b/, "gag"],
+        [/\bwith (?:your|her|the|that|a) strap ?on\b|\bwith (?:your|her|the|that|a) strapon\b/, "strap"],
+        [/\bwith (?:your|her|the|that|a) (?:dildo|toy)\b/, "dildo"],
+        [/\bwith (?:your|her|the|that|a) (?:cock|dick|penis)\b/, "cock"]
+      ];
+      TOOL_GROUPS = {
+        strap: (g) => g === "ItemPelvis" || g === "ItemDevices" || g === "ItemVulva",
+        dildo: (g) => g === "ItemHandheld",
+        gag: (g) => g.startsWith("ItemMouth"),
+        cock: (g) => g === "Pussy"
+      };
+      TOOL_NAME = { strap: "a strap-on", dildo: "a dildo in hand", gag: "a dildo gag", cock: "a cock" };
       namesOf = (c) => [c?.Name, c?.Nickname].filter((n) => typeof n === "string" && n.trim());
       COMMAND_PACE_TIMER = "command-pace";
       COMMAND_MIN_MS = 2e3;
@@ -11618,7 +11642,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
     lines.push(dim(`   Also "hug Rei" \xB7 "nuzzle me" \xB7 "kick Rei" \xB7 "grab Rei by the collar" \xB7`));
     lines.push(dim(`   "cover my mouth" \xB7 "hand gag Rei" \xB7 "peck my hand".`));
-    lines.push(dim(`   With her strap-on: "fuck me" \xB7 "fuck Rei's ass" \xB7 "fuck me hard" (fast).`));
+    lines.push(dim(`   "fuck me" \xB7 "fuck Rei's ass" \xB7 "fuck me hard" (fast) \u2014 her strap-on, a dildo`));
+    lines.push(dim(`   in hand or a dildo gag; pick with "with your dildo" / "strap-on" / "gag".`));
     lines.push(dim(`   On yours: "suck my strap-on".`));
     return lines;
   }
@@ -13565,7 +13590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.22"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.23"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13638,7 +13663,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.22"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.23"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14474,7 +14499,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.22", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.23", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14511,7 +14536,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.22", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.23", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14553,7 +14578,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.22", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.23", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17215,6 +17240,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "body", item: { id: "x-wiggle", instant: true, label: "wiggle your hips", phrase: "wiggle your hips", release: false, permission: "compelActivity", alternates: ["shake your breasts", "sway your hips", "wiggle"] } },
         { cat: "body", item: { id: "x-nod", instant: true, label: "nod", phrase: "nod", release: false, permission: "compelActivity", alternates: ["nod your head"] } },
         { cat: "body", item: { id: "x-struggle", instant: true, label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
+        // v1.16.23: the strap-on commands (v1.16.17/18) in the window too (DW: "where are the fuck with dildo options").
+        { cat: "touch", item: { id: "x-fuck-me", instant: true, label: "fuck me (her strap-on, a dildo in hand, or a dildo gag)", phrase: "fuck me", release: false, permission: "compelActivity", alternates: ["fuck me hard", "fuck me with your dildo", "fuck me with your strap-on", "fuck me with your dildo gag", "fuck my ass", "fuck my mouth"] } },
+        { cat: "touch", item: { id: "x-suck-strapon", instant: true, label: "suck my strap-on (the one you wear)", phrase: "suck my strap-on", release: false, permission: "compelActivity", alternates: ["suck my dildo"] } },
         { cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
         { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
@@ -17637,7 +17665,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.22"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.23"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18707,7 +18735,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.22"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.23"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18734,7 +18762,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.22"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.23"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18809,14 +18837,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.22"})`);
+      info(`script loaded (v${"1.16.23"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.22",
+          version: "1.16.23",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18958,10 +18986,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.22"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.23"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.22";
+    page2.__ECHS_LOADED__ = "1.16.23";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
