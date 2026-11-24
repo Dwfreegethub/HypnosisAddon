@@ -18,6 +18,15 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-23 (v1.16.22) — the item compulsions in the popup
+
+DW: "I want to test the bondage item related triggers, but I don't see them in the window." They were
+the last ten chips of the "when anyone … you" list, and with nobody under, the greyed lines did not
+open at all, so they could not be read. The item acts now have their own line (`item`, "whenever
+anyone puts an item on you", filtered by `items`); the activity line lists activities only. A
+greyed line with a list now opens it, with greyed chips that say why they type nothing.
+`test/popup.mjs` +3.
+
 ### Changed 2026-11-23 (v1.16.21) — held-while-worn repeats slow down
 
 A review of v1.16.20 pointed out that every 2 minutes for as long as the item is worn would be
