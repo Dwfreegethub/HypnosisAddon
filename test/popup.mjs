@@ -243,6 +243,8 @@ for (const c of cats) for (const it of c.items) for (const phrase of [it.phrase,
 		: it.id === "x-sip" ? voice.matchActivityCommand(line)?.kind === "sip"
 		: it.id === "x-kiss-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"
 		: it.id === "x-hug-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"
+		: it.id === "x-fuck-me" ? /^Penetrate/.test(voice.matchTargetedActivityCommand(line, ["Bea"])?.activity ?? "")
+		: it.id === "x-suck-strapon" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.activity === "SuckPenetrateItem"
 		: ["x-wiggle", "x-nod", "x-struggle", "x-cover-mouth", "x-gag-moan"].includes(it.id) ? !!voice.matchActivityCommand(line)
 		: voice.matchSuggestion(line) === it.id;
 	if (!ok) wrong.push(`${it.id}: "${line}" -> ${voice.matchSuggestion(line)}`);

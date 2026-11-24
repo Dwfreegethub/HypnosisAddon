@@ -4333,7 +4333,7 @@ function pickVagueZone(): string | null {
  * asked about THEIR zone, so BC reads their own synced arousal settings and our own reach,
  * hands and mouth — the same answer BC would give if the subject clicked them herself. We add
  * nothing to it and take nothing away. */
-function runCommandedActivity(activityName: string, groupNames: string[], target: any = Player): string | null {
+function runCommandedActivity(activityName: string, groupNames: string[], target: any = Player, tool?: PenetrateTool): string | null {
 	const family = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
 	for (const groupName of groupNames) {
 		let allowed: any[] = [];
@@ -4342,7 +4342,7 @@ function runCommandedActivity(activityName: string, groupNames: string[], target
 		} catch {
 			allowed = [];
 		}
-		const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName);
+		const itemActivity = allowed.find((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
 		if (!itemActivity) continue;
 		const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
 		if (!groupObj) continue;
@@ -4552,6 +4552,31 @@ export interface TargetedActivityCommand {
 	/** A part was named but is not one we know ("Rei's cheek"). Refused rather than read as no
 	 * part at all, which would have sent the default — a kiss on the lips — somewhere else. */
 	unknownPart?: string;
+	/** What to penetrate with, when the line says (v1.16.23): "with your dildo". */
+	tool?: PenetrateTool;
+}
+
+/** What she can penetrate with (v1.16.23). R134 Female3DCG, AllowActivity "PenetrateItem": strap-ons
+ * (ItemPelvis StraponPanties, ItemDevices StrapOnSmooth/Studs, ItemVulva DoubleEndDildo), a dildo in
+ * hand (ItemHandheld LargeDildo/SmallDildo: BC wants her hands free for those), the DildoGag
+ * (ItemMouth), a penis (Pussy), and a few oddities (a horn, tentacles) that only "anything" picks. */
+export type PenetrateTool = "strap" | "dildo" | "gag" | "cock";
+const TOOL_WORDS: [RegExp, PenetrateTool][] = [
+	[/\bwith (?:your|her|the|that|a) (?:dildo )?gag\b/, "gag"],
+	[/\bwith (?:your|her|the|that|a) strap ?on\b|\bwith (?:your|her|the|that|a) strapon\b/, "strap"],
+	[/\bwith (?:your|her|the|that|a) (?:dildo|toy)\b/, "dildo"],
+	[/\bwith (?:your|her|the|that|a) (?:cock|dick|penis)\b/, "cock"],
+];
+const TOOL_GROUPS: Record<PenetrateTool, (g: string) => boolean> = {
+	strap: (g) => g === "ItemPelvis" || g === "ItemDevices" || g === "ItemVulva",
+	dildo: (g) => g === "ItemHandheld",
+	gag: (g) => g.startsWith("ItemMouth"),
+	cock: (g) => g === "Pussy",
+};
+const TOOL_NAME: Record<PenetrateTool, string> = { strap: "a strap-on", dildo: "a dildo in hand", gag: "a dildo gag", cock: "a cock" };
+/** Does this BC item (from an ItemActivity or her appearance) count as `tool`? No tool: anything. */
+function itemIsTool(item: any, tool?: PenetrateTool): boolean {
+	return !tool || TOOL_GROUPS[tool](String(item?.Asset?.Group?.Name ?? ""));
 }
 
 /** Parse "<verb> <Name>[’s <part>]", "<verb> <Name> on the <part>", "<verb> me [on my <part>]"
@@ -4560,8 +4585,11 @@ export interface TargetedActivityCommand {
 export function matchTargetedActivityCommand(content: string, roster: string[]): TargetedActivityCommand | null {
 	const cmd = matchTargetedRaw(content, roster);
 	// "fuck me hard" (v1.16.17, DW): slow by default, fast when the line says so.
-	if (cmd?.activity === "PenetrateSlow" && PENETRATE_FAST.test(normalize(content))) return { ...cmd, activity: "PenetrateFast" };
-	return cmd;
+	if (!cmd?.activity.startsWith("Penetrate")) return cmd;
+	const text = normalize(content);
+	const tool = TOOL_WORDS.find(([re]) => re.test(text))?.[1];
+	const fast = PENETRATE_FAST.test(text);
+	return { ...cmd, ...(fast ? { activity: "PenetrateFast" } : {}), ...(tool ? { tool } : {}) };
 }
 
 function matchTargetedRaw(content: string, roster: string[]): TargetedActivityCommand | null {
@@ -4588,7 +4616,7 @@ function matchTargetedRaw(content: string, roster: string[]): TargetedActivityCo
 			if (v.defaultPart) {
 				// "fuck me hard with your strap on" (v1.16.17): adverbs either side of a "with your <thing>".
 				const adv = "(?: (?:now|please|gently|softly|tight|tightly|close|closer|hard|harder|rough|roughly|slowly|slow|fast|faster|deep|deeply|for me|for us))*";
-				return new RegExp(`^${lead}${adv}(?: with (?:your|her|his|their|the|that) [a-z]+(?: on)?)?${adv}$`).test(rest)
+				return new RegExp(`^${lead}${adv}(?: with (?:your|her|his|their|the|that|a) [a-z]+(?: on| gag)?)?${adv}$`).test(rest)
 					? { word: v.defaultPart }
 					: null;
 			}
@@ -4665,13 +4693,15 @@ function ownRefusalReason(hyp: any, word: string, groups: string[]): string {
 
 /** Is she wearing something BC lets her penetrate with (a strap-on)? R134 Character.js
  * CharacterItemsForActivity(C, "PenetrateItem"): a worn item whose AllowActivity has it. */
-function wearsPenetrateItem(): boolean {
+function wearsPenetrateItem(tool?: PenetrateTool): boolean {
 	try {
-		if (typeof CharacterItemsForActivity === "function") return CharacterItemsForActivity(Player, "PenetrateItem").length > 0;
+		if (typeof CharacterItemsForActivity === "function") return CharacterItemsForActivity(Player, "PenetrateItem").some((i: any) => itemIsTool(i, tool));
 	} catch {
 		/* fall through */
 	}
-	return (Player?.Appearance ?? []).some((i: any) => [...(i?.Property?.AllowActivity ?? []), ...(i?.Asset?.AllowActivity ?? [])].includes("PenetrateItem"));
+	return (Player?.Appearance ?? []).some(
+		(i: any) => [...(i?.Property?.AllowActivity ?? []), ...(i?.Asset?.AllowActivity ?? [])].includes("PenetrateItem") && itemIsTool(i, tool),
+	);
 }
 
 /** Returns true if the line was an activity command aimed at someone else, and has been dealt
@@ -4739,11 +4769,16 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 		return true;
 	}
 	const groups = partGroups(word);
-	const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target);
+	const landed = itemPermissionBlocks(target) ? null : runCommandedActivity(cmd.activity, groups, target, cmd.tool);
 	if (!landed) {
 		// Her own state, so said whoever it was aimed at (v1.16.17, DW: no strap-on, declined).
-		if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem()) {
-			tellHypnotist(sender, "[command] Refused — they aren't wearing a strap-on, or anything else to do that with.");
+		if (cmd.activity.startsWith("Penetrate") && !wearsPenetrateItem(cmd.tool)) {
+			tellHypnotist(
+				sender,
+				cmd.tool
+					? `[command] Refused — they don't have ${TOOL_NAME[cmd.tool]} to do that with.`
+					: "[command] Refused — they have nothing to do that with: no strap-on, dildo in hand or dildo gag.",
+			);
 			return true;
 		}
 		if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
@@ -4751,7 +4786,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 			return true;
 		}
 		if (onHypnotist && cmd.activity.startsWith("Penetrate")) {
-			tellHypnotist(sender, `[command] "${verb}" didn't land on you — your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there.`);
+			tellHypnotist(sender, `[command] "${verb}" didn't land on you — your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there. A dildo in hand needs their hands free; a dildo gag needs nothing else over their mouth.`);
 			return true;
 		}
 		if (onHypnotist) tellHypnotist(sender, `[command] "${verb}" didn't land on you — ${ownRefusalReason(target, word, groups)}.`);

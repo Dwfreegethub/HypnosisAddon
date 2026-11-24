@@ -161,7 +161,8 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   aimed at someone. Exact name or nickname. Kiss, spank, pet need no part."));
 	lines.push(dim(`   Also "hug Rei" · "nuzzle me" · "kick Rei" · "grab Rei by the collar" ·`));
 	lines.push(dim(`   "cover my mouth" · "hand gag Rei" · "peck my hand".`));
-	lines.push(dim(`   With her strap-on: "fuck me" · "fuck Rei's ass" · "fuck me hard" (fast).`));
+	lines.push(dim(`   "fuck me" · "fuck Rei's ass" · "fuck me hard" (fast) — her strap-on, a dildo`));
+	lines.push(dim(`   in hand or a dildo gag; pick with "with your dildo" / "strap-on" / "gag".`));
 	lines.push(dim(`   On yours: "suck my strap-on".`));
 	return lines;
 }

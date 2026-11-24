@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.23 · 23 November 2026
+
+- **"Fuck me" in the popup, and with a dildo.** The *Suggestions* tab now has *"fuck me"* (and *hard*,
+  *my ass*, *my mouth*) and *"suck my strap-on"*. She can use a strap-on, a dildo in her hand (hands
+  free) or a dildo gag; say which with *"fuck me with your dildo"*, *"with your strap-on"* or *"with
+  your gag"*. If she hasn't got the one you name, you're told.
+
 ## v1.16.22 · 23 November 2026
 
 - **The item compulsions are easier to find in the popup.** They have their own line in *Triggers*
