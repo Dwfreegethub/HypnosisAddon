@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.18) — "suck my strap-on", both ways
+
+DW, item 2 of the strap-on suggestion, both halves, wording as offered. Live R134 Female3DCG
+SuckPenetrateItem: Target ItemVulva; ZoneAccessible, UseTongue, ZoneNaked, TargetNeeds-PenetrateItem
+(the one sucked wears the strap-on); dictionary "SourceCharacter sucks on TargetCharacter's
+ActivityAsset". Compulsion act `suck` ("sucks your strap-on", object limited to strap-on / dildo so
+"sucks your nipples" is not claimed). Command: an ACTIVITY_VERBS entry for SuckPenetrateItem with
+parts strap / strapon / dildo only (added to ACT_PARTS as ItemVulva), above the plain Suck, so
+"suck my cock" is still BC's Suck as before. A refusal on the hypnotist's own body says what to
+check. `test/fuck-command.mjs` +5, `test/item-compulsion.mjs` +2. Live test: script_test.md Z4.
+
 ### Added 2026-11-23 (v1.16.17) — "Missy, fuck me"; "rides you" taken out
 
 DW, the commanded half of a player's strap-on suggestion: slow by default, "hard" for fast, the

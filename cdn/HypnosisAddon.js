@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.17. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.18. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1064,6 +1064,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "lick", label: "licks you", base: "lick you", verb: String.raw`(?:licks?)`, activities: ["Lick"] },
         { key: "bite", label: "bites you", base: "bite you", verb: String.raw`(?:bites?|nibbles?)`, activities: ["Bite", "Nibble"] },
         { key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
+        // v1.16.18 (DW): R134 SuckPenetrateItem, "SourceCharacter sucks on TargetCharacter's
+        // ActivityAsset", on ItemVulva, needing the TARGET to wear the strap-on (TargetNeeds-PenetrateItem).
+        { key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo)`, activities: ["SuckPenetrateItem"] },
         { key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
         // Penetration (v1.16.16, DW, from a player's suggestion). R134 ActivityDictionary: PenetrateSlow /
         // PenetrateFast are "Rei slowly / roughly penetrates Missy's vagina / butt / mouth with her
@@ -9363,6 +9366,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         tellHypnotist(sender, "[command] Refused \u2014 they aren't wearing a strap-on, or anything else to do that with.");
         return true;
       }
+      if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
+        tellHypnotist(sender, `[command] "suck" didn't land on you \u2014 you need a strap-on on, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
+        return true;
+      }
       if (onHypnotist && cmd.activity.startsWith("Penetrate")) {
         tellHypnotist(sender, `[command] "${verb}" didn't land on you \u2014 your ${word} has to be bare and empty (no clothing, belt or toy in the way, and an open mouth for a mouth), and your BC settings have to allow it there.`);
         return true;
@@ -10884,6 +10891,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // item that allows it), the target's zone naked and empty, mouth open; no UseHands, so a worn
         // strap-on works while she is bound (a hand-held dildo needs her hands: Activity.js).
         { activity: "PenetrateSlow", re: /\b(?:fuck|penetrate|screw|pound)\b/, othersOnly: true, parts: PENETRATE_WORDS, defaultPart: "pussy" },
+        // v1.16.18 (DW): "Missy, suck my strap-on". BC's SuckPenetrateItem: on ItemVulva, needs the
+        // TARGET's strap-on (TargetNeeds-PenetrateItem), her tongue (UseTongue: not gagged) and the zone
+        // bare. Only strap-on words, so "suck my cock" stays BC's plain Suck as before.
+        { activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo"] },
         { activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
         { activity: "Pinch", re: /\bpinch\b/ },
         { activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -10903,11 +10914,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
         // The universal — Caress reaches almost every zone, so "touch your <anything>" lands.
         { activity: "Caress", re: /\b(?:caress|stroke|touch|feel|rub)\b/ }
       ];
-      ACT_PARTS = { ...BODY_PARTS, hand: ["ItemHands"], collar: ["ItemNeck"] };
+      ACT_PARTS = {
+        ...BODY_PARTS,
+        hand: ["ItemHands"],
+        collar: ["ItemNeck"],
+        // A strap-on is worn over the vulva; BC's SuckPenetrateItem targets ItemVulva (v1.16.18).
+        strap: ["ItemVulva"],
+        strapon: ["ItemVulva"],
+        dildo: ["ItemVulva"]
+      };
       ACT_WORD = {
         MasturbateHand: "finger",
         PenetrateSlow: "fuck",
         PenetrateFast: "fuck",
+        SuckPenetrateItem: "suck",
         MassageHands: "massage",
         HandGag: "put a hand over",
         CollarGrab: "grab",
@@ -11450,6 +11470,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim(`   Also "hug Rei" \xB7 "nuzzle me" \xB7 "kick Rei" \xB7 "grab Rei by the collar" \xB7`));
     lines.push(dim(`   "cover my mouth" \xB7 "hand gag Rei" \xB7 "peck my hand".`));
     lines.push(dim(`   With her strap-on: "fuck me" \xB7 "fuck Rei's ass" \xB7 "fuck me hard" (fast).`));
+    lines.push(dim(`   On yours: "suck my strap-on".`));
     return lines;
   }
   function depthLadder() {
@@ -11614,7 +11635,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
       dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
-      dim("kicks you, pulls your hair, fucks you (a strap-on),"),
+      dim("kicks you, pulls your hair, fucks you, sucks your strap-on,"),
       dim("or does anything to you (any activity)."),
       body(`"Missy, whenever anyone gags you, ..."   "when Rei ties your arms, ..."`),
       dim("Or blindfolds, collars, ties your legs, ties you up (any restraint), or locks"),
@@ -13392,7 +13413,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.17"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.18"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13465,7 +13486,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.17"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.18"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14301,7 +14322,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.17", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.18", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14338,7 +14359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.17", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.18", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14380,7 +14401,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.17", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.18", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17453,7 +17474,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.17"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.18"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18508,7 +18529,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.17"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.18"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18535,7 +18556,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.17"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.18"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18610,14 +18631,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.17"})`);
+      info(`script loaded (v${"1.16.18"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.17",
+          version: "1.16.18",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18759,10 +18780,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.17"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.18"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.17";
+    page2.__ECHS_LOADED__ = "1.16.18";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

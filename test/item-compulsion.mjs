@@ -96,6 +96,7 @@ check("activities and items never mix", [m("any", "item:ItemMouth"), m("kiss", "
 check("fucks you: slow and fast, not reverse", [m("fuck", "PenetrateSlow"), m("fuck", "PenetrateFast"), m("fuck", "ReversePenetratePussy"), m("fuck", "item:ItemVulva")], [true, true, false, false]);
 // "rides you" was taken back out in v1.16.17: R134 has no ReversePenetrate activity to wait for.
 check("no rides you (nothing in BC could set it off)", compulsionActs.compulsionAct("ride"), undefined);
+check("sucks your strap-on: SuckPenetrateItem only", [m("suck", "SuckPenetrateItem"), m("suck", "PenetrateSlow"), m("fuck", "SuckPenetrateItem")], [true, false, false]);
 check("does anything to you still includes them", m("any", "PenetrateFast"), true);
 
 // --- wordings ----------------------------------------------------------------------------------------
@@ -104,6 +105,7 @@ check("gag wordings", [c("Missy, when anyone gags you, moan"), c("Missy, wheneve
 check("arms / legs / up", [c("Missy, when anyone cuffs your wrists, kneel"), c("Missy, when anyone ties your ankles together, kneel"), c("Missy, when anyone ties you up, kneel")], ["arms", "legs", "bind"]);
 check("blindfold, hood, collar, lock", [c("Missy, when anyone blindfolds you, kneel"), c("Missy, when anyone hoods you, kneel"), c("Missy, when I collar you, kneel"), c("Missy, when anyone locks your gag, kneel")], ["blindfold", "blindfold", "collar", "lock"]);
 check("fuck wordings", [c("Missy, whenever anyone fucks you, moan"), c("Missy, when Rei penetrates you, moan"), c("Missy, when I fuck your mouth, moan"), c("Missy, when anyone rides you, moan")], ["fuck", "fuck", "fuck", undefined]);
+check("suck wordings", [c("Missy, whenever anyone sucks your strap-on, moan"), c("Missy, when Rei sucks on your strap on, moan"), c("Missy, when I suck your dildo, moan"), c("Missy, when anyone sucks your nipples, moan")], ["suck", "suck", "suck", undefined]);
 check("the old ones are unchanged", [c("Missy, when anyone pulls your hair, kneel"), c("Missy, when anyone kisses you, kneel")], ["pull", "kiss"]);
 
 // --- end to end through the message handler --------------------------------------------------------

@@ -162,6 +162,7 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim(`   Also "hug Rei" · "nuzzle me" · "kick Rei" · "grab Rei by the collar" ·`));
 	lines.push(dim(`   "cover my mouth" · "hand gag Rei" · "peck my hand".`));
 	lines.push(dim(`   With her strap-on: "fuck me" · "fuck Rei's ass" · "fuck me hard" (fast).`));
+	lines.push(dim(`   On yours: "suck my strap-on".`));
 	return lines;
 }
 
@@ -333,7 +334,7 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
 		body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
 		dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
-		dim("kicks you, pulls your hair, fucks you (a strap-on),"),
+		dim("kicks you, pulls your hair, fucks you, sucks your strap-on,"),
 		dim("or does anything to you (any activity)."),
 		body(`"Missy, whenever anyone gags you, ..."   "when Rei ties your arms, ..."`),
 		dim("Or blindfolds, collars, ties your legs, ties you up (any restraint), or locks"),

@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.18 · 23 November 2026
+
+- **"Suck my strap-on."** *"Missy, suck my strap-on"* (or *"suck on Rei's strap-on"*) has her suck
+  the strap-on you're wearing; she needs her mouth free. And a compulsion can wait for it: *"Missy,
+  whenever anyone sucks your strap-on, …"*, also in the popup's list.
+
 ## v1.16.17 · 23 November 2026
 
 - **"Missy, fuck me."** With *Made to Act* she uses her strap-on on you: slowly, in the pussy, unless
