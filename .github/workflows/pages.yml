@@ -14,6 +14,14 @@
 # a push to dev does not deploy; it asks for a run on main, which always rebuilds the whole site from
 # both branches. Either branch changing therefore republishes both files.
 #
+# CHECKED, NOT ASSUMED (2026-11-23). deploy-pages now and then fails with "No artifacts named
+# github-pages" (the upload not visible yet). The dev push's run used to show green regardless, since
+# it only asked main to rebuild; v1.16.19-21 sat unpublished until a tester noticed. Now:
+#   - the deploy is retried once, 30 s later, if it fails;
+#   - the live site is then fetched and compared byte for byte with what was built, for a few
+#     minutes while the CDN catches up, and the run fails if it never matches;
+#   - the dev push's relay waits for that run and fails with it, so a red X shows on the dev push.
+#
 # icon.png is the add-on's own spiral (src/icon.ts) at 256x256, scaled to 86% on a #ece8f7 rounded
 # tile so it stays visible on FUSAM's dark (#353535) icon background as well as the light one.
 name: Publish GitHub Pages
@@ -44,7 +52,25 @@ jobs:
             echo "::warning::pages.yml is not on main yet, so dev's build is not published until the next release."
             exit 0
           fi
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           gh workflow run pages.yml --ref main --repo "${GITHUB_REPOSITORY}"
+          # Find the run just asked for, then wait for it and fail with it.
+          id=""
+          for i in $(seq 1 30); do
+            id=$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow pages.yml --branch main --event workflow_dispatch               --limit 5 --json databaseId,createdAt --jq "[.[] | select(.createdAt >= \"$since\")][-1].databaseId // empty")
+            [ -n "$id" ] && break
+            sleep 5
+          done
+          if [ -z "$id" ]; then
+            echo "::error::Asked main to publish, but its run never showed up. Check the Actions tab."
+            exit 1
+          fi
+          echo "Publishing run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/$id"
+          if ! gh run watch "$id" --repo "${GITHUB_REPOSITORY}" --exit-status --interval 15 > /dev/null; then
+            echo "::error::The publish run failed, so the site is NOT serving this build. Re-run it: gh run rerun $id --failed"
+            exit 1
+          fi
+          echo "Published and checked live."
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -57,7 +83,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://dwfreegethub.github.io/HypnosisAddon/
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,3 +109,29 @@ jobs:
           path: site
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Wait before trying again
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+
+      - name: Check the live site serves what was just built
+        run: |
+          base="https://dwfreegethub.github.io/HypnosisAddon/"
+          for f in HypnosisAddon.js dev/HypnosisAddon.js icon.png; do
+            want=$(sha256sum "site/$f" | cut -d' ' -f1)
+            got=""
+            # Pages caches for up to 10 minutes; a query string asks past it. About 5 minutes in all.
+            for i in $(seq 1 20); do
+              got=$(curl -fsSL "${base}${f}?check=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$i" | sha256sum | cut -d' ' -f1)
+              [ "$got" = "$want" ] && break
+              sleep 15
+            done
+            if [ "$got" != "$want" ]; then
+              echo "::error::${base}${f} is not what this run built. Players are not getting this version."
+              exit 1
+            fi
+            echo "live and matching: ${base}${f}"
+          done
