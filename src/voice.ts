@@ -1,5 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
-import { COMPULSION_ACTS } from "./compulsion-acts";
+import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
@@ -2149,7 +2149,7 @@ const COND_SPEAK = new RegExp(
 // compulsion-acts.ts's; the body part after "your" is not checked. "you" as the doer is no one.
 const COND_ACTS = COMPULSION_ACTS.map((a) => ({
 	key: a.key,
-	re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} you(?:r [a-z]+)?\b`),
+	re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} ${a.object ?? DEFAULT_ACT_OBJECT}\b`),
 }));
 
 /** What a condition line asks for, before the name is resolved against the room. `rest` is what
@@ -2735,6 +2735,26 @@ export function checkDueCompulsions(now: number = Date.now()): number {
 	return due.length;
 }
 
+/** An item put on her, or a lock added to one, as an item event for actMatches (v1.16.15), or
+ * null. R134: ChatRoomPublishAction sends Type "Action" with Content "ActionUse" (an item added),
+ * "ActionSwap" (one replaced) or "ActionAddLock", naming her as the target, the new asset as
+ * NextAsset and the slot as the focus group; BC's metadata extractor turns those into
+ * TargetMemberNumber, Assets.NextAsset and GroupName. "ActionUse" is also sent for an item that is
+ * only used, never worn (a feather, a remote: Dialog.js, `!ClickItem.Asset.Wear`), so those are
+ * left out. Her own items on herself are left out by compulsionsFor. Exported for the tests. */
+export function itemEventOf(data: any, metadata: any): string | null {
+	if (data?.Type !== "Action" || metadata?.TargetMemberNumber !== Player?.MemberNumber) return null;
+	if (data.Content === "ActionAddLock") {
+		const group = metadata?.GroupName;
+		return typeof group === "string" ? lockEvent(group) : null;
+	}
+	if (data.Content !== "ActionUse" && data.Content !== "ActionSwap") return null;
+	const next = metadata?.Assets?.NextAsset;
+	if (!next || next.Wear === false) return null;
+	const group = next.Group?.Name ?? metadata?.GroupName;
+	return typeof group === "string" ? itemEvent(group) : null;
+}
+
 /** Started once at load (main.ts). Its own interval, NOT timers.ts: every trance end calls
  * clearAllTimers(), and this has to outlive all of them. */
 export function installCompulsions(): void {
@@ -2743,7 +2763,7 @@ export function installCompulsions(): void {
 	// never stopped or rewritten, as the drinks handler does.
 	if (typeof ChatRoomRegisterMessageHandler === "function") {
 		ChatRoomRegisterMessageHandler({
-			Description: "HypnosisAddon: activity compulsions",
+			Description: "HypnosisAddon: activity compulsions (and items)",
 			Priority: 200,
 			Callback: (_data: any, sender: any, _msg: string, metadata: any) => {
 				try {
@@ -2751,6 +2771,8 @@ export function installCompulsions(): void {
 					if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
 						noteActivity(by, String(metadata.ActivityName));
 					}
+					const item = itemEventOf(_data, metadata);
+					if (item && typeof by === "number") noteActivity(by, item);
 				} catch (err) {
 					warn("activity compulsion handler failed:", err);
 				}

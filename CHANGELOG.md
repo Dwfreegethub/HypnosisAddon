@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.15 · 23 November 2026
+
+- **Compulsions that wait for an item.** *"Missy, whenever anyone gags you, you are very aroused"*
+  now works, as do *blindfolds you*, *collars you*, *ties your arms*, *ties your legs*, *ties you up*
+  (any restraint) and *locks something on you*. They're in the popup's list too. It counts items
+  put on through the game's item menu; clothing doesn't count yet.
+
 ## v1.16.14 · 23 November 2026
 
 - **The Stats tab's "last" date is right now.** Each person shows the date they last interacted with

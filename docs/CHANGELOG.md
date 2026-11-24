@@ -18,6 +18,30 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.15) — compulsions that wait for an item put on her
+
+DW, from a player's suggestion (item-based actions): "add a trigger to an item placed on you. So if
+someone puts a gag on you, you get aroused", open to any bondage slot. Built on the v1.16.9 act list
+rather than beside it: `CompulsionAct` gains `items` (BC group names; empty = any `Item…` group),
+`lock`, and `object` (the regex after the verb, so "ties your arms" and "ties your legs" are
+different acts). New keys: gag, blindfold, collar, arms, legs, bind, lock. The parser, popup picker,
+help hint and condition text all read the list, so they came for free.
+
+Seen from BC's own message, verified in live R134: `ChatRoomPublishAction` sends Type "Action",
+Content "ActionUse" / "ActionSwap" / "ActionAddLock", with DestinationCharacter/TargetCharacter, the
+new asset as NextAsset and the focus group; the default metadata extractor gives
+`TargetMemberNumber`, `Assets.NextAsset` and `GroupName`. `voice.itemEventOf` turns that into
+`item:<Group>` / `lock:<Group>` and the existing activity handler passes it to `noteActivity`, so the
+15-second rest, the trance rule, reactions and "never her own" all apply unchanged. "ActionUse" is also
+sent for an item only used (Dialog.js, `!ClickItem.Asset.Wear`: a feather, a remote); `Wear === false`
+is left out. Item events never match activity acts ("does anything to you" stays activities), and
+activities never match item acts.
+
+Not covered: clothing (the wardrobe screen sends no such message; the item menu's clothing would, but
+DW asked for bondage slots first), removals, and items put on by add-ons that skip the message.
+`test/item-compulsion.mjs` (24), mutation-checked (dropping the Wear check or letting item events
+reach activity acts fails 2). Live test: script_test.md section Z.
+
 ### Fixed 2026-11-23 (v1.16.14) — the Stats tab's "last interacted" date
 
 DW: after a restart, people on the Stats tab showed "0 min" whom DW had not just interacted with.
