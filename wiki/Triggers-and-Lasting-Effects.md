@@ -176,6 +176,8 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *puts a vibrator in you* (or *a vibe*, *a dildo*, *an egg*, *in your pussy*; since v1.16.19) | A vibrator, egg, dildo or Ben Wa balls in the vulva slot, not a cage or cockring |
 | *locks something on you* (or *locks your gag*, *locks you up*) | A lock added to any item |
 
+**Holding while worn** (since v1.16.20). Add *"Missy, this trigger holds while you wear it"* (or *"it lasts until it comes off"*) before *remember trigger*, and an item compulsion holds for as long as the item stays on instead of for the usual number of minutes. It lets go when the item comes off, however it comes off (taken off, struggled out of, swapped for something else); for *locks something on you*, when the lock comes off. Meanwhile its arousal and orgasm happen again every 2 minutes, so *"whenever anyone gags you, you are very aroused"* keeps her aroused while gagged; undressing and the like happen once. The release words and the safeword still end it at any time. On a word trigger it means nothing, and the hypnotist is told so.
+
 An item swapped for another counts; taking one off doesn't. Clothing doesn't count, and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
 
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.

@@ -503,6 +503,8 @@ interface Recording {
 	lifespanMs?: number;
 	scope?: TriggerScope;
 	strict?: boolean;
+	/** v1.16.20: hold while the item is worn (an item compulsion only). */
+	whileWorn?: boolean;
 	/** A delayed compulsion: fires on a condition rather than a phrase (Build 6). */
 	condition?: TriggerCondition;
 	/** Reactions recorded into a WORD trigger (v1.16.13): each becomes a compulsion switched on only
@@ -577,7 +579,9 @@ export type TriggerOption =
 	| { kind: "once"; value: boolean }
 	| { kind: "lifespan"; ms: number }
 	| { kind: "scope"; scope: TriggerScope }
-	| { kind: "strict"; value: boolean };
+	| { kind: "strict"; value: boolean }
+	/** v1.16.20: an item compulsion holds while the item stays on. */
+	| { kind: "whileWorn" };
 
 /** Longest lifespan an installer may ask for. Past a month the ask means nothing next to decay,
  * and an absurd number ("lasts 99999 days") should land somewhere sane rather than overflow. */
@@ -777,6 +781,15 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 		case "strict":
 			recording.strict = option.value || undefined;
 			noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
+			break;
+		case "whileWorn":
+			// Only an item compulsion has an item to wear (rule 5: say so rather than keep it silently).
+			if (!compulsionAct(recording.condition?.act)?.items) {
+				noted = "holding while worn only works on an item compulsion (gags you, plugs you, locks you in chastity…), so it's ignored";
+				break;
+			}
+			recording.whileWorn = true;
+			noted = "it holds for as long as they wear the item and lets go when it comes off; arousal and orgasm repeat every 2 minutes meanwhile";
 			break;
 	}
 	log(`trigger ${recordingLabel()} option: ${noted}`);
@@ -1120,6 +1133,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		trigger.oneShot = true;
 	}
 	if (recording.strict) trigger.strict = true;
+	if (recording.whileWorn && compulsionAct(trigger.act)?.items) trigger.whileWorn = true;
 	if (recording.scope) trigger.scope = recording.scope;
 	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
 	// subject who caps triggers at an hour gets that on every trigger planted from now on.

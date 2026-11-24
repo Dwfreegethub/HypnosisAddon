@@ -1,5 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
-import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE } from "./compulsion-acts";
+import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE, kindEvent, eventSlot } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
@@ -2032,6 +2032,11 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 		String.raw`\b${OPT_SUBJ} (?:will )?works? every (?:single )?time\b`,
 		String.raw`\b${OPT_YOU} ${OPT_OBEY} (?:it|this|that|this trigger|that trigger) every (?:single )?time\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "once", value: false }) })),
+	// Holds while the item is on (v1.16.20, DW): an item compulsion only; applyRecordingOption says so
+	// otherwise. "this trigger holds while you wear it", "it lasts until it comes off".
+	...[
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:wear|have) (?:it|them|that|the item)(?: on)?|(?:it|they|that|the item) (?:is|s|are|re|comes?|come|gets?|get) (?:off|removed|taken off)|(?:it|they|that|the item) (?:is|s|are|re|stays?|stay) on)\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "whileWorn" }) })),
 	// Lifespan.
 	...[
 		String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
@@ -2688,9 +2693,23 @@ function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number,
 		.filter((t) => !under || !!t.gate)
 		.filter((t) => event !== "act" || now - (actFiredAt.get(t.key) ?? -Infinity) >= ACT_REST_MS);
 	for (const t of due) {
+		const slot = event === "act" ? eventSlot(activity) : null;
+		// Held while worn (v1.16.20): what to watch. One already holding follows the new item rather
+		// than fire again on top of itself (a gag swapped for another).
+		const hold = t.whileWorn && slot ? { group: slot, asset: wornAssetName(slot), ...(activity.startsWith("lock:") ? { lock: true as const } : {}) } : null;
+		if (hold && t.wornHold && isTriggerInEffect(t)) {
+			t.wornHold = hold;
+			updateTriggers();
+			continue;
+		}
 		if (event === "act") actFiredAt.set(t.key, now);
 		compulsionSetOffBy.set(t.key, member);
 		log(`compulsion (${event}) set off by ${member}`);
+		if (hold) {
+			t.wornHold = hold;
+			wornRepeatAt.set(t.key, now);
+			updateTriggers();
+		}
 		fireTrigger(t, t.installedBy);
 	}
 }
@@ -2767,12 +2786,12 @@ export function itemEventsOf(data: any, metadata: any): string[] {
 	const events = [itemEvent(group)];
 	const has = (effect: string) => itemHasEffect(next, group, effect);
 	const chaste = has("Chaste") || has("BreastChaste") || has("ButtChaste");
-	if (chaste) events.push(itemEvent(KIND_CHASTE));
+	if (chaste) events.push(kindEvent(KIND_CHASTE, group));
 	// R134 ItemVulva: dildos carry FillVulva, eggs and vibes UseRemote, Ben Wa balls and wands
 	// neither; cages carry Chaste, cockrings CanEdge. So: in the vulva slot, not chaste, and filling,
 	// remote-run or named as a toy.
 	if (group === "ItemVulva" && !chaste && (has("FillVulva") || has("UseRemote") || /vib|egg|dildo|benwa|wand/i.test(String(next.Name ?? "")))) {
-		events.push(itemEvent(KIND_VIBE));
+		events.push(kindEvent(KIND_VIBE, group));
 	}
 	return events;
 }
@@ -2787,6 +2806,96 @@ function itemHasEffect(asset: any, group: string, effect: string): boolean {
 		return [...(worn.Property?.Effect ?? []), ...(worn.Asset?.Effect ?? [])].includes(effect);
 	} catch {
 		return false;
+	}
+}
+
+// --- Held while worn (v1.16.20, DW 2026-11-23) ------------------------------------------------
+// An item compulsion planted with "this trigger holds while you wear it" holds until the item comes
+// off: polled, not read from BC's removal message, so struggling out, a key, or another add-on
+// taking it off are seen too. Meanwhile its arousal and orgasm repeat every 2 minutes (DW). The
+// release words and the safeword end it as they end any hold; the poll then forgets the watch.
+
+/** How often a held item compulsion's arousal and orgasm are applied again (DW: every 2 minutes). */
+export const WORN_REPEAT_MS = 2 * 60_000;
+const wornRepeatAt = new Map<string, number>();
+
+/** Which of a trigger's actions repeat while worn (DW: arousal and orgasm, not undressing). */
+export function repeatsWhileWorn(id: string): boolean {
+	return id.startsWith("arousal-") || id === "orgasm-force";
+}
+
+/** The item she wears in a slot, by name, or "". */
+function wornAssetName(group: string): string {
+	try {
+		return String((typeof InventoryGet === "function" ? InventoryGet(Player, group) : null)?.Asset?.Name ?? "");
+	} catch {
+		return "";
+	}
+}
+
+/** Is what this hold waits on still on her? An empty asset name (not readable when it fired) means
+ * anything in that slot. */
+function wornStillOn(hold: NonNullable<Trigger["wornHold"]>): boolean {
+	let item: any = null;
+	try {
+		item = typeof InventoryGet === "function" ? InventoryGet(Player, hold.group) : null;
+	} catch {
+		return true; // can't tell: don't let go on a read error
+	}
+	if (!item) return false;
+	if (hold.asset && item.Asset?.Name !== hold.asset) return false;
+	if (hold.lock && !item.Property?.LockedBy) return false;
+	return true;
+}
+
+/** Check every hold-while-worn compulsion: let go of those whose item is off, repeat the arousal and
+ * orgasm of the rest when due. Returns how many let go. Exported for the tests. */
+export function checkWornHolds(now: number = Date.now()): number {
+	let released = 0;
+	for (const t of listTriggers()) {
+		if (!t.wornHold) continue;
+		if (!isTriggerInEffect(t)) {
+			// Released some other way (the words, the safeword): stop watching.
+			delete t.wornHold;
+			wornRepeatAt.delete(t.key);
+			updateTriggers();
+			continue;
+		}
+		if (!wornStillOn(t.wornHold)) {
+			delete t.wornHold;
+			wornRepeatAt.delete(t.key);
+			updateTriggers();
+			undoTrigger(t);
+			tellPlayer("As it comes off, whatever it was holding in you lets go.");
+			log(`worn hold on ${t.key} let go: the item came off`);
+			released++;
+			continue;
+		}
+		const last = wornRepeatAt.get(t.key);
+		if (last === undefined) {
+			wornRepeatAt.set(t.key, now); // after a reload: the clock starts again
+			continue;
+		}
+		if (now - last < WORN_REPEAT_MS || !triggersArmed()) continue;
+		wornRepeatAt.set(t.key, now);
+		repeatWornActions(t);
+	}
+	return released;
+}
+
+/** Apply a held trigger's arousal and orgasm again, gated as a firing is: her permission now, and
+ * the trigger's own strength. */
+function repeatWornActions(t: Trigger): void {
+	const features = getFeatures();
+	const strength = triggerStrength(t);
+	for (const id of t.actions) {
+		if (!repeatsWhileWorn(id)) continue;
+		const suggestion = SUGGESTIONS.find((s) => s.id === id);
+		if (!suggestion || permissionReason(suggestion, features)) continue;
+		if (!depthAllows(keyFor(suggestion, features), strength, strength)) continue;
+		const outcome = suggestion.run(t.installedBy) || suggestion.id;
+		announce(outcome);
+		log(`worn hold on ${t.key}: ${id} again`);
 	}
 }
 
@@ -2815,6 +2924,11 @@ export function installCompulsions(): void {
 		});
 	}
 	compulsionPoll = setInterval(() => {
+		try {
+			checkWornHolds();
+		} catch (err) {
+			warn("worn hold check failed:", err);
+		}
 		try {
 			checkDueCompulsions();
 		} catch (err) {
@@ -3010,10 +3124,12 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	// and a teardown clears the drain and the release together. A compel holds nothing.
 	if (reactions) steps.push(() => tellPlayer("Something in you switches on, waiting to be touched."));
 	if (steps.length || trigger.actions.includes(DROP_ACTION)) pulse();
-	if (holding) {
+	// Held while worn (v1.16.20): holds even with only instant actions (they repeat), and on no timer.
+	const worn = !!trigger.wornHold;
+	if (holding || worn) {
 		markActive(timerKey(trigger));
 		holdStartedAt.set(timerKey(trigger), Date.now());
-		scheduleAutoRelease(trigger);
+		if (!worn) scheduleAutoRelease(trigger);
 		// Written down NOW. A trigger normally fires with no trance running, so no session
 		// transition will ever save it, and a reload with nothing saved treats its Freeze as an
 		// orphan and takes it off.
@@ -3022,7 +3138,7 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 	// One-shot: used up by this firing, whether or not anything landed — "fires once" is about
 	// being said, not about succeeding. If it is holding her it stays (spent) until it lets go;
 	// undoTrigger removes it then. After noteTriggerFired, which has already saved.
-	markSpent(trigger, holding > 0);
+	markSpent(trigger, holding > 0 || worn);
 	drainTriggerSteps(trigger, steps);
 }
 

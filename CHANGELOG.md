@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.20 · 23 November 2026
+
+- **Item compulsions can hold while the item is on.** Add *"Missy, this trigger holds while you
+  wear it"* when planting one: *"whenever anyone gags you, you are very aroused"* then holds for as
+  long as the gag stays on, keeps her aroused (arousal and orgasm repeat every 2 minutes), and lets
+  go when it comes off. The release words and the safeword still end it any time. It's in the popup.
+
 ## v1.16.19 · 23 November 2026
 
 - **Chastity, plugs and vibes.** Three more things a compulsion can wait for: *"whenever anyone
