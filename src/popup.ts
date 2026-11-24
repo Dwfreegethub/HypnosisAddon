@@ -860,13 +860,29 @@ function renderTriggers(body: any, status: any): void {
 			triggerGroup(body, g.key, g.title, (list) => {
 				if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
 				for (const line of g.lines) {
-					const b = el("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, `${line.release ? "↺ " : ""}${line.label}`);
+					// A line with a list still opens, to read (v1.16.22): the items were invisible here.
+					const key = `choices-${g.key}-${line.id}`;
+					const isOpen = !!line.choices && triggerOpen.has(key);
+					const label = `${line.choices ? (isOpen ? "− " : "+ ") : ""}${line.release ? "↺ " : ""}${line.label}`;
+					const b = el("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, label);
 					b.type = "button";
-					b.title = "Put someone under first.";
+					b.title = line.choices ? "Opens the list to read. Put someone under first to use it." : "Put someone under first.";
 					b.addEventListener("click", () => {
+						if (line.choices) {
+							if (triggerOpen.has(key)) triggerOpen.delete(key);
+							else triggerOpen.add(key);
+							renderBody();
+							return;
+						}
 						setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
 					});
 					list.appendChild(b);
+					if (!isOpen) continue;
+					const chips = el("div", "echs-pop-buttons");
+					for (const choice of line.choices!) {
+						chips.appendChild(chip(choice.label, "Put someone under first.", () => setStatus(status, "Nobody is under you: put someone under first, then this types it for them."), true));
+					}
+					list.appendChild(chips);
 				}
 			});
 	}

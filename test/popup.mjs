@@ -377,6 +377,7 @@ if (voice.parseTriggerRemoval(cRem)?.kind !== "compulsions") plantedWrong.push(`
 if (voice.isTriggerRemovalLine(rel) || voice.isTriggerReleaseLine(rem)) plantedWrong.push("release and remove overlap");
 check("release / remove / remove all parse", plantedWrong.length === 0, `each read as intended, wrong: ${plantedWrong.join("; ")}`);
 
+const COMPULSION_ACT_ITEMS_IN_ACT_LINE = () => (T.PLANT_GROUPS.find((g) => g.key === "compel")?.lines.find((l) => l.id === "act")?.choices ?? []).filter((c) => /gags you|ties your arms|chastity/.test(c.label)).length;
 // The tab: always there; planting lines only while someone is under you.
 ChatRoomCharacter = [Player, { MemberNumber: A, Name: "Alice", Nickname: "Ali" }, { MemberNumber: B, Name: "Bea" }];
 check("Triggers tab always offered", popup.availableTabs().includes("triggers"), "a Triggers tab with nobody under you");
@@ -387,11 +388,19 @@ check("nobody under: says how to start", hint("To plant a trigger, put someone u
 const grpBtn = (t) => findAll(win(), (n) => n.className?.startsWith?.("echs-pop-group") && n.textContent.endsWith(t))[0];
 check("nobody under: Compulsions group still listed", !!grpBtn("Compulsions (waiting for something, not a word)"), "the Compulsions group");
 grpBtn("Compulsions (waiting for something, not a word)")?.click();
-const greyed = findAll(win(), (n) => n.className === "echs-pop-item echs-pop-off" && n.textContent === "when anyone … you, … (pick what they do)")[0];
+const greyed = findAll(win(), (n) => n.className === "echs-pop-item echs-pop-off" && n.textContent === "+ when anyone … you, … (pick what they do)")[0];
 check("  greyed, with the new 'when anyone' line", !!greyed, "a greyed 'when anyone' line");
+// v1.16.22 (DW: the item triggers weren't to be seen): a greyed list still opens, to read.
+const itemLine = findAll(win(), (n) => n.className === "echs-pop-item echs-pop-off" && n.textContent.startsWith("+ whenever anyone puts an item on you"))[0];
+check("  the items have their own greyed line", !!itemLine, "a greyed 'puts an item on you' line");
+itemLine?.click();
+const gagChip = findAll(win(), (n) => n.className === "echs-pop-chip echs-pop-off" && n.textContent === "gags you")[0];
+check("  it opens with nobody under, listing the items", !!gagChip && findAll(win(), (n) => n.className === "echs-pop-chip echs-pop-off" && n.textContent === "locks you in chastity").length === 1, "greyed item chips");
+check("  and the activity list has no items in it", COMPULSION_ACT_ITEMS_IN_ACT_LINE() === 0, "no item acts in the activity list");
 chatBox.value = "";
-greyed?.click();
+gagChip?.click();
 check("  a click types nothing and says why", chatBox.value === "" && status().includes("Nobody is under you"), `nothing typed, got "${chatBox.value}" / "${status()}"`);
+itemLine?.click();
 check("  the hint lists what 'anyone' can do", hint("Then the suggestion") && findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.includes("kisses you, touches you, hugs you")).length === 1, "the act list in the hint");
 grpBtn("Compulsions (waiting for something, not a word)")?.click();
 update(B, { phase: "Hypnotized", attempts: 1 });

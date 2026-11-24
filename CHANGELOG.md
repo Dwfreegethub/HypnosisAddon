@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.22 · 23 November 2026
+
+- **The item compulsions are easier to find in the popup.** They have their own line in *Triggers*
+  → *Compulsions*: *"whenever anyone puts an item on you, …"*, which opens the list (gags you,
+  ties your arms, locks you in chastity and the rest). And the lists open to read even when
+  nobody is under you.
+
 ## v1.16.21 · 23 November 2026
 
 - **Held item compulsions slow down.** While the item stays on, arousal comes back after 2, 2 and 2

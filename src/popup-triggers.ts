@@ -80,7 +80,17 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 				phrase: "when anyone kisses you, ",
 				finish: "what they will do. Change \"anyone\" to a name or \"I\" if you like",
 				sample: "when anyone kisses you, you will kneel",
-				choices: COMPULSION_ACTS.map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
+				choices: COMPULSION_ACTS.filter((a) => !a.items).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
+			},
+			// The items on a line of their own (v1.16.22, DW: "I don't see them in the window"; they
+			// were at the end of the list above).
+			{
+				id: "item",
+				label: "whenever anyone puts an item on you, … (pick the item: gag, rope, chastity…)",
+				phrase: "whenever anyone gags you, ",
+				finish: "what they will do. Add \"this trigger holds while you wear it\" to keep it on until the item comes off",
+				sample: "whenever anyone gags you, you will kneel",
+				choices: COMPULSION_ACTS.filter((a) => a.items).map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` })),
 			},
 			{ id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
 			{ id: "worn", label: "this trigger holds while you wear it (item compulsions)", phrase: "this trigger holds while you wear it" },
