@@ -18,6 +18,20 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.16) — "fucks you" and "rides you"
+
+DW chose reading (a) of a player's strap-on suggestion first: a compulsion when someone does it to
+her. Two activity acts on the v1.16.9 list, checked against live R134 ActivityDictionary.csv:
+`fuck` = PenetrateSlow / PenetrateFast ("SourceCharacter slowly / roughly penetrates
+TargetCharacter's vagina / butt / mouth with PronounPossessive ActivityAsset"); `ride` =
+ReversePenetratePussy / ReversePenetrateAss ("SourceCharacter fucks TargetCharacter's ActivityAsset
+with PronounPossessive pussy / ass"), where the target is the one wearing it. The activity message
+carries ActivityName and TargetMemberNumber the same way as the others (R134 Activity.js), so the
+v1.16.9 handler needed nothing. The body part is not checked, as for the rest ("fucks your mouth"
+waits for any penetration). Not done: SuckPenetrateItem ("sucks your strap-on"; its hyphen spoils the
+generic object pattern), and the commanded "fuck me with your strap-on" (reading b).
+`test/item-compulsion.mjs` +4.
+
 ### Added 2026-11-23 (v1.16.15) — compulsions that wait for an item put on her
 
 DW, from a player's suggestion (item-based actions): "add a trigger to an item placed on you. So if

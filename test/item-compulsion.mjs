@@ -91,11 +91,18 @@ check("ties you up: any restraint slot, not clothing", [m("bind", "item:ItemDevi
 check("a lock is not an item going on, and back", [m("lock", "lock:ItemArms"), m("lock", "item:ItemArms"), m("bind", "lock:ItemArms")], [true, false, false]);
 check("activities and items never mix", [m("any", "item:ItemMouth"), m("kiss", "item:ItemMouth"), m("gag", "Kiss")], [false, false, false]);
 
+// Penetration (v1.16.16): activities, not items. Failure: a strap-on fuck read as "rides you", or the
+// other way round, or "fucks you" waiting for an item.
+check("fucks you: slow and fast, not reverse", [m("fuck", "PenetrateSlow"), m("fuck", "PenetrateFast"), m("fuck", "ReversePenetratePussy"), m("fuck", "item:ItemVulva")], [true, true, false, false]);
+check("rides you: the reverse ones only", [m("ride", "ReversePenetratePussy"), m("ride", "ReversePenetrateAss"), m("ride", "PenetrateSlow")], [true, true, false]);
+check("does anything to you still includes them", m("any", "PenetrateFast"), true);
+
 // --- wordings ----------------------------------------------------------------------------------------
 const c = (line) => voice.parseCondition(line)?.act;
 check("gag wordings", [c("Missy, when anyone gags you, moan"), c("Missy, whenever anyone puts a gag in your mouth, moan"), c("Missy, when Rei puts a gag on you, moan")], ["gag", "gag", "gag"]);
 check("arms / legs / up", [c("Missy, when anyone cuffs your wrists, kneel"), c("Missy, when anyone ties your ankles together, kneel"), c("Missy, when anyone ties you up, kneel")], ["arms", "legs", "bind"]);
 check("blindfold, hood, collar, lock", [c("Missy, when anyone blindfolds you, kneel"), c("Missy, when anyone hoods you, kneel"), c("Missy, when I collar you, kneel"), c("Missy, when anyone locks your gag, kneel")], ["blindfold", "blindfold", "collar", "lock"]);
+check("fuck wordings", [c("Missy, whenever anyone fucks you, moan"), c("Missy, when Rei penetrates you, moan"), c("Missy, when I fuck your mouth, moan"), c("Missy, when anyone rides you, moan")], ["fuck", "fuck", "fuck", "ride"]);
 check("the old ones are unchanged", [c("Missy, when anyone pulls your hair, kneel"), c("Missy, when anyone kisses you, kneel")], ["pull", "kiss"]);
 
 // --- end to end through the message handler --------------------------------------------------------

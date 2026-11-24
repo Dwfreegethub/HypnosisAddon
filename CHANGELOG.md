@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.16 · 23 November 2026
+
+- **"When anyone fucks you" and "rides you".** *"Missy, whenever anyone fucks you, you are very
+  aroused"* waits for someone penetrating her with a strap-on or anything else the game allows
+  (pussy, butt or mouth). *"rides you"* waits for someone riding her strap-on. Both are in the popup's
+  list.
+
 ## v1.16.15 · 23 November 2026
 
 - **Compulsions that wait for an item.** *"Missy, whenever anyone gags you, you are very aroused"*
