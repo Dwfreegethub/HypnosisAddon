@@ -82,6 +82,25 @@ check("an item only used (a feather): nothing", ev("ActionUse", asset("ItemHands
 check("a removal: nothing", ev("ActionRemove", null, Player.MemberNumber, "ItemMouth"), null);
 check("a chat line: nothing", voice.itemEventOf({ Type: "Chat", Content: "ActionUse" }, { TargetMemberNumber: Player.MemberNumber }), null);
 
+// --- kinds: chaste, vibe (v1.16.19) --------------------------------------------------------------
+// Failure: a chastity belt not seen as chaste, a cage read as a vibe, an option-only effect missed,
+// or a kind counted as a slot ("ties you up" firing twice).
+const evs = (next, group) => voice.itemEventsOf(...msg("ActionUse", Player.MemberNumber, next, group));
+const withEffect = (Group, Name, Effect) => ({ ...asset(Group, Name), Effect });
+check("a chastity belt: its slot, and chaste", evs(withEffect("ItemPelvis", "MetalChastityBelt", ["Chaste"])), ["item:ItemPelvis", "item:@chaste"]);
+check("a chastity bra (BreastChaste)", evs(withEffect("ItemBreast", "MetalChastityBra", ["BreastChaste"])), ["item:ItemBreast", "item:@chaste"]);
+check("a cage in the vulva slot: chaste, not a vibe", evs(withEffect("ItemVulva", "FlatChastityCage", ["Chaste"])), ["item:ItemVulva", "item:@chaste"]);
+check("a dildo (FillVulva): a vibe", evs(withEffect("ItemVulva", "PenisDildo", ["FillVulva"])), ["item:ItemVulva", "item:@vibe"]);
+check("an egg (UseRemote): a vibe", evs(withEffect("ItemVulva", "VibratingEgg", ["UseRemote"])), ["item:ItemVulva", "item:@vibe"]);
+check("Ben Wa balls (no effect, by name): a vibe", evs(asset("ItemVulva", "BenWaBalls")), ["item:ItemVulva", "item:@vibe"]);
+check("a remote-run cage (Chaste, UseRemote): still not a vibe", evs(withEffect("ItemVulva", "TechnoChastityCage", ["Chaste", "UseRemote"])), ["item:ItemVulva", "item:@chaste"]);
+check("a cockring: neither", evs(withEffect("ItemVulva", "BasicCockring", ["CanEdge"])), ["item:ItemVulva"]);
+check("a butt plug: just its slot", evs(asset("ItemButt", "BlackButtPlug")), ["item:ItemButt"]);
+// The effect only on the option she was put in it with: read off the worn item.
+globalThis.InventoryGet = (C, g) => (C === Player && g === "ItemPelvis" ? { Asset: { Name: "OrnateChastityBelt" }, Property: { Effect: ["Chaste"] } } : null);
+check("chaste only by its option: seen on the worn item", evs(asset("ItemPelvis", "OrnateChastityBelt")), ["item:ItemPelvis", "item:@chaste"]);
+delete globalThis.InventoryGet;
+
 // --- which slot counts for which act ---------------------------------------------------------------
 const m = compulsionActs.actMatches;
 check("gag: any of the three mouth slots", ["ItemMouth", "ItemMouth2", "ItemMouth3"].map((g) => m("gag", `item:${g}`)), [true, true, true]);
@@ -89,6 +108,7 @@ check("gag: not the arms", m("gag", "item:ItemArms"), false);
 check("arms vs legs", [m("arms", "item:ItemHands"), m("arms", "item:ItemFeet"), m("legs", "item:ItemFeet"), m("legs", "item:ItemArms")], [true, false, true, false]);
 check("ties you up: any restraint slot, not clothing", [m("bind", "item:ItemDevices"), m("bind", "item:Cloth")], [true, false]);
 check("a lock is not an item going on, and back", [m("lock", "lock:ItemArms"), m("lock", "item:ItemArms"), m("bind", "lock:ItemArms")], [true, false, false]);
+check("a kind is not a slot", [m("bind", "item:@chaste"), m("chastity", "item:@chaste"), m("chastity", "item:ItemPelvis"), m("vibe", "item:@vibe"), m("plug", "item:ItemButt"), m("plug", "item:@vibe")], [false, true, false, true, true, false]);
 check("activities and items never mix", [m("any", "item:ItemMouth"), m("kiss", "item:ItemMouth"), m("gag", "Kiss")], [false, false, false]);
 
 // Penetration (v1.16.16): activities, not items. Failure: "fucks you" taking the wrong activity or
@@ -106,6 +126,8 @@ check("arms / legs / up", [c("Missy, when anyone cuffs your wrists, kneel"), c("
 check("blindfold, hood, collar, lock", [c("Missy, when anyone blindfolds you, kneel"), c("Missy, when anyone hoods you, kneel"), c("Missy, when I collar you, kneel"), c("Missy, when anyone locks your gag, kneel")], ["blindfold", "blindfold", "collar", "lock"]);
 check("fuck wordings", [c("Missy, whenever anyone fucks you, moan"), c("Missy, when Rei penetrates you, moan"), c("Missy, when I fuck your mouth, moan"), c("Missy, when anyone rides you, moan")], ["fuck", "fuck", "fuck", undefined]);
 check("suck wordings", [c("Missy, whenever anyone sucks your strap-on, moan"), c("Missy, when Rei sucks on your strap on, moan"), c("Missy, when I suck your dildo, moan"), c("Missy, when anyone sucks your nipples, moan")], ["suck", "suck", "suck", undefined]);
+check("chastity / plug / vibe wordings", [c("Missy, whenever anyone locks you in chastity, moan"), c("Missy, when Rei puts you in a chastity belt, moan"), c("Missy, when anyone plugs you, moan"), c("Missy, when anyone puts a plug in your ass, moan"), c("Missy, when anyone puts a vibrator in you, moan"), c("Missy, when I put a dildo in your pussy, moan")], ["chastity", "chastity", "plug", "plug", "vibe", "vibe"]);
+check("locks you up / locks your gag are still the lock", [c("Missy, when anyone locks you up, moan"), c("Missy, when anyone locks your gag, moan")], ["lock", "lock"]);
 check("the old ones are unchanged", [c("Missy, when anyone pulls your hair, kneel"), c("Missy, when anyone kisses you, kneel")], ["pull", "kiss"]);
 
 // --- end to end through the message handler --------------------------------------------------------

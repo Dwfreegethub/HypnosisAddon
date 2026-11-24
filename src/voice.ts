@@ -1,5 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
-import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent } from "./compulsion-acts";
+import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
@@ -2745,16 +2745,49 @@ export function checkDueCompulsions(now: number = Date.now()): number {
  * only used, never worn (a feather, a remote: Dialog.js, `!ClickItem.Asset.Wear`), so those are
  * left out. Her own items on herself are left out by compulsionsFor. Exported for the tests. */
 export function itemEventOf(data: any, metadata: any): string | null {
-	if (data?.Type !== "Action" || metadata?.TargetMemberNumber !== Player?.MemberNumber) return null;
+	return itemEventsOf(data, metadata)[0] ?? null;
+}
+
+/** Every item event one message makes (v1.16.19): the slot's own, then a kind when it is one
+ * (chaste, a vibe). An item's effects can come from its asset or from the option it was put on
+ * with, so both the asset and the item now worn in that slot are asked. BC sends the item update
+ * before the chat line (ChatRoomPublishAction: ChatRoomCharacterItemUpdate, then ServerSend), so
+ * the worn item is already there. */
+export function itemEventsOf(data: any, metadata: any): string[] {
+	if (data?.Type !== "Action" || metadata?.TargetMemberNumber !== Player?.MemberNumber) return [];
 	if (data.Content === "ActionAddLock") {
 		const group = metadata?.GroupName;
-		return typeof group === "string" ? lockEvent(group) : null;
+		return typeof group === "string" ? [lockEvent(group)] : [];
 	}
-	if (data.Content !== "ActionUse" && data.Content !== "ActionSwap") return null;
+	if (data.Content !== "ActionUse" && data.Content !== "ActionSwap") return [];
 	const next = metadata?.Assets?.NextAsset;
-	if (!next || next.Wear === false) return null;
+	if (!next || next.Wear === false) return [];
 	const group = next.Group?.Name ?? metadata?.GroupName;
-	return typeof group === "string" ? itemEvent(group) : null;
+	if (typeof group !== "string") return [];
+	const events = [itemEvent(group)];
+	const has = (effect: string) => itemHasEffect(next, group, effect);
+	const chaste = has("Chaste") || has("BreastChaste") || has("ButtChaste");
+	if (chaste) events.push(itemEvent(KIND_CHASTE));
+	// R134 ItemVulva: dildos carry FillVulva, eggs and vibes UseRemote, Ben Wa balls and wands
+	// neither; cages carry Chaste, cockrings CanEdge. So: in the vulva slot, not chaste, and filling,
+	// remote-run or named as a toy.
+	if (group === "ItemVulva" && !chaste && (has("FillVulva") || has("UseRemote") || /vib|egg|dildo|benwa|wand/i.test(String(next.Name ?? "")))) {
+		events.push(itemEvent(KIND_VIBE));
+	}
+	return events;
+}
+
+/** Does this asset, or the item of it she now wears in `group`, carry `effect`? */
+function itemHasEffect(asset: any, group: string, effect: string): boolean {
+	if (Array.isArray(asset?.Effect) && asset.Effect.includes(effect)) return true;
+	try {
+		const worn = typeof InventoryGet === "function" ? InventoryGet(Player, group) : null;
+		if (!worn || worn.Asset?.Name !== asset?.Name) return false;
+		if (typeof InventoryItemHasEffect === "function") return !!InventoryItemHasEffect(worn, effect);
+		return [...(worn.Property?.Effect ?? []), ...(worn.Asset?.Effect ?? [])].includes(effect);
+	} catch {
+		return false;
+	}
 }
 
 /** Started once at load (main.ts). Its own interval, NOT timers.ts: every trance end calls
@@ -2773,8 +2806,7 @@ export function installCompulsions(): void {
 					if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
 						noteActivity(by, String(metadata.ActivityName));
 					}
-					const item = itemEventOf(_data, metadata);
-					if (item && typeof by === "number") noteActivity(by, item);
+					if (typeof by === "number") for (const item of itemEventsOf(_data, metadata)) noteActivity(by, item);
 				} catch (err) {
 					warn("activity compulsion handler failed:", err);
 				}

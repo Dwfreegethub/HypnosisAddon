@@ -18,6 +18,24 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-23 (v1.16.19) — chastity, plug and vibe compulsions
+
+DW, item 3 of the strap-on suggestion: chastity = any chaste item; plugs and vibes separate. Live R134
+Female3DCG: Chaste / BreastChaste / ButtChaste sit on belts and panties (ItemPelvis), cages and
+shields (ItemVulva, ItemVulvaPiercings), bras and nipple shields (ItemBreast, ItemNipplesPiercings),
+and also diapers and the vacbeds (ItemDevices), which count since DW said any. ItemVulva mixes toys
+with cages and cockrings: dildos carry FillVulva, eggs and vibes UseRemote, Ben Wa balls and wands
+nothing; cages Chaste (one also UseRemote), cockrings CanEdge. So a vibe is an ItemVulva item, not
+chaste, that fills, is remote-run, or is named as a toy. A plug is anything in ItemButt.
+
+`voice.itemEventsOf` now returns the slot's event plus a kind (`item:@chaste`, `item:@vibe`), each
+passed to noteActivity; a kind never starts with "Item", so "ties you up" is never counted twice.
+Effects are read off the asset and off the item now worn in that slot (InventoryItemHasEffect, which
+sees an option's effects), since BC sends the item update before the chat line. "locks you in
+chastity" sits above "lock" in the list, whose "locks you" would otherwise claim it.
+`test/item-compulsion.mjs` +15, mutation-checked (dropping "not chaste" lets a remote cage read as a
+vibe). Live test: script_test.md Z5.
+
 ### Added 2026-11-23 (v1.16.18) — "suck my strap-on", both ways
 
 DW, item 2 of the strap-on suggestion, both halves, wording as offered. Live R134 Female3DCG

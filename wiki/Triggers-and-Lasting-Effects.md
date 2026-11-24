@@ -171,6 +171,9 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *ties your arms* (or *cuffs*, *binds* *your wrists* / *your hands*) | Arms, hands |
 | *ties your legs* (or *your ankles*, *your feet*, *your thighs*) | Legs, feet, boots |
 | *ties you up* (or *binds*, *cuffs*, *restrains you*, *puts something on you*) | Any restraint slot |
+| *locks you in chastity* (or *puts you in a chastity belt*; since v1.16.19) | Any item the game marks as chastity, in any slot: belts, cages, bras, shields, and also diapers and the vacbed |
+| *plugs you* (or *puts a plug in your ass*; since v1.16.19) | Anything in the butt slot: plugs, tails, beads |
+| *puts a vibrator in you* (or *a vibe*, *a dildo*, *an egg*, *in your pussy*; since v1.16.19) | A vibrator, egg, dildo or Ben Wa balls in the vulva slot, not a cage or cockring |
 | *locks something on you* (or *locks your gag*, *locks you up*) | A lock added to any item |
 
 An item swapped for another counts; taking one off doesn't. Clothing doesn't count, and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
