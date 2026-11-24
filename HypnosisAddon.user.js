@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Erotic Chat Hypnosis Suite (ECHS)
 // @namespace    https://github.com/Dwfreegethub/HypnosisAddon
-// @version      1.16.13
+// @version      1.16.14
 // @description  Trust-based hypnosis mechanics for Bondage Club
 // @author       DWfree
 // The install file committed at the repo root. updateURL is where Tampermonkey reads the
@@ -76,7 +76,7 @@
   var RELEASE_SUFFIX = channelLabel(loadedFrom(), false) ? " D" : "";
 
   // src/loader.ts
-  var CDN_TAG = `v${"1.16.13"}`;
+  var CDN_TAG = `v${"1.16.14"}`;
   var CDN_URL = `https://cdn.jsdelivr.net/gh/Dwfreegethub/HypnosisAddon@${CDN_TAG}/cdn/HypnosisAddon.js`;
   var GITHUB_URL = "https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/cdn/HypnosisAddon.js";
   function cdnUrlForThisLoad(now = Date.now()) {
@@ -135,7 +135,7 @@
     (document.body || document.documentElement).appendChild(el);
   }
   async function runLoader() {
-    info(`loader v${"1.16.13"}: loading ECHS from GitHub`);
+    info(`loader v${"1.16.14"}: loading ECHS from GitHub`);
     if (await loadFromGitHub()) return "github";
     warn(`loader: GitHub copy failed to load (${GITHUB_URL}); trying jsDelivr`);
     if (await loadFromCdn()) {

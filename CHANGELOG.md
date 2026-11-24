@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.14 · 23 November 2026
+
+- **The Stats tab's "last" date is right now.** Each person shows the date they last interacted with
+  you directly: a whisper, a line with your name in it, or an induction. Someone only chatting in the
+  same room no longer counts, and trust fading no longer resets everyone to "just now". People you
+  haven't interacted with since this update show a dash until next time.
+
 ## v1.16.13 · 22 November 2026
 
 - **Reactions: a trigger word that switches something on.** Plant *"sensitive"* with a
