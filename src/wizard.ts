@@ -36,7 +36,7 @@ import {
 	setTriggerLifespan,
 } from "./storage";
 import { DEPTH_GATES } from "./depth";
-import { EXTREME_WARNING, startExtremeTrial } from "./extreme";
+import { extremeWarning, startExtremeTrial } from "./extreme";
 import { tellPlayer } from "./notify";
 import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap } from "./panel";
 
@@ -453,7 +453,7 @@ function drawWelcome(): void {
 function drawExtremeWarning(): void {
 	drawLeftText("Extreme — please read before you confirm", CONTENT_X, WZ_TOP + 70, "#a00000");
 	let y = WZ_TOP + 140;
-	for (const paragraph of EXTREME_WARNING) {
+	for (const paragraph of extremeWarning()) {
 		drawLeftTextWrap(paragraph, CONTENT_X, y, CONTENT_MAX, 100, "#222");
 		y += 120;
 	}

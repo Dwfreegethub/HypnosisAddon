@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-24 (v1.16.25) — "undefined days" in the Extreme warning
+
+Found by a usability pass in a local mock room running the real script (a headless browser, two
+clients). `EXTREME_WARNING` was a module-level array of template strings in `extreme.ts`, built when
+the module ran. `extreme.ts` and `storage.ts` import each other, and the bundle evaluated
+`extreme.ts` first, so `EXTREME_TRIAL_DAYS` and `EXTREME_MONTH_DAYS` were still undefined and the
+text said "read-only for undefined days" and "commit to undefined days at a time". It shipped this
+way on stable as well as dev; it affected the setup wizard and the keyholder's Extreme request.
+Now `extremeWarning()` builds the list when it is shown. `test/keyholder-extreme.mjs` +1: the test
+bundle has the same order, so the check failed on the old array (the harness printed "undefined").
+
 ### Changed 2026-11-23 (v1.16.24) — toys before the penis when nothing is named
 
 DW, on a male subject wearing a dildo gag: "if someone put a dildo gag on someone they want it to be

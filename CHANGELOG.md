@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.25 · 24 November 2026
+
+- **The Extreme warning says how long again.** Setup's Extreme warning (and a keyholder's request to
+  start Extreme for you) said the lock lasts *"undefined days"*. It now says 7 days, then 30 days at
+  a time, as it should.
+
 ## v1.16.24 · 23 November 2026
 
 - **"Fuck me" uses the toy she has on.** With nothing named, a dildo gag goes first, then a strap-on,
