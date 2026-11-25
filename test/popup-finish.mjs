@@ -42,6 +42,7 @@ const drainPaced = () => {
 const { voice, storage, triggers, session, timers, popupSuggest } = await import("./harness-bundle.mjs");
 // The things BC itself would do when an action is performed, which planting never reaches.
 globalThis.ActivitySetArousal ??= () => {};
+globalThis.ActivityExpression ??= () => {};
 globalThis.CurrentTime ??= Date.now();
 
 let pass = 0, fail = 0;
@@ -89,6 +90,41 @@ const item = (id) => popupSuggest.suggestCategories().flatMap((c) => c.items).fi
 check("a trance move says so", /trance move/.test(popupSuggest.notInTrigger(item("x-deeper")) ?? ""), "the trance-move reason for sink deeper");
 check("kiss me says it aims at a person", /aim at a person/.test(popupSuggest.notInTrigger(item("x-kiss-me")) ?? ""), "the aimed-at-a-person reason for kiss me");
 check("one odd wording, not its line", popupSuggest.notInTrigger(item("stand"), "on your feet") !== null && popupSuggest.notInTrigger(item("stand"), "stand") === null, "on your feet greyed, stand not");
+
+// v1.16.28: every wording said on its own, outside any trigger, must never START one. "you feel
+// nothing when I touch you" started a "when I touch you" compulsion and swallowed the next lines.
+const startsOne = [];
+for (const cat of popupSuggest.suggestCategories())
+	for (const it of cat.items)
+		for (const phrase of [it.phrase, ...it.alternates]) {
+			session.safeword();
+			timers.clearAllTimers();
+			storage.forgetAllTriggers();
+			toHyp = [];
+			clock += 60_000;
+			session.forceTrance(HYP, 80, 80);
+			const kind = voice.parseTriggerControl(`Missy, ${phrase}`)?.kind;
+			// Landing it may reach BC calls the harness has no stub for; only whether it RECORDS matters.
+			try {
+				say(`Missy, ${phrase}`);
+			} catch {}
+			if (kind === "condition" || kind === "start" || toHyp.some((t) => /RECORDING/.test(t))) startsOne.push(`${it.id} "${phrase}"`);
+		}
+check("no suggestion starts a trigger", startsOne.length === 0, `none, got ${startsOne.join("; ")}`);
+// A "when …" clause after a suggestion belongs to it; one that opens the line still starts a compulsion.
+const cond = (line) => voice.parseTriggerControl(line)?.kind;
+check("numbing is not a compulsion", cond("Missy, you feel nothing when I touch you") !== "condition", "not a condition");
+check("kneel when I touch you is not one", cond("Missy, kneel when I touch you") !== "condition", "not a condition");
+for (const line of [
+	"Missy, when I touch you, kneel",
+	"Missy, listen, when anyone kisses you, kneel",
+	"Missy, whenever anyone gags you, you will kneel",
+	"Missy, five minutes after you wake, you will kneel",
+	"Missy, when Rei comes in, kneel",
+	"Missy, when Rei speaks, you will say yes",
+	"when anyone kisses you, you feel nothing",
+])
+	check(`still a compulsion: ${line}`, cond(line) === "condition", "a condition");
 
 console.log(`popup-finish: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);
