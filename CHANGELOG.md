@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.28 · 24 November 2026
+
+- **"You feel nothing when I touch you" numbs her again.** That line started setting up a *"when I
+  touch you"* trigger instead, and the hypnotist's next suggestions went into it rather than
+  happening. A *"when …"* that comes after a suggestion now belongs to that suggestion. To set up a
+  trigger, say the *"when …"* part first: *"Sena, when I touch you, kneel"*.
+
 ## v1.16.27 · 24 November 2026
 
 - **Finishing a compulsion from the popup.** Clicking *when anyone kisses you* (or *whenever anyone

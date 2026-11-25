@@ -18,6 +18,27 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-24 (v1.16.28) — a "when …" after a suggestion no longer starts a compulsion
+
+The parser trap noted under v1.16.27, confirmed outside a recording too (a side agent's heads-up,
+tested in the harness): "Missy, you feel nothing when I touch you", the numbing's own example
+wording and a popup Arousal entry, matched COND_ACTS' "when I touch you" anywhere in the line. It
+started recording a compulsion, never numbed her, and the next line ("Missy, kneel") was recorded
+into it; "remember trigger" then saved a real "kneel when you touch them". None of the condition
+patterns (wake, arrive, speak, acts) were anchored.
+
+DW chose the parser fix over dropping the wording. parseCondition now refuses a match when the text
+before the clause would land on its own (isRecordableAction or isDeepeningLine), not merely when
+anything precedes it, so the name and fillers ("Missy, listen, when anyone kisses you, …") still
+start one. A side effect: "Missy, kneel when I touch you" is now a plain kneel; before, it started
+an empty compulsion and lost the kneel, so it was broken either way. TRIGGER_START ("when you hear
+X") is not changed: no popup wording reaches it.
+
+test/popup-finish.mjs +10: every Suggestions wording said outside a trigger must not parse as a
+condition or start, nor print RECORDING; numbing and "kneel when I touch you" are not conditions;
+seven real condition lines still are. The wording now plants in a trigger as well, so it is no
+longer greyed. Mutation-checked: without the guard popup-finish fails 4.
+
 ### Changed 2026-11-24 (v1.16.27) — the popup finishes a compulsion instead of replacing it
 
 From the UI lab review (F2, its second-worst finding): the Triggers tab typed the start of a

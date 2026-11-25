@@ -127,10 +127,9 @@ export function suggestCategories(): SuggestCategory[] {
 const TRANCE_MOVES = new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
 /** Aimed at the hypnotist ("kiss me"): voice.ts "a trigger can't aim at a person yet". */
 const AIMED_AT_YOU = new Set(["x-kiss-me", "x-fuck-me", "x-suck-strapon", "x-hug-me"]);
-/** Single wordings a recording reads differently. "you feel nothing when I touch you" starts a
- * "when I touch you" compulsion of its own; "on your feet" and a bare "moan" are not kept. The
- * other wordings of the same lines work. */
-const WORDINGS_NOT_KEPT = new Set(["on your feet", "moan", "you feel nothing when i touch you"]);
+/** Single wordings a recording reads differently: "on your feet" and a bare "moan" are not kept.
+ * The other wordings of the same lines work. */
+const WORDINGS_NOT_KEPT = new Set(["on your feet", "moan"]);
 
 /** Why this wording can't be one of a trigger's actions, or null if it can. */
 export function notInTrigger(it: SuggestItem, phrase: string = it.phrase): string | null {

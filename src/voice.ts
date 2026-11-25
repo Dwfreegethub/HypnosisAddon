@@ -2180,13 +2180,21 @@ export function parseCondition(content: string): ParsedCondition | null {
 		.replace(/[^a-z0-9\s]/g, " ")
 		.replace(/\s+/g, " ")
 		.trim();
+	// v1.16.28: the clause must not follow a suggestion on the same line. "you feel nothing when I
+	// touch you" is the numbing, not a "when I touch you" compulsion (it started one and swallowed
+	// the next lines; found by the UI lab review). Whatever comes before the clause may be a name or
+	// "listen", never something that would land on its own.
+	const afterSuggestion = (m: RegExpExecArray) => {
+		const before = text.slice(0, m.index).trim();
+		return !!before && (isRecordableAction(before) || isDeepeningLine(before));
+	};
 	const after = (m: RegExpExecArray) =>
 		text
 			.slice(m.index + m[0].length)
 			.replace(/^\s*(?:(?:and|then|so)\s+)*/, "")
 			.trim();
 	let m = COND_WAKE_DELAY.exec(text);
-	if (m) {
+	if (m && !afterSuggestion(m)) {
 		const option = lifespanOption(m);
 		if (option?.kind !== "lifespan" || option.ms <= 0) return null;
 		return { fireOn: "wake", delayMs: option.ms, rest: after(m) };
@@ -2194,14 +2202,14 @@ export function parseCondition(content: string): ParsedCondition | null {
 	// "whenever …" means every time (v1.16.12).
 	const every = (m: RegExpExecArray) => (EVERY_LEAD.test(m[0]) ? { every: true as const } : {});
 	m = COND_WAKE_NOW.exec(text);
-	if (m) return { fireOn: "wake", delayMs: 0, rest: after(m), ...every(m) };
+	if (m && !afterSuggestion(m)) return { fireOn: "wake", delayMs: 0, rest: after(m), ...every(m) };
 	m = COND_ARRIVE.exec(text);
-	if (m) return { fireOn: "arrive", who: m[1], rest: after(m), ...every(m) };
+	if (m && !afterSuggestion(m)) return { fireOn: "arrive", who: m[1], rest: after(m), ...every(m) };
 	m = COND_SPEAK.exec(text);
-	if (m) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m), ...every(m) };
+	if (m && !afterSuggestion(m)) return { fireOn: "speak", who: m[1] ?? m[2], rest: after(m), ...every(m) };
 	for (const a of COND_ACTS) {
 		m = a.re.exec(text);
-		if (m) return { fireOn: "act", who: m[1], act: a.key, rest: after(m), ...every(m) };
+		if (m && !afterSuggestion(m)) return { fireOn: "act", who: m[1], act: a.key, rest: after(m), ...every(m) };
 	}
 	return null;
 }
