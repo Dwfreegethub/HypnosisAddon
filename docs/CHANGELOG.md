@@ -18,6 +18,14 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-24 (v1.16.26, stable hotfix) — "undefined days" in the Extreme warning
+
+The fix from v1.16.25 on dev, applied to main on its own (DW: fix it on stable too, as a hotfix,
+not a full release). Numbered 1.16.26 because 1.16.8 to 1.16.25 are dev builds. `EXTREME_WARNING`
+was built at module load, before `storage.ts` (which `extreme.ts` imports, and which imports it
+back) set `EXTREME_TRIAL_DAYS`, so it said "undefined days". `extremeWarning()` builds it when shown.
+UPDATE_NOTE set for 1.16.26.
+
 ### Changed 2026-11-22 (v1.16.7) — UPDATE_NOTE for the stable release
 
 DW: "push everything to stable". UPDATE_NOTE (v1.15.0's still) set to 1.16.7 with a two-sentence

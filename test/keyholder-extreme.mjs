@@ -70,7 +70,9 @@ storage.setKeyholder(MOE, "Moe", "moderate");
 let r = req(MOE, { action: "extreme" });
 check("moderate keys can't start Extreme", !box() && !extreme.extremeLocked() && /needs full keys/.test(r?.settingsResult?.text ?? ""), JSON.stringify(r?.settingsResult));
 req(KAY, { action: "extreme" });
-check("full keys: she sees the Extreme warning", !!box() && /Kay asks to put you under Extreme/.test(box().textContent) && extreme.EXTREME_WARNING.every((w) => box().textContent.includes(w)), `the warning, got ${box()?.textContent}`);
+check("full keys: she sees the Extreme warning", !!box() && /Kay asks to put you under Extreme/.test(box().textContent) && extreme.extremeWarning().every((w) => box().textContent.includes(w)), `the warning, got ${box()?.textContent}`);
+// v1.16.25: the warning was built at load, before storage set its day counts, and said "undefined days".
+check("the warning names its days", !extreme.extremeWarning().join(" ").includes("undefined") && extreme.extremeWarning()[0].includes("read-only for 7 days") && extreme.extremeWarning()[3].includes("30 days at a time"), `"7 days" and "30 days at a time", got ${JSON.stringify(extreme.extremeWarning())}`);
 check("  nothing yet", !extreme.extremeLocked(), "unlocked");
 await answer("Decline");
 check("Decline: no Extreme", !extreme.extremeLocked() && /declined/.test(result(KAY)?.text ?? ""), JSON.stringify(result(KAY)));
