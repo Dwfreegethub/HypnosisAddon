@@ -64,7 +64,7 @@ import { triggerStrength } from "./triggers";
 import { isTriggerInEffect } from "./voice";
 import { remoteRows, remoteChoices, remoteChoiceLabel, onToggle, MODERATE_TABS, ownLocked } from "./menu";
 import { keyLockHolder, keysLockHolder, keysLocked } from "./keylock";
-import { extremeLocked, EXTREME_WARNING } from "./extreme";
+import { extremeLocked, extremeWarning } from "./extreme";
 import { askPlayer, askOpen } from "./ask";
 import { compareVersions } from "./update";
 import { peerFor } from "./badge";
@@ -452,9 +452,9 @@ function extremeChange(sender: number, who: string): AskedChange {
 		lines: extending
 			? [
 					`Your Extreme lock would run ${EXTREME_MONTH_DAYS} days longer than it does now.`,
-					...EXTREME_WARNING.slice(1, 3),
+					...extremeWarning().slice(1, 3),
 				]
-			: EXTREME_WARNING,
+			: extremeWarning(),
 		accept: extending ? `Extend by ${EXTREME_MONTH_DAYS} days` : "Start Extreme",
 		// Asked on its own terms: if it was not locked when asked, it starts; if it was, it extends.
 		refusal: () => (extremeLocked() !== extending ? "Their Extreme lock changed while they were deciding, so nothing changed. Ask again." : null),
