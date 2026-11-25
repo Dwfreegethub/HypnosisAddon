@@ -371,9 +371,11 @@ check("  and the word never leaks from the list", /butterfly/.test(listed(false)
 check("  nor from the detail", /butterfly/.test(detail(false)), false);
 // What IS always shown, hidden phrase or not — this is the line between private and secret.
 check("  but the trigger is still listed", /You have 1 trigger planted/.test(listed(false)), true);
-check("  with who planted it", /GameBot \(#246108\)/.test(listed(false)), true);
-check("  and its level", /full strength/.test(listed(false)), true);
-check("  but NOT what it does", /cannot move|movement/.test(listed(false)), false);
+// v1.16.30 (DW, UI lab review F5): the row names who planted it first, then what it does, so
+// triggers can be told apart; the strength moved to the detail view.
+check("  with who planted it, first", /1\. GameBot: a word \(hidden\)/.test(listed(false)), true);
+check("  and what it does", /→ you cannot move/.test(listed(false)), true);
+check("  but not its level", /full strength/.test(listed(false)), false);
 check("what it does is one step further", /What it does: you cannot move/.test(detail(false)), true);
 
 check("the setting reveals it", /butterfly/.test((storage.setFeature("showTriggerWords", true), listed(false))), true);

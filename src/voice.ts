@@ -21,7 +21,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, FeatureToggles, PlantedEntry, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, getTriggerView, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, FeatureToggles, PlantedEntry, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -3413,18 +3413,19 @@ export function triggerPhrasesVisible(fullRequested: boolean): boolean {
  * suite can exercise the visibility rule without standing up the whole command layer —
  * this stopped being a formatting loop the moment it grew a decision. */
 //
-// TWO LEVELS, v0.88.0 (DW, 2026-09-25): the plain list says how many there are, who planted each
-// and how strong it is, and nothing about what it does. What a trigger does is one more
-// deliberate step, `/echs triggers <number>`, so a subject has to go out of their way to look.
-// It is never hidden outright: nothing may be happening to the subject that they CANNOT see.
-// The phrase follows the Show-trigger-words setting at both levels.
+// TWO LEVELS. Since v1.16.30 (DW, 2026-11-24, UI lab review F5) each row says who planted it,
+// what sets it off and what it does, so she can tell her triggers apart without opening each one;
+// before, from v0.88.0, it said only who and how strong, and every row looked the same. The
+// detail view, `/echs triggers <number>`, adds the strength, the depth and the options. The
+// phrase follows the Show-trigger-words setting at both levels.
 export function describeTriggerList(fullRequested: boolean): string[] {
 	const all = sweptTriggers();
 	if (!all.length) return ["no triggers planted"];
+	if (getTriggerView() === "hidden") return [triggersHiddenLine(all.length)];
 	const reveal = triggerPhrasesVisible(fullRequested);
 	return [
 		`You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
-		...all.map((t, i) => `${i + 1}. ${reveal && t.phrase ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`),
+		...all.map((t, i) => `${i + 1}. ${triggerRow(t, reveal, all)}`),
 	];
 }
 
@@ -3435,6 +3436,7 @@ export function describeTriggerDetail(index: number, fullRequested: boolean): st
 	if (!Number.isInteger(index) || index < 1 || index > all.length) {
 		return [all.length ? `no trigger ${index} — you have ${all.length}.` : "no triggers planted"];
 	}
+	if (getTriggerView() === "hidden") return [triggersHiddenLine(all.length)];
 	const t = all[index - 1];
 	const lines = [
 		`Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
@@ -3452,14 +3454,37 @@ export function describeTriggerDetail(index: number, fullRequested: boolean): st
 	return lines;
 }
 
-/** The summary line for one trigger — shared by the chat list and the settings screen, so the
- * two cannot drift. No phrase and no actions: see describeTriggerList. */
-export function triggerSummary(t: Trigger): string {
-	return (
-		`by ${t.installedByName} (#${t.installedBy}), ${describeStrength(t)}` +
-		(t.spent ? ", used up" : "") +
-		(isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : "")
-	);
+/** How many of a trigger's actions a row names before "+N more". */
+const ROW_ACTIONS = 2;
+
+/** One trigger as a row, shared by /echs triggers, Settings > Planted and the popup so they cannot
+ * drift (v1.16.30, UI lab review F5): who planted it first (DW), then what sets it off → what it
+ * does, then short tags. "Mira: when anyone gags you → hands behind your back · holding you now".
+ * The word follows `reveal` (the Show-trigger-words setting); the number after the name only
+ * when someone else in `all` has the same name. The strength is in the detail view. */
+export function triggerRow(t: Trigger, reveal: boolean, all: Trigger[] = [t]): string {
+	const twin = all.some((o) => o.installedBy !== t.installedBy && o.installedByName === t.installedByName);
+	const who = twin ? `${t.installedByName} (#${t.installedBy})` : t.installedByName;
+	const holding = isTriggerInEffect(t) ? " · holding you now" : "";
+	// "Who only" (v1.16.30): the v0.88.0 row, who and how strong, with the name first (DW).
+	if (getTriggerView() === "who") return `${who}: ${reveal && t.phrase ? `"${t.phrase}", ` : ""}${describeStrength(t)}${t.spent ? " · used up" : ""}${holding}`;
+	const when = t.fireOn ? describeCondition(t) : reveal && t.phrase ? `"${t.phrase}"` : "a word (hidden)";
+	const acts = t.actions.map(describeAction);
+	const does = acts.length ? acts.slice(0, ROW_ACTIONS).join("; ") + (acts.length > ROW_ACTIONS ? ` +${acts.length - ROW_ACTIONS} more` : "") : "nothing yet";
+	const tags: string[] = [];
+	if (t.spent) tags.push("used up");
+	else if (t.oneShot) tags.push("works once");
+	if (t.whileWorn) tags.push("holds while worn");
+	const strength = describeStrength(t);
+	if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
+	if (holding) tags.push("holding you now");
+	return `${who}: ${when} → ${does}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
+}
+
+/** What a list says when her setting hides her triggers: that they exist, how many, and where the
+ * setting is. Never what they are. */
+export function triggersHiddenLine(count: number): string {
+	return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still removes them.`;
 }
 
 /** The list after sweeping out the dead. Reading the list is the natural moment for it — there

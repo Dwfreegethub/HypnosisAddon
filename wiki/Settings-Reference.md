@@ -158,12 +158,13 @@ Manages long-term suggestions and conditioned words:
 * **Who else can fire triggers planted in you:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your BC friends, then your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
 * **Longest a New Trigger Lasts:** Gives every trigger planted from now on a time limit (*No limit · 15 minutes · 30 minutes · 1 hour · 2 hours · 6 hours · 1 day*; default: *No limit*). Triggers you already have are not shortened.
 * **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). Scroll down the tab to reach it. See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
+* **My triggers list:** How much your own lists show of the triggers planted in you (*Full · Who only · Hidden*; default: *Full*), under Drop Triggers. *Full* shows who planted each, what sets it off and what it does. *Who only* shows who and how strong; Details shows the rest. *Hidden* shows only how many, and turns the Planted tab off. Under the Extreme lock it is read-only like your other settings, and only a keyholder can change it.
 
 ---
 
 ## 6. Planted Tab
 
-Lists the triggers planted in you, six to a page: who planted each one and how strong it still is.
+Lists the triggers planted in you, six to a page: who planted each one, what sets it off and what it does (or less, by your *My triggers list* setting on the Triggers tab; with *Hidden*, this tab is not shown).
 
 * **Details:** Shows what that trigger does, its options, and, for a compulsion, what it is waiting for.
 * **Purge:** Removes that trigger. Refused while the trigger is holding you (the button reads *Holding*).

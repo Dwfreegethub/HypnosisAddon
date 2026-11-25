@@ -104,7 +104,7 @@ Lines that need finishing end where you type on, and the status line says what's
 * A compulsion has no word, so only **↺ remove everything I planted** takes it away.
 * It asks them at most twice a minute, so leaving the tab open can't flood the room.
 
-**Triggers in you:** your own, numbered the same as `/echs triggers`. The words stay hidden unless you have **Show trigger words when you list them** on (Triggers tab).
+**Triggers in you:** your own, numbered the same as `/echs triggers`, one line each: who planted it, what sets it off and what it does. The words stay hidden unless you have **Show trigger words when you list them** on (Triggers tab). *My triggers list* on the same tab can show less, down to only how many.
 
 * **details** (`/echs triggers 2`), **forget** (`/echs forgettrigger 2`), and **forget all**, which asks first.
 * **How fast your triggers fade:** the six speeds, with yours highlighted.

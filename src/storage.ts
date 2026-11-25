@@ -495,6 +495,8 @@ interface HypnoAddonSettings {
 	 * trigger works one time and is gone), or unlimited (it works until it fades, if its installer
 	 * asked for that). One of DROP_MODES. */
 	dropTriggers: DropMode;
+	/** How much of her own triggers she sees (v1.16.30, DW): one of TRIGGER_VIEWS. */
+	triggerView?: TriggerView;
 	/** How many induction attempts one hypnotist gets before a cooldown. One of
 	 * ATTEMPT_LIMITS; anything else is normalised back to the default on load. */
 	maxAttempts: number;
@@ -747,6 +749,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
 	if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
 	if (!DROP_MODES.some((m) => m.key === s.dropTriggers)) s.dropTriggers = "off";
+	if (s.triggerView !== undefined && !TRIGGER_VIEWS.some((m) => m.key === s.triggerView)) delete s.triggerView;
 	if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
 	// An invalid rung is DELETED, not defaulted, so the code default keeps governing it — a
 	// stored "trusted" would freeze today's default into that install forever.
@@ -2034,6 +2037,30 @@ export function getDropMode(): DropMode {
 export function setDropMode(mode: DropMode): DropMode {
 	const value = DROP_MODES.some((m) => m.key === mode) ? mode : "off";
 	loadSettings().dropTriggers = value;
+	saveSettings();
+	return value;
+}
+
+/** How much of her own triggers the subject sees (v1.16.30, DW 2026-11-24: "let people choose if
+ * they want to make it harder to see what triggers you have. Even to the point of turning off that
+ * tab"). full: who, what sets it off and what it does. who: who planted each and how strong, the
+ * rest one step away in the detail view (the v0.88.0 list). hidden: a count only, no Planted tab,
+ * no detail. Her own choice; read-only under the Extreme lock like every setting (DW), where her
+ * keyholders can still change it. The safeword and forgettrigger work in every mode. */
+export type TriggerView = "full" | "who" | "hidden";
+export const TRIGGER_VIEWS: { key: TriggerView; label: string }[] = [
+	{ key: "full", label: "Full" },
+	{ key: "who", label: "Who only" },
+	{ key: "hidden", label: "Hidden" },
+];
+
+export function getTriggerView(): TriggerView {
+	return loadSettings().triggerView ?? "full";
+}
+
+export function setTriggerView(mode: TriggerView): TriggerView {
+	const value = TRIGGER_VIEWS.some((m) => m.key === mode) ? mode : "full";
+	loadSettings().triggerView = value;
 	saveSettings();
 	return value;
 }

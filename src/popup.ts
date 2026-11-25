@@ -40,8 +40,8 @@ import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./popup-suggest";
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
-import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
-import { listTriggers, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
+import { sweptTriggers, triggerRow, triggersHiddenLine, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
+import { listTriggers, getTriggerView, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
@@ -894,7 +894,7 @@ function triggersKey(): string {
 	const who = currentSubject();
 	const planted = plantedPeople().map((p) => `${p.id}:${plantedStatus(p.id)}:${plantedNote(p.id)?.updatedAt ?? 0}`);
 	const mine = listTriggers().map((t) => `${t.key}:${isTriggerInEffect(t) ? 1 : 0}`);
-	return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), extremeLocked() ? "x" : ""].join("|");
+	return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), getTriggerView(), extremeLocked() ? "x" : ""].join("|");
 }
 
 function triggerGroup(body: any, key: string, title: string, fill: (list: any) => void): void {
@@ -1046,12 +1046,14 @@ function renderTriggers(body: any, status: any): void {
 	triggerGroup(body, "mine", `Triggers in you (${mine.length})`, (list) => {
 		if (!mine.length) list.appendChild(el("div", "echs-pop-empty", "Nothing is planted in you."));
 		const reveal = triggerPhrasesVisible(false);
-		mine.forEach((t, i) => {
+		// "My triggers list: Hidden" (v1.16.30, DW): how many, nothing more.
+		const hidden = getTriggerView() === "hidden";
+		if (hidden && mine.length) list.appendChild(el("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
+		(hidden ? [] : mine).forEach((t, i) => {
 			const n = i + 1;
 			const holding = isTriggerInEffect(t);
 			const row = el("div", "echs-pop-entry");
-			row.appendChild(el("div", "echs-pop-person", `${n}. ${reveal && t.phrase ? `"${t.phrase}"` : t.fireOn ? "a compulsion" : "word hidden"}`));
-			row.appendChild(el("div", "echs-pop-desc", triggerSummary(t)));
+			row.appendChild(el("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
 			const chips = el("div", "echs-pop-buttons");
 			chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
 			// Typed even when it will be refused, and the status says why: the command decides (rule 1),
@@ -1072,7 +1074,7 @@ function renderTriggers(body: any, status: any): void {
 			row.appendChild(chips);
 			list.appendChild(row);
 		});
-		if (mine.length > 1)
+		if (mine.length > 1 || (hidden && mine.length))
 			list.appendChild(
 				chip(
 					"forget all",

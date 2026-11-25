@@ -267,10 +267,13 @@ A faded trigger does not switch off abruptly: **its current remaining strength d
 
 ## 9. Checking and Removing Your Triggers
 
-The list is in two steps, so seeing what a trigger does is something you choose to do:
+* `/echs triggers` lists your triggers, one line each: who planted it, what sets it off and what it does, with *used up*, *works once*, *holds while worn* or *holding you now* where they apply.
+* `/echs triggers <number>` shows that one trigger in full: how strong it still is, what it does, in plain words, any options such as *works once* or *ends in 2 hours*, the condition for a compulsion, and whether it is holding you now.
 
-* `/echs triggers` says how many triggers you have, who planted each one (name and member number), and how strong it still is. It does not say what they do.
-* `/echs triggers <number>` shows that one trigger in full: what it does, in plain words, any options such as *works once* or *ends in 2 hours*, the condition for a compulsion, and whether it is holding you now.
+If you would rather not know, *My triggers list* on your Triggers tab decides how much your own lists show:
+  * **Full** (the default): who planted each trigger, what sets it off and what it does, for example *Mira: when anyone kisses you → kneel · works once*.
+  * **Who only:** who planted each and how strong it still is. What a trigger does is one more step, `/echs triggers <number>`.
+  * **Hidden:** only how many. No Planted tab, no details, and the popup shows the count alone. `/echs forgettrigger all` and the safeword still work.
 
 The trigger word stays hidden in both unless you have ticked **Show trigger words**.
 
