@@ -36,7 +36,7 @@ import {
 } from "./session";
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
-import { suggestCategories, suggestionText, SuggestItem } from "./popup-suggest";
+import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./popup-suggest";
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerSummary, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
@@ -222,6 +222,44 @@ export function fillChat(text: string): boolean {
 	return true;
 }
 
+/** The chat box as it stands, or null with no chat box. */
+function chatValue(): string | null {
+	const input: any = typeof document !== "undefined" ? document.getElementById("InputChat") : null;
+	return input ? String(input.value ?? "") : null;
+}
+
+// --- Finishing a compulsion (v1.16.27) -----------------------------------------------------------
+// The Triggers tab types the start of a compulsion ("Sena, when anyone kisses you, "); what it does
+// comes from the Suggestions tab. A click there used to replace the line (UI lab review, F2). Now,
+// while the chat box still holds exactly that start, a click adds its wording to the end and greys
+// what a trigger can't hold (DW, 2026-11-24). Sending the line, or typing over it, ends it.
+
+/** The start typed from the Triggers tab, while it is still what the chat box holds. */
+let finishing: string | null = null;
+
+/** The start being finished, or null once the chat box holds anything else (sent, edited). */
+export function finishingStart(): string | null {
+	if (finishing === null) return null;
+	if ((chatValue() ?? "").trimEnd() !== finishing.trimEnd()) finishing = null;
+	return finishing;
+}
+
+/** A Triggers line or choice that leaves the line open for what it does ("…, " with a finish). */
+function startsCompulsion(text: string, finish: string | undefined): boolean {
+	return !!finish && /,\s*$/.test(text);
+}
+
+/** Type a compulsion start and go to Suggestions to finish it. */
+function typeStart(status: any, text: string): void {
+	if (!fillChat(text)) {
+		setStatus(status, "No chat box to type into. This works in a chat room.");
+		return;
+	}
+	finishing = text;
+	setPopupTab("suggest");
+	setStatus(status, "Typed the start. Now click what they will do: it is added to the line.");
+}
+
 // --- Visibility -------------------------------------------------------------------------------
 
 /** The chat room itself (R134 Common.js `CurrentScreen`), with no character's item menu open over
@@ -282,6 +320,7 @@ function viewKey(): string {
 		const who = currentSubject();
 		parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
 		parts.push(JSON.stringify(who ? (getSessionView(who.id)?.gates ?? null) : null));
+		parts.push(finishingStart() ?? "");
 	}
 	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
 	if (tab === "triggers") parts.push(triggersKey());
@@ -667,7 +706,20 @@ function renderSuggest(body: any, status: any): void {
 		}
 		body.appendChild(row);
 	}
-	body.appendChild(el("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. ↺ gives something back.`));
+	const start = finishingStart();
+	if (start) {
+		const banner = el("div", "echs-pop-finish", `Finishing: "${start.trimEnd()} …". Click what they will do and it is added to the line. Greyed lines can't go in a trigger.`);
+		body.appendChild(banner);
+		const row = el("div", "echs-pop-buttons");
+		row.appendChild(
+			chip("start over", "Leave the chat box as it is and type lines on their own again", () => {
+				finishing = null;
+				renderBody();
+				setStatus(status, "Clicks type lines on their own again.");
+			}),
+		);
+		body.appendChild(row);
+	} else body.appendChild(el("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. ↺ gives something back.`));
 	const gates = getSessionView(who.id)?.gates ?? null;
 	if (!gates) body.appendChild(el("div", "echs-pop-hint", `${who.name}'s ECHS doesn't say what they allow (an older version), so nothing is greyed.`));
 	for (const cat of suggestCategories()) {
@@ -706,12 +758,27 @@ function suggestButton(it: SuggestItem, name: string, status: any, gate: Gate): 
 				? `Typed, but ${name} isn't deep enough for this yet. Take them deeper first.`
 				: `Typed. Press Enter to say it to ${name}.`;
 	const why = gate === "off" ? `${name} hasn't allowed this. ` : gate === "deeper" ? `Needs ${name} deeper. ` : "";
+	const start = finishingStart();
 	const say = (phrase: string, label: string, cls: string) => {
-		const text = suggestionText(name, phrase);
-		const b = el("button", cls, label);
+		// Finishing a compulsion (v1.16.27): add to the line, or grey what a trigger can't hold.
+		const refused = start ? notInTrigger(it, phrase) : null;
+		const text = start ? `${start}${phrase}` : suggestionText(name, phrase);
+		const b = el("button", `${cls}${refused ? " echs-pop-off" : ""}`, label);
 		b.type = "button";
-		b.title = `${why}${text}`;
-		b.addEventListener("click", () => typeIt(status, text, done));
+		b.title = refused ? `${refused} ${phrase}` : `${why}${text}`;
+		b.addEventListener("click", () => {
+			if (refused) return setStatus(status, `Not added. ${refused}`);
+			if (!start) return typeIt(status, text, done);
+			// Checked again at the click: the line may have been sent since this was drawn.
+			if (finishingStart() !== start) return typeIt(status, suggestionText(name, phrase), done);
+			finishing = null;
+			typeIt(
+				status,
+				text,
+				`${gate === "off" ? `Added, but ${name} hasn't allowed this. It won't land. ` : gate === "deeper" ? `Added, but ${name} isn't deep enough for this yet. ` : "Added. "}Press Enter, add any more lines or options, then "remember trigger" (Triggers tab) keeps it.`,
+			);
+			renderBody();
+		});
 		return b;
 	};
 	const main = say(it.phrase, `${it.release ? "↺ " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
@@ -802,9 +869,10 @@ function triggerLineButton(line: TriggerLine, name: string, status: any): any {
 	const b = el("button", `echs-pop-item echs-pop-say${line.release ? " echs-pop-release" : ""}`, `${line.release ? "↺ " : ""}${line.label}`);
 	b.type = "button";
 	b.title = text;
-	b.addEventListener("click", () =>
-		typeIt(status, text, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`),
-	);
+	b.addEventListener("click", () => {
+		if (startsCompulsion(text, line.finish)) return typeStart(status, text);
+		typeIt(status, text, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`);
+	});
 	return b;
 }
 
@@ -847,7 +915,11 @@ function renderTriggers(body: any, status: any): void {
 					const chips = el("div", "echs-pop-buttons");
 					for (const choice of line.choices) {
 						const text = suggestionText(who.name, choice.phrase);
-						chips.appendChild(chip(choice.label, text, () => typeIt(status, text, `Typed. Finish it (${line.finish}), then press Enter.`)));
+						chips.appendChild(
+							chip(choice.label, text, () =>
+								startsCompulsion(text, line.finish) ? typeStart(status, text) : typeIt(status, text, `Typed. Finish it (${line.finish}), then press Enter.`),
+							),
+						);
 					}
 					list.appendChild(chips);
 				}
@@ -1548,6 +1620,7 @@ const POPUP_CSS = `
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-finish{font-size:12px;padding:5px 7px;margin:2px 0 4px;border-left:3px solid #8fa8ff;background:#1b2648;border-radius:3px}
 .echs-pop-person{font-weight:600}
 .echs-pop-row{display:flex;align-items:stretch}
 .echs-pop-row .echs-pop-item{flex:1}

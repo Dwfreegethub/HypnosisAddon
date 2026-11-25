@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.25. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.27. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -13602,7 +13602,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.25"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.27"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13675,7 +13675,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.25"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.27"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14511,7 +14511,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.25", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.27", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14548,7 +14548,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.25", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.27", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14590,7 +14590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.25", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.27", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17184,6 +17184,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (const x of EXTRA_ITEMS.filter((e) => e.cat !== "trance")) buckets.get(x.cat).push(x.item);
     return CATEGORY_TITLES.map(([key, title]) => ({ key, title, items: ordered(key, buckets.get(key)) })).filter((c) => c.items.length > 0);
   }
+  function notInTrigger(it, phrase = it.phrase) {
+    if (TRANCE_MOVES.has(it.id)) return `A trigger can't hold a trance move (deeper, walk, wake). Try "\u2026you will drop into trance" instead.`;
+    if (AIMED_AT_YOU.has(it.id)) return "A trigger can't aim at a person yet, only at them.";
+    if (WORDINGS_NOT_KEPT.has(phrase.toLowerCase())) return "This wording isn't kept in a trigger. Use another wording of it.";
+    return null;
+  }
   function ordered(key, items) {
     const lead = LEADS[key] ?? [];
     const base = [...items.filter((i) => lead.includes(i.id)), ...items.filter((i) => !lead.includes(i.id))];
@@ -17206,7 +17212,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function suggestionText(subjectName, phrase) {
     return `${subjectName}, ${phrase}`;
   }
-  var CATEGORY_TITLES, BY_PERMISSION, FACE_ID, EXTRA_ITEMS, LEADS;
+  var CATEGORY_TITLES, BY_PERMISSION, FACE_ID, EXTRA_ITEMS, TRANCE_MOVES, AIMED_AT_YOU, WORDINGS_NOT_KEPT, LEADS;
   var init_popup_suggest = __esm({
     "src/popup-suggest.ts"() {
       init_voice();
@@ -17259,6 +17265,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
       ];
+      TRANCE_MOVES = /* @__PURE__ */ new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
+      AIMED_AT_YOU = /* @__PURE__ */ new Set(["x-kiss-me", "x-fuck-me", "x-suck-strapon", "x-hug-me"]);
+      WORDINGS_NOT_KEPT = /* @__PURE__ */ new Set(["on your feet", "moan", "you feel nothing when i touch you"]);
       LEADS = { body: ["kneel"] };
     }
   });
@@ -17434,6 +17443,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  function chatValue() {
+    const input = typeof document !== "undefined" ? document.getElementById("InputChat") : null;
+    return input ? String(input.value ?? "") : null;
+  }
+  function finishingStart() {
+    if (finishing === null) return null;
+    if ((chatValue() ?? "").trimEnd() !== finishing.trimEnd()) finishing = null;
+    return finishing;
+  }
+  function startsCompulsion(text2, finish3) {
+    return !!finish3 && /,\s*$/.test(text2);
+  }
+  function typeStart(status, text2) {
+    if (!fillChat(text2)) {
+      setStatus(status, "No chat box to type into. This works in a chat room.");
+      return;
+    }
+    finishing = text2;
+    setPopupTab("suggest");
+    setStatus(status, "Typed the start. Now click what they will do: it is added to the line.");
+  }
   function inChatRoom() {
     if (typeof CurrentScreen === "undefined" || CurrentScreen !== "ChatRoom") return false;
     return typeof CurrentCharacter === "undefined" || CurrentCharacter == null;
@@ -17480,6 +17510,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const who = currentSubject();
       parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
       parts.push(JSON.stringify(who ? getSessionView(who.id)?.gates ?? null : null));
+      parts.push(finishingStart() ?? "");
     }
     if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
     if (tab === "triggers") parts.push(triggersKey());
@@ -17677,7 +17708,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.25"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.27"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17783,7 +17814,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       body2.appendChild(row);
     }
-    body2.appendChild(el2("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. \u21BA gives something back.`));
+    const start = finishingStart();
+    if (start) {
+      const banner = el2("div", "echs-pop-finish", `Finishing: "${start.trimEnd()} \u2026". Click what they will do and it is added to the line. Greyed lines can't go in a trigger.`);
+      body2.appendChild(banner);
+      const row = el2("div", "echs-pop-buttons");
+      row.appendChild(
+        chip("start over", "Leave the chat box as it is and type lines on their own again", () => {
+          finishing = null;
+          renderBody();
+          setStatus(status, "Clicks type lines on their own again.");
+        })
+      );
+      body2.appendChild(row);
+    } else body2.appendChild(el2("div", "echs-pop-hint", `Speaking to ${who.name}. Click a line to type it with their name. \u21BA gives something back.`));
     const gates = getSessionView(who.id)?.gates ?? null;
     if (!gates) body2.appendChild(el2("div", "echs-pop-hint", `${who.name}'s ECHS doesn't say what they allow (an older version), so nothing is greyed.`));
     for (const cat of suggestCategories()) {
@@ -17810,12 +17854,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const row = el2("div", "echs-pop-row");
     const done = gate === "off" ? `Typed, but ${name} hasn't allowed this. It won't land.` : gate === "deeper" ? `Typed, but ${name} isn't deep enough for this yet. Take them deeper first.` : `Typed. Press Enter to say it to ${name}.`;
     const why = gate === "off" ? `${name} hasn't allowed this. ` : gate === "deeper" ? `Needs ${name} deeper. ` : "";
+    const start = finishingStart();
     const say = (phrase, label, cls) => {
-      const text2 = suggestionText(name, phrase);
-      const b = el2("button", cls, label);
+      const refused = start ? notInTrigger(it, phrase) : null;
+      const text2 = start ? `${start}${phrase}` : suggestionText(name, phrase);
+      const b = el2("button", `${cls}${refused ? " echs-pop-off" : ""}`, label);
       b.type = "button";
-      b.title = `${why}${text2}`;
-      b.addEventListener("click", () => typeIt(status, text2, done));
+      b.title = refused ? `${refused} ${phrase}` : `${why}${text2}`;
+      b.addEventListener("click", () => {
+        if (refused) return setStatus(status, `Not added. ${refused}`);
+        if (!start) return typeIt(status, text2, done);
+        if (finishingStart() !== start) return typeIt(status, suggestionText(name, phrase), done);
+        finishing = null;
+        typeIt(
+          status,
+          text2,
+          `${gate === "off" ? `Added, but ${name} hasn't allowed this. It won't land. ` : gate === "deeper" ? `Added, but ${name} isn't deep enough for this yet. ` : "Added. "}Press Enter, add any more lines or options, then "remember trigger" (Triggers tab) keeps it.`
+        );
+        renderBody();
+      });
       return b;
     };
     const main = say(it.phrase, `${it.release ? "\u21BA " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
@@ -17884,10 +17941,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const b = el2("button", `echs-pop-item echs-pop-say${line.release ? " echs-pop-release" : ""}`, `${line.release ? "\u21BA " : ""}${line.label}`);
     b.type = "button";
     b.title = text2;
-    b.addEventListener(
-      "click",
-      () => typeIt(status, text2, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`)
-    );
+    b.addEventListener("click", () => {
+      if (startsCompulsion(text2, line.finish)) return typeStart(status, text2);
+      typeIt(status, text2, line.finish ? `Typed. Finish it (${line.finish}), then press Enter.` : `Typed. Press Enter to say it to ${name}.`);
+    });
     return b;
   }
   function chip(label, tip, onClick, faded = false) {
@@ -17926,7 +17983,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const chips = el2("div", "echs-pop-buttons");
             for (const choice of line.choices) {
               const text2 = suggestionText(who.name, choice.phrase);
-              chips.appendChild(chip(choice.label, text2, () => typeIt(status, text2, `Typed. Finish it (${line.finish}), then press Enter.`)));
+              chips.appendChild(
+                chip(
+                  choice.label,
+                  text2,
+                  () => startsCompulsion(text2, line.finish) ? typeStart(status, text2) : typeIt(status, text2, `Typed. Finish it (${line.finish}), then press Enter.`)
+                )
+              );
             }
             list.appendChild(chips);
           }
@@ -18514,7 +18577,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -18567,6 +18630,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tabsEl = null;
       shownKey = "";
       shownName = (c) => c?.Nickname || c?.Name || `#${c?.MemberNumber}`;
+      finishing = null;
       sizeWatch = null;
       sizeTimer = null;
       TAB_LABELS = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", keys: "Keys", commands: "Commands" };
@@ -18608,6 +18672,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-finish{font-size:12px;padding:5px 7px;margin:2px 0 4px;border-left:3px solid #8fa8ff;background:#1b2648;border-radius:3px}
 .echs-pop-person{font-weight:600}
 .echs-pop-row{display:flex;align-items:stretch}
 .echs-pop-row .echs-pop-item{flex:1}
@@ -18747,7 +18812,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.25"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.27"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18774,7 +18839,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.25"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.27"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18849,14 +18914,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.25"})`);
+      info(`script loaded (v${"1.16.27"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.25",
+          version: "1.16.27",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18998,10 +19063,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.25"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.27"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.25";
+    page2.__ECHS_LOADED__ = "1.16.27";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
