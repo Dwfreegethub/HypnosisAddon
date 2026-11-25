@@ -131,6 +131,15 @@ export function presenceOf(memberNumber: number): Presence {
 	return Date.now() - asked < PROBE_TIMEOUT_MS ? "waiting" : "absent";
 }
 
+/** They run ECHS (they answered) but their session report has not come (v1.16.29, UI lab review
+ * F3): the remote sat on "Checking…" for good. After the same wait as the presence probe it says
+ * so and offers to ask again. A late report replaces it on the next frame. */
+export function sessionLate(memberNumber: number): boolean {
+	if (getSessionView(memberNumber)) return false;
+	const asked = probedAt.get(memberNumber);
+	return asked != null && Date.now() - asked >= PROBE_TIMEOUT_MS;
+}
+
 function getViewedOtherCharacter(): any {
 	const C = InformationSheetSelection;
 	if (!C || (typeof C.IsPlayer === "function" && C.IsPlayer())) return null;
@@ -148,8 +157,8 @@ function seconds(ms: number): number {
 /** The one contextual button that drives the whole session state machine — label and
  * action both follow the subject's reported phase, so there's never more than one
  * meaningful session action on screen at a time. */
-function sessionButton(view: SessionView | undefined): { label: string; enabled: boolean; tooltip: string } {
-	if (!view) return { label: "Checking…", enabled: false, tooltip: "Waiting for their status" };
+function sessionButton(view: SessionView | undefined, late = false): { label: string; enabled: boolean; tooltip: string } {
+	if (!view) return late ? { label: "Check again", enabled: true, tooltip: "Ask them again" } : { label: "Checking…", enabled: false, tooltip: "Waiting for their status" };
 	switch (view.phase) {
 		case "AttemptMade":
 			return { label: "Waiting for them…", enabled: false, tooltip: "They're deciding how to respond" };
@@ -182,8 +191,8 @@ function sessionButton(view: SessionView | undefined): { label: string; enabled:
 	}
 }
 
-function statusLine(view: SessionView | undefined): string {
-	if (!view) return "Checking their status…";
+function statusLine(view: SessionView | undefined, late = false): string {
+	if (!view) return late ? "No answer about their session yet." : "Checking their status…";
 	if (view.refusedReason) return view.refusedReason;
 	switch (view.phase) {
 		case "AttemptMade":
@@ -218,8 +227,9 @@ function drawSubscreen(target: any): void {
 	}
 	const view = getSessionView(target.MemberNumber);
 	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
-	DrawText(statusLine(view), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
-	const session = sessionButton(view);
+	const late = sessionLate(target.MemberNumber);
+	DrawText(statusLine(view, late), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
+	const session = sessionButton(view, late);
 	DrawButton(
 		FEATURE_BUTTON_LEFT,
 		SESSION_BUTTON_TOP,
@@ -260,8 +270,12 @@ function drawAbsent(target: any): void {
 function clickSessionButton(target: any): boolean {
 	if (!MouseIn(FEATURE_BUTTON_LEFT, SESSION_BUTTON_TOP, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
 	const view = getSessionView(target.MemberNumber);
-	const { enabled } = sessionButton(view);
+	const { enabled } = sessionButton(view, sessionLate(target.MemberNumber));
 	if (!enabled) return true;
+	if (!view) {
+		probeRemote(target);
+		return true;
+	}
 	if (view?.phase === "Hypnotized") requestWake(target.MemberNumber);
 	// attempt vs continue is requestInduction's call, not ours — the chat command routes
 	// through the same helper so the two entry points cannot drift apart.

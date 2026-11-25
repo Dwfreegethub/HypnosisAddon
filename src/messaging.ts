@@ -1,4 +1,4 @@
-import { log } from "./log";
+import { log, warn } from "./log";
 import { tellPlayer } from "./notify";
 
 // Our namespace tag on the shared Type:"Hidden" ChatRoomChat channel — BCX uses
@@ -53,7 +53,14 @@ export function handleIncomingHidden(data: any): boolean {
 		if (!message) return true;
 		const handler = handlers.get(message.type);
 		if (handler) {
-			handler(data.Sender, message);
+			// One handler failing must not take the message down silently: the sender is left
+			// waiting with nothing to show (v1.16.29, UI lab review F3). Logged, and the hook
+			// carries on to BC as it would have.
+			try {
+				handler(data.Sender, message);
+			} catch (e) {
+				warn(`the ${String(message.type)} handler failed:`, e);
+			}
 		} else {
 			log(`hidden message from ${data.Sender}:`, message);
 			// Visible on the receiving screen too — console-only here would make a

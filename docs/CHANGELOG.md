@@ -18,6 +18,37 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-24 (v1.16.29) — the remote's endless "Checking…", and the popup over the induction box
+
+UI lab review F3 and F4, done together at DW's request ("They seem related"): both are the induction
+as the two players see it.
+
+F3. The remote waits for two answers: state-response (do they run ECHS) and session-update. With
+the first and not the second, presenceOf said "present" and the panel drew "Checking…" with a dead
+button for good; there was no timeout for that half. The reviewer blamed a holding trigger, but on
+v1.16.28 the subject answered session-query in every state tried (harness: idle, under, a word
+trigger fired; lab: a gag hold active), and the reviewer's trace script itself loses the reply (it
+replaces window.ChatRoomMessage on the subject). So the cause on v1.16.24 is not pinned down, and the
+fix makes the hang impossible from either end: remote.ts sessionLate() turns "Checking…" into "No
+answer about their session yet." with Check again after PROBE_TIMEOUT_MS; the session-query handler
+falls back to the bare phase (refuse) if pushUpdate throws; messaging.ts catches a throwing handler
+and warns, where before it took the hook down with it and the sender got nothing.
+
+F4. The popup folds to header + note + Safeword and moves to top 8px while getPendingPrompt or
+getPendingExtend is set (className, not classList: the test DOM has none), restoring its top after;
+the box has the Me tab's buttons. The Me tab's "inducing" view showed Wake, which /echs wake refuses
+outside a trance; it now shows her choice and the other two (inductionStanding, new in session.ts,
+never sent), or "missed (n of m)". The wiki has long said she can change her answer at any time,
+but answerPrompt refused in AttemptFailed ("Nobody is attempting"), and a retry reuses the choice
+without asking; it now accepts the change there for the next try. The "Typed. Press Enter…" status
+resets once the chat box empties after a click typed into it.
+
+New test/induction-view.mjs (22): fold and restore, Me lines and buttons, no Wake, change between
+attempts kept by session-continue, status reset, session-query answered, a throwing handler
+contained, sessionLate. Mutation-checked: without the popup/remote half 5+ fail, without the
+messaging catch 1. Seen in the uilab: the folded window sits above the box; after Agree the Me tab
+reads "You chose Agree. Change it: Ignore / Fight".
+
 ### Fixed 2026-11-24 (v1.16.28) — a "when …" after a suggestion no longer starts a compulsion
 
 The parser trap noted under v1.16.27, confirmed outside a recording too (a side agent's heads-up,

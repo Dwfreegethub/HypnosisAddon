@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.28. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.29. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -356,7 +356,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!message) return true;
       const handler = handlers.get(message.type);
       if (handler) {
-        handler(data.Sender, message);
+        try {
+          handler(data.Sender, message);
+        } catch (e) {
+          warn(`the ${String(message.type)} handler failed:`, e);
+        }
       } else {
         log(`hidden message from ${data.Sender}:`, message);
         tellPlayer(`hidden message from ${data.Sender}: ${JSON.stringify(message)}`);
@@ -5188,13 +5192,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       setTranceStance(choice);
       return;
     }
-    if (session.phase === "InductionInProgress") {
+    if (session.phase === "InductionInProgress" || session.phase === "AttemptFailed") {
       if (session.toy) {
         notify("Toy mode: it takes you whatever you do now. /echs safeword stops it.");
         return;
       }
       session.choice = choice;
-      notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
+      const next = session.phase === "AttemptFailed" ? " If they try again, that is how you meet it." : "";
+      notify((choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.") + next);
       return;
     }
     if (session.phase !== "AttemptMade") {
@@ -5300,6 +5305,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function currentHypnotistId() {
     return session.phase === "Idle" ? null : session.hypnotistId;
+  }
+  function inductionStanding() {
+    const p = session.phase;
+    if (p !== "AttemptMade" && p !== "InductionInProgress" && p !== "AttemptFailed") return null;
+    return { phase: p, choice: session.choice, attempts: session.attempts, maxAttempts: maxAttempts(), toy: !!session.toy };
   }
   function isHypnotized() {
     return session.phase === "Hypnotized";
@@ -5423,8 +5433,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     startRecovery();
     registerHiddenHandler("session-query", (sender) => {
-      if (session.hypnotistId === sender) pushUpdate();
-      else refuse(sender, "");
+      try {
+        if (session.hypnotistId === sender) pushUpdate();
+        else refuse(sender, "");
+      } catch (e) {
+        log(`session-query from ${sender}: the full report failed (${String(e)}), sending the phase alone`);
+        refuse(sender, "");
+      }
     });
     registerHiddenHandler("session-attempt", (sender, message) => {
       if (!getFeatures().hypnoEnabled) {
@@ -13606,7 +13621,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.28"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.29"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13679,7 +13694,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.28"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.29"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14515,7 +14530,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.28", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.29", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14552,7 +14567,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.28", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.29", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14594,7 +14609,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.28", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.29", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -16650,6 +16665,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (asked == null) return "waiting";
     return Date.now() - asked < PROBE_TIMEOUT_MS ? "waiting" : "absent";
   }
+  function sessionLate(memberNumber) {
+    if (getSessionView(memberNumber)) return false;
+    const asked = probedAt.get(memberNumber);
+    return asked != null && Date.now() - asked >= PROBE_TIMEOUT_MS;
+  }
   function getViewedOtherCharacter() {
     const C = InformationSheetSelection;
     if (!C || typeof C.IsPlayer === "function" && C.IsPlayer()) return null;
@@ -16661,8 +16681,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function seconds(ms) {
     return Math.ceil(ms / 1e3);
   }
-  function sessionButton(view) {
-    if (!view) return { label: "Checking\u2026", enabled: false, tooltip: "Waiting for their status" };
+  function sessionButton(view, late = false) {
+    if (!view) return late ? { label: "Check again", enabled: true, tooltip: "Ask them again" } : { label: "Checking\u2026", enabled: false, tooltip: "Waiting for their status" };
     switch (view.phase) {
       case "AttemptMade":
         return { label: "Waiting for them\u2026", enabled: false, tooltip: "They're deciding how to respond" };
@@ -16689,8 +16709,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return { label: "Attempt Hypnosis", enabled: true, tooltip: "Begin an induction" };
     }
   }
-  function statusLine(view) {
-    if (!view) return "Checking their status\u2026";
+  function statusLine(view, late = false) {
+    if (!view) return late ? "No answer about their session yet." : "Checking their status\u2026";
     if (view.refusedReason) return view.refusedReason;
     switch (view.phase) {
       case "AttemptMade":
@@ -16722,8 +16742,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const view = getSessionView(target.MemberNumber);
     DrawText(`Hypnosis Remote \u2014 ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
-    DrawText(statusLine(view), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
-    const session2 = sessionButton(view);
+    const late = sessionLate(target.MemberNumber);
+    DrawText(statusLine(view, late), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
+    const session2 = sessionButton(view, late);
     DrawButton(
       FEATURE_BUTTON_LEFT,
       SESSION_BUTTON_TOP,
@@ -16760,8 +16781,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function clickSessionButton(target) {
     if (!MouseIn(FEATURE_BUTTON_LEFT, SESSION_BUTTON_TOP, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT)) return false;
     const view = getSessionView(target.MemberNumber);
-    const { enabled } = sessionButton(view);
+    const { enabled } = sessionButton(view, sessionLate(target.MemberNumber));
     if (!enabled) return true;
+    if (!view) {
+      probeRemote(target);
+      return true;
+    }
     if (view?.phase === "Hypnotized") requestWake(target.MemberNumber);
     else requestInduction(target.MemberNumber);
     return true;
@@ -17436,6 +17461,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const input = typeof document !== "undefined" ? document.getElementById("InputChat") : null;
     if (!input) return false;
     input.value = text2;
+    lastTyped = text2;
     try {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     } catch {
@@ -17486,7 +17512,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (open2 && !win) buildWindow();
     if (!open2 && win) removeWindow();
     autoSwitch();
+    stepAside();
+    if (lastTyped !== null && chatValue() === "") {
+      lastTyped = null;
+      if (statusEl) setStatus(statusEl, STATUS_START);
+    }
     if (open2 && document.getElementById(POPUP_ID) && viewKey() !== shownKey) renderBody();
+  }
+  function stepAside() {
+    const win = document.getElementById(POPUP_ID);
+    if (!win) return;
+    const box = !!getPendingPrompt() || !!getPendingExtend();
+    const aside = /(?:^|\s)echs-pop-aside(?:\s|$)/.test(String(win.className ?? ""));
+    if (box === aside) return;
+    win.className = box ? `${win.className} echs-pop-aside` : String(win.className).replace(/\s*echs-pop-aside(?=\s|$)/, "");
+    win.dataset ?? (win.dataset = {});
+    if (box) {
+      win.dataset.top = win.style.top;
+      win.style.top = "8px";
+    } else if (win.dataset.top !== void 0) {
+      win.style.top = win.dataset.top;
+      delete win.dataset.top;
+    }
   }
   function autoSwitch() {
     const me2 = subjectSide() !== null;
@@ -17516,7 +17563,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       parts.push(JSON.stringify(who ? getSessionView(who.id)?.gates ?? null : null));
       parts.push(finishingStart() ?? "");
     }
-    if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
+    if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "", JSON.stringify(inductionStanding()));
     if (tab === "triggers") parts.push(triggersKey());
     if (tab === "keys") parts.push(keysKey());
     return parts.join("#");
@@ -17543,7 +17590,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       };
     }
     if (side === "inducing") {
-      return { lines: [`An induction with ${hypnotistName()} is under way.`], buttons: [b("Wake", "wake", "Stop it now")] };
+      const st = inductionStanding();
+      const who = hypnotistName();
+      const lines = st?.phase === "AttemptFailed" ? [`${who}'s attempt missed (${st.attempts} of ${st.maxAttempts}).`, "If they try again, you meet it the way you chose."] : [`An induction with ${who} is under way.`];
+      const CHOICE = {
+        agree: ["Agree", "Go along with it: easier for them"],
+        ignore: ["Ignore", "Neither help nor resist"],
+        fight: ["Fight", "Resist: harder for them"]
+      };
+      if (!st || st.toy || !st.choice) return { lines: st?.toy ? [...lines, "Toy mode: it takes you whatever you choose."] : lines, buttons: [] };
+      lines.push(`You chose ${CHOICE[st.choice][0]}. Change it:`);
+      const others2 = Object.keys(CHOICE).filter((c) => c !== st.choice);
+      return { lines, buttons: others2.map((c) => b(CHOICE[c][0], c, CHOICE[c][1])) };
     }
     if (side === "under") {
       const out = [
@@ -17712,7 +17770,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.28"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.29"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17729,6 +17787,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     close.addEventListener("click", () => setPopupOpen(false));
     head2.appendChild(close);
     win.appendChild(head2);
+    win.appendChild(el2("div", "echs-pop-aside-note", "Answer in the box on the screen. This window comes back once you have."));
     tabsEl = el2("div", "echs-pop-tabs");
     win.appendChild(tabsEl);
     bodyEl = el2("div", "echs-pop-body");
@@ -18581,7 +18640,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, statusText, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -18621,7 +18680,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       open2 = false;
       timer = null;
       expanded = /* @__PURE__ */ new Set(["Session"]);
-      statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+      STATUS_START = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+      statusText = STATUS_START;
+      lastTyped = null;
       tab = "people";
       suggestOpen = /* @__PURE__ */ new Set(["trance"]);
       altOpen = /* @__PURE__ */ new Set();
@@ -18676,6 +18737,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-aside{height:auto!important;min-height:0!important;resize:none}
+.echs-pop-aside .echs-pop-tabs,.echs-pop-aside .echs-pop-body,.echs-pop-aside .echs-pop-status{display:none}
+.echs-pop-aside-note{display:none;font-size:12px;padding:6px 8px;opacity:.85}
+.echs-pop-aside .echs-pop-aside-note{display:block}
 .echs-pop-finish{font-size:12px;padding:5px 7px;margin:2px 0 4px;border-left:3px solid #8fa8ff;background:#1b2648;border-radius:3px}
 .echs-pop-person{font-weight:600}
 .echs-pop-row{display:flex;align-items:stretch}
@@ -18816,7 +18881,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.28"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.29"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18843,7 +18908,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.28"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.29"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18918,14 +18983,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.28"})`);
+      info(`script loaded (v${"1.16.29"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.28",
+          version: "1.16.29",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19067,10 +19132,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.28"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.29"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.28";
+    page2.__ECHS_LOADED__ = "1.16.29";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

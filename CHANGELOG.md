@@ -13,6 +13,19 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.29 · 24 November 2026
+
+- **The remote no longer sits on "Checking…".** If someone runs ECHS but their session status never
+  arrives, the remote says so after a few seconds and offers **Check again**.
+- **The popup steps aside for the induction box.** While the Agree / Ignore / Fight box is up, the
+  ECHS window folds to its top bar and Safeword button and moves up out of the way. It opens again
+  once you answer.
+- **The Me tab during an induction** shows what you chose, with the other two answers to change it,
+  instead of a *Wake* button that did nothing there. After a miss it says *missed (1 of 2)*.
+- **You can change your answer between attempts.** *"/echs fight"* after a miss used to say nobody
+  was attempting; now it counts for their next try.
+- **"Typed. Press Enter…" goes away** once you send the line.
+
 ## v1.16.28 · 24 November 2026
 
 - **"You feel nothing when I touch you" numbs her again.** That line started setting up a *"when I

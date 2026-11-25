@@ -97,6 +97,8 @@ If an effect or restriction persists unexpectedly, escalate in this order:
 
 The spiral icon appears on every player's profile card because client-side scripts cannot detect third-party add-ons without sending a query. When clicked, your client waits approximately three seconds for a handshake response. If no response arrives, the panel displays that the player does not have the extension installed, along with a *Check again* button.
 
+If they answer that they run ECHS but their session status never comes, the panel says *No answer about their session yet* after the same wait, and its button becomes *Check again*, instead of staying on *Checking…*.
+
 The icon is intentionally visible for all players rather than hidden for non-users, preventing the profile card from turning into a public directory of who is running the script.
 
 ---
