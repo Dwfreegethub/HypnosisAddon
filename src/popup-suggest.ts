@@ -115,6 +115,31 @@ export function suggestCategories(): SuggestCategory[] {
 	return CATEGORY_TITLES.map(([key, title]) => ({ key, title, items: ordered(key, buckets.get(key)!) })).filter((c) => c.items.length > 0);
 }
 
+// --- What a trigger can hold (v1.16.27) -----------------------------------------------------------
+// When the chat box holds the start of a compulsion ("Sena, when anyone kisses you, "), the
+// Suggestions tab adds a click to that line instead of replacing it, and greys what a trigger
+// cannot hold (DW, 2026-11-24, after the UI lab review). The list is what voice.ts actually refuses
+// inside a recording, found by planting every wording in the harness; test/popup-finish.mjs plants
+// them all again, so this list and voice.ts cannot drift apart.
+
+/** Changes the trance itself, which a trigger cannot hold (voice.ts: "A trigger cannot hold a
+ * deepening"; walk, still and wake are session moves, not actions). */
+const TRANCE_MOVES = new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
+/** Aimed at the hypnotist ("kiss me"): voice.ts "a trigger can't aim at a person yet". */
+const AIMED_AT_YOU = new Set(["x-kiss-me", "x-fuck-me", "x-suck-strapon", "x-hug-me"]);
+/** Single wordings a recording reads differently. "you feel nothing when I touch you" starts a
+ * "when I touch you" compulsion of its own; "on your feet" and a bare "moan" are not kept. The
+ * other wordings of the same lines work. */
+const WORDINGS_NOT_KEPT = new Set(["on your feet", "moan", "you feel nothing when i touch you"]);
+
+/** Why this wording can't be one of a trigger's actions, or null if it can. */
+export function notInTrigger(it: SuggestItem, phrase: string = it.phrase): string | null {
+	if (TRANCE_MOVES.has(it.id)) return 'A trigger can\'t hold a trance move (deeper, walk, wake). Try "…you will drop into trance" instead.';
+	if (AIMED_AT_YOU.has(it.id)) return "A trigger can't aim at a person yet, only at them.";
+	if (WORDINGS_NOT_KEPT.has(phrase.toLowerCase())) return "This wording isn't kept in a trigger. Use another wording of it.";
+	return null;
+}
+
 /** Kneel first in Body & pose: it is the one asked for most. */
 const LEADS: Record<string, string[]> = { body: ["kneel"] };
 

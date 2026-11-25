@@ -13,6 +13,21 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.27 · 24 November 2026
+
+- **Finishing a compulsion from the popup.** Clicking *when anyone kisses you* (or *whenever anyone
+  gags you*) on the Triggers tab now takes you to Suggestions, and a click there **adds** what they
+  will do to that line (*"Sena, when anyone kisses you, kneel"*) instead of replacing it. What a
+  trigger can't hold is greyed and says why: the trance moves (sink deeper, wake up) and the commands
+  aimed at you (kiss me, fuck me). Press Enter, then *remember trigger* keeps it.
+
+## v1.16.26 · 24 November 2026
+
+- **The Extreme warning says how long again.** Setup's Extreme warning (and a keyholder's request to
+  start Extreme for you) said the lock lasts *"undefined days"*. It now says 7 days, then 30 days at
+  a time, as it should. This is a fix on its own: the new features on the dev build (v1.16.8 and up)
+  come to stable with the next full release.
+
 ## v1.16.25 · 24 November 2026
 
 - **The Extreme warning says how long again.** Setup's Extreme warning (and a keyholder's request to

@@ -18,6 +18,37 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-24 (v1.16.27) — the popup finishes a compulsion instead of replacing it
+
+From the UI lab review (F2, its second-worst finding): the Triggers tab typed the start of a
+compulsion ("Sena, when anyone kisses you, ") and said to finish it, but a click on Suggestions
+replaced the line, so the popup could never supply the half that needs a phrase. DW: "Gray out any
+activities that dont fit and once someone clicks on it the command it added to". Now a Triggers
+line or choice that ends in ", " and has a `finish` remembers the start (`finishing`) and switches
+to Suggestions. While the chat box still holds exactly that start, a banner says what is being
+finished; a click appends the wording; `notInTrigger` (popup-suggest.ts) greys what a recording
+refuses and the click says why without touching the line. Sending, editing the line, or "start
+over" ends it, and clicks type their own lines again.
+
+What a trigger can't hold was found, not guessed: every Suggestions wording (about 215) was planted
+as a compulsion's action in the harness with every permission granted. The refusals are the trance
+moves (deepen: "A trigger cannot hold a deepening"; walk, still and wake are not kept), the four
+commands aimed at the hypnotist ("a trigger can't aim at a person yet"), and three single wordings:
+"on your feet", a bare "moan", and "you feel nothing when I touch you", which a recording reads as
+the start of a "when I touch you" compulsion of its own (a parser trap worth fixing on its own). The
+new `test/popup-finish.mjs` plants them all again on every run, so the list cannot drift from
+voice.ts; `test/popup.mjs` +10 for the tab behaviour. Mutation-checked: emptying the aimed-at-you
+list fails popup-finish 3 checks, greying a working wording fails 2, and replacing instead of
+appending fails popup 2. Numbered 1.16.27: 1.16.26 is the stable hotfix.
+
+### Fixed 2026-11-24 (v1.16.26, stable hotfix) — "undefined days" in the Extreme warning
+
+The fix from v1.16.25 on dev, applied to main on its own (DW: fix it on stable too, as a hotfix,
+not a full release). Numbered 1.16.26 because 1.16.8 to 1.16.25 are dev builds. `EXTREME_WARNING`
+was built at module load, before `storage.ts` (which `extreme.ts` imports, and which imports it
+back) set `EXTREME_TRIAL_DAYS`, so it said "undefined days". `extremeWarning()` builds it when shown.
+UPDATE_NOTE set for 1.16.26.
+
 ### Fixed 2026-11-24 (v1.16.25) — "undefined days" in the Extreme warning
 
 Found by a usability pass in a local mock room running the real script (a headless browser, two

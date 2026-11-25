@@ -418,7 +418,36 @@ trigBtn("+ when anyone … you, … (pick what they do)")?.click();
 const spankChip = findAll(win(), (n) => n.className === "echs-pop-chip" && n.textContent === "spanks you")[0];
 check("'when anyone' opens the list", !!spankChip && !!trigBtn("− when anyone … you, … (pick what they do)"), "a spanks-you chip under an open line");
 spankChip?.click();
-check("  a choice types the start, to finish", chatBox.value === "Bea, when anyone spanks you, " && status().includes("Change \"anyone\""), `"Bea, when anyone spanks you, ", got "${chatBox.value}" / "${status()}"`);
+check("  a choice types the start, to finish", chatBox.value === "Bea, when anyone spanks you, " && status().includes("Now click what they will do"), `"Bea, when anyone spanks you, ", got "${chatBox.value}" / "${status()}"`);
+// v1.16.27 (UI lab review F2; DW: grey what doesn't fit, and a click adds to the line): finishing it
+// from Suggestions adds to the line instead of replacing it.
+const finishBanner = () => findAll(win(), (n) => n.className === "echs-pop-finish")[0];
+const sugBy = (end) => findAll(win(), (n) => n.className?.startsWith?.("echs-pop-item") && String(n.title ?? "").endsWith(end))[0];
+check("  …and goes to Suggestions, saying what it is finishing", popup.getPopupTab() === "suggest" && !!finishBanner() && finishBanner().textContent.includes('"Bea, when anyone spanks you, …"'), `the Suggestions tab with a finishing banner, got ${popup.getPopupTab()} / ${finishBanner()?.textContent}`);
+const deeperBtn = sugBy("sink deeper");
+check("  what a trigger can't hold is greyed", deeperBtn?.className.includes("echs-pop-off") && deeperBtn.title.startsWith("A trigger can't hold a trance move"), `sink deeper greyed with its reason, got ${deeperBtn?.className} / ${deeperBtn?.title}`);
+deeperBtn?.click();
+check("  a greyed click adds nothing and says why", chatBox.value === "Bea, when anyone spanks you, " && status().startsWith("Not added."), `the line untouched, got "${chatBox.value}" / "${status()}"`);
+check("  what fits is not greyed", !sugBy("spanks you, kneel")?.className.includes("echs-pop-off"), "kneel not greyed");
+sugBy("spanks you, kneel")?.click();
+check("  a click adds it to the line", chatBox.value === "Bea, when anyone spanks you, kneel" && status().startsWith("Added.") && status().includes("remember trigger"), `"Bea, when anyone spanks you, kneel", got "${chatBox.value}" / "${status()}"`);
+check("  and the finishing ends", !finishBanner() && hint("Speaking to Bea"), "no banner once added");
+sayBtn("kneel").click();
+check("  the next click types its own line again", chatBox.value === "Bea, kneel", `"Bea, kneel", got "${chatBox.value}"`);
+// Typing over the start ends it: a click then types its own line, as before.
+popup.setPopupTab("triggers");
+spankChip?.click();
+chatBox.value = "Bea, when anyone spanks you, you will";
+popup.popupTick();
+check("  editing the line ends the finishing", !finishBanner(), "no banner once the chat box holds something else");
+sayBtn("kneel").click();
+check("  …so a click replaces it as before", chatBox.value === "Bea, kneel", `"Bea, kneel", got "${chatBox.value}"`);
+// "start over" leaves the chat box alone and stops adding.
+popup.setPopupTab("triggers");
+spankChip?.click();
+findAll(win(), (n) => n.className === "echs-pop-chip" && n.textContent === "start over")[0]?.click();
+check("  start over: the line stays, clicks type their own lines", chatBox.value === "Bea, when anyone spanks you, " && !finishBanner(), `line kept and no banner, got "${chatBox.value}"`);
+popup.setPopupTab("triggers");
 trigBtn("− when anyone … you, … (pick what they do)")?.click();
 grpBtn("Compulsions (waiting for something, not a word)")?.click();
 trigBtn("your trigger word is …").click();
