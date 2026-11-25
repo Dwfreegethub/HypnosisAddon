@@ -492,7 +492,7 @@ plantIn("bluebell");
 plantIn("snowdrop");
 popup.popupTick();
 check("own triggers listed", byText("−  Triggers in you (2)").length === 1, `a Triggers in you (2) group, got ${findAll(win(), (n) => n.className.startsWith("echs-pop-group")).map((n) => n.textContent).join(" | ")}`);
-check("words hidden by default", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "1. word hidden").length === 1, "row 1 reads word hidden");
+check("words hidden by default", findAll(win(), (n) => n.className === "echs-pop-desc" && /^1\. .+: a word \(hidden\) → /.test(n.textContent)).length === 1, "row 1 reads \"<who>: a word (hidden) → …\"");
 chipIn("forget")[1].click();
 check("forget types its number", chatBox.value === "/echs forgettrigger 2" && status() === "Typed. Press Enter to remove it.", `"/echs forgettrigger 2", got "${chatBox.value}" / "${status()}"`);
 chipIn("details")[0].click();

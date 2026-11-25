@@ -52,9 +52,10 @@ plant("amber light");
 plant("velvet dark", 555, "Rei");
 const summary = run("triggers");
 check("summary counts them", /You have 2 triggers planted/.test(summary), true);
-check("  names each installer with their number", /GameBot \(#246108\).*Rei \(#555\)/.test(summary), true);
-check("  gives each one's level", (summary.match(/full strength/g) ?? []).length, 2);
-check("  says nothing of what they do", /cannot move|movement/.test(summary), false);
+// v1.16.30 (DW, UI lab review F5): who first, then what each does; the level is in the detail.
+check("  names each installer first", /GameBot: .*Rei: /.test(summary), true);
+check("  says what each does", (summary.match(/→ /g) ?? []).length, 2);
+check("  leaves the level to the detail", /full strength/.test(summary), false);
 check("  nor the words", /amber|velvet/.test(summary), false);
 check("  and points at the detail", /triggers <number>/.test(summary), true);
 

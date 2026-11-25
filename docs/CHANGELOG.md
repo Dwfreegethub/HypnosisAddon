@@ -18,6 +18,33 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-24 (v1.16.30) — trigger rows say what each one is; "My triggers list" can say less
+
+UI lab review F5: every row in /echs triggers, Settings > Planted and the popup's "Triggers in you"
+read "by Mira (#1001), full strength (80, Blank)", so three triggers were three identical lines and
+telling them apart took a command each. DW chose the shape, name first ("the name of the tist
+should still be 1st"): voice.ts triggerRow(), one function for all three lists, "<who>: <what sets
+it off> → <what it does> · tags". The word follows Show trigger words as before ("a word
+(hidden)"); a compulsion shows describeCondition; two actions then "+N more"; tags used up / works
+once / holds while worn / fading / holding you now. The planter's number only when two planters in
+the list share a name. Strength is in the detail view now. This replaces the v0.88.0 decision that
+the plain list say nothing about what a trigger does.
+
+Then DW: "let people choose if they want to make it harder to see what triggers you have. Even to
+the point of turning off that tab". storage triggerView, TRIGGER_VIEWS full / who / hidden, default
+full. who is the v0.88.0 row with the name first; hidden makes the list and the detail a count line
+(triggersHiddenLine), drops the Planted tab (visibleTabs), and leaves the popup a count and "forget
+all". Asked whether she can always switch it back under the Extreme lock, DW chose "Locked by
+Extreme": it is read-only there like every setting, and her keyholders (a full-keys Triggers
+choice in remoteChoices) can change it. The old rule "nothing may happen to the subject that they
+cannot see" now holds by her own choice: she can still learn that triggers exist and how many,
+the safeword clears everything, and forgettrigger all still works.
+
+New test/trigger-rows.mjs (26): the rows, the twin-name number, no strength in rows, every mode,
+the Planted tab, the keyholder choice. triggers.mjs, trigger-inspector.mjs and popup.mjs updated
+from the old rows. Seen in the uilab: the three lists, and the control cycling to Hidden with the
+Planted tab gone.
+
 ### Fixed 2026-11-24 (v1.16.29) — the remote's endless "Checking…", and the popup over the induction box
 
 UI lab review F3 and F4, done together at DW's request ("They seem related"): both are the induction

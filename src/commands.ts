@@ -12,6 +12,7 @@ import {
 	trustWith,
 	describeStorage,
 	listTriggers,
+	getTriggerView,
 	forgetTrigger,
 	forgetAllTriggers,
 	forgetTrust,
@@ -921,7 +922,7 @@ const COMMANDS: HypnoCommand[] = [
 			}
 			const lines = describeTriggerList(full);
 			lines.forEach(reply);
-			if (lines.length > 1) {
+			if (lines.length > 1 && getTriggerView() !== "hidden") {
 				reply(
 					"See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> " +
 						"(not while it is holding you; /echs safeword is the way out of that).",

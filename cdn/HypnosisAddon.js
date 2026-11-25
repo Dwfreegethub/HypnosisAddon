@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.29. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.30. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5790,6 +5790,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!ATTEMPT_LIMITS.includes(s.maxAttempts)) s.maxAttempts = DEFAULT_MAX_ATTEMPTS;
     if (!TRIGGER_LIFESPANS.some((l) => l.minutes === s.triggerLifespanMinutes)) s.triggerLifespanMinutes = 0;
     if (!DROP_MODES.some((m) => m.key === s.dropTriggers)) s.dropTriggers = "off";
+    if (s.triggerView !== void 0 && !TRIGGER_VIEWS.some((m) => m.key === s.triggerView)) delete s.triggerView;
     if (typeof s.skill !== "number" || !(s.skill >= 0)) s.skill = 0;
     if (s.skillHonour !== void 0 && !SKILL_HONOUR_RUNGS.some((r) => r.key === s.skillHonour)) {
       delete s.skillHonour;
@@ -6575,6 +6576,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
+  function getTriggerView() {
+    return loadSettings().triggerView ?? "full";
+  }
+  function setTriggerView(mode) {
+    const value = TRIGGER_VIEWS.some((m) => m.key === mode) ? mode : "full";
+    loadSettings().triggerView = value;
+    saveSettings();
+    return value;
+  }
   function getTriggerLifespan() {
     return loadSettings().triggerLifespanMinutes;
   }
@@ -6593,7 +6603,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES, TRIGGER_VIEWS;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6756,6 +6766,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "off", label: "Off" },
         { key: "once", label: "One time" },
         { key: "unlimited", label: "Unlimited" }
+      ];
+      TRIGGER_VIEWS = [
+        { key: "full", label: "Full" },
+        { key: "who", label: "Who only" },
+        { key: "hidden", label: "Hidden" }
       ];
     }
   });
@@ -8790,10 +8805,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function describeTriggerList(fullRequested) {
     const all = sweptTriggers();
     if (!all.length) return ["no triggers planted"];
+    if (getTriggerView() === "hidden") return [triggersHiddenLine(all.length)];
     const reveal = triggerPhrasesVisible(fullRequested);
     return [
       `You have ${all.length} trigger${all.length === 1 ? "" : "s"} planted:`,
-      ...all.map((t, i) => `${i + 1}. ${reveal && t.phrase ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`)
+      ...all.map((t, i) => `${i + 1}. ${triggerRow(t, reveal, all)}`)
     ];
   }
   function describeTriggerDetail(index, fullRequested) {
@@ -8801,6 +8817,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!Number.isInteger(index) || index < 1 || index > all.length) {
       return [all.length ? `no trigger ${index} \u2014 you have ${all.length}.` : "no triggers planted"];
     }
+    if (getTriggerView() === "hidden") return [triggersHiddenLine(all.length)];
     const t = all[index - 1];
     const lines = [
       `Trigger ${index}, planted by ${t.installedByName} (#${t.installedBy}) at ${tierLabel(tierOf(t.plantedDepth))}.`,
@@ -8813,8 +8830,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (isTriggerInEffect(t)) lines.push("It is holding you right now.");
     return lines;
   }
-  function triggerSummary(t) {
-    return `by ${t.installedByName} (#${t.installedBy}), ${describeStrength(t)}` + (t.spent ? ", used up" : "") + (isTriggerInEffect(t) ? "  ** HOLDING YOU NOW **" : "");
+  function triggerRow(t, reveal, all = [t]) {
+    const twin = all.some((o) => o.installedBy !== t.installedBy && o.installedByName === t.installedByName);
+    const who = twin ? `${t.installedByName} (#${t.installedBy})` : t.installedByName;
+    const holding = isTriggerInEffect(t) ? " \xB7 holding you now" : "";
+    if (getTriggerView() === "who") return `${who}: ${reveal && t.phrase ? `"${t.phrase}", ` : ""}${describeStrength(t)}${t.spent ? " \xB7 used up" : ""}${holding}`;
+    const when = t.fireOn ? describeCondition(t) : reveal && t.phrase ? `"${t.phrase}"` : "a word (hidden)";
+    const acts = t.actions.map(describeAction);
+    const does = acts.length ? acts.slice(0, ROW_ACTIONS).join("; ") + (acts.length > ROW_ACTIONS ? ` +${acts.length - ROW_ACTIONS} more` : "") : "nothing yet";
+    const tags = [];
+    if (t.spent) tags.push("used up");
+    else if (t.oneShot) tags.push("works once");
+    if (t.whileWorn) tags.push("holds while worn");
+    const strength = describeStrength(t);
+    if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
+    if (holding) tags.push("holding you now");
+    return `${who}: ${when} \u2192 ${does}${tags.length ? ` \xB7 ${tags.join(" \xB7 ")}` : ""}`;
+  }
+  function triggersHiddenLine(count) {
+    return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still removes them.`;
   }
   function sweptTriggers() {
     pruneFadedTriggers(isTriggerInEffect);
@@ -9708,7 +9742,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -10975,6 +11009,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
       EXTREME_REMOVAL_REFUSED = '[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
+      ROW_ACTIONS = 2;
       REINFORCE = [
         /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
         /\breinforce (?:that|the|your) triggers?\b/,
@@ -12535,7 +12570,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return out;
   }
   function visibleTabs() {
-    return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+    const tabs = showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+    return getTriggerView() === "hidden" ? tabs.filter((t) => t.name !== "Planted") : tabs;
   }
   function advancedButtonTop() {
     return tabTop(visibleTabs().length) + 4;
@@ -12578,7 +12614,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const top = plantedRowTop(slot);
       const holding = isTriggerInEffect(t);
       drawLeftTextFit(
-        `${start + slot + 1}. ${reveal && t.phrase ? `"${t.phrase}" \u2014 ` : ""}${triggerSummary(t)}`,
+        `${start + slot + 1}. ${triggerRow(t, reveal, all)}`,
         CONTENT_LEFT,
         top + PLANTED_ROW_HEIGHT / 2,
         PLANTED_TEXT_MAX,
@@ -12826,6 +12862,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       },
       full("Triggers", "triggerDecay", "Triggers fade without reinforcement", DECAY_RATES, getTriggerDecayRate, (v) => setTriggerDecayRate(v)),
       full("Triggers", "dropTriggers", "Drop triggers", DROP_MODES, getDropMode, (v) => setDropMode(v)),
+      full("Triggers", "triggerView", "My triggers list", TRIGGER_VIEWS, getTriggerView, (v) => setTriggerView(v)),
       full("Stats", "trustDecay", "Trust fades when you don't see someone", DECAY_RATES, getDecayRate, (v) => setDecayRate(v))
     ];
     for (const gate of DEPTH_GATES) {
@@ -13621,7 +13658,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.29"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.30"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13694,7 +13731,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.29"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.30"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13976,7 +14013,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, MODERATE_TABS, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, MODERATE_TABS, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, TRIGGER_VIEW_CONTROL, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -14121,7 +14158,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
           ],
           extra: drawTriggerControls,
-          scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
+          // Drop triggers, then how much of her triggers she sees (v1.16.30).
+          scrollExtra: {
+            height: () => 2 * attemptControlHeight() + CYCLE_GAP,
+            draw: (top, width) => {
+              drawDropControl(top, width);
+              drawCycle(TRIGGER_VIEW_CONTROL, top + attemptControlHeight() + CYCLE_GAP, width, settingsLocked());
+            },
+            click: (top) => {
+              if (clickDropControl(top)) return true;
+              if (!MouseIn(BOX_LEFT, top + attemptControlHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
+              if (!settingsLocked()) TRIGGER_VIEW_CONTROL.cycle();
+              return true;
+            }
+          },
           // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
           // not clip to a canvas area, so the rows stop above them rather than scrolling under.
           rowsBottom: 610
@@ -14337,6 +14387,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       TOY_SCOPE_ID = "HypnosisAddonToyScope";
       TOY_SCOPE_LABEL_WIDTH = 250;
       TOY_SCOPE_WIDTH = 560;
+      TRIGGER_VIEW_CONTROL = {
+        label: () => `My triggers list: ${labelOf(TRIGGER_VIEWS, getTriggerView())}`,
+        caption: () => getTriggerView() === "full" ? "Lists show who planted each trigger, what sets it off and what it does." : getTriggerView() === "who" ? "Lists show only who planted each and how strong it is. Details shows the rest." : "Only how many. No Planted tab and no details. The safeword still clears everything.",
+        tooltip: "How much of the triggers planted in you your own lists show. Under the Extreme lock only a keyholder can change it.",
+        cycle: () => {
+          const i = TRIGGER_VIEWS.findIndex((v) => v.key === getTriggerView());
+          setTriggerView(TRIGGER_VIEWS[(i + 1) % TRIGGER_VIEWS.length].key);
+        }
+      };
       DEEPEST_CONTROL = {
         label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
         caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
@@ -14530,7 +14589,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.29", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.30", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14567,7 +14626,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.29", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.30", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14609,7 +14668,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.29", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.30", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -16040,7 +16099,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             }
             const lines = describeTriggerList(full);
             lines.forEach(reply2);
-            if (lines.length > 1) {
+            if (lines.length > 1 && getTriggerView() !== "hidden") {
               reply2(
                 "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
               );
@@ -17770,7 +17829,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.29"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.30"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17981,7 +18040,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const who = currentSubject();
     const planted = plantedPeople().map((p) => `${p.id}:${plantedStatus(p.id)}:${plantedNote(p.id)?.updatedAt ?? 0}`);
     const mine = listTriggers().map((t) => `${t.key}:${isTriggerInEffect(t) ? 1 : 0}`);
-    return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), extremeLocked() ? "x" : ""].join("|");
+    return [who?.id ?? "", planted.join(","), mine.join(","), getTriggerDecayRate(), getTriggerView(), extremeLocked() ? "x" : ""].join("|");
   }
   function triggerGroup(body2, key, title, fill) {
     const isOpen = triggerOpen.has(key);
@@ -18123,12 +18182,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     triggerGroup(body2, "mine", `Triggers in you (${mine.length})`, (list) => {
       if (!mine.length) list.appendChild(el2("div", "echs-pop-empty", "Nothing is planted in you."));
       const reveal = triggerPhrasesVisible(false);
-      mine.forEach((t, i) => {
+      const hidden = getTriggerView() === "hidden";
+      if (hidden && mine.length) list.appendChild(el2("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
+      (hidden ? [] : mine).forEach((t, i) => {
         const n = i + 1;
         const holding = isTriggerInEffect(t);
         const row = el2("div", "echs-pop-entry");
-        row.appendChild(el2("div", "echs-pop-person", `${n}. ${reveal && t.phrase ? `"${t.phrase}"` : t.fireOn ? "a compulsion" : "word hidden"}`));
-        row.appendChild(el2("div", "echs-pop-desc", triggerSummary(t)));
+        row.appendChild(el2("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
         const chips = el2("div", "echs-pop-buttons");
         chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
         const why = locked ? "Your Extreme lock is on: triggers can only be added until it ends." : holding ? "It is holding you: wait, have it released, or use the safeword." : "";
@@ -18143,7 +18203,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         row.appendChild(chips);
         list.appendChild(row);
       });
-      if (mine.length > 1)
+      if (mine.length > 1 || hidden && mine.length)
         list.appendChild(
           chip(
             "forget all",
@@ -18881,7 +18941,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.29"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.30"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18908,7 +18968,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.29"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.30"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18983,14 +19043,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.29"})`);
+      info(`script loaded (v${"1.16.30"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.29",
+          version: "1.16.30",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19132,10 +19192,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.29"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.30"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.29";
+    page2.__ECHS_LOADED__ = "1.16.30";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

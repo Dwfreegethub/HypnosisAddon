@@ -23,6 +23,9 @@ import {
 	getDropMode,
 	setDropMode,
 	DROP_MODES,
+	getTriggerView,
+	setTriggerView,
+	TRIGGER_VIEWS,
 	getTriggerDuration,
 	setTriggerDuration,
 	getDecayRate,
@@ -88,7 +91,7 @@ import {
 	ATTEMPT_LIMITS,
 	INDUCTION_TIMES,
 } from "./storage";
-import type { TriggerScope, DecayRate, DropMode } from "./storage";
+import type { TriggerScope, DecayRate, DropMode, TriggerView } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
@@ -97,7 +100,7 @@ import { trustStatRows } from "./trust";
 import { TRIGGER_SCOPES, decayLifetimeText } from "./triggers";
 import {
 	sweptTriggers,
-	triggerSummary,
+	triggerRow,
 	triggerPhrasesVisible,
 	describeTriggerDetail,
 	isTriggerInEffect,
@@ -339,7 +342,21 @@ const TABS: Tab[] = [
 			{ key: "strictTriggerMatch", label: "Triggers fire only on whole words" },
 		],
 		extra: drawTriggerControls,
-		scrollExtra: { height: attemptControlHeight, draw: drawDropControl, click: clickDropControl },
+		// Drop triggers, then how much of her triggers she sees (v1.16.30).
+		scrollExtra: {
+			height: () => 2 * attemptControlHeight() + CYCLE_GAP,
+			draw: (top, width) => {
+				drawDropControl(top, width);
+				drawCycle(TRIGGER_VIEW_CONTROL, top + attemptControlHeight() + CYCLE_GAP, width, settingsLocked());
+			},
+			click: (top) => {
+				if (clickDropControl(top)) return true;
+				if (!MouseIn(BOX_LEFT, top + attemptControlHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
+				// Consumed either way: under the lock it is read-only like the rest (DW).
+				if (!settingsLocked()) TRIGGER_VIEW_CONTROL.cycle();
+				return true;
+			},
+		},
 		// The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
 		// not clip to a canvas area, so the rows stop above them rather than scrolling under.
 		rowsBottom: 610,
@@ -400,7 +417,14 @@ export function remoteRows(): RemoteRow[] {
 }
 
 function visibleTabs(): Tab[] {
-	return showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+	const tabs = showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+	// "My triggers list: Hidden" turns the Planted tab off (v1.16.30, DW).
+	return getTriggerView() === "hidden" ? tabs.filter((t) => t.name !== "Planted") : tabs;
+}
+
+/** The settings tabs shown now, by name. For the suite. */
+export function visibleTabNames(): string[] {
+	return visibleTabs().map((t) => t.name);
 }
 
 /** Y of the Advanced button — one tab-slot below the last visible tab, in the tab column. */
@@ -560,7 +584,7 @@ function drawPlanted(): void {
 		const top = plantedRowTop(slot);
 		const holding = isTriggerInEffect(t);
 		drawLeftTextFit(
-			`${start + slot + 1}. ${reveal && t.phrase ? `"${t.phrase}" — ` : ""}${triggerSummary(t)}`,
+			`${start + slot + 1}. ${triggerRow(t, reveal, all)}`,
 			CONTENT_LEFT,
 			top + PLANTED_ROW_HEIGHT / 2,
 			PLANTED_TEXT_MAX,
@@ -1000,6 +1024,7 @@ function fullOnlyChoices(): RemoteChoice[] {
 		},
 		full("Triggers", "triggerDecay", "Triggers fade without reinforcement", DECAY_RATES, getTriggerDecayRate, (v) => setTriggerDecayRate(v as DecayRate)),
 		full("Triggers", "dropTriggers", "Drop triggers", DROP_MODES, getDropMode, (v) => setDropMode(v as DropMode)),
+		full("Triggers", "triggerView", "My triggers list", TRIGGER_VIEWS, getTriggerView, (v) => setTriggerView(v as TriggerView)),
 		full("Stats", "trustDecay", "Trust fades when you don't see someone", DECAY_RATES, getDecayRate, (v) => setDecayRate(v as DecayRate)),
 	];
 	for (const gate of DEPTH_GATES) {
@@ -1179,6 +1204,22 @@ const TOY_SCOPE_LABEL_WIDTH = 250;
 const TOY_SCOPE_WIDTH = 560;
 
 /** "Sink deeper" stops at — moved from the Depth tab (job3.md), drawn after the toy mode dropdown. */
+/** How much of her own triggers she sees (v1.16.30, DW). On the Triggers tab, under Drop triggers. */
+const TRIGGER_VIEW_CONTROL: CycleControl = {
+	label: () => `My triggers list: ${labelOf(TRIGGER_VIEWS, getTriggerView())}`,
+	caption: () =>
+		getTriggerView() === "full"
+			? "Lists show who planted each trigger, what sets it off and what it does."
+			: getTriggerView() === "who"
+				? "Lists show only who planted each and how strong it is. Details shows the rest."
+				: "Only how many. No Planted tab and no details. The safeword still clears everything.",
+	tooltip: "How much of the triggers planted in you your own lists show. Under the Extreme lock only a keyholder can change it.",
+	cycle: () => {
+		const i = TRIGGER_VIEWS.findIndex((v) => v.key === getTriggerView());
+		setTriggerView(TRIGGER_VIEWS[(i + 1) % TRIGGER_VIEWS.length].key);
+	},
+};
+
 const DEEPEST_CONTROL: CycleControl = {
 	label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
 	caption: () =>

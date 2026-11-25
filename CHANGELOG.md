@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.30 · 24 November 2026
+
+- **You can tell your triggers apart.** `/echs triggers`, Settings > Planted and the popup now show
+  each trigger as one line: who planted it, what sets it off and what it does, for example
+  *"Mira: when anyone kisses you → kneel · works once"*. The trigger word stays hidden unless you
+  show trigger words. How strong it is moved to the details.
+- **New setting: My triggers list** (Triggers tab): *Full*, *Who only* (who planted each and how
+  strong, as before) or *Hidden* (only how many, and no Planted tab), if you would rather not know.
+
 ## v1.16.29 · 24 November 2026
 
 - **The remote no longer sits on "Checking…".** If someone runs ECHS but their session status never
