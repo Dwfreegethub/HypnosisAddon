@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.7. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.26. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1514,6 +1514,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lock) return "";
     return now >= lock.until ? "Locked by Extreme: open your ECHS settings to choose whether to renew or unlock." : `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
   }
+  function extremeWarning() {
+    return [
+      `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
+      "/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
+      "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
+      `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
+    ];
+  }
   function renewalPrompt() {
     const lock = getExtremeLock();
     if (!lock) return null;
@@ -1540,18 +1548,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log("Extreme lock ended by /echs exit_extreme");
     return "Extreme lock ended. Your settings are editable again; trust, triggers and stats are untouched.";
   }
-  var EXTREME_SESSION_MINUTES, EXTREME_WARNING;
+  var EXTREME_SESSION_MINUTES;
   var init_extreme = __esm({
     "src/extreme.ts"() {
       init_log();
       init_storage();
       EXTREME_SESSION_MINUTES = 60;
-      EXTREME_WARNING = [
-        `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
-        "/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
-        "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
-        `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
-      ];
     }
   });
 
@@ -11521,7 +11523,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawExtremeWarning() {
     drawLeftText("Extreme \u2014 please read before you confirm", CONTENT_X, WZ_TOP + 70, "#a00000");
     let y = WZ_TOP + 140;
-    for (const paragraph of EXTREME_WARNING) {
+    for (const paragraph of extremeWarning()) {
       drawLeftTextWrap(paragraph, CONTENT_X, y, CONTENT_MAX, 100, "#222");
       y += 120;
     }
@@ -12984,7 +12986,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.7"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.26"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13057,7 +13059,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.7"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.26"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13893,7 +13895,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.7", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.26", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -13917,8 +13919,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_log();
       init_storage();
       UPDATE_NOTE = {
-        version: "1.16.7",
-        text: "ECHS now tells you when it updates. This one brings keyholder levels (minimal, moderate, full), asking for keys, keyholder locks, and new movements and faces such as wiggle, nod, hug, frown and cry."
+        version: "1.16.26",
+        text: 'A small fix: the Extreme warning in setup now says how long the lock lasts (7 days, then 30 days at a time) instead of "undefined days".'
       };
       CHANGELOG_URL = "https://github.com/Dwfreegethub/HypnosisAddon/blob/main/CHANGELOG.md";
       UPDATE_BEEP_MS = 15e3;
@@ -13930,7 +13932,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.7", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.26", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -13972,7 +13974,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.7", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.26", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -14382,8 +14384,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       title: extending ? `${who} asks to extend your Extreme lock by ${EXTREME_MONTH_DAYS} days` : `${who} asks to put you under Extreme`,
       lines: extending ? [
         `Your Extreme lock would run ${EXTREME_MONTH_DAYS} days longer than it does now.`,
-        ...EXTREME_WARNING.slice(1, 3)
-      ] : EXTREME_WARNING,
+        ...extremeWarning().slice(1, 3)
+      ] : extremeWarning(),
       accept: extending ? `Extend by ${EXTREME_MONTH_DAYS} days` : "Start Extreme",
       // Asked on its own terms: if it was not locked when asked, it starts; if it was, it extends.
       refusal: () => extremeLocked() !== extending ? "Their Extreme lock changed while they were deciding, so nothing changed. Ask again." : null,
@@ -17021,7 +17023,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.7"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.26"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18027,7 +18029,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.7"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.26"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18054,7 +18056,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.7"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.26"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18129,14 +18131,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.7"})`);
+      info(`script loaded (v${"1.16.26"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.7",
+          version: "1.16.26",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -18278,10 +18280,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.7"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.26"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.7";
+    page2.__ECHS_LOADED__ = "1.16.26";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

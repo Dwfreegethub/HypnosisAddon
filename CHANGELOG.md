@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.26 · 24 November 2026
+
+- **The Extreme warning says how long again.** Setup's Extreme warning (and a keyholder's request to
+  start Extreme for you) said the lock lasts *"undefined days"*. It now says 7 days, then 30 days at
+  a time, as it should. This is a fix on its own: the new features on the dev build (v1.16.8 and up)
+  come to stable with the next full release.
+
 ## v1.16.7 · 22 November 2026
 
 - The note ECHS shows when this update reaches you, summing up v1.15.0 to v1.16.6 below.

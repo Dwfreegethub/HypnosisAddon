@@ -57,13 +57,18 @@ export function extremeRefusal(now: number = Date.now()): string {
 		: `Locked by Extreme until ${dateText(lock.until)}. /echs safeword always ends a trance.`;
 }
 
-/** The warning shown before Extreme is applied, one paragraph per entry. */
-export const EXTREME_WARNING: string[] = [
-	`Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
-	"/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
-	"To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
-	`After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`,
-];
+/** The warning shown before Extreme is applied, one paragraph per entry. A function, not a list
+ * built at load (v1.16.25): storage.ts and this module import each other, and the bundle ran this
+ * one first, so the list was built before EXTREME_TRIAL_DAYS was set and read "undefined days"
+ * (found by the UI lab review, 2026-11-24). */
+export function extremeWarning(): string[] {
+	return [
+		`Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
+		"/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
+		"To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
+		`After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`,
+	];
+}
 
 /** The renewal prompt for a period that has run out: its heading and its two choices. */
 export function renewalPrompt(): { title: string; unlock: string; renew: string } | null {
