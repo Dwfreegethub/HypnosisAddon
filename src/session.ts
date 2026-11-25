@@ -1965,14 +1965,17 @@ export function answerPrompt(raw: string): void {
 	}
 	// Mid-window: her mind changes before the roll. Mostly for auto-stance (v0.97.0), which answers
 	// before she has seen anything; private, as the first answer was.
-	if (session.phase === "InductionInProgress") {
+	// Between attempts too (v1.16.29): a retry reuses her choice without asking again, so this is
+	// the only way to change it for the next try, as the wiki has always said she can.
+	if (session.phase === "InductionInProgress" || session.phase === "AttemptFailed") {
 		// Toy mode has no roll for a change of heart to move (rule 5: say so, don't pretend).
 		if (session.toy) {
 			notify("Toy mode: it takes you whatever you do now. /echs safeword stops it.");
 			return;
 		}
 		session.choice = choice;
-		notify(choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.");
+		const next = session.phase === "AttemptFailed" ? " If they try again, that is how you meet it." : "";
+		notify((choice === "agree" ? "You let yourself go along with it after all." : choice === "fight" ? "You brace against it after all." : "You stop pushing either way.") + next);
 		return;
 	}
 	if (session.phase !== "AttemptMade") {
@@ -2155,6 +2158,15 @@ export function currentTier(): DepthTier {
  * because being unable to speak is exactly the state it is there to work around. */
 export function currentHypnotistId(): number | null {
 	return session.phase === "Idle" ? null : session.hypnotistId;
+}
+
+/** Where an induction on us stands, for the popup's Me tab (v1.16.29): her own phase, her own
+ * choice and the attempts so far. Never sent anywhere; the hypnotist gets bands only. Null when
+ * no induction is running (idle, under, or cooling down). */
+export function inductionStanding(): { phase: "AttemptMade" | "InductionInProgress" | "AttemptFailed"; choice: SessionChoice | null; attempts: number; maxAttempts: number; toy: boolean } | null {
+	const p = session.phase;
+	if (p !== "AttemptMade" && p !== "InductionInProgress" && p !== "AttemptFailed") return null;
+	return { phase: p, choice: session.choice, attempts: session.attempts, maxAttempts: maxAttempts(), toy: !!session.toy };
 }
 
 export function isHypnotized(): boolean {
@@ -2417,9 +2429,16 @@ export function installSession(): void {
 	startRecovery();
 	// Incoming, as the SUBJECT.
 
+	// Always answered (v1.16.29, UI lab review F3): the remote waits on this. If the full report
+	// cannot be built, the bare phase still goes, so the hypnotist is never left on "Checking…".
 	registerHiddenHandler("session-query", (sender) => {
-		if (session.hypnotistId === sender) pushUpdate();
-		else refuse(sender, "");
+		try {
+			if (session.hypnotistId === sender) pushUpdate();
+			else refuse(sender, "");
+		} catch (e) {
+			log(`session-query from ${sender}: the full report failed (${String(e)}), sending the phase alone`);
+			refuse(sender, "");
+		}
 	});
 
 	registerHiddenHandler("session-attempt", (sender, message) => {

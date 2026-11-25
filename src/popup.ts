@@ -33,6 +33,7 @@ import {
 	isSessionLive,
 	currentHypnotistId,
 	currentTier,
+	inductionStanding,
 } from "./session";
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
@@ -75,7 +76,11 @@ let open = false;
 let timer: any = null;
 /** Which +/- groups are expanded. Session starts open: it is what a newcomer needs first. */
 const expanded = new Set<string>(["Session"]);
-let statusText = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+const STATUS_START = "Click anything to type it into the chat box. Nothing is sent until you press Enter.";
+let statusText = STATUS_START;
+/** What a click last typed, until the chat box is sent or cleared (v1.16.29, UI lab review F4):
+ * then its "Typed. Press Enter…" is out of date and the status goes back to the start. */
+let lastTyped: string | null = null;
 export type PopupTab = "me" | "people" | "suggest" | "triggers" | "keys" | "commands";
 let tab: PopupTab = "people";
 /** Which Suggestions groups are open. Trance first: waking and going deeper are needed most. */
@@ -208,6 +213,7 @@ export function fillChat(text: string): boolean {
 	const input: any = typeof document !== "undefined" ? document.getElementById("InputChat") : null;
 	if (!input) return false;
 	input.value = text;
+	lastTyped = text;
 	try {
 		input.dispatchEvent(new Event("input", { bubbles: true }));
 	} catch {
@@ -286,8 +292,34 @@ export function popupTick(): void {
 	if (open && !win) buildWindow();
 	if (!open && win) removeWindow();
 	autoSwitch();
+	stepAside();
+	// The line a click typed has been sent (or cleared): its "Press Enter" status is done with.
+	if (lastTyped !== null && chatValue() === "") {
+		lastTyped = null;
+		if (statusEl) setStatus(statusEl, STATUS_START);
+	}
 	// People come and go, and sessions change: redraw when what the window would show has changed.
 	if (open && document.getElementById(POPUP_ID) && viewKey() !== shownKey) renderBody();
+}
+
+/** While ECHS's own box is up (the induction choice, "stay under?"), the window folds to its header
+ * and safeword and moves to the top, so it never covers the box (v1.16.29, UI lab review F4). The
+ * box has the same buttons as the Me tab. Back as it was once the box is answered. */
+function stepAside(): void {
+	const win: any = document.getElementById(POPUP_ID);
+	if (!win) return;
+	const box = !!getPendingPrompt() || !!getPendingExtend();
+	const aside = /(?:^|\s)echs-pop-aside(?:\s|$)/.test(String(win.className ?? ""));
+	if (box === aside) return;
+	win.className = box ? `${win.className} echs-pop-aside` : String(win.className).replace(/\s*echs-pop-aside(?=\s|$)/, "");
+	win.dataset ??= {};
+	if (box) {
+		win.dataset.top = win.style.top;
+		win.style.top = "8px";
+	} else if (win.dataset.top !== undefined) {
+		win.style.top = win.dataset.top;
+		delete win.dataset.top;
+	}
 }
 
 /** Someone just started on you → Me. Someone just went under you → Suggestions. The tab you were
@@ -322,7 +354,7 @@ function viewKey(): string {
 		parts.push(JSON.stringify(who ? (getSessionView(who.id)?.gates ?? null) : null));
 		parts.push(finishingStart() ?? "");
 	}
-	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "");
+	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "", JSON.stringify(inductionStanding()));
 	if (tab === "triggers") parts.push(triggersKey());
 	if (tab === "keys") parts.push(keysKey());
 	return parts.join("#");
@@ -357,8 +389,25 @@ export function meView(): { lines: string[]; buttons: { label: string; text: str
 			buttons: [b("Agree", "agree", "Go along with it: easier for them"), b("Ignore", "ignore", "Neither help nor resist"), b("Fight", "fight", "Resist: harder for them")],
 		};
 	}
+	// Not a Wake button (v1.16.29, UI lab review F4): /echs wake is for a trance, and refuses here.
+	// What she chose, and the other two to change it (session.ts answerPrompt takes it until the
+	// roll, and between attempts for the next one). Toy mode has no roll to change.
 	if (side === "inducing") {
-		return { lines: [`An induction with ${hypnotistName()} is under way.`], buttons: [b("Wake", "wake", "Stop it now")] };
+		const st = inductionStanding();
+		const who = hypnotistName();
+		const lines =
+			st?.phase === "AttemptFailed"
+				? [`${who}'s attempt missed (${st.attempts} of ${st.maxAttempts}).`, "If they try again, you meet it the way you chose."]
+				: [`An induction with ${who} is under way.`];
+		const CHOICE: Record<string, [string, string]> = {
+			agree: ["Agree", "Go along with it: easier for them"],
+			ignore: ["Ignore", "Neither help nor resist"],
+			fight: ["Fight", "Resist: harder for them"],
+		};
+		if (!st || st.toy || !st.choice) return { lines: st?.toy ? [...lines, "Toy mode: it takes you whatever you choose."] : lines, buttons: [] };
+		lines.push(`You chose ${CHOICE[st.choice][0]}. Change it:`);
+		const others = (Object.keys(CHOICE) as (keyof typeof CHOICE)[]).filter((c) => c !== st.choice);
+		return { lines, buttons: others.map((c) => b(CHOICE[c][0], c, CHOICE[c][1])) };
 	}
 	if (side === "under") {
 		const out = [
@@ -607,6 +656,7 @@ function buildWindow(): void {
 	close.addEventListener("click", () => setPopupOpen(false));
 	head.appendChild(close);
 	win.appendChild(head);
+	win.appendChild(el("div", "echs-pop-aside-note", "Answer in the box on the screen. This window comes back once you have."));
 
 	tabsEl = el("div", "echs-pop-tabs");
 	win.appendChild(tabsEl);
@@ -1620,6 +1670,10 @@ const POPUP_CSS = `
 .echs-pop-tab:hover{background:#1b2648}
 .echs-pop-tab-on,.echs-pop-tab-on:hover{background:#26335c;font-weight:600}
 .echs-pop-hint,.echs-pop-empty{font-size:12px;opacity:.75;padding:4px 2px 6px}
+.echs-pop-aside{height:auto!important;min-height:0!important;resize:none}
+.echs-pop-aside .echs-pop-tabs,.echs-pop-aside .echs-pop-body,.echs-pop-aside .echs-pop-status{display:none}
+.echs-pop-aside-note{display:none;font-size:12px;padding:6px 8px;opacity:.85}
+.echs-pop-aside .echs-pop-aside-note{display:block}
 .echs-pop-finish{font-size:12px;padding:5px 7px;margin:2px 0 4px;border-left:3px solid #8fa8ff;background:#1b2648;border-radius:3px}
 .echs-pop-person{font-weight:600}
 .echs-pop-row{display:flex;align-items:stretch}

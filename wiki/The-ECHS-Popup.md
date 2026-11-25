@@ -78,7 +78,8 @@ While someone is under you, their ECHS tells yours which kinds of suggestion the
 
 ## Me (while someone is hypnotizing you)
 
-* **Someone is trying to hypnotize you:** *Agree*, *Ignore* or *Fight*. They are never told which. (The game's own box works too.)
+* **Someone is trying to hypnotize you:** *Agree*, *Ignore* or *Fight*. They are never told which. While ECHS's box is on the screen, the window folds up to its top bar and the Safeword button and moves out of the way, so it never covers the box. It opens again once you answer.
+* **While the induction runs:** what you chose, and the other two answers to change it. After a miss: that it missed (*1 of 2*). Your answer still counts if they try again, and you can still change it.
 * **While you are under:** who has you, your depth in the names the Depth tab uses (*Drifting*, *Yielding*…), and *Wake*, *Fight*, *Agree*, *Ignore* and *What is on me* (`/echs effects`). When your time is up and you are asked, **Stay** appears too.
 * Each button types its command; press Enter. The Safeword button stays at the bottom.
 * Under the [Extreme lock](Settings-Reference#the-extreme-lock), your depth line is hidden, as it is everywhere else.
