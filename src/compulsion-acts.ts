@@ -71,7 +71,8 @@ export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
 	// v1.16.18 (DW): R134 SuckPenetrateItem, "SourceCharacter sucks on TargetCharacter's
 	// ActivityAsset", on ItemVulva, needing the TARGET to wear the strap-on (TargetNeeds-PenetrateItem).
-	{ key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo)`, activities: ["SuckPenetrateItem"] },
+	// v1.16.31: "your cock/dick/penis" too, the same BC activity on a real penis.
+	{ key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo|cock|dick|penis)`, activities: ["SuckPenetrateItem"] },
 	{ key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
 	// Penetration (v1.16.16, DW, from a player's suggestion). R134 ActivityDictionary: PenetrateSlow /
 	// PenetrateFast are "Rei slowly / roughly penetrates Missy's vagina / butt / mouth with her

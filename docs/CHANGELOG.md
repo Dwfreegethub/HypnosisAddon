@@ -18,6 +18,19 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-25 (v1.16.31) — "suck my cock" lands
+
+From the 2026-11-23 to-do list, confirmed against the live R134 Female3DCG.js: plain Suck targets only
+ItemBoots/ItemHands/ItemNipples, so v1.16.18's "suck my cock stays plain Suck" never landed on
+anyone. The penis (Pussy > Penis) has AllowActivity PenetrateItem, so SuckPenetrateItem (with its
+TargetNeeds-PenetrateItem) reaches it exactly as it reaches a strap-on. DW: "make it like the other
+one". cock/dick/penis added to SuckPenetrateItem's part list in ACTIVITY_VERBS (their ACT_PARTS
+zones include ItemVulva); the compulsion object for "suck" takes them too; the popup gets "suck my
+cock" as a wording. The label stays "sucks your strap-on": the popup plants the label's words, and
+"or cock" made the planted line unreadable (popup suite caught it). "suck my nipples" stays plain
+Suck. fuck-command.mjs: the old "still plain Suck" check flipped, plus a landing check; mutation
+(the three words removed) fails 2 checks.
+
 ### Changed 2026-11-24 (v1.16.30) — trigger rows say what each one is; "My triggers list" can say less
 
 UI lab review F5: every row in /echs triggers, Settings > Planted and the popup's "Triggers in you"

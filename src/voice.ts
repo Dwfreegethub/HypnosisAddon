@@ -4158,8 +4158,10 @@ export const ACTIVITY_VERBS: ActivityVerb[] = [
 	{ activity: "PenetrateSlow", re: /\b(?:fuck|penetrate|screw|pound)\b/, othersOnly: true, parts: PENETRATE_WORDS, defaultPart: "pussy" },
 	// v1.16.18 (DW): "Missy, suck my strap-on". BC's SuckPenetrateItem: on ItemVulva, needs the
 	// TARGET's strap-on (TargetNeeds-PenetrateItem), her tongue (UseTongue: not gagged) and the zone
-	// bare. Only strap-on words, so "suck my cock" stays BC's plain Suck as before.
-	{ activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo"] },
+	// bare. v1.16.31 (DW): "suck my cock/dick/penis" too. BC's plain Suck never reaches a penis (R134
+	// Suck targets ItemBoots/ItemHands/ItemNipples only), while a real penis allows PenetrateItem
+	// (Female3DCG Pussy > Penis), so SuckPenetrateItem lands on it as it does on a strap-on.
+	{ activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo", "cock", "dick", "penis"] },
 	{ activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
 	{ activity: "Pinch", re: /\bpinch\b/ },
 	{ activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -4830,7 +4832,7 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 			return true;
 		}
 		if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
-			tellHypnotist(sender, `[command] "suck" didn't land on you — you need a strap-on on, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
+			tellHypnotist(sender, `[command] "suck" didn't land on you — you need a strap-on on or a penis, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
 			return true;
 		}
 		if (onHypnotist && cmd.activity.startsWith("Penetrate")) {

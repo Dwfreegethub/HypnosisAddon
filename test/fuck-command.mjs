@@ -88,7 +88,8 @@ check("negated: nothing", m("Missy, don't fuck me"), null);
 // "Suck my strap-on" (v1.16.18). Failure: "suck my cock" changed from BC's plain Suck, or no part read.
 check("suck my strap-on", m("Missy, suck my strap-on"), P("SuckPenetrateItem", "me", "strap"));
 check("suck on Rei's strap-on, suck my dildo", [m("Missy, suck on Rei's strap-on"), m("Missy, suck my dildo")], [P("SuckPenetrateItem", "rei", "strap"), P("SuckPenetrateItem", "me", "dildo")]);
-check("suck my cock is still plain Suck", m("Missy, suck my cock")?.activity, "Suck");
+check("suck my cock/dick/penis is Suck On, like the strap-on", [m("Missy, suck my cock"), m("Missy, suck Rei's dick"), m("Missy, suck on my penis")], [P("SuckPenetrateItem", "me", "cock"), P("SuckPenetrateItem", "rei", "dick"), P("SuckPenetrateItem", "me", "penis")]);
+check("suck my nipples is still plain Suck", m("Missy, suck my nipples")?.activity, "Suck");
 
 // --- the handler ----------------------------------------------------------------------------------
 storage.setFeature("hypnoEnabled", true);
@@ -119,6 +120,10 @@ ALLOWED[HYP] = { ItemVulva: ["SuckPenetrateItem"] };
 reset();
 say("Missy, suck my strap-on");
 check("suck my strap-on: on the hypnotist's vulva, by her", lastRun(), { actor: 1, acted: HYP, activity: "SuckPenetrateItem", group: "ItemVulva" });
+// v1.16.31: a real penis (BC's Pussy > Penis allows PenetrateItem). Failure: plain Suck, which never reaches it.
+reset();
+say("Missy, suck my cock");
+check("suck my cock: Suck On, on the hypnotist's vulva/penis, by her", lastRun(), { actor: 1, acted: HYP, activity: "SuckPenetrateItem", group: "ItemVulva" });
 ALLOWED[HYP] = {};
 reset();
 say("Missy, suck my strap-on");

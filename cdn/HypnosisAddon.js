@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.30. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.31. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1077,7 +1077,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
         // v1.16.18 (DW): R134 SuckPenetrateItem, "SourceCharacter sucks on TargetCharacter's
         // ActivityAsset", on ItemVulva, needing the TARGET to wear the strap-on (TargetNeeds-PenetrateItem).
-        { key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo)`, activities: ["SuckPenetrateItem"] },
+        // v1.16.31: "your cock/dick/penis" too, the same BC activity on a real penis.
+        { key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo|cock|dick|penis)`, activities: ["SuckPenetrateItem"] },
         { key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
         // Penetration (v1.16.16, DW, from a player's suggestion). R134 ActivityDictionary: PenetrateSlow /
         // PenetrateFast are "Rei slowly / roughly penetrates Missy's vagina / butt / mouth with her
@@ -9585,7 +9586,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return true;
       }
       if (onHypnotist && cmd.activity === "SuckPenetrateItem") {
-        tellHypnotist(sender, `[command] "suck" didn't land on you \u2014 you need a strap-on on, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
+        tellHypnotist(sender, `[command] "suck" didn't land on you \u2014 you need a strap-on on or a penis, nothing over it, and their mouth free (not gagged), and your BC settings have to allow it there.`);
         return true;
       }
       if (onHypnotist && cmd.activity.startsWith("Penetrate")) {
@@ -11119,8 +11120,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { activity: "PenetrateSlow", re: /\b(?:fuck|penetrate|screw|pound)\b/, othersOnly: true, parts: PENETRATE_WORDS, defaultPart: "pussy" },
         // v1.16.18 (DW): "Missy, suck my strap-on". BC's SuckPenetrateItem: on ItemVulva, needs the
         // TARGET's strap-on (TargetNeeds-PenetrateItem), her tongue (UseTongue: not gagged) and the zone
-        // bare. Only strap-on words, so "suck my cock" stays BC's plain Suck as before.
-        { activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo"] },
+        // bare. v1.16.31 (DW): "suck my cock/dick/penis" too. BC's plain Suck never reaches a penis (R134
+        // Suck targets ItemBoots/ItemHands/ItemNipples only), while a real penis allows PenetrateItem
+        // (Female3DCG Pussy > Penis), so SuckPenetrateItem lands on it as it does on a strap-on.
+        { activity: "SuckPenetrateItem", re: /\bsuck(?: on)?\b/, othersOnly: true, parts: ["strap", "strapon", "dildo", "cock", "dick", "penis"] },
         { activity: "Grope", re: /\b(?:grope|squeeze|fondle)\b/ },
         { activity: "Pinch", re: /\bpinch\b/ },
         { activity: "Spank", re: /\b(?:spank|smack)\b/ },
@@ -11710,7 +11713,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim(`   "cover my mouth" \xB7 "hand gag Rei" \xB7 "peck my hand".`));
     lines.push(dim(`   "fuck me" \xB7 "fuck Rei's ass" \xB7 "fuck me hard" (fast) \u2014 her strap-on, a dildo`));
     lines.push(dim(`   in hand or a dildo gag; pick with "with your dildo" / "strap-on" / "gag".`));
-    lines.push(dim(`   On yours: "suck my strap-on".`));
+    lines.push(dim(`   On yours: "suck my strap-on" / "suck my cock".`));
     return lines;
   }
   function depthLadder() {
@@ -11875,7 +11878,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
       body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
       dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
-      dim("kicks you, pulls your hair, fucks you, sucks your strap-on,"),
+      dim("kicks you, pulls your hair, fucks you, sucks your strap-on or cock,"),
       dim("or does anything to you (any activity)."),
       body(`"Missy, whenever anyone gags you, ..."   "when Rei ties your arms, ..."`),
       dim("Or blindfolds, collars, ties your legs, ties you up (any restraint), locks"),
@@ -13658,7 +13661,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.30"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.31"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13731,7 +13734,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.30"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.31"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14589,7 +14592,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.30", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.31", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14626,7 +14629,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.30", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.31", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14668,7 +14671,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.30", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.31", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17348,7 +17351,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "body", item: { id: "x-struggle", instant: true, label: "struggle (while tied)", phrase: "struggle", release: false, permission: "compelActivity", alternates: ["fight your bonds"] } },
         // v1.16.23: the strap-on commands (v1.16.17/18) in the window too (DW: "where are the fuck with dildo options").
         { cat: "touch", item: { id: "x-fuck-me", instant: true, label: "fuck me (her strap-on, a dildo in hand, or a dildo gag)", phrase: "fuck me", release: false, permission: "compelActivity", alternates: ["fuck me hard", "fuck me with your dildo", "fuck me with your strap-on", "fuck me with your dildo gag", "fuck my ass", "fuck my mouth"] } },
-        { cat: "touch", item: { id: "x-suck-strapon", instant: true, label: "suck my strap-on (the one you wear)", phrase: "suck my strap-on", release: false, permission: "compelActivity", alternates: ["suck my dildo"] } },
+        { cat: "touch", item: { id: "x-suck-strapon", instant: true, label: "suck my strap-on (the one you wear)", phrase: "suck my strap-on", release: false, permission: "compelActivity", alternates: ["suck my dildo", "suck my cock"] } },
         { cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
         { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
@@ -17829,7 +17832,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.30"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.31"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18941,7 +18944,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.30"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.31"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18968,7 +18971,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.30"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.31"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19043,14 +19046,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.30"})`);
+      info(`script loaded (v${"1.16.31"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.30",
+          version: "1.16.31",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19192,10 +19195,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.30"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.31"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.30";
+    page2.__ECHS_LOADED__ = "1.16.31";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
