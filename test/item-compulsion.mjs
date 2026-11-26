@@ -149,7 +149,10 @@ check("  rope on her arms: nothing", spoken, []);
 fire(REI, asset("ItemMouth", "BallGag"));
 check("  a gag on someone else: nothing", spoken, []);
 fire(Player.MemberNumber, asset("ItemMouth", "BallGag"), Player);
-check("  her own gag on herself: nothing", spoken, []);
+// v1.19.4 (DW: "make the bondage compulsions work if someone self binds themself"): anyone includes her.
+check("  her own gag on herself: it fires too", spoken, ["Mmmph!"]);
+spoken = [];
+clock += 60_000;
 check("  never stops the message", fire(Player.MemberNumber, asset("ItemMouth", "BallGag")), false);
 check("  Rei gags her: it fires", spoken, ["Mmmph!"]);
 

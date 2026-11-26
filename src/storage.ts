@@ -247,6 +247,9 @@ export interface Trigger {
 	 * while you wear it"): no duration timer; it lets go when the item comes off, and its arousal
 	 * and orgasm repeat meanwhile, slowing down (voice.ts WORN_REPEAT_MINUTES). */
 	whileWorn?: true;
+	/** v1.19.4 (DW): with whileWorn, she can't take the item off herself while it holds (remove,
+	 * struggle, escape, swap). Others still can; the release words and the safeword end it. */
+	noRemove?: true;
 	/** While a whileWorn trigger holds: the slot and item it is waiting on (and, for a lock compulsion,
 	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. `off`
 	 * (v1.18.0): a garment taken off, held while the slot stays empty. */
@@ -820,6 +823,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (t.act !== undefined && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
 			if (t.gate !== undefined && typeof t.gate !== "string") delete t.gate;
 			if (t.whileWorn !== undefined && t.whileWorn !== true) delete t.whileWorn;
+			if (t.noRemove !== undefined && t.noRemove !== true) delete t.noRemove;
 			if (t.wornHold !== undefined && (typeof t.wornHold?.group !== "string" || typeof t.wornHold?.asset !== "string")) delete t.wornHold;
 		}
 	}

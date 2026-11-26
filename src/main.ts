@@ -29,6 +29,7 @@ import {
 	unstutter,
 	noteArrival,
 	installCompulsions,
+	installNoRemove,
 	asAddressed,
 } from "./voice";
 import { noteConversation, displayNameOf } from "./trust";
@@ -342,3 +343,5 @@ safely("clothing illusion", () => installIllusion(modApi));
 
 // Clothing compulsions (v1.18.0): hears garments coming off or going on, read only.
 safely("clothing compulsions", () => installOutfitWatch(modApi));
+// "You cannot take it off" (v1.19.4): her own removal of a held item, refused on her client.
+safely("held items stay on", () => installNoRemove(modApi));
