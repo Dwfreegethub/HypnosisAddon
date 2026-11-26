@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.31 · 25 November 2026
+
+- **"Suck my cock" works.** *"Missy, suck my cock"* (or *dick*, *penis*) used the game's plain suck,
+  which can't reach a penis, so nothing happened. It now uses the same act as *"suck my strap-on"*.
+  The compulsion works the same way: *"whenever anyone sucks your cock"*.
+
 ## v1.16.30 · 24 November 2026
 
 - **You can tell your triggers apart.** `/echs triggers`, Settings > Planted and the popup now show
