@@ -1163,33 +1163,18 @@ function askedStatus(status: any, member: number, text: string): void {
 	setStatus(status, text);
 }
 
-// "Give keys (level)" (v1.16.0, job6.md §2, DW): one button per person that cycles minimal → moderate
-// → full. Its label is what a click types; a second click on the same button moves on to the next
-// level and types that instead. Still typed, never done on click: Enter applies it.
-/** Per person ("owner" or a member number), the level their button shows, as an index. */
-const keyCycle = new Map<string, number>();
-/** The button that typed last, so only a repeat click advances. */
-let keyCycleLast = "";
-
-/** The level a "Give keys" button shows: one above what they hold (wrapping), minimal for nobody. */
-export function cycleLevel(key: string, held: KeyMode | null): KeyMode {
-	const i = keyCycle.get(key) ?? (held ? (keyRank(held) + 1) % KEY_LEVELS.length : 0);
-	return KEY_LEVELS[i];
-}
-
-/** A click on a "Give keys" button: advance if it was the last one clicked, and say which to type. */
-export function clickCycle(key: string, held: KeyMode | null): KeyMode {
-	let i = KEY_LEVELS.indexOf(cycleLevel(key, held));
-	if (keyCycleLast === key) i = (i + 1) % KEY_LEVELS.length;
-	keyCycle.set(key, i);
-	keyCycleLast = key;
-	return KEY_LEVELS[i];
-}
-
-/** For the suite. */
-export function resetKeyCycle(): void {
-	keyCycle.clear();
-	keyCycleLast = "";
+// "Give keys: minimal · moderate · full" (v1.16.43, review F6, DW): three buttons per person, each
+// typing its own level. It was one button that cycled minimal → moderate → full, so a second click
+// meant to repeat the first typed the next level instead. Still typed, never done on click: Enter
+// applies it. The level they hold now is marked.
+/** A "Give keys:" or "Request keys:" label and its three level buttons, onto `row`. */
+function levelChips(row: any, title: string, held: KeyMode | null, tip: string, onPick: (level: KeyMode) => void, faded = false): void {
+	row.appendChild(el("span", "echs-pop-keys-label", title));
+	for (const level of KEY_LEVELS) {
+		const c = chip(level, held === level ? `They hold ${level} keys now. ${tip}` : tip, () => onPick(level), faded);
+		if (held === level) c.className += " echs-pop-chip-on";
+		row.appendChild(c);
+	}
 }
 
 const LEVEL_HINT = "minimal = only switch things off · moderate = also shape your trance · full = everything";
@@ -1275,15 +1260,12 @@ function renderKeys(body: any, status: any): void {
 		list.appendChild(el("div", "echs-pop-hint", LEVEL_HINT));
 		if (locked) list.appendChild(el("div", "echs-pop-hint", why));
 		if (locker) list.appendChild(el("div", "echs-pop-hint", `${locker.name} locked your settings: you can't change them, or take ${locker.name}'s keys back, until a full keyholder unlocks them. It ends on its own if ${locker.name} isn't in a room with you for 7 days.`));
-		const give = (key: string, held: KeyMode | null, command: (level: KeyMode) => string) =>
-			chip(`Give keys (${cycleLevel(key, held)})`, "Click again for the next level. Nothing happens until you press Enter.", () => {
-				typed(command(clickCycle(key, held)));
-				renderBody();
-			}, locked);
+		const give = (row: any, held: KeyMode | null, command: (level: KeyMode) => string) =>
+			levelChips(row, "Give keys:", held, "Nothing happens until you press Enter.", (level) => typed(command(level)), locked);
 		const owner = getOwnerKeyMode();
 		list.appendChild(el("div", "echs-pop-person", owner ? `Your BC owner · ${owner}` : "Your BC owner · no keys"));
 		const ownerRow = el("div", "echs-pop-buttons");
-		ownerRow.appendChild(give("owner", owner, (level) => `/echs keyholder owner ${level}`));
+		give(ownerRow, owner, (level) => `/echs keyholder owner ${level}`);
 		if (owner) ownerRow.appendChild(chip("Take keys back", "", () => typed("/echs keyholder owner off"), locked));
 		list.appendChild(ownerRow);
 		const named = listKeyholders();
@@ -1291,7 +1273,7 @@ function renderKeys(body: any, status: any): void {
 			const row = el("div", "echs-pop-entry");
 			row.appendChild(el("div", "echs-pop-person", `${k.name} · ${k.mode}`));
 			const chips = el("div", "echs-pop-buttons");
-			chips.appendChild(give(String(k.id), k.mode, (level) => `/echs keyholder add ${k.id} ${level}`));
+			give(chips, k.mode, (level) => `/echs keyholder add ${k.id} ${level}`);
 			chips.appendChild(chip("Take keys back", "", () => typed(`/echs keyholder remove ${k.id}`), locked));
 			row.appendChild(chips);
 			list.appendChild(row);
@@ -1304,7 +1286,7 @@ function renderKeys(body: any, status: any): void {
 				row.appendChild(el("div", "echs-pop-person", p.name));
 				const chips = el("div", "echs-pop-buttons");
 				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
-				chips.appendChild(give(String(p.id), null, (level) => `/echs keyholder add ${target} ${level}`));
+				give(chips, null, (level) => `/echs keyholder add ${target} ${level}`);
 				row.appendChild(chips);
 				list.appendChild(row);
 			}
@@ -1316,7 +1298,7 @@ function renderKeys(body: any, status: any): void {
 		}
 	});
 
-	// 2. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, cycling the same way;
+	// 2. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, with the same three buttons;
 	// their ECHS shows them a popup, and the answer comes back in chat and under their name here.
 	const canAsk = askable();
 	if (canAsk.length) {
@@ -1329,12 +1311,8 @@ function renderKeys(body: any, status: any): void {
 				row.appendChild(el("div", "echs-pop-person", has ? `${p.name} · you hold ${has}` : p.name));
 				const chips = el("div", "echs-pop-buttons");
 				const target = induceTarget(roomOthers().find((c) => c.MemberNumber === p.id), roomOthers());
-				const key = `ask:${p.id}`;
-				chips.appendChild(
-					chip(`Request keys (${cycleLevel(key, has)})`, "Click again for the next level. Nothing is sent until you press Enter.", () => {
-						typeIt(status, `/echs keyholder request ${target} ${clickCycle(key, has)}`, "Typed. Press Enter to ask.");
-						renderBody();
-					}),
+				levelChips(chips, "Request keys:", has, "Nothing is sent until you press Enter.", (level) =>
+					typeIt(status, `/echs keyholder request ${target} ${level}`, "Typed. Press Enter to ask."),
 				);
 				row.appendChild(chips);
 				list.appendChild(row);
@@ -1758,6 +1736,7 @@ const POPUP_CSS = `
 .echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
+.echs-pop-keys-label{align-self:center;font-size:12px;opacity:.85}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
 .echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1;min-height:0}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;

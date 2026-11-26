@@ -620,13 +620,20 @@ check("your keyholders shown", byText("−  Your keyholders").length === 1, "the
 const keyChip = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
 // v1.16.0 (job6.md §2): one "Give keys" button per person, cycling; the owner's comes first.
 check("no take/grant buttons any more", !keyChip("grant") && !keyChip("add (take)") && !keyChip("make take"), "the old labels gone");
-keyChip("Give keys (minimal)").click();
-check("owner's Give keys types minimal first", chatBox.value === "/echs keyholder owner minimal" && chatSent.length === 0, `"/echs keyholder owner minimal" typed, got "${chatBox.value}"`);
-keyChip("Give keys (minimal)").click(); // the owner's again: its label is what was typed
-check("  a second click on it moves on", chatBox.value === "/echs keyholder owner moderate", `owner moderate, got "${chatBox.value}"`);
-keyChip("Give keys (minimal)").click(); // now the first minimal button is Alice's
-check("another person's button types its own label first", /^.echs keyholder add .+ minimal$/.test(chatBox.value), `an add at minimal, got "${chatBox.value}"`);
-check("  and the button now says so", !!keyChip("Give keys (moderate)"), "a moderate label");
+// v1.16.43 (review F6, DW): three buttons per person, one per level. Failure: a second click on the
+// same button types the next level (the old cycling button), or a row lacks a level.
+const levelRow = (title, i) => findAll(win(), (n) => n.className === "echs-pop-keys-label" && n.textContent === title)[i]?.parent;
+const levelBtn = (title, i, level) => levelRow(title, i)?.children.find((c) => c.className?.startsWith?.("echs-pop-chip") && c.textContent === level);
+check("no cycling button any more", !findAll(win(), (n) => /^Give keys \(/.test(n.textContent ?? "") && n.className?.startsWith?.("echs-pop-chip")).length, "no Give keys (level) chip");
+check("the owner's row: Give keys: minimal moderate full", ["minimal", "moderate", "full"].every((l) => levelBtn("Give keys:", 0, l)), "three level buttons");
+levelBtn("Give keys:", 0, "minimal").click();
+check("owner's minimal types minimal", chatBox.value === "/echs keyholder owner minimal" && chatSent.length === 0, `"/echs keyholder owner minimal" typed, got "${chatBox.value}"`);
+levelBtn("Give keys:", 0, "minimal").click();
+check("  a second click types the same again", chatBox.value === "/echs keyholder owner minimal", `still minimal, got "${chatBox.value}"`);
+levelBtn("Give keys:", 0, "full").click();
+check("  full types full", chatBox.value === "/echs keyholder owner full", `owner full, got "${chatBox.value}"`);
+levelBtn("Give keys:", 1, "moderate").click();
+check("someone else's row types theirs", /^.echs keyholder add .+ moderate$/.test(chatBox.value), `an add at moderate, got "${chatBox.value}"`);
 check("no held-keys group while we hold none", byText("−  Settings you hold keys to").length === 0, "no held-keys group");
 // Bea says we hold her keys, take only, and sends her settings.
 // As remote.ts's state-response handler passes it on (remote.ts is not installed here).

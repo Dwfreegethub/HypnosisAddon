@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.43 · 26 November 2026
+
+- **Giving and asking for keys: one button per level.** The popup's Keys tab shows *Give keys:
+  minimal · moderate · full* (and *Request keys:* the same) instead of one button that changed
+  level each time you clicked it, so a second click no longer types a different level. The level
+  someone holds now is highlighted. As before, nothing happens until you press Enter.
+
 ## v1.16.42 · 26 November 2026
 
 - **"Induction time" is now "Time to go under (after you answer)"**, on the Inductions tab. It

@@ -280,14 +280,7 @@ check("typed take/grant still work", storage.toKeyMode("take") === "minimal" && 
 storage.removeKeyholder(STRANGER);
 echs("owner full"); // as the sections below expect
 
-// The popup's cycling "Give keys" button (job6.md §2): label = what a click types; a repeat click
-// moves on, wrapping; someone who holds keys starts one above.
-popup.resetKeyCycle();
-check("cycle: nobody starts at minimal", popup.cycleLevel("500", null) === "minimal", "minimal");
-const clicks = [popup.clickCycle("500", null), popup.clickCycle("500", null), popup.clickCycle("500", null), popup.clickCycle("500", null)];
-check("cycle: repeat clicks go minimal, moderate, full, minimal", clicks.join() === "minimal,moderate,full,minimal", `the cycle, got ${clicks.join()}`);
-check("cycle: a holder starts one above", popup.cycleLevel("501", "moderate") === "full", "full");
-check("cycle: another button's first click types its own label", popup.clickCycle("501", "moderate") === "full", "full, not advanced");
+// The popup's Give keys buttons (one per level since v1.16.43) are checked in popup.mjs.
 echs("add Kay");
 
 // Remove.
