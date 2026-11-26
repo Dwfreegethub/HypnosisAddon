@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.33. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.34. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -12250,10 +12250,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DrawButton(CONFIRM_CANCEL_LEFT, NAV_TOP, NAV_CANCEL_WIDTH, NAV_HEIGHT, "Cancel", "White", "", "");
     DrawButton(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT, "Confirm 1-week lock", "#ffb3b3", "", "");
   }
+  function summaryLayout(lines, size) {
+    MainCanvas.save();
+    MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(size) : `${size}px arial`;
+    const pitch = Math.round(size * 1.2);
+    const out = [];
+    let y = SUMMARY_TOP;
+    lines.forEach((line, i) => {
+      const bullet = line.startsWith("\u2022 ");
+      const x = CONTENT_X + (bullet ? SUMMARY_INDENT : 0);
+      if (i > 0 && !bullet) y += SUMMARY_GAP;
+      wrapToWidth(line, CONTENT_MAX - (x - CONTENT_X)).forEach((row, j) => {
+        out.push({ x: x + (bullet && j > 0 ? 22 : 0), y, text: row, color: bullet ? "#222" : "#333" });
+        y += pitch;
+      });
+    });
+    MainCanvas.restore();
+    return out;
+  }
   function drawSummary() {
     const cfg = wizardConfig(answers);
     drawLeftText("Ready to apply", CONTENT_X, WZ_TOP + 70, "Black");
-    describeConfig(cfg).forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
+    const lines = describeConfig(cfg);
+    let size = 28;
+    let rows = summaryLayout(lines, size);
+    while (size > 20 && rows[rows.length - 1].y > SUMMARY_BOTTOM - size) rows = summaryLayout(lines, size -= 2);
+    for (const r of rows) drawSmallText(r.text, r.x, r.y, size, r.color);
     drawNav(true, "Apply");
   }
   function describeConfig(cfg) {
@@ -12274,7 +12296,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     ].filter(Boolean);
     const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers, friends and whitelist";
     return [
-      `Allowed: ${allowed.join("; ")}.`,
+      "Allowed:",
+      ...allowed.map((a) => `\u2022 ${a[0].toUpperCase()}${a.slice(1)}`),
       `When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
       `"Sink deeper" stops at: ${cfg.deepest[0].toUpperCase()}${cfg.deepest.slice(1)}.`,
       has("triggerControl") ? `Triggers can be set off by ${whoTriggers}.` : "No triggers: nothing outlives the trance.",
@@ -12298,6 +12321,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (stage === "summary") {
       if (navForwardHit()) {
         applySetup(wizardConfig(answers));
+        tellPlayer("Your setup answers were applied. You can change any of it on the tabs.");
         finish();
       } else if (navBackHit()) {
         stage = answers.role === "hypnotist" ? 0 : QUESTIONS.length - 1;
@@ -12328,6 +12352,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return true;
       }
       applyPreset(key);
+      tellPlayer(`The ${PRESETS[i].name} setup was applied. You can change any of it on the tabs.`);
       finish();
       return true;
     }
@@ -12355,7 +12380,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function navBackHit() {
     return MouseIn(CONTENT_X, NAV_TOP, 160, NAV_HEIGHT);
   }
-  var MANAGED_FEATURES, TRANCE_DEFAULTS, PRESETS, QUESTIONS, forced, stage, answers, WZ_LEFT, WZ_WIDTH, WZ_TOP, WZ_HEIGHT, CONTENT_X, CONTENT_MAX, OPT_TOP, OPT_HEIGHT, OPT_GAP, OPT_WIDTH, NAV_TOP, NAV_HEIGHT, NAV_FORWARD_WIDTH, FORWARD_WAITING, NAV_FORWARD_LEFT, CONFIRM_WIDTH, CONFIRM_LEFT, NAV_CANCEL_WIDTH, NAV_CANCEL_LEFT, CONFIRM_CANCEL_LEFT, PRESET_ROW, PRESET_TOP, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT, QUESTIONS_BUTTON_WIDTH, SKIP_BUTTON_WIDTH;
+  var MANAGED_FEATURES, TRANCE_DEFAULTS, PRESETS, QUESTIONS, forced, stage, answers, WZ_LEFT, WZ_WIDTH, WZ_TOP, WZ_HEIGHT, CONTENT_X, CONTENT_MAX, OPT_TOP, OPT_HEIGHT, OPT_GAP, OPT_WIDTH, NAV_TOP, NAV_HEIGHT, NAV_FORWARD_WIDTH, FORWARD_WAITING, NAV_FORWARD_LEFT, CONFIRM_WIDTH, CONFIRM_LEFT, NAV_CANCEL_WIDTH, NAV_CANCEL_LEFT, CONFIRM_CANCEL_LEFT, PRESET_ROW, PRESET_TOP, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT, QUESTIONS_BUTTON_WIDTH, SKIP_BUTTON_WIDTH, SUMMARY_TOP, SUMMARY_BOTTOM, SUMMARY_INDENT, SUMMARY_GAP;
   var init_wizard = __esm({
     "src/wizard.ts"() {
       init_storage();
@@ -12551,6 +12576,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       PRESET_BUTTON_HEIGHT = 64;
       QUESTIONS_BUTTON_WIDTH = 500;
       SKIP_BUTTON_WIDTH = 300;
+      SUMMARY_TOP = WZ_TOP + 120;
+      SUMMARY_BOTTOM = NAV_TOP - 16;
+      SUMMARY_INDENT = 36;
+      SUMMARY_GAP = 10;
     }
   });
 
@@ -13713,7 +13742,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.33"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.34"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13786,7 +13815,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.33"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.34"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14644,7 +14673,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.33", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.34", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14681,7 +14710,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.33", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.34", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14723,7 +14752,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.33", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.34", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17884,7 +17913,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.33"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.34"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18996,7 +19025,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.33"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.34"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19023,7 +19052,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.33"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.34"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19098,14 +19127,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.33"})`);
+      info(`script loaded (v${"1.16.34"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.33",
+          version: "1.16.34",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19247,10 +19276,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.33"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.34"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.33";
+    page2.__ECHS_LOADED__ = "1.16.34";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.34 · 25 November 2026
+
+- **The setup summary shows everything you allow.** On "Ready to apply", the *Allowed* list was one
+  line in tiny text, cut off with "…". Now each group has its own line, at the same size as the rest
+  of the page, and nothing is cut off.
+- **Setup says it worked.** After Apply, or after clicking one of the ready-made setups, a line in
+  chat says it was applied.
+
 ## v1.16.33 · 25 November 2026
 
 - **A compulsion that can't be set up says so once.** If what comes after *"when anyone ... you,"*

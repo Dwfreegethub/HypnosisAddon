@@ -38,7 +38,7 @@ import {
 import { DEPTH_GATES } from "./depth";
 import { extremeWarning, startExtremeTrial } from "./extreme";
 import { tellPlayer } from "./notify";
-import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap } from "./panel";
+import { PANEL_TOP, PANEL_HEIGHT, drawLeftText, drawLeftTextFit, drawLeftTextWrap, drawSmallText, wrapToWidth } from "./panel";
 
 // --- what a setup writes ------------------------------------------------------------------------
 /** The permissions and grants a setup decides. Each is set ON if the setup lists it, otherwise OFF
@@ -461,10 +461,44 @@ function drawExtremeWarning(): void {
 	DrawButton(CONFIRM_LEFT, NAV_TOP, CONFIRM_WIDTH, NAV_HEIGHT, "Confirm 1-week lock", "#ffb3b3", "", "");
 }
 
+// v1.16.34 (UI lab review F7): every summary line at one size, wrapped, never cut with "…". The
+// "Allowed:" list was one line shrunk to the floor and clipped, though it is the part being
+// consented to; now each group is its own indented line. Tries 28px, then smaller, until it all
+// fits above the nav bar.
+const SUMMARY_TOP = WZ_TOP + 120;
+const SUMMARY_BOTTOM = NAV_TOP - 16;
+const SUMMARY_INDENT = 36;
+const SUMMARY_GAP = 10;
+
+function summaryLayout(lines: string[], size: number): { x: number; y: number; text: string; color: string }[] {
+	MainCanvas.save();
+	MainCanvas.font = typeof CommonGetFont === "function" ? CommonGetFont(size) : `${size}px arial`;
+	const pitch = Math.round(size * 1.2);
+	const out: { x: number; y: number; text: string; color: string }[] = [];
+	let y = SUMMARY_TOP;
+	lines.forEach((line, i) => {
+		const bullet = line.startsWith("• ");
+		const x = CONTENT_X + (bullet ? SUMMARY_INDENT : 0);
+		// A non-bullet line after a bullet starts a new block: a little air before it.
+		if (i > 0 && !bullet) y += SUMMARY_GAP;
+		wrapToWidth(line, CONTENT_MAX - (x - CONTENT_X)).forEach((row, j) => {
+			// Wrapped bullet text lines up under the text, not under the dot.
+			out.push({ x: x + (bullet && j > 0 ? 22 : 0), y, text: row, color: bullet ? "#222" : "#333" });
+			y += pitch;
+		});
+	});
+	MainCanvas.restore();
+	return out;
+}
+
 function drawSummary(): void {
 	const cfg = wizardConfig(answers);
 	drawLeftText("Ready to apply", CONTENT_X, WZ_TOP + 70, "Black");
-	describeConfig(cfg).forEach((l, i) => drawLeftTextFit(l, CONTENT_X, WZ_TOP + 120 + i * 40, CONTENT_MAX, "#222"));
+	const lines = describeConfig(cfg);
+	let size = 28;
+	let rows = summaryLayout(lines, size);
+	while (size > 20 && rows[rows.length - 1].y > SUMMARY_BOTTOM - size) rows = summaryLayout(lines, (size -= 2));
+	for (const r of rows) drawSmallText(r.text, r.x, r.y, size, r.color);
 	drawNav(true, "Apply");
 }
 
@@ -487,7 +521,8 @@ export function describeConfig(cfg: SetupConfig): string[] {
 	].filter(Boolean);
 	const whoTriggers = cfg.triggerScope === "notblack" ? "almost anyone (not your blacklist)" : "your owner, lovers, friends and whitelist";
 	return [
-		`Allowed: ${allowed.join("; ")}.`,
+		"Allowed:",
+		...allowed.map((a) => `• ${(a as string)[0].toUpperCase()}${(a as string).slice(1)}`),
 		`When someone tries: ${cfg.stance === "agree" ? "you agree without being asked" : "you are asked first"}` +
 			`${cfg.toyMode ? "; your owner and lovers put you straight under (toy mode)" : ""}.`,
 		`"Sink deeper" stops at: ${cfg.deepest[0].toUpperCase()}${cfg.deepest.slice(1)}.`,
@@ -521,6 +556,8 @@ export function clickWizard(): boolean {
 	if (stage === "summary") {
 		if (navForwardHit()) {
 			applySetup(wizardConfig(answers));
+			// v1.16.34 (review F7): Apply used to land on the tabs with no word that it worked.
+			tellPlayer("Your setup answers were applied. You can change any of it on the tabs.");
 			finish();
 		} else if (navBackHit()) {
 			stage = answers.role === "hypnotist" ? 0 : QUESTIONS.length - 1;
@@ -554,6 +591,7 @@ function clickWelcome(): boolean {
 			return true;
 		}
 		applyPreset(key);
+		tellPlayer(`The ${PRESETS[i].name} setup was applied. You can change any of it on the tabs.`);
 		finish();
 		return true;
 	}
