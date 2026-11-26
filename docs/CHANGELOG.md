@@ -18,6 +18,14 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-26 (v1.19.1) — `/echs induce` says one line
+
+DW: "During induction I do not like the new [Sent. Watch for what happens next.] Can we maybe combine
+that with the message above and only give a second message if something goes wrong. To me the message
+showing that the subject is listening is enough." The second line (v1.16.34, review F10) is gone; the
+known-off warning joins the first line. What comes back from her client is unchanged, and still says
+when something goes wrong.
+
 ### Added 2026-11-26 (v1.19.0) — phantom touch: a touch only she feels, with a real touch's effect
 
 Idea 2 of DW's feature list. DW: "I do want the touch to have the same effect as real touch would have
