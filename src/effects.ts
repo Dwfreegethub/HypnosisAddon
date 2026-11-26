@@ -154,6 +154,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 	const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
 	markOwnAction();
 	ownPoseChange++;
+	echsPoseDepth++;
 	if (liftOwnFreeze) refreshOwnEffects();
 	try {
 		if (pose !== null) {
@@ -165,6 +166,7 @@ export function setSuggestedPose(pose: string | null, group: PoseGroup = poseGro
 		}
 	} finally {
 		ownPoseChange--;
+		echsPoseDepth--;
 		if (liftOwnFreeze) refreshOwnEffects();
 	}
 	const after = currentPoses();
@@ -619,6 +621,18 @@ function reassertItemEffects(): boolean {
 // Items are NOT blocked: an item that forces a pose is applied by BC's item system under her item
 // permissions, and refusing it would stop anyone restraining a held-still subject. Flagged to DW.
 let ownPoseChange = 0;
+/** Inside ECHS's own pose change (setSuggestedPose) only, unlike ownPoseChange, which also covers
+ * another player's change let through the hold. Read by pose-watch.ts: ECHS moving her never sets off
+ * a pose compulsion (v1.19.7, DW: "I dont think a echs action should trigger it"). */
+let echsPoseDepth = 0;
+export function isEchsPosing(): boolean {
+	return echsPoseDepth > 0;
+}
+/** Whose pose change is this: her own click or key ("hers"), a socket message ("someone"), or
+ * neither ("auto"). See changeSource. */
+export function poseChangeSource(): "hers" | "someone" | "auto" {
+	return changeSource();
+}
 let lastHeldNotice = 0;
 /** The pose she is being held in, or null when she is not held. Set when the hold starts, and
  * after each of OUR pose changes; the ServerSend guard compares against it. */

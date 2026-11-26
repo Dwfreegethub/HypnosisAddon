@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.6. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.7. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -447,6 +447,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const liftOwnFreeze = ownPoseChange === 0 && OWN_EFFECTS.has("Freeze");
     markOwnAction();
     ownPoseChange++;
+    echsPoseDepth++;
     if (liftOwnFreeze) refreshOwnEffects();
     try {
       if (pose !== null) {
@@ -457,6 +458,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
     } finally {
       ownPoseChange--;
+      echsPoseDepth--;
       if (liftOwnFreeze) refreshOwnEffects();
     }
     const after = currentPoses();
@@ -682,6 +684,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (restored) log(`restored our effects on the Emoticon item (something else had removed them): ${[...OWN_EFFECTS].join(", ")}`);
     return restored;
+  }
+  function isEchsPosing() {
+    return echsPoseDepth > 0;
+  }
+  function poseChangeSource() {
+    return changeSource();
   }
   function noteHeldPose() {
     heldPose = isHeldStill() ? currentPoses() : null;
@@ -953,7 +961,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
-  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, REMOTE_EVENTS, ownActionEvent, OWN_TRY_LINE, OTHERS_TRY_LINE, ROOM_REFUSAL_LINE, ROOM_REFUSAL_GAP_MS, lastRoomRefusal, resyncPending, RESYNC_GAP_MS, lastResync, REPEAT_QUIET_MS, toldPoses;
+  var EMOTICON_ASSET_NAME, MANAGED_EFFECTS, POSE_GROUPS, FULL_BODY_POSES, ours, speechBlocked, screenFade, TRANCE_FADE_OPACITY, WALKING_FADE_OPACITY, walkingTrance, forcedSpeaking, VEIL_WIDTH, SPIRAL_TURN_MS, SPIRAL_ALPHAS, SPIRAL_FLASH_BOOST, SPIRAL_FLASH_RISE_MS, SPIRAL_FLASH_FALL_MS, spiralFlashAt, SPIRAL_SPRITE_SIZE, SPIRAL_ARMS, SPIRAL_TURNS, SPIRAL_RADIUS, spiralCache, spiralFailNoted, PULSE_MS, PULSE_PEAK, PULSE_TINT_PEAK, PULSE_BANDS, PULSE_BAND_WIDTH, pulseStartedAt, pulseRgb, BLIND_EFFECTS, BLIND_GROUPS, sightLevel, OWN_EFFECTS, effectsHooked, ownPoseChange, echsPoseDepth, lastHeldNotice, heldPose, HOLD_PRIORITY, HELD_NOTICE_GAP_MS, holdFully, OWN_INPUT_EVENTS, REMOTE_EVENTS, ownActionEvent, OWN_TRY_LINE, OTHERS_TRY_LINE, ROOM_REFUSAL_LINE, ROOM_REFUSAL_GAP_MS, lastRoomRefusal, resyncPending, RESYNC_GAP_MS, lastResync, REPEAT_QUIET_MS, toldPoses;
   var init_effects = __esm({
     "src/effects.ts"() {
       init_log();
@@ -998,6 +1006,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       OWN_EFFECTS = /* @__PURE__ */ new Set();
       effectsHooked = false;
       ownPoseChange = 0;
+      echsPoseDepth = 0;
       lastHeldNotice = 0;
       heldPose = null;
       HOLD_PRIORITY = 1e3;
@@ -1048,6 +1057,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function actMatches(key, activityName) {
     const act = compulsionAct(key);
     if (!act || !activityName) return false;
+    const pose = /^pose:(.+)$/.exec(activityName);
+    if (act.pose) return !!pose && (act.pose.states.length === 0 || act.pose.states.includes(pose[1]));
+    if (pose) return false;
     const cloth = /^(off|on):([^|]+)\|/.exec(activityName);
     if (act.clothes) {
       if (!cloth || cloth[1] !== act.clothes.dir) return false;
@@ -1064,9 +1076,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return act.activities.length === 0 || act.activities.includes(activityName);
   }
   function compulsionActList() {
-    return COMPULSION_ACTS.map((a) => a.label).join(", ");
+    return COMPULSION_ACTS.filter((a) => !a.pose).map((a) => a.label).join(", ");
   }
-  var DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, kindEvent, KIND_VIBE, clothEvent, DET, GARMENTS, OFF_VERB, OFF_VERB_YOU, CLOTHING_ACTS, COMPULSION_ACTS, COMPULSION_ACT_KEYS;
+  function poseActList() {
+    return COMPULSION_ACTS.filter((a) => a.pose).map((a) => a.pose.self).join(", ");
+  }
+  var DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, kindEvent, KIND_VIBE, clothEvent, poseEvent, ARMS, POSE_ACTS, DET, GARMENTS, OFF_VERB, OFF_VERB_YOU, CLOTHING_ACTS, COMPULSION_ACTS, COMPULSION_ACT_KEYS;
   var init_compulsion_acts = __esm({
     "src/compulsion-acts.ts"() {
       DEFAULT_ACT_OBJECT = String.raw`you(?:r [a-z]+)?`;
@@ -1076,6 +1091,122 @@ One of mods you are using is using an old version of SDK. It will work for now b
       kindEvent = (kind, group) => `item:${kind}|${group}`;
       KIND_VIBE = "@vibe";
       clothEvent = (dir, slot, group) => `${dir}:${slot}|${group}`;
+      poseEvent = (state) => `pose:${state}`;
+      ARMS = String.raw`(?:arms|hands)`;
+      POSE_ACTS = [
+        {
+          key: "pose-kneel",
+          label: "makes you kneel",
+          base: "make you kneel",
+          verb: "makes?",
+          phrase: String.raw`(?:makes? you (?:kneel|get on your knees|go down on your knees)|puts? you (?:down )?on your knees|kneels you(?: down)?|pushes you (?:down )?(?:to|on|onto) your knees)`,
+          anyonePhrase: String.raw`(?:you (?:kneel|get down on your knees|get on your knees|go (?:down )?on your knees|drop to your knees|fall to your knees|sink to your knees|are on your knees))`,
+          activities: [],
+          pose: { states: ["kneel"], self: "you kneel" }
+        },
+        {
+          key: "pose-stand",
+          label: "makes you stand",
+          base: "make you stand",
+          verb: "makes?",
+          phrase: String.raw`(?:makes? you (?:stand(?: up)?|get up)|stands you up|gets? you up|helps? you (?:up|stand)|pulls? you (?:up|to your feet))`,
+          anyonePhrase: String.raw`(?:you (?:stand(?: up)?|get up|rise|get to your feet|get back on your feet|are on your feet))`,
+          activities: [],
+          pose: { states: ["stand"], self: "you stand up" }
+        },
+        {
+          key: "pose-allfours",
+          label: "puts you on all fours",
+          base: "put you on all fours",
+          verb: "puts?",
+          phrase: String.raw`(?:puts? you on (?:all fours|your hands and knees)|makes? you (?:get on all fours|go on all fours|crawl))`,
+          anyonePhrase: String.raw`(?:you (?:get|go|are|drop) (?:down )?on (?:all fours|your hands and knees)|you crawl)`,
+          activities: [],
+          pose: { states: ["allfours"], self: "you get on all fours" }
+        },
+        {
+          key: "pose-hogtied",
+          label: "hogties you",
+          base: "hogtie you",
+          verb: "hogties?",
+          phrase: String.raw`(?:hogties? you)`,
+          anyonePhrase: String.raw`(?:you (?:are|get|end up) hogtied)`,
+          activities: [],
+          pose: { states: ["hogtied"], self: "you are hogtied" }
+        },
+        {
+          key: "pose-spread",
+          label: "spreads your legs",
+          base: "spread your legs",
+          verb: "spreads?",
+          phrase: String.raw`(?:(?:spreads?|opens?|parts?) your legs|makes? you (?:spread|open) your legs)`,
+          anyonePhrase: String.raw`(?:you (?:spread|open|part) your legs|your legs (?:spread|open|part))`,
+          activities: [],
+          pose: { states: ["legs-spread"], self: "you spread your legs" }
+        },
+        {
+          key: "pose-closed",
+          label: "closes your legs",
+          base: "close your legs",
+          verb: "closes?",
+          phrase: String.raw`(?:closes? your legs|presses? your legs together|makes? you (?:close your legs|press your legs together))`,
+          anyonePhrase: String.raw`(?:you (?:close your legs|press your legs together|put your legs together|cross your legs)|your legs close)`,
+          activities: [],
+          pose: { states: ["legs-closed"], self: "you close your legs" }
+        },
+        // Behind the back before up: "you put your arms …" starts both.
+        {
+          key: "pose-arms-back",
+          label: "puts your arms behind your back",
+          base: "put your arms behind your back",
+          verb: "puts?",
+          phrase: String.raw`(?:(?:puts?|pulls?|forces?|holds?) your ${ARMS} behind your back|makes? you put your ${ARMS} behind your back)`,
+          anyonePhrase: String.raw`(?:you (?:put|hold|clasp|cross) your ${ARMS} behind your back|your ${ARMS} go behind your back)`,
+          activities: [],
+          pose: { states: ["arms-back"], self: "you put your arms behind your back" }
+        },
+        {
+          key: "pose-arms-up",
+          label: "raises your arms",
+          base: "raise your arms",
+          verb: "raises?",
+          phrase: String.raw`(?:(?:raises?|lifts?) your ${ARMS}|puts? your ${ARMS} (?:up|over your head|above your head)|makes? you (?:raise|lift) your ${ARMS})`,
+          anyonePhrase: String.raw`(?:you (?:raise|lift) your ${ARMS}|you put your ${ARMS} (?:up|over your head|above your head)|your ${ARMS} go up)`,
+          activities: [],
+          pose: { states: ["arms-up"], self: "you raise your arms" }
+        },
+        {
+          key: "pose-arms-out",
+          label: "holds your arms out",
+          base: "hold your arms out",
+          verb: "holds?",
+          phrase: String.raw`(?:(?:holds?|spreads?|stretches?) your arms(?: out)?(?: wide)?|makes? you (?:hold|spread|stretch) your arms(?: out)?)`,
+          anyonePhrase: String.raw`(?:you (?:hold|spread|stretch) your arms(?: out)?(?: wide)?)`,
+          activities: [],
+          pose: { states: ["arms-out"], self: "you hold your arms out" }
+        },
+        {
+          key: "pose-arms-down",
+          label: "lowers your arms",
+          base: "lower your arms",
+          verb: "lowers?",
+          phrase: String.raw`(?:(?:lowers?|drops?) your ${ARMS}|puts? your ${ARMS} down|makes? you (?:lower|drop) your ${ARMS})`,
+          anyonePhrase: String.raw`(?:you (?:lower|drop) your ${ARMS}|you put your ${ARMS} down|your ${ARMS} (?:come|go) down)`,
+          activities: [],
+          pose: { states: ["arms-down"], self: "you lower your arms" }
+        },
+        // Any change at all, last of the poses.
+        {
+          key: "pose-any",
+          label: "moves you",
+          base: "move you",
+          verb: "moves?",
+          phrase: String.raw`(?:moves? you|poses? you|changes? your (?:pose|position))`,
+          anyonePhrase: String.raw`(?:you (?:move|shift|change (?:your )?(?:pose|position)))`,
+          activities: [],
+          pose: { states: [], self: "you move" }
+        }
+      ];
       DET = String.raw`(?:your |a |an |some |the |new )?`;
       GARMENTS = [
         { key: "top", words: String.raw`(?:top|shirt|t shirt|blouse|dress|jacket|coat)`, off: "top", on: "a top", slots: ["Cloth", "ClothOuter"] },
@@ -1131,6 +1262,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       ];
       COMPULSION_ACTS = [
+        // Poses (v1.19.7) first: "pulls your arms behind your back" is not the hair pull.
+        ...POSE_ACTS,
         { key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
         {
           key: "touch",
@@ -1739,8 +1872,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function announce(key) {
     tellPlayer(flavor(key));
-    const seen2 = publicFlavor(key);
-    if (seen2) tellRoom(seen2);
+    const seen3 = publicFlavor(key);
+    if (seen3) tellRoom(seen3);
   }
   function announceOthersFade(kind) {
     tellPlayer(
@@ -4086,8 +4219,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const since = () => Date.now() - startedAt;
     const tick = () => {
       const known = typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0;
-      const inRoom2 = typeof ChatRoomCharacter !== "undefined" && ChatRoomCharacter?.length > 0;
-      if (known && inRoom2) {
+      const inRoom3 = typeof ChatRoomCharacter !== "undefined" && ChatRoomCharacter?.length > 0;
+      if (known && inRoom3) {
         clearInterval(poll);
         log(`recovery: ${attemptRecovery()}`);
         return;
@@ -6999,14 +7132,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function wornGarments() {
     const order = UNDRESS_ORDER;
-    const seen2 = /* @__PURE__ */ new Set();
+    const seen3 = /* @__PURE__ */ new Set();
     const worn = [];
     for (const item2 of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
       const group = item2?.Asset?.Group?.Name;
-      if (typeof group !== "string" || seen2.has(group)) continue;
+      if (typeof group !== "string" || seen3.has(group)) continue;
       const slot = slotOf(group);
       if (!slot) continue;
-      seen2.add(group);
+      seen3.add(group);
       worn.push({ group, rank: order.indexOf(slot), copy: slot !== group });
     }
     return worn.sort((a, b) => a.rank - b.rank || Number(a.copy) - Number(b.copy)).map((w) => w.group);
@@ -7427,6 +7560,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const who = c.watchName === "*" ? "anyone" : c.watchMember === installerId ? subject === "they" ? "you" : "the one who set it" : c.watchName ? c.watchName.replace(/(^|\s)([a-z])/g, (_m, sp, ch) => sp + ch.toUpperCase()) : "someone";
     if (c.fireOn === "act") {
       const act = compulsionAct(c.act);
+      if (act?.pose && c.watchName === "*") {
+        const gatedPose = c.gate ? subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on" : "";
+        const self = subject === "they" ? act.pose.self.replace(/\byou\b/g, "they").replace(/\byour\b/g, "their") : act.pose.self;
+        return `when ${self}${gatedPose}`;
+      }
       const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
       const words = act ? plural ? act.base : act.label : "does something to you";
       const gated2 = c.gate ? subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on" : "";
@@ -7471,7 +7609,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const all = listTriggers();
     return all.filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
-      if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items))) return false;
+      if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items || compulsionAct(t.act)?.pose))) return false;
       if (t.gate) {
         const word = all.find((p) => isReactionOf(t, p));
         if (!word || !isOn(word)) return false;
@@ -7490,10 +7628,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return { watchName: nameKey(displayNameOf(characterFor4(installerId))) || "the hypnotist", watchMember: installerId };
     }
     if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
-    const inRoom2 = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
+    const inRoom3 = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (c) => c?.MemberNumber !== Player?.MemberNumber && (nameKey(c?.Name) === word || nameKey(c?.Nickname) === word)
     );
-    return inRoom2 ? { watchName: word, watchMember: inRoom2.MemberNumber } : { watchName: word };
+    return inRoom3 ? { watchName: word, watchMember: inRoom3.MemberNumber } : { watchName: word };
   }
   function describeRecording() {
     if (!recording) return "not recording a trigger";
@@ -8182,15 +8320,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let prevWasVocative = false;
     let namedMe = false;
     const owned = [];
-    let pending2 = [];
+    let pending3 = [];
     let justClaimed = [];
     for (const seg of segments) {
       if (seg.lead.some((n) => mineSet.has(n))) namedMe = true;
       if (!seg.body) {
-        if (pending2.length) {
-          for (const p of pending2) p.owner = [...seg.lead];
-          justClaimed = pending2;
-          pending2 = [];
+        if (pending3.length) {
+          for (const p of pending3) p.owner = [...seg.lead];
+          justClaimed = pending3;
+          pending3 = [];
           current2 = [];
         } else if (prevWasVocative && justClaimed.length) {
           for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
@@ -8206,7 +8344,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (seg.lead.length) current2 = seg.lead;
       const entry = { owner: [...current2], body: seg.body };
       owned.push(entry);
-      if (!current2.length) pending2.push(entry);
+      if (!current2.length) pending3.push(entry);
     }
     const floating = owned.some((o) => o.owner.length === 0);
     const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
@@ -11804,7 +11942,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.6", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.7", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11853,7 +11991,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.6", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.7", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12858,6 +12996,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("a top, skirt, bra, panties, shoes or socks on you. Anyone includes them, unless"),
       dim(`a name is said. "this trigger holds while you are undressed" holds until it`),
       dim('goes back on; for one put on, "while you wear it" holds until it comes off.'),
+      body(`"Missy, whenever you kneel, ..."   "whenever you raise your arms, ..."`),
+      dim("Or stand up, get on all fours, are hogtied, spread or close your legs, put"),
+      dim("your arms behind your back, hold them out, lower them, or just move. Whoever"),
+      dim("moves them counts, them too; ECHS's own posing never does."),
       dim('Then "remember trigger". Once, unless you say it works every time'),
       dim('(on its own line or the same one), or start with "whenever" / "every time";'),
       dim("never while they are under. Waking from anyone's trance sets off the"),
@@ -14387,7 +14529,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.7"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14460,7 +14602,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.7"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15274,7 +15416,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.6", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.7", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17264,6 +17406,145 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/pose-watch.ts
+  function poseMappingOf(C) {
+    const m = C?.PoseMapping;
+    if (m && typeof m === "object" && Object.keys(m).length) return { ...m };
+    const out = {};
+    for (const p of Array.isArray(C?.ActivePose) ? C.ActivePose : []) if (CATEGORY[p]) out[CATEGORY[p]] = p;
+    return out;
+  }
+  function poseStatesOf(m) {
+    const s = /* @__PURE__ */ new Set();
+    const lower = m.BodyLower ?? "BaseLower";
+    const upper = m.BodyUpper ?? "BaseUpper";
+    const full = m.BodyFull;
+    if (full === "AllFours") s.add("allfours");
+    else if (full === "Hogtied") s.add("hogtied");
+    else {
+      s.add(lower === "Kneel" || lower === "KneelingSpread" ? "kneel" : "stand");
+      if (lower === "Spread" || lower === "KneelingSpread") s.add("legs-spread");
+      if (lower === "LegsClosed") s.add("legs-closed");
+      if (upper === "OverTheHead") s.add("arms-up");
+      else if (upper === "Yoked") s.add("arms-out");
+      else if (upper === "BackBoxTie" || upper === "BackElbowTouch" || upper === "BackCuffs") s.add("arms-back");
+      else s.add("arms-down");
+    }
+    return s;
+  }
+  function poseChanges(before, after) {
+    if (keyOf(before) === keyOf(after)) return [];
+    const was = poseStatesOf(before);
+    const entered = [...poseStatesOf(after)].filter((x) => !was.has(x));
+    return (entered.length ? entered : ["changed"]).map(poseEvent);
+  }
+  function inRoom2() {
+    return typeof ServerPlayerIsInChatRoom === "function" && !!ServerPlayerIsInChatRoom();
+  }
+  function settlePose(by) {
+    const now = poseMappingOf(Player);
+    const before = seen2;
+    seen2 = now;
+    if (before == null || by === "adopt" || !inRoom2()) return [];
+    const events = poseChanges(before, now);
+    if (!events.length) return [];
+    log(`pose: ${events.join(", ")} by ${by}`);
+    for (const e of events) noteActivity2(by, e);
+    return events;
+  }
+  function settleSoon(by) {
+    const first = pending2 === null;
+    if (by === "adopt" || pending2 !== "adopt") pending2 = by;
+    if (!first) return;
+    Promise.resolve().then(() => {
+      const as = pending2 ?? "adopt";
+      pending2 = null;
+      try {
+        settlePose(as);
+      } catch (err) {
+        warn("pose watch failed:", err);
+      }
+    });
+  }
+  function installPoseWatch(modApi2) {
+    seen2 = Player?.MemberNumber ? poseMappingOf(Player) : null;
+    const onPose = (args, next) => {
+      const result = next(args);
+      if (isPlayer(args[0])) {
+        try {
+          if (isEchsPosing()) settleSoon("adopt");
+          else {
+            if (poseChangeSource() !== "hers") log("pose: a change not from her own click (an add-on, or BC itself)");
+            settleSoon(Player.MemberNumber);
+          }
+        } catch (err) {
+          warn("pose watch failed:", err);
+        }
+      }
+      return result;
+    };
+    modApi2.hookFunction("PoseSetActive", 0, onPose);
+    modApi2.hookFunction("CharacterSetActivePose", 0, onPose);
+    const onSync = (args, next) => {
+      const data = args[0];
+      const result = next(args);
+      if (isMe2(data?.Character?.MemberNumber)) settleSoon(typeof data?.SourceMemberNumber === "number" ? data.SourceMemberNumber : Player.MemberNumber);
+      return result;
+    };
+    modApi2.hookFunction("ChatRoomSyncSingle", 0, onSync);
+    modApi2.hookFunction("ChatRoomSyncCharacter", 0, onSync);
+    modApi2.hookFunction("ChatRoomSyncItem", 0, (args, next) => {
+      const data = args[0];
+      const result = next(args);
+      if (isMe2(data?.Item?.Target)) settleSoon(typeof data?.Source === "number" ? data.Source : Player.MemberNumber);
+      return result;
+    });
+    const own = (args, next) => {
+      const result = next(args);
+      if (isPlayer(args[0])) settleSoon(isEchsPosing() ? "adopt" : Player.MemberNumber);
+      return result;
+    };
+    modApi2.hookFunction("ChatRoomCharacterUpdate", 0, own);
+    modApi2.hookFunction("ChatRoomCharacterItemUpdate", 0, own);
+    modApi2.hookFunction("ChatRoomSync", 0, (args, next) => {
+      const result = next(args);
+      Promise.resolve(result).then(() => settleSoon("adopt")).catch(() => {
+      });
+      return result;
+    });
+  }
+  var CATEGORY, keyOf, seen2, pending2, isMe2, isPlayer;
+  var init_pose_watch = __esm({
+    "src/pose-watch.ts"() {
+      init_log();
+      init_compulsion_acts();
+      init_voice();
+      init_effects();
+      CATEGORY = {
+        BaseUpper: "BodyUpper",
+        Yoked: "BodyUpper",
+        OverTheHead: "BodyUpper",
+        BackBoxTie: "BodyUpper",
+        BackElbowTouch: "BodyUpper",
+        BackCuffs: "BodyUpper",
+        BaseLower: "BodyLower",
+        Kneel: "BodyLower",
+        KneelingSpread: "BodyLower",
+        LegsClosed: "BodyLower",
+        Spread: "BodyLower",
+        AllFours: "BodyFull",
+        Hogtied: "BodyFull",
+        Suspension: "BodyAddon",
+        TapedHands: "BodyHands"
+      };
+      keyOf = (m) => Object.keys(m).sort().map((k) => `${k}=${m[k]}`).join(",");
+      seen2 = null;
+      pending2 = null;
+      isMe2 = (n) => typeof n === "number" && n === Player?.MemberNumber;
+      isPlayer = (C) => !!C && (C === Player || C?.IsPlayer?.());
+    }
+  });
+
   // src/prompt.ts
   function buttonLeft(index) {
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
@@ -17337,8 +17618,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         const result = next(args);
-        const pending2 = getPendingPrompt();
-        if (pending2) drawPrompt(pending2.hypnotistName, pending2.remainingMs, pending2.descriptor);
+        const pending3 = getPendingPrompt();
+        if (pending3) drawPrompt(pending3.hypnotistName, pending3.remainingMs, pending3.descriptor);
         const extend = getPendingExtend();
         if (extend) drawExtend(extend.remainingMs, extend.minutes);
         return result;
@@ -18191,7 +18472,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               phrase: "when anyone kisses you, ",
               finish: 'what they will do. Change "anyone" to a name or "I" if you like',
               sample: "when anyone kisses you, you will kneel",
-              choices: COMPULSION_ACTS.filter((a) => !a.items && !a.clothes).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` }))
+              choices: COMPULSION_ACTS.filter((a) => !a.items && !a.clothes && !a.pose).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` }))
             },
             // The items on a line of their own (v1.16.22, DW: "I don't see them in the window"; they
             // were at the end of the list above).
@@ -18213,6 +18494,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
               // Off before on, and "undresses you" / "dresses you" first in each (the table lists them
               // after the single garments, so those match first).
               choices: COMPULSION_ACTS.filter((a) => a.clothes).sort((x, y) => Number(x.clothes.dir === "on") - Number(y.clothes.dir === "on") || Number(x.clothes.slots.length > 0) - Number(y.clothes.slots.length > 0)).map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` }))
+            },
+            // Poses (v1.19.7, DW): whoever moves them, them included; never ECHS.
+            {
+              id: "pose",
+              label: "whenever you kneel, \u2026 (pick the pose: kneel, stand, arms\u2026)",
+              phrase: "whenever you kneel, ",
+              finish: `what they will do. Whoever moves them counts, them included; ECHS's own posing never does. Poses: ${poseActList()}`,
+              sample: "whenever you kneel, you will kneel",
+              choices: COMPULSION_ACTS.filter((a) => a.pose).map((a) => ({ label: a.pose.self, phrase: `whenever ${a.pose.self}, ` }))
             },
             { id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
             { id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },
@@ -18623,7 +18913,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.6"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.7"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -19834,11 +20124,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     nextSayAt = now + repeatGap;
     return "repeat";
   }
-  function isPlayer(C) {
+  function isPlayer2(C) {
     return !!C && (C === Player || C.IsPlayer?.() === true);
   }
   function denialHolds(C) {
-    return isPlayer(C) && getFeatures().hypnoEnabled && orgasmDeniedByUs();
+    return isPlayer2(C) && getFeatures().hypnoEnabled && orgasmDeniedByUs();
   }
   function orgasmHappening(settings) {
     return settings.OrgasmStage === ORGASM_HAPPENING && typeof settings.OrgasmTimer === "number" && settings.OrgasmTimer > CurrentTime;
@@ -19921,7 +20211,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.7"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19948,7 +20238,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.6"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.7"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -20006,6 +20296,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_menu();
       init_illusion();
       init_outfit_watch();
+      init_pose_watch();
       init_prompt();
       init_remote();
       init_session();
@@ -20024,14 +20315,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.6"})`);
+      info(`script loaded (v${"1.19.7"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.6",
+          version: "1.19.7",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20166,6 +20457,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("induction prompt box", () => installPrompt(modApi));
       safely("clothing illusion", () => installIllusion(modApi));
       safely("clothing compulsions", () => installOutfitWatch(modApi));
+      safely("pose compulsions", () => installPoseWatch(modApi));
       safely("held items stay on", () => installNoRemove(modApi));
     }
   });
@@ -20175,10 +20467,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.7"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.6";
+    page2.__ECHS_LOADED__ = "1.19.7";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
