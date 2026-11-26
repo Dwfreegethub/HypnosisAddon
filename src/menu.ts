@@ -368,7 +368,16 @@ const TABS: Tab[] = [
 			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
 			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
-		scrollExtra: dropdownsExtra(() => GENERAL_DROPDOWNS),
+		// The two dropdowns, then Export / Import / Reset (v1.16.38, DW; on Stats before).
+		scrollExtra: {
+			height: () => GENERAL_DROPDOWNS.length * dropdownSlot() + dataBlockHeight(),
+			draw: (top, width) => {
+				drawDropdowns(GENERAL_DROPDOWNS, top, width);
+				drawDataBlock(top + GENERAL_DROPDOWNS.length * dropdownSlot(), width);
+			},
+			click: (top) => clickDataBlock(top + GENERAL_DROPDOWNS.length * dropdownSlot()),
+			hide: () => removeDropdowns(GENERAL_DROPDOWNS),
+		},
 	},
 ];
 
@@ -439,21 +448,19 @@ const STAT_NAME_MAX = 440;
 const STAT_LINE_HEIGHT = 40;
 const STAT_EXPERIENCE_Y = 290;
 const STAT_HEADER_Y = 330;
-const STAT_FIRST_ROW_Y = 370;
-/** Rows that fit above the page control. Everything past this pages rather than being
- * summarised away — a list that ends in "…and 30 more" is not a list. */
-const STAT_ROWS_PER_PAGE = 7;
+/** Where the trust list's scroll area runs (v1.16.38, DW: scroll bars, not pages). */
+const STAT_LIST_TOP = 352;
+const STAT_LIST_BOTTOM = 800;
+/** The first row's centre, used for the lines shown in the list's place (nobody yet, the lock). */
+const STAT_FIRST_ROW_Y = STAT_LIST_TOP + 20;
+/** Trust fading, under the list. */
+const STAT_DECAY_Y = 848;
 
-// Paging sits on the left, under the rows; the decay control is on the right, on the same
-// band. They used to overlap the trust list entirely: the dropdown was positioned for a
-// short list and the list grew past it.
-const PAGE_BUTTON_TOP = 635;
+// Prev / Next, for the Planted tab's pages.
 const PAGE_BUTTON_WIDTH = 110;
 const PAGE_BUTTON_HEIGHT = 46;
 const PAGE_PREV_LEFT = BOX_LEFT;
 const PAGE_NEXT_LEFT = BOX_LEFT + 130;
-/** Which page of the trust list is showing. Reset whenever the screen opens. */
-let statPage = 0;
 
 // The search box, beside the list's header, clear of its short "detail" (Senge, Eri). And a [x] at the
 // end of each row (Valerie), which is why the detail column now has an edge to fit inside.
@@ -464,7 +471,8 @@ const TRUST_SEARCH_WIDTH = 380;
 const TRUST_SEARCH_HEIGHT = 40;
 const STAT_FORGET_WIDTH = 90;
 const STAT_FORGET_HEIGHT = 34;
-const STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - STAT_FORGET_WIDTH - 10;
+// Left of the list's scroll bar (panel.ts SCROLLBAR_WIDTH, at the right of the scroll area).
+const STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - 20 - 44 - STAT_FORGET_WIDTH - 12;
 const STAT_DETAIL_MAX = STAT_FORGET_LEFT - STAT_DETAIL_X - 12;
 /** What is typed in the search. Reset whenever the screen opens. */
 let trustSearch = "";
@@ -472,8 +480,7 @@ let trustSearch = "";
 let statForgetArmed = 0;
 let statForgetArmedUntil = 0;
 
-// Export / Import / Reset, along the bottom of the Stats tab.
-const DATA_BUTTON_TOP = 740;
+// Export / Import / Reset, at the end of the General tab (v1.16.38, DW; on Stats before).
 const DATA_BUTTON_WIDTH = 200;
 const DATA_BUTTON_HEIGHT = 60;
 const DATA_BUTTON_GAP = 20;
@@ -1578,7 +1585,40 @@ export function clickDataButton(index: number): void {
 	notifyLocal(resetSettings());
 }
 
-function drawDataButtons(): void {
+/** "Your data": a heading, the three buttons, and what they do. Scrolls with the General tab. */
+const DATA_HEADING_HEIGHT = 44;
+function dataBlockHeight(): number {
+	return DATA_HEADING_HEIGHT + DATA_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT + 10;
+}
+
+function drawDataBlock(top: number, width: number): void {
+	drawLeftTextFit("Your data:", BOX_LEFT, top + DATA_HEADING_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, "Black", DROPDOWN_LABEL_SIZE);
+	drawDataButtons(top + DATA_HEADING_HEIGHT);
+	drawLeftTextWrap(
+		"Export copies your settings to the clipboard; Import puts them back. Reset erases everything.",
+		BOX_LEFT,
+		top + DATA_HEADING_HEIGHT + DATA_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+		width,
+		ATTEMPT_CAPTION_HEIGHT,
+		"#555",
+		CAPTION_SIZE,
+		18,
+	);
+}
+
+/** A click on one of the three. Not under the settings lock: Export and Reset stay live (Reset is a
+ * documented way out of the Extreme lock); Import refuses itself, out loud. */
+function clickDataBlock(top: number): boolean {
+	for (let i = 0; i < DATA_BUTTONS.length; i++) {
+		if (MouseIn(dataButtonLeft(i), top + DATA_HEADING_HEIGHT, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
+			clickDataButton(i);
+			return true;
+		}
+	}
+	return false;
+}
+
+function drawDataButtons(top: number): void {
 	const armed = Date.now() < resetArmedUntil;
 	// Only Import greys out under the lock — see IMPORT_LOCKED_MESSAGE for why the other two
 	// stay live.
@@ -1588,31 +1628,20 @@ function drawDataButtons(): void {
 		const locked = name === "Import" && importLocked;
 		tipButton(
 			dataButtonLeft(i),
-			DATA_BUTTON_TOP,
+			top,
 			DATA_BUTTON_WIDTH,
 			DATA_BUTTON_HEIGHT,
 			isReset && armed ? "Confirm?" : name,
 			isReset ? (armed ? "#ffb3b3" : "#ffe0e0") : locked ? "#ddd" : "White",
 			"",
-			isReset ? "Erases everything — asks once first" : locked ? lockedTip() : `${name} via clipboard`,
+			!mouseInScroll(rowScroll) ? "" : isReset ? "Erases everything — asks once first" : locked ? lockedTip() : `${name} via clipboard`,
 			locked,
 		);
 	});
 }
 
 const DECAY_ID = "HypnosisAddonDecayRate";
-const DECAY_LABEL_X = CONTENT_LEFT + 560;
-// The last trust row sits at y=610 and 36px text reaches ~18px either side of its centre,
-// so 635 would leave the label resting on top of it. 660 clears the row; the dropdown then
-// has to fit between there and the data buttons at 740, hence 46 tall rather than 52.
-const DECAY_LABEL_Y = 660;
-const DECAY_CENTRE_X = CONTENT_LEFT + 940;
-const DECAY_CENTRE_Y = 705;
-// 520 rather than 640: the panel gave up 280px to the tab column, and this dropdown was the
-// one control that could not simply move right — at its old width it would have ended at
-// x=1970, past both the panel and the canvas.
-const DECAY_WIDTH = 520;
-const DECAY_HEIGHT = 46;
+const DECAY_HEIGHT = 44;
 
 
 /** The DOM controls each tab owns (v1.16.37: one list, read from the tabs' own dropdowns). */
@@ -1660,7 +1689,7 @@ function syncTabControls(tabName: string): void {
  * changes what those numbers do. */
 function drawDecayControl(): void {
 	const locked = settingsLocked();
-	drawLeftText("Trust fades when you don't see someone:", DECAY_LABEL_X, DECAY_LABEL_Y, locked ? "Gray" : "Black");
+	drawLeftTextFit("Trust fades when you don't see someone:", BOX_LEFT, STAT_DECAY_Y, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
 	let element = document.getElementById(DECAY_ID) as HTMLSelectElement | null;
 	if (!element) {
 		element = ElementCreateDropdown(
@@ -1675,28 +1704,34 @@ function drawDecayControl(): void {
 	const index = DECAY_RATES.findIndex((r) => r.key === getDecayRate());
 	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
 	element.disabled = locked;
-	ElementPosition(DECAY_ID, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT);
+	ElementPosition(DECAY_ID, BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20 + DROPDOWN_WIDTH / 2, STAT_DECAY_Y, DROPDOWN_WIDTH, DECAY_HEIGHT);
 }
 
-function statPageCount(): number {
-	return Math.max(1, Math.ceil(trustStatRows(trustSearch).length / STAT_ROWS_PER_PAGE));
+/** The trust list in the shared scroll area: from under the header to above trust fading. */
+function layoutStats(count: number): void {
+	rowScroll.top = STAT_LIST_TOP;
+	rowScroll.height = STAT_LIST_BOTTOM - STAT_LIST_TOP;
+	rowScroll.content = count * STAT_LINE_HEIGHT + 8;
+	rowScroll.step = STAT_LINE_HEIGHT;
+	clampScroll(rowScroll);
 }
 
-/** The rows showing on this page of the list, as filtered. Draw and click both read this, so the
- * [x] on a row can never act on someone other than the person drawn beside it. */
-function statRowsOnPage(): ReturnType<typeof trustStatRows> {
-	const start = statPage * STAT_ROWS_PER_PAGE;
-	return trustStatRows(trustSearch).slice(start, start + STAT_ROWS_PER_PAGE);
+/** Screen centre of list row `slot`, scroll applied. */
+function statRowY(slot: number): number {
+	return scrollY(rowScroll, 4 + slot * STAT_LINE_HEIGHT + STAT_LINE_HEIGHT / 2);
 }
 
 function statForgetTop(slot: number): number {
-	return STAT_FIRST_ROW_Y + slot * STAT_LINE_HEIGHT - STAT_FORGET_HEIGHT / 2;
+	return statRowY(slot) - STAT_FORGET_HEIGHT / 2;
 }
 
 /** A click on a row's [x], if that is where it landed: the first arms it, a second within 5 seconds
  * deletes. Two clicks because this cannot be undone, and the buttons sit one above the other. */
 function clickStatForget(): boolean {
-	const rows = statRowsOnPage();
+	// Only inside the list: a row scrolled out of view still has coordinates.
+	if (!mouseInScroll(rowScroll)) return false;
+	const rows = trustStatRows(trustSearch);
+	layoutStats(rows.length);
 	const slot = rows.findIndex((_, i) => MouseIn(STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT));
 	if (slot < 0) return false;
 	if (settingsLocked()) return true;
@@ -1726,17 +1761,15 @@ function drawTrustSearch(): void {
 		element.placeholder = "Name or number";
 		element.addEventListener("input", function (this: HTMLInputElement) {
 			trustSearch = this.value;
-			statPage = 0;
+			rowScroll.offset = 0;
 			statForgetArmed = 0;
 		});
 	}
 	ElementPosition(TRUST_SEARCH_ID, TRUST_SEARCH_LEFT + TRUST_SEARCH_WIDTH / 2, STAT_HEADER_Y, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT);
 }
 
-/** Paged rather than a pick-one dropdown, deliberately. The ranking IS the information —
- * who you are closest to, and how far ahead of everyone else they are — and a dropdown
- * showing one person at a time throws that away while also being a worse way to find
- * anyone in a list of forty. */
+/** A list rather than a pick-one dropdown, deliberately: the ranking IS the information — who you
+ * are closest to, and how far ahead of everyone else. Scrolls since v1.16.38 (DW); paged before. */
 /** "3 Nov 2026", the same on every browser. */
 export function usingSinceText(at: number): string {
 	const d = new Date(at);
@@ -1752,60 +1785,52 @@ function drawStats(): void {
 	};
 
 	drawDecayControl();
-	// The Extreme lock hides the numbers (DW, 2026-11-05). The tab stays, because it holds Export
-	// and Reset, and Reset is a documented way out of the lock.
+	// The Extreme lock hides the numbers (DW, 2026-11-05). Export and Reset, the documented way out,
+	// are on the General tab since v1.16.38.
 	if (extremeLocked()) {
 		removeTrustSearch();
 		drawLeftTextFit("Your Extreme lock hides these numbers until it ends.", STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
-		drawDataButtons();
 		return;
 	}
 	// Since when she has used ECHS (v1.16.8): on the Experience row, so the trust list keeps its room.
 	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions · using ECHS since ${usingSinceText(getUsingSince())}`);
-	line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
+	// How many, in the header (v1.16.38): the list no longer says "page 1 / 3".
+	const listed = trustStatRows(trustSearch).length;
+	line(STAT_HEADER_Y, trustStatRows().length ? `Trust · ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", "value", "detail", "Gray");
 
 	// Nobody at all, and there is nothing to search. A search with no matches keeps its box.
 	if (!trustStatRows().length) {
 		removeTrustSearch();
 		drawLeftText("Nobody yet — trust builds from conversation in the same room.", STAT_NAME_X, STAT_FIRST_ROW_Y, "Gray");
-		drawDataButtons();
 		return;
 	}
 	drawTrustSearch();
 	const rows = trustStatRows(trustSearch);
 	if (!rows.length) {
 		drawLeftTextFit(`Nobody here matches "${trustSearch.trim()}".`, STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
-		drawDataButtons();
 		return;
 	}
 
-	const pages = statPageCount();
-	if (statPage >= pages) statPage = pages - 1;
 	const locked = settingsLocked();
-	statRowsOnPage().forEach((row, i) => {
-		line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
-		const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
-		tipButton(
-			STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT,
-			armed ? "Sure?" : "[x]",
-			locked ? "#ddd" : armed ? "#ffb3b3" : "White",
-			"",
-			locked ? lockedTip() : armed ? "Click again to delete this person's trust. It cannot be undone." : "Forget this person: deletes their trust",
-			locked,
-		);
+	layoutStats(rows.length);
+	drawScrollArea(rowScroll, () => {
+		rows.forEach((row, i) => {
+			const y = statRowY(i);
+			if (!scrollShows(rowScroll, y - STAT_LINE_HEIGHT / 2, STAT_LINE_HEIGHT)) return;
+			line(y, row.name, row.trust, row.detail);
+			const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
+			tipButton(
+				STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT,
+				armed ? "Sure?" : "[x]",
+				locked ? "#ddd" : armed ? "#ffb3b3" : "White",
+				"",
+				!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : armed ? "Click again to delete this person's trust. It cannot be undone." : "Forget this person: deletes their trust",
+				locked,
+			);
+		});
 	});
-
-	if (pages > 1) {
-		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", statPage === 0);
-		tipButton(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "", statPage >= pages - 1);
-		drawLeftText(
-			`${statPage + 1} / ${pages}  ·  ${rows.length} people`,
-			PAGE_NEXT_LEFT + PAGE_BUTTON_WIDTH + 24,
-			PAGE_BUTTON_TOP + PAGE_BUTTON_HEIGHT / 2,
-			"Gray",
-		);
-	}
-	drawDataButtons();
+	// The wheel scrolls it, as it does the other tabs' lists.
+	rowsDrawnAt = Date.now();
 }
 
 // Same verified coordinate the remote subscreen uses — BC's own Information Sheet Back
@@ -1851,6 +1876,7 @@ let rowsDrawnAt = 0;
 const ROWS_ON_SCREEN_MS = 500;
 
 function layoutRows(tab: Tab): void {
+	rowScroll.step = ROW_SPACING;
 	rowScroll.top = ROWS_TOP + (tab.fixedRows?.length ? FIXED_BAND : 0);
 	rowScroll.height = (tab.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
 	rowScroll.content = ROWS_PAD + itemsHeight(tab.rows ?? [], (tab.rows ?? []).length) + (tab.scrollExtra?.height() ?? 0);
@@ -2169,7 +2195,6 @@ export function installMenu(): void {
 		// previous visit's navigation is disorienting.
 		load: () => {
 			activeTab = 0;
-			statPage = 0;
 			trustSearch = "";
 			statForgetArmed = 0;
 			plantedPage = 0;
@@ -2250,26 +2275,12 @@ export function installMenu(): void {
 			// A self-drawing tab handles its own clicks first. Stats predates this and keeps
 			// its handling inline below; Depth uses the hook.
 			if (tab.clickExtra?.()) return;
-			// Data buttons live on the Stats tab, which has no rows.
+			// Stats draws itself: its list's scroll bar, then a row's [x].
 			if (tabs[activeTab].render) {
-				// Not under the Extreme lock, where the rows are not drawn: an invisible button still
-				// has coordinates.
-				if (!extremeLocked() && clickStatForget()) return;
-				if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
-					statPage = Math.max(0, statPage - 1);
-					statForgetArmed = 0;
-					return;
-				}
-				if (MouseIn(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
-					statPage = Math.min(statPageCount() - 1, statPage + 1);
-					statForgetArmed = 0;
-					return;
-				}
-				for (let i = 0; i < DATA_BUTTONS.length; i++) {
-					if (MouseIn(dataButtonLeft(i), DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
-						clickDataButton(i);
-						return;
-					}
+				if (tab.name === "Stats" && !extremeLocked()) {
+					layoutStats(trustStatRows(trustSearch).length);
+					if (clickScrollBar(rowScroll)) return;
+					if (clickStatForget()) return;
 				}
 				return;
 			}

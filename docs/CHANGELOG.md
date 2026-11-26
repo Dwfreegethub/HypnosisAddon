@@ -18,6 +18,29 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-25 (v1.16.38) — Stats list scrolls; Export / Import / Reset on General
+
+DW: "can we do scroll bars on the stats tab. And maybe we can move the Export, import and reset to
+General." (And confirmed: v1.16.37 already dropped the Advanced button; Stats is always shown.)
+
+Stats: the trust list uses the shared rowScroll (layoutStats: 352 to 800, a 40px step; layoutRows
+now resets the step to a row's 78). Rows and their [x] are drawn under its clip at statRowY(slot),
+scroll applied; a click on an [x] needs the pointer in the list, and the bar is clicked first. The
+wheel works because drawStats stamps rowsDrawnAt. A new search scrolls back to the top. The count
+("Trust · 15 people") replaces "page 1 / 3". [x] sits left of the scroll bar now. Trust fading is a
+dropdown row under the list (label 28px, as elsewhere). statPage, STAT_ROWS_PER_PAGE and
+PAGE_BUTTON_TOP gone (Planted keeps its own Prev/Next).
+
+General: "Your data:" heading, the three buttons and a caption, after the two dropdowns, inside its
+scrollExtra. scrollExtra.click runs before the lock check in the click handler, so Export and Reset
+stay live under the Extreme lock (Reset is its documented way out); Import still refuses itself.
+
+Tests (menu-layout.mjs): 15 people, so the list scrolls: no page buttons, bar shown, the count, [x]
+clear of the detail and the bar, wheel to the last person, the down arrow, a search from the
+bottom starts at the top, an [x] on a scrolled row deletes the person beside it. Reset on General
+works under the Extreme lock; Import refuses. Mutations: bar click 1, wheel 3, rows ignoring scroll
+4, General data click 2, search not resetting 1.
+
 ### Changed 2026-11-25 (v1.16.37) — settings screen: General tab, dropdowns, scrolling Triggers and Depth, wrapped blurbs, row tips, help paragraphs
 
 UI lab review F8 (cramped settings screen); DW: "That sounds good.. Ask questions to work out the

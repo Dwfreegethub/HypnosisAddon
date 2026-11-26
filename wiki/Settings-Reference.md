@@ -190,14 +190,13 @@ One scrolling page: a row for each feature, then *Reset to defaults*, then two c
 
 ## 8. Stats Tab
 
-Always shown since v1.16.37 (it used to hide behind an **Advanced** button under the tabs).
+Always shown since v1.16.37 (it used to hide behind an **Advanced** button under the tabs). The trust list scrolls (since v1.16.38; it had pages), and the heading says how many people are on it.
 
 * **Find:** A search box beside the trust list. Type any part of someone's nickname, account name or member number and the list narrows as you type. Someone who was last seen before this box existed can only be found by the one name that was stored for them, until you next see them.
 * **[x]:** Deletes that person's trust, the same as `/echs forgettrust`. It asks first: the button reads *Sure?* for 5 seconds, and a second click deletes. It cannot be undone. Greyed out while your settings are locked.
 * **Trust & Experience Records:** A breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*. After the interaction count comes **last**, the date they last interacted with you directly (a whisper, a line with your name, or an induction; just chatting in the same room doesn't count). It reads *today* for today and a dash for anyone you haven't interacted with since v1.16.14.
 * **Using ECHS since** (since v1.16.8): on the Experience line, the date you started using ECHS, counted from your last reset (`/echs reset confirm` starts it again). Only you see it. If you had ECHS before v1.16.8, it counts from the first time you open the Stats tab on that version.
 * **Trust fades when you don't see someone:** How fast trust fades without contact (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*).
-* **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#11-data--backup).
 
 ---
 
@@ -217,6 +216,10 @@ Under the list:
 * **ECHS popup in rooms:** *On · Off* (default: *On*). On, a spiral button in chat rooms opens **[the ECHS popup](The-ECHS-Popup)**.
 
 These two are your own display choices, so no lock stops you changing them.
+
+**Your data** (since v1.16.38; on the Stats tab before), at the end of the tab:
+
+* **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#11-data--backup). Under the Extreme lock, Export and Reset still work; Import says it is locked.
 
 ---
 
@@ -244,7 +247,7 @@ Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **C
 * **Triggers can only be added.** New ones can still be planted, but nobody can remove one until the lock ends, not even the hypnotist who planted it. A hypnotist can still release one that is holding you, and it stays planted. Triggers still fade very slowly unless reinforced.
 * **Carried suggestions stay.** `/echs carry drop` is refused.
 * **Trances run longer.** A trance runs 60 minutes before you are asked whether to stay under, and each *Stay under* gives another 60. If you don't answer, you still wake.
-* **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset stay on that tab.
+* **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset still work, on the General tab.
 * **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused.
 * When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
 * **Keyholders still can.** Anyone you have given your keys (`/echs keyholder`) can still change your Permissions, Trance Defaults, Awareness and Triggers tick boxes, your Inductions tab, and your screen effect, eyes and pulse colour (with full keys also your Triggers tab choices, trust fading, Depth tab and General tab), and can end the lock. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).

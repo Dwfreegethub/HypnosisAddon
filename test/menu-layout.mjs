@@ -570,8 +570,19 @@ openTab(4); frame(); // Triggers
 	// Failure: the numbers are still on screen under the lock.
 	check("Stats: locked, trust and experience are gone", [texts.some((x) => /Ella/.test(x.text)), texts.some((x) => x.text === "Experience")], [false, false]);
 	check("  and it says why", texts.some((x) => /Extreme lock hides/.test(x.text)), true);
-	// Failure: hiding the numbers took the documented way out with it.
-	check("  Reset is still there", buttons.some((b) => /^Reset/.test(b.label)), true);
+	// v1.16.38 (DW): Export / Import / Reset moved to General. Failure: they are still drawn here.
+	check("  no data buttons on Stats any more", buttons.some((b) => /^(Export|Import|Reset)$/.test(b.label)), false);
+	// Failure: the documented way out, now on General, is gone or dead under the lock.
+	openTab(8); frame();
+	toEnd();
+	const reset = buttons.find((b) => b.label === "Reset");
+	check("General: Reset is there under the Extreme lock", !!reset && inside(reset, reset.clip), true);
+	clickAt(reset.left + 5, reset.top + 5); frame();
+	check("  and works: the first click asks", /Click Reset again/.test(lastLocal()), true);
+	const imp = buttons.find((b) => b.label === "Import");
+	clickAt(imp.left + 5, imp.top + 5); frame();
+	check("  Import refuses itself, out loud", /Extreme|locked/i.test(lastLocal()) && !/Imported/.test(lastLocal()), true);
+	openTab(7); frame();
 	storage.clearExtremeLock();
 	storage.forgetTrust(2001);
 
@@ -579,35 +590,50 @@ openTab(4); frame(); // Triggers
 	const SEARCH = "HypnosisAddonTrustSearch";
 	frame();
 	check("nobody at all: no search box", !!elements[SEARCH], false);
-	// Nine people, so two pages. Interactions set the order: Person 1 first.
-	for (let i = 1; i <= 9; i++) storage.addInteractions(3000 + i, `Person ${i}`, 100 - i, `Account${i}`);
+	// Fifteen people, more than the list shows, so it scrolls (v1.16.38, DW: scroll bars, not pages).
+	// Interactions set the order: Person 1 first.
+	for (let i = 1; i <= 15; i++) storage.addInteractions(3000 + i, `Person ${i}`, 100 - i, `Account${i}`);
 	const type = (text) => { elements[SEARCH].value = text; elements[SEARCH].listeners.input.call(elements[SEARCH]); frame(); };
-	const shown = () => texts.map((t) => t.text).filter((t) => /\(#\d+\)$/.test(t));
-	const xs = () => buttons.filter((b) => b.label === "[x]" || b.label === "Sure?");
+	// What is wholly in view, which is what can be read and clicked.
+	const shown = () => texts.filter((t) => /\(#\d+\)$/.test(t.text) && t.clip && inside(t, t.clip)).map((t) => t.text);
+	const xs = () => buttons.filter((b) => (b.label === "[x]" || b.label === "Sure?") && b.clip && inside(b, b.clip));
 	const clickX = (i) => { const b = xs()[i]; clickAt(b.left + 5, b.top + 5); frame(); };
 	const held = () => storage.listTrust().map((t) => t.memberId - 3000).sort((a, b) => a - b);
+	const listTop = () => { MouseX = panel.CONTENT_LEFT + 200; MouseY = 500; for (let i = 0; i < 40; i++) wheel(-100); frame(); };
+	const listEnd = () => { MouseX = panel.CONTENT_LEFT + 200; MouseY = 500; for (let i = 0; i < 40; i++) wheel(100); frame(); };
 	frame();
 	check("search: the box appears", !!elements[SEARCH], true);
 	const searchBox = placed[SEARCH];
 	check("  inside the panel", searchBox.x + searchBox.w / 2 <= PANEL_RIGHT && searchBox.x - searchBox.w / 2 >= panel.PANEL_LEFT, true);
 	check("  and clear of the first row and the experience line", [searchBox.y - searchBox.h / 2 >= 290 + 18, searchBox.y + searchBox.h / 2 <= 370 - 17], [true, true]);
-	check("  the whole first page shows", shown().length, 7);
-	check("  every row has a [x]", xs().length, 7);
-	// Failure: the detail text runs under the button.
+	check("Stats: no page buttons", buttons.some((b) => b.label === "Next" || b.label === "Prev"), false);
+	check("  the list starts at the top, and does not all fit", [shown()[0], shown().length >= 8 && shown().length < 15], ["Person 1 (#3001)", true]);
+	check("  so it has a scroll bar", [!!up(), !!down()], [true, true]);
+	check("  and says how many", texts.some((t) => t.text === "Trust · 15 people"), true);
+	check("  every row in view has a [x]", xs().length, shown().length);
+	// Failure: the detail text runs under the button, or the button sits on the scroll bar.
 	const firstX = xs()[0];
 	const detail = texts.find((t) => /interactions/.test(t.text) && Math.abs(t.top + t.height / 2 - (firstX.top + firstX.height / 2)) < 2);
 	check("  the [x] is clear of the row's detail", !!detail && detail.left + detail.width <= firstX.left, true);
-	check("  and inside the panel", firstX.left + firstX.width <= PANEL_RIGHT, true);
+	check("  and of the scroll bar", firstX.left + firstX.width <= up().left, true);
 	check("  the rows of [x]s do not touch", xs()[0].top + xs()[0].height <= xs()[1].top, true);
+	listEnd();
+	check("the wheel scrolls to the last person", [shown().at(-1), shown().includes("Person 1 (#3001)")], ["Person 15 (#3015)", false]);
+	listTop();
+	clickAt(down().left + 5, down().top + 5); frame();
+	check("  and the down arrow moves it", shown()[0] !== "Person 1 (#3001)", true);
 	type("person 8");
-	// Failure: the list ignores the box, or case matters.
-	check("by the name they go by, any case", shown(), ["Person 8 (#3008)"]);
+	// Failure: the list ignores the box, or case matters; or a search leaves it scrolled past its matches.
+	check("by the name they go by, any case, from the top", shown(), ["Person 8 (#3008)"]);
 	type("account3");
 	check("by account name, though they left", shown(), ["Person 3 (#3003)"]);
 	type("3005");
 	check("by member number", shown(), ["Person 5 (#3005)"]);
 	type("erso");
-	check("part of a name will do, and pages", shown().length, 7);
+	check("part of a name will do", shown().length >= 8, true);
+	listEnd();
+	type("person");
+	check("  a new search starts at the top of its matches", shown()[0], "Person 1 (#3001)");
 	globalThis.ChatRoomCharacter = [Player, { MemberNumber: 3002, Name: "LiveAccount", Nickname: "LiveNick" }];
 	type("liveaccount");
 	check("someone in the room by their live account name", shown(), ["LiveNick (#3002)"]);
@@ -619,49 +645,40 @@ openTab(4); frame(); // Triggers
 	check("  and keeps the box to fix it", !!elements[SEARCH], true);
 	check("  and no [x]", xs().length, 0);
 	type("");
-	check("cleared: everyone again", shown().length, 7);
-
-	// Paged, and the search resets to page 1. Failure: stuck on an empty page 2.
-	const next = () => buttons.find((b) => b.label === "Next");
-	clickAt(next().left + 5, next().top + 5); frame();
-	check("page 2 shows the rest", shown(), ["Person 8 (#3008)", "Person 9 (#3009)"]);
-	type("person 1");
-	check("searching from page 2 goes back to the first", shown(), ["Person 1 (#3001)"]);
-	type("");
+	check("cleared: everyone again, from the top", shown()[0], "Person 1 (#3001)");
 
 	// The [x]. Failure: one click deletes, or it deletes someone other than the row it is on.
-	const before = held();
+	const everyone = held();
 	clickX(1);
-	check("[x]: the first click deletes nothing", held(), before);
+	check("[x]: the first click deletes nothing", held(), everyone);
 	check("  and asks", xs().map((b) => b.label).slice(0, 3), ["[x]", "Sure?", "[x]"]);
 	clickX(2);
 	check("clicking another row moves the question", xs().map((b) => b.label).slice(0, 3), ["[x]", "[x]", "Sure?"]);
-	check("  and still deletes nothing", held(), before);
+	check("  and still deletes nothing", held(), everyone);
 	const realNow = Date.now;
 	const later = realNow() + 6000;
 	Date.now = () => later;
 	frame();
 	check("after five seconds it stops asking", xs()[2].label, "[x]");
 	clickX(2);
-	check("  and a late second click only asks again", [held(), xs()[2].label], [before, "Sure?"]);
+	check("  and a late second click only asks again", [held(), xs()[2].label], [everyone, "Sure?"]);
 	Date.now = realNow;
 	clickX(1);
 	clickX(1);
-	check("two clicks delete that person, and only them", held(), [1, 3, 4, 5, 6, 7, 8, 9]);
+	check("two clicks delete that person, and only them", held(), everyone.filter((n) => n !== 2));
 	check("  and it is said", /Forgot Person 2 \(#3002\)/.test(lastLocal()), true);
-	// The dangerous case: a filtered list on a later page, where the slot and the person differ.
-	type("person");
-	clickAt(next().left + 5, next().top + 5); frame();
-	check("setup: page 2 of a search, one person", shown(), ["Person 9 (#3009)"]);
-	clickX(0);
-	clickX(0);
-	check("page 2 of a search deletes the person drawn there", held(), [1, 3, 4, 5, 6, 7, 8]);
+	// The dangerous case: a scrolled list, where the slot and the person differ.
+	listEnd();
+	const lastShown = shown().at(-1);
+	clickX(xs().length - 1);
+	clickX(xs().length - 1);
+	check("scrolled: the [x] deletes the person drawn beside it", [lastShown, held().includes(15)], ["Person 15 (#3015)", false]);
 	type("person 6");
 	clickX(0);
 	clickX(0);
-	check("a filtered row deletes the person drawn there", held(), [1, 3, 4, 5, 7, 8]);
+	check("a filtered row deletes the person drawn there", held(), everyone.filter((n) => ![2, 15, 6].includes(n)));
 	type("");
-	check("the list closes up after", shown().length, 6);
+	check("the list closes up after", texts.some((t) => t.text === "Trust · 12 people"), true);
 
 	// Locked. Failure: a read-only screen deletes someone, or search stops working.
 	const lockedAt = held();

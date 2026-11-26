@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.38 · 25 November 2026
+
+- **The Stats tab's trust list scrolls**, with a scroll bar and the mouse wheel, instead of Prev and
+  Next pages. The heading says how many people are on it.
+- **Export, Import and Reset moved to the General tab**, under *Your data*. Under the Extreme lock,
+  Export and Reset still work there.
+
 ## v1.16.37 · 25 November 2026
 
 The settings screen, spread out and tidied:
