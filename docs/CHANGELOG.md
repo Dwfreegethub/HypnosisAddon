@@ -18,6 +18,15 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-26 (v1.19.5) — two phantom-touch wording misses
+
+DW wanted "if a player's underwear is removed they can feel phantom touches until it is put back on".
+That already works from parts that exist (an off-panties compulsion, a phantom touch as its action, "this
+trigger holds while you are undressed", and the phantom repeating with the hold's arousal), but trying it
+found two misses in `matchPhantomTouch`: "between your legs" read as the legs (now the crotch zone,
+ItemVulva), and a later clause on the same line ("… and you cannot speak") made the whole line negated, so
+the touch was dropped. The negation and the part are now read from the touch's own clause.
+
 ### Added 2026-11-26 (v1.19.4) — self-bondage counts; "you cannot take it off"
 
 DW: "Can we make the bondage compulsions work if someone self binds themself. Maybe make a way that

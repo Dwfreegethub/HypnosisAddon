@@ -88,8 +88,17 @@ export function matchPhantomTouch(content: string): PhantomTouch | null {
 		.trim();
 	const m = LEAD.exec(text);
 	if (!m) return null;
-	const rest = m[1];
+	// Only its own clause: "… a hand between your legs and you cannot speak" is still a touch (v1.19.5).
+	const rest = m[1].split(/\s(?:and|then|but|while|as)\s(?=you\b|your\b)/)[0];
 	if (NEGATED.test(rest)) return null;
+	// "between your legs / thighs" is the crotch, not the legs (v1.19.5).
+	if (/\bbetween your (?:legs|thighs)\b/.test(rest)) {
+		const toucherOnly = rest.replace(/\bbetween your (?:legs|thighs)\b/, " ");
+		const n = NOUNS.find(([re]) => re.test(toucherOnly));
+		if (!n) return null;
+		const v = VERBS.find(([re]) => re.test(rest));
+		return { activity: v && n[1] === "Caress" ? v[1] : n[1], part: "crotch" };
+	}
 	// "you feel your hands go heavy" is about her own body; "you feel warm" names nothing touching.
 	if (/^your\b/.test(rest)) return null;
 	// What touches her is read without the part: "a hand on your lips" is a hand, not a kiss.
