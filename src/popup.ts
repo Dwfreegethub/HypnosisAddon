@@ -41,10 +41,11 @@ import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerRow, triggersHiddenLine, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
-import { listTriggers, getTriggerView, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank } from "./storage";
+import { listTriggers, getTriggerView, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank, listAccess, accessLevelOf, ACCESS_LEVELS, AccessLevel } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
 import { SPIRAL_ICON } from "./icon";
 import { peerFor } from "./badge";
+import { accessLockRefusal, accessList, ACCESS_LABELS, ACCESS_WORDS } from "./access";
 
 export const POPUP_ID = "echs-popup";
 export const LAUNCHER_ID = "echs-popup-launcher";
@@ -726,7 +727,7 @@ function setStatus(node: any, text: string): void {
 	node.textContent = text;
 }
 
-const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", keys: "Keys", commands: "Commands" };
+const TAB_LABELS: Record<PopupTab, string> = { me: "Me", people: "People", suggest: "Suggestions", triggers: "Triggers", keys: "Access", commands: "Commands" };
 
 /** The tab row and whichever tab is chosen. */
 function renderBody(): void {
@@ -1146,7 +1147,7 @@ function renderTriggers(body: any, status: any): void {
 // chat line for it, the same exception as the Safeword button): it sends a request their ECHS
 // decides on, and the answer shows in the status line.
 
-const keysOpen = new Set<string>(["mine", "held", "ask"]);
+const keysOpen = new Set<string>(["mine", "held", "ask", "access"]);
 /** Which of a held person's tabs are folded shut (v1.16.2). Depth and Stats start shut: Depth alone
  * is some twenty rows, and full keys are the only ones that can use them. */
 const heldTabsShut = new Set<string>(["Depth", "Stats", "Planted"]);
@@ -1215,6 +1216,9 @@ function keysKey(): string {
 		listRemoteChanges().length,
 		extremeLocked() ? "x" : "",
 		settingsLocked() ? "l" : "",
+		// The access group (v1.17.0): who has a level, and who is here to give one.
+		JSON.stringify(listAccess()),
+		accessCandidates().map((c) => c.MemberNumber).join(","),
 	].join("|");
 }
 
@@ -1309,7 +1313,11 @@ function renderKeys(body: any, status: any): void {
 		}
 	});
 
-	// 2. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, with the same three buttons;
+	// 2. Who can hypnotize you (v1.17.0, DW 2026-11-26): Blocked / Normal / Toy per person. Typed like
+	// Give keys, so nothing changes until Enter. People not here are in their own folded group.
+	keysGroup(body, "access", "Who can hypnotize you", (list) => renderAccess(list, status));
+
+	// 3. Ask for someone's keys (v1.16.1, job6.md §3). Typed like Give keys, with the same three buttons;
 	// their ECHS shows them a popup, and the answer comes back in chat and under their name here.
 	const canAsk = askable();
 	if (canAsk.length) {
@@ -1331,6 +1339,59 @@ function renderKeys(body: any, status: any): void {
 				if (res && Date.now() - res.at < 30_000) list.appendChild(el("div", "echs-pop-desc", res.text));
 			}
 		});
+	}
+}
+
+/** Everyone here running ECHS, icon hidden or not: someone who hides it can still hypnotize her. */
+function accessCandidates(): any[] {
+	return roomOthers().filter((c) => peerFor(c.MemberNumber) !== undefined);
+}
+
+function accessChips(row: any, level: AccessLevel, faded: boolean, onPick: (level: AccessLevel) => void): void {
+	for (const l of ACCESS_LEVELS) {
+		const c = chip(ACCESS_LABELS[l], `${ACCESS_LABELS[l]}: they ${l === "normal" ? "get what your usual settings allow" : ACCESS_WORDS[l]}. Nothing happens until you press Enter.`, () => onPick(l), faded);
+		if (level === l) c.className += " echs-pop-chip-on";
+		row.appendChild(c);
+	}
+}
+
+/** The "Who can hypnotize you" group. Exported for the suite. */
+export function renderAccess(list: any, status: any): void {
+	const refusal = accessLockRefusal();
+	const typed = (text: string) => typeIt(status, text, refusal ? `Typed, but it will be refused. ${refusal}` : "Typed. Press Enter to do it.");
+	list.appendChild(el("div", "echs-pop-hint", "Blocked: never hypnotizes, commands or plants in you, and sets nothing off · Normal: your usual settings · Toy: toy mode for them, even when it is off."));
+	if (refusal) list.appendChild(el("div", "echs-pop-hint", refusal));
+	const listed = accessList();
+	const here = accessCandidates();
+	for (const c of here) {
+		const row = el("div", "echs-pop-entry");
+		row.appendChild(el("div", "echs-pop-person", shownName(c)));
+		const chips = el("div", "echs-pop-buttons");
+		const target = induceTarget(c, roomOthers());
+		accessChips(chips, accessLevelOf(c.MemberNumber), !!refusal, (l) => typed(`/echs access ${target} ${l}`));
+		row.appendChild(chips);
+		list.appendChild(row);
+	}
+	if (!here.length) list.appendChild(el("div", "echs-pop-desc", "Nobody else here is running ECHS."));
+	const away = listed.filter((e) => !here.some((c) => c.MemberNumber === e.id));
+	if (!away.length) return;
+	const isOpen = keysOpen.has("access-away");
+	const head = el("button", "echs-pop-group", `${isOpen ? "−" : "+"}  Not here (${away.length})`);
+	head.type = "button";
+	head.addEventListener("click", () => {
+		if (keysOpen.has("access-away")) keysOpen.delete("access-away");
+		else keysOpen.add("access-away");
+		renderBody();
+	});
+	list.appendChild(head);
+	if (!isOpen) return;
+	for (const e of away) {
+		const row = el("div", "echs-pop-entry");
+		row.appendChild(el("div", "echs-pop-person", e.name === `#${e.id}` ? e.name : `${e.name} · #${e.id}`));
+		const chips = el("div", "echs-pop-buttons");
+		accessChips(chips, e.level, !!refusal, (l) => typed(`/echs access ${e.id} ${l}`));
+		row.appendChild(chips);
+		list.appendChild(row);
 	}
 }
 

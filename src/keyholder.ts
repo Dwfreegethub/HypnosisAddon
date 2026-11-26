@@ -50,6 +50,7 @@ import {
 	setKeyLock,
 	clearKeyLock,
 	removeKeyholder,
+	listAccess,
 	LockKind,
 	startExtremeLock,
 	extendExtremeLock,
@@ -131,7 +132,7 @@ export function keyholderFields(asker: number): { keyholder?: "take" | "grant"; 
  * the trigger without naming its word; `word` is empty unless they may see it. */
 export type HeldTrigger = { id: string; word: string; when: string; does: string[]; strength: string; once: boolean; holding: boolean; by: string; removable: boolean; why: string };
 
-export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode; planted?: HeldTrigger[]; keyLock?: string; keysLock?: string; keyholders?: { id: number; name: string; mode: KeyMode }[] };
+export type SettingsSnapshot = { boxes: { key: string; on: boolean }[]; choices: { key: string; value: string }[]; extreme: boolean; mode: KeyMode; planted?: HeldTrigger[]; keyLock?: string; keysLock?: string; keyholders?: { id: number; name: string; mode: KeyMode }[]; access?: { name: string; level: "blocked" | "toy" }[] };
 
 /** A trigger's id on the wire: a hash of its key, so a hidden word never travels to name it. */
 export function triggerId(key: string): string {
@@ -197,6 +198,8 @@ function snapshotFor(member: number, mode: KeyMode): Record<string, unknown> {
 		// `mode` is v1.14's word, for an older keyholder; `level` is the real one.
 		mode: legacyWord(mode),
 		level: mode,
+		// Her access list (v1.17.0, DW: keyholders see it, never edit it). Names and levels only.
+		access: listAccess().map((e) => ({ name: e.name.slice(0, 30), level: e.level })),
 		// Full keys only (v1.16.2, job6.md §4): what is planted in her.
 		...(mode === "full" ? { planted: plantedForKeyholder(member) } : {}),
 	};
@@ -730,7 +733,7 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 			!after
 				? `${name} took their keys back.`
 				: !before
-					? `${name} gave you ${after} keys to their ECHS settings. They're on the popup's Keys tab.`
+					? `${name} gave you ${after} keys to their ECHS settings. They're on the popup's Access tab.`
 					: `${name} changed your keys to ${after}.`,
 		);
 	}
@@ -771,7 +774,13 @@ export function receiveKeyholderFields(sender: number, message: any): void {
 					.filter((k: any) => k && Number.isInteger(k.id) && k.id > 0 && KEY_LEVELS.includes(k.mode))
 					.map((k: any) => ({ id: k.id as number, name: str(k.name, 60) || `#${k.id}`, mode: k.mode as KeyMode }))
 			: undefined;
-		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...(planted ? { planted } : {}), ...(keyLock ? { keyLock } : {}), ...(keysLock ? { keysLock } : {}), ...(keyholders ? { keyholders } : {}) }, at: Date.now() });
+		const access = Array.isArray(s.access)
+			? s.access
+					.slice(0, 40)
+					.filter((e: any) => e && (e.level === "blocked" || e.level === "toy"))
+					.map((e: any) => ({ name: str(e.name, 30) || "someone", level: e.level as "blocked" | "toy" }))
+			: undefined;
+		snapshots.set(sender, { snap: { boxes, choices, extreme: s.extreme === true, mode: levelFromWire(s.level, s.mode) ?? "minimal", ...(planted ? { planted } : {}), ...(keyLock ? { keyLock } : {}), ...(keysLock ? { keysLock } : {}), ...(keyholders ? { keyholders } : {}), ...(access ? { access } : {}) }, at: Date.now() });
 		askedAt.delete(sender);
 	}
 	// The answer to our request for their keys (v1.16.1): said in chat, since the popup may be shut.

@@ -620,6 +620,12 @@ openTab(4); frame(); // Triggers
 	const firstX = xs()[0];
 	const detail = texts.find((t) => /interactions/.test(t.text) && Math.abs(t.top + t.height / 2 - (firstX.top + firstX.height / 2)) < 2);
 	check("  the [x] is clear of the row's detail", !!detail && detail.left + detail.width <= firstX.left, true);
+	// v1.17.0: Blocked / Normal / Toy on each row, between the detail and the [x].
+	const levels = buttons.filter((b) => ["Blocked", "Normal", "Toy"].includes(b.label) && b.clip && inside(b, b.clip) && Math.abs(b.top - firstX.top) < 2).sort((a, b) => a.left - b.left);
+	check("  each row has the three access levels", levels.map((b) => b.label), ["Blocked", "Normal", "Toy"]);
+	check("  clear of the detail", !!detail && levels.length === 3 && detail.left + detail.width <= levels[0].left, true);
+	check("  and of the [x], without touching each other", levels.length === 3 && levels[0].left + levels[0].width <= levels[1].left && levels[1].left + levels[1].width <= levels[2].left && levels[2].left + levels[2].width <= firstX.left, true);
+	check("  the detail still has room to be read", !!detail && !detail.text.endsWith("…"), true, detail?.text);
 	check("  and of the scroll bar", firstX.left + firstX.width <= up().left, true);
 	check("  the rows of [x]s do not touch", xs()[0].top + xs()[0].height <= xs()[1].top, true);
 	listEnd();

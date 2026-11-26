@@ -579,6 +579,8 @@ interface HypnoAddonSettings {
 	popupLauncherPos?: { x: number; y: number };
 	/** The popup window's size once the player has resized it (v1.13.2). Absent means the default. */
 	popupSize?: { w: number; h: number };
+	/** Per-person hypnosis access (v1.17.0, DW 2026-11-26): Blocked or Toy. Absent = Normal for all. */
+	access?: AccessEntry[];
 	/** Who may change her settings remotely (v1.14.0, job5.md). Absent = nobody. */
 	keyholders?: { owner?: KeyMode; named?: NamedKeyholder[] };
 	/** The last remote changes made to her settings, newest last, for the Stats tab and the popup. */
@@ -1825,6 +1827,43 @@ export function removeKeyholder(id: number): boolean {
 	saveSettings();
 	return true;
 }
+// --- Per-person access (v1.17.0, DW 2026-11-26) ---------------------------------------------------
+// ECHS's own list, beside BC's blacklist (which blocks far more than hypnosis). Blocked: nobody on it
+// may hypnotize her, command her, plant in her or set off anything planted; it wins over every other
+// setting, toy mode and Extreme included. Toy: toy mode for them even when her toy mode is off or
+// "Toy mode is for" leaves them out. Everyone not listed is Normal: her other settings decide.
+
+export type AccessLevel = "blocked" | "normal" | "toy";
+export type AccessEntry = { id: number; name: string; level: "blocked" | "toy"; at: number };
+export const ACCESS_LEVELS: readonly AccessLevel[] = ["blocked", "normal", "toy"];
+/** Kept small: settings sync to the server, and a keyholder's snapshot carries the list. */
+export const MAX_ACCESS = 40;
+
+export function toAccessLevel(v: unknown): AccessLevel | null {
+	return v === "blocked" || v === "normal" || v === "toy" ? v : null;
+}
+export function listAccess(): AccessEntry[] {
+	const list = loadSettings().access;
+	if (!Array.isArray(list)) return [];
+	return list
+		.filter((e: any) => e && Number.isInteger(e.id) && e.id > 0 && (e.level === "blocked" || e.level === "toy"))
+		.slice(0, MAX_ACCESS)
+		.map((e: any) => ({ id: e.id, name: typeof e.name === "string" ? e.name.slice(0, 40) : `#${e.id}`, level: e.level, at: Number.isFinite(e.at) ? e.at : 0 }));
+}
+/** This member's level: Normal unless she has listed them. */
+export function accessLevelOf(id: number): AccessLevel {
+	return listAccess().find((e) => e.id === id)?.level ?? "normal";
+}
+/** Sets one; Normal takes them off the list. Returns false when the list is full. */
+export function setAccessLevel(id: number, name: string, level: AccessLevel, now: number = Date.now()): boolean {
+	const rest = listAccess().filter((e) => e.id !== id);
+	if (level !== "normal" && rest.length >= MAX_ACCESS) return false;
+	const s = loadSettings();
+	s.access = level === "normal" ? rest : [...rest, { id, name: name.slice(0, 40), level, at: now }];
+	saveSettings();
+	return true;
+}
+
 export function listRemoteChanges(): RemoteChange[] {
 	const log = loadSettings().remoteLog;
 	return Array.isArray(log) ? log.filter((e: any) => e && Number.isFinite(e.at) && typeof e.what === "string").slice(-MAX_REMOTE_LOG) : [];

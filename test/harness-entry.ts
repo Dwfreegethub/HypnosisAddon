@@ -45,3 +45,4 @@ export * as keyholder from "../src/keyholder";
 export * as keylock from "../src/keylock";
 export * as ask from "../src/ask";
 export * as update from "../src/update";
+export * as access from "../src/access";

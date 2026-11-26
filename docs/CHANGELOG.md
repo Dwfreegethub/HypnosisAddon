@@ -18,6 +18,51 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.17.0) — per-person access: Blocked / Normal / Toy, and the Access tab
+
+"ECHS's own blacklist" from DW's feature ideas (2026-11-24), which DW widened on 2026-11-26: "can we
+give the ability to choose what level each individual gets. Example I could give jax toy access to me
+and turn off by default". DW's answers, one question at a time:
+
+- **Levels: Blocked / Normal / Toy.** Normal is everyone not listed. A fourth, auto-Agree, was offered
+  and not chosen.
+- **The popup's Keys tab is renamed Access.** "Who can hypnotize you" sits between *Your keyholders*
+  and *Ask for keys*: everyone here running ECHS (icon hidden or not, since a hidden icon can still
+  hypnotize), then a folded **Not here** for listed people who left. Buttons type `/echs access`, like
+  Give keys. DW also wanted it on the **Stats** tab ("Both Access and stats tab"): three canvas buttons
+  per row, Blocked on two clicks as [x] is.
+- **Blocked mid-trance: "Ends, and their triggers go too."** `endSessionWith()` ends it as an ordinary
+  end (reason "you blocked them"), `forgetEverythingFrom()` lets go of whatever of theirs is holding her
+  (`undoTrigger`) and forgets every trigger with their `installedBy` (compulsions and reactions are
+  triggers too), and their carried suggestions are released.
+- **Keys stay separate, but she is asked** (DW, after a side note pointed out a blocked full keyholder
+  could still change her settings): blocking someone who holds her keys opens the ask.ts popup, "Take
+  their keys back too?"; no answer keeps them. The keys lock and the settings-lock holder's keys are
+  respected, checked again on Accept. Owner keys are offered only when the owner is in the room
+  (`keyModeFor` needs them there to know they're the owner).
+
+Decided earlier (2026-11-24) and kept: Blocked wins over every setting, toy mode and Extreme
+included; the blocked person is refused with "They aren't open to hypnosis." (the hypnosis-off words),
+so the list stays private; she is told they tried. Keyholders see the list (names and levels only, in
+the settings snapshot, capped at 40) and never edit it. Frozen under the Extreme lock, the keyholder
+lock and the session lock (`accessLockRefusal`).
+
+**Where the gates are.** One stored list (`settings.access`, storage.ts, max 40) read through the leaf
+`accessLevelOf()`, so session.ts and voice.ts import nothing new: `session-attempt` (refused before the
+roster check), `toyModeFor` (Toy first, Blocked never), `handleSpokenLine` (first line: commands,
+planting, trigger words, release words, "when Rei speaks"), `noteActivity` and `noteArrival` (activity,
+item and arrival compulsions). Everything that changes a level goes through access.ts
+`changeAccess()`, which the command, both tabs and the tests share. Keys, trust and the old remote
+buttons are untouched.
+
+**Stats layout.** The buttons left the detail column ~150px, which cut "12.0 interactions · last Nov
+23". The name column gave 40px (max 400), value and detail moved left (value +420, detail +500), the
+buttons are 72px, and the Experience line keeps its full width. The "value" heading is fitted to its
+column. menu-layout.mjs checks the three buttons sit between the detail and the [x] and the detail is
+not cut. test/access.mjs (34 checks) covers the list, every gate, mid-trance blocking (holding and not),
+Toy, the locks, the keys popup both ways, the command and the snapshot; with the gates disabled it fails
+4 checks. Live test: script_test.md Z8.
+
 ### Added 2026-11-26 (v1.16.44) — each player's version on the People tab, for DW's accounts only
 
 DW wanted to see at a glance which build people run, from the popup, "just for me and Missys Helper,

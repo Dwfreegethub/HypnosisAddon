@@ -37,9 +37,10 @@ import {
 	removeKeyholder,
 	listRemoteChanges,
 	KeyMode,
-	toKeyMode,
+	toKeyMode, toAccessLevel
 } from "./storage";
 import { announceKeysTo, KEY_LEVEL_WORDS, requestKeys } from "./keyholder";
+import { changeAccess, describeAccess, accessList } from "./access";
 import { describeTrust, describeRelationship, relationshipWith, accessFor, trustEntryLabel } from "./trust";
 import { skillValue, skillCount, getSkillHonour, SKILL_HONOUR_RUNGS } from "./storage";
 import { describeRecording, describeDecayPace, ageTriggers } from "./triggers";
@@ -784,6 +785,34 @@ const COMMANDS: HypnoCommand[] = [
 				"Deeper plantings fade more slowly, and neglect compounds: the longer one goes " +
 					"unused the faster it sheds. Firing it slows that; only a re-induction resets it.",
 			);
+		},
+	},
+	{
+		// Per-person access (v1.17.0, DW 2026-11-26): Blocked / Normal / Toy, beside the Access tab and
+		// the Stats tab. A member number works for someone not in the room.
+		Tag: "access",
+		group: "Data",
+		args: "[<name|number> blocked|normal|toy]",
+		Description: "Block someone from hypnotizing you, or give them toy access; with nothing after it, lists who has a level",
+		Action: (args: string) => {
+			const words = (args ?? "").trim().split(/\s+/).filter(Boolean);
+			if (!words.length || (words.length === 1 && words[0].toLowerCase() === "list")) {
+				for (const line of describeAccess()) reply(line);
+				return;
+			}
+			const level = toAccessLevel((words[words.length - 1] ?? "").toLowerCase());
+			const token = words.slice(0, -1).join(" ");
+			if (!level || !token) {
+				reply("Usage: /echs access <name or member number> blocked|normal|toy");
+				return;
+			}
+			const listed = accessList().find((e) => e.name.toLowerCase() === token.toLowerCase());
+			const target = resolveTarget(token) ?? (listed ? { id: listed.id, name: listed.name } : null);
+			if (!target) {
+				reply(`No one here matches "${token}". Use their member number if they are not in the room.`);
+				return;
+			}
+			reply(changeAccess(target.id, target.name, level));
 		},
 	},
 	{

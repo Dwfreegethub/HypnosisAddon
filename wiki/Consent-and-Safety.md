@@ -98,6 +98,17 @@ Being worked up lowers resistance: it helps an induction land and takes you some
 ### Answering Ahead of Time & Toy Mode
 On the **Inductions** tab you can answer every induction ahead of time, decide what happens while you are away from the keyboard, and let chosen people put you under with no roll (**toy mode**, which counts as earned depth). All of it is explained on [How an Induction Works](How-Inductions-Work#7-answering-ahead-of-time-being-away-and-toy-mode).
 
+### Blocking someone, or giving one person toy access
+Since v1.17.0 you can give anyone a level of their own, separate from Bondage Club's blacklist (which blocks far more than hypnosis):
+
+* **Blocked:** they can never hypnotize you, command you, plant in you or set off anything planted in you, whatever else your settings say, toy mode and Extreme included. If they try to hypnotize you, they're only told *They aren't open to hypnosis*, so they can't tell you blocked them; you're told they tried.
+* **Normal:** your usual settings decide. Everyone starts here.
+* **Toy:** toy mode for them, even when your toy mode is off or *Toy mode is for* doesn't include them.
+
+**Blocking someone who has you under** wakes you, and **every trigger and compulsion they planted in you is forgotten** (anything holding you lets go first). What others planted stays. If they hold your **keys**, a popup asks whether to take their keys back too; no answer keeps them.
+
+Set it on the popup's **Access** tab, on the **Stats** tab of the settings (the **Blocked · Normal · Toy** buttons on each row; Blocked takes two clicks), or with `/echs access <name or number> blocked|normal|toy`. `/echs access` lists who has a level. Your keyholders can see the list but not change it, and it can't change while your Extreme lock, a keyholder's lock or a session lock is on.
+
 ---
 
 ## 6. Every Way Out
@@ -127,8 +138,8 @@ Choosing the **Extreme** setup template, and confirming its warning, makes your 
 
 Since v1.14.0 you can give someone your **keys**: they can then change your ECHS settings from their side, while you're both in the same room.
 
-* **Who:** anyone you name with `/echs keyholder add <name> <level>`, and your **BC owner** if you allow it with `/echs keyholder owner <level>`. Nobody holds your keys until you choose. The popup's **Keys** tab does the same with **Give keys: minimal · moderate · full** buttons.
-* **Being asked:** someone can ask for your keys (`/echs keyholder request`, or **Request keys** on their Keys tab). You get a popup saying who and at what level, with **Give … keys** and **Decline**. **No answer in 30 seconds is a no**, and nothing changes unless you click to give. The same person can ask again only after 3 minutes. While your Extreme lock (or a session lock) is on you can't give keys, so the request is turned down and you're told it came.
+* **Who:** anyone you name with `/echs keyholder add <name> <level>`, and your **BC owner** if you allow it with `/echs keyholder owner <level>`. Nobody holds your keys until you choose. The popup's **Access** tab (called **Keys** before v1.17.0) does the same with **Give keys: minimal · moderate · full** buttons.
+* **Being asked:** someone can ask for your keys (`/echs keyholder request`, or **Request keys** on their Access tab). You get a popup saying who and at what level, with **Give … keys** and **Decline**. **No answer in 30 seconds is a no**, and nothing changes unless you click to give. The same person can ask again only after 3 minutes. While your Extreme lock (or a session lock) is on you can't give keys, so the request is turned down and you're told it came.
 * **How far, per keyholder** (since v1.16.0; before it, *take* and *grant*):
   * **minimal**: they can only switch things **off**, and set a choice to its off option. Nothing new can be opened, and nothing on your **General** tab (since v1.16.37).
   * **moderate**: as minimal, and they can also **shape your trance**: switch your **Trance Defaults** and **Awareness** boxes on and off, and pick any screen effect, eyes, eye colour, pulse colour, time to go under, attempts and how deep "sink deeper" goes. They still can't switch **Permissions** or **Triggers** on, or turn on toy mode, auto-answer or who toy mode is for.

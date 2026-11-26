@@ -36,7 +36,7 @@ The tabs change with what is going on, and the window switches to the one you ne
 | **People** | Always | Who in the room you can hypnotize |
 | **Suggestions** | Someone is under **you** | What you can say to them |
 | **Triggers** | Always | Planting triggers, the ones you planted, and the ones in you |
-| **Keys** | Always | Who holds your keys, and the settings of anyone whose keys you hold |
+| **Access** | Always | Who holds your keys, who can hypnotize you (Blocked / Normal / Toy), and the settings of anyone whose keys you hold. It was called **Keys** before v1.17.0. |
 | **Commands** | Always | Every `/echs` command. `/echs induce` comes first, unless someone is hypnotizing you; then the answers to it (`agree`, `ignore`, `fight`) do. |
 
 When someone starts on you, it switches to **Me**; when someone goes under you, it switches to **Suggestions**. Otherwise it stays on whatever tab you picked.
@@ -111,11 +111,15 @@ Lines that need finishing end where you type on, and the status line says what's
 * **How fast your triggers fade:** the six speeds, with yours highlighted.
 * Under your Extreme lock, *forget* and the speeds are faded: they still type, and say they will be refused.
 
-## Keys
+## Access
 
-When you hold someone's keys, **Settings you hold keys to** comes first on the tab. When someone gives you keys, changes your level or takes them back, a line in chat says so.
+Called **Keys** before v1.17.0. When you hold someone's keys, **Settings you hold keys to** comes first on the tab. When someone gives you keys, changes your level or takes them back, a line in chat says so.
 
 **Your keyholders:** your BC owner, the people you've named, and everyone else here, each with **Give keys: minimal · moderate · full**. Each button types its own level; the level they hold now is highlighted. Anyone who holds your keys also has **Take keys back**. These type the `/echs keyholder` command, like everything else; press Enter. The last changes made to your settings are listed underneath. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
+
+**Who can hypnotize you** (since v1.17.0): everyone here running ECHS, each with **Blocked · Normal · Toy**, the one they have now highlighted. **Blocked**: they can never hypnotize you, command you, plant in you or set off anything planted in you. **Normal**: your usual settings decide (everyone starts here). **Toy**: toy mode for them, even when your toy mode is off or *Toy mode is for* leaves them out. Each button types `/echs access`; press Enter. People you've given a level who aren't in the room are under **Not here**, folded at first. While your settings are locked the buttons are faded and say why. See [Blocking someone](Consent-and-Safety#blocking-someone-or-giving-one-person-toy-access).
+
+If you hold someone's keys, their list shows under **Who can hypnotize them**, read-only: only they can change it.
 
 **Ask for keys:** everyone here whose ECHS can answer (v1.16.1 or newer), unless you already hold their full keys, with **Request keys: minimal · moderate · full**, one button per level like Give keys. Press Enter to send. They get a popup; their answer shows in chat and under their name.
 

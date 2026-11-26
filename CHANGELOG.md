@@ -13,6 +13,18 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.17.0 · 26 November 2026
+
+- **Choose who can hypnotize you, one person at a time.** Anyone can now be **Blocked**,
+  **Normal** or **Toy**. Blocked: they can never hypnotize you, command you, plant in you, or set
+  off anything planted in you, whatever your other settings say. They're only told you aren't open
+  to hypnosis. Toy: toy mode for them, even when your toy mode is off. Everyone starts on Normal.
+- **Blocking someone who has you under wakes you,** and every trigger they planted in you is
+  forgotten. If they hold your keys, you're asked whether to take those back too.
+- **The popup's Keys tab is now called Access,** and has the three buttons for everyone in the
+  room, plus a folded list of people who aren't here. The settings Stats tab has them on each row,
+  and `/echs access` does it by typing. Your keyholders can see the list but can't change it.
+
 ## v1.16.44 · 26 November 2026
 
 - **Nothing changes for you.** The developer's own test accounts now see which ECHS version each
