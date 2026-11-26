@@ -175,10 +175,8 @@ function characterFor(memberId: number): any {
 /** The name a player goes by: their nickname, else their account name, else "" when there is no
  * character to read. Read straight off the character rather than through BC's CharacterNickname,
  * which returns a GGTS stand-in inside the asylum — a name worth showing, not storing. */
-export function displayNameOf(C: any): string {
-	const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
-	return nick || (typeof C?.Name === "string" ? C.Name : "");
-}
+import { displayNameOf } from "./names";
+export { displayNameOf };
 
 /** The name to store against a trust entry for someone in the room, or "" if they are not here.
  * "" leaves an existing stored name alone (addInteractions keeps it); the old `#123456` fallback

@@ -18,6 +18,16 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-26 (v1.19.3) — the nickname, everywhere
+
+DW, seeing an induction line name a player by account name while the room's line used her nickname:
+"Can we make sure to use the nickname all the time". BC shows the nickname
+everywhere and the account name only in brackets on entering. Every name ECHS shows or sends now goes
+through `displayNameOf` (moved from trust.ts into the leaf `src/names.ts`): /echs command targets and
+replies and the room lists in them, the remote's title and pages, the hypnotist name sent with an
+induction, trust and planted-list names, and recording/carry names. Matching still takes either name
+(resolveTarget, the watch names, trust's stored account name). Names already saved keep what was saved.
+
 ### Added 2026-11-26 (v1.19.2) — the touch picker, and the carry lines in the popup
 
 DW: "Phantom touch is not in the pop up window ... make sure ALL commands are in the popup. If you are

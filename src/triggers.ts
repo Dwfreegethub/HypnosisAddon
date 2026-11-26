@@ -1,4 +1,5 @@
 import { log, isTestingMode } from "./log";
+import { displayNameOf, nameOrNumber } from "./names";
 import { describeAction } from "./voice";
 import { tellPlayer } from "./notify";
 import { compulsionAct, actMatches } from "./compulsion-acts";
@@ -72,7 +73,7 @@ export function installTriggers(): void {
 		// tellPlayer brackets the line itself. Dropped here, so an older subject's notices read the same.
 		const shown = text.replace(/^\[(?:trigger|trance)\]\s*/, "");
 		if (shown) tellPlayer(shown);
-		if (message.planted !== undefined) receivePlanted(sender, characterFor(sender)?.Name ?? `#${sender}`, message.planted);
+		if (message.planted !== undefined) receivePlanted(sender, nameOrNumber(characterFor(sender), sender), message.planted);
 	});
 
 	// TESTING ONLY. Registered unconditionally — it has to already exist when you enter the
@@ -100,7 +101,7 @@ export function installTriggers(): void {
 		);
 		// The subject is told too. Nothing may happen to their triggers unseen, and a
 		// testing affordance is not an exception to that.
-		const who = characterFor(sender)?.Name ?? `#${sender}`;
+		const who = nameOrNumber(characterFor(sender), sender);
 		tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
 		result.lines.forEach(tellPlayer);
 	});
@@ -732,7 +733,7 @@ export function resolveWatch(said: string, installerId: number): { watchName: st
 	if (!word) return null;
 	if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
 	if (word === "i" || word === "me") {
-		return { watchName: nameKey(characterFor(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+		return { watchName: nameKey(displayNameOf(characterFor(installerId))) || "the hypnotist", watchMember: installerId };
 	}
 	// Pronouns name nobody we can watch for.
 	if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;

@@ -1,4 +1,5 @@
 import { log, isTestingMode } from "./log";
+import { displayNameOf, nameOrNumber } from "./names";
 import { extremeLocked, EXTREME_SESSION_MINUTES } from "./extreme";
 import { tellPlayer } from "./notify";
 import {
@@ -858,13 +859,13 @@ export function noticeTrustLine(text: string, whisperTo?: number): string | null
 	);
 	if (typeof whisperTo === "number" && whisperTo !== Player?.MemberNumber) {
 		const c = others.find((o: any) => o.MemberNumber === whisperTo);
-		return giveTrust(whisperTo, c?.Name ?? `#${whisperTo}`);
+		return giveTrust(whisperTo, nameOrNumber(c, whisperTo));
 	}
 	const esc = (n: string) => n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const named = others.filter((c: any) =>
 		[c.Name, c.Nickname].filter(Boolean).some((n: string) => new RegExp(`(^|[^\\w])${esc(n)}($|[^\\w])`).test(t)),
 	);
-	if (named.length === 1) return giveTrust(named[0].MemberNumber, named[0].Name);
+	if (named.length === 1) return giveTrust(named[0].MemberNumber, displayNameOf(named[0]));
 	if (!getFeatures().hypnoEnabled) return null;
 	// Rule 5: she meant something by it, so say why nothing happened.
 	return named.length > 1
@@ -1706,7 +1707,7 @@ function findCharacterName(memberId: number): string {
 	const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
 		(x: any) => x?.MemberNumber === memberId,
 	);
-	return c?.Name ?? `#${memberId}`;
+	return nameOrNumber(c, memberId);
 }
 
 /** The baseline "you are hypnotized" state, applied the moment the induction lands.
@@ -2341,7 +2342,7 @@ export function requestAttempt(memberNumber: number): void {
 	// Declared and visible, not verified: he can edit his own number, which is why the subject
 	// is shown a read on it before she answers and why her rung decides whether it counts at all.
 	sendHiddenMessage(
-		{ type: "session-attempt", hypnotistName: Player?.Name ?? "Someone", skill: skillValue() },
+		{ type: "session-attempt", hypnotistName: displayNameOf(Player) || "Someone", skill: skillValue() },
 		memberNumber,
 	);
 	log(`sent session-attempt to ${memberNumber} (skill ${skillValue().toFixed(1)})`);

@@ -63,6 +63,9 @@ session.safeword();
 // Failure: "Missys Maid" resolves to nobody (the old first-word read gives the ambiguous "Missys").
 ChatRoomCharacter.push({ MemberNumber: MAID, Name: "Missys Maid" });
 check("induce Missys Maid → the maid, not a refusal", /Attempting an induction on Missys Maid/.test(run("induce", "Missys Maid")), true);
+// v1.19.3 (DW: "use the nickname all the time"): typed by account name or nickname, it says the nickname.
+ChatRoomCharacter.push({ MemberNumber: 7777, Name: "bea_acct", Nickname: "Bunny" });
+check("typed by account name → says the nickname", [/Attempting an induction on Bunny./.test(run("induce", "bea_acct")), /bea_acct/.test(run("induce", "Bunny"))], [true, false]);
 check("induce Missys (ambiguous) → says who is here", /No one here matches "Missys"/.test(run("induce", "Missys")), true);
 check("chance Missys Helper → resolves", /No one here matches/.test(run("chance", "Missys Helper")), false);
 run("trance", "Missys Maid 65");

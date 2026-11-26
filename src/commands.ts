@@ -1,4 +1,5 @@
 import { log, isTestingMode, isDebugFlagOn, setDebugFlag, isDebugLogging } from "./log";
+import { displayNameOf, nameOrNumber } from "./names";
 import { tellPlayer } from "./notify";
 import { applyEffect, removeEffect, setSuggestedPose } from "./effects";
 import { describeMatch, isTriggerInEffect, describeTriggerList, describeTriggerDetail, clearAllRefusal } from "./voice";
@@ -118,7 +119,7 @@ function resolveTarget(token: string): Target | null {
 	if (!t) return null;
 	if (/^\d+$/.test(t)) {
 		const id = Number(t);
-		return { id, name: findCharacter(id)?.Name ?? `#${id}` };
+		return { id, name: nameOrNumber(findCharacter(id), id) };
 	}
 	const lower = t.toLowerCase();
 	const names = (c: any) => [c?.Name, c?.Nickname].filter(Boolean).map((n: string) => n.toLowerCase());
@@ -126,7 +127,7 @@ function resolveTarget(token: string): Target | null {
 	const exact = pool.filter((c) => names(c).includes(lower));
 	const matches = exact.length ? exact : pool.filter((c) => names(c).some((n: string) => n.startsWith(lower)));
 	if (matches.length !== 1) return null;
-	return { id: matches[0].MemberNumber, name: matches[0].Name };
+	return { id: matches[0].MemberNumber, name: displayNameOf(matches[0]) };
 }
 
 /** Who `/echs retry` means. Set by every induction started from a command, so a retry does
@@ -167,12 +168,12 @@ function targetOrAsk(token: string, usage: string): Target | null {
 
 	const pool = others();
 	if (!token.trim() && pool.length === 1) {
-		return { id: pool[0].MemberNumber, name: pool[0].Name };
+		return { id: pool[0].MemberNumber, name: displayNameOf(pool[0]) };
 	}
 	reply(token.trim() ? `No one here matches "${token.trim()}".` : "Who? Give a name or member number.");
 	reply(usage);
 	if (!pool.length) reply("Nobody else is in the room — you'll need a member number.");
-	else reply(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
+	else reply(`In the room: ${pool.map((c) => `${displayNameOf(c)} (${c.MemberNumber})`).join(", ")}`);
 	return null;
 }
 
@@ -423,13 +424,13 @@ function sendToBot(args: string): void {
 	if (target == null) {
 		reply(
 			others().length
-				? `Not in a session, and more than one person is here: ${others().map((c: any) => `${c.Name} (${c.MemberNumber})`).join(", ")}.`
+				? `Not in a session, and more than one person is here: ${others().map((c: any) => `${displayNameOf(c)} (${c.MemberNumber})`).join(", ")}.`
 				: "Nobody else is in the room to send it to.",
 		);
 		return;
 	}
 	sendHiddenMessage({ type: "test-command", text }, target);
-	const name = findCharacter(target)?.Name ?? `#${target}`;
+	const name = nameOrNumber(findCharacter(target), target);
 	// Naming the target matters as much as confirming the send: if it went to the wrong person
 	// — a second bot instance, someone else in the room — that is invisible otherwise.
 	reply(`Sent "${text}" to ${name} (${target})${hypnotist ? " — your hypnotist" : ""}.`);
@@ -626,7 +627,7 @@ const COMMANDS: HypnoCommand[] = [
 			if (!parts.length) {
 				const all = listRelationshipOverrides();
 				reply(all.length ? "test overrides:" : "no relationship overrides set");
-				all.forEach((o) => reply(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} → ${o.kind}`));
+				all.forEach((o) => reply(`  ${nameOrNumber(findCharacter(o.memberId), o.memberId)} → ${o.kind}`));
 				reply(usage);
 				return;
 			}
