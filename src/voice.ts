@@ -2040,6 +2040,9 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 	// otherwise. "this trigger holds while you wear it", "it lasts until it comes off".
 	...[
 		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:wear|have) (?:it|them|that|the item)(?: on)?|(?:it|they|that|the item) (?:is|s|are|re|comes?|come|gets?|get) (?:off|removed|taken off)|(?:it|they|that|the item) (?:is|s|are|re|stays?|stay) on)\b`,
+		// A garment taken off (v1.18.0): "this trigger holds while you are naked", "until you are
+		// dressed again", "while it stays off", "until it goes back on".
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "whileWorn" }) })),
 	// Lifespan.
 	...[
@@ -2158,9 +2161,11 @@ const COND_SPEAK = new RegExp(
 
 // "when anyone kisses you, ..." (v1.16.9): something done TO her with a BC activity. The verb list is
 // compulsion-acts.ts's; the body part after "your" is not checked. "you" as the doer is no one.
+// Clothing (v1.18.0) can also be said with no doer ("whenever you take your top off"): anyone.
 const COND_ACTS = COMPULSION_ACTS.map((a) => ({
 	key: a.key,
-	re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.verb} ${a.object ?? DEFAULT_ACT_OBJECT}\b`),
+	re: new RegExp(String.raw`\b${COND_LEAD} (?!you\b)([a-z]+) ${a.phrase ?? `${a.verb} ${a.object ?? DEFAULT_ACT_OBJECT}`}\b`),
+	anyone: a.anyonePhrase ? new RegExp(String.raw`\b${COND_LEAD} ${a.anyonePhrase}\b`) : null,
 }));
 
 /** What a condition line asks for, before the name is resolved against the room. `rest` is what
@@ -2214,6 +2219,8 @@ export function parseCondition(content: string): ParsedCondition | null {
 	for (const a of COND_ACTS) {
 		m = a.re.exec(text);
 		if (m && !afterSuggestion(m)) return { fireOn: "act", who: m[1], act: a.key, rest: after(m), ...every(m) };
+		m = a.anyone?.exec(text) ?? null;
+		if (m && !afterSuggestion(m)) return { fireOn: "act", who: "anyone", act: a.key, rest: after(m), ...every(m) };
 	}
 	return null;
 }
@@ -2761,14 +2768,20 @@ function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number,
 		const slot = event === "act" ? eventSlot(activity) : null;
 		// Held while worn (v1.16.20): what to watch. One already holding follows the new item rather
 		// than fire again on top of itself (a gag swapped for another).
-		const hold = t.whileWorn && slot ? { group: slot, asset: wornAssetName(slot), ...(activity.startsWith("lock:") ? { lock: true as const } : {}) } : null;
+		// A garment taken off (v1.18.0) holds while its slot stays empty.
+		const off = activity.startsWith("off:");
+		const hold =
+			t.whileWorn && slot
+				? { group: slot, asset: off ? "" : wornAssetName(slot), ...(activity.startsWith("lock:") ? { lock: true as const } : {}), ...(off ? { off: true as const } : {}) }
+				: null;
 		if (hold && t.wornHold && isTriggerInEffect(t)) {
 			t.wornHold = hold;
 			updateTriggers();
 			continue;
 		}
 		if (event === "act") actFiredAt.set(t.key, now);
-		compulsionSetOffBy.set(t.key, member);
+		// Her own undressing (v1.18.0) never makes her the one who may release it.
+		if (member !== Player?.MemberNumber) compulsionSetOffBy.set(t.key, member);
 		log(`compulsion (${event}) set off by ${member}`);
 		if (hold) {
 			t.wornHold = hold;
@@ -2931,6 +2944,8 @@ function wornStillOn(hold: NonNullable<Trigger["wornHold"]>): boolean {
 	} catch {
 		return true; // can't tell: don't let go on a read error
 	}
+	// A garment taken off (v1.18.0): holds while nothing is back in that slot.
+	if (hold.off) return !item;
 	if (!item) return false;
 	if (hold.asset && item.Asset?.Name !== hold.asset) return false;
 	if (hold.lock && !item.Property?.LockedBy) return false;
@@ -2951,12 +2966,13 @@ export function checkWornHolds(now: number = Date.now()): number {
 			continue;
 		}
 		if (!wornStillOn(t.wornHold)) {
+			const dressed = !!t.wornHold.off;
 			delete t.wornHold;
 			wornRepeats.delete(t.key);
 			updateTriggers();
 			undoTrigger(t);
-			tellPlayer("As it comes off, whatever it was holding in you lets go.");
-			log(`worn hold on ${t.key} let go: the item came off`);
+			tellPlayer(dressed ? "As you're dressed again, whatever it was holding in you lets go." : "As it comes off, whatever it was holding in you lets go.");
+			log(`worn hold on ${t.key} let go: ${dressed ? "dressed again" : "the item came off"}`);
 			released++;
 			continue;
 		}

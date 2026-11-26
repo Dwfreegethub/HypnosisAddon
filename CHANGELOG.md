@@ -13,6 +13,17 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.18.0 · 26 November 2026
+
+- **Compulsions can wait for clothes coming off or going on.** *"Missy, whenever anyone undresses
+  you, you are very aroused"*, *"whenever you take your bra off, …"*, *"whenever anyone puts
+  panties on you, …"*: any garment, or the top, skirt, bra, panties, shoes or socks.
+- **It doesn't matter who does it,** you included, unless the hypnotist names someone
+  (*"whenever Rei takes your top off"*). Wardrobe changes count.
+- **"This trigger holds while you are undressed"** keeps it going until that garment goes back
+  on, with the arousal coming back meanwhile, like holding while an item is worn.
+- The popup's Triggers tab has a line for it under Compulsions.
+
 ## v1.17.0 · 26 November 2026
 
 - **Choose who can hypnotize you, one person at a time.** Anyone can now be **Blocked**,

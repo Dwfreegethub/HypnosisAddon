@@ -18,6 +18,40 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.18.0) — clothing compulsions: garments off or on, by anyone, her included
+
+Idea 1 of DW's feature list ("ECHS feature ideas.md", 2026-11-24). Its open question was which message
+BC sends when someone else takes one garment off her. Checked against the live R134 client: **none can.**
+The item menu focuses only "Item" groups (Dialog.js, `Group.IsItem()`), so other people change her
+clothes only in the wardrobe (ChatRoom.js `ChatRoomAppearanceLoadCharacter`), which sends her whole
+appearance and then one `ChangeClothes` line naming nobody's garment. But that appearance reaches her as
+`ChatRoomSyncSingle` carrying `SourceMemberNumber`, so `outfit-watch.ts` reads her outfit just before and
+after BC applies it, and compares. That turned "only the broad *undresses you* can work" into per-garment
+acts. Another add-on's single-item change (`ChatRoomSyncItem`, with `Source`) is read the same way.
+
+DW's answers:
+
+- **Both directions** ("Both"): off and on, any garment or one of six (top, skirt, bra, panties, shoes,
+  socks; undress.ts's slots, Echo's copies counting as theirs).
+- **"It would not matter who took the clothing on or off me. Unless the hypnotist says something
+  specific."** So, unlike every other act, her own changes count for *anyone*: `compulsionsFor` lets her
+  own member number through for a clothing act watched as "*" only, and a named watch still needs that
+  person. Her own changes are read from `ChatRoomCharacterUpdate(Player)` on the way out. Wordings with
+  no doer ("whenever you take your top off", "whenever your bra comes off") read as anyone. She is never
+  recorded as the one who set it off, so she can't release it with the release words.
+- ECHS's own strip goes out the same way and counts as her taking it off. Decided rather than asked:
+  it is her client doing it. In practice the commanded strip happens only while she is under, when
+  compulsions don't fire; a wake compulsion that strips her does count. There is no loop: nothing in
+  ECHS dresses her, and each compulsion rests 15 s after it fires.
+- **The hold.** The v1.16.20 hold-while-worn option covers clothing: "while you wear it" for a garment
+  put on; for one taken off, "holds while you are undressed / until you are dressed again / while it
+  stays off" holds while that slot stays empty (`wornHold.off`).
+
+Taken as they are, never as a change: a room join (`ChatRoomSync`), anything outside a room, and the
+outfit before login. A swap in one slot is a garment put on, not one taken off. Single-garment acts
+sit before *undresses you* / *dresses you* in the table so "dress you in a skirt" is the skirt, and
+all of them before *pulls your hair*, which would otherwise claim "pulls your top off".
+
 ### Added 2026-11-26 (v1.17.0) — per-person access: Blocked / Normal / Toy, and the Access tab
 
 "ECHS's own blacklist" from DW's feature ideas (2026-11-24), which DW widened on 2026-11-26: "can we

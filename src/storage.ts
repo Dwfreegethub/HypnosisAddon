@@ -248,8 +248,9 @@ export interface Trigger {
 	 * and orgasm repeat meanwhile, slowing down (voice.ts WORN_REPEAT_MINUTES). */
 	whileWorn?: true;
 	/** While a whileWorn trigger holds: the slot and item it is waiting on (and, for a lock compulsion,
-	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. */
-	wornHold?: { group: string; asset: string; lock?: true };
+	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. `off`
+	 * (v1.18.0): a garment taken off, held while the slot stays empty. */
+	wornHold?: { group: string; asset: string; lock?: true; off?: true };
 }
 
 /** The non-phrase conditions a trigger can fire on. */

@@ -58,7 +58,7 @@ const UNDRESS_ORDER = [
 const ECHO_EXTRA_SLOTS: Record<string, string> = { 长袖子_Luzi: "Cloth" };
 
 /** Which slot in UNDRESS_ORDER a worn group belongs to, or null if strip leaves it alone. */
-function slotOf(group: string): string | null {
+export function slotOf(group: string): string | null {
 	if ((UNDRESS_ORDER as readonly string[]).includes(group)) return group;
 	if (ECHO_EXTRA_SLOTS[group]) return ECHO_EXTRA_SLOTS[group];
 	const cut = group.indexOf("_");
