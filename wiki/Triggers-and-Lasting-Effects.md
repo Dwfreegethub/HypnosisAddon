@@ -199,6 +199,8 @@ An item swapped for another counts; taking one off doesn't. Clothing has its own
 
 Changes made in the wardrobe count, by anyone: the game doesn't say what changed, so ECHS compares what she wore before and after. A garment swapped for another counts as one put on, not one taken off. ECHS's own *"take your top off"* counts as her taking it off, though like every compulsion these wait until she is awake. Hats, glasses, jewelry and the like don't count, nor does anything outside a chat room.
 
+*Example (until her underwear is back on):* *"Missy, whenever anyone takes your panties off, you feel a hand between your legs"*, then *"Missy, this trigger holds while you are undressed"*, then *"Missy, remember trigger"*. The touch is felt when the panties come off, comes back now and then while they stay off, and stops when they go back on. Any lasting suggestion works the same way (*"you cannot speak"*, *"you cannot move"*), one per line.
+
 **Holding while undressed.** Add *"Missy, this trigger holds while you are undressed"* (or *"until you are dressed again"*, *"while it stays off"*) and a compulsion for a garment taken off holds until something is back in that slot, with the same repeating arousal as holding while worn. For one put on, *"this trigger holds while you wear it"* holds until it comes off.
 
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.

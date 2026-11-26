@@ -69,6 +69,10 @@ check("a tongue, teeth, a smack", [p("Missy, you feel a tongue on your ear"), p(
 check("lips stay a kiss even when they brush", p("Missy, you feel lips brush your neck"), "Kiss:neck");
 check("no part named: the activity's own spot", p("Missy, you suddenly feel fingers stroking you"), "Caress:");
 check("an extra word: your back", p("Missy, you feel nails down your back"), "Scratch:back");
+// v1.19.5: "between your legs" is the crotch; a later "and you cannot speak" is its own clause.
+check("between your legs: the crotch", [p("Missy, you feel a hand between your legs"), p("Missy, you feel fingers stroke between your thighs")], ["Caress:crotch", "Caress:crotch"]);
+check("a later clause does not undo it", [p("Missy, you feel a hand between your legs and you cannot speak"), p("Missy, you feel lips on your neck and you cannot move")], ["Caress:crotch", "Kiss:neck"]);
+check("  but its own negation still does", p("Missy, you feel no hand between your legs"), null);
 check("not touches", [p("Missy, you feel warm"), p("Missy, you feel your hands go heavy"), p("Missy, you feel nothing"), p("Missy, you can feel my touch again"), p("Missy, you can feel my hands"), p("Missy, you feel someone watching you"), p("Missy, you do not feel a hand on your thigh"), p("Missy, you feel no hands on you"), p("Missy, touch your thigh")], [null, null, null, null, null, null, null, null, null]);
 check("the old wordings still go where they did", [voice.matchSuggestion("Missy, you can feel my touch again"), voice.matchSuggestion("Missy, you feel a little warm"), voice.matchSuggestion("Missy, you feel nothing when I touch you")], ["numb-release", "arousal-light", "numb-block"]);
 check("ids round-trip", [phantom.phantomActionId({ activity: "Kiss", part: "neck" }), phantom.parsePhantomId("feel:Caress:all"), phantom.parsePhantomId("act:Caress:thighs")], ["feel:Kiss:neck", { activity: "Caress", part: "all" }, null]);

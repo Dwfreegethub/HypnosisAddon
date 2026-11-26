@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.5 · 26 November 2026
+
+- **"You feel a hand between your legs"** now lands between the legs, not on them.
+- **A phantom touch with more after it on the same line** (*"…between your legs and you cannot
+  speak"*) is no longer lost.
+- For example: *"Missy, whenever anyone takes your panties off, you feel a hand between your legs"*,
+  then *"Missy, this trigger holds while you are undressed"*, then *"Missy, remember trigger"*. The
+  touch comes back now and then until the panties are back on.
+
 ## v1.19.4 · 26 November 2026
 
 - **Item compulsions now work when you bind yourself.** *"Whenever anyone gags you, …"* goes off
