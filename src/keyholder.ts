@@ -62,7 +62,7 @@ import {
 import { plantedEntryFor, MAX_PLANTED_ENTRIES } from "./planted";
 import { triggerStrength } from "./triggers";
 import { isTriggerInEffect } from "./voice";
-import { remoteRows, remoteChoices, remoteChoiceLabel, onToggle, MODERATE_TABS, ownLocked } from "./menu";
+import { remoteRows, remoteChoices, remoteChoiceLabel, onToggle, MODERATE_TABS, FULL_ONLY_TABS, ownLocked } from "./menu";
 import { keyLockHolder, keysLockHolder, keysLocked } from "./keylock";
 import { extremeLocked, extremeWarning } from "./extreme";
 import { askPlayer, askOpen } from "./ask";
@@ -103,8 +103,11 @@ export function keyModeFor(member: number): KeyMode | null {
 
 /** May a keyholder at `level` make this change? Switching something off (or to its off choice) is
  * every level's; shaping the trance (`moderateOk`) is moderate's and full's; the rest is full's. */
-export function keyLevelAllows(level: KeyMode, turnsOff: boolean, moderateOk: boolean): boolean {
-	if (turnsOff || level === "full") return true;
+export function keyLevelAllows(level: KeyMode, turnsOff: boolean, moderateOk: boolean, fullOnly = false): boolean {
+	if (level === "full") return true;
+	// The General tab (v1.16.37, DW): full keys only, switching off included.
+	if (fullOnly) return false;
+	if (turnsOff) return true;
 	return level === "moderate" && moderateOk;
 }
 
@@ -219,9 +222,9 @@ function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: s
 
 /** What each level lets a keyholder do, in plain words. Shared with commands.ts. */
 export const KEY_LEVEL_WORDS: Record<KeyMode, string> = {
-	minimal: "minimal keys: they can only switch your settings OFF",
-	moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
-	full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading and your Depth tab",
+	minimal: "minimal keys: they can only switch your settings OFF (not on your General tab)",
+	moderate: "moderate keys: they can switch things off (not on your General tab), and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+	full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading, your Depth tab and your General tab",
 };
 /** How long before the same person may ask again. */
 export const KEY_REQUEST_GAP_MS = 3 * 60_000;
@@ -560,8 +563,11 @@ export function handleSettingsRequest(sender: number, message: any): string {
 			return "unchanged";
 		}
 		const moderateOk = MODERATE_TABS.includes(row.tab);
-		if (!keyLevelAllows(mode, !value, moderateOk)) {
-			const text = `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
+		const fullOnly = FULL_ONLY_TABS.includes(row.tab);
+		if (!keyLevelAllows(mode, !value, moderateOk, fullOnly)) {
+			const text = fullOnly
+				? `Your keys are ${mode}: "${row.label}" is on their General tab, which needs full keys.`
+				: `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
 			reply(sender, mode, { ok: false, text });
 			return text;
 		}

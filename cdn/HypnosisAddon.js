@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.36. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.37. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -656,14 +656,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function reassertItemEffects() {
     var _a;
     if (!OWN_EFFECTS.size) return false;
-    const item = findEmoticonItem(Player);
-    if (!item) return false;
-    item.Property ?? (item.Property = {});
-    (_a = item.Property).Effect ?? (_a.Effect = []);
+    const item2 = findEmoticonItem(Player);
+    if (!item2) return false;
+    item2.Property ?? (item2.Property = {});
+    (_a = item2.Property).Effect ?? (_a.Effect = []);
     let restored = false;
     for (const effect of OWN_EFFECTS) {
-      if (!item.Property.Effect.includes(effect)) {
-        item.Property.Effect.push(effect);
+      if (!item2.Property.Effect.includes(effect)) {
+        item2.Property.Effect.push(effect);
         restored = true;
       }
     }
@@ -877,22 +877,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function applyEffect(effectName, character = Player) {
     var _a, _b;
-    const item = findEmoticonItem(character);
+    const item2 = findEmoticonItem(character);
     if (character !== Player) {
-      if (!item) return false;
+      if (!item2) return false;
       ensureEffectsAllowed();
-      item.Property ?? (item.Property = {});
-      (_a = item.Property).Effect ?? (_a.Effect = []);
-      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+      item2.Property ?? (item2.Property = {});
+      (_a = item2.Property).Effect ?? (_a.Effect = []);
+      if (!item2.Property.Effect.includes(effectName)) item2.Property.Effect.push(effectName);
       return true;
     }
     if (effectName === "Freeze") markOwnAction();
     OWN_EFFECTS.add(effectName);
     ensureEffectsAllowed();
-    if (item) {
-      item.Property ?? (item.Property = {});
-      (_b = item.Property).Effect ?? (_b.Effect = []);
-      if (!item.Property.Effect.includes(effectName)) item.Property.Effect.push(effectName);
+    if (item2) {
+      item2.Property ?? (item2.Property = {});
+      (_b = item2.Property).Effect ?? (_b.Effect = []);
+      if (!item2.Property.Effect.includes(effectName)) item2.Property.Effect.push(effectName);
     } else {
       warn(`no Emoticon item found on ${Player?.Name ?? "player"} \u2014 ${effectName} holds on this client only`);
     }
@@ -928,8 +928,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function removeEffect(effectName, character = Player) {
     const heldByUs2 = character === Player && OWN_EFFECTS.delete(effectName);
     if (heldByUs2 && effectName === "Freeze") setHoldFully(false);
-    const item = findEmoticonItem(character);
-    const effects = item?.Property?.Effect;
+    const item2 = findEmoticonItem(character);
+    const effects = item2?.Property?.Effect;
     const idx = Array.isArray(effects) ? effects.indexOf(effectName) : -1;
     if (idx !== -1) effects.splice(idx, 1);
     if (!heldByUs2 && idx === -1) return false;
@@ -1035,13 +1035,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function actMatches(key, activityName) {
     const act = compulsionAct(key);
     if (!act || !activityName) return false;
-    const item = /^(item|lock):(.+)$/.exec(activityName);
+    const item2 = /^(item|lock):(.+)$/.exec(activityName);
     if (act.items) {
-      if (!item || item[1] === "lock" !== !!act.lock) return false;
-      const group = item[2].split("|")[0];
+      if (!item2 || item2[1] === "lock" !== !!act.lock) return false;
+      const group = item2[2].split("|")[0];
       return act.items.length === 0 ? group.startsWith("Item") : act.items.includes(group);
     }
-    if (item) return false;
+    if (item2) return false;
     return act.activities.length === 0 || act.activities.includes(activityName);
   }
   function compulsionActList() {
@@ -2613,10 +2613,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!Number.isFinite(n)) return null;
     return Math.min(MAX_GATE_DEPTH, Math.max(0, Math.round(n)));
   }
-  function nextScope(scope) {
-    const at = CHEMICAL_SCOPES.findIndex((s) => s.key === scope);
-    return CHEMICAL_SCOPES[(at + 1) % CHEMICAL_SCOPES.length].key;
-  }
   function scopeLabel() {
     let scope = "arousal";
     try {
@@ -3246,11 +3242,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isIllusionActive() {
     return frozen !== null;
   }
-  function cloneItem(item) {
+  function cloneItem(item2) {
     return {
-      ...item,
-      Property: item?.Property ? { ...item.Property } : item?.Property,
-      Color: Array.isArray(item?.Color) ? [...item.Color] : item?.Color
+      ...item2,
+      Property: item2?.Property ? { ...item2.Property } : item2?.Property,
+      Color: Array.isArray(item2?.Color) ? [...item2.Color] : item2?.Color
     };
   }
   function ensureShadow() {
@@ -3265,10 +3261,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function liveSignature() {
     const parts = [String(Player?.ActivePose ?? "")];
-    for (const item of Player?.Appearance ?? []) {
-      if (isWornGroup(item?.Asset?.Group)) continue;
+    for (const item2 of Player?.Appearance ?? []) {
+      if (isWornGroup(item2?.Asset?.Group)) continue;
       parts.push(
-        `${item?.Asset?.Group?.Name}:${item?.Asset?.Name}:${item?.Property?.Expression ?? ""}:${String(item?.Color ?? "")}`
+        `${item2?.Asset?.Group?.Name}:${item2?.Asset?.Name}:${item2?.Property?.Expression ?? ""}:${String(item2?.Color ?? "")}`
       );
     }
     return parts.join("|");
@@ -3327,13 +3323,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (typeof AssetGet !== "function") return false;
     const family = Player?.AssetFamily ?? "Female3DCG";
     const rebuilt = [];
-    for (const item of items) {
-      const asset = AssetGet(family, item.group, item.name);
+    for (const item2 of items) {
+      const asset = AssetGet(family, item2.group, item2.name);
       if (!asset) {
-        warn(`cannot restore illusion \u2014 asset ${item.group}/${item.name} not found`);
+        warn(`cannot restore illusion \u2014 asset ${item2.group}/${item2.name} not found`);
         return false;
       }
-      rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
+      rebuilt.push({ Asset: asset, Color: item2.color, Property: item2.property });
     }
     frozen = rebuilt;
     lastSignature = "";
@@ -3478,7 +3474,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function isTrapped(C) {
     return (C?.Appearance ?? []).some(
-      (item) => TRAPPING_EFFECTS.some((e) => item?.Asset?.Effect?.includes?.(e) || item?.Property?.Effect?.includes?.(e))
+      (item2) => TRAPPING_EFFECTS.some((e) => item2?.Asset?.Effect?.includes?.(e) || item2?.Property?.Effect?.includes?.(e))
     );
   }
   function followBlocker() {
@@ -3643,13 +3639,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function eyeItem(group) {
     return typeof InventoryGet === "function" && typeof Player === "object" ? InventoryGet(Player, group) : null;
   }
-  function colourFor(item, hex) {
-    const layers = Math.max(1, Number(item?.Asset?.ColorableLayerCount) || 1);
+  function colourFor(item2, hex) {
+    const layers = Math.max(1, Number(item2?.Asset?.ColorableLayerCount) || 1);
     return Array(layers).fill(hex);
   }
-  function canFadeOut(item) {
-    const layers = Array.isArray(item?.Asset?.Layer) ? item.Asset.Layer : [];
-    const assetMin = Number(item?.Asset?.MinOpacity ?? 0) || 0;
+  function canFadeOut(item2) {
+    const layers = Array.isArray(item2?.Asset?.Layer) ? item2.Asset.Layer : [];
+    const assetMin = Number(item2?.Asset?.MinOpacity ?? 0) || 0;
     if (!layers.length) return assetMin <= 0;
     return layers.every((l) => (Number(l?.MinOpacity ?? assetMin) || 0) <= 0);
   }
@@ -3660,11 +3656,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       warn(`trance eyes: could not find the eye shadow "${was.name}" to put back`);
       return false;
     }
-    const item = CharacterAppearanceSetItem(Player, SHADOW_GROUP, asset, clone(was.color));
-    if (!item) return false;
-    if (was.property != null) item.Property = clone(was.property);
-    if (was.craft != null) item.Craft = clone(was.craft);
-    if (typeof was.difficulty === "number") item.Difficulty = was.difficulty;
+    const item2 = CharacterAppearanceSetItem(Player, SHADOW_GROUP, asset, clone(was.color));
+    if (!item2) return false;
+    if (was.property != null) item2.Property = clone(was.property);
+    if (was.craft != null) item2.Craft = clone(was.craft);
+    if (typeof was.difficulty === "number") item2.Difficulty = was.difficulty;
     return true;
   }
   function sync() {
@@ -3685,12 +3681,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const saved = { at: Date.now(), eyes: {} };
     for (let i = 0; i < EYE_GROUPS.length; i++) {
-      const item = items[i];
-      if (!item) continue;
+      const item2 = items[i];
+      if (!item2) continue;
       saved.eyes[EYE_GROUPS[i]] = {
-        color: item.Color ?? null,
-        expression: item.Property?.Expression ?? null,
-        setColor: colour ? colourFor(item, colour) : void 0,
+        color: item2.Color ?? null,
+        expression: item2.Property?.Expression ?? null,
+        setColor: colour ? colourFor(item2, colour) : void 0,
         setExpression: expression || void 0
       };
     }
@@ -3735,15 +3731,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     try {
       for (const group of EYE_GROUPS) {
         const was = saved.eyes[group];
-        const item = eyeItem(group);
-        if (!was || !item) continue;
-        if (was.setColor && same(item.Color, was.setColor)) {
-          item.Color = was.color ?? "Default";
+        const item2 = eyeItem(group);
+        if (!was || !item2) continue;
+        if (was.setColor && same(item2.Color, was.setColor)) {
+          item2.Color = was.color ?? "Default";
           changed = true;
         }
-        if (was.setExpression && (item.Property?.Expression ?? null) === was.setExpression) {
-          if (!item.Property) item.Property = {};
-          item.Property.Expression = was.expression ?? null;
+        if (was.setExpression && (item2.Property?.Expression ?? null) === was.setExpression) {
+          if (!item2.Property) item2.Property = {};
+          item2.Property.Expression = was.expression ?? null;
           changed = true;
         }
       }
@@ -5696,10 +5692,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const member = Player?.MemberNumber;
     return typeof member === "number" && member > 0 ? `${SETTINGS_KEY}_Backup_${member}` : null;
   }
-  function nextAttemptLimit(current2) {
-    const i = ATTEMPT_LIMITS.indexOf(current2);
-    return ATTEMPT_LIMITS[(i + 1) % ATTEMPT_LIMITS.length];
-  }
   function defaultFeatures() {
     return {
       hypnoEnabled: false,
@@ -6257,10 +6249,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEEPEST_TIERS.some((r) => r.key === key)) loadSettings().deepestTier = key;
     saveSettings();
   }
-  function nextDeepestTier(current2) {
-    const i = DEEPEST_TIERS.findIndex((r) => r.key === current2);
-    return DEEPEST_TIERS[(i + 1) % DEEPEST_TIERS.length].key;
-  }
   function getDefaultStance() {
     return loadSettings().defaultStance ?? DEFAULT_DEFAULT_STANCE;
   }
@@ -6268,18 +6256,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (DEFAULT_STANCES.some((r) => r.key === key)) loadSettings().defaultStance = key;
     saveSettings();
   }
-  function nextDefaultStance(current2) {
-    return cycle(DEFAULT_STANCES, current2);
-  }
   function getAwayStance() {
     return loadSettings().awayStance ?? DEFAULT_AWAY_STANCE;
   }
   function setAwayStance(key) {
     if (AWAY_STANCES.some((r) => r.key === key)) loadSettings().awayStance = key;
     saveSettings();
-  }
-  function nextAwayStance(current2) {
-    return cycle(AWAY_STANCES, current2);
   }
   function getInductionSeconds() {
     const v = loadSettings().inductionSeconds;
@@ -6292,10 +6274,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     else s.inductionSeconds = value;
     saveSettings();
     return value;
-  }
-  function nextInductionSeconds(current2) {
-    const i = INDUCTION_TIMES.indexOf(current2);
-    return INDUCTION_TIMES[(i + 1) % INDUCTION_TIMES.length];
   }
   function getToyMode() {
     return loadSettings().toyMode === true;
@@ -6550,10 +6528,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (SKILL_HONOUR_RUNGS.some((r) => r.key === rung)) loadSettings().skillHonour = rung;
     saveSettings();
   }
-  function nextSkillHonour(current2) {
-    const i = SKILL_HONOUR_OFFERED.findIndex((r) => r.key === current2);
-    return SKILL_HONOUR_OFFERED[(i + 1) % SKILL_HONOUR_OFFERED.length].key;
-  }
   function addSkill(delta) {
     const settings = loadSettings();
     settings.skill = Math.max(0, settings.skill + delta);
@@ -6608,7 +6582,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, cycle, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES, TRIGGER_VIEWS;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES, TRIGGER_VIEWS;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6711,7 +6685,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       DEFAULT_TOY_SCOPE = "lovers";
       OLD_TOY_SCOPES = { lover: "lovers", friend: "friends", anyone: "everyone" };
-      cycle = (list, current2) => list[(list.findIndex((r) => r.key === current2) + 1) % list.length].key;
       INDUCTION_TIMES = [60, 45, 30, 20, 10];
       DEFAULT_INDUCTION_SECONDS = 60;
       MIN_INDUCTION_SECONDS = 10;
@@ -6900,8 +6873,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const order = UNDRESS_ORDER;
     const seen = /* @__PURE__ */ new Set();
     const worn = [];
-    for (const item of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
-      const group = item?.Asset?.Group?.Name;
+    for (const item2 of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
+      const group = item2?.Asset?.Group?.Name;
       if (typeof group !== "string" || seen.has(group)) continue;
       const slot = slotOf(group);
       if (!slot) continue;
@@ -8506,15 +8479,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   }
   function wornStillOn(hold2) {
-    let item = null;
+    let item2 = null;
     try {
-      item = typeof InventoryGet === "function" ? InventoryGet(Player, hold2.group) : null;
+      item2 = typeof InventoryGet === "function" ? InventoryGet(Player, hold2.group) : null;
     } catch {
       return true;
     }
-    if (!item) return false;
-    if (hold2.asset && item.Asset?.Name !== hold2.asset) return false;
-    if (hold2.lock && !item.Property?.LockedBy) return false;
+    if (!item2) return false;
+    if (hold2.asset && item2.Asset?.Name !== hold2.asset) return false;
+    if (hold2.lock && !item2.Property?.LockedBy) return false;
     return true;
   }
   function checkWornHolds(now = Date.now()) {
@@ -8578,7 +8551,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             if (metadata?.ActivityName && metadata?.TargetMemberNumber === Player?.MemberNumber && typeof by === "number") {
               noteActivity2(by, String(metadata.ActivityName));
             }
-            if (typeof by === "number") for (const item of itemEventsOf(_data, metadata)) noteActivity2(by, item);
+            if (typeof by === "number") for (const item2 of itemEventsOf(_data, metadata)) noteActivity2(by, item2);
           } catch (err) {
             warn("activity compulsion handler failed:", err);
           }
@@ -9469,17 +9442,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
   }
-  function toolRank(item) {
-    if (!item) return 3;
-    const g = String(item?.Asset?.Group?.Name ?? "");
+  function toolRank(item2) {
+    if (!item2) return 3;
+    const g = String(item2?.Asset?.Group?.Name ?? "");
     if (TOOL_GROUPS.gag(g)) return 0;
     if (TOOL_GROUPS.strap(g)) return 1;
     if (TOOL_GROUPS.dildo(g)) return 2;
     if (TOOL_GROUPS.cock(g)) return 9;
     return 3;
   }
-  function itemIsTool(item, tool) {
-    return !tool || TOOL_GROUPS[tool](String(item?.Asset?.Group?.Name ?? ""));
+  function itemIsTool(item2, tool) {
+    return !tool || TOOL_GROUPS[tool](String(item2?.Asset?.Group?.Name ?? ""));
   }
   function matchTargetedActivityCommand(content, roster) {
     const cmd = matchTargetedRaw(content, roster);
@@ -11332,7 +11305,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.36", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.37", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11381,7 +11354,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.36", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.37", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -11516,10 +11489,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DrawText(text2, x, y, color, "Gray");
     MainCanvas.restore();
   }
-  function drawLeftTextFit(text2, x, y, maxWidth, color = "Black") {
+  function drawLeftTextFit(text2, x, y, maxWidth, color = "Black", startSize = 36) {
     MainCanvas.save();
     MainCanvas.textAlign = "left";
-    let size = 36;
+    let size = startSize;
     const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
     MainCanvas.font = font(size);
     while (size > 22 && MainCanvas.measureText(text2).width > maxWidth) {
@@ -11634,6 +11607,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.restore();
     return out.length ? out : [""];
   }
+  function joinHelpParagraphs(lines) {
+    const out = [];
+    const style = (l) => l.style ?? "body";
+    for (const line of lines) {
+      const prev = out[out.length - 1];
+      const text2 = (line.text ?? "").trim();
+      const continues = !!prev && !prev.keep && !line.keep && (style(prev) === "body" || style(prev) === "dim") && style(prev) === style(line) && !!(prev.text ?? "").trim() && !!text2 && !/^(\d+\.|[•*-]\s|["“/])/.test(text2) && (!/[.!?:;)"”]$/.test(prev.text.trimEnd()) || /^[a-z(]/.test(text2));
+      if (continues) out[out.length - 1] = { ...prev, text: `${prev.text.trimEnd()} ${text2}` };
+      else out.push({ ...line });
+    }
+    return out;
+  }
   function paginateHelp(lines) {
     const pages = [[]];
     let y = HELP_TOP;
@@ -11641,15 +11626,26 @@ One of mods you are using is using an old version of SDK. It will work for now b
       pages.push([]);
       y = HELP_TOP;
     };
-    for (const line of lines) {
+    const paragraphs = joinHelpParagraphs(lines);
+    const room = HELP_BOTTOM - HELP_TOP;
+    const heightOf = (line) => {
+      if (!line || line.style === "gap") return 0;
+      const { size } = styleOf(line.style);
+      return wrapText(line.text, size).length * lineBand(size);
+    };
+    paragraphs.forEach((line, index) => {
       const cur = () => pages[pages.length - 1];
       if (line.style === "gap") {
         if (cur().length) y += GAP_SIZE;
-        continue;
+        return;
       }
       const { size, color } = styleOf(line.style);
-      const lead = line.style === "head" ? HEAD_LEAD : 0;
+      const lead = line.style === "head" && cur().length ? HEAD_LEAD : 0;
       const segments = wrapText(line.text, size);
+      const own = segments.length * lineBand(size);
+      const after = line.style === "head" ? heightOf(paragraphs[index + 1]) : 0;
+      const next = after + HEAD_LEAD <= room - own ? after : Math.min(after, lineBand(BODY_SIZE) * 2);
+      if (cur().length && y + lead + own + next > HELP_BOTTOM && own + next <= room) newPage();
       segments.forEach((seg, i) => {
         const band = lineBand(size);
         const gapBefore = i === 0 && cur().length ? lead : 0;
@@ -11658,7 +11654,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         cur().push({ text: seg, size, color, y: top + band / 2 });
         y = top + band;
       });
-    }
+    });
     return pages;
   }
   function drawHelpLines(lines, page3) {
@@ -11738,6 +11734,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function tipButton(left, top, width, height, label, color, image, tip, disabled = false) {
     DrawButton(left, top, width, height, label, color, image, "", disabled);
+    if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
+  }
+  function tipArea(left, top, width, height, tip) {
     if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
   }
   function flushTip() {
@@ -11846,8 +11845,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("In a chat room, the round spiral button on the left opens a window"),
       body("that TYPES for you: who you can hypnotize, what to say to someone"),
       body("under you, your own answers, triggers, and every command. Nothing"),
-      body("is sent until you press Enter. Drag it anywhere; switch it off at"),
-      dim("Trance Defaults > ECHS popup in rooms."),
+      body("is sent until you press Enter. Drag it anywhere; switch it off on the General tab (ECHS popup in rooms)."),
       gap(),
       head("As the subject"),
       body("1. Tick the permissions you want to allow. Everything is off until"),
@@ -11887,10 +11885,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("the emotes off entirely."),
       gap(),
       head("Getting out"),
-      body("The Wake Up button \xB7 a spoken wake word \xB7 /echs wake while the"),
-      body("trance is still shallow \xB7 the timeout (30 minutes, 60 under an Extreme"),
-      body("lock), which asks whether to stay under (/echs stay) \xB7 and"),
-      body("/echs safeword, which no setting and no suggestion can ever take away.")
+      body("The Wake Up button \xB7 a spoken wake word \xB7 /echs wake while the trance is still shallow \xB7 the timeout (30 minutes, 60 under an Extreme lock), which asks whether to stay under (/echs stay) \xB7 and /echs safeword, which no setting and no suggestion can ever take away.")
     ];
   }
   function vocabularyLines() {
@@ -11910,7 +11905,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const gate = gateBits.length ? `   (${gateBits.join(", ")})` : "";
       lines.push({
         text: `${sug.display.map((e) => `"${e}"`).join("  \xB7  ")}${gate}`,
-        style: sug.release ? "dim" : "body"
+        style: sug.release ? "dim" : "body",
+        keep: true
       });
     }
     lines.push(gap());
@@ -11943,7 +11939,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function depthLadder() {
     const lines = [head("The five depths")];
-    for (const t of DEPTH_TIERS) lines.push(body(`${t.label} (${t.min}+) \u2014 ${t.blurb}`));
+    for (const t of DEPTH_TIERS) lines.push(item(`${t.label} (${t.min}+) \u2014 ${t.blurb}`));
     lines.push(gap());
     lines.push(head("What each depth reaches"));
     let anyEarned = false;
@@ -11954,7 +11950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (g.earnedOnly) anyEarned = true;
         return g.earnedOnly ? `${g.label}*` : g.label;
       }).join(" \xB7 ");
-      lines.push(body(`${t.label}: ${names}`));
+      lines.push(item(`${t.label}: ${names}`));
     }
     if (anyEarned) {
       lines.push(dim("* earned depth only \u2014 arousal cannot reach these by default (below)."));
@@ -11999,8 +11995,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("Read from BC's own friend list, lovership and ownership."),
       gap(),
       head("Trust fades without contact"),
-      body("In the Advanced view (button under the tabs): Never \xB7 Very slowly \xB7"),
-      body("Slowly \xB7 Typical \xB7 Fast \xB7 Very fast. Off unless you choose."),
+      body("On the Stats tab: Never \xB7 Very slowly \xB7 Slowly \xB7 Typical \xB7 Fast \xB7 Very fast. Off unless you choose."),
       dim("A casual acquaintance fades far faster than a deep bond, and a"),
       dim("relationship floor is what decay can never take."),
       gap(),
@@ -12156,15 +12151,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       head("Keyholders"),
       body("/echs keyholder add <name> [minimal|moderate|full] gives someone your keys:"),
       body("they can change your settings while you share a room, even under Extreme,"),
-      body("and end the lock. minimal = only switch off; moderate = also shape your"),
-      dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
+      body("and end the lock. minimal = only switch off; moderate = also shape your trance; full = everything."),
+      dim("Their General tab needs full keys. Your BC owner: /echs keyholder owner <level>."),
       dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
       dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
       dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
       gap(),
       head("If something is holding you"),
-      body("Wait for it to wear off \xB7 have whoever set it release you \xB7"),
-      body("/echs safeword, which always works from any state."),
+      body("Wait for it to wear off \xB7 have whoever set it release you \xB7 /echs safeword, which always works from any state."),
       dim("/echs forgettrigger REFUSES while a trigger has hold of you \u2014"),
       dim("deleting it would be too quiet an escape. Chat commands survive"),
       dim("being silenced, so the safeword stays reachable when speech does not."),
@@ -12194,7 +12188,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lines.push(head(group));
       if (NOTE[group]) lines.push(dim(NOTE[group]));
       for (const c of inGroup) {
-        lines.push(body(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} \u2014 ${c.description}`));
+        lines.push(item(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} \u2014 ${c.description}`));
       }
       lines.push(gap());
     }
@@ -12246,7 +12240,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return MouseIn(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT);
   }
-  var open, activeTab, page, head, body, dim, gap, TABS, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, PAGE_BUTTON_TOP, PAGE_PREV_LEFT, PAGE_NEXT_LEFT;
+  var open, activeTab, page, head, body, dim, gap, item, TABS, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, PAGE_BUTTON_TOP, PAGE_PREV_LEFT, PAGE_NEXT_LEFT;
   var init_help = __esm({
     "src/help.ts"() {
       init_voice();
@@ -12263,6 +12257,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body = (text2) => ({ text: text2 });
       dim = (text2) => ({ text: text2, style: "dim" });
       gap = () => ({ text: "", style: "gap" });
+      item = (text2, style) => ({ text: text2, style, keep: true });
       TABS = [
         { name: "Start Here", blurb: "The loop, both sides of it, and every way out.", lines: startedLines },
         {
@@ -12811,27 +12806,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/menu.ts
-  function isHeading(item) {
-    return item.heading !== void 0;
+  function isHeading(item2) {
+    return item2.heading !== void 0;
   }
   function remoteRows() {
     const out = [];
     for (const tab2 of TABS2.filter((t) => REMOTE_TABS.includes(t.name))) {
       for (const r of tab2.fixedRows ?? []) out.push({ key: r.key, label: r.label, tab: tab2.name, heading: "", needs: r.needs });
       let heading = "";
-      for (const item of tab2.rows ?? []) {
-        if (isHeading(item)) heading = item.heading;
-        else out.push({ key: item.key, label: item.label, tab: tab2.name, heading, needs: item.needs });
+      for (const item2 of tab2.rows ?? []) {
+        if (isHeading(item2)) heading = item2.heading;
+        else out.push({ key: item2.key, label: item2.label, tab: tab2.name, heading, needs: item2.needs });
       }
     }
     return out;
   }
   function visibleTabs() {
-    const tabs = showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+    const tabs = TABS2;
     return getTriggerView() === "hidden" ? tabs.filter((t) => t.name !== "Planted") : tabs;
-  }
-  function advancedButtonTop() {
-    return tabTop(visibleTabs().length) + 4;
   }
   function dataButtonLeft(index) {
     return BOX_LEFT + index * (DATA_BUTTON_WIDTH + DATA_BUTTON_GAP);
@@ -12988,30 +12980,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function attemptControlHeight() {
     return ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT;
   }
-  function drawAttemptControl(top, width) {
-    const locked = settingsLocked();
-    tipButton(
-      BOX_LEFT,
-      top,
-      ATTEMPT_BUTTON_WIDTH,
-      ATTEMPT_BUTTON_HEIGHT,
-      `Attempts before they must wait: ${getMaxAttempts()}`,
-      locked ? "#ddd" : "White",
-      "",
-      // No tooltip while the pointer is outside the scroll area: the button may be half
-      // scrolled out, and BC would raise it from the clipped half.
-      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "How many tries one hypnotist gets in a row",
-      locked
-    );
-    drawLeftTextWrap(
-      "When they run out, they cannot try you again for ten minutes.",
-      BOX_LEFT,
-      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-      width,
-      ATTEMPT_CAPTION_HEIGHT,
-      locked ? "Gray" : "#555"
-    );
-  }
   function dropdownSlot() {
     return attemptControlHeight() + CYCLE_GAP;
   }
@@ -13020,18 +12988,31 @@ One of mods you are using is using an old version of SDK. It will work for now b
     restoreTranceEyes();
     applyTranceEyes();
   }
-  function removeTranceDropdowns() {
-    for (const id of TRANCE_DROPDOWN_IDS) if (document.getElementById(id)) ElementRemove(id);
+  function removeDropdowns(rows) {
+    for (const r of rows) if (document.getElementById(r.id)) ElementRemove(r.id);
+  }
+  function dropdownsExtra(rows) {
+    return {
+      height: () => rows().length * dropdownSlot(),
+      draw: (top, width) => drawDropdowns(rows(), top, width),
+      click: () => false,
+      hide: () => removeDropdowns(rows())
+    };
+  }
+  function drawDropdowns(rows, top, width) {
+    rows.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, row.lockable === false ? false : settingsLocked()));
   }
   function drawDropdownRow(row, top, width, locked) {
-    drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black");
+    drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
     drawLeftTextWrap(
       row.caption(),
       BOX_LEFT,
       top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
       width,
       ATTEMPT_CAPTION_HEIGHT,
-      locked ? "Gray" : "#555"
+      locked ? "Gray" : "#555",
+      CAPTION_SIZE,
+      18
     );
     const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
     let element = document.getElementById(row.id);
@@ -13044,9 +13025,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         row.id,
         row.options.map((o) => o.label),
         function() {
-          if (settingsLocked()) return;
+          if (row.lockable !== false && settingsLocked()) return;
           const picked = row.options[this.selectedIndex];
-          if (picked) row.set(picked.key);
+          if (picked) {
+            row.set(picked.key);
+            log(`setting now: ${row.label} ${picked.label}`);
+          }
         }
       );
     }
@@ -13055,9 +13039,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     element.disabled = locked;
     const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
     ElementPosition(row.id, left + DROPDOWN_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_WIDTH, ATTEMPT_BUTTON_HEIGHT);
-  }
-  function drawTranceDropdowns(top, width, locked) {
-    TRANCE_DROPDOWNS.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, locked));
   }
   function tranceDropdownsHeight() {
     return TRANCE_DROPDOWNS.length * dropdownSlot();
@@ -13160,16 +13141,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (document.getElementById(PULSE_HEX_ID)) ElementRemove(PULSE_HEX_ID);
   }
   function pulseControlsHeight() {
-    return attemptControlHeight() + (getPulseColor() === "custom" ? CYCLE_GAP + attemptControlHeight() : 0);
+    return dropdownSlot() * (getPulseColor() === "custom" ? 2 : 1);
   }
   function drawPulseControls(top, width) {
     const locked = settingsLocked();
-    drawCycle(PULSE_COLOR_CONTROL, top, width, locked);
+    drawDropdownRow(PULSE_COLOR_DROPDOWN, top, width, locked);
     if (getPulseColor() !== "custom") {
       removePulseHexInput();
       return;
     }
-    const at = top + attemptControlHeight() + CYCLE_GAP;
+    const at = top + dropdownSlot();
     const inputLeft = BOX_LEFT + PULSE_HEX_LABEL_WIDTH + 20;
     drawLeftTextFit("Colour code:", BOX_LEFT, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_LABEL_WIDTH, locked ? "Gray" : "Black");
     DrawRect(inputLeft + PULSE_HEX_WIDTH + 20, at + (ATTEMPT_BUTTON_HEIGHT - PULSE_SWATCH_SIZE) / 2, PULSE_SWATCH_SIZE, PULSE_SWATCH_SIZE, getPulseCustom());
@@ -13179,7 +13160,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
       width,
       ATTEMPT_CAPTION_HEIGHT,
-      pulseHexError ? "#a00000" : locked ? "Gray" : "#555"
+      pulseHexError ? "#a00000" : locked ? "Gray" : "#555",
+      CAPTION_SIZE,
+      18
     );
     if (at < rowScroll.top || at + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
       removePulseHexInput();
@@ -13205,273 +13188,120 @@ One of mods you are using is using an old version of SDK. It will work for now b
     element.disabled = locked;
     ElementPosition(PULSE_HEX_ID, inputLeft + PULSE_HEX_WIDTH / 2, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_WIDTH, ATTEMPT_BUTTON_HEIGHT);
   }
-  function inductionsHeight() {
-    return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
-  }
-  function drawToyScopeControl(top, width, locked) {
-    drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
-    drawLeftTextWrap(
-      getToyScope() === "everyone" || getToyScope() === "notblack" ? "Anyone in the room, strangers too. Read from your BC relationships and lists." : "Read from your BC relationships and lists, the same as for triggers.",
-      BOX_LEFT,
-      top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-      width,
-      ATTEMPT_CAPTION_HEIGHT,
-      locked ? "Gray" : "#555"
-    );
-    const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
-    let element = document.getElementById(TOY_SCOPE_ID);
-    if (!inView) {
-      if (element) ElementRemove(TOY_SCOPE_ID);
-      return;
-    }
-    if (!element) {
-      element = ElementCreateDropdown(
-        TOY_SCOPE_ID,
-        TOY_SCOPES.map((s) => s.label),
-        function() {
-          setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
-          log(`toy mode is for: ${getToyScope()}`);
-        }
-      );
-    }
-    const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
-    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-    element.disabled = locked;
-    const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
-    ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
-  }
-  function cycleTop(top, i) {
-    return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
-  }
-  function drawInductions(top, width) {
-    drawAttemptControl(top, width);
-    const locked = settingsLocked();
-    PERMISSION_CYCLES.forEach((c, i) => {
-      const at = cycleTop(top, i);
-      tipButton(
-        BOX_LEFT,
-        at,
-        ATTEMPT_BUTTON_WIDTH + 200,
-        ATTEMPT_BUTTON_HEIGHT,
-        c.label(),
-        locked ? "#ddd" : "White",
-        "",
-        !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
-        locked
-      );
-      drawLeftTextWrap(
-        c.caption(),
-        BOX_LEFT,
-        at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-        width,
-        ATTEMPT_CAPTION_HEIGHT,
-        locked ? "Gray" : "#555"
-      );
-    });
-    drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
-    drawCycle(DEEPEST_CONTROL, cycleTop(top, PERMISSION_CYCLES.length + 1), width, locked);
-  }
-  function drawCycle(c, at, width, locked) {
-    tipButton(
-      BOX_LEFT,
-      at,
-      ATTEMPT_BUTTON_WIDTH + 200,
-      ATTEMPT_BUTTON_HEIGHT,
-      c.label(),
-      locked ? "#ddd" : "White",
-      "",
-      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
-      locked
-    );
-    drawLeftTextWrap(
-      c.caption(),
-      BOX_LEFT,
-      at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-      width,
-      ATTEMPT_CAPTION_HEIGHT,
-      locked ? "Gray" : "#555"
-    );
-  }
-  function clickInductions(top) {
-    if (clickAttemptControl(top)) return true;
-    const slots = [
-      ...PERMISSION_CYCLES.map((c, i) => [c, i]),
-      [DEEPEST_CONTROL, PERMISSION_CYCLES.length + 1]
-    ];
-    for (const [c, slot] of slots) {
-      if (!MouseIn(BOX_LEFT, cycleTop(top, slot), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
-      if (settingsLocked()) return true;
-      c.cycle();
-      log(`setting now: ${c.label()}`);
-      return true;
-    }
-    return false;
-  }
   function dropCaption() {
     const mode = getDropMode();
     if (mode === "off") return "A trigger cannot drop you straight into trance.";
     if (mode === "once") return "A trigger may drop you into trance once, then it is gone.";
     return "A trigger may drop you into trance each time, until it fades \u2014 if its hypnotist asked.";
   }
-  function drawDropControl(top, width) {
+  function drawDurationControl(top, width) {
     const locked = settingsLocked();
-    const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-    tipButton(
-      BOX_LEFT,
-      top,
-      ATTEMPT_BUTTON_WIDTH,
-      ATTEMPT_BUTTON_HEIGHT,
-      `Drop triggers: ${label}`,
-      locked ? "#ddd" : "White",
-      "",
-      !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "Whether a trigger can put you straight under",
-      locked
-    );
+    drawLeftTextFit("Minutes a fired trigger lasts:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
     drawLeftTextWrap(
-      dropCaption(),
+      "0 keeps it until it is released, or until the safeword. Up to 1440 (a day).",
       BOX_LEFT,
       top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
       width,
       ATTEMPT_CAPTION_HEIGHT,
-      locked ? "Gray" : "#555"
+      locked ? "Gray" : "#555",
+      CAPTION_SIZE,
+      18
     );
+    if (top < rowScroll.top || top + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
+      if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+      return;
+    }
+    let element = document.getElementById(DURATION_ID);
+    if (!element) {
+      element = ElementCreateInput(DURATION_ID, "number", String(getTriggerDuration()), 4);
+      element.min = "0";
+      element.max = "1440";
+      element.inputMode = "numeric";
+      element.addEventListener("blur", function(event) {
+        ElementNumberInputBlur.call(this, event);
+        if (settingsLocked()) return;
+        const saved = setTriggerDuration(Number(this.value));
+        this.value = String(saved);
+        log(`trigger duration set to ${saved} min`);
+      });
+    }
+    if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
+    element.disabled = locked;
+    const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
+    ElementPosition(DURATION_ID, left + DURATION_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DURATION_WIDTH, ATTEMPT_BUTTON_HEIGHT);
   }
-  function clickDropControl(top) {
-    if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
-    if (settingsLocked()) return true;
-    const index = DROP_MODES.findIndex((m) => m.key === getDropMode());
-    const next = setDropMode(DROP_MODES[(index + 1) % DROP_MODES.length].key);
-    log(`drop triggers set to ${next}`);
-    return true;
+  function chemDropdowns() {
+    return DEPTH_GATES.filter((g) => g.earnedOnly).map((g) => ({
+      id: CHEM_PREFIX + g.key,
+      label: "",
+      options: [{ key: "earned", label: "Earned only" }, { key: "arousal", label: "Arousal ok" }],
+      get: () => isChemicalToggleable(g.key) && getChemicalReach(g.key) ? "arousal" : "earned",
+      set: (key) => {
+        if (!isChemicalToggleable(g.key)) return;
+        const now = key === "arousal";
+        if (now === getChemicalReach(g.key)) return;
+        setChemicalReach(g.key, now);
+        notifyLocal(now ? `${g.label}: arousal may reach this now \u2014 anything seeded this way fades fast.` : `${g.label}: back to trust only.`);
+      },
+      caption: () => ""
+    }));
   }
-  function clickAttemptControl(top) {
-    if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
-    if (settingsLocked()) return true;
-    const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
-    log(`induction attempt limit set to ${next}`);
-    return true;
+  function depthRowsHeight() {
+    return DEPTH_GATES.length * DEPTH_ROW_HEIGHT;
   }
-  function depthPageCount() {
-    return Math.max(1, Math.ceil(DEPTH_GATES.length / DEPTH_ROWS_PER_PAGE));
+  function depthHeight() {
+    return depthRowsHeight() + DEPTH_SUMMARY_GAP + DEPTH_SUMMARY_HEIGHT + DEPTH_DROPDOWNS.length * dropdownSlot();
   }
-  function visibleGates() {
-    const from = depthPage * DEPTH_ROWS_PER_PAGE;
-    return DEPTH_GATES.slice(from, from + DEPTH_ROWS_PER_PAGE);
+  function wholeInView(top, height) {
+    return top >= rowScroll.top && top + height <= rowScroll.top + rowScroll.height;
   }
-  function drawDepthGates() {
+  function drawDepthGates(top0, width) {
     const locked = settingsLocked();
     const features = getFeatures();
-    removeDepthInputs(visibleGates().map((g) => DEPTH_INPUT_PREFIX + g.key));
-    visibleGates().forEach((gate, i) => {
-      const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
+    const tip = (text2) => mouseInScroll(rowScroll) ? text2 : "";
+    const chems = new Map(chemDropdowns().map((d) => [d.id, d]));
+    DEPTH_GATES.forEach((gate, i) => {
+      const top = top0 + i * DEPTH_ROW_HEIGHT;
       const granted = !!features[gate.key];
-      drawLeftTextFit(
-        gate.label,
-        BOX_LEFT,
-        top + 30,
-        DEPTH_LABEL_MAX,
-        granted ? "Black" : "Gray"
-      );
+      drawLeftTextFit(gate.label, BOX_LEFT, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_LABEL_MAX, granted ? "Black" : "Gray", DROPDOWN_LABEL_SIZE);
       const need = requiredDepth(gate.key);
       const stepColor = locked ? "#ddd" : granted ? "White" : "#eee";
-      tipButton(
-        DEPTH_CTRL_LEFT,
-        top,
-        DEPTH_STEP_WIDTH,
-        DEPTH_BUTTON_HEIGHT,
-        `-${DEPTH_STEP}`,
-        stepColor,
-        "",
-        "",
-        locked || need <= 0
-      );
-      drawDepthInput(gate.key, top, need, locked);
-      tipButton(
-        DEPTH_PLUS_LEFT,
-        top,
-        DEPTH_STEP_WIDTH,
-        DEPTH_BUTTON_HEIGHT,
-        `+${DEPTH_STEP}`,
-        stepColor,
-        "",
-        "",
-        locked || need >= MAX_GATE_DEPTH
-      );
-      drawLeftTextFit(
-        `[${tierLabel(tierOf(need))}]`,
-        DEPTH_TIER_TEXT_LEFT,
-        top + 30,
-        DEPTH_TIER_TEXT_MAX,
-        granted ? "Black" : "Gray"
-      );
-      if (gate.earnedOnly) {
-        const toggleable = isChemicalToggleable(gate.key);
-        const open3 = toggleable && getChemicalReach(gate.key);
-        tipButton(
-          CHEM_TOGGLE_LEFT,
-          top,
-          CHEM_TOGGLE_WIDTH,
-          DEPTH_BUTTON_HEIGHT,
-          open3 ? "arousal ok" : "earned only",
-          locked || !toggleable ? "#eee" : open3 ? "#e7efe7" : "White",
-          "",
-          !toggleable ? "Waiting on carry-forward decay before arousal can be allowed here." : open3 ? "Arousal can reach this \u2014 but anything seeded that way fades fast. Click for trust only." : "Only trust reaches this. Click to let arousal too \u2014 it fades fast.",
-          locked || !toggleable
-        );
-      }
+      tipButton(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "", "", locked || need <= 0);
+      const id = DEPTH_INPUT_PREFIX + gate.key;
+      if (wholeInView(top, DEPTH_BUTTON_HEIGHT)) drawDepthInput(gate.key, top, need, locked);
+      else if (document.getElementById(id)) ElementRemove(id);
+      tipButton(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "", "", locked || need >= MAX_GATE_DEPTH);
+      drawLeftTextFit(`[${tierLabel(tierOf(need))}]`, DEPTH_TIER_TEXT_LEFT, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_TIER_TEXT_MAX, granted ? "Black" : "Gray", DROPDOWN_LABEL_SIZE);
+      const chem = chems.get(CHEM_PREFIX + gate.key);
+      if (chem) drawChemDropdown(chem, top, locked || !isChemicalToggleable(gate.key));
     });
-    if (depthPageCount() > 1) {
-      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", depthPage === 0);
-      tipButton(
-        PAGE_NEXT_LEFT2,
-        PAGE_BUTTON_TOP2,
-        PAGE_BUTTON_WIDTH2,
-        PAGE_BUTTON_HEIGHT2,
-        "Next",
-        "White",
-        "",
-        "",
-        depthPage >= depthPageCount() - 1
-      );
-      drawLeftText(`page ${depthPage + 1} of ${depthPageCount()}`, PAGE_NEXT_LEFT2 + 130, PAGE_BUTTON_TOP2 + 30, "Gray");
-    }
-    const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-    tipButton(
-      SCOPE_BUTTON_LEFT,
-      SCOPE_BUTTON_TOP,
-      SCOPE_BUTTON_WIDTH,
-      DEPTH_BUTTON_HEIGHT,
-      `Chemicals count: ${scope}`,
-      locked ? "#ddd" : "White",
-      "",
-      "What may push you deeper besides trust. Never applies to the three above that say otherwise.",
-      locked
-    );
-    tipButton(
-      DEFAULTS_BUTTON_LEFT,
-      SCOPE_BUTTON_TOP,
-      DEFAULTS_BUTTON_WIDTH,
-      DEPTH_BUTTON_HEIGHT,
-      "Reset to defaults",
-      locked ? "#ddd" : "White",
-      "",
-      "Forget every depth you have changed",
-      locked
-    );
-    const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-    tipButton(
-      SCOPE_BUTTON_LEFT,
-      HONOUR_BUTTON_TOP,
-      HONOUR_BUTTON_WIDTH,
-      DEPTH_BUTTON_HEIGHT,
-      `A hypnotist's skill: ${honour}`,
-      locked ? "#ddd" : "White",
-      "",
-      "How much of another hypnotist's own practice is allowed to help them put you under. Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
-      locked
-    );
+    const summary = top0 + depthRowsHeight() + DEPTH_SUMMARY_GAP;
+    tipButton(BOX_LEFT, summary, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT, "Reset to defaults", locked ? "#ddd" : "White", "", tip("Forget every depth you have changed"), locked);
     const here = isHypnotized() ? `You are ${depthLabel(Math.floor(currentDepth()))} right now.` : "You are not under.";
-    drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
+    drawLeftTextFit(here, BOX_LEFT + DEFAULTS_BUTTON_WIDTH + 40, summary + DEPTH_BUTTON_HEIGHT / 2, width - DEFAULTS_BUTTON_WIDTH - 40, "Gray", DROPDOWN_LABEL_SIZE);
+    drawDropdowns(DEPTH_DROPDOWNS, summary + DEPTH_SUMMARY_HEIGHT, width);
+  }
+  function drawChemDropdown(row, top, locked) {
+    let element = document.getElementById(row.id);
+    if (!wholeInView(top, DEPTH_BUTTON_HEIGHT)) {
+      if (element) ElementRemove(row.id);
+      return;
+    }
+    if (!element) {
+      element = ElementCreateDropdown(
+        row.id,
+        row.options.map((o) => o.label),
+        function() {
+          if (settingsLocked()) return;
+          const picked = row.options[this.selectedIndex];
+          if (picked) row.set(picked.key);
+        }
+      );
+    }
+    const index = row.options.findIndex((o) => o.key === row.get());
+    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+    element.disabled = locked;
+    ElementPosition(row.id, CHEM_LEFT + CHEM_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, CHEM_WIDTH, DEPTH_BUTTON_HEIGHT);
   }
   function drawDepthInput(key, top, need, locked) {
     const id = DEPTH_INPUT_PREFIX + key;
@@ -13496,57 +13326,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
     element.disabled = locked;
     ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
   }
-  function removeDepthInputs(keep = []) {
-    for (const id of DEPTH_INPUT_IDS) {
-      if (!keep.includes(id) && document.getElementById(id)) ElementRemove(id);
-    }
+  function removeDepthInputs() {
+    for (const id of DEPTH_INPUT_IDS) if (document.getElementById(id)) ElementRemove(id);
   }
-  function clickDepthGates() {
-    if (depthPageCount() > 1) {
-      if (MouseIn(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
-        depthPage = Math.max(0, depthPage - 1);
-        return true;
-      }
-      if (MouseIn(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
-        depthPage = Math.min(depthPageCount() - 1, depthPage + 1);
-        return true;
-      }
-    }
-    if (settingsLocked()) return true;
-    if (MouseIn(SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-      const next = nextScope(getChemicalScope());
-      setChemicalScope(next);
-      log(`chemical scope set to ${next}`);
+  function clickDepthGates(top0) {
+    const summary = top0 + depthRowsHeight() + DEPTH_SUMMARY_GAP;
+    const onReset = MouseIn(BOX_LEFT, summary, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT);
+    for (let i = 0; i < DEPTH_GATES.length; i++) {
+      const top = top0 + i * DEPTH_ROW_HEIGHT;
+      const step = MouseIn(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? -DEPTH_STEP : MouseIn(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? DEPTH_STEP : 0;
+      if (!step) continue;
+      if (settingsLocked()) return true;
+      const gate = DEPTH_GATES[i];
+      const saved = setDepthOverride(gate.key, requiredDepth(gate.key) + step);
+      log(`${gate.key} now needs ${saved}`);
       return true;
     }
-    if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
+    if (onReset) {
+      if (settingsLocked()) return true;
       clearDepthOverrides();
       notifyLocal("Depth requirements reset to their defaults.");
       return true;
-    }
-    if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-      const next = nextSkillHonour(getSkillHonour());
-      setSkillHonour(next);
-      log(`skill honour set to ${next}`);
-      return true;
-    }
-    const gates = visibleGates();
-    for (let i = 0; i < gates.length; i++) {
-      const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
-      const step = MouseIn(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? -DEPTH_STEP : MouseIn(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT) ? DEPTH_STEP : 0;
-      if (step) {
-        const saved = setDepthOverride(gates[i].key, requiredDepth(gates[i].key) + step);
-        log(`${gates[i].key} now needs ${saved}`);
-        return true;
-      }
-      if (MouseIn(CHEM_TOGGLE_LEFT, top, CHEM_TOGGLE_WIDTH, DEPTH_BUTTON_HEIGHT) && isChemicalToggleable(gates[i].key)) {
-        const now = !getChemicalReach(gates[i].key);
-        setChemicalReach(gates[i].key, now);
-        notifyLocal(
-          now ? `${gates[i].label}: arousal may reach this now \u2014 anything seeded this way fades fast.` : `${gates[i].label}: back to trust only.`
-        );
-        return true;
-      }
     }
     return false;
   }
@@ -13612,30 +13412,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
     });
   }
+  function tabDomIds(tabName) {
+    switch (tabName) {
+      case "Inductions":
+        return INDUCTION_DROPDOWNS.map((d) => d.id);
+      case "Trance Defaults":
+        return [...TRANCE_DROPDOWNS.map((d) => d.id), PULSE_COLOR_ID, PULSE_HEX_ID];
+      case "Triggers":
+        return [...TRIGGER_DROPDOWNS.map((d) => d.id), DURATION_ID];
+      case "General":
+        return GENERAL_DROPDOWNS.map((d) => d.id);
+      case "Stats":
+        return [DECAY_ID, TRUST_SEARCH_ID];
+      case "Depth":
+        return [...DEPTH_INPUT_IDS, ...chemDropdowns().map((d) => d.id), ...DEPTH_DROPDOWNS.map((d) => d.id)];
+      default:
+        return [];
+    }
+  }
   function ownedControlIds() {
-    return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+    return [...new Set(TABS2.flatMap((t) => tabDomIds(t.name)))];
   }
   function removeScopeControl() {
-    for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID]) {
-      if (document.getElementById(id)) ElementRemove(id);
-    }
-    removeDepthInputs();
+    for (const id of ownedControlIds()) if (document.getElementById(id)) ElementRemove(id);
   }
   function syncTabControls(tabName) {
-    if (tabName !== "Triggers") {
-      if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
-      if (document.getElementById(LIFESPAN_ID)) ElementRemove(LIFESPAN_ID);
-      if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
-      if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
-    }
-    if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
-    if (tabName !== "Stats") removeTrustSearch();
-    if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-    if (tabName !== "Trance Defaults") {
-      removePulseHexInput();
-      removeTranceDropdowns();
-    }
-    if (tabName !== "Depth") removeDepthInputs();
+    const keep = new Set(tabDomIds(tabName));
+    for (const id of ownedControlIds()) if (!keep.has(id) && document.getElementById(id)) ElementRemove(id);
   }
   function drawDecayControl() {
     const locked = settingsLocked();
@@ -13655,105 +13458,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
     element.disabled = locked;
     ElementPosition(DECAY_ID, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT);
-  }
-  function drawTriggerControls() {
-    const locked = settingsLocked();
-    drawScopeControl(locked);
-    drawLifespanControl(locked);
-    drawDurationControl(locked);
-    drawTriggerDecayControl(locked);
-  }
-  function drawTriggerDecayControl(locked) {
-    drawLeftTextFit(
-      "Triggers fade without reinforcement:",
-      TRIGGER_DECAY_LABEL_X,
-      DURATION_LABEL_Y,
-      TRIGGER_DECAY_LABEL_MAX,
-      locked ? "Gray" : "Black"
-    );
-    let element = document.getElementById(TRIGGER_DECAY_ID);
-    if (!element) {
-      element = ElementCreateDropdown(
-        TRIGGER_DECAY_ID,
-        DECAY_RATES.map((r) => r.label),
-        function() {
-          setTriggerDecayRate(DECAY_RATES[this.selectedIndex]?.key ?? "never");
-          log(`trigger decay set to ${getTriggerDecayRate()}`);
-        }
-      );
-    }
-    const index = DECAY_RATES.findIndex((r) => r.key === getTriggerDecayRate());
-    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-    element.disabled = locked;
-    ElementPosition(TRIGGER_DECAY_ID, TRIGGER_DECAY_CENTRE_X, DURATION_CENTRE_Y, TRIGGER_DECAY_WIDTH, DURATION_HEIGHT);
-    drawLeftTextFit(
-      decayLifetimeText(),
-      TRIGGER_DECAY_LABEL_X,
-      DECAY_CAPTION_Y,
-      TRIGGER_DECAY_WIDTH,
-      locked ? "Gray" : "#555"
-    );
-  }
-  function drawDurationControl(locked) {
-    drawLeftTextFit(
-      "Minutes a fired trigger lasts (0 = until released):",
-      CONTENT_LEFT,
-      DURATION_LABEL_Y,
-      460,
-      locked ? "Gray" : "Black"
-    );
-    let element = document.getElementById(DURATION_ID);
-    if (!element) {
-      element = ElementCreateInput(DURATION_ID, "number", String(getTriggerDuration()), 4);
-      element.min = "0";
-      element.max = "1440";
-      element.inputMode = "numeric";
-      element.addEventListener("blur", function(event) {
-        ElementNumberInputBlur.call(this, event);
-        const saved = setTriggerDuration(Number(this.value));
-        this.value = String(saved);
-        log(`trigger duration set to ${saved} min`);
-      });
-    }
-    if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
-    element.disabled = locked;
-    ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
-  }
-  function drawLifespanControl(locked) {
-    drawLeftTextFit("Longest a new trigger lasts:", LIFESPAN_LABEL_X, SCOPE_LABEL_Y, LIFESPAN_WIDTH, locked ? "Gray" : "Black");
-    let element = document.getElementById(LIFESPAN_ID);
-    if (!element) {
-      element = ElementCreateDropdown(
-        LIFESPAN_ID,
-        TRIGGER_LIFESPANS.map((l) => l.label),
-        function() {
-          const saved = setTriggerLifespan(TRIGGER_LIFESPANS[this.selectedIndex]?.minutes ?? 0);
-          log(`trigger lifespan ceiling set to ${saved} min`);
-        }
-      );
-    }
-    const index = TRIGGER_LIFESPANS.findIndex((l) => l.minutes === getTriggerLifespan());
-    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-    element.disabled = locked;
-    ElementPosition(LIFESPAN_ID, LIFESPAN_CENTRE_X, SCOPE_CENTRE_Y, LIFESPAN_WIDTH, SCOPE_HEIGHT);
-  }
-  function drawScopeControl(locked) {
-    drawLeftTextFit("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, SCOPE_WIDTH, locked ? "Gray" : "Black");
-    let element = document.getElementById(SCOPE_ID);
-    if (!element) {
-      element = ElementCreateDropdown(
-        SCOPE_ID,
-        TRIGGER_SCOPES.map((s) => s.label),
-        function() {
-          setTriggerScope(TRIGGER_SCOPES[this.selectedIndex]?.key ?? "hypnotist");
-          log(`trigger scope set to ${getTriggerScope()}`);
-        }
-      );
-    }
-    const index = TRIGGER_SCOPES.findIndex((s) => s.key === getTriggerScope());
-    if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-    element.disabled = locked;
-    ElementPosition(SCOPE_ID, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT);
   }
   function statPageCount() {
     return Math.max(1, Math.ceil(trustStatRows(trustSearch).length / STAT_ROWS_PER_PAGE));
@@ -13915,7 +13619,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.36"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.37"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13988,7 +13692,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.36"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.37"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13997,16 +13701,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const tabs = visibleTabs();
     if (activeTab2 >= tabs.length) activeTab2 = 0;
     drawTabsAndPanel(tabs.map((t) => t.name), activeTab2);
-    tipButton(
-      TAB_LEFT,
-      advancedButtonTop(),
-      TAB_WIDTH,
-      ADVANCED_BUTTON_HEIGHT,
-      showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-      "White",
-      "",
-      showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out"
-    );
     const tab2 = tabs[activeTab2];
     const locked = settingsLocked();
     if (locked) {
@@ -14019,7 +13713,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         LOCK_BANNER_TEXT
       );
     } else {
-      drawLeftTextFit(tab2.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
+      drawLeftTextWrap(tab2.blurb, BOX_LEFT, BLURB_Y - 3, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, BLURB_HEIGHT, "Gray", 26, 20);
     }
     syncTabControls(tab2.name);
     if (tab2.render) {
@@ -14033,22 +13727,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
     (tab2.fixedRows ?? []).forEach((row, i) => {
       const left = fixedLeft(i);
       DrawCheckbox(left, ROWS_TOP, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+      if (row.tip) tipArea(left, ROWS_TOP, FIXED_COLUMN - 20, BOX_SIZE, row.tip);
       drawLeftTextFit(row.label, left + BOX_SIZE + 20, ROWS_TOP + 26, FIXED_COLUMN - BOX_SIZE - 40, locked ? "Gray" : "Black");
     });
     drawScrollArea(rowScroll, () => {
-      rows.forEach((item, i) => {
+      rows.forEach((item2, i) => {
         const top = rowTop(tab2, i);
-        if (isHeading(item)) {
+        if (isHeading(item2)) {
           if (scrollShows(rowScroll, top, HEADING_SPACING)) {
-            drawLeftTextFit(item.heading, BOX_LEFT, top + HEADING_SPACING / 2, contentWidth, "#555");
+            drawLeftTextFit(item2.heading, BOX_LEFT, top + HEADING_SPACING / 2, contentWidth, "#555");
           }
           return;
         }
         if (!scrollShows(rowScroll, top, BOX_SIZE)) return;
-        const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
-        const inert = locked || !!item.needs && !features[item.needs];
-        DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item.key], inert);
-        drawLeftTextFit(item.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
+        const left = item2.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+        const inert = locked || !!item2.needs && !features[item2.needs];
+        DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item2.key], inert);
+        if (item2.tip && mouseInScroll(rowScroll)) tipArea(left, top, Math.min(contentWidth - (left - BOX_LEFT), BOX_SIZE + 20 + 640), BOX_SIZE, item2.tip);
+        drawLeftTextFit(item2.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
       });
       const extra = tab2.scrollExtra;
       if (extra) {
@@ -14122,17 +13818,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           PreferenceSubscreenExtensionsClear();
           return;
         }
-        if (MouseIn(TAB_LEFT, advancedButtonTop(), TAB_WIDTH, ADVANCED_BUTTON_HEIGHT)) {
-          showAdvanced = !showAdvanced;
-          if (!showAdvanced && activeTab2 >= BASE_TABS.length) activeTab2 = 0;
-          removeScopeControl();
-          return;
-        }
         const tabs = visibleTabs();
         const hitTab = tabHitIndex(tabs.length);
         if (hitTab !== null) {
           activeTab2 = hitTab;
-          depthPage = 0;
           plantedDetail = 0;
           clearAllArmedUntil = 0;
           rowScroll.offset = 0;
@@ -14179,15 +13868,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (settingsLocked()) return;
         const features = getFeatures();
         const clickRows = tab2.rows ?? [];
-        clickRows.forEach((item, i) => {
-          if (isHeading(item)) return;
-          if (item.needs && !features[item.needs]) return;
-          const left = item.needs ? BOX_LEFT + INDENT : BOX_LEFT;
+        clickRows.forEach((item2, i) => {
+          if (isHeading(item2)) return;
+          if (item2.needs && !features[item2.needs]) return;
+          const left = item2.needs ? BOX_LEFT + INDENT : BOX_LEFT;
           if (MouseIn(left, rowTop(tab2, i), BOX_SIZE, BOX_SIZE)) {
-            const next = !features[item.key];
-            setFeature(item.key, next);
-            onToggle(item.key, next);
-            log(`${item.key} set to ${next}`);
+            const next = !features[item2.key];
+            setFeature(item2.key, next);
+            onToggle(item2.key, next);
+            log(`${item2.key} set to ${next}`);
           }
         });
       },
@@ -14271,7 +13960,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, STATS_TAB, BASE_TABS, showAdvanced, REMOTE_TABS, ADVANCED_BUTTON_HEIGHT, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, labelOf, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, TRANCE_DROPDOWN_IDS, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, TRANCE_DROPDOWNS, PULSE_COLOR_CONTROL, MODERATE_TABS, ICON_SPOT_CONTROL, POPUP_CONTROL, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, PERMISSION_CYCLES, CYCLE_GAP, TOY_SCOPE_ID, TOY_SCOPE_LABEL_WIDTH, TOY_SCOPE_WIDTH, TRIGGER_VIEW_CONTROL, DEEPEST_CONTROL, DEPTH_ROW_TOP, DEPTH_ROW_HEIGHT, DEPTH_ROWS_PER_PAGE, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_TOGGLE_LEFT, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, CHEM_TOGGLE_WIDTH, SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEFAULTS_BUTTON_LEFT, DEFAULTS_BUTTON_WIDTH, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, depthPage, IMPORT_LOCKED_MESSAGE, SCOPE_ID, SCOPE_LABEL_Y, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, TRIGGER_DECAY_ID, TRIGGER_DECAY_LABEL_X, TRIGGER_DECAY_LABEL_MAX, TRIGGER_DECAY_CENTRE_X, TRIGGER_DECAY_WIDTH, LIFESPAN_ID, LIFESPAN_LABEL_X, LIFESPAN_CENTRE_X, LIFESPAN_WIDTH, DURATION_ID, DURATION_LABEL_Y, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT, DECAY_CAPTION_Y, ROWS_TOP, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, REMOTE_TABS, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, DROPDOWN_LABEL_SIZE, CAPTION_SIZE, TRANCE_DROPDOWNS, PULSE_COLOR_ID, PULSE_COLOR_DROPDOWN, MODERATE_TABS, FULL_ONLY_TABS, GENERAL_DROPDOWNS, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, CYCLE_GAP, TOY_SCOPE_ID, INDUCTION_DROPDOWNS, SCOPE_ID, LIFESPAN_ID, TRIGGER_DECAY_ID, DURATION_ID, DURATION_WIDTH, TRIGGER_DROPDOWNS, DEPTH_ROW_HEIGHT, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_LEFT, CHEM_WIDTH, CHEM_PREFIX, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, DEPTH_SUMMARY_GAP, DEPTH_SUMMARY_HEIGHT, DEFAULTS_BUTTON_WIDTH, DEPTH_DROPDOWNS, IMPORT_LOCKED_MESSAGE, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, ROWS_TOP, BLURB_HEIGHT, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -14303,28 +13992,28 @@ One of mods you are using is using an old version of SDK. It will work for now b
           // v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
           // rest grouped under headings. How inductions reach you moved to its own tab.
           fixedRows: [
-            { key: "hypnoEnabled", label: "Hypnosis Enabled" },
-            { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" }
+            { key: "hypnoEnabled", label: "Hypnosis Enabled", tip: "The master switch. Off: nobody can hypnotize you, and a trance on you now ends, the same as the safeword." },
+            { key: "lockedWhileHypnotized", label: "Lock settings while a session is on you", tip: "While a session is on you, this screen is read-only until it ends. /echs safeword always works." }
           ],
           rows: [
             { heading: "Body" },
-            { key: "movementRestriction", label: "Movement Restriction" },
-            { key: "postureControl", label: "Posture Control" },
-            { key: "followControl", label: "Follow / Leash" },
-            { key: "clothingRestriction", label: "Clothing Restriction" },
-            { key: "undressControl", label: "Undressing" },
+            { key: "movementRestriction", label: "Movement Restriction", tip: "Lets you be held still: you cannot change your own pose, leave the room or walk on a map. Others can still adjust you." },
+            { key: "postureControl", label: "Posture Control", tip: "Lets them pose you: kneel, stand, all fours, lie down, arm poses. Also your face: eyes closed, mouth open, a smile, a blush." },
+            { key: "followControl", label: "Follow / Leash", tip: `"Follow me": you stay at their side, across room changes, on Bondage Club's own leash. Needs your BC setting that lets others leash you.` },
+            { key: "clothingRestriction", label: "Clothing Restriction", tip: "Locks you out of the wardrobe while you are under." },
+            { key: "undressControl", label: "Undressing", tip: 'Lets them have you take clothes off ("take something off", "strip").' },
             { heading: "Voice & senses" },
-            { key: "speechRestriction", label: "Speech Restriction" },
-            { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
-            { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
-            { key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
+            { key: "speechRestriction", label: "Speech Restriction", tip: '"You cannot speak": mutes your room chat. Slash commands always get through.' },
+            { key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)", tip: `A planted trigger can make you say words aloud in the room ("you will say 'I obey'"). A gag still garbles them.` },
+            { key: "hearingControl", label: "Hearing (hear only one voice, or only your name)", tip: '"You hear only my voice", or only lines with your name in them. Emotes and (out of character) text still get through.' },
+            { key: "sightControl", label: "Sight (dimmed, very dark, or blind)", tip: "Dimmed, very dark, or blind: Bondage Club's own blindness, capped by your BC sensory settings. Nobody else sees a change." },
             { heading: "Touch & arousal" },
-            { key: "selfTouchControl", label: "Self-Touch Control" },
-            { key: "compelActivity", label: "Made to Act (touch yourself on command)" },
-            { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
-            { key: "arousalControl", label: "Arousal & Orgasm" },
+            { key: "selfTouchControl", label: "Self-Touch Control", tip: '"You cannot touch yourself": blocks your own touches on yourself.' },
+            { key: "compelActivity", label: "Made to Act (touch yourself on command)", tip: 'Lets them have you act on yourself on command ("touch your breasts").' },
+            { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity", tip: 'Lets them aim those commands at someone else in the room ("kiss Rei"). Not needed for the hypnotist themselves.' },
+            { key: "arousalControl", label: "Arousal & Orgasm", tip: "Arousal raised or lowered, orgasm denied or forced, and numbness." },
             { heading: "Mind" },
-            { key: "illusionControl", label: "Clothing Illusion (you see old clothes)" }
+            { key: "illusionControl", label: "Clothing Illusion (you see old clothes)", tip: "Your own screen shows clothes you have been stripped of. Changes what you see, not your chat log (that is the Awareness tab)." }
           ]
         },
         {
@@ -14333,14 +14022,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           name: "Inductions",
           blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
           rows: [],
-          scrollExtra: {
-            height: inductionsHeight,
-            draw: drawInductions,
-            click: clickInductions,
-            hide: () => {
-              if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-            }
-          }
+          scrollExtra: dropdownsExtra(() => INDUCTION_DROPDOWNS)
         },
         {
           name: "Trance Defaults",
@@ -14351,45 +14033,20 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "tranceCannotSpeak", label: "Cannot Speak" },
             { key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
             { key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
-            { key: "roomSeesReactions", label: "Others See Your Reactions" },
-            { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
-            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
-            { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
+            { key: "roomSeesReactions", label: "Others See Your Reactions" }
           ],
           scrollExtra: {
-            // The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
-            // where others' icons go, then the ECHS popup (job4.md).
-            height: () => tranceDropdownsHeight() + pulseControlsHeight() + 2 * (CYCLE_GAP + attemptControlHeight()),
+            // The screen effect and the eyes (v1.9.1, v1.10.0), then the pulse colour. Where others'
+            // icons go and the popup moved to General (v1.16.37).
+            height: () => tranceDropdownsHeight() + pulseControlsHeight(),
             draw: (top, width) => {
-              drawTranceDropdowns(top, width, settingsLocked());
-              const pulseTop = top + tranceDropdownsHeight();
-              drawPulseControls(pulseTop, width);
-              const iconTop = pulseTop + pulseControlsHeight() + CYCLE_GAP;
-              drawCycle(ICON_SPOT_CONTROL, iconTop, width, false);
-              drawCycle(POPUP_CONTROL, iconTop + attemptControlHeight() + CYCLE_GAP, width, false);
+              drawDropdowns(TRANCE_DROPDOWNS, top, width);
+              drawPulseControls(top + tranceDropdownsHeight(), width);
             },
-            click: (top) => {
-              const pulseTop = top + tranceDropdownsHeight();
-              if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-                if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
-                return true;
-              }
-              if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-                ICON_SPOT_CONTROL.cycle();
-                log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
-                return true;
-              }
-              const popupTop = pulseTop + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight() + CYCLE_GAP;
-              if (MouseIn(BOX_LEFT, popupTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-                POPUP_CONTROL.cycle();
-                log(`setting now: ${POPUP_CONTROL.label()}`);
-                return true;
-              }
-              return false;
-            },
+            click: () => false,
             hide: () => {
               removePulseHexInput();
-              removeTranceDropdowns();
+              removeDropdowns(TRANCE_DROPDOWNS);
             }
           }
         },
@@ -14416,24 +14073,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "showTriggerWords", label: "Show trigger words when you list them" },
             { key: "strictTriggerMatch", label: "Triggers fire only on whole words" }
           ],
-          extra: drawTriggerControls,
-          // Drop triggers, then how much of her triggers she sees (v1.16.30).
+          // v1.16.37 (review F8): one scrolling page. The tick boxes had a box about four rows tall, the
+          // fifth cut through by the label of the dropdowns fixed under it. Who else may fire them, the
+          // longest a new one lasts, how long a fired one lasts, fading, drops, and her own list.
           scrollExtra: {
-            height: () => 2 * attemptControlHeight() + CYCLE_GAP,
+            height: () => (TRIGGER_DROPDOWNS.length + 1) * dropdownSlot(),
             draw: (top, width) => {
-              drawDropControl(top, width);
-              drawCycle(TRIGGER_VIEW_CONTROL, top + attemptControlHeight() + CYCLE_GAP, width, settingsLocked());
+              drawDropdowns(TRIGGER_DROPDOWNS.slice(0, 2), top, width);
+              drawDurationControl(top + 2 * dropdownSlot(), width);
+              drawDropdowns(TRIGGER_DROPDOWNS.slice(2), top + 3 * dropdownSlot(), width);
             },
-            click: (top) => {
-              if (clickDropControl(top)) return true;
-              if (!MouseIn(BOX_LEFT, top + attemptControlHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
-              if (!settingsLocked()) TRIGGER_VIEW_CONTROL.cycle();
-              return true;
+            click: () => false,
+            hide: () => {
+              removeDropdowns(TRIGGER_DROPDOWNS);
+              if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
             }
-          },
-          // The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
-          // not clip to a canvas area, so the rows stop above them rather than scrolling under.
-          rowsBottom: 610
+          }
         },
         {
           // The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
@@ -14450,20 +14105,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
           // this asks "how far under do I have to be first".
           name: "Depth",
           blurb: "How deep you must be before each thing can reach you. The checkbox still has to be on.",
-          render: drawDepthGates,
-          clickExtra: clickDepthGates
+          // v1.16.37 (review F8): scrolls like every other tab; it used Prev/Next pages.
+          rows: [],
+          scrollExtra: {
+            height: depthHeight,
+            draw: drawDepthGates,
+            click: clickDepthGates,
+            hide: () => {
+              removeDepthInputs();
+              removeDropdowns([...DEPTH_DROPDOWNS, ...chemDropdowns()]);
+            }
+          }
         },
         {
           name: "Stats",
           blurb: "Trust and experience. Counts are shown because they are what is actually stored.",
           render: drawStats
+        },
+        // v1.16.37 (review F8, DW): how ECHS behaves for you, moved off Trance Defaults, which is about
+        // the trance. Last in the column (DW). Keyholders reach it with full keys only (DW).
+        {
+          name: "General",
+          blurb: "How ECHS behaves for you: a safety net, what you see, and what others see of you. Only a full keyholder can change these.",
+          rows: [
+            { key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
+            { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
+            { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
+          ],
+          scrollExtra: dropdownsExtra(() => GENERAL_DROPDOWNS)
         }
       ];
-      STATS_TAB = TABS2[TABS2.length - 1];
-      BASE_TABS = TABS2.slice(0, TABS2.length - 1);
-      showAdvanced = false;
-      REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats"];
-      ADVANCED_BUTTON_HEIGHT = 52;
+      REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats", "General"];
       activeTab2 = 0;
       HELP_LEFT2 = 1700;
       SETUP_WIDTH = 170;
@@ -14526,17 +14198,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
       plantedDetail = 0;
       clearAllArmedUntil = 0;
       CLEAR_ALL_ARM_MS = 5e3;
-      ATTEMPT_BUTTON_WIDTH = 560;
       ATTEMPT_BUTTON_HEIGHT = 44;
       ATTEMPT_CAPTION_HEIGHT = 44;
       ATTEMPT_CAPTION_GAP = 8;
-      labelOf = (list, key) => list.find((r) => r.key === key)?.label ?? key;
       SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
       TRANCE_EYES_ID = "HypnosisAddonTranceEyes";
       TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
-      TRANCE_DROPDOWN_IDS = [SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID];
-      DROPDOWN_LABEL_WIDTH = 250;
-      DROPDOWN_WIDTH = 400;
+      DROPDOWN_LABEL_WIDTH = 520;
+      DROPDOWN_WIDTH = 630;
+      DROPDOWN_LABEL_SIZE = 28;
+      CAPTION_SIZE = 22;
       TRANCE_DROPDOWNS = [
         {
           id: SCREEN_EFFECT_ID,
@@ -14556,7 +14227,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const e = getScreenEffect();
             if (e === "none") return "Nothing over your screen while you are under.";
             if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
-            return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+            return "A spiral in your pulse colour turns over the room while you are under. Only you see it.";
           }
         },
         {
@@ -14584,115 +14255,201 @@ One of mods you are using is using an old version of SDK. It will work for now b
           caption: () => getTranceEyeColor() ? "Your real eye colour is saved first and put back when you wake, even after a crash. The room sees it." : "Your eye colour stays as it is while you are under."
         }
       ];
-      PULSE_COLOR_CONTROL = {
-        label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
-        caption: () => !getFeatures().commandPulse && !getSpiralStrength() ? "The pulse is off and there is no spiral, so this does nothing until you choose one." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse, and the trance spiral if it is on. Only you see them.",
-        tooltip: "The colour of the pulse and the trance spiral",
-        cycle: () => {
-          const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
-          setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
+      PULSE_COLOR_ID = "HypnosisAddonPulseColor";
+      PULSE_COLOR_DROPDOWN = {
+        id: PULSE_COLOR_ID,
+        label: "Pulse colour:",
+        options: PULSE_COLORS.map((c) => ({ key: c.key, label: c.label })),
+        get: getPulseColor,
+        set: (key) => {
+          setPulseColor(key);
           pulseHexError = "";
-        }
+        },
+        caption: () => !getFeatures().commandPulse && !getSpiralStrength() ? "The pulse is off and there is no spiral, so this does nothing until you choose one." : getPulseColor() === "custom" ? "Your own colour: type a hex code below, the kind BC's colour picker uses." : "The pulse (on the General tab) and the trance spiral, if on. Only you see them."
       };
       MODERATE_TABS = ["Trance Defaults", "Awareness"];
-      ICON_SPOT_CONTROL = {
-        label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
-        caption: () => getEchsIconSpot() === "off" ? "You see no spiral over anyone. Others still see yours, if the box above is ticked." : "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
-        tooltip: "Where the spiral over other ECHS players goes, or none",
-        cycle: () => {
-          const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
-          setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
+      FULL_ONLY_TABS = ["General"];
+      GENERAL_DROPDOWNS = [
+        {
+          // Where other players' ECHS icons are drawn (v1.7.0).
+          id: "HypnosisAddonIconSpot",
+          label: "ECHS icons over others:",
+          options: ECHS_ICON_SPOTS.map((s) => ({ key: s.key, label: s.label })),
+          get: getEchsIconSpot,
+          set: (key) => setEchsIconSpot(key),
+          caption: () => getEchsIconSpot() === "off" ? "You see no spiral over anyone. Others still see yours, if the box above is ticked." : "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
+          lockable: false
+        },
+        {
+          // The floating ECHS window in chat rooms (job4.md). On by default.
+          id: "HypnosisAddonPopupEnabled",
+          label: "ECHS popup in rooms:",
+          options: [{ key: "on", label: "On" }, { key: "off", label: "Off" }],
+          get: () => getPopupEnabled() ? "on" : "off",
+          set: (key) => setPopupEnabled(key === "on"),
+          caption: () => getPopupEnabled() ? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it." : "No spiral button in rooms. The /echs commands still work as typed.",
+          lockable: false
         }
-      };
-      POPUP_CONTROL = {
-        label: () => `ECHS popup in rooms: ${getPopupEnabled() ? "On" : "Off"}`,
-        caption: () => getPopupEnabled() ? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it." : "No spiral button in rooms. The /echs commands still work as typed.",
-        tooltip: "Show or hide the ECHS popup and its button in chat rooms",
-        cycle: () => setPopupEnabled(!getPopupEnabled())
-      };
+      ];
       PULSE_HEX_ID = "HypnosisAddonPulseHex";
       PULSE_HEX_LABEL_WIDTH = 200;
       PULSE_HEX_WIDTH = 220;
       PULSE_SWATCH_SIZE = 50;
       pulseHexError = "";
-      PERMISSION_CYCLES = [
-        {
-          // v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
-          label: () => `Induction time: ${getInductionSeconds()} seconds`,
-          caption: () => getInductionSeconds() >= 60 ? "How long someone has to put you under before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
-          tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
-          cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds()))
-        },
-        {
-          label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
-          caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
-          tooltip: "Answer the induction box for you, every time",
-          cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance()))
-        },
-        {
-          label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
-          caption: () => getAwayStance() === "refuse" ? "After 10 minutes with no input, the answer above and toy mode turn them away." : getAwayStance() === "ignore" ? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off." : "Being away changes nothing: the answer above and toy mode still apply.",
-          tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
-          cycle: () => setAwayStance(nextAwayStance(getAwayStance()))
-        },
-        {
-          label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
-          caption: () => getToyMode() ? 'No roll: when your induction time is up, you go under to your "sink deeper" limit, triggers included.' : "Every induction rolls as usual.",
-          tooltip: "Let the people below put you under with no roll and no limit on tries",
-          cycle: () => setToyMode(!getToyMode())
-        }
-      ];
       CYCLE_GAP = 16;
       TOY_SCOPE_ID = "HypnosisAddonToyScope";
-      TOY_SCOPE_LABEL_WIDTH = 250;
-      TOY_SCOPE_WIDTH = 560;
-      TRIGGER_VIEW_CONTROL = {
-        label: () => `My triggers list: ${labelOf(TRIGGER_VIEWS, getTriggerView())}`,
-        caption: () => getTriggerView() === "full" ? "Lists show who planted each trigger, what sets it off and what it does." : getTriggerView() === "who" ? "Lists show only who planted each and how strong it is. Details shows the rest." : "Only how many. No Planted tab and no details. The safeword still clears everything.",
-        tooltip: "How much of the triggers planted in you your own lists show. Under the Extreme lock only a keyholder can change it.",
-        cycle: () => {
-          const i = TRIGGER_VIEWS.findIndex((v) => v.key === getTriggerView());
-          setTriggerView(TRIGGER_VIEWS[(i + 1) % TRIGGER_VIEWS.length].key);
+      INDUCTION_DROPDOWNS = [
+        {
+          id: "HypnosisAddonAttempts",
+          label: "Attempts before they must wait:",
+          options: ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })),
+          get: () => String(getMaxAttempts()),
+          set: (key) => setMaxAttempts(Number(key)),
+          // What the setting COSTS: a count on its own does not say what happens when it runs out.
+          caption: () => "When they run out, they cannot try you again for ten minutes."
+        },
+        {
+          // v1.6.0 (DW, 2026-11-08). Before the answers, since they answer or skip part of it.
+          id: "HypnosisAddonInductionTime",
+          label: "Induction time:",
+          options: INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })),
+          get: () => String(getInductionSeconds()),
+          set: (key) => setInductionSeconds(Number(key)),
+          caption: () => getInductionSeconds() >= 60 ? "How long someone has to put you under before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too."
+        },
+        {
+          id: "HypnosisAddonDefaultStance",
+          label: "When someone tries to hypnotize me:",
+          options: DEFAULT_STANCES,
+          get: getDefaultStance,
+          set: (key) => setDefaultStance(key),
+          caption: () => getDefaultStance() === "prompt" ? "You choose Agree, Ignore or Fight each time." : `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`
+        },
+        {
+          id: "HypnosisAddonAwayStance",
+          label: "When I'm away:",
+          options: AWAY_STANCES,
+          get: getAwayStance,
+          set: (key) => setAwayStance(key),
+          caption: () => getAwayStance() === "refuse" ? "After 10 minutes with no input, the answer above and toy mode turn them away." : getAwayStance() === "ignore" ? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off." : "Being away changes nothing: the answer above and toy mode still apply."
+        },
+        {
+          id: "HypnosisAddonToyMode",
+          label: "Toy mode:",
+          options: [{ key: "off", label: "Off" }, { key: "on", label: "On" }],
+          get: () => getToyMode() ? "on" : "off",
+          set: (key) => setToyMode(key === "on"),
+          caption: () => getToyMode() ? 'No roll: when your induction time is up, you go under to your "sink deeper" limit, triggers too.' : "Every induction rolls as usual."
+        },
+        {
+          // v0.97.3: the Triggers tab's choices (DW: "use the same format as the one used on the triggers tab").
+          id: TOY_SCOPE_ID,
+          label: "Toy mode is for:",
+          options: TOY_SCOPES,
+          get: getToyScope,
+          set: (key) => setToyScope(key),
+          caption: () => getToyScope() === "everyone" || getToyScope() === "notblack" ? "Anyone in the room, strangers too. Read from your BC relationships and lists." : "Read from your BC relationships and lists, the same as for triggers."
+        },
+        {
+          // Moved from the Depth tab (job3.md).
+          id: "HypnosisAddonDeepest",
+          label: '"Sink deeper" stops at:',
+          options: DEEPEST_TIERS,
+          get: getDeepestTier,
+          set: (key) => setDeepestTier(key),
+          caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here."
         }
-      };
-      DEEPEST_CONTROL = {
-        label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
-        caption: () => getDeepestTier() === "never" ? "A hypnotist cannot talk you deeper once you are under." : "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
-        tooltip: "The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
-        cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier()))
-      };
-      DEPTH_ROW_TOP = 270;
-      DEPTH_ROW_HEIGHT = 52;
-      DEPTH_ROWS_PER_PAGE = 7;
-      DEPTH_CTRL_LEFT = BOX_LEFT + 600;
-      DEPTH_LABEL_MAX = 600 - 30;
+      ];
+      SCOPE_ID = "HypnosisAddonTriggerScope";
+      LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
+      TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
+      DURATION_ID = "HypnosisAddonTriggerDuration";
+      DURATION_WIDTH = 160;
+      TRIGGER_DROPDOWNS = [
+        {
+          id: SCOPE_ID,
+          label: "Who else can fire your triggers:",
+          options: TRIGGER_SCOPES,
+          get: getTriggerScope,
+          set: (key) => setTriggerScope(key),
+          caption: () => "Whoever planted a trigger can always fire it. This is who else can."
+        },
+        {
+          // Applies at planting: a hypnotist asking for longer is clamped to it and told so.
+          id: LIFESPAN_ID,
+          label: "Longest a new trigger lasts:",
+          options: TRIGGER_LIFESPANS.map((l) => ({ key: String(l.minutes), label: l.label })),
+          get: () => String(getTriggerLifespan()),
+          set: (key) => setTriggerLifespan(Number(key)),
+          caption: () => "Someone asking for longer gets this. Lowering it doesn't shorten triggers already planted."
+        },
+        {
+          // Its own setting, apart from trust fading on Stats: trust is what someone built with you, a
+          // trigger is a thing they left inside you.
+          id: TRIGGER_DECAY_ID,
+          label: "Triggers fade without reinforcement:",
+          options: DECAY_RATES,
+          get: getTriggerDecayRate,
+          set: (key) => setTriggerDecayRate(key),
+          // What the setting COSTS: before v0.62.0 "Very fast" meant three weeks.
+          caption: () => decayLifetimeText()
+        },
+        {
+          id: "HypnosisAddonDropMode",
+          label: "Drop triggers:",
+          options: DROP_MODES,
+          get: getDropMode,
+          set: (key) => setDropMode(key),
+          caption: dropCaption
+        },
+        {
+          // How much of her own triggers she sees (v1.16.30, DW). Under the lock it is read-only like the rest.
+          id: "HypnosisAddonTriggerView",
+          label: "My triggers list:",
+          options: TRIGGER_VIEWS,
+          get: getTriggerView,
+          set: (key) => setTriggerView(key),
+          caption: () => getTriggerView() === "full" ? "Lists show who planted each trigger, what sets it off and what it does." : getTriggerView() === "who" ? "Lists show only who planted each and how strong it is. Details shows the rest." : "Only how many. No Planted tab and no details. The safeword still clears everything."
+        }
+      ];
+      DEPTH_ROW_HEIGHT = 56;
+      DEPTH_CTRL_LEFT = BOX_LEFT + 520;
+      DEPTH_LABEL_MAX = 520 - 30;
       DEPTH_STEP_WIDTH = 64;
       DEPTH_STEP = 5;
       DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
       DEPTH_INPUT_WIDTH = 96;
       DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
       DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
-      DEPTH_TIER_TEXT_MAX = 240;
+      DEPTH_TIER_TEXT_MAX = 150;
       DEPTH_BUTTON_HEIGHT = 44;
-      CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
+      CHEM_LEFT = BOX_LEFT + 940;
+      CHEM_WIDTH = 230;
+      CHEM_PREFIX = "HypnosisAddonChem-";
       DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
       DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
-      CHEM_TOGGLE_WIDTH = 136;
-      SCOPE_BUTTON_LEFT = BOX_LEFT;
-      SCOPE_BUTTON_TOP = 740;
-      SCOPE_BUTTON_WIDTH = 430;
-      DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
+      DEPTH_SUMMARY_GAP = 16;
+      DEPTH_SUMMARY_HEIGHT = 70;
       DEFAULTS_BUTTON_WIDTH = 240;
-      HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
-      HONOUR_BUTTON_WIDTH = 720;
-      depthPage = 0;
+      DEPTH_DROPDOWNS = [
+        {
+          id: "HypnosisAddonChemicalScope",
+          label: "Chemicals count:",
+          options: CHEMICAL_SCOPES,
+          get: getChemicalScope,
+          set: (key) => setChemicalScope(key),
+          caption: () => "What may push you deeper besides trust. Never the rows above marked earned only."
+        },
+        {
+          id: "HypnosisAddonSkillHonour",
+          label: "A hypnotist's skill:",
+          options: SKILL_HONOUR_OFFERED,
+          get: getSkillHonour,
+          set: (key) => setSkillHonour(key),
+          caption: () => "How much their own practice helps them put you under. Never past the earned-only rows."
+        }
+      ];
       IMPORT_LOCKED_MESSAGE = "Import refused: your settings are locked until this session ends.";
-      SCOPE_ID = "HypnosisAddonTriggerScope";
-      SCOPE_LABEL_Y = 630;
-      SCOPE_CENTRE_X = CONTENT_LEFT + 380;
-      SCOPE_CENTRE_Y = 675;
-      SCOPE_WIDTH = 760;
-      SCOPE_HEIGHT = 56;
       DECAY_ID = "HypnosisAddonDecayRate";
       DECAY_LABEL_X = CONTENT_LEFT + 560;
       DECAY_LABEL_Y = 660;
@@ -14700,23 +14457,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       DECAY_CENTRE_Y = 705;
       DECAY_WIDTH = 520;
       DECAY_HEIGHT = 46;
-      TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
-      TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 680;
-      TRIGGER_DECAY_LABEL_MAX = 500;
-      TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
-      TRIGGER_DECAY_WIDTH = 500;
-      LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
-      LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
-      LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
-      LIFESPAN_WIDTH = 380;
-      DURATION_ID = "HypnosisAddonTriggerDuration";
-      DURATION_LABEL_Y = 760;
-      DURATION_CENTRE_X = CONTENT_LEFT + 70;
-      DURATION_CENTRE_Y = 802;
-      DURATION_WIDTH = 140;
-      DURATION_HEIGHT = 56;
-      DECAY_CAPTION_Y = 858;
       ROWS_TOP = 270;
+      BLURB_HEIGHT = 62;
       HEADING_SPACING = 50;
       FIXED_BAND = 92;
       FIXED_COLUMN = 560;
@@ -14848,7 +14590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.36", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.37", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14903,8 +14645,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (named && owner) return keyRank(named) >= keyRank(owner) ? named : owner;
     return named ?? owner;
   }
-  function keyLevelAllows(level2, turnsOff, moderateOk) {
-    if (turnsOff || level2 === "full") return true;
+  function keyLevelAllows(level2, turnsOff, moderateOk, fullOnly = false) {
+    if (level2 === "full") return true;
+    if (fullOnly) return false;
+    if (turnsOff) return true;
     return level2 === "moderate" && moderateOk;
   }
   function levelNeeded(moderateOk) {
@@ -15264,8 +15008,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return "unchanged";
       }
       const moderateOk = MODERATE_TABS.includes(row.tab);
-      if (!keyLevelAllows(mode, !value, moderateOk)) {
-        const text2 = `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
+      const fullOnly = FULL_ONLY_TABS.includes(row.tab);
+      if (!keyLevelAllows(mode, !value, moderateOk, fullOnly)) {
+        const text2 = fullOnly ? `Your keys are ${mode}: "${row.label}" is on their General tab, which needs full keys.` : `Your keys are ${mode}: turning on "${row.label}" needs ${levelNeeded(moderateOk)} keys.`;
         reply(sender, mode, { ok: false, text: text2 });
         return text2;
       }
@@ -15519,9 +15264,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_badge();
       init_badge();
       KEY_LEVEL_WORDS = {
-        minimal: "minimal keys: they can only switch your settings OFF",
-        moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
-        full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading and your Depth tab"
+        minimal: "minimal keys: they can only switch your settings OFF (not on your General tab)",
+        moderate: "moderate keys: they can switch things off (not on your General tab), and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+        full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading, your Depth tab and your General tab"
       };
       KEY_REQUEST_GAP_MS = 3 * 6e4;
       KEY_REQUEST_SINCE = "1.16.1";
@@ -17938,7 +17683,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.36"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.37"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18507,7 +18252,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         el2(
           "div",
           "echs-pop-hint",
-          who.mode === "full" ? `${who.name}'s settings. You hold full keys: you can switch them on and off, and set their Triggers choices, trust fading and Depth (open those below).` : who.mode === "moderate" ? `${who.name}'s settings. You hold moderate keys: you can switch things off, and shape their trance (Trance Defaults, Awareness, how it looks and its pace).` : `${who.name}'s settings. You hold minimal keys: you can only switch things off.`
+          who.mode === "full" ? `${who.name}'s settings. You hold full keys: you can switch them on and off, and set their Triggers choices, trust fading, Depth and General (open those below).` : who.mode === "moderate" ? `${who.name}'s settings. You hold moderate keys: you can switch things off (not on General), and shape their trance (Trance Defaults, Awareness, how it looks and its pace).` : `${who.name}'s settings. You hold minimal keys: you can only switch things off (not on General).`
         )
       );
       const snap = settingsOf(who.id);
@@ -18546,13 +18291,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (shut) continue;
         for (const r of rows) {
           const isOn = on.get(r.key) === true;
-          const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab));
+          const fullOnly = FULL_ONLY_TABS.includes(r.tab);
+          const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab), fullOnly);
           const b = el2("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "\u2611" : "\u2610"} ${r.label}`);
           b.type = "button";
-          b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
+          b.title = blocked ? fullOnly ? `Your ${who.mode} keys can't change the General tab: it needs full keys.` : `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
           b.addEventListener("click", () => {
             if (blocked) {
-              setStatus(status, `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`);
+              setStatus(
+                status,
+                fullOnly ? `Your ${who.mode} keys can't change "${r.label}": the General tab needs full keys.` : `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`
+              );
               return;
             }
             requestSetting(who.id, r.key, !isOn);
@@ -18774,14 +18523,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     body2.appendChild(el2("div", "echs-pop-hint", "Click someone to type an induction for them. They decide, on their own screen, how to respond."));
     for (const p of people) {
-      const item = el2("button", "echs-pop-item");
-      item.type = "button";
-      item.title = p.text;
+      const item2 = el2("button", "echs-pop-item");
+      item2.type = "button";
+      item2.title = p.text;
       const line = el2("div", "echs-pop-person", p.name);
       if (p.status) line.appendChild(el2("span", "echs-pop-state", p.status));
-      item.appendChild(line);
-      item.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
-      body2.appendChild(item);
+      item2.appendChild(line);
+      item2.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
+      body2.appendChild(item2);
     }
   }
   function renderCommands(body2, status) {
@@ -18800,15 +18549,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!isOpen) continue;
       const list = el2("div", "echs-pop-list");
       for (const c of g.commands) {
-        const item = el2("button", "echs-pop-item");
-        item.type = "button";
-        item.appendChild(el2("div", "echs-pop-cmd", `/echs ${c.tag}${c.args ? " " + c.args : ""}`));
-        item.appendChild(el2("div", "echs-pop-desc", c.description));
-        item.addEventListener(
+        const item2 = el2("button", "echs-pop-item");
+        item2.type = "button";
+        item2.appendChild(el2("div", "echs-pop-cmd", `/echs ${c.tag}${c.args ? " " + c.args : ""}`));
+        item2.appendChild(el2("div", "echs-pop-desc", c.description));
+        item2.addEventListener(
           "click",
           () => typeIt(status, c.text, c.args ? `Typed. Finish it (${c.args}), then press Enter.` : "Typed. Press Enter to send it.")
         );
-        list.appendChild(item);
+        list.appendChild(item2);
       }
       body2.appendChild(list);
     }
@@ -19073,7 +18822,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.36"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.37"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19100,7 +18849,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.36"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.37"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19175,14 +18924,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.36"})`);
+      info(`script loaded (v${"1.16.37"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.36",
+          version: "1.16.37",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19324,10 +19073,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.36"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.37"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.36";
+    page2.__ECHS_LOADED__ = "1.16.37";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

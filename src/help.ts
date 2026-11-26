@@ -58,6 +58,8 @@ const head = (text: string): HelpLine => ({ text, style: "head" });
 const body = (text: string): HelpLine => ({ text });
 const dim = (text: string): HelpLine => ({ text, style: "dim" });
 const gap = (): HelpLine => ({ text: "", style: "gap" });
+/** A generated line: always a line of its own (panel.ts joinHelpParagraphs). */
+const item = (text: string, style?: "dim"): HelpLine => ({ text, style, keep: true });
 
 function startedLines(): HelpLine[] {
 	return [
@@ -70,8 +72,7 @@ function startedLines(): HelpLine[] {
 		body("In a chat room, the round spiral button on the left opens a window"),
 		body("that TYPES for you: who you can hypnotize, what to say to someone"),
 		body("under you, your own answers, triggers, and every command. Nothing"),
-		body("is sent until you press Enter. Drag it anywhere; switch it off at"),
-		dim("Trance Defaults > ECHS popup in rooms."),
+		body("is sent until you press Enter. Drag it anywhere; switch it off on the General tab (ECHS popup in rooms)."),
 		gap(),
 		head("As the subject"),
 		body("1. Tick the permissions you want to allow. Everything is off until"),
@@ -111,10 +112,7 @@ function startedLines(): HelpLine[] {
 		dim("the emotes off entirely."),
 		gap(),
 		head("Getting out"),
-		body("The Wake Up button · a spoken wake word · /echs wake while the"),
-		body("trance is still shallow · the timeout (30 minutes, 60 under an Extreme"),
-		body("lock), which asks whether to stay under (/echs stay) · and"),
-		body("/echs safeword, which no setting and no suggestion can ever take away."),
+		body("The Wake Up button · a spoken wake word · /echs wake while the trance is still shallow · the timeout (30 minutes, 60 under an Extreme lock), which asks whether to stay under (/echs stay) · and /echs safeword, which no setting and no suggestion can ever take away."),
 	];
 }
 
@@ -136,6 +134,7 @@ function vocabularyLines(): HelpLine[] {
 		lines.push({
 			text: `${sug.display.map((e) => `"${e}"`).join("  ·  ")}${gate}`,
 			style: sug.release ? "dim" : "body",
+			keep: true,
 		});
 	}
 	lines.push(gap());
@@ -171,7 +170,7 @@ function vocabularyLines(): HelpLine[] {
  * cannot drift from the gates the code actually checks. */
 function depthLadder(): HelpLine[] {
 	const lines: HelpLine[] = [head("The five depths")];
-	for (const t of DEPTH_TIERS) lines.push(body(`${t.label} (${t.min}+) — ${t.blurb}`));
+	for (const t of DEPTH_TIERS) lines.push(item(`${t.label} (${t.min}+) — ${t.blurb}`));
 	lines.push(gap());
 	lines.push(head("What each depth reaches"));
 	let anyEarned = false;
@@ -184,7 +183,7 @@ function depthLadder(): HelpLine[] {
 				return g.earnedOnly ? `${g.label}*` : g.label;
 			})
 			.join(" · ");
-		lines.push(body(`${t.label}: ${names}`));
+		lines.push(item(`${t.label}: ${names}`));
 	}
 	if (anyEarned) {
 		lines.push(dim("* earned depth only — arousal cannot reach these by default (below)."));
@@ -230,8 +229,7 @@ function depthTrustLines(): HelpLine[] {
 		dim("Read from BC's own friend list, lovership and ownership."),
 		gap(),
 		head("Trust fades without contact"),
-		body("In the Advanced view (button under the tabs): Never · Very slowly ·"),
-		body("Slowly · Typical · Fast · Very fast. Off unless you choose."),
+		body("On the Stats tab: Never · Very slowly · Slowly · Typical · Fast · Very fast. Off unless you choose."),
 		dim("A casual acquaintance fades far faster than a deep bond, and a"),
 		dim("relationship floor is what decay can never take."),
 		gap(),
@@ -388,15 +386,14 @@ function lastingLines(): HelpLine[] {
 		head("Keyholders"),
 		body("/echs keyholder add <name> [minimal|moderate|full] gives someone your keys:"),
 		body("they can change your settings while you share a room, even under Extreme,"),
-		body("and end the lock. minimal = only switch off; moderate = also shape your"),
-		dim("trance; full = everything. Your BC owner: /echs keyholder owner <level>."),
+		body("and end the lock. minimal = only switch off; moderate = also shape your trance; full = everything."),
+		dim("Their General tab needs full keys. Your BC owner: /echs keyholder owner <level>."),
 		dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
 		dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
 		dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
 		gap(),
 		head("If something is holding you"),
-		body("Wait for it to wear off · have whoever set it release you ·"),
-		body("/echs safeword, which always works from any state."),
+		body("Wait for it to wear off · have whoever set it release you · /echs safeword, which always works from any state."),
 		dim("/echs forgettrigger REFUSES while a trigger has hold of you —"),
 		dim("deleting it would be too quiet an escape. Chat commands survive"),
 		dim("being silenced, so the safeword stays reachable when speech does not."),
@@ -433,7 +430,7 @@ function commandLines(): HelpLine[] {
 		lines.push(head(group));
 		if (NOTE[group]) lines.push(dim(NOTE[group]));
 		for (const c of inGroup) {
-			lines.push(body(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} — ${c.description}`));
+			lines.push(item(`/echs ${c.tag}${c.args ? ` ${c.args}` : ""} — ${c.description}`));
 		}
 		lines.push(gap());
 	}
@@ -526,4 +523,9 @@ export function clickHelp(): boolean {
  * each one must be a phrase the pattern library actually matches. */
 export function helpTabNames(): string[] {
 	return TABS.map((t) => t.name);
+}
+
+/** A help tab's authored lines, by name. For the suite. */
+export function helpLinesFor(name: string): HelpLine[] {
+	return TABS.find((t) => t.name === name)?.lines() ?? [];
 }

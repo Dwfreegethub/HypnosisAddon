@@ -52,7 +52,7 @@ Everyone else in the room who runs ECHS. **Click a name** to type the induction 
 * A small tag shows what is already known about a session with them: *under you*, *induction under way*, *missed: you can try again*, or *resting: 5 min* while they are on cooldown from you.
 * With no session, it says whether they can be hypnotized at all: *open to hypnosis*, or *not open to hypnosis* for someone who hasn't set ECHS up for it or chose Hypnotist only. Someone on an older ECHS shows no tag. You can still try someone who isn't open; `/echs induce` says it will most likely be refused.
 * If two people share a name, or a name looks like a number, it types their member number instead, so it can never go to the wrong person.
-* Players who untick **Show others that I run ECHS** (Settings → Trance Defaults) are not listed. See [What it shares](#what-it-shares-and-with-whom).
+* Players who untick **Show others that I run ECHS** (Settings → General) are not listed. See [What it shares](#what-it-shares-and-with-whom).
 
 ## Suggestions (while someone is under you)
 
@@ -129,10 +129,10 @@ Every `/echs` command in groups: **Hypnosis**, **Your data**, **Checking things*
 
 ## What it shares, and with whom
 
-* **Who runs ECHS.** The People tab lists everyone in the room who runs ECHS. To stay off it, untick **Show others that I run ECHS** on the Trance Defaults tab. That one box also removes the spiral over you. Your ECHS still answers a hypnotist who opens your profile, because the profile panel needs it; other players' ECHS simply leaves you out.
+* **Who runs ECHS.** The People tab lists everyone in the room who runs ECHS. To stay off it, untick **Show others that I run ECHS** on the General tab. That one box also removes the spiral over you. Your ECHS still answers a hypnotist who opens your profile, because the profile panel needs it; other players' ECHS simply leaves you out.
 * **What you allow, while you are under.** Your ECHS tells **only the person who has you under** which kinds of suggestion you allow, and whether you are deep enough for each. It never sends your depth itself. It is a hint for their list: your ECHS still checks every line, by your own settings.
 * Nothing in the popup sends anything to the room. It only types into your chat box; you send.
 
 ## Turning it off
 
-Settings → **Trance Defaults** → at the bottom, **ECHS popup in rooms: On**. Click it for **Off**: no button and no window. All the `/echs` commands and spoken lines work exactly as before. It's your own display choice, so no lock stops you changing it.
+Settings → **General** → **ECHS popup in rooms**: choose **Off** for no button and no window. All the `/echs` commands and spoken lines work exactly as before. It's your own display choice, so no lock stops you changing it.
