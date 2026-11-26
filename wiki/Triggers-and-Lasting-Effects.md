@@ -179,7 +179,25 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 
 **Holding while worn** (since v1.16.20). Add *"Missy, this trigger holds while you wear it"* (or *"it lasts until it comes off"*) before *remember trigger*, and an item compulsion holds for as long as the item stays on instead of for the usual number of minutes. It lets go when the item comes off, however it comes off (taken off, struggled out of, swapped for something else); for *locks something on you*, when the lock comes off. Meanwhile its arousal comes back, slowing down so it doesn't flood the chat: 2, 2 and 2 minutes apart, then 5, then every 10 minutes (since v1.16.21); an orgasm is slower still: after 5 minutes, then 10, then every 20. So *"whenever anyone gags you, you are very aroused"* keeps her aroused while gagged; undressing and the like happen once. The release words and the safeword still end it at any time. On a word trigger it means nothing, and the hypnotist is told so.
 
-An item swapped for another counts; taking one off doesn't. Clothing doesn't count, and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
+An item swapped for another counts; taking one off doesn't. Clothing has its own list (below), and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
+
+**Clothes taken off or put on** (since v1.18.0). A compulsion can also wait for her clothes changing: *"Missy, whenever anyone undresses you, you are very aroused"*. Here **anyone includes her**: it fires whoever takes the garment off, her too, unless a name or *I* is said (*"whenever Rei takes your bra off"* waits for Rei only). It can be said without anyone at all: *"whenever you take your top off"*, *"whenever your bra comes off"*, *"whenever you get dressed"*.
+
+| Say | What counts |
+|---|---|
+| *undresses you* (or *strips you*, *takes your clothes off*; *you get undressed*, *you undress*) | Any garment coming off |
+| *takes your top off* (or *your shirt*, *dress*, *jacket*, *coat*) | Top or jacket |
+| *takes your skirt off* (or *pants*, *shorts*, *jeans*, *leggings*) | Skirt, pants, leggings |
+| *takes your bra off* | Bra |
+| *takes your panties off* (or *underwear*, *knickers*) | Panties |
+| *takes your shoes off* (or *heels*, *boots*) | Shoes |
+| *takes your socks off* (or *stockings*, *tights*) | Socks, either sock |
+| *dresses you* (or *puts clothes on you*; *you get dressed*) | Any garment going on |
+| *puts a top on you* (or *a skirt*, *a bra*, *panties*, *shoes*, *socks*; *dresses you in a skirt*; *you put your shoes on*) | That garment going on |
+
+Changes made in the wardrobe count, by anyone: the game doesn't say what changed, so ECHS compares what she wore before and after. A garment swapped for another counts as one put on, not one taken off. ECHS's own *"take your top off"* counts as her taking it off, though like every compulsion these wait until she is awake. Hats, glasses, jewelry and the like don't count, nor does anything outside a chat room.
+
+**Holding while undressed.** Add *"Missy, this trigger holds while you are undressed"* (or *"until you are dressed again"*, *"while it stays off"*) and a compulsion for a garment taken off holds until something is back in that slot, with the same repeating arousal as holding while worn. For one put on, *"this trigger holds while you wear it"* holds until it comes off.
 
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.
 

@@ -28,6 +28,18 @@ export type CompulsionAct = {
 	items?: string[];
 	/** With `items`: waits for a lock being added to an item, not the item going on. */
 	lock?: true;
+	/** A CLOTHING act (v1.18.0, DW 2026-11-26): a garment coming off ("off") or going on ("on"),
+	 * seen by outfit-watch.ts. `slots` are undress.ts's slots (Echo's copies count as theirs);
+	 * empty = any garment. Whoever does it counts, she herself included (DW: "It would not matter who
+	 * took the clothing on or off me. Unless the hypnotist says something specific"), so a name or "I"
+	 * narrows it as for any act. */
+	clothes?: { dir: "off" | "on"; slots: string[] };
+	/** Everything after the doer, in place of `${verb} ${object}`, for wordings a verb + object can't
+	 * hold ("takes your top off", "puts a bra on you"). */
+	phrase?: string;
+	/** The same with no doer ("whenever you take your top off", "whenever your bra comes off",
+	 * "whenever you get dressed"), read as anyone. Clothing acts only. */
+	anyonePhrase?: string;
 };
 
 /** The default object after the verb: "you", "your hair". */
@@ -45,10 +57,69 @@ export const kindEvent = (kind: string, group: string): string => `item:${kind}|
 /** The slot an item or lock event is about: "item:@chaste|ItemPelvis" and "item:ItemPelvis" both
  * give "ItemPelvis". Null for an activity. */
 export function eventSlot(event: string): string | null {
-	const m = /^(?:item|lock):(?:@[a-z]+\|)?(.+)$/.exec(event);
+	const m = /^(?:item|lock|off|on):(?:[^|:]+\|)?(.+)$/.exec(event);
 	return m ? m[1] : null;
 }
 export const KIND_VIBE = "@vibe";
+/** A garment coming off or going on (v1.18.0): the direction, undress.ts's slot, then the group
+ * itself, which may be one of Echo's copies ("off:Cloth|Cloth_笨笨蛋Luzi"). */
+export const clothEvent = (dir: "off" | "on", slot: string, group: string): string => `${dir}:${slot}|${group}`;
+
+// Clothing (v1.18.0). Each garment can be taken off or put on; undress / dress are any garment.
+const DET = String.raw`(?:your |a |an |some |the |new )?`;
+const GARMENTS: { key: string; words: string; off: string; on: string; slots: string[] }[] = [
+	{ key: "top", words: String.raw`(?:top|shirt|t shirt|blouse|dress|jacket|coat)`, off: "top", on: "a top", slots: ["Cloth", "ClothOuter"] },
+	{ key: "skirt", words: String.raw`(?:skirt|pants|trousers|shorts|jeans|bottoms?|leggings)`, off: "skirt", on: "a skirt", slots: ["ClothLower", "SuitLower"] },
+	{ key: "bra", words: "bra", off: "bra", on: "a bra", slots: ["Bra"] },
+	{ key: "panties", words: String.raw`(?:panties|underwear|knickers)`, off: "panties", on: "panties", slots: ["Panties"] },
+	{ key: "shoes", words: String.raw`(?:shoes|heels|boots)`, off: "shoes", on: "shoes", slots: ["Shoes"] },
+	{ key: "socks", words: String.raw`(?:socks|stockings|tights)`, off: "socks", on: "socks", slots: ["Socks", "SocksLeft", "SocksRight"] },
+];
+const OFF_VERB = String.raw`(?:takes?|pulls?|strips?|removes?|slips?|peels?)`;
+const OFF_VERB_YOU = String.raw`(?:take|pull|strip|remove|slip|peel)`;
+const CLOTHING_ACTS: CompulsionAct[] = [
+	// One garment before any: the first entry that matches wins ("dress you in a skirt").
+	...GARMENTS.map((g): CompulsionAct => ({
+		key: `off-${g.key}`,
+		label: `takes your ${g.off} off`,
+		base: `take your ${g.off} off`,
+		verb: OFF_VERB,
+		phrase: String.raw`${OFF_VERB} (?:off )?your ${g.words}(?: off)?`,
+		anyonePhrase: String.raw`(?:you ${OFF_VERB_YOU} (?:off )?your ${g.words}(?: off)?|your ${g.words} (?:comes?|come|is taken|are taken|gets? taken) off)`,
+		activities: [],
+		clothes: { dir: "off", slots: g.slots },
+	})),
+	{
+		key: "undress",
+		label: "undresses you",
+		base: "undress you",
+		verb: String.raw`(?:undress(?:es)?|strips?)`,
+		phrase: String.raw`(?:undress(?:es)? you|strips? you(?: naked| bare)?|${OFF_VERB} (?:off )?your (?:clothes|clothing)(?: off)?)`,
+		anyonePhrase: String.raw`(?:you (?:are|re|get|got) (?:undressed|stripped)(?: naked)?|you (?:undress|strip)(?: yourself| naked)?|you ${OFF_VERB_YOU} (?:off )?your (?:clothes|clothing)(?: off)?|your (?:clothes|clothing) (?:comes?|come|are taken|is taken) off)`,
+		activities: [],
+		clothes: { dir: "off", slots: [] },
+	},
+	...GARMENTS.map((g): CompulsionAct => ({
+		key: `on-${g.key}`,
+		label: `puts ${g.on} on you`,
+		base: `put ${g.on} on you`,
+		verb: String.raw`(?:puts?|dresses)`,
+		phrase: String.raw`(?:puts? ${DET}${g.words} on you|dress(?:es)? you in ${DET}${g.words}|puts? you in ${DET}${g.words})`,
+		anyonePhrase: String.raw`(?:you put (?:on )?${DET}${g.words}(?: on)?|your ${g.words} (?:goes|go|is put|are put) (?:back )?on)`,
+		activities: [],
+		clothes: { dir: "on", slots: g.slots },
+	})),
+	{
+		key: "dress",
+		label: "dresses you",
+		base: "dress you",
+		verb: String.raw`(?:dress(?:es)?|clothes?)`,
+		phrase: String.raw`(?:dress(?:es)? you(?: up)?|clothes you|puts? (?:clothes|clothing) on you)`,
+		anyonePhrase: String.raw`(?:you (?:are|re|get|got) dressed(?: up)?|you dress(?: yourself| up)?|you put (?:on )?(?:clothes|clothing|something)(?: on)?)`,
+		activities: [],
+		clothes: { dir: "on", slots: [] },
+	},
+];
 
 export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
@@ -68,6 +139,8 @@ export const COMPULSION_ACTS: CompulsionAct[] = [
 	{ key: "grope", label: "gropes you", base: "grope you", verb: String.raw`(?:gropes?|fondles?|squeezes?)`, activities: ["Grope"] },
 	{ key: "lick", label: "licks you", base: "lick you", verb: String.raw`(?:licks?)`, activities: ["Lick"] },
 	{ key: "bite", label: "bites you", base: "bite you", verb: String.raw`(?:bites?|nibbles?)`, activities: ["Bite", "Nibble"] },
+	// Clothing (v1.18.0): before "pull", whose "pulls your …" would otherwise claim "pulls your top off".
+	...CLOTHING_ACTS,
 	{ key: "pull", label: "pulls your hair", base: "pull your hair", verb: String.raw`(?:pulls?|tugs?)`, activities: ["Pull"] },
 	// v1.16.18 (DW): R134 SuckPenetrateItem, "SourceCharacter sucks on TargetCharacter's
 	// ActivityAsset", on ItemVulva, needing the TARGET to wear the strap-on (TargetNeeds-PenetrateItem).
@@ -110,11 +183,18 @@ export function compulsionAct(key: string | undefined): CompulsionAct | undefine
 	return COMPULSION_ACTS.find((a) => a.key === key);
 }
 
-/** Does this event count for this act? `activityName` is a BC activity name, or an item event
- * (`item:ItemMouth`, `lock:ItemArms`) from itemEvent/lockEvent. */
+/** Does this event count for this act? `activityName` is a BC activity name, an item event
+ * (`item:ItemMouth`, `lock:ItemArms`) from itemEvent/lockEvent, or a clothing event (`off:Bra|Bra`)
+ * from clothEvent. */
 export function actMatches(key: string | undefined, activityName: string): boolean {
 	const act = compulsionAct(key);
 	if (!act || !activityName) return false;
+	const cloth = /^(off|on):([^|]+)\|/.exec(activityName);
+	if (act.clothes) {
+		if (!cloth || cloth[1] !== act.clothes.dir) return false;
+		return act.clothes.slots.length === 0 || act.clothes.slots.includes(cloth[2]);
+	}
+	if (cloth) return false;
 	const item = /^(item|lock):(.+)$/.exec(activityName);
 	if (act.items) {
 		if (!item || (item[1] === "lock") !== !!act.lock) return false;

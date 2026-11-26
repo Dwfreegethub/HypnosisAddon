@@ -88,7 +88,7 @@ under();
 say("Missy, your trigger word is sleepy");
 say("Missy, you are very aroused");
 say("Missy, this trigger holds while you wear it");
-check("on a word trigger: the hypnotist is told it's ignored", /only works on an item compulsion/.test(toHyp.join(" ")), true);
+check("on a word trigger: the hypnotist is told it's ignored", /only works on an item or clothing compulsion/.test(toHyp.join(" ")), true);
 say("Missy, remember trigger");
 check("  and not kept", storage.listTriggers().find((t) => t.phrase === "sleepy")?.whileWorn, undefined);
 

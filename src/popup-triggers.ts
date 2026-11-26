@@ -80,7 +80,7 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 				phrase: "when anyone kisses you, ",
 				finish: "what they will do. Change \"anyone\" to a name or \"I\" if you like",
 				sample: "when anyone kisses you, you will kneel",
-				choices: COMPULSION_ACTS.filter((a) => !a.items).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
+				choices: COMPULSION_ACTS.filter((a) => !a.items && !a.clothes).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
 			},
 			// The items on a line of their own (v1.16.22, DW: "I don't see them in the window"; they
 			// were at the end of the list above).
@@ -92,8 +92,22 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 				sample: "whenever anyone gags you, you will kneel",
 				choices: COMPULSION_ACTS.filter((a) => a.items).map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` })),
 			},
+			// Clothing (v1.18.0, DW): anyone counts, them included, unless a name is said instead.
+			{
+				id: "clothes",
+				label: "whenever anyone undresses you, … (pick the garment, off or on)",
+				phrase: "whenever anyone undresses you, ",
+				finish: "what they will do. Anyone includes them. Add \"this trigger holds while you are undressed\" to keep it on until the garment goes back on",
+				sample: "whenever anyone undresses you, you will kneel",
+				// Off before on, and "undresses you" / "dresses you" first in each (the table lists them
+				// after the single garments, so those match first).
+				choices: COMPULSION_ACTS.filter((a) => a.clothes)
+					.sort((x, y) => Number(x.clothes!.dir === "on") - Number(y.clothes!.dir === "on") || Number(x.clothes!.slots.length > 0) - Number(y.clothes!.slots.length > 0))
+					.map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` })),
+			},
 			{ id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
-			{ id: "worn", label: "this trigger holds while you wear it (item compulsions)", phrase: "this trigger holds while you wear it" },
+			{ id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },
+			{ id: "bare", label: "this trigger holds while you are undressed (clothing taken off)", phrase: "this trigger holds while you are undressed" },
 		],
 	},
 	{

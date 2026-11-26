@@ -6,6 +6,7 @@ import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSp
 import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
+import { installOutfitWatch } from "./outfit-watch";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine, noticeTrustLine } from "./session";
@@ -338,3 +339,6 @@ safely("induction prompt box", () => installPrompt(modApi));
 // Draws the subject's own body from a frozen snapshot. Hooks DrawCharacter, the single
 // funnel every screen uses — see illusion.ts for why Player itself is never touched.
 safely("clothing illusion", () => installIllusion(modApi));
+
+// Clothing compulsions (v1.18.0): hears garments coming off or going on, read only.
+safely("clothing compulsions", () => installOutfitWatch(modApi));

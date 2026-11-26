@@ -697,20 +697,23 @@ function nameKey(s: unknown): string {
 		.trim();
 }
 
-/** Arrival, speech or activity compulsions this member sets off. Never the subject themself.
- * `activity` is the BC activity name, for "act" (v1.16.9). */
+/** Arrival, speech or activity compulsions this member sets off. Never the subject themself, except
+ * a clothing compulsion for anyone (v1.18.0, DW: who took it off doesn't matter unless the hypnotist
+ * names someone). `activity` is the BC activity name, for "act" (v1.16.9). */
 export function compulsionsFor(
 	event: "arrive" | "speak" | "act",
 	member: number,
 	activity = "",
 	isOn: (t: Trigger) => boolean = () => false,
 ): Trigger[] {
-	if (member === Player?.MemberNumber) return [];
+	const self = member === Player?.MemberNumber;
+	if (self && event !== "act") return [];
 	const C = characterFor(member);
 	const names = [nameKey(C?.Name), nameKey(C?.Nickname)].filter(Boolean);
 	const all = listTriggers();
 	return all.filter((t) => {
 		if (t.fireOn !== event || !triggerCanFire(t)) return false;
+		if (self && !(t.watchName === "*" && compulsionAct(t.act)?.clothes)) return false;
 		// A reaction (v1.16.13): only while its word holds her.
 		if (t.gate) {
 			const word = all.find((p) => isReactionOf(t, p));
@@ -809,15 +812,18 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 			recording.strict = option.value || undefined;
 			noted = option.value ? "only the whole words will fire it" : "it fires anywhere in a line";
 			break;
-		case "whileWorn":
-			// Only an item compulsion has an item to wear (rule 5: say so rather than keep it silently).
-			if (!compulsionAct(recording.condition?.act)?.items) {
-				noted = "holding while worn only works on an item compulsion (gags you, plugs you, locks you in chastity…), so it's ignored";
+		case "whileWorn": {
+			// Only an item or clothing compulsion has something to wear (rule 5: say so rather than keep it silently).
+			const act = compulsionAct(recording.condition?.act);
+			if (!act?.items && !act?.clothes) {
+				noted = "holding while worn only works on an item or clothing compulsion (gags you, plugs you, takes your top off…), so it's ignored";
 				break;
 			}
 			recording.whileWorn = true;
-			noted = "it holds for as long as they wear the item and lets go when it comes off; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)";
+			const until = act.clothes?.dir === "off" ? "until that garment goes back on" : act.clothes ? "for as long as they wear that garment and lets go when it comes off" : "for as long as they wear the item and lets go when it comes off";
+			noted = `it holds ${until}; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)`;
 			break;
+		}
 	}
 	log(`trigger ${recordingLabel()} option: ${noted}`);
 	tellHypnotist(recording.hypnotistId, `[trigger] Noted for ${recordingLabel()}: ${noted}.`);
@@ -1161,7 +1167,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		trigger.oneShot = true;
 	}
 	if (recording.strict) trigger.strict = true;
-	if (recording.whileWorn && compulsionAct(trigger.act)?.items) trigger.whileWorn = true;
+	if (recording.whileWorn && (compulsionAct(trigger.act)?.items || compulsionAct(trigger.act)?.clothes)) trigger.whileWorn = true;
 	if (recording.scope) trigger.scope = recording.scope;
 	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
 	// subject who caps triggers at an hour gets that on every trigger planted from now on.
