@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-26 (v1.16.43) — Give keys / Request keys: three level buttons, not a cycling one
+
+UI lab review F6 polish, the last open item of the review. The v1.16.0 button (job6.md §2, DW)
+cycled minimal → moderate → full on repeat clicks; the tester clicked twice to give minimal and got
+moderate typed. DW chose three buttons over the review's dropdown + one button: popup.ts
+levelChips(row, title, held, tip, onPick) draws "Give keys:" / "Request keys:" and a chip per
+KEY_LEVELS entry, the held level marked echs-pop-chip-on. cycleLevel / clickCycle / keyCycle and
+keyholder.mjs's cycle checks are gone; popup.mjs checks the three buttons per row, that a repeat
+click types the same level, and each row types its own person. Mutation (a level button
+mislabelled) caught. Still typed, never sent on click.
+
 ### Changed 2026-11-26 (v1.16.42) — F11 6–8 (DW's answers): "Time to go under (after you answer)", Triggers tab order, under-trance button names
 
 UI lab review F11 items 6–9, asked one at a time.
