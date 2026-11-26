@@ -84,7 +84,7 @@ const putOn = (group, name, by = rei) => {
 // --- a compulsion whose action ECHS doesn't know: one answer, naming it -------------------------------
 reset(); under();
 say("Missy, whenever anyone gags you, your arms go limp");
-check("unknown action: one notice, no RECORDING or Noted", [toHyp.length, toHyp.some((t) => /RECORDING|Noted/.test(t))], [1, false]);
+check("unknown action: one notice, no RECORDING or Noted", [toHyp.length, toHyp.some((t) => /Recording |Noted/.test(t))], [1, false]);
 check("unknown action: names it and says what to do", /"your arms go limp" isn't something ECHS knows how to do.*Suggestions.*\/echs match/.test(toHyp[0] ?? ""), true);
 check("unknown action: nothing planted", storage.listTriggers().length, 0);
 
@@ -114,10 +114,10 @@ check("wake clause, unknown: one notice, still under", [toHyp.length, /still und
 // --- a compulsion that works: every notice still goes, in order --------------------------------------
 reset(); under();
 say("Missy, whenever anyone gags you, kneel");
-check("kept: RECORDING, Noted, Recorded, in that order", toHyp.map((t) => /RECORDING/.test(t) ? "R" : /Noted/.test(t) ? "N" : /Recorded/.test(t) ? "A" : "?"), ["R", "N", "A"]);
+check("kept: RECORDING, Noted, Recorded, in that order", toHyp.map((t) => /Recording /.test(t) ? "R" : /Noted/.test(t) ? "N" : /Recorded/.test(t) ? "A" : "?"), ["R", "N", "A"]);
 toHyp = [];
 say("Missy, remember trigger");
-check("kept: remember trigger saves it", [storage.listTriggers().length, /SAVED/.test(toHyp[0] ?? "")], [1, true]);
+check("kept: remember trigger saves it", [storage.listTriggers().length, /Saved /.test(toHyp[0] ?? "")], [1, true]);
 
 // --- a refused start is still told (held, then sent) --------------------------------------------------
 reset(); storage.setFeature("triggerControl", false); under();

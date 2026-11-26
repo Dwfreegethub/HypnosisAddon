@@ -1,4 +1,5 @@
 import { log, isTestingMode } from "./log";
+import { describeAction } from "./voice";
 import { tellPlayer } from "./notify";
 import { compulsionAct, actMatches } from "./compulsion-acts";
 import {
@@ -67,7 +68,10 @@ export function sendHeldNotes(notes: HeldNote[]): void {
 export function installTriggers(): void {
 	registerHiddenHandler("trigger-status", (sender, message) => {
 		const text = typeof message.text === "string" ? message.text : "";
-		if (text) tellPlayer(text);
+		// v1.16.39 (review F9): the "[trigger] " / "[trance] " tag came out as "[[trigger] …]", since
+		// tellPlayer brackets the line itself. Dropped here, so an older subject's notices read the same.
+		const shown = text.replace(/^\[(?:trigger|trance)\]\s*/, "");
+		if (shown) tellPlayer(shown);
 		if (message.planted !== undefined) receivePlanted(sender, characterFor(sender)?.Name ?? `#${sender}`, message.planted);
 	});
 
@@ -935,7 +939,8 @@ export function renameRecording(sender: number, phrase: string, isHolding: (t: T
 	const old = recording.phrase;
 	recording.phrase = phrase;
 	log(`trigger recording renamed "${old}" -> "${phrase}"`);
-	tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}" — ${recording.actions.length} suggestion(s) kept.`);
+	const kept = recording.actions.length;
+	tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}"; ${kept === 1 ? "its 1 suggestion is" : `its ${kept} suggestions are`} kept.`);
 }
 
 /** Begin recording. Returns a message to show the subject, or "" if not allowed. */
@@ -1017,7 +1022,7 @@ export function beginRecording(
 	log(`recording ${recordingLabel()} for ${hypnotistName}`);
 	tellHypnotist(
 		hypnotistId,
-		`[trigger] RECORDING ${recordingLabel()}. Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`,
+		`[trigger] Recording ${recordingLabel()}: say what it does, then "remember trigger" (or "forget the trigger" to cancel).`,
 	);
 	// The subject gets atmosphere with no phrase in it — see tellHypnotist.
 	return "Something is being set aside in you. You let it happen.";
@@ -1091,7 +1096,7 @@ export function recordAction(id: string): string | null {
 	log(`trigger ${recordingLabel()} now has ${recording.actions.length} action(s)`);
 	tellHypnotist(
 		recording.hypnotistId,
-		`[trigger] Recorded ${id} into ${recordingLabel()} (${recording.actions.length} so far).`,
+		`[trigger] Recorded for ${recordingLabel()}: ${describeAction(id)}.`,
 	);
 	return "That settles into place, waiting.";
 }
@@ -1211,8 +1216,9 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
 	tellHypnotistWithList(
 		trigger.installedBy,
-		`[trigger] SAVED ${recordingLabel()} — ${count} action(s): ${trigger.actions.join(", ")}. ` +
-			`Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` +
+		// v1.16.39 (review F9): in words, not ids and a number ("SAVED … 1 action(s): kneel. Planted at 80").
+		`[trigger] Saved ${recordingLabel()}: ${trigger.actions.map(describeAction).join("; ")}. ` +
+			`Planted at ${tierLabel(tierOf(trigger.plantedDepth))} depth. ` +
 			(options ? `Options: ${options}. ` : "") +
 			(condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) +
 			(notes.length ? ` ${notes.join(" ")}` : ""),

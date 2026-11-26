@@ -242,7 +242,7 @@ say("Missy, your trigger word is sleepy."); // begin recording
 reset();
 say("Missy, touch your breasts."); // should RECORD, not perform
 check("a compelled command is recorded, not performed, while a trigger records", runCalls.length, 0);
-check("  and it is captured as an act: action", /Recorded act:Caress:breasts/.test(toHyp.at(-1) ?? ""), true);
+check("  and it is captured as an act: action", /Recorded for "sleepy": you caress your breasts\./.test(toHyp.at(-1) ?? ""), true);
 say("Missy, remember trigger."); // commit
 
 // Fire it — out of session, so the installer's own live trance does not suppress it.

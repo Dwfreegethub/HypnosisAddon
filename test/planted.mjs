@@ -113,13 +113,13 @@ check("  and that it works once", compulsion?.once, true);
 // --- 2. notes kept up on a message every build knows --------------------------------------------
 reset();
 plant("ember glow");
-const saved = sent.find((m) => m.type === "trigger-status" && /SAVED/.test(m.text));
+const saved = sent.find((m) => m.type === "trigger-status" && /^\[trigger\] Saved /.test(m.text));
 // Failure: a new message type, which an older build prints on screen as raw text.
 check("saving sends the list on trigger-status", saved?.planted?.map((e) => e.word), ["ember glow"]);
 deliver(SUBJECT, saved);
 check("the hypnotist's client keeps it", planted.plantedNote(SUBJECT)?.triggers.map((e) => e.word), ["ember glow"]);
 check("  under the subject's name", planted.plantedNote(SUBJECT)?.name, "Ella");
-check("  and shows the status line too", local.some((l) => /SAVED/.test(l)), true);
+check("  and shows the status line too", local.some((l) => /^\[Saved /.test(l)), true);
 sent = [];
 voice.handleSpokenLine(HYP, "Missy, forget the trigger ember glow");
 const removed = sent.find((m) => m.type === "trigger-status" && /Removed/.test(m.text));

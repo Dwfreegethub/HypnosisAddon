@@ -120,7 +120,7 @@ Missy is **never shown the clear-text phrase**. Hiding the phrase keeps the play
 
 **Elena sees:**
 
-[trigger] RECORDING "sleepy time". Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).
+[Recording "sleepy time": say what it does, then "remember trigger" (or "forget the trigger" to cancel).]
 
 Elena now speaks the intended actions. **These actions are recorded to the buffer, not executed immediately**—preventing Missy from freezing or losing speech mid-setup:
 
@@ -133,8 +133,8 @@ Elena now speaks the intended actions. **These actions are recorded to the buffe
 
 **Elena sees:**
 
-[trigger] Recorded movement-block into "sleepy time" (1 so far).
-[trigger] Recorded speech-block into "sleepy time" (2 so far).
+[Recorded for "sleepy time": you cannot move.]
+[Recorded for "sleepy time": you cannot speak.]
 
 Elena commits and stores the trigger:
 
@@ -146,8 +146,7 @@ Elena commits and stores the trigger:
 
 **Elena sees:**
 
-[trigger] SAVED "sleepy time" — 2 action(s): movement-block, speech-block.
-Planted at Deep depth. Saying it will now fire them, in or out of trance.
+[Saved "sleepy time": you cannot move; you cannot speak. Planted at Deep depth. Saying it will now fire them, in or out of trance.]
 
 Trigger phrases must be at least 5 characters long and cannot overlap with existing triggers stored on Missy. See [Triggers and Lasting Effects](Triggers-and-Lasting-Effects).
 

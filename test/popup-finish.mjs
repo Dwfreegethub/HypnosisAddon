@@ -108,7 +108,7 @@ for (const cat of popupSuggest.suggestCategories())
 			try {
 				say(`Missy, ${phrase}`);
 			} catch {}
-			if (kind === "condition" || kind === "start" || toHyp.some((t) => /RECORDING/.test(t))) startsOne.push(`${it.id} "${phrase}"`);
+			if (kind === "condition" || kind === "start" || toHyp.some((t) => /Recording /.test(t))) startsOne.push(`${it.id} "${phrase}"`);
 		}
 check("no suggestion starts a trigger", startsOne.length === 0, `none, got ${startsOne.join("; ")}`);
 // A "when …" clause after a suggestion belongs to it; one that opens the line still starts a compulsion.

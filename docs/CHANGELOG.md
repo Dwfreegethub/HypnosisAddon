@@ -18,6 +18,31 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-25 (v1.16.39) — hypnotist notices in words; no "[[trigger]"; lower-case refusal reason
+
+UI lab review F9, items 3 and 4; DW: "OK. Do 3 and 4". (Items 1, the removal verb, and 2, names
+that change between tabs, wait on DW's words.)
+
+The double bracket: every trigger notice is sent as "[trigger] …" (and two session ones as
+"[trance] …"), and the hypnotist's trigger-status handler showed it through tellPlayer, which
+brackets the line again. The handler now drops a leading [trigger]/[trance] tag before showing it,
+so an older subject's notices read the same; senders keep the tag (it is what the suites, and an
+older hypnotist build, expect).
+
+Wording (triggers.ts): "Recording <label>: say what it does, then \"remember trigger\" (or …)";
+"Recorded for <label>: <describeAction>." (was the id and a running count); "Saved <label>: <each
+action described, ; joined>. Planted at <tier> depth." (was "SAVED … — n action(s): ids. Planted at
+80 (Blank)"); "Renamed …; its n suggestions are kept" and "Reinforced n triggers" (no "(s)").
+describeAction is voice.ts's, the words the hypnotist's own planted list already uses; triggers.ts
+imports it (a module cycle, used only at call time).
+
+session.ts reportRefusalToHypnotist lower-cases the reason's first letter after the colon (the
+subject's client writes it as a sentence: "They aren't open to hypnosis."), older senders too.
+
+Wiki: Sample-Session's notices; the Troubleshooting limitation "confirmations name actions by their
+internal IDs" removed (no longer true). Tests: wording in activity, miss, planted (the shown line
+starts "[Saved "), reactions, notice-once, popup-finish. Mutations: tag kept 1, capital kept 2.
+
 ### Changed 2026-11-25 (v1.16.38) — Stats list scrolls; Export / Import / Reset on General
 
 DW: "can we do scroll bars on the stats tab. And maybe we can move the Export, import and reset to
