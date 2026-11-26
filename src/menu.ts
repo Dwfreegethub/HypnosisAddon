@@ -937,7 +937,7 @@ export function remoteChoices(): RemoteChoice[] {
 	return [
 		// The Inductions tab, in its screen order.
 		inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v)), undefined, true),
-		inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), undefined, true),
+		inductions("inductionSeconds", "Time to go under (after you answer)", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), undefined, true),
 		inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
 		inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
 		inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => (getToyMode() ? "on" : "off"), (v) => setToyMode(v === "on"), "off"),
@@ -1139,13 +1139,14 @@ const INDUCTION_DROPDOWNS: DropdownRow[] = [
 	{
 		// v1.6.0 (DW, 2026-11-08). Before the answers, since they answer or skip part of it.
 		id: "HypnosisAddonInductionTime",
-		label: "Induction time:",
+		// Renamed v1.16.42 (review F11, DW): it starts after you answer, or after the minute to answer.
+		label: "Time to go under (after you answer):",
 		options: INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })),
 		get: () => String(getInductionSeconds()),
 		set: (key) => setInductionSeconds(Number(key)),
 		caption: () =>
 			getInductionSeconds() >= 60
-				? "How long someone has to put you under before it lands or misses. Toy mode waits it too."
+				? "Starts once you answer: how long they have before it lands or misses. Toy mode waits it too."
 				: "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
 	},
 	{
@@ -1180,7 +1181,7 @@ const INDUCTION_DROPDOWNS: DropdownRow[] = [
 		set: (key) => setToyMode(key === "on"),
 		caption: () =>
 			getToyMode()
-				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers too."
+				? "No roll: when your time to go under is up, you go under to your \"sink deeper\" limit, triggers too."
 				: "Every induction rolls as usual.",
 	},
 	{

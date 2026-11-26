@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.41. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.42. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5172,7 +5172,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     startPresenceWatch();
     const descriptor = skillDescriptor(session.honouredSkill);
     notify(
-      `${hypnotistName2} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)}s)` + (descriptor ? ` ${descriptor}` : "")
+      `${hypnotistName2} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight \u2014 they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1e3)} seconds to answer.)` + (descriptor ? ` ${descriptor}` : "")
     );
   }
   function getPendingPrompt() {
@@ -11310,7 +11310,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.41", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.42", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11359,7 +11359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.41", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.42", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12025,9 +12025,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("with no key, click or touch you count as away, and your away"),
       body("setting decides: turn them away (the default), Ignore, or keep it."),
       body("Toy mode, for who you choose (Owner and Lovers by default), puts"),
-      body('you under to your "sink deeper" limit when the induction time is up:'),
-      body("no roll, no tries. Induction time (60 seconds, or as low as 10) is"),
-      body("how long every induction runs, toy mode's too."),
+      body('you under to your "sink deeper" limit when the time to go under is up:'),
+      body("no roll, no tries. Time to go under (60 seconds, or as low as 10) is"),
+      body("how long every induction runs once you answer, toy mode's too."),
       dim("Toy mode reaches triggers too. The safeword always works."),
       gap(),
       head("Their skill, and whether you believe it"),
@@ -13061,7 +13061,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return [
       // The Inductions tab, in its screen order.
       inductions("maxAttempts", "Attempts before they must wait", ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })), () => String(getMaxAttempts()), (v) => setMaxAttempts(Number(v)), void 0, true),
-      inductions("inductionSeconds", "Induction time", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), void 0, true),
+      inductions("inductionSeconds", "Time to go under (after you answer)", INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })), () => String(getInductionSeconds()), (v) => setInductionSeconds(Number(v)), void 0, true),
       inductions("defaultStance", "When someone tries to hypnotize me", DEFAULT_STANCES, getDefaultStance, setDefaultStance, "prompt"),
       inductions("awayStance", "When I'm away", AWAY_STANCES, getAwayStance, setAwayStance, "refuse"),
       inductions("toyMode", "Toy mode", [{ key: "off", label: "Off" }, { key: "on", label: "On" }], () => getToyMode() ? "on" : "off", (v) => setToyMode(v === "on"), "off"),
@@ -13649,7 +13649,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.41"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.42"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13722,7 +13722,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.41"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.42"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14336,11 +14336,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         {
           // v1.6.0 (DW, 2026-11-08). Before the answers, since they answer or skip part of it.
           id: "HypnosisAddonInductionTime",
-          label: "Induction time:",
+          // Renamed v1.16.42 (review F11, DW): it starts after you answer, or after the minute to answer.
+          label: "Time to go under (after you answer):",
           options: INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })),
           get: () => String(getInductionSeconds()),
           set: (key) => setInductionSeconds(Number(key)),
-          caption: () => getInductionSeconds() >= 60 ? "How long someone has to put you under before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too."
+          caption: () => getInductionSeconds() >= 60 ? "Starts once you answer: how long they have before it lands or misses. Toy mode waits it too." : "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too."
         },
         {
           id: "HypnosisAddonDefaultStance",
@@ -14364,7 +14365,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           options: [{ key: "off", label: "Off" }, { key: "on", label: "On" }],
           get: () => getToyMode() ? "on" : "off",
           set: (key) => setToyMode(key === "on"),
-          caption: () => getToyMode() ? 'No roll: when your induction time is up, you go under to your "sink deeper" limit, triggers too.' : "Every induction rolls as usual."
+          caption: () => getToyMode() ? 'No roll: when your time to go under is up, you go under to your "sink deeper" limit, triggers too.' : "Every induction rolls as usual."
         },
         {
           // v0.97.3: the Triggers tab's choices (DW: "use the same format as the one used on the triggers tab").
@@ -14611,7 +14612,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.41", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.42", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -16508,7 +16509,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const instinct = descriptor ? descriptorLines(descriptor) : [];
     instinct.forEach((line, i) => drawCentred(line, PANEL_TOP2 + 135 + i * 36, LINE_SIZE, "#444"));
     drawCentred(
-      `${Math.ceil(remainingMs / 1e3)}s \u2014 no answer counts as Ignore.`,
+      // "to answer" (v1.16.42, review F11, DW): read as "60s" it looked like her induction time not
+      // working. Her time to go under starts after this.
+      `${Math.ceil(remainingMs / 1e3)}s to answer. No answer counts as Ignore.`,
       PANEL_TOP2 + (instinct.length ? 135 + instinct.length * 36 + 10 : 150),
       LINE_SIZE,
       "Gray"
@@ -17560,9 +17563,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (side === "under") {
       const out = [
         b("Wake", "wake", "Wake yourself, if the trance is shallow enough"),
-        b("Fight", "fight", "Push back up, and fight going deeper"),
-        b("Agree", "agree", "Stop resisting"),
-        b("Ignore", "ignore", "Neither help nor resist going deeper"),
+        // Named for what they do once you are under (v1.16.42, review F11, DW: "Agree" and
+        // "Ignore" said nothing here). They still type /echs fight, agree and ignore.
+        b("Fight it", "fight", "Push back up, and fight going deeper"),
+        b("Let it", "agree", "Stop resisting"),
+        b("Drift", "ignore", "Neither help nor resist going deeper"),
         b("What is on me", "effects", "List the effects on you now")
       ];
       const ext = getPendingExtend();
@@ -17724,7 +17729,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.41"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.42"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17974,6 +17979,59 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function renderTriggers(body2, status) {
     body2.textContent = "";
     askPlantedLists();
+    const mine = sweptTriggers();
+    const drawMine = () => {
+      const locked = extremeLocked();
+      triggerGroup(body2, "mine", `Triggers in you (${mine.length})`, (list) => {
+        if (!mine.length) list.appendChild(el2("div", "echs-pop-empty", "Nothing is planted in you."));
+        const reveal = triggerPhrasesVisible(false);
+        const hidden = getTriggerView() === "hidden";
+        if (hidden && mine.length) list.appendChild(el2("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
+        (hidden ? [] : mine).forEach((t, i) => {
+          const n = i + 1;
+          const holding = isTriggerInEffect(t);
+          const row = el2("div", "echs-pop-entry");
+          row.appendChild(el2("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
+          const chips = el2("div", "echs-pop-buttons");
+          chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
+          const why = locked ? "Your Extreme lock is on: triggers can only be added until it ends." : holding ? "It is holding you: wait, have it released, or use the safeword." : "";
+          chips.appendChild(
+            chip(
+              "forget",
+              why || `/echs forgettrigger ${n}`,
+              () => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
+              !!why
+            )
+          );
+          row.appendChild(chips);
+          list.appendChild(row);
+        });
+        if (mine.length > 1 || hidden && mine.length)
+          list.appendChild(
+            chip(
+              "forget all",
+              locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
+              () => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
+              locked
+            )
+          );
+        list.appendChild(el2("div", "echs-pop-hint", "How fast your triggers fade:"));
+        const rates = el2("div", "echs-pop-buttons");
+        const now = getTriggerDecayRate();
+        for (const r of DECAY_RATES) {
+          const c = chip(
+            r.label,
+            locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
+            () => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
+            locked
+          );
+          if (r.key === now) c.className += " echs-pop-chip-on";
+          rates.appendChild(c);
+        }
+        list.appendChild(rates);
+      });
+    };
+    if (mine.length) drawMine();
     const who = currentSubject();
     if (who) {
       body2.appendChild(el2("div", "echs-pop-hint", `Planting in ${who.name}. Needs a Deep trance, on earned depth.`));
@@ -18012,35 +18070,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
           }
         });
     } else {
-      body2.appendChild(el2("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are below to read."));
-      for (const g of PLANT_GROUPS)
-        triggerGroup(body2, g.key, g.title, (list) => {
-          if (g.hint) list.appendChild(el2("div", "echs-pop-hint", g.hint));
-          for (const line of g.lines) {
-            const key = `choices-${g.key}-${line.id}`;
-            const isOpen = !!line.choices && triggerOpen.has(key);
-            const label = `${line.choices ? isOpen ? "\u2212 " : "+ " : ""}${line.release ? "\u21BA " : ""}${line.label}`;
-            const b = el2("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, label);
-            b.type = "button";
-            b.title = line.choices ? "Opens the list to read. Put someone under first to use it." : "Put someone under first.";
-            b.addEventListener("click", () => {
-              if (line.choices) {
-                if (triggerOpen.has(key)) triggerOpen.delete(key);
-                else triggerOpen.add(key);
-                renderBody();
-                return;
+      triggerGroup(body2, "plant-preview", "Planting triggers (put someone under first)", (outer) => {
+        outer.appendChild(el2("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are here to read."));
+        for (const g of PLANT_GROUPS)
+          triggerGroup(outer, g.key, g.title, (list) => {
+            if (g.hint) list.appendChild(el2("div", "echs-pop-hint", g.hint));
+            for (const line of g.lines) {
+              const key = `choices-${g.key}-${line.id}`;
+              const isOpen = !!line.choices && triggerOpen.has(key);
+              const label = `${line.choices ? isOpen ? "\u2212 " : "+ " : ""}${line.release ? "\u21BA " : ""}${line.label}`;
+              const b = el2("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, label);
+              b.type = "button";
+              b.title = line.choices ? "Opens the list to read. Put someone under first to use it." : "Put someone under first.";
+              b.addEventListener("click", () => {
+                if (line.choices) {
+                  if (triggerOpen.has(key)) triggerOpen.delete(key);
+                  else triggerOpen.add(key);
+                  renderBody();
+                  return;
+                }
+                setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
+              });
+              list.appendChild(b);
+              if (!isOpen) continue;
+              const chips = el2("div", "echs-pop-buttons");
+              for (const choice of line.choices) {
+                chips.appendChild(chip(choice.label, "Put someone under first.", () => setStatus(status, "Nobody is under you: put someone under first, then this types it for them."), true));
               }
-              setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
-            });
-            list.appendChild(b);
-            if (!isOpen) continue;
-            const chips = el2("div", "echs-pop-buttons");
-            for (const choice of line.choices) {
-              chips.appendChild(chip(choice.label, "Put someone under first.", () => setStatus(status, "Nobody is under you: put someone under first, then this types it for them."), true));
+              list.appendChild(chips);
             }
-            list.appendChild(chips);
-          }
-        });
+          });
+      });
     }
     for (const p of plantedPeople()) {
       triggerGroup(body2, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
@@ -18072,56 +18132,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
       });
     }
-    const mine = sweptTriggers();
-    const locked = extremeLocked();
-    triggerGroup(body2, "mine", `Triggers in you (${mine.length})`, (list) => {
-      if (!mine.length) list.appendChild(el2("div", "echs-pop-empty", "Nothing is planted in you."));
-      const reveal = triggerPhrasesVisible(false);
-      const hidden = getTriggerView() === "hidden";
-      if (hidden && mine.length) list.appendChild(el2("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
-      (hidden ? [] : mine).forEach((t, i) => {
-        const n = i + 1;
-        const holding = isTriggerInEffect(t);
-        const row = el2("div", "echs-pop-entry");
-        row.appendChild(el2("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
-        const chips = el2("div", "echs-pop-buttons");
-        chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
-        const why = locked ? "Your Extreme lock is on: triggers can only be added until it ends." : holding ? "It is holding you: wait, have it released, or use the safeword." : "";
-        chips.appendChild(
-          chip(
-            "forget",
-            why || `/echs forgettrigger ${n}`,
-            () => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
-            !!why
-          )
-        );
-        row.appendChild(chips);
-        list.appendChild(row);
-      });
-      if (mine.length > 1 || hidden && mine.length)
-        list.appendChild(
-          chip(
-            "forget all",
-            locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
-            () => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
-            locked
-          )
-        );
-      list.appendChild(el2("div", "echs-pop-hint", "How fast your triggers fade:"));
-      const rates = el2("div", "echs-pop-buttons");
-      const now = getTriggerDecayRate();
-      for (const r of DECAY_RATES) {
-        const c = chip(
-          r.label,
-          locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
-          () => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
-          locked
-        );
-        if (r.key === now) c.className += " echs-pop-chip-on";
-        rates.appendChild(c);
-      }
-      list.appendChild(rates);
-    });
   }
   function askedStatus(status, member, text2) {
     awaiting = { id: member, at: Date.now() };
@@ -18864,7 +18874,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.41"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.42"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18891,7 +18901,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.41"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.42"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18966,14 +18976,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.41"})`);
+      info(`script loaded (v${"1.16.42"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.41",
+          version: "1.16.42",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19115,10 +19125,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.41"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.42"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.41";
+    page2.__ECHS_LOADED__ = "1.16.42";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

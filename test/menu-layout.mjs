@@ -311,7 +311,7 @@ openTab(1); frame();
 check("Inductions: no checkboxes and no buttons in the list", [boxes.length, buttons.filter((b) => b.clip).length], [0, 0]);
 dropdownTab("Inductions", [
 	{ id: "HypnosisAddonAttempts", label: "Attempts before they must wait:", key: "attempts", count: storage.ATTEMPT_LIMITS.length },
-	{ id: "HypnosisAddonInductionTime", label: "Induction time:", key: "seconds", count: storage.INDUCTION_TIMES.length },
+	{ id: "HypnosisAddonInductionTime", label: "Time to go under (after you answer):", key: "seconds", count: storage.INDUCTION_TIMES.length },
 	{ id: "HypnosisAddonDefaultStance", label: "When someone tries to hypnotize me:", key: "stance", count: storage.DEFAULT_STANCES.length },
 	{ id: "HypnosisAddonAwayStance", label: "When I'm away:", key: "away", count: storage.AWAY_STANCES.length },
 	{ id: "HypnosisAddonToyMode", label: "Toy mode:", key: "toy", count: 2 },

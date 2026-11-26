@@ -18,6 +18,30 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-26 (v1.16.42) — F11 6–8 (DW's answers): "Time to go under (after you answer)", Triggers tab order, under-trance button names
+
+UI lab review F11 items 6–9, asked one at a time.
+
+6. DW: both. The box's countdown reads "58s to answer. No answer counts as Ignore." and the chat
+   line "(60 seconds to answer.)". The setting (Inductions dropdown and the keyholder remote
+   label) is "Time to go under (after you answer)". I suggested "after you agree"; session.ts
+   showPrompt / beginInductionWindow show the window opens after ANY answer, or after the
+   60-second prompt times out as Ignore, and toy mode runs it too, so "answer" it is (told DW).
+   Caption: "Starts once you answer: how long they have before it lands or misses." help.ts and
+   the wiki (How Inductions Work, Settings Reference, Consent and Safety) follow.
+7. DW: own first, fold, hide empty. renderTriggers draws "Triggers in you" first when any are
+   planted (drawMine closure, the old section 3), and not at all when none (the fade-speed chips go
+   with it; the setting is still on the Triggers settings tab and /echs triggerdecay). With nobody
+   under you, the greyed PLANT_GROUPS sit inside one triggerGroup "plant-preview", closed by default.
+8. DW: clearer names, no extra line. Under: Fight it / Let it / Drift (tips unchanged), typing
+   /echs fight / agree / ignore. The induction box and the before-the-roll Me tab keep
+   Agree / Ignore / Fight, where those words are the question being asked.
+9. DW: leave as is (the safeword releases control, not the pose).
+
+Tests: prompt-box.mjs checks the countdown text; menu-layout.mjs the new label; popup.mjs the
+fold, no empty group, own-first order, the new names and the commands they type. Mutations: empty
+group drawn, fold open, "Let it" typing ignore — all caught.
+
 ### Changed 2026-11-26 (v1.16.41) — F11 polish 1–5: induction box text, popup size, Commands order, remote planted hint, Stats headings
 
 UI lab review F11, the five items DW approved without questions ("Do 1 - 5 and then we will come

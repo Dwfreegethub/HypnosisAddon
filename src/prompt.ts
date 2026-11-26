@@ -93,7 +93,9 @@ export function drawPrompt(hypnotistName: string, remainingMs: number, descripto
 	const instinct = descriptor ? descriptorLines(descriptor) : [];
 	instinct.forEach((line, i) => drawCentred(line, PANEL_TOP + 135 + i * 36, LINE_SIZE, "#444"));
 	drawCentred(
-		`${Math.ceil(remainingMs / 1000)}s — no answer counts as Ignore.`,
+		// "to answer" (v1.16.42, review F11, DW): read as "60s" it looked like her induction time not
+		// working. Her time to go under starts after this.
+		`${Math.ceil(remainingMs / 1000)}s to answer. No answer counts as Ignore.`,
 		PANEL_TOP + (instinct.length ? 135 + instinct.length * 36 + 10 : 150),
 		LINE_SIZE,
 		"Gray",
