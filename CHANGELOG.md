@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.0 · 26 November 2026
+
+- **Phantom touch.** *"Missy, you feel a hand on your thigh"*, *"you feel lips on your neck"*,
+  *"you feel hands all over you"*: you feel a touch nobody is giving you. Only you see it, and it
+  does what a real touch would, by your own likes and dislikes in the game's settings.
+- **The room only sometimes notices,** with a short reaction like *"Missy shivers, though nobody
+  is touching her"*, never saying where. Off if *Others see your reactions* is off.
+- Needs Arousal & Orgasm. Numbness stops it. It works in triggers too, and the popup's
+  Suggestions tab lists it under Touch.
+
 ## v1.18.0 · 26 November 2026
 
 - **Compulsions can wait for clothes coming off or going on.** *"Missy, whenever anyone undresses

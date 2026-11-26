@@ -18,6 +18,31 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.0) — phantom touch: a touch only she feels, with a real touch's effect
+
+Idea 2 of DW's feature list. DW: "I do want the touch to have the same effect as real touch would have
+and I am the only one that sees the touch." So `src/phantom.ts` calls BC's own `ActivityEffect(Player,
+Player, activity, zone)`, the call R134's "Arousal processing" handler (ChatRoom.js, priority 210) makes
+for a real touch aimed at her. Her activity and zone factors, fetishes, the zone's orgasm setting and the
+activity's expression all apply as they would, and nothing is sent as an activity: a fake one would read
+to the room as someone really touching her. Her face can change, which BC syncs, as with any touch. She
+is the source, so BC's lover bonus (another random 0 to 7) never applies: nobody is there.
+
+- **The room, DW's choice:** "A reaction, no place", plus "But room would not see it every time. Just
+  some times." A reaction line one time in three, never two within 3 minutes, never naming the spot,
+  through `tellRoom` (so *Others see your reactions* still decides).
+- **Grammar:** "you feel <something> <place or action>". A noun picks the activity (hand / fingers /
+  touch = Caress, lips = Kiss, tongue = Lick, teeth = Bite, a smack = Spank …), a hand's verb can change
+  it (squeeze = Grope, pinch, spank, slap, tickle, scratch, tug + hair = Pull), and "your <part>" uses
+  selftouch.ts's BODY_PARTS plus a few words nothing blocks (back, skin, cheek). It must reach her (a
+  place, "all over you", or a stroke), so "you can feel my hands" stays the numbness release and "you feel
+  someone watching you" is nothing. Checked before the self-touch commands in `landCommand`, or "you feel
+  fingers stroke your thighs" would have her stroke her own thighs.
+- **Decided, not asked:** under Arousal & Orgasm at its depth, as the doc said. Numbness wins (it is "you
+  feel nothing when I touch you", and an imagined touch is still a touch). In a trigger it is a one-off
+  action, `feel:<Activity>:<part>`, and a hold-while-worn compulsion repeats it with the arousal, as the
+  doc's "repeating while held" asked.
+
 ### Added 2026-11-26 (v1.18.0) — clothing compulsions: garments off or on, by anyone, her included
 
 Idea 1 of DW's feature list ("ECHS feature ideas.md", 2026-11-24). Its open question was which message

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.18.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7032,6 +7032,173 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/phantom.ts
+  function phantomZone(word) {
+    return BODY_PARTS[word]?.[0] ?? EXTRA_ZONES[word] ?? null;
+  }
+  function matchPhantomTouch(content) {
+    const text2 = content.toLowerCase().replace(/[‘’ʼ']/g, "").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const m = LEAD.exec(text2);
+    if (!m) return null;
+    const rest = m[1];
+    if (NEGATED.test(rest)) return null;
+    if (/^your\b/.test(rest)) return null;
+    const noun = NOUNS.find(([re]) => re.test(rest));
+    if (!noun) return null;
+    const verb = VERBS.find(([re]) => re.test(rest));
+    if (!PLACE.test(rest) && !ALL_OVER.test(rest) && !verb && !STROKE.test(rest)) return null;
+    const activity = verb && (noun[1] === "Caress" || verb[1] === "Pull") ? verb[1] : noun[1];
+    if (ALL_OVER.test(rest)) return { activity, part: "all" };
+    const words = /\byour ([a-z]+)\b/g;
+    let w;
+    while (w = words.exec(rest)) {
+      const word = w[1];
+      if (phantomZone(word)) return { activity, part: word };
+      if (phantomZone(`${word}s`)) return { activity, part: `${word}s` };
+    }
+    return { activity, part: "" };
+  }
+  function phantomActionId(t) {
+    return `${PHANTOM_PREFIX}${t.activity}:${t.part}`;
+  }
+  function parsePhantomId(id) {
+    if (!id.startsWith(PHANTOM_PREFIX)) return null;
+    const [activity, part = ""] = id.slice(PHANTOM_PREFIX.length).split(":");
+    return activity ? { activity, part } : null;
+  }
+  function describePhantom(t) {
+    if (t.part === "all") return t.activity === "Caress" ? "you feel hands all over you" : `you feel ${VERB_WORDS[t.activity] ?? "a touch on"} you, all over`;
+    return `you feel ${VERB_WORDS[t.activity] ?? "a touch on"} your ${t.part || DEFAULT_PART[t.activity] || "skin"}`;
+  }
+  function phantomLine(t, rnd = Math.random) {
+    if (t.part === "all") {
+      return pick2(
+        [
+          "Hands are everywhere at once: your neck, your waist, your thighs, and nobody is there.",
+          "Unseen hands roam all over you, slow and sure, as if they own you.",
+          "You are touched all over, everywhere at once, by no one at all."
+        ],
+        rnd
+      );
+    }
+    const p = t.part || DEFAULT_PART[t.activity] || "skin";
+    const lines = {
+      Caress: [`A warm hand slides slowly along your ${p}.`, `Fingertips trace your ${p}, light as breath, and nobody is there.`, `Someone's palm rests on your ${p}, warm and certain.`],
+      Kiss: [`Soft lips press to your ${p}.`, `A slow kiss lands on your ${p}, from nowhere.`],
+      Lick: [`A warm tongue drags slowly across your ${p}.`],
+      Bite: [`Teeth graze your ${p}, just hard enough.`],
+      Spank: [`A sharp smack lands on your ${p}, and the sting blooms.`],
+      Slap: [`A slap stings your ${p}.`],
+      Pinch: [`Fingers pinch your ${p}, sharp and sudden.`],
+      Scratch: [`Nails drag slowly down your ${p}.`],
+      Tickle: [`Fingers dance over your ${p}, tickling, and you can't squirm away from no one.`],
+      Grope: [`A hand squeezes your ${p}, greedy and sure.`],
+      Pull: [`A hand closes in your hair and tugs.`]
+    };
+    return pick2(lines[t.activity] ?? lines.Caress, rnd);
+  }
+  function feelPhantom(t, rnd = Math.random, now = Date.now()) {
+    if (isNumb()) {
+      tellPlayer("Something reaches for you and lands on nothing at all.");
+      log(`phantom ${t.activity}:${t.part}: numb`);
+      return "numb";
+    }
+    tellPlayer(phantomLine(t, rnd));
+    const zones = t.part === "all" ? ALL_ZONES : [phantomZone(t.part || DEFAULT_PART[t.activity] || "") ?? "ItemTorso"];
+    const active2 = Player?.ArousalSettings?.Active;
+    const arousal = (active2 === "Hybrid" || active2 === "Automatic") && typeof ActivityEffect === "function";
+    if (arousal) {
+      for (const zone of t.part === "all" ? [pick2(zones, rnd), pick2(zones, rnd), pick2(zones, rnd)] : zones) {
+        try {
+          ActivityEffect(Player, Player, t.activity, zone, 1);
+        } catch (err) {
+          log(`phantom ActivityEffect failed on ${zone}:`, err);
+        }
+      }
+    }
+    if (now - lastRoomAt >= ROOM_GAP_MS && Math.floor(rnd() * ROOM_CHANCE) === 0) {
+      lastRoomAt = now;
+      tellRoom(fillTokens(pick2(ROOM_LINES, rnd)));
+    }
+    log(`phantom ${t.activity}:${t.part}${arousal ? "" : " (no arousal)"}`);
+    return arousal ? "felt" : "no-arousal";
+  }
+  var PHANTOM_PREFIX, NOUNS, VERBS, LEAD, NEGATED, PLACE, STROKE, ALL_OVER, DEFAULT_PART, EXTRA_ZONES, ALL_ZONES, VERB_WORDS, pick2, ROOM_LINES, ROOM_CHANCE, ROOM_GAP_MS, lastRoomAt;
+  var init_phantom = __esm({
+    "src/phantom.ts"() {
+      init_log();
+      init_selftouch();
+      init_suppression();
+      init_notify();
+      PHANTOM_PREFIX = "feel:";
+      NOUNS = [
+        [/\b(?:lips|kiss|kisses|mouth)\b/, "Kiss"],
+        [/\b(?:tongue|lick|licks)\b/, "Lick"],
+        [/\b(?:teeth|bite|bites|nip)\b/, "Bite"],
+        [/\b(?:spank|smack|swat)\b/, "Spank"],
+        [/\b(?:slap)\b/, "Slap"],
+        [/\b(?:pinch)\b/, "Pinch"],
+        [/\b(?:nails|scratch)\b/, "Scratch"],
+        [/\b(?:hand|hands|palm|palms|finger|fingers|fingertips|touch|touches|caress|caresses|someone|somebody|something)\b/, "Caress"]
+      ];
+      VERBS = [
+        [/\b(?:grope|gropes|groping|squeeze|squeezes|squeezing|fondle|fondles|fondling|grab|grabs|grabbing|knead|kneads)\b/, "Grope"],
+        [/\b(?:pinch|pinches|pinching|twist|twists|tweak|tweaks)\b/, "Pinch"],
+        [/\b(?:spank|spanks|spanking|smack|smacks|swat|swats)\b/, "Spank"],
+        [/\b(?:slap|slaps|slapping)\b/, "Slap"],
+        [/\b(?:tickle|tickles|tickling)\b/, "Tickle"],
+        [/\b(?:scratch|scratches|scratching|rake|rakes)\b/, "Scratch"],
+        [/\b(?:tug|tugs|tugging|pull|pulls|pulling|yank|yanks)\b(?=.*\bhair\b)/, "Pull"],
+        [/\b(?:kiss|kisses|kissing)\b/, "Kiss"],
+        [/\b(?:lick|licks|licking)\b/, "Lick"],
+        [/\b(?:bite|bites|biting|nibble|nibbles|nibbling)\b/, "Bite"]
+      ];
+      LEAD = /\byou (?:can |will |suddenly |slowly |begin to |start to |now )?feel (.+)$/;
+      NEGATED = /\b(?:not|never|nothing|no|nobody|cannot|stop)\b/;
+      PLACE = /\b(?:on|against|over|along|across|between|around|up|down|in|inside|at|under|through|behind) (?:you|your)\b/;
+      STROKE = /\b(?:strokes?|stroking|brush(?:es)?|slides?|runs?|traces?|rubs?|caress(?:es)?)\b/;
+      ALL_OVER = /\b(?:all over (?:you|your body)|everywhere|all of you)\b/;
+      DEFAULT_PART = {
+        Caress: "thighs",
+        Kiss: "neck",
+        Lick: "neck",
+        Bite: "neck",
+        Spank: "butt",
+        Slap: "butt",
+        Pinch: "butt",
+        Scratch: "back",
+        Tickle: "ribs",
+        Grope: "breasts",
+        Pull: "hair"
+      };
+      EXTRA_ZONES = { back: "ItemTorso", thigh: "ItemLegs", hand: "ItemHands", arm: "ItemArms", foot: "ItemBoots", hip: "ItemPelvis", shoulder: "ItemArms", cheek: "ItemHead", cheeks: "ItemHead", skin: "ItemTorso", body: "ItemTorso" };
+      ALL_ZONES = ["ItemNeck", "ItemArms", "ItemTorso", "ItemLegs", "ItemBreast", "ItemButt"];
+      VERB_WORDS = {
+        Caress: "a hand on",
+        Kiss: "lips on",
+        Lick: "a tongue on",
+        Bite: "teeth on",
+        Spank: "a spank on",
+        Slap: "a slap on",
+        Pinch: "a pinch on",
+        Scratch: "nails on",
+        Tickle: "fingers tickling",
+        Grope: "a hand squeezing",
+        Pull: "a tug on"
+      };
+      pick2 = (list, rnd) => list[Math.floor(rnd() * list.length) % list.length];
+      ROOM_LINES = [
+        "{name} shivers, though nobody is touching {them}.",
+        "{name} squirms and bites {their} lip.",
+        "{name} gasps softly at nothing.",
+        "{name} shifts, as if someone had brushed against {them}."
+      ];
+      ROOM_CHANCE = 3;
+      ROOM_GAP_MS = 3 * 6e4;
+      lastRoomAt = -Infinity;
+    }
+  });
+
   // src/triggers.ts
   function tellHypnotist(hypnotistId, text2) {
     if (heldNotes) heldNotes.push({ id: hypnotistId, text: text2 });
@@ -8082,7 +8249,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (line === null) return false;
     if (parseTriggerControl(line)) return true;
     if (!isRecording()) return false;
-    return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+    return !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
   function lifespanOption(m) {
     const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
@@ -8152,7 +8319,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return null;
   }
   function isRecordableAction(text2) {
-    return !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
+    return !!matchPhantomTouch(text2) || !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
   }
   function splitStartAtAction(content, start) {
     const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
@@ -8581,6 +8748,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function wornRepeatKind(id) {
     if (id.startsWith("arousal-")) return "arousal";
+    if (id.startsWith(PHANTOM_PREFIX)) return "arousal";
     if (id === "orgasm-force") return "orgasm";
     return null;
   }
@@ -8646,6 +8814,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const strength = triggerStrength(t);
     for (const id of t.actions) {
       if (wornRepeatKind(id) !== kind) continue;
+      const phantom = parsePhantomId(id);
+      if (phantom) {
+        if (features.arousalControl && depthAllows("arousalControl", strength, strength)) feelPhantom(phantom);
+        continue;
+      }
       const suggestion = SUGGESTIONS.find((s) => s.id === id);
       if (!suggestion || permissionReason(suggestion, features)) continue;
       if (!depthAllows(keyFor(suggestion, features), strength, strength)) continue;
@@ -8774,6 +8947,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
             return;
           }
           performActivityAction(id);
+        });
+        continue;
+      }
+      const phantom = parsePhantomId(id);
+      if (phantom) {
+        if (!features.arousalControl) {
+          log(`trigger "${trigger.phrase}": ${id} skipped, arousalControl not granted`);
+          continue;
+        }
+        if (!depthAllows("arousalControl", strength, strength)) {
+          log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+          tooWeak++;
+          continue;
+        }
+        compels++;
+        steps.push(() => {
+          if (getFeatures().arousalControl) feelPhantom(phantom);
         });
         continue;
       }
@@ -9012,6 +9202,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const say = parseSayAction(id);
     if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
+    const phantom = parsePhantomId(id);
+    if (phantom) return describePhantom(phantom);
     if (id.startsWith("act:")) {
       const { base, times } = parseActId(id);
       const suffix = times > 1 ? ` ${times} times` : "";
@@ -9462,6 +9654,40 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!act) return false;
     return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
   }
+  function handlePhantomTouch(sender, content) {
+    const touch = matchPhantomTouch(content);
+    if (!touch) return false;
+    if (!isSessionActiveWith(sender)) {
+      log(`heard a phantom touch from ${sender} but no active session with them`);
+      return true;
+    }
+    if (!mentionsAnyName(content, playerOwnNames())) {
+      log(`heard a phantom touch from ${sender} but they didn't say your name \u2014 ignoring`);
+      return true;
+    }
+    const f = getFeatures();
+    if (!f.hypnoEnabled || !f.arousalControl) {
+      tellHypnotist(sender, '[suggestion] Refused \u2014 they have not enabled "Arousal & Orgasm".');
+      return true;
+    }
+    const recorded = recordAction(phantomActionId(touch));
+    if (recorded) {
+      tellPlayer(recorded);
+      return true;
+    }
+    const refusal = depthRefusal("arousalControl");
+    if (refusal) {
+      tellHypnotist(sender, `[suggestion] Refused \u2014 a phantom touch ${refusal}.`);
+      return true;
+    }
+    const result = feelPhantom(touch);
+    if (result === "numb") tellHypnotist(sender, "[suggestion] It lands on nothing: they're numb to touch right now.");
+    else {
+      if (result === "no-arousal") tellHypnotist(sender, "[suggestion] They feel it, but their arousal meter is off in BC, so it doesn't arouse them.");
+      noteLanded(sender);
+    }
+    return true;
+  }
   function handleActivityCommand(sender, content) {
     const cmd = matchActivityCommand(content);
     if (!cmd) return false;
@@ -9499,8 +9725,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (cmd.kind === "vague") {
       runVagueTouch(sender);
       repeatTouch(sender, cmd.times, () => {
-        const pick2 = pickVagueZone();
-        return pick2 ? runCommandedActivity("Caress", [pick2]) != null : false;
+        const pick3 = pickVagueZone();
+        return pick3 ? runCommandedActivity("Caress", [pick3]) != null : false;
       });
       return true;
     }
@@ -9556,12 +9782,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
   }
   function runVagueTouch(sender) {
-    const pick2 = pickVagueZone();
-    if (!pick2) {
+    const pick3 = pickVagueZone();
+    if (!pick3) {
       tellHypnotist(sender, "[command] Too vague \u2014 and nothing is within reach right now anyway.");
       return true;
     }
-    const landed = runCommandedActivity("Caress", [pick2]);
+    const landed = runCommandedActivity("Caress", [pick3]);
     tellHypnotist(sender, "[command] Too vague \u2014 her hands wander on their own. Name a part to steer them.");
     if (landed) tellPlayer("Your hands move on their own, with no place in mind.");
     return true;
@@ -9712,7 +9938,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellHypnotist(sender, `[command] I don't know "${cmd.unknownPart}" as a body part, so nothing happened.`);
       return true;
     }
-    const word = cmd.word ?? DEFAULT_PART[cmd.activity] ?? null;
+    const word = cmd.word ?? DEFAULT_PART2[cmd.activity] ?? null;
     if (!word) {
       const who = onHypnotist ? "my" : `${cmd.target}'s`;
       tellHypnotist(sender, `[command] Name a part \u2014 "${verb}" has no obvious spot. For example: "${verb} ${who} arms".`);
@@ -9842,6 +10068,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function landCommand(sender, line) {
     if (handleWalkingTrance(sender, line)) return;
     if (handleDeepening(sender, line)) return;
+    if (handlePhantomTouch(sender, line)) return;
     if (handleBodyPartLine(sender, line)) return;
     if (handleTargetedActivityCommand(sender, line)) return;
     if (handleActivityCommand(sender, line)) return;
@@ -9894,7 +10121,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -9918,6 +10145,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_timers();
       init_recovery();
       init_extreme();
+      init_phantom();
       init_triggers();
       ORGASM_DENIED_UNTIL = /\b(?:cannot|will not|may not|must not|not allowed|not permitted|forbidden|do not|never|no)\b.*\b(?:come|cum|orgasm|climax|finish|coming|cumming)\b.*\b(?:until|unless|till|before)\b/;
       UNDRESS_IS_THE_OBJECT = [/\bnotic(e|es|ed|ing)\b/, /\bunnoticed\b/];
@@ -10002,7 +10230,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       FACE_IDS = [...EYE_FACE_IDS, ...MOUTH_FACE_IDS, ...BROW_FACE_IDS, ...FLUID_FACE_IDS, "blush", "eyes-open", "mouth-close", "face-dry", "face-relax"];
       NOT_HERS = String.raw`(?<!\b(?:i|we|a|an|your|my|her|his|their|me|us|them|him|that|the) )`;
       bare = (word) => new RegExp(String.raw`${NOT_HERS}\b${word}\b`);
-      NEGATED = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
+      NEGATED2 = /\b(?:do not|don t|dont|never|cannot|can t|will not|won t|not)\b/;
       FACE_SUGGESTIONS = [
         // The full tongue first: "let your tongue hang out" also says "tongue out".
         faceSuggestion("tongue-hang", "Mouth", "Ahegao", ["let your tongue hang out", "tongue all the way out"], [
@@ -10010,39 +10238,39 @@ One of mods you are using is using an old version of SDK. It will work for now b
           /\b(?:let )?your tongue (?:hang|loll|lolls|hangs)(?: out)?\b/,
           /\bahegao\b/,
           /\b(?:roll your eyes back|your eyes roll back)\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("tongue-out", "Mouth", "TonguePinch", ["stick out your tongue", "tongue out", "show me your tongue"], [
           /\b(?:stick|put|poke) (?:out your tongue|your tongue out)\b/,
           /\btongue out\b/,
           /\bshow me your tongue\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("mouth-open", "Mouth", "Open", ["open your mouth", "mouth open", "open wide"], [
           /\bopen your mouth\b/,
           /\b(?:keep )?your mouth open\b/,
           /\bmouth open\b/,
           /(?<!\bi )(?<!\bwe )\bopen wide\b/,
           /\bsay a+h+\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("mouth-parted", "Mouth", "HalfOpen", ["part your lips", "your lips part"], [
           /\bpart your lips\b/,
           /\byour lips (?:part|fall open|drift open|come apart)\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("lip-bite", "Mouth", "LipBite", ["bite your lip"], [
           /\bbite (?:on )?your (?:bottom |lower )?lip\b/
-        ], [NEGATED]),
-        faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED]),
-        faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED]),
-        faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED]),
-        faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED]),
+        ], [NEGATED2]),
+        faceSuggestion("smile", "Mouth", "Happy", ["smile", "smile for me"], [bare("smile")], [NEGATED2]),
+        faceSuggestion("grin", "Mouth", "Grin", ["grin"], [bare("grin")], [NEGATED2]),
+        faceSuggestion("smirk", "Mouth", "Smirk", ["smirk"], [bare("smirk")], [NEGATED2]),
+        faceSuggestion("pout", "Mouth", "Pout", ["pout", "pout for me"], [bare("pout")], [NEGATED2]),
         faceSuggestion("moan", "Mouth", "Moan", ["moan for me"], [
           /\bmoan (?:for me|for us|softly|quietly|for them)\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         // v1.16.5 (DW 2026-11-22): the rest of BC's mouth, eyebrows and fluids worth asking for.
-        faceSuggestion("frown", "Mouth", "Frown", ["frown"], [bare("frown")], [NEGATED]),
+        faceSuggestion("frown", "Mouth", "Frown", ["frown"], [bare("frown")], [NEGATED2]),
         faceSuggestion("mouth-sad", "Mouth", "Sad", ["look sad", "you feel sad"], [
           /\b(?:look|feel|you are|you re) (?:so |very )?sad\b/
-        ], [NEGATED]),
-        faceSuggestion("wince", "Mouth", "Pained", ["wince"], [bare("wince")], [NEGATED]),
+        ], [NEGATED2]),
+        faceSuggestion("wince", "Mouth", "Pained", ["wince"], [bare("wince")], [NEGATED2]),
         {
           id: "mouth-close",
           examples: ["close your mouth", "tongue back in"],
@@ -10069,12 +10297,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         faceSuggestion("eyes-wide", "Eyes", "Surprised", ["eyes wide", "widen your eyes"], [
           /\beyes (?:go |open )?wide\b/,
           /\bwiden your eyes\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("eyes-dazed", "Eyes", "Dazed", ["your eyes glaze over", "your eyes go blank"], [
           /\byour eyes (?:glaze|go glassy|go blank|go empty|unfocus|lose focus)/,
           /\b(?:blank|empty|glassy) eyes\b/
         ]),
-        faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED]),
+        faceSuggestion("eyes-hearts", "Eyes", "Heart", ["hearts in your eyes"], [/\bhearts? in your eyes\b/], [NEGATED2]),
         {
           id: "eyes-open",
           examples: ["open your eyes", "eyes open"],
@@ -10092,24 +10320,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
         faceSuggestion("brow-raise", "Eyebrows", "OneRaised", ["raise an eyebrow", "raise one eyebrow"], [
           /\braise (?:an|one|a single) eyebrow\b/,
           /\barch (?:an|one|your) eyebrow\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("brows-raised", "Eyebrows", "Raised", ["raise your eyebrows", "eyebrows up"], [
           /\braise your (?:eye)?brows\b/,
           /\b(?:eye)?brows up\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("brows-furrow", "Eyebrows", "Lowered", ["furrow your brow", "knit your brows"], [
           /\b(?:furrow|knit|lower) your (?:eye)?brows?\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         // Fluids (v1.16.5). Not "cry out", which is a sound.
         faceSuggestion("drool", "Fluids", "DroolMedium", ["drool", "drool for me"], [
           bare("drool"),
           /\b(?:let yourself|start to|begin to) drool\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         faceSuggestion("tears", "Fluids", "TearsMedium", ["cry", "cry for me", "tears roll down your cheeks"], [
           /(?<!\b(?:i|we|a|your|my|her|his|their|the) )\bcry\b(?! out\b)/,
           /\btears (?:roll|run|spill|stream|well up)\b/,
           /\byour eyes (?:water|fill with tears|well up)\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         {
           id: "face-dry",
           examples: ["dry your eyes", "wipe your mouth"],
@@ -10127,7 +10355,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         faceSuggestion("blush", "Blush", "High", ["blush", "your cheeks burn"], [
           bare("blush"),
           /\byour (?:cheeks|face) (?:burn|burns|flush|flushes|go red|goes red|turn red|turns red|turn pink|turns pink|grow warm|grows warm)\b/
-        ], [NEGATED]),
+        ], [NEGATED2]),
         {
           id: "face-relax",
           examples: ["relax your face", "your face relaxes"],
@@ -11374,7 +11602,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "ItemFeet",
         "ItemNipples"
       ];
-      DEFAULT_PART = { Kiss: "lips", Spank: "bottom", Pet: "head" };
+      DEFAULT_PART2 = { Kiss: "lips", Spank: "bottom", Pet: "head" };
       TOOL_WORDS = [
         [/\bwith (?:your|her|the|that|a) (?:dildo )?gag\b/, "gag"],
         [/\bwith (?:your|her|the|that|a) strap ?on\b|\bwith (?:your|her|the|that|a) strapon\b/, "strap"],
@@ -11415,19 +11643,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function build() {
     try {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 100 100"><path d="${spiralPath()}" fill="none" stroke="${INK}" stroke-width="${STROKE}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="50" r="${(STROKE * 0.7).toFixed(2)}" fill="${INK}"/></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 100 100"><path d="${spiralPath()}" fill="none" stroke="${INK}" stroke-width="${STROKE2}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="50" r="${(STROKE2 * 0.7).toFixed(2)}" fill="${INK}"/></svg>`;
       return "data:image/svg+xml," + encodeURIComponent(svg);
     } catch {
       return void 0;
     }
   }
-  var INK, TURNS, R_MAX, STROKE, SPIRAL_ICON;
+  var INK, TURNS, R_MAX, STROKE2, SPIRAL_ICON;
   var init_icon = __esm({
     "src/icon.ts"() {
       INK = "#2c2352";
       TURNS = 3;
       R_MAX = 44;
-      STROKE = 4.5;
+      STROKE2 = 4.5;
       SPIRAL_ICON = build();
     }
   });
@@ -11437,7 +11665,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.18.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11486,7 +11714,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.18.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12308,6 +12536,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim(`   "fuck me" \xB7 "fuck Rei's ass" \xB7 "fuck me hard" (fast) \u2014 her strap-on, a dildo`));
     lines.push(dim(`   in hand or a dildo gag; pick with "with your dildo" / "strap-on" / "gag".`));
     lines.push(dim(`   On yours: "suck my strap-on" / "suck my cock".`));
+    lines.push(body(`"you feel a hand on your thigh" \xB7 "you feel lips on your neck"`));
+    lines.push(dim("   (Arousal & Orgasm) \u2014 a touch only she feels, with a real touch's arousal."));
+    lines.push(dim(`   Also "hands all over you", "a hand squeeze your breasts". The room sees`));
+    lines.push(dim("   a reaction now and then, never where. Numbness stops it too."));
     return lines;
   }
   function depthLadder() {
@@ -14012,7 +14244,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.18.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14085,7 +14317,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.18.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14899,7 +15131,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.18.0", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17653,6 +17885,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "touch", item: { id: "x-suck-strapon", instant: true, label: "suck my strap-on (the one you wear)", phrase: "suck my strap-on", release: false, permission: "compelActivity", alternates: ["suck my dildo", "suck my cock"] } },
         { cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
         { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
+        // v1.19.0: a phantom touch, felt only by them, under Arousal & Orgasm.
+        { cat: "touch", item: { id: "x-phantom", instant: true, label: "you feel a hand on your thigh (a touch only they feel)", phrase: "you feel a hand on your thigh", release: false, permission: "arousalControl", alternates: ["you feel lips on your neck", "you feel hands all over you", "you feel a hand squeeze your breasts", "you feel a hand spank your butt"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
       ];
       TRANCE_MOVES = /* @__PURE__ */ new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
@@ -18156,7 +18390,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.18.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -19350,7 +19584,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.18.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19377,7 +19611,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.18.0"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19453,14 +19687,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.18.0"})`);
+      info(`script loaded (v${"1.19.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.18.0",
+          version: "1.19.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19603,10 +19837,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.18.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.18.0";
+    page2.__ECHS_LOADED__ = "1.19.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

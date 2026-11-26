@@ -237,6 +237,9 @@ Undressing takes clothes off from the outside in: jacket, top, accessories, skir
 | *"come for me"* / *"cum for me"* · *"you will come now"* | Triggers forced climax |
 | *"you cannot feel my touch"* · *"you feel nothing when I touch you"* | Sexual numbness |
 | *“you can feel my touch again”* · *“you can feel again”* | — *release* |
+| *"you feel a hand on your thigh"* · *"you feel lips on your neck"* · *"you feel hands all over you"* · *"you feel a hand squeeze your breasts"* | Phantom touch (since v1.19.0) |
+
+**Phantom touch:** she feels a touch nobody is giving her. Only she sees the line. It does what a real touch would: the game's own arousal for that kind of touch on that spot, by her own likes and dislikes, and her face may react as it would. The room sees nothing in the chat most of the time; now and then a short reaction such as *"Missy shivers, though nobody is touching her"*, never saying where, and only with *Others see your reactions* on. What touches her comes from the words: a hand, fingers or a touch is a caress, unless it squeezes (grope), pinches, spanks, slaps, tickles, scratches or tugs her hair; lips are a kiss, a tongue a lick, teeth a bite. Name a part with *your …* (around 40 words, plus *your back*), or *all over you*. Numbness stops it, as it stops real touches. It can go in a trigger, and a compulsion held while worn brings it back with the arousal.
 
 **Held at the edge:** while denied, reaching the top is said to you and the room the first time. If it keeps happening (a toy, say), only you are told again, less and less often: after 2 minutes, then 4, 8, and at most every 15 minutes. Five minutes without reaching the top starts it over.
 

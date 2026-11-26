@@ -163,6 +163,10 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim(`   "fuck me" · "fuck Rei's ass" · "fuck me hard" (fast) — her strap-on, a dildo`));
 	lines.push(dim(`   in hand or a dildo gag; pick with "with your dildo" / "strap-on" / "gag".`));
 	lines.push(dim(`   On yours: "suck my strap-on" / "suck my cock".`));
+	lines.push(body(`"you feel a hand on your thigh" · "you feel lips on your neck"`));
+	lines.push(dim("   (Arousal & Orgasm) — a touch only she feels, with a real touch's arousal."));
+	lines.push(dim(`   Also "hands all over you", "a hand squeeze your breasts". The room sees`));
+	lines.push(dim("   a reaction now and then, never where. Numbness stops it too."));
 	return lines;
 }
 
