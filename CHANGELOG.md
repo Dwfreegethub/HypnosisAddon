@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.1 · 26 November 2026
+
+- **Starting an induction says one line, not two.** The extra *"Sent. Watch for what happens
+  next."* is gone. If ECHS already knows they have hypnosis switched off, that's said on the same
+  line.
+
 ## v1.19.0 · 26 November 2026
 
 - **Phantom touch.** *"Missy, you feel a hand on your thigh"*, *"you feel lips on your neck"*,

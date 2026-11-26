@@ -319,12 +319,13 @@ update({ phase: "Idle", attempts: 0 });
 badge.notePeer(HYP, { type: "state-response", version: "1.16.34", hypnoEnabled: false });
 run("induce", "GameBot");
 check("hypnosis known off: still sent (what we know can be stale)", wire(), ["session-attempt"]);
-check("  and says it will most likely be refused", local.some((l) => /has hypnosis switched off in ECHS/.test(l)), true);
+check("  and says it will most likely be refused, on the same line", local.some((l) => /^Attempting an induction on GameBot\. They have hypnosis switched off in ECHS/.test(l.replace(/^\[|\]$/g, ""))), true);
 check("  never 'They decide'", local.some((l) => /They decide/.test(l)), false);
 update({ phase: "Idle", attempts: 0 });
 badge.notePeer(HYP, { type: "state-query", version: "1.16.34", hypnoEnabled: true });
 run("induce", "GameBot");
-check("hypnosis on: 'Sent. Watch for what happens next.'", [local.some((l) => /Sent\. Watch for what happens next/.test(l)), local.some((l) => /switched off|They decide/.test(l))], [true, false]);
+// v1.19.1 (DW): one line only, no "Sent. Watch for what happens next."
+check("hypnosis on: just the one line", [local.some((l) => /Attempting an induction on GameBot/.test(l)), local.some((l) => /Sent\.|Watch for|switched off|They decide/.test(l))], [true, false]);
 
 console.log(`miss: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

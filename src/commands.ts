@@ -147,19 +147,12 @@ function startInduction(target: Target): void {
 	lastInduced = target;
 	const view = getSessionView(target.id);
 	requestInduction(target.id);
-	reply(
-		view?.phase === "AttemptFailed"
-			? `Trying ${target.name} again.`
-			: `Attempting an induction on ${target.name}.`,
-	);
-	// v1.16.34 (review F10): "They decide how to respond" was wrong for an instant refusal, and said
-	// even when we already knew their hypnosis was off. Still sent then, since what we know can be a
-	// minute old; their client's answer follows.
-	reply(
-		peerFor(target.id)?.open === false
-			? `${target.name} has hypnosis switched off in ECHS, so this will most likely be refused.`
-			: "Sent. Watch for what happens next.",
-	);
+	// One line (v1.19.1, DW: "only give a second message if something goes wrong. To me the message
+	// showing that the subject is listening is enough"). The old "Sent. Watch for what happens next."
+	// is gone; when we already know their hypnosis is off, that goes on the same line. Still sent
+	// then, since what we know can be a minute old; their client's answer follows.
+	const opening = view?.phase === "AttemptFailed" ? `Trying ${target.name} again.` : `Attempting an induction on ${target.name}.`;
+	reply(peerFor(target.id)?.open === false ? `${opening} They have hypnosis switched off in ECHS, so it will most likely be refused.` : opening);
 }
 
 /** Work out who a command means, asking when it can't tell.
