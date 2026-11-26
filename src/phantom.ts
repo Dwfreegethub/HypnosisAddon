@@ -60,7 +60,7 @@ const VERBS: [RegExp, string][] = [
 const LEAD = /\byou (?:can |will |suddenly |slowly |begin to |start to |now )?feel (.+)$/;
 const NEGATED = /\b(?:not|never|nothing|no|nobody|cannot|stop)\b/;
 const PLACE = /\b(?:on|against|over|along|across|between|around|up|down|in|inside|at|under|through|behind) (?:you|your)\b/;
-const STROKE = /\b(?:strokes?|stroking|brush(?:es)?|slides?|runs?|traces?|rubs?|caress(?:es)?)\b/;
+const STROKE = /\b(?:strokes?|stroking|brush(?:es)?|slides?|runs?|traces?|rubs?|caress(?:es)?|massages?)\b/;
 const ALL_OVER =/\b(?:all over (?:you|your body)|everywhere|all of you)\b/;
 
 /** Where an unnamed touch lands, by activity: BC zone and the word she is told. */
@@ -92,7 +92,9 @@ export function matchPhantomTouch(content: string): PhantomTouch | null {
 	if (NEGATED.test(rest)) return null;
 	// "you feel your hands go heavy" is about her own body; "you feel warm" names nothing touching.
 	if (/^your\b/.test(rest)) return null;
-	const noun = NOUNS.find(([re]) => re.test(rest));
+	// What touches her is read without the part: "a hand on your lips" is a hand, not a kiss.
+	const toucher = rest.replace(/\byour [a-z]+\b/g, " ");
+	const noun = NOUNS.find(([re]) => re.test(toucher));
 	if (!noun) return null;
 	const verb = VERBS.find(([re]) => re.test(rest));
 	// It has to reach her: a place ("on your thigh", "all over you") or something done to her ("a

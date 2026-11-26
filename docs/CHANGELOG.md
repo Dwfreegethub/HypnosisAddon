@@ -18,6 +18,27 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.2) — the touch picker, and the carry lines in the popup
+
+DW: "Phantom touch is not in the pop up window ... make sure ALL commands are in the popup. If you are
+not sure if it makes sense ask me before you add it." The audit: the Commands tab is built from the
+command list itself, so it can't miss one; every voice.ts suggestion is generated into the Suggestions
+tab; the hand-listed extras covered the rest except carrying ("that will stay with you", "all of this",
+"nothing stays") and touches aimed at a third person. Phantom touch was there, last under Touch (DW: "It
+was my issue", leave it).
+
+- **Carry lines** (DW: in Trance): three lines before *wake up*. Greyed when finishing a trigger, which
+  already lasts. "that will stay when you wake" was not offered: it would start a wake compulsion.
+- **Touch picker** (DW: "Can the hypnotist pick who from a list? I would like to get ALL the touch areas
+  in the list.. Same with Phantom ... Or even just make Phantom a modifier for touch"). `popup-touch.ts`:
+  who, real or phantom, 17 touches, 22 areas; the click types a line in the grammars already read
+  ("kiss your neck", "kiss my neck", "kiss Rei's neck", "you feel lips on your neck"). DW's worry, a busy
+  room: five people as buttons, the rest in a list. Areas are faded from BC's own table (R134
+  ActivityFemale3DCG Target / TargetSelf, read with AssetGetActivity), not hidden, since her client
+  decides. "suck … cock" on someone else is SuckPenetrateItem, as the grammar reads it (v1.16.31).
+  `test/popup-touch.mjs` runs all 1,633 lines it can type through the matchers. Doing so found a phantom
+  bug, fixed here: "a hand on your lips" read as a kiss (the part word was taken as the toucher).
+
 ### Changed 2026-11-26 (v1.19.1) — `/echs induce` says one line
 
 DW: "During induction I do not like the new [Sent. Watch for what happens next.] Can we maybe combine

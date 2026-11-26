@@ -71,6 +71,10 @@ export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
 	{ cat: "trance", item: { id: "x-deeper", label: "sink deeper", phrase: "sink deeper", release: false, permission: "", alternates: ["deeper and deeper", "drift deeper"] } },
 	{ cat: "trance", item: { id: "x-walk", label: "walk with me (stay under, on your feet)", phrase: "walk with me", release: false, permission: "", alternates: [] } },
 	{ cat: "trance", item: { id: "x-still", label: "be still (back to the full trance)", phrase: "be still", release: false, permission: "", alternates: [] } },
+	// v1.19.2 (DW): carrying a suggestion past waking was typed-only until now.
+	{ cat: "trance", item: { id: "x-carry", label: "that will stay with you (the last suggestion lasts after they wake)", phrase: "that will stay with you", release: false, permission: "", alternates: ["you will keep that"] } },
+	{ cat: "trance", item: { id: "x-carry-all", label: "all of this will stay with you (everything from this trance)", phrase: "all of this will stay with you", release: false, permission: "", alternates: ["you will keep everything", "everything I told you stays"] } },
+	{ cat: "trance", item: { id: "x-carry-none", label: "nothing stays with you (take back what was going to stay)", phrase: "nothing stays with you", release: true, permission: "", alternates: ["that will not stay with you", "forget what I told you"] } },
 	{ cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
 	{ cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
 	{ cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
@@ -136,6 +140,7 @@ const WORDINGS_NOT_KEPT = new Set(["on your feet", "moan"]);
 /** Why this wording can't be one of a trigger's actions, or null if it can. */
 export function notInTrigger(it: SuggestItem, phrase: string = it.phrase): string | null {
 	if (TRANCE_MOVES.has(it.id)) return 'A trigger can\'t hold a trance move (deeper, walk, wake). Try "…you will drop into trance" instead.';
+	if (it.id.startsWith("x-carry")) return "That's about this trance, so a trigger can't hold it. A trigger already lasts.";
 	if (AIMED_AT_YOU.has(it.id)) return "A trigger can't aim at a person yet, only at them.";
 	if (WORDINGS_NOT_KEPT.has(phrase.toLowerCase())) return "This wording isn't kept in a trigger. Use another wording of it.";
 	return null;

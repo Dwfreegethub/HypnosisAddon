@@ -64,6 +64,8 @@ Everything you can say to them, in groups you open and close with **+** and **�
 * Lines marked **↺**, in green, **give something back**: *↺ you can see again*, *↺ stand*, *↺ wake up*. Each sits straight under the things it undoes.
 * A **+1**, **+2**… beside a line opens the other wordings that work too. Click any of them to type it instead.
 * **Two or more people under you?** A row of their names appears at the top. Pick one, and everything you click is typed with their name.
+* **The touch picker** (since v1.19.2) opens the **Touch** group. Pick **who** (themselves, you, or anyone else here; in a crowded room the rest are in a list), **real** or **phantom**, and the **touch** (touch, kiss, lick, grope, pinch, spank and the rest), then click **where**: every body area is there. *kiss*, *Rei*, *neck* types *"Missy, kiss Rei's neck"*; *phantom*, *kiss*, *neck* types *"Missy, you feel lips on your neck"*, a touch only they feel. Areas the game won't allow that touch on are faded. A phantom touch is only ever on them, and a few touches (pet, suck, finger) have no phantom version.
+* **Trance** also has *that will stay with you*, *all of this will stay with you* and *↺ nothing stays with you*, for keeping what you said after they wake (since v1.19.2).
 
 ### Faded lines
 

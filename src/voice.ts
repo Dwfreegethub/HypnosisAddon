@@ -5188,6 +5188,15 @@ function flushCommands(): void {
 	while (commandQueue.length) landNextCommand();
 }
 
+/** Which carry line this is, if any, the way handleCarryControl reads it (cancel first, then all).
+ * For the popup's tests (v1.19.2). */
+export function carryLineKind(content: string): "cancel" | "all" | "last" | null {
+	const text = normalize(content);
+	if (CARRY_CANCEL.some((p) => p.test(text))) return "cancel";
+	if (CARRY_ALL.some((p) => p.test(text))) return "all";
+	return CARRY_LAST.some((p) => p.test(text)) ? "last" : null;
+}
+
 /** Would this line act on what was just said? See the note above. Only asked while one is waiting. */
 function isControlLine(content: string): boolean {
 	const text = normalize(content);
