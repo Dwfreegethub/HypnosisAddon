@@ -86,6 +86,8 @@ export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
 	{ cat: "touch", item: { id: "x-suck-strapon", instant: true, label: "suck my strap-on (the one you wear)", phrase: "suck my strap-on", release: false, permission: "compelActivity", alternates: ["suck my dildo", "suck my cock"] } },
 	{ cat: "touch", item: { id: "x-hug-me", instant: true, label: "hug me", phrase: "hug me", release: false, permission: "compelActivity", alternates: ["nuzzle me", "kick me", "grab my collar", "cover my mouth", "peck my hand"] } },
 	{ cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
+	// v1.19.0: a phantom touch, felt only by them, under Arousal & Orgasm.
+	{ cat: "touch", item: { id: "x-phantom", instant: true, label: "you feel a hand on your thigh (a touch only they feel)", phrase: "you feel a hand on your thigh", release: false, permission: "arousalControl", alternates: ["you feel lips on your neck", "you feel hands all over you", "you feel a hand squeeze your breasts", "you feel a hand spank your butt"] } },
 	{ cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } },
 ];
 

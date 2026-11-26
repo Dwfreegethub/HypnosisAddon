@@ -69,6 +69,7 @@ import {
 } from "./timers";
 import { registerTriggerRecovery, SavedTrigger } from "./recovery";
 import { extremeLocked, extremeRefusal } from "./extreme";
+import { matchPhantomTouch, phantomActionId, parsePhantomId, describePhantom, feelPhantom, PHANTOM_PREFIX } from "./phantom";
 import {
 	isRecording,
 	cancelRecording,
@@ -1988,7 +1989,7 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	if (line === null) return false;
 	if (parseTriggerControl(line)) return true;
 	if (!isRecording()) return false;
-	return !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+	return !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
 }
 
 // Options the installer can speak while a trigger is being recorded (v0.87.0, design.md "Trigger
@@ -2230,7 +2231,7 @@ const PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
 
 /** Is this, on its own, something that would be recorded into a trigger? */
 function isRecordableAction(text: string): boolean {
-	return !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+	return !!matchPhantomTouch(text) || !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
 }
 
 /** Split a start line's raw capture at the first pause after which an action follows. `start` is
@@ -2919,6 +2920,8 @@ function startWornRepeats(key: string, now: number): void {
  * which kind; null for one that doesn't. */
 export function wornRepeatKind(id: string): WornRepeatKind | null {
 	if (id.startsWith("arousal-")) return "arousal";
+	// A phantom touch comes back with the arousal (v1.19.0), as the ideas doc asked.
+	if (id.startsWith(PHANTOM_PREFIX)) return "arousal";
 	if (id === "orgasm-force") return "orgasm";
 	return null;
 }
@@ -3000,6 +3003,11 @@ function repeatWornActions(t: Trigger, kind: WornRepeatKind): void {
 	const strength = triggerStrength(t);
 	for (const id of t.actions) {
 		if (wornRepeatKind(id) !== kind) continue;
+		const phantom = parsePhantomId(id);
+		if (phantom) {
+			if (features.arousalControl && depthAllows("arousalControl", strength, strength)) feelPhantom(phantom);
+			continue;
+		}
 		const suggestion = SUGGESTIONS.find((s) => s.id === id);
 		if (!suggestion || permissionReason(suggestion, features)) continue;
 		if (!depthAllows(keyFor(suggestion, features), strength, strength)) continue;
@@ -3187,6 +3195,24 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 				// No announce: ActivityRun renders the activity as a visible room message, so that
 				// IS the feedback — a separate local line would double-tell the same thing.
 				performActivityAction(id);
+			});
+			continue;
+		}
+		// A phantom touch (v1.19.0, "feel:Caress:thighs"): a one-off, under Arousal & Orgasm.
+		const phantom = parsePhantomId(id);
+		if (phantom) {
+			if (!features.arousalControl) {
+				log(`trigger "${trigger.phrase}": ${id} skipped, arousalControl not granted`);
+				continue;
+			}
+			if (!depthAllows("arousalControl", strength, strength)) {
+				log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+				tooWeak++;
+				continue;
+			}
+			compels++;
+			steps.push(() => {
+				if (getFeatures().arousalControl) feelPhantom(phantom);
 			});
 			continue;
 		}
@@ -3601,6 +3627,8 @@ export function describeAction(id: string): string {
 	}
 	const say = parseSayAction(id);
 	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
+	const phantom = parsePhantomId(id);
+	if (phantom) return describePhantom(phantom);
 	if (id.startsWith("act:")) {
 		const { base, times } = parseActId(id);
 		const suffix = times > 1 ? ` ${times} times` : "";
@@ -4520,6 +4548,44 @@ function runBareAct(key: string): boolean {
 	return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
 }
 
+/** "Missy, you feel a hand on your thigh" (v1.19.0): a touch nobody gives her, felt as a real one
+ * (phantom.ts). Under "Arousal & Orgasm", at its depth, as the arousal suggestions are. Returns true
+ * when the line was one. */
+function handlePhantomTouch(sender: number, content: string): boolean {
+	const touch = matchPhantomTouch(content);
+	if (!touch) return false;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard a phantom touch from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) {
+		log(`heard a phantom touch from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	const f = getFeatures();
+	if (!f.hypnoEnabled || !f.arousalControl) {
+		tellHypnotist(sender, '[suggestion] Refused — they have not enabled "Arousal & Orgasm".');
+		return true;
+	}
+	const recorded = recordAction(phantomActionId(touch));
+	if (recorded) {
+		tellPlayer(recorded);
+		return true;
+	}
+	const refusal = depthRefusal("arousalControl");
+	if (refusal) {
+		tellHypnotist(sender, `[suggestion] Refused — a phantom touch ${refusal}.`);
+		return true;
+	}
+	const result = feelPhantom(touch);
+	if (result === "numb") tellHypnotist(sender, "[suggestion] It lands on nothing: they're numb to touch right now.");
+	else {
+		if (result === "no-arousal") tellHypnotist(sender, "[suggestion] They feel it, but their arousal meter is off in BC, so it doesn't arouse them.");
+		noteLanded(sender);
+	}
+	return true;
+}
+
 /** Returns true if the line was a compelled-activity command and has been dealt with. */
 function handleActivityCommand(sender: number, content: string): boolean {
 	const cmd = matchActivityCommand(content);
@@ -5141,6 +5207,9 @@ function landCommand(sender: number, line: string): void {
 	if (handleWalkingTrance(sender, line)) return;
 	// "Sink deeper" (v0.95.0). Before the matcher, so "go deeper" is never read as movement.
 	if (handleDeepening(sender, line)) return;
+	// A phantom touch (v1.19.0) first: "you feel fingers stroke your thigh" must not read as an
+	// order to stroke her own thigh.
+	if (handlePhantomTouch(sender, line)) return;
 	if (handleBodyPartLine(sender, line)) return;
 	// Positive activity COMMANDS ("touch your breasts") after the block/release handler above,
 	// so "you cannot touch your breasts" stays a block, and before the table matcher, which does

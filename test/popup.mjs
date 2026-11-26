@@ -257,6 +257,7 @@ for (const c of cats) for (const it of c.items) for (const phrase of [it.phrase,
 		: it.id === "x-walk" ? voice.walkingLineKind(line) === "enter"
 		: it.id === "x-still" ? voice.walkingLineKind(line) === "leave"
 		: it.id.startsWith("x-touch-block") || it.id.startsWith("x-touch-release") ? !!voice.matchBodyPartCommand(line)
+		: it.id === "x-phantom" ? !!(await import("./harness-bundle.mjs")).phantom.matchPhantomTouch(line)
 		: it.id === "x-touch-self" ? !!voice.matchActivityCommand(line)
 		: it.id === "x-sip" ? voice.matchActivityCommand(line)?.kind === "sip"
 		: it.id === "x-kiss-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"

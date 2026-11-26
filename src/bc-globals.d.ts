@@ -121,6 +121,7 @@ declare function ActivityGetGroupOrMirror(family: string, groupName: string): an
 // distance, chastity, access, gag/bondage prerequisites and BC's own permissions. We ask this
 // so "impossible while bound" costs us nothing. Returns ItemActivity[] ({ Activity, Group }).
 declare function ActivityAllowedForGroup(character: any, groupName: string): any[];
+declare function ActivityEffect(source: any, target: any, activity: any, group: string, count?: number, asset?: any): void;
 // Activity.js — PERFORM an activity: runs arousal + progress and sends the room's Type:"Activity"
 // message, so a commanded touch renders exactly like the subject clicking it.
 // R134 Character.js: the worn items whose AllowActivity includes `activity` (a strap-on for "PenetrateItem").

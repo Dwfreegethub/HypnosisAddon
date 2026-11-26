@@ -47,3 +47,4 @@ export * as ask from "../src/ask";
 export * as update from "../src/update";
 export * as access from "../src/access";
 export * as outfitWatch from "../src/outfit-watch";
+export * as phantom from "../src/phantom";
