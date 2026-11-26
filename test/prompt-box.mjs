@@ -42,13 +42,13 @@ for (const honoured of [30, 60, 90]) {
 	check(`${honoured}: every line under the title one size`, [...new Set(rest.map((l) => l.size))], [30]);
 	check(`${honoured}:   the title too, none shrunk to fit`, [title.size, drawn.some((l) => l.size === "fit")], [36, false]);
 	// Failure: the wrap drops or reorders words.
-	const instinct = rest.filter((l) => !/never told|no answer/.test(l.text));
+	const instinct = rest.filter((l) => !/never told|to answer/.test(l.text));
 	check(`${honoured}: the instinct line, whole, on two lines at most`, [instinct.map((l) => l.text).join(" "), instinct.length <= 2], [descriptor, true]);
 	check(`${honoured}:   each fits the box`, instinct.every((l) => l.text.length * 15 <= l.maxWidth), true);
 	// Failure: lines overlap each other, or the countdown runs into the buttons.
 	const ys = drawn.map((l) => l.y);
 	check(`${honoured}: lines in order, 30px or more apart`, ys.every((y, i) => i === 0 || y - ys[i - 1] >= 30), true);
-	check(`${honoured}:   the countdown is last, clear of the buttons`, [/no answer/.test(drawn.at(-1).text), drawn.at(-1).y + 15 < buttonTop], [true, true]);
+	check(`${honoured}:   the countdown is last, clear of the buttons`, [drawn.at(-1).text, drawn.at(-1).y + 15 < buttonTop], ["58s to answer. No answer counts as Ignore.", true]);
 }
 drawn = [];
 prompt.drawPrompt("Mira", 58_000, null);

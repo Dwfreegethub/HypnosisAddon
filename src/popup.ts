@@ -429,9 +429,11 @@ export function meView(): { lines: string[]; buttons: { label: string; text: str
 	if (side === "under") {
 		const out = [
 			b("Wake", "wake", "Wake yourself, if the trance is shallow enough"),
-			b("Fight", "fight", "Push back up, and fight going deeper"),
-			b("Agree", "agree", "Stop resisting"),
-			b("Ignore", "ignore", "Neither help nor resist going deeper"),
+			// Named for what they do once you are under (v1.16.42, review F11, DW: "Agree" and
+			// "Ignore" said nothing here). They still type /echs fight, agree and ignore.
+			b("Fight it", "fight", "Push back up, and fight going deeper"),
+			b("Let it", "agree", "Stop resisting"),
+			b("Drift", "ignore", "Neither help nor resist going deeper"),
 			b("What is on me", "effects", "List the effects on you now"),
 		];
 		const ext = getPendingExtend();
@@ -954,6 +956,69 @@ function chip(label: string, tip: string, onClick: () => void, faded = false): a
 function renderTriggers(body: any, status: any): void {
 	body.textContent = "";
 	askPlantedLists();
+	// Triggers in you (v1.16.42, review F11, DW): first when you have any, and not shown at all
+	// when you have none (it was an empty "(0)" with fade buttons at the bottom, under tools
+	// for planting in others).
+	const mine = sweptTriggers();
+	const drawMine = (): void => {
+		const locked = extremeLocked();
+		triggerGroup(body, "mine", `Triggers in you (${mine.length})`, (list) => {
+			if (!mine.length) list.appendChild(el("div", "echs-pop-empty", "Nothing is planted in you."));
+			const reveal = triggerPhrasesVisible(false);
+			// "My triggers list: Hidden" (v1.16.30, DW): how many, nothing more.
+			const hidden = getTriggerView() === "hidden";
+			if (hidden && mine.length) list.appendChild(el("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
+			(hidden ? [] : mine).forEach((t, i) => {
+				const n = i + 1;
+				const holding = isTriggerInEffect(t);
+				const row = el("div", "echs-pop-entry");
+				row.appendChild(el("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
+				const chips = el("div", "echs-pop-buttons");
+				chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
+				// Typed even when it will be refused, and the status says why: the command decides (rule 1),
+				// and a refusal said out loud beats a button that silently does nothing (rule 5).
+				const why = locked
+					? "Your Extreme lock is on: triggers can only be added until it ends."
+					: holding
+						? "It is holding you: wait, have it released, or use the safeword."
+						: "";
+				chips.appendChild(
+					chip(
+						"forget",
+						why || `/echs forgettrigger ${n}`,
+						() => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
+						!!why,
+					),
+				);
+				row.appendChild(chips);
+				list.appendChild(row);
+			});
+			if (mine.length > 1 || (hidden && mine.length))
+				list.appendChild(
+					chip(
+						"forget all",
+						locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
+						() => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
+						locked,
+					),
+				);
+			list.appendChild(el("div", "echs-pop-hint", "How fast your triggers fade:"));
+			const rates = el("div", "echs-pop-buttons");
+			const now = getTriggerDecayRate();
+			for (const r of DECAY_RATES) {
+				const c = chip(
+					r.label,
+					locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
+					() => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
+					locked,
+				);
+				if (r.key === now) c.className += " echs-pop-chip-on";
+				rates.appendChild(c);
+			}
+			list.appendChild(rates);
+		});
+	};
+	if (mine.length) drawMine();
 	const who = currentSubject();
 	// 1. Planting, for whoever is under you.
 	if (who) {
@@ -994,36 +1059,40 @@ function renderTriggers(body: any, status: any): void {
 	} else {
 		// Shown greyed rather than hidden (DW, 2026-11-22: the compulsions seemed missing), so the
 		// lines can be read before anyone is under; a click says why it typed nothing.
-		body.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are below to read."));
-		for (const g of PLANT_GROUPS)
-			triggerGroup(body, g.key, g.title, (list) => {
-				if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
-				for (const line of g.lines) {
-					// A line with a list still opens, to read (v1.16.22): the items were invisible here.
-					const key = `choices-${g.key}-${line.id}`;
-					const isOpen = !!line.choices && triggerOpen.has(key);
-					const label = `${line.choices ? (isOpen ? "− " : "+ ") : ""}${line.release ? "↺ " : ""}${line.label}`;
-					const b = el("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, label);
-					b.type = "button";
-					b.title = line.choices ? "Opens the list to read. Put someone under first to use it." : "Put someone under first.";
-					b.addEventListener("click", () => {
-						if (line.choices) {
-							if (triggerOpen.has(key)) triggerOpen.delete(key);
-							else triggerOpen.add(key);
-							renderBody();
-							return;
+		// Folded under one heading while nobody is under you (v1.16.42, review F11, DW): readable in
+		// one click, out of the way otherwise.
+		triggerGroup(body, "plant-preview", "Planting triggers (put someone under first)", (outer) => {
+			outer.appendChild(el("div", "echs-pop-hint", "To plant a trigger, put someone under first (a Deep trance, on earned depth). The lines are here to read."));
+			for (const g of PLANT_GROUPS)
+				triggerGroup(outer, g.key, g.title, (list) => {
+					if (g.hint) list.appendChild(el("div", "echs-pop-hint", g.hint));
+					for (const line of g.lines) {
+						// A line with a list still opens, to read (v1.16.22): the items were invisible here.
+						const key = `choices-${g.key}-${line.id}`;
+						const isOpen = !!line.choices && triggerOpen.has(key);
+						const label = `${line.choices ? (isOpen ? "− " : "+ ") : ""}${line.release ? "↺ " : ""}${line.label}`;
+						const b = el("button", `echs-pop-item echs-pop-off${line.release ? " echs-pop-release" : ""}`, label);
+						b.type = "button";
+						b.title = line.choices ? "Opens the list to read. Put someone under first to use it." : "Put someone under first.";
+						b.addEventListener("click", () => {
+							if (line.choices) {
+								if (triggerOpen.has(key)) triggerOpen.delete(key);
+								else triggerOpen.add(key);
+								renderBody();
+								return;
+							}
+							setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
+						});
+						list.appendChild(b);
+						if (!isOpen) continue;
+						const chips = el("div", "echs-pop-buttons");
+						for (const choice of line.choices!) {
+							chips.appendChild(chip(choice.label, "Put someone under first.", () => setStatus(status, "Nobody is under you: put someone under first, then this types it for them."), true));
 						}
-						setStatus(status, "Nobody is under you: put someone under first, then this types it for them.");
-					});
-					list.appendChild(b);
-					if (!isOpen) continue;
-					const chips = el("div", "echs-pop-buttons");
-					for (const choice of line.choices!) {
-						chips.appendChild(chip(choice.label, "Put someone under first.", () => setStatus(status, "Nobody is under you: put someone under first, then this types it for them."), true));
+						list.appendChild(chips);
 					}
-					list.appendChild(chips);
-				}
-			});
+				});
+		});
 	}
 	// 2. What you planted, per person here.
 	for (const p of plantedPeople()) {
@@ -1057,64 +1126,6 @@ function renderTriggers(body: any, status: any): void {
 			if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
 		});
 	}
-	// 3. Triggers in you.
-	const mine = sweptTriggers();
-	const locked = extremeLocked();
-	triggerGroup(body, "mine", `Triggers in you (${mine.length})`, (list) => {
-		if (!mine.length) list.appendChild(el("div", "echs-pop-empty", "Nothing is planted in you."));
-		const reveal = triggerPhrasesVisible(false);
-		// "My triggers list: Hidden" (v1.16.30, DW): how many, nothing more.
-		const hidden = getTriggerView() === "hidden";
-		if (hidden && mine.length) list.appendChild(el("div", "echs-pop-hint", triggersHiddenLine(mine.length)));
-		(hidden ? [] : mine).forEach((t, i) => {
-			const n = i + 1;
-			const holding = isTriggerInEffect(t);
-			const row = el("div", "echs-pop-entry");
-			row.appendChild(el("div", "echs-pop-desc", `${n}. ${triggerRow(t, reveal, mine)}`));
-			const chips = el("div", "echs-pop-buttons");
-			chips.appendChild(chip("details", `/echs triggers ${n}`, () => typeIt(status, `/echs triggers ${n}`, "Typed. Press Enter to see it in full.")));
-			// Typed even when it will be refused, and the status says why: the command decides (rule 1),
-			// and a refusal said out loud beats a button that silently does nothing (rule 5).
-			const why = locked
-				? "Your Extreme lock is on: triggers can only be added until it ends."
-				: holding
-					? "It is holding you: wait, have it released, or use the safeword."
-					: "";
-			chips.appendChild(
-				chip(
-					"forget",
-					why || `/echs forgettrigger ${n}`,
-					() => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
-					!!why,
-				),
-			);
-			row.appendChild(chips);
-			list.appendChild(row);
-		});
-		if (mine.length > 1 || (hidden && mine.length))
-			list.appendChild(
-				chip(
-					"forget all",
-					locked ? "Your Extreme lock is on." : "/echs forgettrigger all (asks first)",
-					() => typeIt(status, "/echs forgettrigger all", locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter; it asks you to confirm."),
-					locked,
-				),
-			);
-		list.appendChild(el("div", "echs-pop-hint", "How fast your triggers fade:"));
-		const rates = el("div", "echs-pop-buttons");
-		const now = getTriggerDecayRate();
-		for (const r of DECAY_RATES) {
-			const c = chip(
-				r.label,
-				locked ? "Your Extreme lock is on." : `/echs triggerdecay ${r.key}`,
-				() => typeIt(status, `/echs triggerdecay ${r.key}`, locked ? "Typed, but it will be refused: your Extreme lock is on." : "Typed. Press Enter to set it."),
-				locked,
-			);
-			if (r.key === now) c.className += " echs-pop-chip-on";
-			rates.appendChild(c);
-		}
-		list.appendChild(rates);
-	});
 }
 
 // --- Keys (v1.14.0, job5.md) --------------------------------------------------------------------

@@ -354,7 +354,12 @@ beat();
 const latest = reports().at(-1);
 check("permission ticked mid-trance: re-sent", reports().length === before + 1 && latest.gates.ok.includes("sightControl"), `one new report with sightControl ok, got ${reports().length - before} / ${JSON.stringify(latest?.gates)}`);
 const meBtn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label)[0];
-check("its buttons", ["Wake", "Fight", "Agree", "Ignore", "What is on me"].every((l) => meBtn(l)), "Wake, Fight, Agree, Ignore and What is on me");
+check("its buttons", ["Wake", "Fight it", "Let it", "Drift", "What is on me"].every((l) => meBtn(l)), "Wake, Fight it, Let it, Drift and What is on me");
+// v1.16.42 (review F11, DW). Failure: the under-trance names leak back, or the new ones type the wrong command.
+check("  not the box's Agree / Ignore / Fight", !["Fight", "Agree", "Ignore"].some((l) => meBtn(l)), "none of Fight, Agree, Ignore while under");
+const typedBy = (l) => { meBtn(l).click(); return chatBox.value; };
+const typedNow = ["Fight it", "Let it", "Drift"].map(typedBy);
+check("  each still types its command", JSON.stringify(typedNow) === JSON.stringify(["/echs fight", "/echs agree", "/echs ignore"]), `fight, agree, ignore, got ${JSON.stringify(typedNow)}`);
 meBtn("Wake").click();
 check("Wake types, not sends", chatBox.value === "/echs wake" && popup.subjectSide() === "under", `"/echs wake" typed and still under, got "${chatBox.value}"`);
 byText("Safeword")[0].click();
@@ -403,6 +408,12 @@ ChatRoomCharacter = [Player, { MemberNumber: A, Name: "Alice", Nickname: "Ali" }
 check("Triggers tab always offered", popup.availableTabs().includes("triggers"), "a Triggers tab with nobody under you");
 popup.setPopupTab("triggers");
 const hint = (start) => findAll(win(), (n) => n.className === "echs-pop-hint" && n.textContent.startsWith(start)).length === 1;
+// v1.16.42 (review F11, DW). Failure: the greyed planting lines are open, or "Triggers in you (0)"
+// is drawn with nothing in it.
+const groupTitles = () => findAll(win(), (n) => n.className?.startsWith?.("echs-pop-group")).map((n) => n.textContent);
+check("nobody under: the planting lines folded under one heading", JSON.stringify(groupTitles()) === JSON.stringify(["+  Planting triggers (put someone under first)"]), `one folded heading, got ${JSON.stringify(groupTitles())}`);
+check("  nothing planted in you: no Triggers in you group", !groupTitles().some((t) => /Triggers in you/.test(t)), "no empty Triggers in you");
+byText("+  Planting triggers (put someone under first)")[0].click();
 check("nobody under: says how to start", hint("To plant a trigger, put someone under first"), "the put-someone-under-first line");
 // v1.16.9: the planting groups show, greyed, with nobody under (DW: the compulsions seemed missing).
 const grpBtn = (t) => findAll(win(), (n) => n.className?.startsWith?.("echs-pop-group") && n.textContent.endsWith(t))[0];
@@ -509,6 +520,7 @@ const plantIn = (phrase) => storage.saveTrigger({ phrase, actions: ["movement-bl
 plantIn("bluebell");
 plantIn("snowdrop");
 popup.popupTick();
+check("own triggers first", groupTitles()[0] === "−  Triggers in you (2)", `Triggers in you first, got ${JSON.stringify(groupTitles())}`);
 check("own triggers listed", byText("−  Triggers in you (2)").length === 1, `a Triggers in you (2) group, got ${findAll(win(), (n) => n.className.startsWith("echs-pop-group")).map((n) => n.textContent).join(" | ")}`);
 check("words hidden by default", findAll(win(), (n) => n.className === "echs-pop-desc" && /^1\. .+: a word \(hidden\) → /.test(n.textContent)).length === 1, "row 1 reads \"<who>: a word (hidden) → …\"");
 // The subject's own forget chips (their tip is the command or why not), apart from the hypnotist's

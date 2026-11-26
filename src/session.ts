@@ -1930,7 +1930,7 @@ function showPrompt(hypnotistName: string): void {
 	startPresenceWatch();
 	const descriptor = skillDescriptor(session.honouredSkill);
 	notify(
-		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)}s)` +
+		`${hypnotistName} is attempting to hypnotize you. Choose on the box in the room, or with /echs agree, /echs ignore, /echs fight — they will not be told which you chose. (${Math.round(PROMPT_TIMEOUT_MS / 1000)} seconds to answer.)` +
 			(descriptor ? ` ${descriptor}` : ""),
 	);
 }

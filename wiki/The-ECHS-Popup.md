@@ -81,15 +81,15 @@ While someone is under you, their ECHS tells yours which kinds of suggestion the
 
 * **Someone is trying to hypnotize you:** *Agree*, *Ignore* or *Fight*. They are never told which. While ECHS's box is on the screen, the window folds up to its top bar and the Safeword button and moves out of the way, so it never covers the box. It opens again once you answer.
 * **While the induction runs:** what you chose, and the other two answers to change it. After a miss: that it missed (*1 of 2*). Your answer still counts if they try again, and you can still change it.
-* **While you are under:** who has you, your depth in the names the Depth tab uses (*Drifting*, *Yielding*…), and *Wake*, *Fight*, *Agree*, *Ignore* and *What is on me* (`/echs effects`). When your time is up and you are asked, **Stay** appears too.
+* **While you are under:** who has you, your depth in the names the Depth tab uses (*Drifting*, *Yielding*…), and *Wake*, *Fight it* (push back up, and fight going deeper), *Let it* (stop resisting), *Drift* (neither help nor resist going deeper) and *What is on me* (`/echs effects`). They type `/echs wake`, `fight`, `agree`, `ignore` and `effects`. When your time is up and you are asked, **Stay** appears too.
 * Each button types its command; press Enter. The Safeword button stays at the bottom.
 * Under the [Extreme lock](Settings-Reference#the-extreme-lock), your depth line is hidden, as it is everywhere else.
 
 ## Triggers
 
-Three parts. Each line types with the right name, as on Suggestions.
+Three parts. Each line types with the right name, as on Suggestions. **Triggers in you** comes first when anything is planted in you, and isn't shown when nothing is.
 
-**Planting** (while someone is under you; it needs a Deep trance, on earned depth). With nobody under you, the same lines are shown greyed so you can read them; clicking one says to put someone under first:
+**Planting** (while someone is under you; it needs a Deep trance, on earned depth). With nobody under you, the same lines are folded under **Planting triggers (put someone under first)**: click it to read them, greyed; clicking one says to put someone under first:
 
 1. **Plant a trigger:** *your trigger word is …* (type the word, then Enter), then what it does, picked from Suggestions, then *remember trigger*. *↺ cancel the trigger* starts again.
 2. **Shape it** (before *remember trigger*): a **reaction** (*whenever anyone … you, …*, a pick-list like the compulsion one: it works only while this trigger holds them), works only once, works every time, lasts 2 hours, who can use it (anyone, only you, their owner, lovers or friends), only when they hear it exactly, a drop into trance, or making them say something three times.

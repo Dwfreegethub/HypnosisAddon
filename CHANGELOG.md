@@ -13,6 +13,18 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.42 · 26 November 2026
+
+- **"Induction time" is now "Time to go under (after you answer)"**, on the Inductions tab. It
+  starts once you answer, or once the minute to answer runs out. The box says so too: *58s to
+  answer. No answer counts as Ignore.* A short setting used to look as if it wasn't working,
+  because the box still counted down from 60.
+- **The popup's Triggers tab** puts **Triggers in you** first when anything is planted in you, and
+  doesn't show it when nothing is. With nobody under you, the planting lines are folded under one
+  heading, *Planting triggers (put someone under first)*: click it to read them.
+- **While you are under**, the Me tab's buttons say what they do then: **Fight it**, **Let it** and
+  **Drift** (they were Fight, Agree and Ignore). They type the same commands as before.
+
 ## v1.16.41 · 26 November 2026
 
 Small fixes from a look through ECHS as a newcomer would see it:
