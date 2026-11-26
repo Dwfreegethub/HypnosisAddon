@@ -533,6 +533,8 @@ interface Recording {
 	strict?: boolean;
 	/** v1.16.20: hold while the item is worn (an item compulsion only). */
 	whileWorn?: boolean;
+	/** v1.19.4: and she can't take it off herself meanwhile. */
+	noRemove?: boolean;
 	/** A delayed compulsion: fires on a condition rather than a phrase (Build 6). */
 	condition?: TriggerCondition;
 	/** Reactions recorded into a WORD trigger (v1.16.13): each becomes a compulsion switched on only
@@ -609,7 +611,9 @@ export type TriggerOption =
 	| { kind: "scope"; scope: TriggerScope }
 	| { kind: "strict"; value: boolean }
 	/** v1.16.20: an item compulsion holds while the item stays on. */
-	| { kind: "whileWorn" };
+	| { kind: "whileWorn" }
+	/** v1.19.4 (DW): and she can't take it off herself. */
+	| { kind: "noRemove" };
 
 /** Longest lifespan an installer may ask for. Past a month the ask means nothing next to decay,
  * and an absurd number ("lasts 99999 days") should land somewhere sane rather than overflow. */
@@ -700,7 +704,8 @@ function nameKey(s: unknown): string {
 
 /** Arrival, speech or activity compulsions this member sets off. Never the subject themself, except
  * a clothing compulsion for anyone (v1.18.0, DW: who took it off doesn't matter unless the hypnotist
- * names someone). `activity` is the BC activity name, for "act" (v1.16.9). */
+ * names someone) and, since v1.19.4, an item one (DW: "make the bondage compulsions work if someone
+ * self binds themself"). `activity` is the BC activity name, for "act" (v1.16.9). */
 export function compulsionsFor(
 	event: "arrive" | "speak" | "act",
 	member: number,
@@ -714,7 +719,7 @@ export function compulsionsFor(
 	const all = listTriggers();
 	return all.filter((t) => {
 		if (t.fireOn !== event || !triggerCanFire(t)) return false;
-		if (self && !(t.watchName === "*" && compulsionAct(t.act)?.clothes)) return false;
+		if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items))) return false;
 		// A reaction (v1.16.13): only while its word holds her.
 		if (t.gate) {
 			const word = all.find((p) => isReactionOf(t, p));
@@ -823,6 +828,17 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 			recording.whileWorn = true;
 			const until = act.clothes?.dir === "off" ? "until that garment goes back on" : act.clothes ? "for as long as they wear that garment and lets go when it comes off" : "for as long as they wear the item and lets go when it comes off";
 			noted = `it holds ${until}; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)`;
+			break;
+		}
+		case "noRemove": {
+			// An item only: a garment can't be held on her by her own client (the wardrobe is BC's).
+			if (!compulsionAct(recording.condition?.act)?.items) {
+				noted = "they can be kept from taking off only an item a compulsion is about (gags you, ties your arms, plugs you…), so it's ignored";
+				break;
+			}
+			recording.whileWorn = true;
+			recording.noRemove = true;
+			noted = "they can't take the item off themselves while it holds (no removing, struggling out or swapping it); anyone else still can, and that lets it go. It holds while they wear it, as \"holds while you wear it\" does";
 			break;
 		}
 	}
@@ -1169,6 +1185,7 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 	}
 	if (recording.strict) trigger.strict = true;
 	if (recording.whileWorn && (compulsionAct(trigger.act)?.items || compulsionAct(trigger.act)?.clothes)) trigger.whileWorn = true;
+	if (recording.noRemove && compulsionAct(trigger.act)?.items) trigger.noRemove = true;
 	if (recording.scope) trigger.scope = recording.scope;
 	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
 	// subject who caps triggers at an hour gets that on every trigger planted from now on.

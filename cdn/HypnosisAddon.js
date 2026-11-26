@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.3. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.4. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5930,6 +5930,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (t.act !== void 0 && !COMPULSION_ACT_KEYS.includes(t.act)) delete t.act;
         if (t.gate !== void 0 && typeof t.gate !== "string") delete t.gate;
         if (t.whileWorn !== void 0 && t.whileWorn !== true) delete t.whileWorn;
+        if (t.noRemove !== void 0 && t.noRemove !== true) delete t.noRemove;
         if (t.wornHold !== void 0 && (typeof t.wornHold?.group !== "string" || typeof t.wornHold?.asset !== "string")) delete t.wornHold;
       }
     }
@@ -7446,7 +7447,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const all = listTriggers();
     return all.filter((t) => {
       if (t.fireOn !== event || !triggerCanFire(t)) return false;
-      if (self && !(t.watchName === "*" && compulsionAct(t.act)?.clothes)) return false;
+      if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items))) return false;
       if (t.gate) {
         const word = all.find((p) => isReactionOf(t, p));
         if (!word || !isOn(word)) return false;
@@ -7526,6 +7527,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         recording.whileWorn = true;
         const until = act.clothes?.dir === "off" ? "until that garment goes back on" : act.clothes ? "for as long as they wear that garment and lets go when it comes off" : "for as long as they wear the item and lets go when it comes off";
         noted = `it holds ${until}; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)`;
+        break;
+      }
+      case "noRemove": {
+        if (!compulsionAct(recording.condition?.act)?.items) {
+          noted = "they can be kept from taking off only an item a compulsion is about (gags you, ties your arms, plugs you\u2026), so it's ignored";
+          break;
+        }
+        recording.whileWorn = true;
+        recording.noRemove = true;
+        noted = `they can't take the item off themselves while it holds (no removing, struggling out or swapping it); anyone else still can, and that lets it go. It holds while they wear it, as "holds while you wear it" does`;
         break;
       }
     }
@@ -7740,6 +7751,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (recording.strict) trigger.strict = true;
     if (recording.whileWorn && (compulsionAct(trigger.act)?.items || compulsionAct(trigger.act)?.clothes)) trigger.whileWorn = true;
+    if (recording.noRemove && compulsionAct(trigger.act)?.items) trigger.noRemove = true;
     if (recording.scope) trigger.scope = recording.scope;
     const ceilingMs = getTriggerLifespan() * 6e4;
     const asked = recording.lifespanMs;
@@ -8840,6 +8852,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`worn hold on ${t.key}: ${id} again`);
     }
   }
+  function heldOnBy(group) {
+    return listTriggers().find((t) => t.noRemove && t.wornHold?.group === group && isTriggerInEffect(t)) ?? null;
+  }
+  function installNoRemove(modApi2) {
+    modApi2.hookFunction("DialogStruggleStart", 5, (args, next) => {
+      try {
+        const [C, action, prev] = args;
+        const group = prev?.Asset?.Group?.Name;
+        if ((C === Player || C?.IsPlayer?.()) && typeof group === "string" && /^Action(?:Remove|Struggle|Dismount|Escape|UnlockAndRemove|Swap)$/.test(String(action)) && heldOnBy(group)) {
+          tellPlayer("Your hands go to it and stop. It stays on; you couldn't take it off if you tried.");
+          log(`no-remove: refused ${action} on ${group}`);
+          return void 0;
+        }
+      } catch (err) {
+        warn("no-remove check failed:", err);
+      }
+      return next(args);
+    });
+  }
   function installCompulsions() {
     if (compulsionPoll) return;
     if (typeof ChatRoomRegisterMessageHandler === "function") {
@@ -9188,7 +9219,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const tags = [];
     if (t.spent) tags.push("used up");
     else if (t.oneShot) tags.push("works once");
-    if (t.whileWorn) tags.push("holds while worn");
+    if (t.whileWorn) tags.push(t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
     const strength = describeStrength(t);
     if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
     if (holding) tags.push("holding you now");
@@ -11313,6 +11344,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           // dressed again", "while it stays off", "until it goes back on".
           String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`
         ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "whileWorn" }) })),
+        // v1.19.4 (DW): "you cannot take it off", "you can't remove it", "you are unable to take it off".
+        ...[
+          String.raw`\byou (?:cannot|can t|can not|cant|will not|won t|wont|are not able to|are unable to|may not|must not) (?:take (?:it|them|that) off|take off (?:it|them|that)|remove (?:it|them|that)|get (?:it|them|that) off|struggle out of (?:it|them|that))\b`
+        ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "noRemove" }) })),
         // Lifespan.
         ...[
           String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
@@ -11679,7 +11714,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.3", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.4", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11728,7 +11763,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.3", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.4", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12726,6 +12761,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim(`items put on through the game's item menu. Add "this trigger holds while you`),
       dim(`wear it" and it holds until the item comes off; arousal repeats (2, 2, 2,`),
       dim("5, then every 10 minutes) and orgasm too (5, 10, then every 20)."),
+      dim(`Anyone includes them binding themselves. Add "you cannot take it off" and they`),
+      dim("can't remove, struggle out of or swap it while it holds; others still can."),
       body(`"Missy, whenever anyone undresses you, ..."   "whenever you take your bra off"`),
       dim("Or takes your top, skirt, panties, shoes or socks off; or dresses you, puts"),
       dim("a top, skirt, bra, panties, shoes or socks on you. Anyone includes them, unless"),
@@ -14258,7 +14295,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.4"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14331,7 +14368,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.4"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15145,7 +15182,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.3", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.4", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -18078,6 +18115,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             },
             { id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
             { id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },
+            { id: "noremove", label: "you cannot take it off (item compulsions: they can't remove it while it holds)", phrase: "you cannot take it off" },
             { id: "bare", label: "this trigger holds while you are undressed (clothing taken off)", phrase: "this trigger holds while you are undressed" }
           ]
         },
@@ -18484,7 +18522,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.3"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.4"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -19770,7 +19808,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.4"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19797,7 +19835,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.3"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.4"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19873,14 +19911,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.3"})`);
+      info(`script loaded (v${"1.19.4"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.3",
+          version: "1.19.4",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20015,6 +20053,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("induction prompt box", () => installPrompt(modApi));
       safely("clothing illusion", () => installIllusion(modApi));
       safely("clothing compulsions", () => installOutfitWatch(modApi));
+      safely("held items stay on", () => installNoRemove(modApi));
     }
   });
 
@@ -20023,10 +20062,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.4"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.3";
+    page2.__ECHS_LOADED__ = "1.19.4";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

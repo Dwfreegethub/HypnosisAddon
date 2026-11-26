@@ -2046,6 +2046,10 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 		// dressed again", "while it stays off", "until it goes back on".
 		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "whileWorn" }) })),
+	// v1.19.4 (DW): "you cannot take it off", "you can't remove it", "you are unable to take it off".
+	...[
+		String.raw`\byou (?:cannot|can t|can not|cant|will not|won t|wont|are not able to|are unable to|may not|must not) (?:take (?:it|them|that) off|take off (?:it|them|that)|remove (?:it|them|that)|get (?:it|them|that) off|struggle out of (?:it|them|that))\b`,
+	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "noRemove" }) })),
 	// Lifespan.
 	...[
 		String.raw`\b${OPT_SUBJ} (?:will )?(?:only )?(?:lasts?|holds?|stays?|works?) (?:for )?(?:the next )?(?:about )?${OPT_NUM} ${OPT_UNIT}\b`,
@@ -3018,6 +3022,33 @@ function repeatWornActions(t: Trigger, kind: WornRepeatKind): void {
 	}
 }
 
+/** The held compulsion keeping her from taking off what is in this slot herself (v1.19.4), or null.
+ * Only while it holds: the release words and the safeword let it go, and so does this. */
+export function heldOnBy(group: string): Trigger | null {
+	return listTriggers().find((t) => t.noRemove && t.wornHold?.group === group && isTriggerInEffect(t)) ?? null;
+}
+
+/** "You cannot take it off" (v1.19.4, DW): every way she takes an item off herself in BC starts at
+ * DialogStruggleStart (R134 Dialog.js: remove, struggle, dismount, escape, unlock-and-remove, and a
+ * swap from DialogItemClick), on her own client. Refused there for a held slot; someone else's
+ * client is theirs, so they can still take it off her, and that ends the hold. */
+export function installNoRemove(modApi: any): void {
+	modApi.hookFunction("DialogStruggleStart", 5, (args: any[], next: (a: any[]) => any) => {
+		try {
+			const [C, action, prev] = args;
+			const group = prev?.Asset?.Group?.Name;
+			if ((C === Player || C?.IsPlayer?.()) && typeof group === "string" && /^Action(?:Remove|Struggle|Dismount|Escape|UnlockAndRemove|Swap)$/.test(String(action)) && heldOnBy(group)) {
+				tellPlayer("Your hands go to it and stop. It stays on; you couldn't take it off if you tried.");
+				log(`no-remove: refused ${action} on ${group}`);
+				return undefined;
+			}
+		} catch (err) {
+			warn("no-remove check failed:", err);
+		}
+		return next(args);
+	});
+}
+
 /** Started once at load (main.ts). Its own interval, NOT timers.ts: every trance end calls
  * clearAllTimers(), and this has to outlive all of them. */
 export function installCompulsions(): void {
@@ -3591,7 +3622,7 @@ export function triggerRow(t: Trigger, reveal: boolean, all: Trigger[] = [t]): s
 	const tags: string[] = [];
 	if (t.spent) tags.push("used up");
 	else if (t.oneShot) tags.push("works once");
-	if (t.whileWorn) tags.push("holds while worn");
+	if (t.whileWorn) tags.push(t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
 	const strength = describeStrength(t);
 	if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
 	if (holding) tags.push("holding you now");

@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.4 · 26 November 2026
+
+- **Item compulsions now work when you bind yourself.** *"Whenever anyone gags you, …"* goes off
+  when you gag yourself too. A name instead of *anyone* still means only that person.
+- **"You cannot take it off."** Added to an item compulsion, it holds while you wear the item, and
+  meanwhile you can't remove it, struggle out of it or swap it yourself. Anyone else can still take
+  it off you. The release words and your safeword end it.
+
 ## v1.19.3 · 26 November 2026
 
 - **ECHS now uses people's nicknames everywhere,** the way the game does. *"Attempting an induction

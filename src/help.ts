@@ -346,6 +346,8 @@ function lastingLines(): HelpLine[] {
 		dim(`items put on through the game's item menu. Add "this trigger holds while you`),
 		dim(`wear it" and it holds until the item comes off; arousal repeats (2, 2, 2,`),
 		dim("5, then every 10 minutes) and orgasm too (5, 10, then every 20)."),
+		dim(`Anyone includes them binding themselves. Add "you cannot take it off" and they`),
+		dim("can't remove, struggle out of or swap it while it holds; others still can."),
 		body(`"Missy, whenever anyone undresses you, ..."   "whenever you take your bra off"`),
 		dim("Or takes your top, skirt, panties, shoes or socks off; or dresses you, puts"),
 		dim("a top, skirt, bra, panties, shoes or socks on you. Anyone includes them, unless"),

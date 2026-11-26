@@ -162,7 +162,7 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *sucks you* (or *sucks your nipples*, *fingers*, *toes*; since v1.16.32) | Suck, on your nipples, fingers or toes (the only places the game lets anyone suck) |
 | *does anything to you* | Any activity at all |
 
-**Items put on you** (since v1.16.15). The same kind of compulsion can wait for someone putting a restraint on you, or locking one, through the game's item menu. *Anyone* can be a name or *I* here too: *"Missy, whenever anyone gags you, you are very aroused"*.
+**Items put on you** (since v1.16.15). The same kind of compulsion can wait for someone putting a restraint on you, or locking one, through the game's item menu. *Anyone* can be a name or *I* here too: *"Missy, whenever anyone gags you, you are very aroused"*. Since v1.19.4, *anyone* includes her: gagging or tying herself sets it off too. A name still means only that person.
 
 | Say | Which slots count |
 |---|---|
@@ -178,6 +178,8 @@ A compulsion is a trigger with no word. It waits for a condition instead. The hy
 | *locks something on you* (or *locks your gag*, *locks you up*) | A lock added to any item |
 
 **Holding while worn** (since v1.16.20). Add *"Missy, this trigger holds while you wear it"* (or *"it lasts until it comes off"*) before *remember trigger*, and an item compulsion holds for as long as the item stays on instead of for the usual number of minutes. It lets go when the item comes off, however it comes off (taken off, struggled out of, swapped for something else); for *locks something on you*, when the lock comes off. Meanwhile its arousal comes back, slowing down so it doesn't flood the chat: 2, 2 and 2 minutes apart, then 5, then every 10 minutes (since v1.16.21); an orgasm is slower still: after 5 minutes, then 10, then every 20. So *"whenever anyone gags you, you are very aroused"* keeps her aroused while gagged; undressing and the like happen once. The release words and the safeword still end it at any time. On a word trigger it means nothing, and the hypnotist is told so.
+
+**She can't take it off** (since v1.19.4). Add *"Missy, you cannot take it off"* (or *"you can't remove it"*, *"you won't struggle out of it"*) to an item compulsion, and it also holds while worn, and while it holds she can't take that item off herself: removing it, struggling out of it, escaping it and swapping it for another are all refused, with a line saying so. Anyone else can still take it off her, which lets the compulsion go. The release words and the safeword end it, and then she can take it off as usual. On a word trigger or a clothing compulsion it means nothing, and the hypnotist is told so.
 
 An item swapped for another counts; taking one off doesn't. Clothing has its own list (below), and an item only used on you (a feather, a remote) isn't an item put on. Items put on by other add-ons without the game's message (BCX rules, for example) aren't seen. "Does anything to you" stays activities only.
 

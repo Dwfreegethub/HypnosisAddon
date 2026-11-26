@@ -18,6 +18,22 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.4) — self-bondage counts; "you cannot take it off"
+
+DW: "Can we make the bondage compulsions work if someone self binds themself. Maybe make a way that
+they cannot remove that object." BC echoes her own ActionUse back to her, so the first part is
+compulsionsFor letting her own member number through for an item act watched as "*", as v1.18.0 did
+for clothing. A named watch still needs that person.
+
+The second (DW chose "an option the hypnotist adds"): the recording option `noRemove`, spoken as "you
+cannot take it off" and its kin, on an item compulsion only; it switches on whileWorn too. Every way
+she takes an item off herself in R134 starts at `DialogStruggleStart` on her own client (Dialog.js:
+Remove, Struggle, Dismount, Escape, UnlockAndRemove, and DialogItemClick's Swap), so `installNoRemove`
+refuses those for the slot a holding no-remove compulsion watches (`heldOnBy`). Someone else's removal
+runs on their client and is not ours to stop, and it ends the hold as any removal does. Only while it
+holds: the release words and the safeword let it go (rule 2). Not offered for clothing: the wardrobe is
+BC's whole-outfit screen, with nothing comparable to hook per garment.
+
 ### Changed 2026-11-26 (v1.19.3) — the nickname, everywhere
 
 DW, seeing an induction line name a player by account name while the room's line used her nickname:
