@@ -380,7 +380,7 @@ for (const g of T.PLANT_GROUPS) for (const l of g.lines) {
 	const line = `Bea, ${l.sample ?? l.phrase}`;
 	const ctl = voice.parseTriggerControl(line);
 	const ok =
-		(g.key === "shape" || l.id === "every" || l.id === "worn" || l.id === "bare" || l.id === "noremove") && !expectKind[l.id] ? ctl?.kind === "option"
+		(g.key === "shape" || l.id === "every" || l.id === "worn" || l.id === "bare" || l.id === "posehold" || l.id === "noremove") && !expectKind[l.id] ? ctl?.kind === "option"
 		: g.key === "compel" ? ctl?.kind === "condition" && voice.parseCondition(line)?.rest === "you will kneel"
 		: g.key === "keep" ? voice.isReinforceLine(line)
 		: ctl?.kind === expectKind[l.id];

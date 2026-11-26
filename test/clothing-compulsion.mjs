@@ -221,7 +221,7 @@ under();
 say("Missy, your trigger word is sleepy");
 say("Missy, you are very aroused");
 say("Missy, this trigger holds while you are undressed");
-check("on a word trigger: ignored, and says why", /item or clothing compulsion/.test(toHyp.join(" ")), true);
+check("on a word trigger: ignored, and says why", /item, clothing or pose compulsion/.test(toHyp.join(" ")), true);
 
 console.log(`clothing-compulsion: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

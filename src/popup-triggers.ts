@@ -119,6 +119,7 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 			{ id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },
 			{ id: "noremove", label: "you cannot take it off (item compulsions: they can't remove it while it holds)", phrase: "you cannot take it off" },
 			{ id: "bare", label: "this trigger holds while you are undressed (clothing taken off)", phrase: "this trigger holds while you are undressed" },
+			{ id: "posehold", label: "this trigger holds while you stay like that (poses: until they move out of it)", phrase: "this trigger holds while you stay like that" },
 		],
 	},
 	{

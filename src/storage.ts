@@ -252,8 +252,9 @@ export interface Trigger {
 	noRemove?: true;
 	/** While a whileWorn trigger holds: the slot and item it is waiting on (and, for a lock compulsion,
 	 * that the lock stays on). Saved, so a reload keeps waiting. Cleared when it lets go. `off`
-	 * (v1.18.0): a garment taken off, held while the slot stays empty. */
-	wornHold?: { group: string; asset: string; lock?: true; off?: true };
+	 * (v1.18.0): a garment taken off, held while the slot stays empty. `pose` (v1.19.8): a pose state
+	 * (pose-states.ts), held while she stays in it; group and asset are "" then. */
+	wornHold?: { group: string; asset: string; lock?: true; off?: true; pose?: string };
 }
 
 /** The non-phrase conditions a trigger can fire on. */
@@ -825,6 +826,7 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 			if (t.whileWorn !== undefined && t.whileWorn !== true) delete t.whileWorn;
 			if (t.noRemove !== undefined && t.noRemove !== true) delete t.noRemove;
 			if (t.wornHold !== undefined && (typeof t.wornHold?.group !== "string" || typeof t.wornHold?.asset !== "string")) delete t.wornHold;
+			if (t.wornHold?.pose !== undefined && typeof t.wornHold.pose !== "string") delete t.wornHold;
 		}
 	}
 	// Anyone with evidence of having been through setup has already met the add-on, so mark the
