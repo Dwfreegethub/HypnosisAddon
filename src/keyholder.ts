@@ -680,7 +680,9 @@ export function announceKeysTo(member: number): void {
 	if (!characterFor(member)) return;
 	const mode = keyModeFor(member);
 	sendHiddenMessage(
-		{ type: "state-response", ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
+		// keysChanged (v1.16.36, review F6): this answer is news, so their ECHS says so in chat. The
+		// same fields on an ordinary answer (joining a room, reading settings) are not.
+		{ type: "state-response", ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none", keysChanged: true },
 		member,
 	);
 }
@@ -708,10 +710,24 @@ function levelFromWire(level: unknown, legacy: unknown): KeyMode | null {
 /** A state-response arrived (remote.ts). Picks out what concerns keys. Cleaned: it came over the wire. */
 export function receiveKeyholderFields(sender: number, message: any): void {
 	const held = levelFromWire(message?.keyLevel, message?.keyholder);
+	const before = holds.get(sender);
 	if (message?.keyholder === "none" || message?.keyLevel === "none") {
 		holds.delete(sender);
 		snapshots.delete(sender);
 	} else if (held) holds.set(sender, held);
+	// Told in chat when they give, change or take back our keys (v1.16.36, review F6): the Keys tab
+	// just grew a section, below everything else, and nobody said so.
+	const after = holds.get(sender);
+	if (message?.keysChanged === true && after !== before) {
+		const name = nameOf(sender);
+		tellPlayer(
+			!after
+				? `${name} took their keys back.`
+				: !before
+					? `${name} gave you ${after} keys to their ECHS settings. They're on the popup's Keys tab.`
+					: `${name} changed your keys to ${after}.`,
+		);
+	}
 	const s = message?.settings;
 	if (s && Array.isArray(s.boxes) && s.boxes.length <= 80) {
 		const boxes = s.boxes

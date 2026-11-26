@@ -623,6 +623,37 @@ box("☑ Sight").click();
 const sentReq = hidden.find((m) => m.to === B && m.type === "remote-request");
 check("a box click sends, does not type", sentReq?.action === "set" && sentReq.key === "sightControl" && sentReq.value === false && chatBox.value === typedBefore, `a set request to Bea and the chat box untouched, got ${JSON.stringify(sentReq)}`);
 check("  status says it asked", status().startsWith("Asked Bea's ECHS to switch off"), `the asked status, got "${status()}"`);
+// v1.16.36 (review F6): the answer replaces "Asked…"; failure looked like "Asked…" staying for good.
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.36", settingsResult: { ok: true, text: "Done: Sight is now off." } });
+popup.popupTick();
+check("  the answer replaces it", status() === "Done: Sight is now off.", `"Done: Sight is now off.", got "${status()}"`);
+box("☑ Sight").click();
+KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.36", settingsResult: { ok: false, text: "Their settings are locked." } });
+popup.popupTick();
+check("  a refusal says so", status() === "Refused: Their settings are locked.", `"Refused: …", got "${status()}"`);
+// A faded box says why and sends nothing (it used to send and hear nothing back).
+hidden = [];
+box("☐ Posture Control").click();
+check("faded box: sends nothing", hidden.filter((m) => m.type === "remote-request").length === 0, `no request, got ${JSON.stringify(hidden)}`);
+check("  and says why", /^Your minimal keys can't switch "Posture Control" on: that needs (moderate|full) keys\.$/.test(status()), `why, got "${status()}"`);
+// What you hold comes first on the tab.
+const groupOrder = () => findAll(win(), (n) => n.className === "echs-pop-group").map((n) => n.textContent.replace(/^[−+]\s+/, ""));
+check("held keys: first group on the tab", groupOrder()[0] === "Settings you hold keys to", `held first, got ${JSON.stringify(groupOrder())}`);
+// The new keyholder is told in chat, once per change; an ordinary answer with the same fields says nothing.
+local = [];
+KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "grant", keyLevel: "moderate", keysChanged: true });
+KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "grant", keyLevel: "moderate", keysChanged: true });
+KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "grant", keyLevel: "full" });
+KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "grant", keyLevel: "moderate", keysChanged: true });
+KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "none", keyLevel: "none", keysChanged: true });
+const keyNews = local.map((l) => l.replace(/^\[|\]$/g, "").replace(/^\S+ /, ""));
+const keyNewsWant = [
+	"gave you moderate keys to their ECHS settings. They're on the popup's Keys tab.",
+	"changed your keys to moderate.",
+	"took their keys back.",
+];
+check("keys given, changed, taken back: each said once", JSON.stringify(keyNews) === JSON.stringify(keyNewsWant), `got ${JSON.stringify(local)}`);
+popup.popupTick();
 hidden = [];
 keyChip("end their Extreme lock").click();
 check("end Extreme: first click only arms", !hidden.some((m) => m.action === "end-extreme") && status().startsWith("Click again"), "no request yet, and a click-again status");

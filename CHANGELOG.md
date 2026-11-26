@@ -13,6 +13,17 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.36 · 25 November 2026
+
+- **Keyholders see what happened.** In the popup's Keys tab, after you click one of their settings,
+  the line at the bottom used to say "Asked…" and stay that way. Now it changes to their answer:
+  *Done: …*, *Refused: …*, or that their ECHS didn't answer.
+- **A faded box says why.** Clicking a setting your keys can't switch on now says which keys it
+  needs, instead of sending a request that went unanswered.
+- **You're told when you get keys.** When someone gives you keys, changes your level or takes them
+  back, a line in chat says so. (They need this version too.)
+- **The settings you hold keys to come first** on the Keys tab.
+
 ## v1.16.35 · 25 November 2026
 
 - **The popup's People tab shows who can be hypnotized.** Each name now says *open to hypnosis* or
