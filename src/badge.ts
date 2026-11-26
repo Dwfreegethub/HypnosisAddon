@@ -32,11 +32,14 @@ export const ICON_SIZE = 30;
 /** The hover text, in canvas pixels. BC's own text is 36. */
 export const HOVER_FONT_SIZE = 20;
 
-type Peer = { version: string; show: boolean };
+/** `open`: whether their hypnosis is switched on (v1.16.34, review F10); undefined from a build that
+ * does not say. */
+type Peer = { version: string; show: boolean; open?: boolean };
 const peers = new Map<number, Peer>();
 let roomKey = "";
 let lastAnnounceAt = 0;
 let announcedShow: boolean | null = null;
+let announcedOpen: boolean | null = null;
 /** Asks sent to someone who arrived, so an older build that never asks the room is still found. */
 const askedAfterJoin = new Set<number>();
 const REANNOUNCE_MS = 60_000;
@@ -49,9 +52,11 @@ function me(): number | undefined {
 	return typeof Player === "object" ? Player?.MemberNumber : undefined;
 }
 
-/** What goes on every state-query and state-response this client sends. */
-export function presenceFields(): { version: string; showIcon: boolean } {
-	return { version: __VERSION__, showIcon: getFeatures().showEchsIcon !== false };
+/** What goes on every state-query and state-response this client sends. hypnoEnabled rode only on
+ * the answers before v1.16.34; it goes on the room-wide ask too, so the People tab can say who is
+ * open to hypnosis before anyone tries (review F10). */
+export function presenceFields(): { version: string; showIcon: boolean; hypnoEnabled: boolean } {
+	return { version: __VERSION__, showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
 }
 
 /** Someone sent a state-query or state-response, so they run ECHS. */
@@ -59,11 +64,20 @@ export function notePeer(sender: number, message: HypnoMessage): void {
 	if (sender === me()) return;
 	const version = typeof message.version === "string" ? message.version.slice(0, 20) : "";
 	const known = peers.get(sender);
-	peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false });
+	const open = typeof message.hypnoEnabled === "boolean" ? message.hypnoEnabled : known?.open;
+	peers.set(sender, { version: version || known?.version || "", show: message.showIcon !== false, ...(open === undefined ? {} : { open }) });
 }
 
 export function peerFor(member: number): Peer | undefined {
 	return peers.get(member);
+}
+
+/** Tell the room again if what it knows of us changed: the icon setting, or whether hypnosis is on.
+ * Called from our own character's frame (skipped while BC hides icons) and on leaving settings. */
+export function announceIfChanged(): void {
+	if (announcedShow === null) return;
+	const f = getFeatures();
+	if (announcedShow !== (f.showEchsIcon !== false) || announcedOpen !== (f.hypnoEnabled === true)) announce();
 }
 
 /** Ask the whole room once. Everyone answers us; our ask tells them about us. */
@@ -71,6 +85,7 @@ function announce(): void {
 	if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
 	lastAnnounceAt = Date.now();
 	announcedShow = getFeatures().showEchsIcon !== false;
+	announcedOpen = getFeatures().hypnoEnabled === true;
 	sendHiddenMessage({ type: "state-query", presence: true, ...presenceFields() });
 	log(`ECHS icon: asked the room who runs ECHS (showing ours: ${announcedShow})`);
 }
@@ -116,7 +131,7 @@ export function iconFor(C: any): Peer | null {
 export function drawIcon(C: any, charX: number, charY: number, zoom: number): void {
 	// Our own setting changed since we last told the room: tell it again. Checked on our own
 	// character's frame only, so it costs one comparison a frame.
-	if (C?.MemberNumber === me() && announcedShow !== null && announcedShow !== (getFeatures().showEchsIcon !== false)) announce();
+	if (C?.MemberNumber === me()) announceIfChanged();
 	const spot = ICON_SPOTS[getEchsIconSpot()];
 	if (!spot) return void (diag.lastSkip = "your ECHS icons setting is Off");
 	if (!SPIRAL_ICON) return void (diag.lastSkip = "the spiral image could not be built");

@@ -156,6 +156,16 @@ export function personStatus(memberNumber: number): string {
 	}
 }
 
+/** What the row says: a session first, else whether they are open to hypnosis (v1.16.34, review
+ * F10). Someone who never set up, or chose Hypnotist only, used to look exactly like a subject; you
+ * found out only by trying. Nothing is said for an older build, which does not tell us. */
+export function personTag(memberNumber: number): string {
+	const status = personStatus(memberNumber);
+	if (status) return status;
+	const open = peerFor(memberNumber)?.open;
+	return open === false ? "not open to hypnosis" : open === true ? "open to hypnosis" : "";
+}
+
 /** The People list: everyone else here running ECHS who has not asked to be left out. */
 export function popupPeople(): PopupPerson[] {
 	const pool = roomOthers();
@@ -168,7 +178,7 @@ export function popupPeople(): PopupPerson[] {
 			id: c.MemberNumber,
 			name: shownName(c),
 			text: `/echs induce ${induceTarget(c, pool)}`,
-			status: personStatus(c.MemberNumber),
+			status: personTag(c.MemberNumber),
 		}));
 }
 

@@ -18,6 +18,33 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-25 (v1.16.35) — People tab says who is open to hypnosis
+
+UI lab review F10; DW: "Lets do F10". A brand-new subject (hypnosis off) was listed exactly like an
+available one; inducing printed "Attempting an induction" and "They decide how to respond, on their
+own client" before her client's instant refusal.
+
+badge.ts: hypnoEnabled moves into presenceFields, so it rides on the room-wide state-query as well
+as every state-response (remote.ts and keyholder.ts dropped their own copy of the field, which the
+spread now supplies). notePeer keeps it as Peer.open; a message without the flag keeps what was
+known, so an older build or an older answer doesn't erase it. announceIfChanged re-asks the room
+when showIcon OR hypnoEnabled changed since the last ask. It runs on our own character's frame (as
+the icon check did) and now also on leaving the settings screen, since BC skips the icon hook while
+icons are hidden.
+
+popup.ts: personTag = personStatus (a session says more) else "open to hypnosis" / "not open to
+hypnosis" / nothing for an older build. The People rows use it.
+
+commands.ts startInduction: the second line is "Sent. Watch for what happens next." or, when the
+peer is known closed, "<name> has hypnosis switched off in ECHS, so this will most likely be
+refused." Still sent in that case: what we know can be a minute old, and her client's refusal
+follows. Not done: the review's optional private notice to the subject; a brand-new player gets the
+setup wizard anyway, and a Hypnotist-only player chose it.
+
+Tests: popup.mjs (7 checks: tags, keeping the flag, session wins, rows, presenceFields), miss.mjs
+(4: still sent, the off line, never "They decide", the on line). Mutations: notePeer ignoring the
+flag fails 4; rows on personStatus fails 1; the off branch removed fails 1.
+
 ### Fixed 2026-11-25 (v1.16.34) — the wizard summary shows the whole "Allowed" list
 
 UI lab review F7; DW: "Lets do F7 1st." The summary drew each describeConfig line with

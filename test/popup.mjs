@@ -199,6 +199,19 @@ update(B, { phase: "Hypnotized", attempts: 1 });
 check("status: resting", popup.personStatus(A) === "resting: 3 min", `"resting: 3 min" for a 2.5 min cooldown, got "${popup.personStatus(A)}"`);
 check("status: under you", popup.personStatus(B) === "under you", `"under you", got "${popup.personStatus(B)}"`);
 check("status: nothing known", popup.personStatus(F) === "", `no status for someone we never tried, got "${popup.personStatus(F)}"`);
+// v1.16.34 (review F10): whether they are open to hypnosis, from what their client already told us.
+// Failure looked like: someone who never set up listed exactly like a subject.
+check("tag: an older build says nothing", popup.personTag(F) === "", `no tag without hypnoEnabled, got "${popup.personTag(F)}"`);
+badge.notePeer(F, { type: "state-response", version: "1.16.34", hypnoEnabled: false });
+check("tag: hypnosis off", popup.personTag(F) === "not open to hypnosis", `"not open to hypnosis", got "${popup.personTag(F)}"`);
+badge.notePeer(F, { type: "state-response", version: "1.16.34" });
+check("tag: a message without the flag keeps what we knew", popup.personTag(F) === "not open to hypnosis", `still "not open to hypnosis", got "${popup.personTag(F)}"`);
+badge.notePeer(E, { type: "state-query", presence: true, version: "1.16.34", hypnoEnabled: true });
+check("tag: hypnosis on (from their room-wide ask)", popup.personTag(E) === "open to hypnosis", `"open to hypnosis", got "${popup.personTag(E)}"`);
+badge.notePeer(B, { type: "state-response", version: "1.16.34", hypnoEnabled: true });
+check("tag: a session says more, and wins", popup.personTag(B) === "under you", `"under you", got "${popup.personTag(B)}"`);
+check("the People rows carry the tag", popup.popupPeople().find((p) => p.id === F)?.status === "not open to hypnosis", "Fs row says not open");
+check("our own ask and answers say whether we are open", typeof badge.presenceFields().hypnoEnabled === "boolean", "presenceFields carries hypnoEnabled");
 popup.popupTick();
 // 7. Suggestions (stage 3). Bea going under switches the window to them by itself.
 check("someone under you: Suggestions, chosen by itself", popup.getPopupTab() === "suggest" && byText("Suggestions").length === 1, `the Suggestions tab chosen once Bea is under, got "${popup.getPopupTab()}"`);

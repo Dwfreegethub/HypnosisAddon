@@ -86,7 +86,7 @@ const runRoll = () => {
 let nextRandom = () => 0.99; // 0.99 * 100 = 99, over the chance ceiling of 95: always a miss
 Math.random = () => nextRandom();
 
-const { session, messaging, storage, notify, flavor, commands } = await import("./harness-bundle.mjs");
+const { session, messaging, storage, notify, flavor, commands, badge } = await import("./harness-bundle.mjs");
 session.installSession();
 
 let pass = 0, fail = 0;
@@ -311,6 +311,20 @@ run("retry");
 check("retrying at someone who left sends nothing", wire(), []);
 check("  and says they are gone", local.some((l) => /isn't in the room/i.test(l)), true);
 globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }];
+
+// v1.16.34 (review F10): what induce says after sending. "They decide how to respond, on their own
+// client" was wrong for an instant refusal, and was said even when we knew their hypnosis was off.
+session.safeword();
+update({ phase: "Idle", attempts: 0 });
+badge.notePeer(HYP, { type: "state-response", version: "1.16.34", hypnoEnabled: false });
+run("induce", "GameBot");
+check("hypnosis known off: still sent (what we know can be stale)", wire(), ["session-attempt"]);
+check("  and says it will most likely be refused", local.some((l) => /has hypnosis switched off in ECHS/.test(l)), true);
+check("  never 'They decide'", local.some((l) => /They decide/.test(l)), false);
+update({ phase: "Idle", attempts: 0 });
+badge.notePeer(HYP, { type: "state-query", version: "1.16.34", hypnoEnabled: true });
+run("induce", "GameBot");
+check("hypnosis on: 'Sent. Watch for what happens next.'", [local.some((l) => /Sent\. Watch for what happens next/.test(l)), local.some((l) => /switched off|They decide/.test(l))], [true, false]);
 
 console.log(`miss: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

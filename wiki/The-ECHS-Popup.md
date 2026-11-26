@@ -50,6 +50,7 @@ The **Safeword** button is at the bottom of every tab. It is the one button that
 Everyone else in the room who runs ECHS. **Click a name** to type the induction for them, `/echs induce Missy`; press Enter to start it. They still choose, on their own screen, how to respond.
 
 * A small tag shows what is already known about a session with them: *under you*, *induction under way*, *missed: you can try again*, or *resting: 5 min* while they are on cooldown from you.
+* With no session, it says whether they can be hypnotized at all: *open to hypnosis*, or *not open to hypnosis* for someone who hasn't set ECHS up for it or chose Hypnotist only. Someone on an older ECHS shows no tag. You can still try someone who isn't open; `/echs induce` says it will most likely be refused.
 * If two people share a name, or a name looks like a number, it types their member number instead, so it can never go to the wrong person.
 * Players who untick **Show others that I run ECHS** (Settings → Trance Defaults) are not listed. See [What it shares](#what-it-shares-and-with-whom).
 

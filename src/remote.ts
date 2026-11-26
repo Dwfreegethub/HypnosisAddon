@@ -417,7 +417,6 @@ export function installRemote(modApi: any): void {
 		sendHiddenMessage(
 			{
 				type: "state-response",
-				hypnoEnabled: getFeatures().hypnoEnabled,
 				...presenceFields(),
 				// Theirs only, and only if they asked. See planted.ts.
 				...(message.planted ? { planted: plantedEntriesFor(sender) } : {}),
