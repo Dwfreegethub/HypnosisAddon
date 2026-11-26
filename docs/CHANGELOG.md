@@ -18,6 +18,28 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-25 (v1.16.34) — the wizard summary shows the whole "Allowed" list
+
+UI lab review F7; DW: "Lets do F7 1st." The summary drew each describeConfig line with
+drawLeftTextFit, which shrinks to 22px and then clips with "…". "Allowed: a; b; c; d; e; f." was
+far wider than the column, so the one list of what is being consented to was the smallest text on
+the screen and lost its end, while the shorter lines below stayed at 36px.
+
+describeConfig now returns "Allowed:" and one "• Group" line per allowed group (capitalised).
+drawSummary lays every line out at one size with wrapToWidth (now exported from panel.ts):
+bullets indented, wrapped bullet text aligned under the text, a small gap before each non-bullet
+line. It starts at 28px and steps down by 2 (floor 20) until the last row is above the nav bar.
+The fullest answers (6 groups, toy mode) fit at 28px in both the Arial-like and the monospace model.
+
+Polish from the same finding: Apply and the one-click templates now tell the player in chat that
+the setup was applied ("The Balanced setup was applied. You can change any of it on the tabs.").
+Extreme already said so through confirmExtreme.
+
+wizard.mjs: a new block draws the summary for the fullest answers under both font models and
+checks no "…", "Allowed:" on its own line, 6 bullets, key words present, one size >= 20px, all
+above the Apply button, no overlapping rows; and the chat line for Apply and for a template.
+Mutations: the old one-line "Allowed:" fails 6 checks; removing the Apply note fails 2.
+
 ### Fixed 2026-11-25 (v1.16.33) — one answer for a failed compulsion; "remember trigger" always answered
 
 UI lab review F2's two side notes; DW: "Do A and B". Reproduced in the harness first: "Missy,

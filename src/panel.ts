@@ -147,7 +147,7 @@ export function drawLeftTextWrap(
 
 /** Word-wraps at the canvas's CURRENT font. A single word wider than the column is left
  * whole rather than hard-split, as wrapText below does for the help screen. */
-function wrapToWidth(text: string, maxWidth: number): string[] {
+export function wrapToWidth(text: string, maxWidth: number): string[] {
 	const out: string[] = [];
 	let line = "";
 	for (const w of text.split(/\s+/).filter(Boolean)) {

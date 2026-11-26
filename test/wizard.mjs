@@ -340,5 +340,75 @@ check("questions never lock and never open arousal reach", [cond.openChemical, c
 	wizard.cancelWizard();
 }
 
+// --- the summary shows what you allow, in full (v1.16.34, UI lab review F7) ---------------------------
+// Failure looked like: "Allowed: poses ...; the cl…" in the smallest text on the screen. Now every
+// group is its own line, every line one size, nothing cut, all of it above the nav bar; and Apply
+// says in chat that it worked.
+{
+	let drawn = [];
+	let em = 0.46;
+	const sizeOf = (font) => Number(/(\d+)px/.exec(font)?.[1] ?? 10);
+	globalThis.MainCanvas = {
+		font: "10px arial", textAlign: "left", textBaseline: "alphabetic", fillStyle: "",
+		save() {}, restore() {},
+		measureText(t) { return { width: t.length * sizeOf(this.font) * em }; },
+		fillText(t, x, y) { drawn.push({ t, x, y, size: sizeOf(this.font) }); },
+	};
+	let buttons = [];
+	let target = null;
+	globalThis.DrawButton = (x, y, w, h, label) => buttons.push({ x, y, w, h, label: String(label).replace(/^✓\s+/, "") });
+	globalThis.MouseIn = (x, y, w, h) => !!target && target.x === x && target.y === y && target.w === w && target.h === h;
+	const draw = () => { buttons = []; drawn = []; wizard.drawWizard(); return buttons.map((b) => b.label); };
+	const click = (label) => {
+		draw();
+		target = buttons.find((b) => b.label === label);
+		if (!target) throw new Error(`no button "${label}"`);
+		wizard.clickWizard();
+		target = null;
+	};
+	const opt = (q, value) => wizard.QUESTIONS[q].options.find((o) => o.value === value).label;
+	const said = [];
+	globalThis.ChatRoomSendLocal = (t) => said.push(t);
+
+	for (const [label, width] of [["Arial-like", 0.46], ["monospace", 0.6]]) {
+		em = width;
+		reset();
+		wizard.startWizard();
+		click("Answer a few questions instead");
+		// The fullest answers: every group allowed, toy mode on, the longest lines there are.
+		const a = { role: "subject", induction: "toy", physical: "deep", senses: "full", triggers: "deep" };
+		["role", "induction", "physical", "senses", "triggers"].forEach((key, i) => {
+			const o = wizard.QUESTIONS[i].options.find((x) => x.value === a[key]) ?? wizard.QUESTIONS[i].options.at(-1);
+			click(o.label);
+			click("Next");
+		});
+		draw();
+		check(`summary (${label}): on the summary page`, buttons.some((b) => b.label === "Apply"), true);
+		const navTop = buttons.find((b) => b.label === "Apply").y;
+		const body = drawn; // the title goes through DrawText (stubbed), so this is the body only
+		const text = body.map((d) => d.t).join(" ");
+		check(`summary (${label}): nothing cut with "…"`, body.filter((d) => d.t.endsWith("…")).map((d) => d.t), []);
+		check(`summary (${label}): "Allowed:" has its own line`, body.some((d) => d.t === "Allowed:"), true);
+		const bullets = body.filter((d) => d.t.startsWith("• "));
+		check(`summary (${label}): one line per allowed group (6)`, bullets.length, 6);
+		for (const w of ["Poses", "orgasm", "following", "illusion", "hearing", "lasting", "toy", "Sink", "blacklist", "afterward"]) {
+			check(`summary (${label}): "${w}" reaches the screen`, text.includes(w), true);
+		}
+		check(`summary (${label}): every line one size, and readable`, [new Set(body.map((d) => d.size)).size, Math.min(...body.map((d) => d.size)) >= 20], [1, true]);
+		check(`summary (${label}): all of it above the buttons`, Math.max(...body.map((d) => d.y)) + body[0].size / 2 < navTop, true);
+		const ys = body.map((d) => d.y);
+		check(`summary (${label}): no two lines on top of each other`, ys.every((y, i) => i === 0 || y - ys[i - 1] >= body[0].size), true);
+		said.length = 0;
+		click("Apply");
+		check(`summary (${label}): Apply says so in chat`, said.length === 1 && /setup answers were applied/.test(said[0]), true);
+	}
+	// A one-click template says which one was applied.
+	reset();
+	said.length = 0;
+	click("Balanced");
+	check("template: says which setup was applied", said, ["[The Balanced setup was applied. You can change any of it on the tabs.]"]);
+	wizard.cancelWizard();
+}
+
 console.log(`wizard: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);
