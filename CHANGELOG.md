@@ -13,6 +13,20 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.41 · 26 November 2026
+
+Small fixes from a look through ECHS as a newcomer would see it:
+
+- **The induction box** draws every line at the same size. The line about how the hypnotist's
+  voice feels to you used to shrink to a third of the others; now it wraps onto two lines.
+- **The ECHS popup is bigger by default** (440 × 540), so its tabs fit on one row and the long
+  Suggestions and Triggers lists have more room. A size you set yourself by dragging is kept.
+- **The popup's Commands tab starts with `/echs induce`**, unless someone is hypnotizing you; then
+  it starts with your answers to them, as before.
+- **The Planted triggers page on someone's profile** says where to act on them: the Triggers tab in
+  the ECHS popup.
+- **The Stats tab** no longer shows its *value* and *detail* column headings over an empty list.
+
 ## v1.16.40 · 25 November 2026
 
 - **One word for getting rid of a trigger: forget.** It is what you say (*"forget the trigger

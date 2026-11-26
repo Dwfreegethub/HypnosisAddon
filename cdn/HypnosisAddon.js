@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.40. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.41. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -11310,7 +11310,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.40", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.41", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11359,7 +11359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.40", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.41", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -11498,11 +11498,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     MainCanvas.save();
     MainCanvas.textAlign = "left";
     let size = startSize;
-    const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
-    MainCanvas.font = font(size);
+    const font2 = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
+    MainCanvas.font = font2(size);
     while (size > 22 && MainCanvas.measureText(text2).width > maxWidth) {
       size -= 2;
-      MainCanvas.font = font(size);
+      MainCanvas.font = font2(size);
     }
     let out = text2;
     if (MainCanvas.measureText(out).width > maxWidth) {
@@ -11516,12 +11516,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawLeftTextWrap(text2, x, yCentre, maxWidth, maxHeight, color = "Black", maxSize = 32, minSize = 18) {
     MainCanvas.save();
-    const font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
+    const font2 = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
     const pitch = (n) => Math.round(n * 1.2);
     let size = maxSize;
     let lines = [];
     for (; ; size -= 2) {
-      MainCanvas.font = font(size);
+      MainCanvas.font = font2(size);
       lines = wrapToWidth(text2, maxWidth);
       if (lines.length * pitch(size) <= maxHeight || size - 2 < minSize) break;
     }
@@ -13558,7 +13558,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions \xB7 using ECHS since ${usingSinceText(getUsingSince())}`);
     const listed = trustStatRows(trustSearch).length;
-    line(STAT_HEADER_Y, trustStatRows().length ? `Trust \xB7 ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", "value", "detail", "Gray");
+    const anyone = trustStatRows().length > 0;
+    line(STAT_HEADER_Y, anyone ? `Trust \xB7 ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", anyone ? "value" : "", anyone ? "detail" : "", "Gray");
     if (!trustStatRows().length) {
       removeTrustSearch();
       drawLeftText("Nobody yet \u2014 trust builds from conversation in the same room.", STAT_NAME_X, STAT_FIRST_ROW_Y, "Gray");
@@ -13648,7 +13649,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.40"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.41"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13721,7 +13722,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.40"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.41"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14610,7 +14611,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.40", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.41", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -16483,19 +16484,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function buttonLeft(index) {
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
   }
+  function drawCentred(text2, y, size, color) {
+    MainCanvas.save();
+    MainCanvas.textAlign = "center";
+    MainCanvas.textBaseline = "middle";
+    MainCanvas.font = font(size);
+    MainCanvas.fillStyle = color;
+    MainCanvas.fillText(text2, PANEL_LEFT2 + PANEL_WIDTH2 / 2, y, PANEL_WIDTH2 - 40);
+    MainCanvas.restore();
+  }
+  function descriptorLines(descriptor) {
+    MainCanvas.save();
+    MainCanvas.font = font(LINE_SIZE);
+    const lines = wrapToWidth(descriptor, PANEL_WIDTH2 - 60);
+    MainCanvas.restore();
+    return lines;
+  }
   function drawPrompt(hypnotistName2, remainingMs, descriptor) {
     DrawRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "White");
     DrawEmptyRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "Black", 4);
-    const centre = PANEL_LEFT2 + PANEL_WIDTH2 / 2;
-    const inner = PANEL_WIDTH2 - 40;
-    DrawTextFit(`${hypnotistName2} is trying to hypnotize you.`, centre, PANEL_TOP2 + 55, inner, "Black");
-    DrawTextFit("They are never told which you choose.", centre, PANEL_TOP2 + 105, inner, "Gray");
-    if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP2 + 138, inner, "#444");
-    DrawTextFit(
+    drawCentred(`${hypnotistName2} is trying to hypnotize you.`, PANEL_TOP2 + 45, TITLE_SIZE, "Black");
+    drawCentred("They are never told which you choose.", PANEL_TOP2 + 92, LINE_SIZE, "Gray");
+    const instinct = descriptor ? descriptorLines(descriptor) : [];
+    instinct.forEach((line, i) => drawCentred(line, PANEL_TOP2 + 135 + i * 36, LINE_SIZE, "#444"));
+    drawCentred(
       `${Math.ceil(remainingMs / 1e3)}s \u2014 no answer counts as Ignore.`,
-      centre,
-      PANEL_TOP2 + 175,
-      inner,
+      PANEL_TOP2 + (instinct.length ? 135 + instinct.length * 36 + 10 : 150),
+      LINE_SIZE,
       "Gray"
     );
     CHOICES.forEach((c, i) => {
@@ -16515,11 +16530,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawExtend(remainingMs, minutes) {
     DrawRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "White");
     DrawEmptyRect(PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, "Black", 4);
-    const centre = PANEL_LEFT2 + PANEL_WIDTH2 / 2;
-    const inner = PANEL_WIDTH2 - 40;
-    DrawTextFit(`Your trance has run its ${minutes} minutes.`, centre, PANEL_TOP2 + 55, inner, "Black");
-    DrawTextFit(`Stay under for another ${minutes}?`, centre, PANEL_TOP2 + 105, inner, "Black");
-    DrawTextFit(`${Math.ceil(remainingMs / 1e3)}s \u2014 no answer wakes you.`, centre, PANEL_TOP2 + 175, inner, "Gray");
+    drawCentred(`Your trance has run its ${minutes} minutes.`, PANEL_TOP2 + 70, TITLE_SIZE, "Black");
+    drawCentred(`Stay under for another ${minutes}?`, PANEL_TOP2 + 125, TITLE_SIZE, "Black");
+    drawCentred(`${Math.ceil(remainingMs / 1e3)}s \u2014 no answer wakes you.`, PANEL_TOP2 + 190, LINE_SIZE, "Gray");
     for (const b of EXTEND_BUTTONS) DrawButton(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, b.label, "White", "", b.hover);
   }
   function clickExtend() {
@@ -16555,15 +16568,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       })
     );
   }
-  var PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_GAP, FIRST_BUTTON_LEFT, CHOICES, EXTEND_BUTTONS;
+  var PANEL_LEFT2, PANEL_TOP2, PANEL_WIDTH2, PANEL_HEIGHT2, TITLE_SIZE, LINE_SIZE, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_GAP, FIRST_BUTTON_LEFT, CHOICES, font, EXTEND_BUTTONS;
   var init_prompt = __esm({
     "src/prompt.ts"() {
       init_log();
+      init_panel();
       init_session();
       PANEL_LEFT2 = 150;
-      PANEL_TOP2 = 250;
+      PANEL_TOP2 = 200;
       PANEL_WIDTH2 = 700;
-      PANEL_HEIGHT2 = 300;
+      PANEL_HEIGHT2 = 350;
+      TITLE_SIZE = 36;
+      LINE_SIZE = 30;
       BUTTON_TOP = 450;
       BUTTON_WIDTH = 200;
       BUTTON_HEIGHT = 70;
@@ -16574,6 +16590,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { choice: "ignore", label: "Ignore", hover: "Neither help nor resist. No bonus either way." },
         { choice: "fight", label: "Fight", hover: "Brace against it. Much more likely to stay clear." }
       ];
+      font = (n) => typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`;
       EXTEND_BUTTONS = [
         { stay: true, label: "Stay under", hover: "Another stretch of trance. You will be asked again when it is up.", left: 260 },
         { stay: false, label: "Wake up", hover: "Let the trance end now.", left: 540 }
@@ -16767,6 +16784,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
       drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
     });
+    if (triggers.length) DrawText(PLANTED_HINT, MainCanvasWidth / 2, PLANTED_HINT_Y, "Gray");
     if (pages > 1) {
       DrawButton(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Prev", plantedPage2 === 0 ? "#ddd" : "White", "", "", plantedPage2 === 0);
       DrawButton(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Next", plantedPage2 >= pages - 1 ? "#ddd" : "White", "", "", plantedPage2 >= pages - 1);
@@ -16936,7 +16954,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       );
     }
   }
-  var SHEET_SCREEN_ID, ECHS_SHEET_BUTTON_ID, ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
+  var SHEET_SCREEN_ID, ECHS_SHEET_BUTTON_ID, ICON_LEFT, ICON_TOP, ICON_SIZE2, ICON_INSET, SUB_EXIT_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_HELP_LEFT, FEATURE_BUTTON_LEFT, FEATURE_BUTTON_WIDTH, FEATURE_BUTTON_HEIGHT, SESSION_BUTTON_TOP, PLANTED_BUTTON_TOP, STATUS_LINE_Y, PLANTED_LEFT, PLANTED_WIDTH, PLANTED_TITLE_WIDTH, PLANTED_FIRST_ROW_Y, PLANTED_ROW_HEIGHT2, PLANTED_ROWS_PER_PAGE2, PLANTED_NAV_TOP, PLANTED_HINT_Y, PLANTED_HINT, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, PLANTED_PREV_LEFT, PLANTED_NEXT_LEFT, ABSENT_LINE_Y, RETRY_LEFT, RETRY_TOP, RETRY_WIDTH, RETRY_HEIGHT, activeTarget, repliedToProbe, plantedOpen, plantedPage2, PROBE_TIMEOUT_MS, probedAt;
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
@@ -16971,6 +16989,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       PLANTED_ROW_HEIGHT2 = 105;
       PLANTED_ROWS_PER_PAGE2 = 5;
       PLANTED_NAV_TOP = 860;
+      PLANTED_HINT_Y = 820;
+      PLANTED_HINT = "To say, release or forget one, use the Triggers tab in the ECHS popup.";
       PLANTED_NAV_WIDTH = 160;
       PLANTED_NAV_HEIGHT = 60;
       PLANTED_PREV_LEFT = 700;
@@ -17372,8 +17392,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       status: personTag(c.MemberNumber)
     }));
   }
-  function popupGroups(testing) {
-    const all = commandHelp();
+  function popupGroups(testing, asSubject = subjectSide() !== null) {
+    const listed = commandHelp();
+    const all = asSubject ? listed : [...listed.filter((c) => c.tag === "induce"), ...listed.filter((c) => c.tag !== "induce")];
     return GROUP_ORDER.filter((g) => testing || g !== "Testing").map((group) => ({
       group,
       title: GROUP_TITLES[group] ?? group,
@@ -17703,7 +17724,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.40"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.41"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -17746,7 +17767,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     });
     applySize(win);
     const z = getPopupSize();
-    place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
+    place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? WINDOW_HEIGHT, { x: 70, y: Math.round(viewSize().vh * 0.2) });
     makeDraggable(win, head2, "window");
     document.body.appendChild(win);
     watchSize(win);
@@ -18600,7 +18621,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -18625,7 +18646,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       TICK_MS = 250;
       DRAG_SLOP = 5;
       LAUNCHER_SIZE = 44;
-      WINDOW_WIDTH = 340;
+      WINDOW_WIDTH = 440;
+      WINDOW_HEIGHT = 540;
       KEEP_VISIBLE = 60;
       MIN_WIDTH = 260;
       MIN_HEIGHT = 220;
@@ -18682,7 +18704,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
 .echs-pop-launcher img{width:100%;height:100%;pointer-events:none}
 .echs-pop-launcher:hover{background:#fff}
-.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(460px,70vh);max-height:90vh;max-width:90vw;
+.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(${WINDOW_HEIGHT}px,80vh);max-height:90vh;max-width:90vw;
  min-width:${MIN_WIDTH}px;min-height:${MIN_HEIGHT}px;resize:both;overflow:hidden;display:flex;flex-direction:column;
  background:#0e1424;color:#d8e2ff;border:1px solid #3b4f86;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.55);
  font:13px/1.35 "Segoe UI",Arial,sans-serif}
@@ -18842,7 +18864,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.40"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.41"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18869,7 +18891,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.40"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.41"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18944,14 +18966,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.40"})`);
+      info(`script loaded (v${"1.16.41"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.40",
+          version: "1.16.41",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19093,10 +19115,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.40"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.41"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.40";
+    page2.__ECHS_LOADED__ = "1.16.41";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

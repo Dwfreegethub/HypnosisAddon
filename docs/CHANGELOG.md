@@ -18,6 +18,31 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-26 (v1.16.41) — F11 polish 1–5: induction box text, popup size, Commands order, remote planted hint, Stats headings
+
+UI lab review F11, the five items DW approved without questions ("Do 1 - 5 and then we will come
+back to the rest"). Items 6–9 (induction time vs the 60s box, the popup Triggers tab order, the Me
+tab hints while under, the pose after the safeword) wait for DW's answers.
+
+1. prompt.ts: DrawTextFit shrank the instinct line (skillDescriptor, ~75 characters) to one line,
+   about a third the size of the rest. Now drawCentred draws every line at a fixed size (title 36,
+   the rest 30; a line too long is squeezed by fillText's maxWidth, not shrunk), and
+   descriptorLines wraps the instinct line (wrapToWidth) onto up to two lines. The panel is taller
+   (top 200, height 350; the buttons did not move, still clear of BC's orgasm buttons at 532). The
+   Stay-under box uses the same helper. New suite prompt-box.mjs records fillText: one size under
+   the title, none shrunk, the line whole on two lines at most, lines 30px apart, the countdown
+   last and clear of the buttons.
+2. menu.ts Stats: no "value" / "detail" over "Nobody yet". menu-layout.mjs now records BC's
+   DrawText (drawLeftText) as well, at 36px.
+3. remote.ts: PLANTED_HINT under the list when there is anything on it.
+4. popup.ts: WINDOW_WIDTH 340 → 440, WINDOW_HEIGHT 540 (CSS min(540px, 80vh); place() clamps to the
+   view). Measured in the lab with the popup's own CSS: all six tabs on one row at 440.
+5. popupGroups(testing, asSubject = subjectSide() !== null): /echs induce moved to the front of
+   Session unless one is on you (asked, inducing, under), when agree/ignore/fight stay first.
+
+Mutations: instinct line one line, a different size, Stats headings back, hint gone, induce order —
+all caught.
+
 ### Changed 2026-11-25 (v1.16.40) — one verb for removing triggers ("forget"); Depth uses the Permissions names
 
 UI lab review F9 items 1 and 2. DW chose **"forget" everywhere** over "remove" (my suggestion): the

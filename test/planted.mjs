@@ -221,6 +221,8 @@ check("  says how it stands", texts.includes("full strength"), true);
 check("  says what it does", texts.includes("kneel"), true);
 check("  a page at a time", texts.some((t) => /"word 6"/.test(t)), false);
 check("  says which page", texts.includes("1 / 2"), true);
+// v1.16.41 (review F11). Failure: a read-only list that doesn't say where to act on it.
+check("  says where to say, release or forget one", texts.includes("To say, release or forget one, use the Triggers tab in the ECHS popup."), true);
 clickButton("Next");
 frame();
 check("Next shows the rest", texts.some((t) => /^6\. "word 6"$/.test(t)), true);

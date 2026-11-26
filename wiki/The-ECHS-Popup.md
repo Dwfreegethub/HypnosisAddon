@@ -37,7 +37,7 @@ The tabs change with what is going on, and the window switches to the one you ne
 | **Suggestions** | Someone is under **you** | What you can say to them |
 | **Triggers** | Always | Planting triggers, the ones you planted, and the ones in you |
 | **Keys** | Always | Who holds your keys, and the settings of anyone whose keys you hold |
-| **Commands** | Always | Every `/echs` command |
+| **Commands** | Always | Every `/echs` command. `/echs induce` comes first, unless someone is hypnotizing you; then the answers to it (`agree`, `ignore`, `fight`) do. |
 
 When someone starts on you, it switches to **Me**; when someone goes under you, it switches to **Suggestions**. Otherwise it stays on whatever tab you picked.
 

@@ -44,6 +44,8 @@ globalThis.CommonGetFont = (size) => `${size}px arial`;
 globalThis.DrawCheckbox = (left, top, width, height, _t, checked, disabled) => boxes.push({ left, top, width, height, checked, disabled, clip });
 globalThis.DrawButton = (left, top, width, height, label, _c, _i, hover) => buttons.push({ left, top, width, height, label, hover, clip });
 for (const n of ["DrawText", "DrawTextFit", "DrawRect", "DrawEmptyRect", "DrawImage", "DrawImageResize", "DrawTextWrap"]) globalThis[n] = () => {};
+// BC's DrawText (drawLeftText's) recorded too, at its fixed 36px (v1.16.41: the Stats headings).
+globalThis.DrawText = (text, x, y) => texts.push({ text: String(text), left: x, width: String(text).length * 18, top: y - 18, height: 36, clip, drawText: true });
 globalThis.MouseX = 0;
 globalThis.MouseY = 0;
 globalThis.MouseIn = (l, t, w, h) => MouseX >= l && MouseX <= l + w && MouseY >= t && MouseY <= t + h;
@@ -590,6 +592,8 @@ openTab(4); frame(); // Triggers
 	const SEARCH = "HypnosisAddonTrustSearch";
 	frame();
 	check("nobody at all: no search box", !!elements[SEARCH], false);
+	// v1.16.41 (review F11). Failure: "value" and "detail" headings over "Nobody yet…".
+	check("  and no column headings over nothing", [texts.some((t) => t.text === "value" || t.text === "detail"), texts.some((t) => /^Nobody yet/.test(t.text))], [false, true]);
 	// Fifteen people, more than the list shows, so it scrolls (v1.16.38, DW: scroll bars, not pages).
 	// Interactions set the order: Person 1 first.
 	for (let i = 1; i <= 15; i++) storage.addInteractions(3000 + i, `Person ${i}`, 100 - i, `Account${i}`);
@@ -610,6 +614,7 @@ openTab(4); frame(); // Triggers
 	check("  the list starts at the top, and does not all fit", [shown()[0], shown().length >= 8 && shown().length < 15], ["Person 1 (#3001)", true]);
 	check("  so it has a scroll bar", [!!up(), !!down()], [true, true]);
 	check("  and says how many", texts.some((t) => t.text === "Trust · 15 people"), true);
+	check("  with its column headings", [texts.some((t) => t.text === "value"), texts.some((t) => t.text === "detail")], [true, true]);
 	check("  every row in view has a [x]", xs().length, shown().length);
 	// Failure: the detail text runs under the button, or the button sits on the scroll bar.
 	const firstX = xs()[0];

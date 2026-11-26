@@ -31,7 +31,7 @@ You are told the attempt went out; what happens next is the other player's choic
 | **`/echs planted <name>`** | **Lists the triggers you planted in that player:** the word or what it waits for, how it stands, and what it does. If they are in the room they are asked and answer with what is still there; if not, you see your own notes, marked *last known*. You never see anyone else's triggers. |
 | `/echs planted` | The same for everyone you have notes on. |
 
-The **Planted triggers** button on their profile's spiral panel shows the same list.
+The **Planted triggers** button on their profile's spiral panel shows the same list. It only shows them: to say, release or forget one, use the Triggers tab in the [ECHS popup](The-ECHS-Popup).
 
 ---
 

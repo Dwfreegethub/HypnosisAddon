@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { wrapToWidth } from "./panel";
 import { answerPrompt, getPendingPrompt, SessionChoice, getPendingExtend, answerExtend } from "./session";
 
 // The in-room choice box for an induction attempt.
@@ -22,9 +23,14 @@ import { answerPrompt, getPendingPrompt, SessionChoice, getPendingExtend, answer
 // can still read the room and still type, including their safeword.
 
 const PANEL_LEFT = 150;
-const PANEL_TOP = 250;
+// Taller since v1.16.41 (review F11): the instinct line wraps to two lines at the size of the
+// lines around it, instead of shrinking to a third of it. The buttons have not moved.
+const PANEL_TOP = 200;
 const PANEL_WIDTH = 700;
-const PANEL_HEIGHT = 300;
+const PANEL_HEIGHT = 350;
+/** The first line, and every line under it: one size for all of them (review F11). */
+const TITLE_SIZE = 36;
+const LINE_SIZE = 30;
 
 const BUTTON_TOP = 450;
 const BUTTON_WIDTH = 200;
@@ -52,25 +58,44 @@ function buttonLeft(index: number): number {
 	return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
 }
 
-function drawPrompt(hypnotistName: string, remainingMs: number, descriptor: string | null): void {
+const font = (n: number) => (typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`);
+
+/** One centred line at a fixed size. Too long (a long player name) squeezes it to fit rather
+ * than shrinking the size, so it stays the size of the lines around it. Exported for the suite. */
+export function drawCentred(text: string, y: number, size: number, color: string): void {
+	MainCanvas.save();
+	MainCanvas.textAlign = "center";
+	MainCanvas.textBaseline = "middle";
+	MainCanvas.font = font(size);
+	MainCanvas.fillStyle = color;
+	MainCanvas.fillText(text, PANEL_LEFT + PANEL_WIDTH / 2, y, PANEL_WIDTH - 40);
+	MainCanvas.restore();
+}
+
+/** The instinct line, wrapped at LINE_SIZE: at most two lines (the longest is ~80 characters). */
+export function descriptorLines(descriptor: string): string[] {
+	MainCanvas.save();
+	MainCanvas.font = font(LINE_SIZE);
+	const lines = wrapToWidth(descriptor, PANEL_WIDTH - 60);
+	MainCanvas.restore();
+	return lines;
+}
+
+/** Exported for the suite, which records what it draws. */
+export function drawPrompt(hypnotistName: string, remainingMs: number, descriptor: string | null): void {
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 4);
 
-	const centre = PANEL_LEFT + PANEL_WIDTH / 2;
-	const inner = PANEL_WIDTH - 40;
-	// DrawTextFit rather than DrawText for the name line specifically — player names run
-	// long, and a name overflowing the panel would look broken at the one moment the
-	// player most needs to read it.
-	DrawTextFit(`${hypnotistName} is trying to hypnotize you.`, centre, PANEL_TOP + 55, inner, "Black");
-	DrawTextFit("They are never told which you choose.", centre, PANEL_TOP + 105, inner, "Gray");
-	// The instinct line, when she has a read on them. Grey, between the fixed lines and the
-	// countdown — a feeling about herself, not a fact about him, styled to read that way.
-	if (descriptor) DrawTextFit(descriptor, centre, PANEL_TOP + 138, inner, "#444");
-	DrawTextFit(
+	drawCentred(`${hypnotistName} is trying to hypnotize you.`, PANEL_TOP + 45, TITLE_SIZE, "Black");
+	drawCentred("They are never told which you choose.", PANEL_TOP + 92, LINE_SIZE, "Gray");
+	// The instinct line, when she has a read on them. Darker grey, between the fixed lines and
+	// the countdown — a feeling about herself, not a fact about him, styled to read that way.
+	const instinct = descriptor ? descriptorLines(descriptor) : [];
+	instinct.forEach((line, i) => drawCentred(line, PANEL_TOP + 135 + i * 36, LINE_SIZE, "#444"));
+	drawCentred(
 		`${Math.ceil(remainingMs / 1000)}s — no answer counts as Ignore.`,
-		centre,
-		PANEL_TOP + 175,
-		inner,
+		PANEL_TOP + (instinct.length ? 135 + instinct.length * 36 + 10 : 150),
+		LINE_SIZE,
 		"Gray",
 	);
 
@@ -105,11 +130,9 @@ const EXTEND_BUTTONS: { stay: boolean; label: string; hover: string; left: numbe
 function drawExtend(remainingMs: number, minutes: number): void {
 	DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
 	DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 4);
-	const centre = PANEL_LEFT + PANEL_WIDTH / 2;
-	const inner = PANEL_WIDTH - 40;
-	DrawTextFit(`Your trance has run its ${minutes} minutes.`, centre, PANEL_TOP + 55, inner, "Black");
-	DrawTextFit(`Stay under for another ${minutes}?`, centre, PANEL_TOP + 105, inner, "Black");
-	DrawTextFit(`${Math.ceil(remainingMs / 1000)}s — no answer wakes you.`, centre, PANEL_TOP + 175, inner, "Gray");
+	drawCentred(`Your trance has run its ${minutes} minutes.`, PANEL_TOP + 70, TITLE_SIZE, "Black");
+	drawCentred(`Stay under for another ${minutes}?`, PANEL_TOP + 125, TITLE_SIZE, "Black");
+	drawCentred(`${Math.ceil(remainingMs / 1000)}s — no answer wakes you.`, PANEL_TOP + 190, LINE_SIZE, "Gray");
 	for (const b of EXTEND_BUTTONS) DrawButton(b.left, BUTTON_TOP, BUTTON_WIDTH, BUTTON_HEIGHT, b.label, "White", "", b.hover);
 }
 
