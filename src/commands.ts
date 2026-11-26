@@ -61,7 +61,7 @@ import {
 } from "./session";
 import { describeCurrentState, describeSavedState } from "./recovery";
 import { extremeLocked, extremeRefusal, exitExtreme } from "./extreme";
-import { describeIcons } from "./badge";
+import { describeIcons, peerFor } from "./badge";
 import { askPlanted, describePlanted, findPlantedSubject, forgetAsked, plantedSubjects, PLANTED_ASK_MS } from "./planted";
 import { openHelpScreen, EXTENSION_BUTTON_TEXT, settingsLocked, ownLocked, IMPORT_LOCKED_MESSAGE } from "./menu";
 import { keyLocked, keyLockHolder, keyLockRefusal, keysLocked, keysLockRefusal } from "./keylock";
@@ -151,7 +151,14 @@ function startInduction(target: Target): void {
 			? `Trying ${target.name} again.`
 			: `Attempting an induction on ${target.name}.`,
 	);
-	reply("They decide how to respond, on their own client. Watch for what happens next.");
+	// v1.16.34 (review F10): "They decide how to respond" was wrong for an instant refusal, and said
+	// even when we already knew their hypnosis was off. Still sent then, since what we know can be a
+	// minute old; their client's answer follows.
+	reply(
+		peerFor(target.id)?.open === false
+			? `${target.name} has hypnosis switched off in ECHS, so this will most likely be refused.`
+			: "Sent. Watch for what happens next.",
+	);
 }
 
 /** Work out who a command means, asking when it can't tell.

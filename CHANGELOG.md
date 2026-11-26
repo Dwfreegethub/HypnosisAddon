@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.35 · 25 November 2026
+
+- **The popup's People tab shows who can be hypnotized.** Each name now says *open to hypnosis* or
+  *not open to hypnosis* (someone who hasn't set ECHS up for it, or chose Hypnotist only). Before,
+  everyone looked the same until you tried. Both players need this version for the tag to show.
+- **Clearer line after `/echs induce`.** It used to say "They decide how to respond, on their own
+  client", even when they refused at once. Now it says "Sent. Watch for what happens next.", or, for
+  someone not open to hypnosis, that it will most likely be refused.
+
 ## v1.16.34 · 25 November 2026
 
 - **The setup summary shows everything you allow.** On "Ready to apply", the *Allowed* list was one

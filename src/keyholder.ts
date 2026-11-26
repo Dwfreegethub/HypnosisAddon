@@ -203,7 +203,6 @@ function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: s
 	sendHiddenMessage(
 		{
 			type: "state-response",
-			hypnoEnabled: getFeatures().hypnoEnabled,
 			...presenceFields(),
 			...(mode ? { keyholder: legacyWord(mode), keyLevel: mode, settings: snapshotFor(to, mode) } : {}),
 			...(result ? { settingsResult: result } : {}),
@@ -239,7 +238,7 @@ function handleKeyRequest(sender: number, message: any): string {
 	const who = nameOf(sender);
 	const current = keyModeFor(sender);
 	const result = (ok: boolean, text: string) =>
-		sendHiddenMessage({ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyRequestResult: { ok, text } }, sender);
+		sendHiddenMessage({ type: "state-response", ...presenceFields(), keyRequestResult: { ok, text } }, sender);
 	const level = KEY_LEVELS.find((l) => l === message?.level) ?? null;
 	if (!level || !characterFor(sender)) {
 		result(false, "That request did not make sense to their ECHS.");
@@ -681,7 +680,7 @@ export function announceKeysTo(member: number): void {
 	if (!characterFor(member)) return;
 	const mode = keyModeFor(member);
 	sendHiddenMessage(
-		{ type: "state-response", hypnoEnabled: getFeatures().hypnoEnabled, ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
+		{ type: "state-response", ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
 		member,
 	);
 }

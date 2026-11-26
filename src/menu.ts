@@ -1,5 +1,6 @@
 import { log, warn, RELEASE_SUFFIX } from "./log";
 import { SPIRAL_ICON } from "./icon";
+import { announceIfChanged } from "./badge";
 import { tellPlayer } from "./notify";
 import { removeEffect, clearSuggestedPose, setSpeechBlocked, setScreenFade, getScreenFade, clearTranceStates, setSight, setHoldFully } from "./effects";
 import {
@@ -2607,6 +2608,8 @@ export function installMenu(): void {
 			removeScopeControl();
 			closeHelp();
 			detachWheel();
+			// Hypnosis switched on or off here: the room hears at once (People tab, review F10).
+			announceIfChanged();
 			return true;
 		},
 	});
