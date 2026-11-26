@@ -335,7 +335,7 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, when Rei comes in, ..."   "Missy, when I speak, ..."`),
 		body(`"Missy, when anyone kisses you, ..."   "when Rei spanks you, ..."`),
 		dim("Or touches, hugs, pets, slaps, tickles, pinches, gropes, licks, bites,"),
-		dim("kicks you, pulls your hair, fucks you, sucks your strap-on or cock,"),
+		dim("kicks you, pulls your hair, fucks you, sucks you, sucks your strap-on or cock,"),
 		dim("or does anything to you (any activity)."),
 		body(`"Missy, whenever anyone gags you, ..."   "when Rei ties your arms, ..."`),
 		dim("Or blindfolds, collars, ties your legs, ties you up (any restraint), locks"),

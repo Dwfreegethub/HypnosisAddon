@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-25 (v1.16.32) — "whenever anyone sucks you"
+
+Second of the two suck items on the 2026-11-23 list; DW said go after v1.16.31. New
+COMPULSION_ACTS entry key "sucked" (label "sucks you"), activities ["Suck"], default object, so
+"sucks your nipples / fingers / toes" reads as it. R134 Female3DCG: Suck targets only ItemBoots,
+ItemHands, ItemNipples, so the part is not checked, as for every act. Placed after "suck"
+(SuckPenetrateItem): parseCondition takes the first entry that matches, so "sucks your strap-on /
+cock" stays that act. item-compulsion.mjs: the old "sucks your nipples is nothing" check now reads
+"sucked", plus activity and wording checks; mutation (the two entries swapped) fails 2 checks.
+The popup's act list and the help screen read the table, so both pick it up.
+
 ### Fixed 2026-11-25 (v1.16.31) — "suck my cock" lands
 
 From the 2026-11-23 to-do list, confirmed against the live R134 Female3DCG.js: plain Suck targets only

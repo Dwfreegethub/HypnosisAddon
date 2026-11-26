@@ -13,6 +13,12 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.32 · 25 November 2026
+
+- **New compulsion: "whenever anyone sucks you".** It waits for someone sucking your nipples,
+  fingers or toes, the places the game lets anyone suck. *"Sucks your strap-on"* and *"sucks your
+  cock"* stay their own compulsion.
+
 ## v1.16.31 · 25 November 2026
 
 - **"Suck my cock" works.** *"Missy, suck my cock"* (or *dick*, *penis*) used the game's plain suck,
