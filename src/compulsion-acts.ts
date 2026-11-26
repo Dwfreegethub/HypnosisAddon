@@ -73,6 +73,10 @@ export const COMPULSION_ACTS: CompulsionAct[] = [
 	// ActivityAsset", on ItemVulva, needing the TARGET to wear the strap-on (TargetNeeds-PenetrateItem).
 	// v1.16.31: "your cock/dick/penis" too, the same BC activity on a real penis.
 	{ key: "suck", label: "sucks your strap-on", base: "suck your strap-on", verb: String.raw`(?:sucks?(?: on)?)`, object: String.raw`your (?:strap ?on|strap|dildo|cock|dick|penis)`, activities: ["SuckPenetrateItem"] },
+	// v1.16.32 (DW, the 2026-11-23 list): BC's plain Suck, which R134 Female3DCG lets reach only
+	// ItemBoots (toes), ItemHands (fingers) and ItemNipples. After "suck" above, so "sucks your
+	// strap-on / cock" stays that act: the first entry that matches wins (voice.ts parseCondition).
+	{ key: "sucked", label: "sucks you", base: "suck you", verb: String.raw`(?:sucks?(?: on)?)`, activities: ["Suck"] },
 	{ key: "kick", label: "kicks you", base: "kick you", verb: String.raw`(?:kicks?)`, activities: ["Kick"] },
 	// Penetration (v1.16.16, DW, from a player's suggestion). R134 ActivityDictionary: PenetrateSlow /
 	// PenetrateFast are "Rei slowly / roughly penetrates Missy's vagina / butt / mouth with her
