@@ -38,6 +38,7 @@ import {
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./popup-suggest";
+import { TOUCH_VERBS, TOUCH_AREAS, PICKER_CHIPS, touchLine, areaAllowed, verbActivity, TouchWho } from "./popup-touch";
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
 import { sweptTriggers, triggerRow, triggersHiddenLine, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
@@ -94,6 +95,10 @@ const suggestOpen = new Set<string>(["trance"]);
 const altOpen = new Set<string>();
 /** The subject the Suggestions tab is for, when more than one is under you. */
 let chosenSubject: number | null = null;
+/** The touch picker (v1.19.2): who ("self", "me" or a member number), real or phantom, which touch. */
+let pickWho: "self" | "me" | number = "self";
+let pickPhantom = false;
+let pickVerb = 0;
 /** For switching tabs by themselves only when something CHANGES, never against the player's click. */
 let wasSubjectSide = false;
 let hadSubjects = 0;
@@ -382,6 +387,7 @@ function viewKey(): string {
 		parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
 		parts.push(JSON.stringify(who ? (getSessionView(who.id)?.gates ?? null) : null));
 		parts.push(finishingStart() ?? "");
+		parts.push(`${String(pickWho)}:${pickPhantom}:${pickVerb}`, roomOthers().map((c) => `${c.MemberNumber}:${shownName(c)}`).join(","));
 	}
 	if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "", JSON.stringify(inductionStanding()));
 	if (tab === "triggers") parts.push(triggersKey());
@@ -820,9 +826,104 @@ function renderSuggest(body: any, status: any): void {
 		body.appendChild(head);
 		if (!isOpen) continue;
 		const list = el("div", "echs-pop-list");
+		if (cat.key === "touch") list.appendChild(touchPicker(who, status, gates));
 		for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
 		body.appendChild(list);
 	}
+}
+
+/** The touch picker (v1.19.2, DW): who, real or phantom, the touch, then a click on an area types
+ * the line (popup-touch.ts). Areas BC won't allow that touch on are greyed, not hidden. */
+function touchPicker(subject: { id: number; name: string }, status: any, gates: { ok: string[]; deeper: string[] } | null): any {
+	const box = el("div", "echs-pop-picker");
+	box.appendChild(el("div", "echs-pop-hint", "Touch picker: who, the touch, then click where. Phantom: only they feel it, with a real touch's arousal."));
+	const others = roomOthers().filter((c) => c.MemberNumber !== subject.id);
+	if (typeof pickWho === "number" && !others.some((c) => c.MemberNumber === pickWho)) pickWho = "self";
+	if (pickPhantom && typeof pickWho === "number") pickWho = "self";
+	const set = (fn: () => void) => () => {
+		fn();
+		renderBody();
+	};
+	const row = (label: string) => {
+		const r = el("div", "echs-pop-buttons");
+		r.appendChild(el("span", "echs-pop-pick-label", label));
+		box.appendChild(r);
+		return r;
+	};
+	const on = (b: any, yes: boolean) => {
+		if (yes) b.className += " echs-pop-chip-on";
+		return b;
+	};
+	// Who. A crowded room (DW's worry): the first few as buttons, the rest in a list.
+	const whoRow = row("Who");
+	whoRow.appendChild(on(chip("themselves", `On ${subject.name}`, set(() => (pickWho = "self"))), pickWho === "self"));
+	whoRow.appendChild(on(chip("me", "On you", set(() => (pickWho = "me"))), pickWho === "me"));
+	for (const c of others.slice(0, PICKER_CHIPS)) {
+		const tip = pickPhantom ? "A phantom touch is only ever on them" : `On ${shownName(c)} (needs their Made to Touch Others)`;
+		whoRow.appendChild(on(chip(shownName(c), tip, set(() => (pickWho = c.MemberNumber)), pickPhantom), pickWho === c.MemberNumber));
+	}
+	if (others.length > PICKER_CHIPS) {
+		const sel = el("select", "echs-pop-select");
+		const rest = others.slice(PICKER_CHIPS);
+		const first = el("option", "", `${rest.length} more…`);
+		first.value = "";
+		sel.appendChild(first);
+		for (const c of rest) {
+			const o = el("option", "", shownName(c));
+			o.value = String(c.MemberNumber);
+			if (pickWho === c.MemberNumber) o.selected = true;
+			sel.appendChild(o);
+		}
+		sel.disabled = pickPhantom;
+		sel.addEventListener("change", () => {
+			if (!sel.value) return;
+			pickWho = Number(sel.value);
+			renderBody();
+		});
+		whoRow.appendChild(sel);
+	}
+	const kindRow = row("Kind");
+	kindRow.appendChild(on(chip("real", "A real touch, done by them in the room", set(() => (pickPhantom = false))), !pickPhantom));
+	kindRow.appendChild(on(chip("phantom", "Only they feel it; nobody touches them (needs their Arousal & Orgasm)", set(() => (pickPhantom = true))), pickPhantom));
+	const verbRow = row("Touch");
+	TOUCH_VERBS.forEach((v, i) => {
+		const can = !pickPhantom || !!v.phantom;
+		verbRow.appendChild(on(chip(v.word, can ? v.word : "There's no phantom version of this touch", set(() => (pickVerb = i)), !can), pickVerb === i));
+	});
+	const verb = TOUCH_VERBS[pickVerb] ?? TOUCH_VERBS[0];
+	const other = typeof pickWho === "number" ? others.find((c) => c.MemberNumber === pickWho) : null;
+	const target: TouchWho = other ? { kind: "other", name: shownName(other) } : pickWho === "me" ? { kind: "me" } : { kind: "self" };
+	const areaRow = row("Where");
+	const onSelf = target.kind === "self";
+	// What it needs, greyed the way the other lines are.
+	const gate = gateOf({ id: "x-picker", label: "", phrase: "", release: false, permission: pickPhantom ? "arousalControl" : "compelActivity", alternates: [] }, gates);
+	const othersOff = !pickPhantom && target.kind === "other" && gates !== null && !gates.ok.includes("compelTouchOthers") && !gates.deeper.includes("compelTouchOthers");
+	const start = finishingStart();
+	for (const a of TOUCH_AREAS) {
+		const line = touchLine(verb, target, a.word, pickPhantom);
+		if (!line) continue;
+		// BC's own table: on herself for "themselves", otherwise on the one it's aimed at.
+		const bcOff = !pickPhantom && !areaAllowed(verbActivity(verb, a.word, onSelf), a.zones, onSelf);
+		const inTrigger = start && !onSelf ? "A trigger can't aim at a person yet, only at them." : null;
+		const off = bcOff || gate === "off" || othersOff || !!inTrigger;
+		const text = start && !inTrigger ? `${start}${line}` : suggestionText(subject.name, line);
+		const tip = inTrigger ?? (bcOff ? `BC doesn't allow "${verb.word}" there. ${text}` : text);
+		const done =
+			bcOff ? `Typed, but BC doesn't allow "${verb.word}" on the ${a.word}. It won't land.`
+			: gate === "off" || othersOff ? `Typed, but ${subject.name} hasn't allowed this. It won't land.`
+			: gate === "deeper" ? `Typed, but ${subject.name} isn't deep enough for this yet.`
+			: `Typed. Press Enter to say it to ${subject.name}.`;
+		areaRow.appendChild(
+			chip(a.word, tip, () => {
+				if (inTrigger) return setStatus(status, `Not added. ${inTrigger}`);
+				if (!start || finishingStart() !== start) return typeIt(status, suggestionText(subject.name, line), done);
+				finishing = null;
+				typeIt(status, text, 'Added. Press Enter, then "remember trigger" (Triggers tab) keeps it.');
+				renderBody();
+			}, off),
+		);
+	}
+	return box;
 }
 
 /** One suggestion: the line itself types its first wording; a + beside it opens the other wordings
@@ -1809,6 +1910,9 @@ const POPUP_CSS = `
 .echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
+.echs-pop-picker{border:1px solid #2a3760;border-radius:8px;padding:6px 8px;margin:4px 0 8px}
+.echs-pop-pick-label{min-width:46px;color:#8a93b8;font-size:11px;align-self:center}
+.echs-pop-select{background:#18213b;color:inherit;border:1px solid #3b4f86;border-radius:12px;padding:2px 6px}
 .echs-pop-keys-label{align-self:center;font-size:12px;opacity:.85}
 .echs-pop-peer-ver{font-weight:400;font-size:10px;margin-left:8px;color:#8a93b8}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}

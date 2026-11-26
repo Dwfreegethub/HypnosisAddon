@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.2. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -7043,7 +7043,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const rest = m[1];
     if (NEGATED.test(rest)) return null;
     if (/^your\b/.test(rest)) return null;
-    const noun = NOUNS.find(([re]) => re.test(rest));
+    const toucher = rest.replace(/\byour [a-z]+\b/g, " ");
+    const noun = NOUNS.find(([re]) => re.test(toucher));
     if (!noun) return null;
     const verb = VERBS.find(([re]) => re.test(rest));
     if (!PLACE.test(rest) && !ALL_OVER.test(rest) && !verb && !STROKE.test(rest)) return null;
@@ -7156,7 +7157,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       LEAD = /\byou (?:can |will |suddenly |slowly |begin to |start to |now )?feel (.+)$/;
       NEGATED = /\b(?:not|never|nothing|no|nobody|cannot|stop)\b/;
       PLACE = /\b(?:on|against|over|along|across|between|around|up|down|in|inside|at|under|through|behind) (?:you|your)\b/;
-      STROKE = /\b(?:strokes?|stroking|brush(?:es)?|slides?|runs?|traces?|rubs?|caress(?:es)?)\b/;
+      STROKE = /\b(?:strokes?|stroking|brush(?:es)?|slides?|runs?|traces?|rubs?|caress(?:es)?|massages?)\b/;
       ALL_OVER = /\b(?:all over (?:you|your body)|everywhere|all of you)\b/;
       DEFAULT_PART = {
         Caress: "thighs",
@@ -11665,7 +11666,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.1", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.2", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11714,7 +11715,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.2", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -14244,7 +14245,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14317,7 +14318,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15131,7 +15132,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.1", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.2", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17804,6 +17805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function notInTrigger(it, phrase = it.phrase) {
     if (TRANCE_MOVES.has(it.id)) return `A trigger can't hold a trance move (deeper, walk, wake). Try "\u2026you will drop into trance" instead.`;
+    if (it.id.startsWith("x-carry")) return "That's about this trance, so a trigger can't hold it. A trigger already lasts.";
     if (AIMED_AT_YOU.has(it.id)) return "A trigger can't aim at a person yet, only at them.";
     if (WORDINGS_NOT_KEPT.has(phrase.toLowerCase())) return "This wording isn't kept in a trigger. Use another wording of it.";
     return null;
@@ -17866,6 +17868,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "trance", item: { id: "x-deeper", label: "sink deeper", phrase: "sink deeper", release: false, permission: "", alternates: ["deeper and deeper", "drift deeper"] } },
         { cat: "trance", item: { id: "x-walk", label: "walk with me (stay under, on your feet)", phrase: "walk with me", release: false, permission: "", alternates: [] } },
         { cat: "trance", item: { id: "x-still", label: "be still (back to the full trance)", phrase: "be still", release: false, permission: "", alternates: [] } },
+        // v1.19.2 (DW): carrying a suggestion past waking was typed-only until now.
+        { cat: "trance", item: { id: "x-carry", label: "that will stay with you (the last suggestion lasts after they wake)", phrase: "that will stay with you", release: false, permission: "", alternates: ["you will keep that"] } },
+        { cat: "trance", item: { id: "x-carry-all", label: "all of this will stay with you (everything from this trance)", phrase: "all of this will stay with you", release: false, permission: "", alternates: ["you will keep everything", "everything I told you stays"] } },
+        { cat: "trance", item: { id: "x-carry-none", label: "nothing stays with you (take back what was going to stay)", phrase: "nothing stays with you", release: true, permission: "", alternates: ["that will not stay with you", "forget what I told you"] } },
         { cat: "trance", item: { id: "x-wake", label: "wake up", phrase: "wake up", release: true, permission: "", alternates: ["you are awake", "come back to me"] } },
         { cat: "touch", item: { id: "x-touch-block", label: "you cannot touch yourself", phrase: "you cannot touch yourself", release: false, permission: "selfTouchControl", alternates: ["you cannot touch your breasts"] } },
         { cat: "touch", item: { id: "x-touch-release", label: "you can touch yourself", phrase: "you can touch yourself", release: true, permission: "selfTouchControl", alternates: [], releaseOf: ["x-touch-block"] } },
@@ -17889,6 +17895,82 @@ One of mods you are using is using an old version of SDK. It will work for now b
       AIMED_AT_YOU = /* @__PURE__ */ new Set(["x-kiss-me", "x-fuck-me", "x-suck-strapon", "x-hug-me"]);
       WORDINGS_NOT_KEPT = /* @__PURE__ */ new Set(["on your feet", "moan"]);
       LEADS = { body: ["kneel"] };
+    }
+  });
+
+  // src/popup-touch.ts
+  function verbActivity(verb, area, onSelf) {
+    return (onSelf ? void 0 : verb.byArea?.[area]) ?? verb.activity;
+  }
+  function touchLine(verb, who, area, phantom) {
+    if (verb.areas && !verb.areas.includes(area)) return null;
+    if (phantom) {
+      if (!verb.phantom || who.kind === "other") return null;
+      const what = who.kind === "me" ? verb.phantom.replace(/^(?:a|an) /, "my ").replace(/^(lips|fingers|nails|teeth|hands) /, "my $1 ") : verb.phantom;
+      return `you feel ${what} your ${area}`;
+    }
+    if (who.kind === "self") return `${verb.word} your ${area}`;
+    if (who.kind === "me") return `${verb.word} my ${area}`;
+    return `${verb.word} ${who.name}'s ${area}`;
+  }
+  function areaAllowed(activity, zones, onSelf) {
+    let def = null;
+    try {
+      def = typeof AssetGetActivity === "function" ? AssetGetActivity(Player?.AssetFamily ?? "Female3DCG", activity) : null;
+    } catch {
+      def = null;
+    }
+    if (!def || !Array.isArray(def.Target)) return true;
+    const targets = onSelf ? def.TargetSelf === true ? def.Target : Array.isArray(def.TargetSelf) ? def.TargetSelf : [] : def.Target;
+    return zones.some((z) => targets.includes(z));
+  }
+  var TOUCH_VERBS, TOUCH_AREAS, PICKER_CHIPS;
+  var init_popup_touch = __esm({
+    "src/popup-touch.ts"() {
+      TOUCH_VERBS = [
+        { activity: "Caress", word: "touch", phantom: "a hand on" },
+        { activity: "Caress", word: "caress", phantom: "fingers caress" },
+        { activity: "Kiss", word: "kiss", phantom: "lips on" },
+        { activity: "Lick", word: "lick", phantom: "a tongue on" },
+        { activity: "Grope", word: "grope", phantom: "a hand squeeze" },
+        { activity: "Pinch", word: "pinch", phantom: "fingers pinch" },
+        { activity: "Spank", word: "spank", phantom: "a hand spank" },
+        { activity: "Slap", word: "slap", phantom: "a hand slap" },
+        { activity: "Tickle", word: "tickle", phantom: "fingers tickle" },
+        { activity: "Bite", word: "bite", phantom: "teeth on" },
+        { activity: "Nibble", word: "nibble", phantom: "teeth nibble" },
+        { activity: "Scratch", word: "scratch", phantom: "nails scratch" },
+        { activity: "MassageHands", word: "massage", phantom: "hands massage" },
+        { activity: "Pet", word: "pet" },
+        { activity: "Pull", word: "pull", phantom: "a hand tug", areas: ["hair"] },
+        { activity: "Suck", word: "suck", byArea: { cock: "SuckPenetrateItem" } },
+        { activity: "MasturbateHand", word: "finger" }
+      ];
+      TOUCH_AREAS = [
+        { word: "hair", zones: ["ItemHead"] },
+        { word: "face", zones: ["ItemHead"] },
+        { word: "ears", zones: ["ItemEars"] },
+        { word: "nose", zones: ["ItemNose"] },
+        { word: "lips", zones: ["ItemMouth"] },
+        { word: "neck", zones: ["ItemNeck"] },
+        { word: "shoulders", zones: ["ItemArms"] },
+        { word: "arms", zones: ["ItemArms"] },
+        { word: "hands", zones: ["ItemHands"] },
+        { word: "breasts", zones: ["ItemBreast"] },
+        { word: "nipples", zones: ["ItemNipples"] },
+        { word: "belly", zones: ["ItemPelvis", "ItemTorso"] },
+        { word: "waist", zones: ["ItemTorso"] },
+        { word: "hips", zones: ["ItemPelvis"] },
+        { word: "butt", zones: ["ItemButt"] },
+        { word: "pussy", zones: ["ItemVulva"] },
+        { word: "clit", zones: ["ItemVulvaPiercings"] },
+        { word: "cock", zones: ["ItemVulva"] },
+        { word: "thighs", zones: ["ItemLegs"] },
+        { word: "legs", zones: ["ItemLegs", "ItemFeet"] },
+        { word: "feet", zones: ["ItemBoots"] },
+        { word: "toes", zones: ["ItemBoots"] }
+      ];
+      PICKER_CHIPS = 5;
     }
   });
 
@@ -18176,6 +18258,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       parts.push(popupSubjects().map((s) => `${s.id}:${s.name}`).join("|"), String(chosenSubject));
       parts.push(JSON.stringify(who ? getSessionView(who.id)?.gates ?? null : null));
       parts.push(finishingStart() ?? "");
+      parts.push(`${String(pickWho)}:${pickPhantom}:${pickVerb}`, roomOthers2().map((c) => `${c.MemberNumber}:${shownName(c)}`).join(","));
     }
     if (tab === "me") parts.push(String(subjectSide()), getPendingExtend() ? "extend" : "", JSON.stringify(inductionStanding()));
     if (tab === "triggers") parts.push(triggersKey());
@@ -18386,7 +18469,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.1"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.2"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18524,9 +18607,94 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body2.appendChild(head2);
       if (!isOpen) continue;
       const list = el2("div", "echs-pop-list");
+      if (cat.key === "touch") list.appendChild(touchPicker(who, status, gates));
       for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
       body2.appendChild(list);
     }
+  }
+  function touchPicker(subject, status, gates) {
+    const box = el2("div", "echs-pop-picker");
+    box.appendChild(el2("div", "echs-pop-hint", "Touch picker: who, the touch, then click where. Phantom: only they feel it, with a real touch's arousal."));
+    const others2 = roomOthers2().filter((c) => c.MemberNumber !== subject.id);
+    if (typeof pickWho === "number" && !others2.some((c) => c.MemberNumber === pickWho)) pickWho = "self";
+    if (pickPhantom && typeof pickWho === "number") pickWho = "self";
+    const set = (fn) => () => {
+      fn();
+      renderBody();
+    };
+    const row = (label) => {
+      const r = el2("div", "echs-pop-buttons");
+      r.appendChild(el2("span", "echs-pop-pick-label", label));
+      box.appendChild(r);
+      return r;
+    };
+    const on = (b, yes) => {
+      if (yes) b.className += " echs-pop-chip-on";
+      return b;
+    };
+    const whoRow = row("Who");
+    whoRow.appendChild(on(chip("themselves", `On ${subject.name}`, set(() => pickWho = "self")), pickWho === "self"));
+    whoRow.appendChild(on(chip("me", "On you", set(() => pickWho = "me")), pickWho === "me"));
+    for (const c of others2.slice(0, PICKER_CHIPS)) {
+      const tip = pickPhantom ? "A phantom touch is only ever on them" : `On ${shownName(c)} (needs their Made to Touch Others)`;
+      whoRow.appendChild(on(chip(shownName(c), tip, set(() => pickWho = c.MemberNumber), pickPhantom), pickWho === c.MemberNumber));
+    }
+    if (others2.length > PICKER_CHIPS) {
+      const sel = el2("select", "echs-pop-select");
+      const rest = others2.slice(PICKER_CHIPS);
+      const first = el2("option", "", `${rest.length} more\u2026`);
+      first.value = "";
+      sel.appendChild(first);
+      for (const c of rest) {
+        const o = el2("option", "", shownName(c));
+        o.value = String(c.MemberNumber);
+        if (pickWho === c.MemberNumber) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.disabled = pickPhantom;
+      sel.addEventListener("change", () => {
+        if (!sel.value) return;
+        pickWho = Number(sel.value);
+        renderBody();
+      });
+      whoRow.appendChild(sel);
+    }
+    const kindRow = row("Kind");
+    kindRow.appendChild(on(chip("real", "A real touch, done by them in the room", set(() => pickPhantom = false)), !pickPhantom));
+    kindRow.appendChild(on(chip("phantom", "Only they feel it; nobody touches them (needs their Arousal & Orgasm)", set(() => pickPhantom = true)), pickPhantom));
+    const verbRow = row("Touch");
+    TOUCH_VERBS.forEach((v, i) => {
+      const can = !pickPhantom || !!v.phantom;
+      verbRow.appendChild(on(chip(v.word, can ? v.word : "There's no phantom version of this touch", set(() => pickVerb = i), !can), pickVerb === i));
+    });
+    const verb = TOUCH_VERBS[pickVerb] ?? TOUCH_VERBS[0];
+    const other = typeof pickWho === "number" ? others2.find((c) => c.MemberNumber === pickWho) : null;
+    const target = other ? { kind: "other", name: shownName(other) } : pickWho === "me" ? { kind: "me" } : { kind: "self" };
+    const areaRow = row("Where");
+    const onSelf = target.kind === "self";
+    const gate = gateOf({ id: "x-picker", label: "", phrase: "", release: false, permission: pickPhantom ? "arousalControl" : "compelActivity", alternates: [] }, gates);
+    const othersOff = !pickPhantom && target.kind === "other" && gates !== null && !gates.ok.includes("compelTouchOthers") && !gates.deeper.includes("compelTouchOthers");
+    const start = finishingStart();
+    for (const a of TOUCH_AREAS) {
+      const line = touchLine(verb, target, a.word, pickPhantom);
+      if (!line) continue;
+      const bcOff = !pickPhantom && !areaAllowed(verbActivity(verb, a.word, onSelf), a.zones, onSelf);
+      const inTrigger = start && !onSelf ? "A trigger can't aim at a person yet, only at them." : null;
+      const off2 = bcOff || gate === "off" || othersOff || !!inTrigger;
+      const text2 = start && !inTrigger ? `${start}${line}` : suggestionText(subject.name, line);
+      const tip = inTrigger ?? (bcOff ? `BC doesn't allow "${verb.word}" there. ${text2}` : text2);
+      const done = bcOff ? `Typed, but BC doesn't allow "${verb.word}" on the ${a.word}. It won't land.` : gate === "off" || othersOff ? `Typed, but ${subject.name} hasn't allowed this. It won't land.` : gate === "deeper" ? `Typed, but ${subject.name} isn't deep enough for this yet.` : `Typed. Press Enter to say it to ${subject.name}.`;
+      areaRow.appendChild(
+        chip(a.word, tip, () => {
+          if (inTrigger) return setStatus(status, `Not added. ${inTrigger}`);
+          if (!start || finishingStart() !== start) return typeIt(status, suggestionText(subject.name, line), done);
+          finishing = null;
+          typeIt(status, text2, 'Added. Press Enter, then "remember trigger" (Triggers tab) keeps it.');
+          renderBody();
+        }, off2)
+      );
+    }
+    return box;
   }
   function suggestButton(it, name, status, gate) {
     const wrap = el2("div", `echs-pop-sug${gate === "off" ? " echs-pop-off" : gate === "deeper" ? " echs-pop-deeper" : ""}`);
@@ -19335,7 +19503,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, VERSION_VIEWERS, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, pickWho, pickPhantom, pickVerb, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, VERSION_VIEWERS, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -19347,6 +19515,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_depth();
       init_extreme();
       init_popup_suggest();
+      init_popup_touch();
       init_popup_triggers();
       init_planted();
       init_voice();
@@ -19384,6 +19553,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       suggestOpen = /* @__PURE__ */ new Set(["trance"]);
       altOpen = /* @__PURE__ */ new Set();
       chosenSubject = null;
+      pickWho = "self";
+      pickPhantom = false;
+      pickVerb = 0;
       wasSubjectSide = false;
       hadSubjects = 0;
       drawnTab = null;
@@ -19458,6 +19630,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
 .echs-pop-chip{background:#18213b;border:1px solid #3b4f86;border-radius:12px;padding:3px 10px;cursor:pointer}
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
+.echs-pop-picker{border:1px solid #2a3760;border-radius:8px;padding:6px 8px;margin:4px 0 8px}
+.echs-pop-pick-label{min-width:46px;color:#8a93b8;font-size:11px;align-self:center}
+.echs-pop-select{background:#18213b;color:inherit;border:1px solid #3b4f86;border-radius:12px;padding:2px 6px}
 .echs-pop-keys-label{align-self:center;font-size:12px;opacity:.85}
 .echs-pop-peer-ver{font-weight:400;font-size:10px;margin-left:8px;color:#8a93b8}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
@@ -19580,7 +19755,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19607,7 +19782,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.1"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.2"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19683,14 +19858,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.1"})`);
+      info(`script loaded (v${"1.19.2"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.1",
+          version: "1.19.2",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19833,10 +20008,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.1";
+    page2.__ECHS_LOADED__ = "1.19.2";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

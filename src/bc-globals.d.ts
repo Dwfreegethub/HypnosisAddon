@@ -129,6 +129,7 @@ declare function CharacterItemsForActivity(C: any, activity: string): any[];
 declare function ActivityRun(actor: any, acted: any, targetGroup: any, itemActivity: any, sendMessage?: boolean): void;
 // Assets — resolve a group name to its group object (for ActivityRun's targetGroup arg).
 declare function AssetGroupGet(family: string, groupName: string): any;
+declare function AssetGetActivity(family: string, name: string): any;
 // Server.js — may `source` use items on `target` (item permission, white/blacklists, owner and
 // lover). UNVERIFIED against source; only ever read behind a typeof check. See voice.ts
 // itemPermissionBlocks().

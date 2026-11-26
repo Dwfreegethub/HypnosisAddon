@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.2 · 26 November 2026
+
+- **A touch picker in the popup.** Suggestions › Touch now starts with a picker: choose who
+  (them, you, or anyone else in the room), the touch, then click any body area to type the line.
+  Switch it to **phantom** for a touch only they feel. Areas the game won't allow are faded.
+- **"That will stay with you"** and its friends are now in the popup's Trance group.
+
 ## v1.19.1 · 26 November 2026
 
 - **Starting an induction says one line, not two.** The extra *"Sent. Watch for what happens
