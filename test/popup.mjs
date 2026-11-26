@@ -769,6 +769,20 @@ KH.resetKeyholderViews();
 popup.setPopupTab("people");
 popup.popupTick();
 
+// v1.16.44 (DW): each player's version on the People rows, for DW's own accounts only.
+const verSpans = () => findAll(win(), (n) => n.className === "echs-pop-peer-ver");
+badge.notePeer(B, { type: "state-response", version: "1.16.34", hypnoEnabled: true });
+popup.popupTick();
+check("versions hidden from everyone else", popup.popupPeople().every((p) => p.version === "") && verSpans().length === 0, `no version for member ${Player.MemberNumber}, got ${verSpans().length} spans`);
+const realMember = Player.MemberNumber;
+Player.MemberNumber = popup.VERSION_VIEWERS[1];
+popup.popupTick();
+check("versions shown to a listed account", popup.popupPeople().find((p) => p.id === B)?.version === "1.16.34", `Bea's row carries 1.16.34, got ${JSON.stringify(popup.popupPeople().find((p) => p.id === B))}`);
+check("  drawn small after the name", verSpans().some((n) => n.textContent === "v1.16.34"), `a v1.16.34 span, got ${verSpans().map((n) => n.textContent).join(",")}`);
+Player.MemberNumber = realMember;
+popup.popupTick();
+check("  gone again for anyone else", verSpans().length === 0, "no version spans once the viewer is not listed");
+
 ChatRoomCharacter = [Player];
 popup.popupTick();
 check("empty room says so", findAll(win(), (n) => n.className === "echs-pop-empty").length === 1, "the empty-list line once nobody with ECHS is here");

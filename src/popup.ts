@@ -118,7 +118,17 @@ let shownKey = "";
 // the member number when that name would match more than one person, so it can never go to the
 // wrong one. Each row shows only what is already known about a session with them; it asks nothing.
 
-export type PopupPerson = { id: number; name: string; text: string; status: string };
+export type PopupPerson = { id: number; name: string; text: string; status: string; version: string };
+
+/** Who sees each player's ECHS version on the People tab (v1.16.44, DW 2026-11-26): DW's own test
+ * accounts only, to tell at a glance who is on an old build. Not a permission: the version already
+ * reaches every client in the room (badge.ts presenceFields); this only decides who is shown it. */
+export const VERSION_VIEWERS = [208543, 252905];
+
+/** Does this client show versions on the People tab? */
+export function showsVersions(): boolean {
+	return VERSION_VIEWERS.includes(Player?.MemberNumber);
+}
 
 function roomOthers(): any[] {
 	const me = typeof Player !== "undefined" ? Player?.MemberNumber : undefined;
@@ -183,6 +193,7 @@ export function popupPeople(): PopupPerson[] {
 			name: shownName(c),
 			text: `/echs induce ${induceTarget(c, pool)}`,
 			status: personTag(c.MemberNumber),
+			version: showsVersions() ? peerFor(c.MemberNumber)?.version || "" : "",
 		}));
 }
 
@@ -564,7 +575,7 @@ export function setPopupTab(value: PopupTab): void {
 
 function peopleKey(): string {
 	return popupPeople()
-		.map((p) => `${p.id}:${p.name}:${p.status}`)
+		.map((p) => `${p.id}:${p.name}:${p.status}:${p.version}`)
 		.join("|");
 }
 
@@ -1646,6 +1657,7 @@ function renderPeople(body: any, status: any): void {
 		item.title = p.text;
 		const line = el("div", "echs-pop-person", p.name);
 		if (p.status) line.appendChild(el("span", "echs-pop-state", p.status));
+		if (p.version) line.appendChild(el("span", "echs-pop-peer-ver", `v${p.version}`));
 		item.appendChild(line);
 		item.addEventListener("click", () => typeIt(status, p.text, `Typed. Press Enter to start the induction on ${p.name}.`));
 		body.appendChild(item);
@@ -1737,6 +1749,7 @@ const POPUP_CSS = `
 .echs-pop-chip:hover{background:#22305a}
 .echs-pop-chip-on{background:#3b4f86;font-weight:600}
 .echs-pop-keys-label{align-self:center;font-size:12px;opacity:.85}
+.echs-pop-peer-ver{font-weight:400;font-size:10px;margin-left:8px;color:#8a93b8}
 .echs-pop-state{font-weight:400;font-size:11px;margin-left:8px;padding:0 6px;border-radius:8px;background:#26335c;color:#ffd58a}
 .echs-pop-body{overflow-y:auto;padding:6px 8px;border-top:1px solid #3b4f86;flex:1;min-height:0}
 .echs-pop-group{display:block;width:100%;text-align:left;background:#18213b;border:1px solid #2a3866;border-radius:4px;

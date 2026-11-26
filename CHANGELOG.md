@@ -13,6 +13,11 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.44 · 26 November 2026
+
+- **Nothing changes for you.** The developer's own test accounts now see which ECHS version each
+  player runs, in small text on the popup's People tab, to spot old builds when helping someone.
+
 ## v1.16.43 · 26 November 2026
 
 - **Giving and asking for keys: one button per level.** The popup's Keys tab shows *Give keys:

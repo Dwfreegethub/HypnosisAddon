@@ -18,6 +18,18 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.16.44) — each player's version on the People tab, for DW's accounts only
+
+DW wanted to see at a glance which build people run, from the popup, "just for me and Missys Helper,
+not everyone". Each People row now ends with the player's version (`v1.16.43`) in 10px grey, after
+the status tag. Shown only when our own member number is in `VERSION_VIEWERS` (popup.ts): Missy
+(208543) and WinnersDice (252905, nicknamed Missys Helper). The version is not new information: every
+ECHS client in a room already receives it in `presenceFields()` (badge.ts) and keeps it in `peerFor`;
+the list only decides who is shown it, so it is not a permission and nobody else's build changes
+behaviour. A player who hides their icon is still left off the list, version and all. Its class is
+`echs-pop-peer-ver` because `echs-pop-ver` is the popup header's own version label. test/popup.mjs:
+hidden for member 1, shown for a listed number, gone again after.
+
 ### Changed 2026-11-26 (v1.16.43) — Give keys / Request keys: three level buttons, not a cycling one
 
 UI lab review F6 polish, the last open item of the review. The v1.16.0 button (job6.md §2, DW)
