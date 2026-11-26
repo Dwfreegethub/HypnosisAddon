@@ -53,7 +53,11 @@ const TICK_MS = 250;
 /** A press that moves less than this is a click, not a drag. */
 const DRAG_SLOP = 5;
 export const LAUNCHER_SIZE = 44;
-export const WINDOW_WIDTH = 340;
+// 440 x 540 since v1.16.41 (review F11): at 340 the tab row wrapped once Suggestions appeared
+// ("Commands" alone on a second row), and the long Suggestions and Triggers lists had little room.
+// All six tabs fit on one row at 440. A size the player set by dragging still wins.
+export const WINDOW_WIDTH = 440;
+export const WINDOW_HEIGHT = 540;
 /** How much of a dragged window must stay on screen, so it can always be caught again. */
 const KEEP_VISIBLE = 60;
 /** The smallest the window may be resized to (v1.13.2): the tabs and the Safeword button still fit. */
@@ -185,8 +189,11 @@ export function popupPeople(): PopupPerson[] {
 export type PopupCommand = { tag: string; args: string; description: string; text: string };
 
 /** The command groups the popup lists. `testing` decides whether the Testing group appears. */
-export function popupGroups(testing: boolean): { group: string; title: string; commands: PopupCommand[] }[] {
-	const all = commandHelp();
+export function popupGroups(testing: boolean, asSubject = subjectSide() !== null): { group: string; title: string; commands: PopupCommand[] }[] {
+	// v1.16.41 (review F11): the list opened with /echs agree, ignore and fight, which answer an
+	// induction on you. Unless one is on you (asked, inducing or under), /echs induce comes first.
+	const listed = commandHelp();
+	const all = asSubject ? listed : [...listed.filter((c) => c.tag === "induce"), ...listed.filter((c) => c.tag !== "induce")];
 	return GROUP_ORDER.filter((g) => testing || g !== "Testing")
 		.map((group) => ({
 			group,
@@ -695,7 +702,7 @@ function buildWindow(): void {
 	});
 	applySize(win);
 	const z = getPopupSize();
-	place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? 420, { x: 70, y: Math.round(viewSize().vh * 0.2) });
+	place(win, "window", z?.w ?? WINDOW_WIDTH, z?.h ?? WINDOW_HEIGHT, { x: 70, y: Math.round(viewSize().vh * 0.2) });
 	makeDraggable(win, head, "window");
 	document.body.appendChild(win);
 	watchSize(win);
@@ -1700,7 +1707,7 @@ const POPUP_CSS = `
  padding:4px;border:2px solid #2c2352;background:#f4f0ff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);touch-action:none}
 .echs-pop-launcher img{width:100%;height:100%;pointer-events:none}
 .echs-pop-launcher:hover{background:#fff}
-.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(460px,70vh);max-height:90vh;max-width:90vw;
+.echs-pop{position:fixed;z-index:1000;width:${WINDOW_WIDTH}px;height:min(${WINDOW_HEIGHT}px,80vh);max-height:90vh;max-width:90vw;
  min-width:${MIN_WIDTH}px;min-height:${MIN_HEIGHT}px;resize:both;overflow:hidden;display:flex;flex-direction:column;
  background:#0e1424;color:#d8e2ff;border:1px solid #3b4f86;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.55);
  font:13px/1.35 "Segoe UI",Arial,sans-serif}

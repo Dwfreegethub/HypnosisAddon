@@ -79,6 +79,9 @@ const PLANTED_FIRST_ROW_Y = 320;
 const PLANTED_ROW_HEIGHT = 105;
 const PLANTED_ROWS_PER_PAGE = 5;
 const PLANTED_NAV_TOP = 860;
+/** Where to act on them, under the list (v1.16.41, review F11: the page is read-only and said nothing). */
+const PLANTED_HINT_Y = 820;
+export const PLANTED_HINT = "To say, release or forget one, use the Triggers tab in the ECHS popup.";
 const PLANTED_NAV_WIDTH = 160;
 const PLANTED_NAV_HEIGHT = 60;
 const PLANTED_PREV_LEFT = 700;
@@ -334,6 +337,7 @@ function drawPlantedPage(target: any): void {
 		drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
 		drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
 	});
+	if (triggers.length) DrawText(PLANTED_HINT, MainCanvasWidth / 2, PLANTED_HINT_Y, "Gray");
 	if (pages > 1) {
 		DrawButton(PLANTED_PREV_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Prev", plantedPage === 0 ? "#ddd" : "White", "", "", plantedPage === 0);
 		DrawButton(PLANTED_NEXT_LEFT, PLANTED_NAV_TOP, PLANTED_NAV_WIDTH, PLANTED_NAV_HEIGHT, "Next", plantedPage >= pages - 1 ? "#ddd" : "White", "", "", plantedPage >= pages - 1);

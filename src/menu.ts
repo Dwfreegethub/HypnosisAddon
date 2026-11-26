@@ -1797,7 +1797,9 @@ function drawStats(): void {
 	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions · using ECHS since ${usingSinceText(getUsingSince())}`);
 	// How many, in the header (v1.16.38): the list no longer says "page 1 / 3".
 	const listed = trustStatRows(trustSearch).length;
-	line(STAT_HEADER_Y, trustStatRows().length ? `Trust · ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", "value", "detail", "Gray");
+	// No "value" / "detail" over an empty list (v1.16.41, review F11): headings for nothing.
+	const anyone = trustStatRows().length > 0;
+	line(STAT_HEADER_Y, anyone ? `Trust · ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", anyone ? "value" : "", anyone ? "detail" : "", "Gray");
 
 	// Nobody at all, and there is nothing to search. A search with no matches keeps its box.
 	if (!trustStatRows().length) {

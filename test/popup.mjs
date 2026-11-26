@@ -141,6 +141,11 @@ const listed = popup.popupGroups(true).flatMap((g) => g.commands.map((x) => x.ta
 const missing = all.filter((x) => !listed.includes(x.tag)).map((x) => `${x.group}/${x.tag}`);
 check("every command listed", missing.length === 0, `every command in a group, missing ${missing.join(", ")}`);
 check("each once", new Set(listed).size === listed.length, "no command listed twice");
+// v1.16.41 (review F11). Failure: a hypnotist's list opens with the subject's agree / ignore / fight.
+const sessionTags = (asSubject) => popup.popupGroups(false, asSubject).find((g) => g.group === "Session").commands.map((x) => x.tag);
+check("nobody on you: /echs induce first", sessionTags(false)[0] === "induce", `induce first, got ${sessionTags(false).slice(0, 3).join(", ")}`);
+check("  being hypnotized: agree first, as before", sessionTags(true)[0] === "agree" && sessionTags(true).includes("induce"), `agree first, got ${sessionTags(true).slice(0, 3).join(", ")}`);
+check("  the window, with nothing on you, opens on induce", popup.popupGroups(false)[0].commands[0].tag === "induce", "induce first by default");
 check("Testing hidden outside the testing room", !popup.popupGroups(false).some((g) => g.group === "Testing"), "no Testing group outside the testing room");
 check("Session open, others shut", byText("−  Hypnosis").length === 1 && byText("+  Your data").length === 1, "Hypnosis expanded and Your data collapsed at first");
 byText("+  Your data")[0].click();
