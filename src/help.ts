@@ -374,6 +374,8 @@ function lastingLines(): HelpLine[] {
 		body(`"Missy, you are released from the compulsion" lets yours go; they stay.`),
 		dim("Whoever set one off (the kiss, the grope) can say it too, while it holds."),
 		body(`"Missy, forget your compulsions": she forgets them; your words stay.`),
+		body(`"Missy, forget the second compulsion": just that one (or release it).`),
+		dim("Numbered as /echs planted and the popup list yours."),
 		dim("Only the one who planted it; no trance needed. One holding them lets go first."),
 		dim("Refused while they are under an Extreme lock: triggers can only be added then."),
 		body("/echs planted [name], or Planted triggers on the panel, lists what you planted."),

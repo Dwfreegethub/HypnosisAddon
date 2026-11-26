@@ -18,6 +18,18 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.6) — release or forget one compulsion by its number
+
+DW: two blindfold compulsions both went off, "and there is currently not a way to remove one without
+removing them all". DW chose numbers. `compulsionsNumberedFor(hypnotist)` is the speaker's compulsions
+in the order of the planted list they are sent (`plantedTriggersOf`, the planted source's own list),
+and `compulsionNumbers` in planted.ts numbers the received entries the same way for the popup, the
+profile page and /echs planted. Spoken as an ordinal ("forget the second compulsion") so an older
+subject's ECHS, whose all-of-them pattern takes "forget compulsion …", ignores the line rather than
+forgetting everything; a digit works on this version (read from the raw line, since normalize drops
+digits). Both are checked before the all-of-them wording. The planter only; whoever set one off keeps
+the release-all wording. A forget answers with the fresh list, since the numbers after it move up.
+
 ### Fixed 2026-11-26 (v1.19.5) — two phantom-touch wording misses
 
 DW wanted "if a player's underwear is removed they can feel phantom touches until it is put back on".

@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.5. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.6. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6917,8 +6917,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const notes = listPlantedNotes();
     return Number(Object.keys(notes).find((id) => id === t || notes[id].name.toLowerCase() === t) ?? NaN) || null;
   }
-  function plantedTitle(entry) {
-    return entry.word ? `"${entry.word}"` : entry.when || "No word";
+  function plantedTitle(entry, compulsionNo) {
+    if (entry.word) return `"${entry.word}"`;
+    const when = entry.when || "No word";
+    return compulsionNo ? `Compulsion ${compulsionNo}: ${when}` : when;
+  }
+  function compulsionNumbers(entries) {
+    let n = 0;
+    return entries.map((e) => e.word ? null : ++n);
   }
   function plantedState(entry) {
     return [entry.strength, entry.once ? "works once" : "", entry.holding ? "holding them now" : ""].filter(Boolean).join(", ");
@@ -6937,12 +6943,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const note = plantedNote(subject);
     const name = note?.name ?? fallbackName;
     const lines = [`${name} (#${subject}): ${plantedHeading(subject, name, now)}`];
-    (note?.triggers ?? []).forEach((t, i) => {
-      lines.push(`  ${i + 1}. ${plantedTitle(t)}: ${plantedState(t)}. ${t.does.join("; ")}.`);
+    const triggers = note?.triggers ?? [];
+    const numbers = compulsionNumbers(triggers);
+    triggers.forEach((t, i) => {
+      lines.push(`  ${i + 1}. ${plantedTitle(t, numbers[i])}: ${plantedState(t)}. ${t.does.join("; ")}.`);
     });
     return lines;
   }
-  var PLANTED_ASK_MS, MAX_PLANTED_ENTRIES, source, describer, askedAt, answered, text;
+  var PLANTED_ASK_MS, MAX_PLANTED_ENTRIES, source, describer, askedAt, answered, text, ORDINAL_UNITS, ORDINAL_TEENS, ORDINALS;
   var init_planted = __esm({
     "src/planted.ts"() {
       init_log();
@@ -6955,6 +6963,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       askedAt = /* @__PURE__ */ new Map();
       answered = /* @__PURE__ */ new Set();
       text = (value, max) => typeof value === "string" ? value.slice(0, max) : "";
+      ORDINAL_UNITS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"];
+      ORDINAL_TEENS = ["tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth"];
+      ORDINALS = [
+        ...ORDINAL_UNITS,
+        ...ORDINAL_TEENS,
+        "twentieth",
+        ...ORDINAL_UNITS.map((u) => `twenty ${u}`),
+        "thirtieth"
+      ];
     }
   });
 
@@ -9060,6 +9077,40 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     return keys[0] ?? (Array.isArray(suggestion.permission) ? suggestion.permission[0] : suggestion.permission);
   }
+  function parseNumberedCompulsion(content) {
+    const text2 = normalize(content);
+    if (!text2) return null;
+    for (const verb of ["release", "forget"]) {
+      const m = COMPULSION_NO_SPOKEN[verb].exec(text2);
+      if (m) return { verb, n: ORDINALS.indexOf(m[1]) + 1 };
+    }
+    const d = COMPULSION_NO_DIGIT.exec(content.toLowerCase());
+    if (d && Number(d[2]) > 0) return { verb: /^release/.test(d[1]) ? "release" : "forget", n: Number(d[2]) };
+    return null;
+  }
+  function compulsionsNumberedFor(hypnotist) {
+    return plantedTriggersOf(hypnotist).filter((t) => !t.phrase);
+  }
+  function noSuchCompulsion(n, count) {
+    return count ? `[trigger] There is no compulsion ${n} of yours in them: you have ${count}. Your popup's Triggers tab numbers them.` : "[trigger] No compulsion of yours is planted in them.";
+  }
+  function releaseNumberedCompulsion(sender, n) {
+    const list = compulsionsNumberedFor(sender);
+    const t = list[n - 1];
+    if (!t) {
+      if (list.length || isSessionActiveWith(sender) || listTriggers().some((x) => x.installedBy === sender)) tellHypnotist(sender, noSuchCompulsion(n, list.length));
+      return;
+    }
+    const when = describeConditionFor(t, t.installedBy, "they");
+    if (!(isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0)) {
+      tellHypnotist(sender, `[trigger] Released, but compulsion ${n} (${when}) was not holding them right now. It is still planted.`);
+      return;
+    }
+    undoTrigger(t);
+    tellPlayer("Whatever was holding you lets go.");
+    const kept = listTriggers().some((x) => x.key === t.key);
+    tellHypnotistWithList(sender, `[trigger] Released. Compulsion ${n} (${when}) let go; ${kept ? "it is still planted" : "it was one-time, so it is used up"}.`);
+  }
   function isTriggerReleaseLine(content) {
     const text2 = normalize(content);
     return !!text2 && (TRIGGER_RELEASE.some((p) => p.test(text2)) || COMPULSION_RELEASE.some((p) => p.test(text2)));
@@ -9068,6 +9119,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const text2 = normalize(content);
     if (!text2) return null;
     if (TRIGGER_REMOVE_ALL.some((p) => p.test(text2))) return { kind: "all" };
+    const numbered = parseNumberedCompulsion(content);
+    if (numbered?.verb === "forget") return { kind: "compulsion", n: numbered.n };
     if (TRIGGER_REMOVE_COMPULSIONS.test(text2)) return { kind: "compulsions" };
     for (const pattern of TRIGGER_REMOVE) {
       const match = pattern.exec(text2);
@@ -9105,6 +9158,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const held2 = mine.map(removeTrigger).filter(Boolean).length;
       tellHypnotistWithList(sender, `[trigger] They forgot ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
       tellPlayer(held2 ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
+      return true;
+    }
+    if (parsed.kind === "compulsion") {
+      const list = compulsionsNumberedFor(sender);
+      const t = list[parsed.n - 1];
+      if (!t) {
+        tellHypnotist(sender, noSuchCompulsion(parsed.n, list.length));
+        return true;
+      }
+      if (extremeLocked()) {
+        tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+        return true;
+      }
+      const when = describeConditionFor(t, t.installedBy, "they");
+      const held2 = removeTrigger(t);
+      const moved = parsed.n < list.length ? " The ones after it move up a number." : "";
+      tellHypnotistWithList(sender, `[trigger] They forgot compulsion ${parsed.n} (${when}). It will not go off again.${held2 ? " What it was holding lets go." : ""}${moved}`);
+      tellPlayer(held2 ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
       return true;
     }
     if (parsed.kind === "compulsions") {
@@ -9297,6 +9368,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function handleTriggerRelease(sender, content) {
     const text2 = normalize(content);
     if (!text2 || isSelfReferential(text2)) return false;
+    const numbered = parseNumberedCompulsion(content);
+    if (numbered?.verb === "release") {
+      releaseNumberedCompulsion(sender, numbered.n);
+      return true;
+    }
     if (COMPULSION_RELEASE.some((p) => p.test(text2))) {
       const isHolding = (t) => isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0;
       const mine = listTriggers().filter((t) => t.fireOn && t.installedBy === sender);
@@ -9498,6 +9574,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       once: !!t.oneShot,
       holding: isTriggerInEffect(t)
     };
+  }
+  function plantedTriggersOf(hypnotist) {
+    return listTriggers().filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0).slice(0, MAX_PLANTED_ENTRIES);
   }
   function handleCarryControl(sender, content) {
     const text2 = normalize(content);
@@ -10172,7 +10251,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, ORDINAL_RE, COMPULSION_NO_SPOKEN, COMPULSION_NO_DIGIT, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -11441,6 +11520,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
         new RegExp(String.raw`\bi release you from ${COMPULSION_WORDS}`),
         new RegExp(String.raw`\brelease ${COMPULSION_WORDS}`)
       ];
+      ORDINAL_RE = ORDINALS.join("|");
+      COMPULSION_NO_SPOKEN = {
+        release: new RegExp(String.raw`\b(?:you are (?:now )?released from|i release you from|release) (?:the |your |that |my )?(${ORDINAL_RE}) compulsion\b`),
+        forget: new RegExp(String.raw`\b(?:forget|remove|erase|delete) (?:the |your |that |my )?(${ORDINAL_RE}) compulsion\b`)
+      };
+      COMPULSION_NO_DIGIT = /\b(released from|release you from|release|forget|remove|erase|delete)\s+(?:the\s+|your\s+|that\s+|my\s+)?compulsion\s*(?:number\s*|no\.?\s*|#\s*)?(\d{1,2})\b/;
       TRIGGER_REMOVE_ALL = [
         /\b(?:forget|remove|erase|delete) (?:every|all) (?:of )?(?:the |my |your )?triggers?\b/
       ];
@@ -11500,9 +11585,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         };
       });
       registerPlantedDescriber(plantedEntryOf);
-      registerPlantedSource(
-        (hypnotist) => listTriggers().filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0).slice(0, MAX_PLANTED_ENTRIES).map(plantedEntryOf)
-      );
+      registerPlantedSource((hypnotist) => plantedTriggersOf(hypnotist).map(plantedEntryOf));
       WAKE_PATTERNS = [
         // Bare "wake" included: DW tried "Missy wake" and nothing happened. Guarded against
         // first-person the same way the other bare imperatives are.
@@ -11721,7 +11804,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.5", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.6", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11770,7 +11853,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.5", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.6", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12796,6 +12879,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, you are released from the compulsion" lets yours go; they stay.`),
       dim("Whoever set one off (the kiss, the grope) can say it too, while it holds."),
       body(`"Missy, forget your compulsions": she forgets them; your words stay.`),
+      body(`"Missy, forget the second compulsion": just that one (or release it).`),
+      dim("Numbered as /echs planted and the popup list yours."),
       dim("Only the one who planted it; no trance needed. One holding them lets go first."),
       dim("Refused while they are under an Extreme lock: triggers can only be added then."),
       body("/echs planted [name], or Planted triggers on the panel, lists what you planted."),
@@ -14302,7 +14387,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.5"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.6"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14375,7 +14460,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.5"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.6"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15189,7 +15274,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.5", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.6", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17479,9 +17564,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const pages = plantedPageCount2(target);
     if (plantedPage2 >= pages) plantedPage2 = pages - 1;
     const start = plantedPage2 * PLANTED_ROWS_PER_PAGE2;
+    const numbers = compulsionNumbers(triggers);
     triggers.slice(start, start + PLANTED_ROWS_PER_PAGE2).forEach((t, i) => {
       const top = PLANTED_FIRST_ROW_Y + i * PLANTED_ROW_HEIGHT2;
-      drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t)}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
+      drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t, numbers[start + i])}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
       drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
       drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
     });
@@ -18041,10 +18127,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
       { id: "forget", label: "forget", phrase: `forget the trigger ${word}`, release: true }
     ];
   }
+  function compulsionLines(n) {
+    const which = `the ${ORDINALS[n - 1]} compulsion`;
+    return [
+      { id: "release-compulsion", label: "release", phrase: `you are released from ${which}`, release: true },
+      { id: "forget-compulsion", label: "forget", phrase: `forget ${which}`, release: true }
+    ];
+  }
   var PLANT_GROUPS, COMPULSION_LINES, FORGET_ALL;
   var init_popup_triggers = __esm({
     "src/popup-triggers.ts"() {
       init_compulsion_acts();
+      init_planted();
       PLANT_GROUPS = [
         {
           key: "plant",
@@ -18134,8 +18228,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       ];
       COMPULSION_LINES = [
-        { id: "release-compulsions", label: "release", phrase: "you are released from the compulsion", release: true },
-        { id: "forget-compulsions", label: "forget", phrase: "forget your compulsions", release: true }
+        { id: "release-compulsions", label: "release all", phrase: "you are released from the compulsion", release: true },
+        { id: "forget-compulsions", label: "forget all", phrase: "forget your compulsions", release: true }
       ];
       FORGET_ALL = { id: "forget-all", label: "forget everything I planted", phrase: "forget every trigger I gave you", release: true };
     }
@@ -18529,7 +18623,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.5"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.6"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18991,9 +19085,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       triggerGroup(body2, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
         list.appendChild(el2("div", "echs-pop-hint", plantedHeading(p.id, p.name)));
         const entries = plantedNote(p.id)?.triggers ?? [];
-        for (const t of entries) {
+        const numbers = compulsionNumbers(entries);
+        const compulsions = numbers.filter(Boolean).length;
+        entries.forEach((t, i) => {
           const row = el2("div", "echs-pop-entry");
-          row.appendChild(el2("div", "echs-pop-person", plantedTitle(t)));
+          row.appendChild(el2("div", "echs-pop-person", plantedTitle(t, numbers[i])));
           const detail = [plantedState(t), t.does.join("; ")].filter(Boolean).join(" \xB7 ");
           if (detail) row.appendChild(el2("div", "echs-pop-desc", detail));
           if (t.word) {
@@ -19004,14 +19100,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
             }
             row.appendChild(chips);
           } else {
-            row.appendChild(el2("div", "echs-pop-desc", "No word: release and forget act on every compulsion you planted in them."));
             const chips = el2("div", "echs-pop-buttons");
-            for (const line of COMPULSION_LINES) {
+            for (const line of compulsionLines(numbers[i])) {
               const text2 = suggestionText(p.name, line.phrase);
               chips.appendChild(chip(line.label, text2, () => typeIt(status, text2, `Typed. Press Enter to say it to ${p.name}.`)));
             }
             row.appendChild(chips);
           }
+          list.appendChild(row);
+        });
+        if (compulsions > 1) {
+          const row = el2("div", "echs-pop-entry");
+          row.appendChild(el2("div", "echs-pop-person", `All ${compulsions} compulsions`));
+          const chips = el2("div", "echs-pop-buttons");
+          for (const line of COMPULSION_LINES) {
+            const text2 = suggestionText(p.name, line.phrase);
+            chips.appendChild(chip(line.label, text2, () => typeIt(status, text2, `Typed. Press Enter to say it to ${p.name}.`)));
+          }
+          row.appendChild(chips);
           list.appendChild(row);
         }
         if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
@@ -19815,7 +19921,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.5"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.6"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19842,7 +19948,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.5"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.6"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19918,14 +20024,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.5"})`);
+      info(`script loaded (v${"1.19.6"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.5",
+          version: "1.19.6",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20069,10 +20175,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.5"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.6"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.5";
+    page2.__ECHS_LOADED__ = "1.19.6";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

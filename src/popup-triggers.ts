@@ -9,6 +9,7 @@
 // Pure: no DOM, no BC globals. popup.ts draws it.
 
 import { compulsionActList, COMPULSION_ACTS } from "./compulsion-acts";
+import { ORDINALS } from "./planted";
 
 export type TriggerLine = {
 	id: string;
@@ -128,10 +129,19 @@ export function plantedLines(word: string): TriggerLine[] {
 	];
 }
 
+/** For one compulsion you planted, by its number among yours (v1.19.6). */
+export function compulsionLines(n: number): TriggerLine[] {
+	const which = `the ${ORDINALS[n - 1]} compulsion`;
+	return [
+		{ id: "release-compulsion", label: "release", phrase: `you are released from ${which}`, release: true },
+		{ id: "forget-compulsion", label: "forget", phrase: `forget ${which}`, release: true },
+	];
+}
+
 /** For the compulsions you planted in them (v1.16.10): no word, so these act on all of yours. */
 export const COMPULSION_LINES: TriggerLine[] = [
-	{ id: "release-compulsions", label: "release", phrase: "you are released from the compulsion", release: true },
-	{ id: "forget-compulsions", label: "forget", phrase: "forget your compulsions", release: true },
+	{ id: "release-compulsions", label: "release all", phrase: "you are released from the compulsion", release: true },
+	{ id: "forget-compulsions", label: "forget all", phrase: "forget your compulsions", release: true },
 ];
 
 /** Every trigger you planted in them at once, compulsions included. */

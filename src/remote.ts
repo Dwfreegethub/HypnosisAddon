@@ -6,7 +6,7 @@ import { notePeer, presenceFields } from "./badge";
 import { getFeatures } from "./storage";
 import { isHelpOpen, openHelp, closeHelp, drawHelp, clickHelp } from "./help";
 import { drawLeftTextFit } from "./panel";
-import { askPlanted, receivePlanted, plantedEntriesFor, plantedNote, plantedHeading, plantedTitle, plantedState } from "./planted";
+import { askPlanted, receivePlanted, plantedEntriesFor, plantedNote, plantedHeading, plantedTitle, plantedState, compulsionNumbers } from "./planted";
 import { keyholderFields, receiveKeyholderFields, handleSettingsRequest } from "./keyholder";
 import {
 	getSessionView,
@@ -332,9 +332,10 @@ function drawPlantedPage(target: any): void {
 	const pages = plantedPageCount(target);
 	if (plantedPage >= pages) plantedPage = pages - 1;
 	const start = plantedPage * PLANTED_ROWS_PER_PAGE;
+	const numbers = compulsionNumbers(triggers);
 	triggers.slice(start, start + PLANTED_ROWS_PER_PAGE).forEach((t, i) => {
 		const top = PLANTED_FIRST_ROW_Y + i * PLANTED_ROW_HEIGHT;
-		drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t)}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
+		drawLeftTextFit(`${start + i + 1}. ${plantedTitle(t, numbers[start + i])}`, PLANTED_LEFT, top, PLANTED_TITLE_WIDTH, "Black");
 		drawLeftTextFit(plantedState(t), PLANTED_LEFT + PLANTED_TITLE_WIDTH + 30, top, PLANTED_WIDTH - PLANTED_TITLE_WIDTH - 30, "#555");
 		drawLeftTextFit(t.does.join("; "), PLANTED_LEFT + 40, top + 44, PLANTED_WIDTH - 40, "#555");
 	});
