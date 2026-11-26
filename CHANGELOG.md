@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.6 · 26 November 2026
+
+- **One compulsion at a time.** Release and forget used to act on every compulsion you planted at
+  once. Now each one has a number, shown in the popup, on the profile's planted list and in
+  */echs planted*: *"Missy, forget the second compulsion"* or *"Missy, you are released from the
+  second compulsion"* acts on that one only (*"compulsion 2"* works too). The popup's chips type it
+  for you. *"Forget your compulsions"* still takes all of them.
+
 ## v1.19.5 · 26 November 2026
 
 - **"You feel a hand between your legs"** now lands between the legs, not on them.

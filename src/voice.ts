@@ -1,7 +1,7 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
 import { displayNameOf, nameOrNumber } from "./names";
 import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE, kindEvent, eventSlot } from "./compulsion-acts";
-import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
+import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES, ORDINALS } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
 	applyEffect,
@@ -3342,6 +3342,65 @@ const COMPULSION_RELEASE = [
 	new RegExp(String.raw`\brelease ${COMPULSION_WORDS}`),
 ];
 
+// One compulsion by its number (v1.19.6, DW 2026-11-26: two compulsions on blindfolds, "and there
+// is currently not a way to remove one without removing them all"). Numbered as the hypnotist's lists
+// show them: their compulsions in the planted list, in order (compulsionNumbers in planted.ts).
+// Spoken as an ordinal, "forget the second compulsion", which an older ECHS leaves alone (it would
+// read "forget compulsion 2" as all of them). A digit, "compulsion 2", works here too. Checked before
+// the all-of-them wording, which would otherwise take it.
+const ORDINAL_RE = ORDINALS.join("|");
+const COMPULSION_NO_SPOKEN = {
+	release: new RegExp(String.raw`\b(?:you are (?:now )?released from|i release you from|release) (?:the |your |that |my )?(${ORDINAL_RE}) compulsion\b`),
+	forget: new RegExp(String.raw`\b(?:forget|remove|erase|delete) (?:the |your |that |my )?(${ORDINAL_RE}) compulsion\b`),
+};
+// normalize() drops digits, so the digit form is read from the line as typed.
+const COMPULSION_NO_DIGIT = /\b(released from|release you from|release|forget|remove|erase|delete)\s+(?:the\s+|your\s+|that\s+|my\s+)?compulsion\s*(?:number\s*|no\.?\s*|#\s*)?(\d{1,2})\b/;
+
+/** Pure: "forget the second compulsion" / "you are released from compulsion 2", or null. */
+export function parseNumberedCompulsion(content: string): { verb: "release" | "forget"; n: number } | null {
+	const text = normalize(content);
+	if (!text) return null;
+	for (const verb of ["release", "forget"] as const) {
+		const m = COMPULSION_NO_SPOKEN[verb].exec(text);
+		if (m) return { verb, n: ORDINALS.indexOf(m[1]) + 1 };
+	}
+	const d = COMPULSION_NO_DIGIT.exec(content.toLowerCase());
+	if (d && Number(d[2]) > 0) return { verb: /^release/.test(d[1]) ? "release" : "forget", n: Number(d[2]) };
+	return null;
+}
+
+/** The speaker's compulsions in the order their lists number them. */
+export function compulsionsNumberedFor(hypnotist: number): Trigger[] {
+	return plantedTriggersOf(hypnotist).filter((t) => !t.phrase);
+}
+
+/** No compulsion by that number: how many they have, so the right one can be said. */
+function noSuchCompulsion(n: number, count: number): string {
+	return count
+		? `[trigger] There is no compulsion ${n} of yours in them: you have ${count}. Your popup's Triggers tab numbers them.`
+		: "[trigger] No compulsion of yours is planted in them.";
+}
+
+/** "Released from the second compulsion": that one lets go if it holds her, and stays planted. The
+ * planter only: setting one off gives the release-all wording, not this. */
+function releaseNumberedCompulsion(sender: number, n: number): void {
+	const list = compulsionsNumberedFor(sender);
+	const t = list[n - 1];
+	if (!t) {
+		if (list.length || isSessionActiveWith(sender) || listTriggers().some((x) => x.installedBy === sender)) tellHypnotist(sender, noSuchCompulsion(n, list.length));
+		return;
+	}
+	const when = describeConditionFor(t as TriggerCondition, t.installedBy, "they");
+	if (!(isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0)) {
+		tellHypnotist(sender, `[trigger] Released, but compulsion ${n} (${when}) was not holding them right now. It is still planted.`);
+		return;
+	}
+	undoTrigger(t);
+	tellPlayer("Whatever was holding you lets go.");
+	const kept = listTriggers().some((x) => x.key === t.key);
+	tellHypnotistWithList(sender, `[trigger] Released. Compulsion ${n} (${when}) let go; ${kept ? "it is still planted" : "it was one-time, so it is used up"}.`);
+}
+
 /** Pure: "you are released from the compulsion" and its kin. */
 export function isCompulsionReleaseLine(content: string): boolean {
 	const text = normalize(content);
@@ -3375,7 +3434,7 @@ const TRIGGER_REMOVE = [
 /** Only a removal when it names one of their triggers: "I take back what I said" is conversation. */
 const TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
 
-export type TriggerRemoval = { kind: "all" } | { kind: "compulsions" } | { kind: "one"; phrase: string; soft?: boolean } | null;
+export type TriggerRemoval = { kind: "all" } | { kind: "compulsions" } | { kind: "compulsion"; n: number } | { kind: "one"; phrase: string; soft?: boolean } | null;
 
 /** Pure: what removal, if any, this line asks for. A captured phrase that is only her name ("forget
  * the trigger, Missy") is no removal, so it can still cancel a trigger being set up. */
@@ -3383,6 +3442,8 @@ export function parseTriggerRemoval(content: string): TriggerRemoval {
 	const text = normalize(content);
 	if (!text) return null;
 	if (TRIGGER_REMOVE_ALL.some((p) => p.test(text))) return { kind: "all" };
+	const numbered = parseNumberedCompulsion(content);
+	if (numbered?.verb === "forget") return { kind: "compulsion", n: numbered.n };
 	if (TRIGGER_REMOVE_COMPULSIONS.test(text)) return { kind: "compulsions" };
 	for (const pattern of TRIGGER_REMOVE) {
 		const match = pattern.exec(text);
@@ -3431,6 +3492,24 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 		const held = mine.map(removeTrigger).filter(Boolean).length;
 		tellHypnotistWithList(sender, `[trigger] They forgot ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held ? " What was holding them lets go." : ""}`);
 		tellPlayer(held ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
+		return true;
+	}
+	if (parsed.kind === "compulsion") {
+		const list = compulsionsNumberedFor(sender);
+		const t = list[parsed.n - 1];
+		if (!t) {
+			tellHypnotist(sender, noSuchCompulsion(parsed.n, list.length));
+			return true;
+		}
+		if (extremeLocked()) {
+			tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
+			return true;
+		}
+		const when = describeConditionFor(t as TriggerCondition, t.installedBy, "they");
+		const held = removeTrigger(t);
+		const moved = parsed.n < list.length ? " The ones after it move up a number." : "";
+		tellHypnotistWithList(sender, `[trigger] They forgot compulsion ${parsed.n} (${when}). It will not go off again.${held ? " What it was holding lets go." : ""}${moved}`);
+		tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
 		return true;
 	}
 	if (parsed.kind === "compulsions") {
@@ -3720,6 +3799,11 @@ function scheduleAutoRelease(trigger: Trigger): void {
 function handleTriggerRelease(sender: number, content: string): boolean {
 	const text = normalize(content);
 	if (!text || isSelfReferential(text)) return false;
+	const numbered = parseNumberedCompulsion(content);
+	if (numbered?.verb === "release") {
+		releaseNumberedCompulsion(sender, numbered.n);
+		return true;
+	}
 	if (COMPULSION_RELEASE.some((p) => p.test(text))) {
 		// The one who planted them, or (DW 2026-11-22) the one who SET IT OFF, for that compulsion and
 		// only while it holds: "when anyone gropes you" set off by Zed while the planter is away
@@ -4061,12 +4145,13 @@ function plantedEntryOf(t: Trigger): PlantedEntry {
 	};
 }
 registerPlantedDescriber(plantedEntryOf);
-registerPlantedSource((hypnotist): PlantedEntry[] =>
-	listTriggers()
+/** What a hypnotist's lists show of theirs, in order: the source of the compulsion numbers too. */
+function plantedTriggersOf(hypnotist: number): Trigger[] {
+	return listTriggers()
 		.filter((t) => t.installedBy === hypnotist && !t.spent && triggerStrength(t) > 0)
-		.slice(0, MAX_PLANTED_ENTRIES)
-		.map(plantedEntryOf),
-);
+		.slice(0, MAX_PLANTED_ENTRIES);
+}
+registerPlantedSource((hypnotist): PlantedEntry[] => plantedTriggersOf(hypnotist).map(plantedEntryOf));
 
 /** Handle "that will stay with you" / "all of this stays with you" / "forget what I said".
  * Returns true if the line was one of them. Requires a live trance and the subject's name,

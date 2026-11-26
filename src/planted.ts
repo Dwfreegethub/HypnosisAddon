@@ -102,10 +102,32 @@ export function findPlantedSubject(token: string): number | null {
 	return Number(Object.keys(notes).find((id) => id === t || notes[id].name.toLowerCase() === t) ?? NaN) || null;
 }
 
-/** One trigger's headline, shared by the chat list and the panel. */
-export function plantedTitle(entry: PlantedEntry): string {
-	return entry.word ? `"${entry.word}"` : entry.when || "No word";
+/** One trigger's headline, shared by the chat list and the panel. A compulsion carries its number
+ * among the hypnotist's compulsions (v1.19.6), the one "forget the second compulsion" names. */
+export function plantedTitle(entry: PlantedEntry, compulsionNo?: number | null): string {
+	if (entry.word) return `"${entry.word}"`;
+	const when = entry.when || "No word";
+	return compulsionNo ? `Compulsion ${compulsionNo}: ${when}` : when;
 }
+
+/** Each entry's compulsion number (1, 2, … counting compulsions only, in list order), or null for a
+ * word trigger. The subject numbers them the same way (voice.ts compulsionsNumberedFor). */
+export function compulsionNumbers(entries: PlantedEntry[]): (number | null)[] {
+	let n = 0;
+	return entries.map((e) => (e.word ? null : ++n));
+}
+
+/** "first", "second", … "thirtieth": a compulsion by its number, as spoken (v1.19.6). An ordinal so
+ * an older ECHS, which reads "forget compulsion …" as all of them, ignores the line instead. */
+const ORDINAL_UNITS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"];
+const ORDINAL_TEENS = ["tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth"];
+export const ORDINALS: string[] = [
+	...ORDINAL_UNITS,
+	...ORDINAL_TEENS,
+	"twentieth",
+	...ORDINAL_UNITS.map((u) => `twenty ${u}`),
+	"thirtieth",
+];
 
 /** Strength and options, in words. */
 export function plantedState(entry: PlantedEntry): string {
@@ -132,8 +154,10 @@ export function describePlanted(subject: number, fallbackName: string, now: numb
 	const note = plantedNote(subject);
 	const name = note?.name ?? fallbackName;
 	const lines = [`${name} (#${subject}): ${plantedHeading(subject, name, now)}`];
-	(note?.triggers ?? []).forEach((t, i) => {
-		lines.push(`  ${i + 1}. ${plantedTitle(t)}: ${plantedState(t)}. ${t.does.join("; ")}.`);
+	const triggers = note?.triggers ?? [];
+	const numbers = compulsionNumbers(triggers);
+	triggers.forEach((t, i) => {
+		lines.push(`  ${i + 1}. ${plantedTitle(t, numbers[i])}: ${plantedState(t)}. ${t.does.join("; ")}.`);
 	});
 	return lines;
 }

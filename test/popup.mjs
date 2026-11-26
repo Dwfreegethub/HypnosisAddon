@@ -504,20 +504,20 @@ check("asked once, not per redraw", asks() - asksBefore <= 1, `at most one ask o
 popup.setPopupTab("people"); popup.setPopupTab("triggers"); popup.popupTick();
 check("not asked again within 30s", asks() - asksBefore <= 1, `still at most one ask after reopening, got ${asks() - asksBefore}`);
 const chipIn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label);
-check("a row per planted trigger", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"sleepy time"').length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "when Rei comes in").length === 1, "rows for sleepy time and the compulsion");
-// v1.16.10: the compulsion row has release / remove too (no "say it": it has no word).
+check("a row per planted trigger", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"sleepy time"').length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "Compulsion 1: when Rei comes in").length === 1, "rows for sleepy time and the compulsion");
+// v1.16.10: the compulsion row has release / remove too (no "say it": it has no word). v1.19.6: by its number.
 check("chips on both rows, say it only on the word", chipIn("release").length === 2 && chipIn("forget").length === 2 && chipIn("say it").length === 1, `release / forget twice, say it once, got ${chipIn("release").length} / ${chipIn("say it").length}`);
 chipIn("release")[1].click();
-check("compulsion release typed", chatBox.value === "Bea, you are released from the compulsion", `got "${chatBox.value}"`);
+check("compulsion release typed", chatBox.value === "Bea, you are released from the first compulsion", `got "${chatBox.value}"`);
 chipIn("forget")[1].click();
-check("compulsion remove typed", chatBox.value === "Bea, forget your compulsions", `got "${chatBox.value}"`);
+check("compulsion remove typed", chatBox.value === "Bea, forget the first compulsion", `got "${chatBox.value}"`);
 chipIn("release")[0].click();
 check("release typed", chatBox.value === "Bea, you are released from sleepy time", `got "${chatBox.value}"`);
 chipIn("forget")[0].click();
 check("remove typed", chatBox.value === "Bea, forget the trigger sleepy time", `got "${chatBox.value}"`);
 trigBtn("forget everything I planted").click();
 check("remove all typed", chatBox.value === "Bea, forget every trigger I gave you", `got "${chatBox.value}"`);
-check("compulsion says how to remove it", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent.startsWith("No word")).length === 1, "the no-word note on the compulsion");
+check("one compulsion: no all-at-once row", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent.startsWith("All ")).length === 0, "no All row for a single compulsion");
 
 // Triggers in you: numbered as /echs triggers numbers them; refused things say so.
 const plantIn = (phrase) => storage.saveTrigger({ phrase, actions: ["movement-block"], installedBy: A, installedByName: "Alice", installedAt: Date.now(), plantedDepth: 60, plantedChemical: false, reinforcedAt: Date.now(), firings: 0 });

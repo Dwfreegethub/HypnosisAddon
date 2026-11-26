@@ -39,8 +39,8 @@ import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./popup-suggest";
 import { TOUCH_VERBS, TOUCH_AREAS, PICKER_CHIPS, touchLine, areaAllowed, verbActivity, TouchWho } from "./popup-touch";
-import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, TriggerLine } from "./popup-triggers";
-import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState } from "./planted";
+import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, compulsionLines, TriggerLine } from "./popup-triggers";
+import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState, compulsionNumbers } from "./planted";
 import { sweptTriggers, triggerRow, triggersHiddenLine, triggerPhrasesVisible, isTriggerInEffect } from "./voice";
 import { listTriggers, getTriggerView, getTriggerDecayRate, DECAY_RATES, getOwnerKeyMode, listKeyholders, listRemoteChanges, KeyMode, KEY_LEVELS, keyRank, listAccess, accessLevelOf, ACCESS_LEVELS, AccessLevel } from "./storage";
 import { getPopupEnabled, getPopupPos, setPopupPos, PopupSpot, getPopupSize, setPopupSize } from "./storage";
@@ -1212,9 +1212,11 @@ function renderTriggers(body: any, status: any): void {
 		triggerGroup(body, `planted-${p.id}`, `What you planted in ${p.name}`, (list) => {
 			list.appendChild(el("div", "echs-pop-hint", plantedHeading(p.id, p.name)));
 			const entries = plantedNote(p.id)?.triggers ?? [];
-			for (const t of entries) {
+			const numbers = compulsionNumbers(entries);
+			const compulsions = numbers.filter(Boolean).length;
+			entries.forEach((t, i) => {
 				const row = el("div", "echs-pop-entry");
-				row.appendChild(el("div", "echs-pop-person", plantedTitle(t)));
+				row.appendChild(el("div", "echs-pop-person", plantedTitle(t, numbers[i])));
 				const detail = [plantedState(t), t.does.join("; ")].filter(Boolean).join(" · ");
 				if (detail) row.appendChild(el("div", "echs-pop-desc", detail));
 				if (t.word) {
@@ -1225,15 +1227,27 @@ function renderTriggers(body: any, status: any): void {
 					}
 					row.appendChild(chips);
 				} else {
-					// A compulsion (v1.16.10): no word, so these type the lines that cover all of yours.
-					row.appendChild(el("div", "echs-pop-desc", "No word: release and forget act on every compulsion you planted in them."));
+					// A compulsion: no word, so it goes by its number among yours (v1.19.6, DW: two on
+					// blindfolds and no way to remove one without removing them all).
 					const chips = el("div", "echs-pop-buttons");
-					for (const line of COMPULSION_LINES) {
+					for (const line of compulsionLines(numbers[i]!)) {
 						const text = suggestionText(p.name, line.phrase);
 						chips.appendChild(chip(line.label, text, () => typeIt(status, text, `Typed. Press Enter to say it to ${p.name}.`)));
 					}
 					row.appendChild(chips);
 				}
+				list.appendChild(row);
+			});
+			// More than one compulsion: the lines that act on all of them at once.
+			if (compulsions > 1) {
+				const row = el("div", "echs-pop-entry");
+				row.appendChild(el("div", "echs-pop-person", `All ${compulsions} compulsions`));
+				const chips = el("div", "echs-pop-buttons");
+				for (const line of COMPULSION_LINES) {
+					const text = suggestionText(p.name, line.phrase);
+					chips.appendChild(chip(line.label, text, () => typeIt(status, text, `Typed. Press Enter to say it to ${p.name}.`)));
+				}
+				row.appendChild(chips);
 				list.appendChild(row);
 			}
 			if (entries.length) list.appendChild(triggerLineButton(FORGET_ALL, p.name, status));
