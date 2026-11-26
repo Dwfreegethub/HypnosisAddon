@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.2. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.3. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -376,6 +376,19 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_notify();
       HIDDEN_TAG = "HypnoMsg";
       handlers = /* @__PURE__ */ new Map();
+    }
+  });
+
+  // src/names.ts
+  function displayNameOf(C) {
+    const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
+    return nick || (typeof C?.Name === "string" ? C.Name : "");
+  }
+  function nameOrNumber(C, member, fallback) {
+    return displayNameOf(C) || fallback || (member != null ? `#${member}` : "");
+  }
+  var init_names = __esm({
+    "src/names.ts"() {
     }
   });
 
@@ -2461,10 +2474,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       (c) => c?.MemberNumber === memberId
     );
   }
-  function displayNameOf(C) {
-    const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
-    return nick || (typeof C?.Name === "string" ? C.Name : "");
-  }
   function trustNameFor(memberId) {
     return displayNameOf(characterFor2(memberId));
   }
@@ -2534,6 +2543,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_log();
       init_storage();
       init_curve();
+      init_names();
       RATE_LIMIT_MS = 5 * 6e4;
       DIRECTED_MULTIPLIER = 2;
       INDUCTION_INTERACTIONS = 5;
@@ -4688,13 +4698,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     if (typeof whisperTo === "number" && whisperTo !== Player?.MemberNumber) {
       const c = others2.find((o) => o.MemberNumber === whisperTo);
-      return giveTrust(whisperTo, c?.Name ?? `#${whisperTo}`);
+      return giveTrust(whisperTo, nameOrNumber(c, whisperTo));
     }
     const esc = (n) => n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const named = others2.filter(
       (c) => [c.Name, c.Nickname].filter(Boolean).some((n) => new RegExp(`(^|[^\\w])${esc(n)}($|[^\\w])`).test(t))
     );
-    if (named.length === 1) return giveTrust(named[0].MemberNumber, named[0].Name);
+    if (named.length === 1) return giveTrust(named[0].MemberNumber, displayNameOf(named[0]));
     if (!getFeatures().hypnoEnabled) return null;
     return named.length > 1 ? "That names more than one person here, so your trust went to no one. Say it with one name." : 'To give your trust to a hypnotist, say their name with it: "I trust you, Eri", or whisper it to them.';
   }
@@ -5098,7 +5108,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const c = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
       (x) => x?.MemberNumber === memberId
     );
-    return c?.Name ?? `#${memberId}`;
+    return nameOrNumber(c, memberId);
   }
   function applyTranceState() {
     const f = getFeatures();
@@ -5440,7 +5450,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function requestAttempt(memberNumber) {
     sendHiddenMessage(
-      { type: "session-attempt", hypnotistName: Player?.Name ?? "Someone", skill: skillValue() },
+      { type: "session-attempt", hypnotistName: displayNameOf(Player) || "Someone", skill: skillValue() },
       memberNumber
     );
     log(`sent session-attempt to ${memberNumber} (skill ${skillValue().toFixed(1)})`);
@@ -5650,6 +5660,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_session = __esm({
     "src/session.ts"() {
       init_log();
+      init_names();
       init_extreme();
       init_notify();
       init_flavor();
@@ -7225,7 +7236,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const text2 = typeof message.text === "string" ? message.text : "";
       const shown = text2.replace(/^\[(?:trigger|trance)\]\s*/, "");
       if (shown) tellPlayer(shown);
-      if (message.planted !== void 0) receivePlanted(sender, characterFor4(sender)?.Name ?? `#${sender}`, message.planted);
+      if (message.planted !== void 0) receivePlanted(sender, nameOrNumber(characterFor4(sender), sender), message.planted);
     });
     registerHiddenHandler("test-age", (sender, message) => {
       const days = Number(message.days ?? 1);
@@ -7239,7 +7250,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         sender,
         `[trigger] Aged ${result.aged} trigger(s) by ${days} day(s). ${result.lines.join("  |  ")}`
       );
-      const who = characterFor4(sender)?.Name ?? `#${sender}`;
+      const who = nameOrNumber(characterFor4(sender), sender);
       tellPlayer(`TESTING: ${who} aged ${result.aged} trigger(s) by ${days} day(s).`);
       result.lines.forEach(tellPlayer);
     });
@@ -7451,7 +7462,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!word) return null;
     if (["anyone", "anybody", "someone", "somebody", "everyone", "everybody"].includes(word)) return { watchName: "*" };
     if (word === "i" || word === "me") {
-      return { watchName: nameKey(characterFor4(installerId)?.Name) || "the hypnotist", watchMember: installerId };
+      return { watchName: nameKey(displayNameOf(characterFor4(installerId))) || "the hypnotist", watchMember: installerId };
     }
     if (["you", "he", "she", "they", "it", "that", "this", "we", "him", "her", "them", "the", "a"].includes(word)) return null;
     const inRoom2 = (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find(
@@ -7825,6 +7836,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_triggers = __esm({
     "src/triggers.ts"() {
       init_log();
+      init_names();
       init_voice();
       init_notify();
       init_compulsion_acts();
@@ -8451,7 +8463,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function conditionStartHeld(sender, content, parsed, condition, decide) {
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
-    const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
+    const line = beginRecording(sender, nameOrNumber(character, sender), "", isTriggerInEffect, condition);
     if (!isRecording()) return true;
     const optionNotes = [];
     if (parsed.every) {
@@ -8565,7 +8577,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (isRecording()) {
       renameRecording(sender, parsed.phrase, isTriggerInEffect);
     } else {
-      const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
+      const line = beginRecording(sender, nameOrNumber(character, sender), parsed.phrase, isTriggerInEffect);
       if (line) tellPlayer(line);
     }
     if (parsed.rest && isRecording()) {
@@ -9464,7 +9476,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!isSessionActiveWith(sender) || !mentionsAnyName(content, playerOwnNames())) return false;
     const wanted = all ? appliedSuggestions() : lastApplied();
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
-    const result = carryThese(sender, character?.Name ?? `#${sender}`, wanted);
+    const result = carryThese(sender, nameOrNumber(character, sender), wanted);
     if (result.refusal) tellHypnotist(sender, `[carry] Refused \u2014 ${result.refusal}`);
     if (result.subject) tellPlayer(result.subject);
     return true;
@@ -10126,6 +10138,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
+      init_names();
       init_compulsion_acts();
       init_planted();
       init_teardown();
@@ -11666,7 +11679,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.2", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.3", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11715,7 +11728,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.2", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.3", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -14245,7 +14258,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.2"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.3"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14318,7 +14331,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.2"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.3"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15132,7 +15145,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.2", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.3", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -15845,7 +15858,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!t) return null;
     if (/^\d+$/.test(t)) {
       const id = Number(t);
-      return { id, name: findCharacter(id)?.Name ?? `#${id}` };
+      return { id, name: nameOrNumber(findCharacter(id), id) };
     }
     const lower = t.toLowerCase();
     const names = (c) => [c?.Name, c?.Nickname].filter(Boolean).map((n) => n.toLowerCase());
@@ -15853,7 +15866,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const exact = pool.filter((c) => names(c).includes(lower));
     const matches = exact.length ? exact : pool.filter((c) => names(c).some((n) => n.startsWith(lower)));
     if (matches.length !== 1) return null;
-    return { id: matches[0].MemberNumber, name: matches[0].Name };
+    return { id: matches[0].MemberNumber, name: displayNameOf(matches[0]) };
   }
   function startInduction(target) {
     lastInduced = target;
@@ -15867,12 +15880,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (resolved) return resolved;
     const pool = others();
     if (!token.trim() && pool.length === 1) {
-      return { id: pool[0].MemberNumber, name: pool[0].Name };
+      return { id: pool[0].MemberNumber, name: displayNameOf(pool[0]) };
     }
     reply2(token.trim() ? `No one here matches "${token.trim()}".` : "Who? Give a name or member number.");
     reply2(usage);
     if (!pool.length) reply2("Nobody else is in the room \u2014 you'll need a member number.");
-    else reply2(`In the room: ${pool.map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}`);
+    else reply2(`In the room: ${pool.map((c) => `${displayNameOf(c)} (${c.MemberNumber})`).join(", ")}`);
     return null;
   }
   function splitNameAndTail(args, max, isTail) {
@@ -16004,12 +16017,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const target = hypnotist ?? (others().length === 1 ? others()[0].MemberNumber : null);
     if (target == null) {
       reply2(
-        others().length ? `Not in a session, and more than one person is here: ${others().map((c) => `${c.Name} (${c.MemberNumber})`).join(", ")}.` : "Nobody else is in the room to send it to."
+        others().length ? `Not in a session, and more than one person is here: ${others().map((c) => `${displayNameOf(c)} (${c.MemberNumber})`).join(", ")}.` : "Nobody else is in the room to send it to."
       );
       return;
     }
     sendHiddenMessage({ type: "test-command", text: text2 }, target);
-    const name = findCharacter(target)?.Name ?? `#${target}`;
+    const name = nameOrNumber(findCharacter(target), target);
     reply2(`Sent "${text2}" to ${name} (${target})${hypnotist ? " \u2014 your hypnotist" : ""}.`);
     log(`/echs bot -> ${target}: ${text2}`);
   }
@@ -16025,6 +16038,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_commands = __esm({
     "src/commands.ts"() {
       init_log();
+      init_names();
       init_notify();
       init_effects();
       init_voice();
@@ -16222,7 +16236,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             if (!parts.length) {
               const all = listRelationshipOverrides();
               reply2(all.length ? "test overrides:" : "no relationship overrides set");
-              all.forEach((o) => reply2(`  ${findCharacter(o.memberId)?.Name ?? o.memberId} \u2192 ${o.kind}`));
+              all.forEach((o) => reply2(`  ${nameOrNumber(findCharacter(o.memberId), o.memberId)} \u2192 ${o.kind}`));
               reply2(usage);
               return;
             }
@@ -17265,7 +17279,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return C;
   }
   function findCharacterName2(member) {
-    return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c) => c?.MemberNumber === member)?.Name ?? `#${member}`;
+    return nameOrNumber((typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c) => c?.MemberNumber === member), member);
   }
   function seconds(ms) {
     return Math.ceil(ms / 1e3);
@@ -17330,7 +17344,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return;
     }
     const view = getSessionView(target.MemberNumber);
-    DrawText(`Hypnosis Remote \u2014 ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
+    DrawText(`Hypnosis Remote \u2014 ${displayNameOf(target) || "?"}`, MainCanvasWidth / 2, 170, "Black");
     const late = sessionLate(target.MemberNumber);
     DrawText(statusLine(view, late), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
     const session2 = sessionButton(view, late);
@@ -17359,7 +17373,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     DrawButton(SUB_HELP_LEFT, SUB_EXIT_TOP, SUB_EXIT_SIZE, SUB_EXIT_SIZE, "?", "White", "", "How this add-on works");
   }
   function drawAbsent(target) {
-    const name = target?.Name ?? "They";
+    const name = displayNameOf(target) || "They";
     DrawText(`Hypnosis Remote \u2014 ${name}`, MainCanvasWidth / 2, 170, "Black");
     DrawText(`${name} doesn't appear to be running ECHS.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
     DrawText("Nothing on this panel would reach them.", MainCanvasWidth / 2, ABSENT_LINE_Y + 55, "Gray");
@@ -17413,7 +17427,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return Math.max(1, Math.ceil(count / PLANTED_ROWS_PER_PAGE2));
   }
   function drawPlantedPage(target) {
-    const name = target?.Name ?? "them";
+    const name = displayNameOf(target) || "them";
     const note = plantedNote(target.MemberNumber);
     const triggers = note?.triggers ?? [];
     DrawText(`What you planted in ${name}`, MainCanvasWidth / 2, 170, "Black");
@@ -17601,6 +17615,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_remote = __esm({
     "src/remote.ts"() {
       init_log();
+      init_names();
       init_icon();
       init_messaging();
       init_badge();
@@ -18469,7 +18484,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.2"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.3"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -19755,7 +19770,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.2"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.3"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19782,7 +19797,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.2"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.3"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19858,14 +19873,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.2"})`);
+      info(`script loaded (v${"1.19.3"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.2",
+          version: "1.19.3",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20008,10 +20023,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.2"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.3"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.2";
+    page2.__ECHS_LOADED__ = "1.19.3";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

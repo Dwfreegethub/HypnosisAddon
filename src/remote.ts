@@ -1,4 +1,5 @@
 import { log } from "./log";
+import { displayNameOf, nameOrNumber } from "./names";
 import { SPIRAL_ICON } from "./icon";
 import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import { notePeer, presenceFields } from "./badge";
@@ -150,7 +151,7 @@ function getViewedOtherCharacter(): any {
 }
 
 function findCharacterName(member: number): string {
-	return (typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c: any) => c?.MemberNumber === member)?.Name ?? `#${member}`;
+	return nameOrNumber((typeof ChatRoomCharacter !== "undefined" ? ChatRoomCharacter : []).find((c: any) => c?.MemberNumber === member), member);
 }
 
 function seconds(ms: number): number {
@@ -229,7 +230,7 @@ function drawSubscreen(target: any): void {
 		return;
 	}
 	const view = getSessionView(target.MemberNumber);
-	DrawText(`Hypnosis Remote — ${target?.Name ?? "?"}`, MainCanvasWidth / 2, 170, "Black");
+	DrawText(`Hypnosis Remote — ${displayNameOf(target) || "?"}`, MainCanvasWidth / 2, 170, "Black");
 	const late = sessionLate(target.MemberNumber);
 	DrawText(statusLine(view, late), MainCanvasWidth / 2, STATUS_LINE_Y, "Black");
 	const session = sessionButton(view, late);
@@ -261,7 +262,7 @@ function drawSubscreen(target: any): void {
 /** Shown instead of the controls, rather than alongside them. A row of permanently
  * disabled buttons under an explanation would only invite clicking them. */
 function drawAbsent(target: any): void {
-	const name = target?.Name ?? "They";
+	const name = displayNameOf(target) || "They";
 	DrawText(`Hypnosis Remote — ${name}`, MainCanvasWidth / 2, 170, "Black");
 	DrawText(`${name} doesn't appear to be running ECHS.`, MainCanvasWidth / 2, ABSENT_LINE_Y, "Black");
 	DrawText("Nothing on this panel would reach them.", MainCanvasWidth / 2, ABSENT_LINE_Y + 55, "Gray");
@@ -323,7 +324,7 @@ function plantedPageCount(target: any): number {
 /** The list a hypnotist opens from the panel: one trigger to a row, its word or condition first,
  * how it stands beside that, and what it does under it. */
 function drawPlantedPage(target: any): void {
-	const name = target?.Name ?? "them";
+	const name = displayNameOf(target) || "them";
 	const note = plantedNote(target.MemberNumber);
 	const triggers = note?.triggers ?? [];
 	DrawText(`What you planted in ${name}`, MainCanvasWidth / 2, 170, "Black");

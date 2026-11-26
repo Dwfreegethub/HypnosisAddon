@@ -104,7 +104,7 @@ await load();
 ours().click();
 // Failure (idkkkkk): BC's page stays up and the panel draws behind it.
 check("the button hides BC's page", screenHidden(), true);
-check("  and the panel draws instead of BC's sheet", [run(), texts.some((t) => t.startsWith("Hypnosis Remote — Helper"))], [false, true]);
+check("  and the panel draws instead of BC's sheet", [run(), texts.some((t) => t.startsWith("Hypnosis Remote — Missys Helper"))], [false, true]);
 check("  with its exit button", buttons.includes("Back"), true);
 
 // --- 3. every way out shows BC's page again -------------------------------------------------------
@@ -124,7 +124,7 @@ byId.clear();
 // Failure: an older client (no HTML page) loses its only way in.
 check("no HTML page: the canvas spiral is drawn", [run(), buttons.includes("ECHS Hypnosis Remote")], [true, true]);
 check("  and opens the panel", click(120, 160), false);
-check("  which draws", [run(), texts.some((t) => t.startsWith("Hypnosis Remote — Helper"))], [false, true]);
+check("  which draws", [run(), texts.some((t) => t.startsWith("Hypnosis Remote — Missys Helper"))], [false, true]);
 exit();
 const realHelper = globalThis.InformationSheetMenuButton;
 delete globalThis.InformationSheetMenuButton;

@@ -1,4 +1,5 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
+import { displayNameOf, nameOrNumber } from "./names";
 import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE, kindEvent, eventSlot } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES } from "./planted";
 import { onTeardown, onWakeKeep } from "./teardown";
@@ -2443,7 +2444,7 @@ function conditionStartHeld(
 	decide: (notes: HeldNote[]) => void,
 ): boolean {
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
-	const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
+	const line = beginRecording(sender, nameOrNumber(character, sender), "", isTriggerInEffect, condition);
 	if (!isRecording()) return true; // refused; the refusal is sent by the caller
 	// Options said on the same line ("…, this trigger works every time") are applied and taken out of
 	// what is recorded; "whenever …" is every time by itself (v1.16.12).
@@ -2592,7 +2593,7 @@ function handleTriggerControl(sender: number, content: string): boolean {
 	if (isRecording()) {
 		renameRecording(sender, parsed.phrase, isTriggerInEffect);
 	} else {
-		const line = beginRecording(sender, character?.Name ?? `#${sender}`, parsed.phrase, isTriggerInEffect);
+		const line = beginRecording(sender, nameOrNumber(character, sender), parsed.phrase, isTriggerInEffect);
 		if (line) tellPlayer(line);
 	}
 	// An action after a pause on the same line: re-read it with her name, through the ordinary
@@ -4061,7 +4062,7 @@ function handleCarryControl(sender: number, content: string): boolean {
 	const wanted = all ? appliedSuggestions() : lastApplied();
 
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
-	const result = carryThese(sender, character?.Name ?? `#${sender}`, wanted);
+	const result = carryThese(sender, nameOrNumber(character, sender), wanted);
 	// The refusal goes to the HYPNOTIST, not the subject — same split as trigger setup, and
 	// for the same reason: the subject learning "they aren't trusted enough yet" breaks the
 	// fiction, while the hypnotist not learning it leaves them guessing.

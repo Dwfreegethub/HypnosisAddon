@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.3 · 26 November 2026
+
+- **ECHS now uses people's nicknames everywhere,** the way the game does. *"Attempting an induction
+  on bea_acct"* now says *Bunny* when that is her nickname, and so do the remote, the room list in
+  commands, the trust list, and the name you're shown as when you hypnotize someone. You can still
+  type either name in a command.
+
 ## v1.19.2 · 26 November 2026
 
 - **A touch picker in the popup.** Suggestions › Touch now starts with a picker: choose who
