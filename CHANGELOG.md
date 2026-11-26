@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.39 · 25 November 2026
+
+- **Calmer notices for the hypnotist.** They used to read like *[[trigger] RECORDING "sleepy doll"…]*
+  and *SAVED … 1 action(s): movement-block. Planted at 80 (Blank)*. Now: *[Recording "sleepy doll": say
+  what it does, then "remember trigger"…]* and *[Saved "sleepy doll": you cannot move. Planted at
+  Blank depth…]*, with what each part does in words. The doubled bracket is gone from every notice,
+  even ones sent by an older ECHS.
+- **"can't be hypnotized right now: they aren't open to hypnosis."** No capital in the middle of
+  the sentence any more.
+
 ## v1.16.38 · 25 November 2026
 
 - **The Stats tab's trust list scrolls**, with a scroll bar and the mouse wheel, instead of Prev and

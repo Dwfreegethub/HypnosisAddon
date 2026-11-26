@@ -131,7 +131,6 @@ The icon is intentionally visible for all players rather than hidden for non-use
 * **Held Restraints & Poses:** If bondage items prevent a pose, the room sees the character struggle and fail rather than a false confirmation. Real restraints always win over hypnotic commands.
 * **Whole-Body Poses:** *"On all fours"* and *"lie down"* use Bondage Club's whole-body poses, so they replace any arm pose rather than combining with it. *"Lie down"* may need a supporting item worn before the game allows it; if it does, it reports as not landing rather than failing silently.
 * **Trigger Phrase Collisions in Commands:** If a planted trigger phrase appears inside a spoken command line, the trigger handler may take precedence and swallow the command.
-* **Internal Action IDs:** The hypnotist's private `[trigger]` confirmations still name actions by their internal IDs (e.g., `movement-block`, `act:genital`). Your own `/echs triggers <number>` shows them in plain words.
 * **Trigger Decay Balancing:** Live trigger decay curves are actively being calibrated across real play sessions and remain disabled by default.
 
 ---

@@ -74,7 +74,7 @@ check("  with one reaction, not a separate compulsion", reacts().length, 1);
 check("  the reaction waits for a grope, gated on the word", [reacts()[0]?.fireOn, reacts()[0]?.act, reacts()[0]?.gate, reacts()[0]?.actions], ["act", "grope", "sensitive", ["say:1:Oh!"]]);
 check("  the word carries it", word()?.actions, [`react:${reacts()[0]?.key}`]);
 check("  the planter told", /Added a reaction to "sensitive": when anyone gropes them, say:1:Oh!/.test(toHyp.join(" ")), true);
-check("  the save names the reaction", /SAVED "sensitive"/.test(toHyp.join(" ")), true);
+check("  the save names the reaction", /Saved "sensitive"/.test(toHyp.join(" ")), true);
 check("  the detail reads it", voice.describeAction(word().actions[0]), 'while it holds you, when anyone gropes you: you say "Oh!"');
 
 // --- off until the word -------------------------------------------------------------------------------

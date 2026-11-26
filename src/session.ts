@@ -2309,7 +2309,9 @@ function reportRefusalToHypnotist(sender: number, message: Record<string, any>):
 	if (!reason) return;
 	const minutes = Math.ceil(Number(message.cooldownRemaining ?? 0) / 60_000);
 	const wait = /^Not yet/.test(reason) && minutes > 0 ? ` (about ${minutes} more minute${minutes === 1 ? "" : "s"})` : "";
-	tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${reason}${wait}`);
+	// Lower case after the colon (v1.16.39, review F9: "right now: They aren't open to hypnosis.").
+	const said = reason.charAt(0).toLowerCase() + reason.slice(1);
+	tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${said}${wait}`);
 }
 
 function reportExpiryToHypnotist(sender: number, message: Record<string, any>): void {

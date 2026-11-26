@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.38. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.39. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -5358,7 +5358,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!reason) return;
     const minutes = Math.ceil(Number(message.cooldownRemaining ?? 0) / 6e4);
     const wait = /^Not yet/.test(reason) && minutes > 0 ? ` (about ${minutes} more minute${minutes === 1 ? "" : "s"})` : "";
-    tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${reason}${wait}`);
+    const said = reason.charAt(0).toLowerCase() + reason.slice(1);
+    tellPlayer(`${findCharacterName(sender)} can't be hypnotized right now: ${said}${wait}`);
   }
   function reportExpiryToHypnotist(sender, message) {
     if (message.refusedReason) return;
@@ -6956,7 +6957,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function installTriggers() {
     registerHiddenHandler("trigger-status", (sender, message) => {
       const text2 = typeof message.text === "string" ? message.text : "";
-      if (text2) tellPlayer(text2);
+      const shown = text2.replace(/^\[(?:trigger|trance)\]\s*/, "");
+      if (shown) tellPlayer(shown);
       if (message.planted !== void 0) receivePlanted(sender, characterFor4(sender)?.Name ?? `#${sender}`, message.planted);
     });
     registerHiddenHandler("test-age", (sender, message) => {
@@ -7308,7 +7310,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const old = recording.phrase;
     recording.phrase = phrase;
     log(`trigger recording renamed "${old}" -> "${phrase}"`);
-    tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}" \u2014 ${recording.actions.length} suggestion(s) kept.`);
+    const kept = recording.actions.length;
+    tellHypnotist(recording.hypnotistId, `[trigger] Renamed to "${phrase}"; ${kept === 1 ? "its 1 suggestion is" : `its ${kept} suggestions are`} kept.`);
   }
   function beginRecording(hypnotistId, hypnotistName2, phrase, isHolding = () => false, condition) {
     const refuse2 = (why) => {
@@ -7358,7 +7361,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`recording ${recordingLabel()} for ${hypnotistName2}`);
     tellHypnotist(
       hypnotistId,
-      `[trigger] RECORDING ${recordingLabel()}. Say each suggestion, then "remember trigger" to save (or "forget the trigger" to cancel).`
+      `[trigger] Recording ${recordingLabel()}: say what it does, then "remember trigger" (or "forget the trigger" to cancel).`
     );
     return "Something is being set aside in you. You let it happen.";
   }
@@ -7408,7 +7411,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trigger ${recordingLabel()} now has ${recording.actions.length} action(s)`);
     tellHypnotist(
       recording.hypnotistId,
-      `[trigger] Recorded ${id} into ${recordingLabel()} (${recording.actions.length} so far).`
+      `[trigger] Recorded for ${recordingLabel()}: ${describeAction(id)}.`
     );
     return "That settles into place, waiting.";
   }
@@ -7503,7 +7506,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     log(`trigger committed: ${recordingLabel()} (${count} actions${options ? `; ${options}` : ""}) by ${trigger.installedByName}`);
     tellHypnotistWithList(
       trigger.installedBy,
-      `[trigger] SAVED ${recordingLabel()} \u2014 ${count} action(s): ${trigger.actions.join(", ")}. Planted at ${trigger.plantedDepth} (${tierLabel(tierOf(trigger.plantedDepth))}). ` + (options ? `Options: ${options}. ` : "") + (condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) + (notes.length ? ` ${notes.join(" ")}` : "")
+      // v1.16.39 (review F9): in words, not ids and a number ("SAVED … 1 action(s): kneel. Planted at 80").
+      `[trigger] Saved ${recordingLabel()}: ${trigger.actions.map(describeAction).join("; ")}. Planted at ${tierLabel(tierOf(trigger.plantedDepth))} depth. ` + (options ? `Options: ${options}. ` : "") + (condition ? `It fires ${describeConditionFor(condition, trigger.installedBy, "they")}.` : `Saying it will now fire them, in or out of trance.`) + (notes.length ? ` ${notes.join(" ")}` : "")
     );
     recording = null;
     return displaced ? "Something already set aside in you comes loose \u2014 and something new settles into the space it leaves." : "It settles somewhere you won't think to look for it.";
@@ -7550,6 +7554,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_triggers = __esm({
     "src/triggers.ts"() {
       init_log();
+      init_voice();
       init_notify();
       init_compulsion_acts();
       init_storage();
@@ -8991,7 +8996,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       tellHypnotist(sender, "[trigger] Nothing of yours is planted in them to reinforce.");
       return true;
     }
-    tellHypnotist(sender, `[trigger] Reinforced ${count} trigger(s) back to full strength.`);
+    tellHypnotist(sender, `[trigger] Reinforced ${count === 1 ? "1 trigger" : `${count} triggers`} back to full strength.`);
     announce("trigger-reinforced");
     return true;
   }
@@ -11305,7 +11310,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.38", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.39", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11354,7 +11359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.38", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.39", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13642,7 +13647,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.38"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.39"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13715,7 +13720,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.38"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.39"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14604,7 +14609,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.38", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.39", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17697,7 +17702,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.38"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.39"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18836,7 +18841,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.38"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.39"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18863,7 +18868,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.38"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.39"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18938,14 +18943,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.38"})`);
+      info(`script loaded (v${"1.16.39"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.38",
+          version: "1.16.39",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19087,10 +19092,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.38"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.39"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.38";
+    page2.__ECHS_LOADED__ = "1.16.39";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

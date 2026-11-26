@@ -249,9 +249,9 @@ session.safeword();
 update({ phase: "Idle", attempts: 0 });
 out = update({ phase: "Hypnotized", attempts: 0, maxAttempts: 2, refusedReason: "Already under." });
 check("a refusal reaches the hypnotist's log", out.length, 1);
-check("  naming them and the reason", /GameBot can't be hypnotized right now: Already under\./.test(out[0] ?? ""), true);
+check("  naming them and the reason", /GameBot can't be hypnotized right now: already under\./.test(out[0] ?? ""), true);
 out = update({ phase: "CooldownRequired", attempts: 0, maxAttempts: 2, cooldownRemaining: 7 * 60_000 - 5_000, refusedReason: "Not yet — try again later." });
-check("  a cooldown says how long", /Not yet — try again later\. \(about 7 more minutes\)/.test(out[0] ?? ""), true);
+check("  a cooldown says how long", /right now: not yet — try again later\. \(about 7 more minutes\)/.test(out[0] ?? ""), true);
 check("  every time it is asked", update({ phase: "CooldownRequired", attempts: 0, maxAttempts: 2, refusedReason: "Not yet — try again later." }).length, 1);
 check("a status query's empty reason says nothing", update({ phase: "Idle", attempts: 0, refusedReason: "" }).length, 0);
 

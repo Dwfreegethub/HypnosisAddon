@@ -3719,7 +3719,7 @@ function handleReinforcement(sender: number, content: string): boolean {
 		tellHypnotist(sender, "[trigger] Nothing of yours is planted in them to reinforce.");
 		return true;
 	}
-	tellHypnotist(sender, `[trigger] Reinforced ${count} trigger(s) back to full strength.`);
+	tellHypnotist(sender, `[trigger] Reinforced ${count === 1 ? "1 trigger" : `${count} triggers`} back to full strength.`);
 	announce("trigger-reinforced");
 	return true;
 }
