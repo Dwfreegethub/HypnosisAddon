@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.35. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.36. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -11332,7 +11332,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.35", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.36", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11381,7 +11381,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.35", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.36", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13915,7 +13915,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.35"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.36"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13988,7 +13988,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.35"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.36"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14848,7 +14848,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.35", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.36", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -15375,7 +15375,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!characterFor5(member)) return;
     const mode = keyModeFor(member);
     sendHiddenMessage(
-      { type: "state-response", ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none" },
+      // keysChanged (v1.16.36, review F6): this answer is news, so their ECHS says so in chat. The
+      // same fields on an ordinary answer (joining a room, reading settings) are not.
+      { type: "state-response", ...presenceFields(), keyholder: mode ? legacyWord(mode) : "none", keyLevel: mode ?? "none", keysChanged: true },
       member
     );
   }
@@ -15387,10 +15389,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function receiveKeyholderFields(sender, message) {
     const held = levelFromWire(message?.keyLevel, message?.keyholder);
+    const before = holds.get(sender);
     if (message?.keyholder === "none" || message?.keyLevel === "none") {
       holds.delete(sender);
       snapshots.delete(sender);
     } else if (held) holds.set(sender, held);
+    const after = holds.get(sender);
+    if (message?.keysChanged === true && after !== before) {
+      const name = nameOf2(sender);
+      tellPlayer(
+        !after ? `${name} took their keys back.` : !before ? `${name} gave you ${after} keys to their ECHS settings. They're on the popup's Keys tab.` : `${name} changed your keys to ${after}.`
+      );
+    }
     const s = message?.settings;
     if (s && Array.isArray(s.boxes) && s.boxes.length <= 80) {
       const boxes = s.boxes.filter((b) => b && typeof b.key === "string" && b.key.length <= 40).map((b) => ({ key: b.key, on: b.on === true }));
@@ -17928,7 +17938,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.35"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.36"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18327,6 +18337,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       list.appendChild(rates);
     });
   }
+  function askedStatus(status, member, text2) {
+    awaiting = { id: member, at: Date.now() };
+    setStatus(status, text2);
+  }
   function cycleLevel(key, held) {
     const i = keyCycle.get(key) ?? (held ? (keyRank(held) + 1) % KEY_LEVELS.length : 0);
     return KEY_LEVELS[i];
@@ -18353,6 +18367,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       h?.id ?? "",
       JSON.stringify(snap),
       res?.at ?? 0,
+      // The text too, and a request waiting for its answer: the status line follows them (review F6).
+      res?.text ?? "",
+      awaiting ? `${awaiting.id}@${awaiting.at}` : "",
       h ? askState(h.id) : "",
       JSON.stringify(listKeyholders()),
       getOwnerKeyMode() ?? "",
@@ -18394,6 +18411,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const why = extremeLocked() ? "Your Extreme lock is on: who holds your keys can't change until it ends." : keysLocker ? `${keysLocker.name} locked who holds your keys: you can't give or take back keys until a full keyholder unlocks it.` : "Your settings are locked while a session is on you.";
     const locker = keyLockHolder();
     const typed = (text2) => typeIt(status, text2, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
+    const held = heldKeys();
+    if (held.length) renderHeld(body2, status, held);
     keysGroup(body2, "mine", "Your keyholders", (list) => {
       list.appendChild(el2("div", "echs-pop-hint", "A keyholder can change your ECHS settings while you're in a room together, even under Extreme, and can end your Extreme lock."));
       list.appendChild(el2("div", "echs-pop-hint", LEVEL_HINT));
@@ -18463,8 +18482,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       });
     }
-    const held = heldKeys();
-    if (!held.length) return;
+  }
+  function renderHeld(body2, status, held) {
     const who = currentHolder();
     const now = Date.now();
     if (now - (keysAskedAt.get(who.id) ?? 0) >= KEYS_REASK_MS) {
@@ -18499,6 +18518,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       const res = lastResult(who.id);
       if (res && now - res.at < 15e3) list.appendChild(el2("div", "echs-pop-hint", res.text));
+      if (awaiting?.id === who.id) {
+        if (res && res.at >= awaiting.at) {
+          setStatus(status, res.ok ? res.text : `Refused: ${res.text}`);
+          awaiting = null;
+        } else if (asking === "silent") {
+          setStatus(status, `${who.name}'s ECHS did not answer. Try again, or press refresh.`);
+          awaiting = null;
+        }
+      }
       const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
       const chosen = new Map(snap.choices.map((c) => [c.key, c.value]));
       for (const tab2 of REMOTE_TABS) {
@@ -18523,8 +18551,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
           b.type = "button";
           b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
           b.addEventListener("click", () => {
+            if (blocked) {
+              setStatus(status, `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`);
+              return;
+            }
             requestSetting(who.id, r.key, !isOn);
-            setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"\u2026`);
+            askedStatus(status, who.id, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"\u2026`);
           });
           list.appendChild(b);
         }
@@ -18543,7 +18575,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
                 chip(label, blocked ? `Your ${who.mode} keys can't change this.` : `Set ${c.label} to ${remoteChoiceLabel(c, next)}`, () => {
                   if (next === value) return;
                   requestChoice(who.id, c.key, next);
-                  setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${remoteChoiceLabel(c, next)}\u2026`);
+                  askedStatus(status, who.id, `Asked ${who.name}'s ECHS to set ${c.label} to ${remoteChoiceLabel(c, next)}\u2026`);
                 }, blocked || next === value)
               );
             }
@@ -18555,7 +18587,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const ch = chip(o.label, blocked ? `Your ${who.mode} keys can't choose this.` : `Set ${c.label} to ${o.label}`, () => {
               if (o.key === value) return;
               requestChoice(who.id, c.key, o.key);
-              setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}\u2026`);
+              askedStatus(status, who.id, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}\u2026`);
             }, blocked && o.key !== value);
             if (o.key === value) ch.className += " echs-pop-chip-on";
             row.appendChild(ch);
@@ -18596,7 +18628,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
                 if (removeArmed.id === t.id && Date.now() - removeArmed.at < END_EXTREME_ARM_MS) {
                   removeArmed = { id: "", at: 0 };
                   requestRemoveTrigger(who.id, t.id);
-                  setStatus(status, `Asked ${who.name}'s ECHS to remove that trigger\u2026`);
+                  askedStatus(status, who.id, `Asked ${who.name}'s ECHS to remove that trigger\u2026`);
                 } else {
                   removeArmed = { id: t.id, at: Date.now() };
                   setStatus(status, "Click again within 5 seconds to remove it.");
@@ -18624,7 +18656,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               if (Date.now() - unlockArmedAt < END_EXTREME_ARM_MS) {
                 unlockArmedAt = 0;
                 requestUnlock(who.id);
-                setStatus(status, `Asked ${who.name}'s ECHS to unlock their settings\u2026`);
+                askedStatus(status, who.id, `Asked ${who.name}'s ECHS to unlock their settings\u2026`);
               } else {
                 unlockArmedAt = Date.now();
                 setStatus(status, "Click again within 5 seconds to unlock their settings.");
@@ -18648,7 +18680,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               if (Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS) {
                 unlockKeysArmedAt = 0;
                 requestUnlockKeys(who.id);
-                setStatus(status, `Asked ${who.name}'s ECHS to unlock who holds their keys\u2026`);
+                askedStatus(status, who.id, `Asked ${who.name}'s ECHS to unlock who holds their keys\u2026`);
               } else {
                 unlockKeysArmedAt = Date.now();
                 setStatus(status, "Click again within 5 seconds to unlock who holds their keys.");
@@ -18717,7 +18749,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             if (Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS) {
               endExtremeArmedAt = 0;
               requestEndExtreme(who.id);
-              setStatus(status, `Asked ${who.name}'s ECHS to end their Extreme lock\u2026`);
+              askedStatus(status, who.id, `Asked ${who.name}'s ECHS to end their Extreme lock\u2026`);
             } else {
               endExtremeArmedAt = Date.now();
               setStatus(status, "Click again within 5 seconds to end their Extreme lock.");
@@ -18799,7 +18831,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, keyCycle, keyCycleLast, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -18872,6 +18904,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       KEYS_REASK_MS = 3e4;
       END_EXTREME_ARM_MS = 5e3;
       endExtremeArmedAt = 0;
+      awaiting = null;
       keyCycle = /* @__PURE__ */ new Map();
       keyCycleLast = "";
       LEVEL_HINT = "minimal = only switch things off \xB7 moderate = also shape your trance \xB7 full = everything";
@@ -19040,7 +19073,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.35"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.36"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -19067,7 +19100,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.35"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.36"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19142,14 +19175,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.35"})`);
+      info(`script loaded (v${"1.16.36"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.35",
+          version: "1.16.36",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19291,10 +19324,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.35"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.36"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.35";
+    page2.__ECHS_LOADED__ = "1.16.36";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

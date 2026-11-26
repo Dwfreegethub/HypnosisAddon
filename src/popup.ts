@@ -1137,6 +1137,13 @@ const KEYS_REASK_MS = 30_000;
 /** "End their Extreme lock" needs a second click within this long. */
 const END_EXTREME_ARM_MS = 5_000;
 let endExtremeArmedAt = 0;
+/** A request from the held-keys list waiting for its answer (v1.16.36, review F6): whose, and when.
+ * The status line said "Asked…" and stayed that way; now the answer replaces it. */
+let awaiting: { id: number; at: number } | null = null;
+function askedStatus(status: any, member: number, text: string): void {
+	awaiting = { id: member, at: Date.now() };
+	setStatus(status, text);
+}
 
 // "Give keys (level)" (v1.16.0, job6.md §2, DW): one button per person that cycles minimal → moderate
 // → full. Its label is what a click types; a second click on the same button moves on to the next
@@ -1185,6 +1192,9 @@ function keysKey(): string {
 		h?.id ?? "",
 		JSON.stringify(snap),
 		res?.at ?? 0,
+		// The text too, and a request waiting for its answer: the status line follows them (review F6).
+		res?.text ?? "",
+		awaiting ? `${awaiting.id}@${awaiting.at}` : "",
 		h ? askState(h.id) : "",
 		JSON.stringify(listKeyholders()),
 		getOwnerKeyMode() ?? "",
@@ -1238,6 +1248,8 @@ function renderKeys(body: any, status: any): void {
 			: "Your settings are locked while a session is on you.";
 	const locker = keyLockHolder();
 	const typed = (text: string) => typeIt(status, text, locked ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to do it.");
+	const held = heldKeys();
+	if (held.length) renderHeld(body, status, held);
 
 	// 1. Your keyholders.
 	keysGroup(body, "mine", "Your keyholders", (list) => {
@@ -1313,10 +1325,11 @@ function renderKeys(body: any, status: any): void {
 			}
 		});
 	}
+}
 
-	// 3. Settings you hold keys to.
-	const held = heldKeys();
-	if (!held.length) return;
+/** "Settings you hold keys to". First on the tab when you hold anyone's keys (v1.16.36, review F6):
+ * it is what a keyholder opens the tab for, and it sat under their own keyholders and Ask for keys. */
+function renderHeld(body: any, status: any, held: { id: number; name: string; mode: KeyMode }[]): void {
 	const who = currentHolder()!;
 	const now = Date.now();
 	if (now - (keysAskedAt.get(who.id) ?? 0) >= KEYS_REASK_MS) {
@@ -1355,6 +1368,15 @@ function renderKeys(body: any, status: any): void {
 		}
 		const res = lastResult(who.id);
 		if (res && now - res.at < 15_000) list.appendChild(el("div", "echs-pop-hint", res.text));
+		if (awaiting?.id === who.id) {
+			if (res && res.at >= awaiting.at) {
+				setStatus(status, res.ok ? res.text : `Refused: ${res.text}`);
+				awaiting = null;
+			} else if (asking === "silent") {
+				setStatus(status, `${who.name}'s ECHS did not answer. Try again, or press refresh.`);
+				awaiting = null;
+			}
+		}
 		const on = new Map(snap.boxes.map((b) => [b.key, b.on]));
 		// Tab by tab, in screen order: its tick boxes, then its choices (v1.14.1: Inductions and
 		// Trance Defaults), one row of chips each with the current one lit. What the keys' level can't
@@ -1382,8 +1404,14 @@ function renderKeys(body: any, status: any): void {
 				b.type = "button";
 				b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
 				b.addEventListener("click", () => {
+					// v1.16.36 (review F6): a faded box sent anyway and got no visible answer. Said here
+					// instead, without sending: their ECHS would only refuse it.
+					if (blocked) {
+						setStatus(status, `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`);
+						return;
+					}
 					requestSetting(who.id, r.key, !isOn);
-					setStatus(status, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
+					askedStatus(status, who.id, `Asked ${who.name}'s ECHS to switch ${isOn ? "off" : "on"} "${r.label}"…`);
 				});
 				list.appendChild(b);
 			}
@@ -1403,7 +1431,7 @@ function renderKeys(body: any, status: any): void {
 							chip(label, blocked ? `Your ${who.mode} keys can't change this.` : `Set ${c.label} to ${remoteChoiceLabel(c, next)}`, () => {
 								if (next === value) return;
 								requestChoice(who.id, c.key, next);
-								setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${remoteChoiceLabel(c, next)}…`);
+								askedStatus(status, who.id, `Asked ${who.name}'s ECHS to set ${c.label} to ${remoteChoiceLabel(c, next)}…`);
 							}, blocked || next === value),
 						);
 					}
@@ -1415,7 +1443,7 @@ function renderKeys(body: any, status: any): void {
 					const ch = chip(o.label, blocked ? `Your ${who.mode} keys can't choose this.` : `Set ${c.label} to ${o.label}`, () => {
 						if (o.key === value) return;
 						requestChoice(who.id, c.key, o.key);
-						setStatus(status, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}…`);
+						askedStatus(status, who.id, `Asked ${who.name}'s ECHS to set ${c.label} to ${o.label}…`);
 					}, blocked && o.key !== value);
 					if (o.key === value) ch.className += " echs-pop-chip-on";
 					row.appendChild(ch);
@@ -1457,7 +1485,7 @@ function renderKeys(body: any, status: any): void {
 							if (removeArmed.id === t.id && Date.now() - removeArmed.at < END_EXTREME_ARM_MS) {
 								removeArmed = { id: "", at: 0 };
 								requestRemoveTrigger(who.id, t.id);
-								setStatus(status, `Asked ${who.name}'s ECHS to remove that trigger…`);
+								askedStatus(status, who.id, `Asked ${who.name}'s ECHS to remove that trigger…`);
 							} else {
 								removeArmed = { id: t.id, at: Date.now() };
 								setStatus(status, "Click again within 5 seconds to remove it.");
@@ -1487,7 +1515,7 @@ function renderKeys(body: any, status: any): void {
 						if (Date.now() - unlockArmedAt < END_EXTREME_ARM_MS) {
 							unlockArmedAt = 0;
 							requestUnlock(who.id);
-							setStatus(status, `Asked ${who.name}'s ECHS to unlock their settings…`);
+							askedStatus(status, who.id, `Asked ${who.name}'s ECHS to unlock their settings…`);
 						} else {
 							unlockArmedAt = Date.now();
 							setStatus(status, "Click again within 5 seconds to unlock their settings.");
@@ -1512,7 +1540,7 @@ function renderKeys(body: any, status: any): void {
 						if (Date.now() - unlockKeysArmedAt < END_EXTREME_ARM_MS) {
 							unlockKeysArmedAt = 0;
 							requestUnlockKeys(who.id);
-							setStatus(status, `Asked ${who.name}'s ECHS to unlock who holds their keys…`);
+							askedStatus(status, who.id, `Asked ${who.name}'s ECHS to unlock who holds their keys…`);
 						} else {
 							unlockKeysArmedAt = Date.now();
 							setStatus(status, "Click again within 5 seconds to unlock who holds their keys.");
@@ -1584,7 +1612,7 @@ function renderKeys(body: any, status: any): void {
 					if (Date.now() - endExtremeArmedAt < END_EXTREME_ARM_MS) {
 						endExtremeArmedAt = 0;
 						requestEndExtreme(who.id);
-						setStatus(status, `Asked ${who.name}'s ECHS to end their Extreme lock…`);
+						askedStatus(status, who.id, `Asked ${who.name}'s ECHS to end their Extreme lock…`);
 					} else {
 						endExtremeArmedAt = Date.now();
 						setStatus(status, "Click again within 5 seconds to end their Extreme lock.");

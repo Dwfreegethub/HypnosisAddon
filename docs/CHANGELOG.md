@@ -18,6 +18,40 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-25 (v1.16.36) — Keys tab: requests answered, faded clicks explained, new keys announced
+
+UI lab review F6; DW: "F6 it is". Seen in the lab: a faded box (moderate keys, Hearing) still sent a
+set request, and the status line said "Asked Sena's ECHS to switch on…" for good; an allowed click
+worked but the status also stayed "Asked…"; Mira got no word when Sena gave her keys; and "Settings
+you hold keys to" sat under her own keyholders and Ask for keys.
+
+The subject's ECHS already answers every set/choose with a settingsResult; the popup only showed it
+as a hint inside the list. Now popup.ts keeps `awaiting` (whom, when) for the held-keys requests that
+use keyholder.ts ask() (set, choose, remove trigger, unlock, unlock keys, end Extreme), and
+renderHeld replaces the status with the result once one at or after that time arrives ("Refused: "
+in front of a refusal), or with "<name>'s ECHS did not answer" once askState goes silent. keysKey
+now also carries the result's text and `awaiting`, since two answers in one millisecond did not
+redraw. The requests their player must accept (lock, Extreme, take someone's keys back) keep their
+"They have 30 seconds to accept" line.
+
+A faded box no longer sends: it says "Your <level> keys can't switch "<label>" on: that needs
+<moderate|full> keys." Faded choice and step chips were already disabled.
+
+announceKeysTo adds `keysChanged: true`; receiveKeyholderFields tells the player in chat when that
+flag comes with a different level than they held: gave you / changed your keys to / took their keys
+back. The same fields on an ordinary answer (joining a room, reading settings) say nothing. An older
+subject sends no flag, so nothing is said.
+
+Section 3 of renderKeys became renderHeld, drawn first when heldKeys() is non-empty.
+
+Not done: the review's polish note on "Give keys (level)" cycling. DW chose the cycling button
+(job6.md §2), so a level picker is DW's call.
+
+popup.mjs: answer replaces Asked; refusal; faded sends nothing and says why; held group first; the
+chat lines (given, repeat silent, unflagged silent, changed, taken back). Mutations: no status
+update fails 2; faded sends fails 2; held group not drawn fails 3; no chat line fails 1; chat on
+every flagged answer fails 1.
+
 ### Fixed 2026-11-25 (v1.16.35) — People tab says who is open to hypnosis
 
 UI lab review F10; DW: "Lets do F10". A brand-new subject (hypnosis off) was listed exactly like an
