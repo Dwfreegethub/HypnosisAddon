@@ -82,6 +82,10 @@ import {
 	installerHasSession,
 	tellHypnotist,
 	tellHypnotistWithList,
+	holdHypnotistNotes,
+	takeHeldNotes,
+	sendHeldNotes,
+	type HeldNote,
 	triggerStrength,
 	describeStrength,
 	pruneFadedTriggers,
@@ -2404,9 +2408,35 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 		if (!watch) return false; // "when she comes in" names nobody we can watch for
 		condition = { fireOn: parsed.fireOn, ...watch, ...(parsed.fireOn === "act" ? { act: parsed.act } : {}) };
 	}
+	// One answer per line (v1.16.33): a clause that already failed on this line is not tried again
+	// by the second trigger-control pass in handleSpokenLine, which repeated every notice.
+	if (conditionFailedOnLine) return false;
+	// The hypnotist's notices are held while this runs; conditionStartHeld says which to send.
+	let send: HeldNote[] | null = null;
+	holdHypnotistNotes();
+	try {
+		return conditionStartHeld(sender, content, parsed, condition, (notes) => (send = notes));
+	} finally {
+		const left = takeHeldNotes();
+		sendHeldNotes(send ?? left);
+	}
+}
+
+/** Set when a compulsion clause on the line being read could not be kept; reset per spoken line. */
+let conditionFailedOnLine = false;
+/** Set when "nothing is being recorded" was already said for the line being read. */
+let toldNotRecordingOnLine = false;
+
+function conditionStartHeld(
+	sender: number,
+	content: string,
+	parsed: ParsedCondition,
+	condition: TriggerCondition,
+	decide: (notes: HeldNote[]) => void,
+): boolean {
 	const character = ChatRoomCharacter?.find((c: any) => c?.MemberNumber === sender);
 	const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
-	if (!isRecording()) return true; // refused, and the refusal already went to the hypnotist
+	if (!isRecording()) return true; // refused; the refusal is sent by the caller
 	// Options said on the same line ("…, this trigger works every time") are applied and taken out of
 	// what is recorded; "whenever …" is every time by itself (v1.16.12).
 	const optionNotes: string[] = [];
@@ -2445,35 +2475,53 @@ function handleConditionStart(sender: number, content: string, parsed: ParsedCon
 		return true;
 	}
 	// Anything else: re-read with her name on the front, through every ordinary path, which records
-	// rather than performs while a recording is open.
+	// rather than performs while a recording is open. What the re-read says is kept apart from the
+	// "RECORDING..." and "Noted..." held so far.
+	const heldBefore = takeHeldNotes();
+	holdHypnotistNotes();
 	rereadingRest = true;
 	try {
 		handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
 	} finally {
 		rereadingRest = false;
 	}
+	const fromRest = takeHeldNotes();
+	holdHypnotistNotes();
 	if (describeRecording() === before) {
 		cancelRecording();
+		conditionFailedOnLine = true;
+		// v1.16.33 (review F2): one answer. Dropped: "RECORDING..." and "Noted...", since nothing was
+		// recorded. Kept: whatever the rest of the line said about itself (a refusal saying why).
+		const unknown = `"${parsed.rest}" isn't something ECHS knows how to do, so no compulsion was set up.`;
 		if (parsed.fireOn === "wake") {
 			// v0.92.4: this used to fall through and WAKE her, since the line contains "wake". A
 			// hypnotist planting something for after the trance does not mean "wake up now", and
 			// losing the trance to a misheard suggestion is the worse failure. She stays under, and
 			// the hypnotist is told both things (rule 5).
-			tellHypnotist(
-				sender,
-				'[trigger] Nothing after "when you wake" could be kept as a compulsion, so none was set up. They are still under; say "wake up" to wake them.',
-			);
+			const why = fromRest.length ? "So no compulsion was set up." : unknown;
+			decide([...fromRest, { id: sender, text: `[trigger] ${why} They are still under; say "wake up" to wake them.` }]);
 			return true;
 		}
-		tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
-		return false;
+		const why = fromRest.length ? "So no compulsion was set up." : `${unknown} Pick what they do from Suggestions in the popup, or check a line with /echs match.`;
+		decide([...fromRest, { id: sender, text: `[trigger] ${why}` }]);
+		// Refused while recording: the line ends here, since read again live it is only refused again.
+		// Unknown: it falls through, as before, for whatever else it may be (patter, a deepener).
+		return fromRest.length > 0;
 	}
+	decide([...heldBefore, ...fromRest]);
 	tellLine();
 	return true;
 }
 
 /** Handle "your trigger word is X" / "remember trigger" / "forget the trigger".
  * Returns true if the line was one of these. */
+/** "remember trigger", or a trigger option, with nothing being recorded (v1.16.33): once a line. */
+function tellNotRecording(sender: number): void {
+	if (toldNotRecordingOnLine) return;
+	toldNotRecordingOnLine = true;
+	tellHypnotist(sender, '[trigger] Nothing is being recorded right now, so that was not kept. Start one first: "your trigger word is ..." or "when anyone ... you, ...".');
+}
+
 function handleTriggerControl(sender: number, content: string): boolean {
 	const parsed = parseTriggerControl(content);
 	if (!parsed) return false;
@@ -2494,7 +2542,13 @@ function handleTriggerControl(sender: number, content: string): boolean {
 		// is deliberately NOT re-read as a start phrase, or "only when I say it" would begin
 		// recording a trigger called "it".
 		const message = applyRecordingOption(parsed.option);
-		if (message === null) return false;
+		if (message === null) {
+			// v1.16.33 (review F2): said with nothing recording, it got no answer, so the hypnotist
+			// thought it was kept. It still falls through (above), and is answered only when the line
+			// names a trigger: "it will last ten minutes" may be patter about anything.
+			if (!isRecording() && /\b(?:this|that|the) trigger\b/.test(normalize(content))) tellNotRecording(sender);
+			return false;
+		}
 		tellPlayer(message);
 		return true;
 	}
@@ -2515,7 +2569,10 @@ function handleTriggerControl(sender: number, content: string): boolean {
 		return true;
 	}
 	if (parsed.kind === "commit") {
-		if (!isRecording()) return false;
+		if (!isRecording()) {
+			tellNotRecording(sender);
+			return true;
+		}
 		const message = commitRecording(isTriggerInEffect);
 		if (message) tellPlayer(message);
 		return true;
@@ -4856,6 +4913,10 @@ export function handleSpokenLine(sender: number, content: string): void {
 	if (!hearsLine(sender, mentionsAnyName(content, playerOwnNames()))) {
 		log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
 		return;
+	}
+	if (!rereadingRest) {
+		conditionFailedOnLine = false;
+		toldNotRecordingOnLine = false;
 	}
 	if (commandQueue.length && !rereadingRest && isControlLine(content)) flushCommands();
 	// ADDRESSEE SCOPING, BEFORE ANY MATCHER READS THE LINE. "Missy, cum. Ella, kneel." used to

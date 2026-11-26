@@ -31,13 +31,36 @@ import { plantedEntriesFor, receivePlanted } from "./planted";
  * words can be hidden from the subject entirely"). A subject who can read their own
  * trigger word can simply avoid reacting to it. */
 export function tellHypnotist(hypnotistId: number, text: string): void {
-	sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
+	if (heldNotes) heldNotes.push({ id: hypnotistId, text });
+	else sendHiddenMessage({ type: "trigger-status", text }, hypnotistId);
 }
 
 /** The same, when what they planted just changed: their list goes along, for their notes
  * (planted.ts says why it rides on this message). */
 export function tellHypnotistWithList(hypnotistId: number, text: string): void {
-	sendHiddenMessage({ type: "trigger-status", text, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+	if (heldNotes) heldNotes.push({ id: hypnotistId, text, list: true });
+	else sendHiddenMessage({ type: "trigger-status", text, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+}
+
+// Held notices (v1.16.33, UI lab review F2). A compulsion line begins recording before it knows
+// whether what follows can be kept, so "RECORDING..." and "Noted..." went out and were then
+// contradicted by "Nothing after that could be kept". The condition handler holds the notices while
+// it tries and sends them only if it worked. The handler that holds always releases (try/finally).
+export type HeldNote = { id: number; text: string; list?: true };
+let heldNotes: HeldNote[] | null = null;
+/** Start holding hypnotist notices instead of sending them. */
+export function holdHypnotistNotes(): void {
+	heldNotes = [];
+}
+/** Stop holding, and hand back what was held (unsent). */
+export function takeHeldNotes(): HeldNote[] {
+	const held = heldNotes ?? [];
+	heldNotes = null;
+	return held;
+}
+/** Send held notices, in order. */
+export function sendHeldNotes(notes: HeldNote[]): void {
+	for (const n of notes) (n.list ? tellHypnotistWithList : tellHypnotist)(n.id, n.text);
 }
 
 /** The hypnotist's side: show status their subject sent us. */
