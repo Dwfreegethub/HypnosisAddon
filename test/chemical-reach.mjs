@@ -71,5 +71,21 @@ check("  the key is gone, not stored false (default stays in code)", storage.get
 check("earned depth still reaches an opened feature (nothing broke the ordinary path)",
 	depth.depthAllows("triggerControl", 80, 80), true);
 
+// --- one name per setting (v1.16.40, review F9; DW: the Permissions names) ------------------------
+// Failure: the Depth tab calls a Permissions setting something else ("Cannot reach the wardrobe" for
+// Clothing Restriction), so a newcomer can't tell they are the same switch. The Permissions label,
+// without its bracketed detail, is the name.
+{
+	const { readFileSync } = await import("node:fs");
+	const menuSrc = readFileSync(new URL("../src/menu.ts", import.meta.url), "utf8");
+	const perm = menuSrc.slice(menuSrc.indexOf('name: "Permissions"'), menuSrc.indexOf('name: "Inductions"'));
+	const differ = [];
+	for (const g of depth.DEPTH_GATES) {
+		const m = perm.match(new RegExp(`key: "${g.key}", label: "([^"]+)"`));
+		if (m && m[1].replace(/ \(.*\)$/, "") !== g.label) differ.push(`${g.label} / ${m[1]}`);
+	}
+	check("Depth names the Permissions settings as Permissions does", differ, []);
+}
+
 console.log(`chemical-reach: ${pass}/${pass + fail} passed`);
 if (fail) process.exit(1);

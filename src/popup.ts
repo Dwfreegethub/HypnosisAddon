@@ -1037,7 +1037,7 @@ function renderTriggers(body: any, status: any): void {
 					row.appendChild(chips);
 				} else {
 					// A compulsion (v1.16.10): no word, so these type the lines that cover all of yours.
-					row.appendChild(el("div", "echs-pop-desc", "No word: release and remove act on every compulsion you planted in them."));
+					row.appendChild(el("div", "echs-pop-desc", "No word: release and forget act on every compulsion you planted in them."));
 					const chips = el("div", "echs-pop-buttons");
 					for (const line of COMPULSION_LINES) {
 						const text = suggestionText(p.name, line.phrase);
@@ -1077,7 +1077,7 @@ function renderTriggers(body: any, status: any): void {
 				chip(
 					"forget",
 					why || `/echs forgettrigger ${n}`,
-					() => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to remove it."),
+					() => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
 					!!why,
 				),
 			);
@@ -1473,7 +1473,7 @@ function renderHeld(body: any, status: any, held: { id: number; name: string; mo
 				if (!snap.planted.length) list.appendChild(el("div", "echs-pop-desc", "Nothing is planted in them."));
 				else
 					list.appendChild(
-						el("div", "echs-pop-hint", "You can remove one only if they trust you more than whoever planted it. Never one they planted in themselves, and never under their Extreme lock."),
+						el("div", "echs-pop-hint", "You can make them forget one only if they trust you more than whoever planted it. Never one they planted in themselves, and never under their Extreme lock."),
 					);
 				for (const t of snap.planted) {
 					const title = t.word ? `"${t.word}"` : t.when || "A trigger word you can't see";
@@ -1483,7 +1483,7 @@ function renderHeld(body: any, status: any, held: { id: number; name: string; mo
 					const armed = removeArmed.id === t.id && now - removeArmed.at < END_EXTREME_ARM_MS;
 					const row = el("div", "echs-pop-buttons");
 					row.appendChild(
-						chip(armed ? "click again to remove it" : "remove", t.removable ? "Removes this trigger from them. Click twice." : t.why, () => {
+						chip(armed ? "click again to forget it" : "forget", t.removable ? "Makes them forget this trigger. Click twice." : t.why, () => {
 							if (!t.removable) {
 								setStatus(status, t.why);
 								return;
@@ -1491,10 +1491,10 @@ function renderHeld(body: any, status: any, held: { id: number; name: string; mo
 							if (removeArmed.id === t.id && Date.now() - removeArmed.at < END_EXTREME_ARM_MS) {
 								removeArmed = { id: "", at: 0 };
 								requestRemoveTrigger(who.id, t.id);
-								askedStatus(status, who.id, `Asked ${who.name}'s ECHS to remove that trigger…`);
+								askedStatus(status, who.id, `Asked ${who.name}'s ECHS to forget that trigger…`);
 							} else {
 								removeArmed = { id: t.id, at: Date.now() };
-								setStatus(status, "Click again within 5 seconds to remove it.");
+								setStatus(status, "Click again within 5 seconds to forget it.");
 								renderBody();
 							}
 						}, !t.removable),

@@ -3044,7 +3044,7 @@ function tellPoseRefused(trigger: Trigger): void {
 	poseRefusalTold.add(trigger.key);
 	tellPlayer(
 		"Something set in you tries to move you, but your body will not go there." +
-			(extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger removes one once it has let go."),
+			(extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger forgets one once it has let go."),
 	);
 }
 
@@ -3331,7 +3331,7 @@ function removeTrigger(trigger: Trigger): boolean {
 /** Told to a planter whose removal the subject's Extreme lock refused (rule 5). Only ever said when
  * they named a trigger of their own, so it confirms nobody else's word. */
 const EXTREME_REMOVAL_REFUSED =
-	'[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
+	'[trigger] Their Extreme lock holds: triggers can be added, but not forgotten, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
 
 function handleTriggerRemoval(sender: number, line: string): boolean {
 	const parsed = parseTriggerRemoval(line);
@@ -3352,7 +3352,7 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 			return true;
 		}
 		const held = mine.map(removeTrigger).filter(Boolean).length;
-		tellHypnotistWithList(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held ? " What was holding them lets go." : ""}`);
+		tellHypnotistWithList(sender, `[trigger] They forgot ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held ? " What was holding them lets go." : ""}`);
 		tellPlayer(held ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
 		return true;
 	}
@@ -3370,7 +3370,7 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 		const kept = mine.length - theirs.length;
 		tellHypnotistWithList(
 			sender,
-			`[trigger] Removed ${theirs.length === 1 ? "the 1 compulsion" : `all ${theirs.length} compulsions`} you planted in them.${held ? " What was holding them lets go." : ""}${kept ? ` Your ${kept === 1 ? "trigger word stays" : `${kept} trigger words stay`}.` : ""}`,
+			`[trigger] They forgot ${theirs.length === 1 ? "the 1 compulsion" : `all ${theirs.length} compulsions`} you planted in them.${held ? " What was holding them lets go." : ""}${kept ? ` Your ${kept === 1 ? "trigger word stays" : `${kept} trigger words stay`}.` : ""}`,
 		);
 		tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
 		return true;
@@ -3398,7 +3398,7 @@ function handleTriggerRemoval(sender: number, line: string): boolean {
 		return true;
 	}
 	const held = removeTrigger(trigger);
-	tellHypnotistWithList(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+	tellHypnotistWithList(sender, `[trigger] They forgot "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
 	tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
 	return true;
 }
@@ -3541,7 +3541,7 @@ export function triggerRow(t: Trigger, reveal: boolean, all: Trigger[] = [t]): s
 /** What a list says when her setting hides her triggers: that they exist, how many, and where the
  * setting is. Never what they are. */
 export function triggersHiddenLine(count: number): string {
-	return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still removes them.`;
+	return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still forgets them.`;
 }
 
 /** The list after sweeping out the dead. Reading the list is the natural moment for it — there

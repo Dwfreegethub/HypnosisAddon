@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.39. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.40. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -1609,7 +1609,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function extremeWarning() {
     return [
-      `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can remove one, not even its planter.`,
+      `Extreme makes your settings read-only for ${EXTREME_TRIAL_DAYS} days, even switching hypnosis off. New triggers can still be planted, but nobody can make you forget one, not even its planter.`,
       "/echs safeword always ends a trance, locked or not. Keyholders you have chosen (/echs keyholder) can still change your settings for you, and end the lock.",
       "To unlock early you must run /echs reset confirm, which also erases all your trust, triggers and stats. You can also switch ECHS off in your userscript manager (Tampermonkey, or whatever loaded it).",
       `After the ${EXTREME_TRIAL_DAYS} days you choose: go back to editable settings, or commit to ${EXTREME_MONTH_DAYS} days at a time.`
@@ -2729,22 +2729,22 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
         { key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
         // Behavioural, session-only.
-        { key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
-        { key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
+        { key: "movementRestriction", label: "Movement Restriction", depth: 20, earnedOnly: false },
+        { key: "speechRestriction", label: "Speech Restriction", depth: 20, earnedOnly: false },
         { key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
-        { key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
-        { key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
-        { key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
+        { key: "clothingRestriction", label: "Clothing Restriction", depth: 20, earnedOnly: false },
+        { key: "selfTouchControl", label: "Self-Touch Control", depth: 20, earnedOnly: false },
+        { key: "compelActivity", label: "Made to Act", depth: 20, earnedOnly: false },
         // Deeper, still session-only.
-        { key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
+        { key: "followControl", label: "Follow / Leash", depth: 40, earnedOnly: false },
         // Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
-        { key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
-        { key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
+        { key: "forcedSpeech", label: "Made to Speak", depth: 40, earnedOnly: false },
+        { key: "hearingControl", label: "Hearing", depth: 40, earnedOnly: false },
         { key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
         { key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
-        { key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
+        { key: "arousalControl", label: "Arousal & Orgasm", depth: 40, earnedOnly: false },
         // The earned-only three: two outlive the session, one lies to the subject.
-        { key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
+        { key: "illusionControl", label: "Clothing Illusion", depth: 60, earnedOnly: true },
         { key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
         { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
       ];
@@ -7000,12 +7000,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function describeDecayPace(rate = getTriggerDecayRate()) {
     const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
-    if (perDay <= 0) return "never \u2014 planted triggers stay until something else removes them";
+    if (perDay <= 0) return "never \u2014 planted triggers stay until they are forgotten";
     return `a Deep planting fades away in about ${describeDuration(lifeDays(60, perDay))}, unused and unreinforced`;
   }
   function decayLifetimeText(rate = getTriggerDecayRate()) {
     const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
-    if (perDay <= 0) return "A planted trigger stays until it is removed.";
+    if (perDay <= 0) return "A planted trigger stays until it is forgotten.";
     return `A Deep planting lasts about ${describeDuration(lifeDays(60, perDay))} if it is never used.`;
   }
   function decayPerDayFor(t) {
@@ -8582,7 +8582,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (poseRefusalTold.has(trigger.key)) return;
     poseRefusalTold.add(trigger.key);
     tellPlayer(
-      "Something set in you tries to move you, but your body will not go there." + (extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger removes one once it has let go.")
+      "Something set in you tries to move you, but your body will not go there." + (extremeLocked() ? "" : " /echs triggers shows what is set in you; /echs forgettrigger forgets one once it has let go.")
     );
   }
   function fireTrigger(trigger, speaker) {
@@ -8752,7 +8752,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return true;
       }
       const held2 = mine.map(removeTrigger).filter(Boolean).length;
-      tellHypnotistWithList(sender, `[trigger] Removed ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
+      tellHypnotistWithList(sender, `[trigger] They forgot ${mine.length === 1 ? "the 1 trigger" : `all ${mine.length} triggers`} you planted in them.${held2 ? " What was holding them lets go." : ""}`);
       tellPlayer(held2 ? "Whatever was holding you lets go, and what was set in you is gone." : "What was set in you is gone.");
       return true;
     }
@@ -8770,7 +8770,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const kept = mine.length - theirs.length;
       tellHypnotistWithList(
         sender,
-        `[trigger] Removed ${theirs.length === 1 ? "the 1 compulsion" : `all ${theirs.length} compulsions`} you planted in them.${held2 ? " What was holding them lets go." : ""}${kept ? ` Your ${kept === 1 ? "trigger word stays" : `${kept} trigger words stay`}.` : ""}`
+        `[trigger] They forgot ${theirs.length === 1 ? "the 1 compulsion" : `all ${theirs.length} compulsions`} you planted in them.${held2 ? " What was holding them lets go." : ""}${kept ? ` Your ${kept === 1 ? "trigger word stays" : `${kept} trigger words stay`}.` : ""}`
       );
       tellPlayer(held2 ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
       return true;
@@ -8790,7 +8790,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     const held = removeTrigger(trigger);
-    tellHypnotistWithList(sender, `[trigger] Removed "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
+    tellHypnotistWithList(sender, `[trigger] They forgot "${trigger.phrase}". It will not fire again.${held ? " What it was holding lets go." : ""}`);
     tellPlayer(held ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
     return true;
   }
@@ -8873,7 +8873,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return `${who}: ${when} \u2192 ${does}${tags.length ? ` \xB7 ${tags.join(" \xB7 ")}` : ""}`;
   }
   function triggersHiddenLine(count) {
-    return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still removes them.`;
+    return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still forgets them.`;
   }
   function sweptTriggers() {
     pruneFadedTriggers(isTriggerInEffect);
@@ -11039,7 +11039,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bthe trigger (.+?) is gone(?: now)?$/
       ];
       TRIGGER_TAKE_BACK = /\bi take back (?:the |that |your )?(?:trigger (?:word |phrase )?)?(.+)$/;
-      EXTREME_REMOVAL_REFUSED = '[trigger] Their Extreme lock holds: triggers can be added, but not removed, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
+      EXTREME_REMOVAL_REFUSED = '[trigger] Their Extreme lock holds: triggers can be added, but not forgotten, until it ends. "You are released from <word>" (or "from the compulsion") still lets go of one holding them.';
       ROW_ACTIONS = 2;
       REINFORCE = [
         /\b(?:that|the|your) triggers? (?:will |)(?:holds?|stays?|remains?|settles? deeper)\b/,
@@ -11310,7 +11310,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.39", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.40", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11359,7 +11359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.39", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.40", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12127,11 +12127,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`Say the phrase \u2014 it works with no session, which is the point.`),
       body(`"Missy, you are released from sleepy time" releases that one by name.`),
       dim("General release wording does nothing outside a trance."),
-      body(`"Missy, forget the trigger sleepy time" removes it for good.`),
-      body(`"Missy, forget every trigger I gave you" removes all of yours.`),
+      body(`"Missy, forget the trigger sleepy time": she forgets it for good.`),
+      body(`"Missy, forget every trigger I gave you": she forgets all of yours.`),
       body(`"Missy, you are released from the compulsion" lets yours go; they stay.`),
       dim("Whoever set one off (the kiss, the grope) can say it too, while it holds."),
-      body(`"Missy, forget your compulsions" removes them; your words stay.`),
+      body(`"Missy, forget your compulsions": she forgets them; your words stay.`),
       dim("Only the one who planted it; no trance needed. One holding them lets go first."),
       dim("Refused while they are under an Extreme lock: triggers can only be added then."),
       body("/echs planted [name], or Planted triggers on the panel, lists what you planted."),
@@ -12845,10 +12845,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       top,
       PLANTED_BUTTON_WIDTH,
       height,
-      holding ? "Holding" : "Purge",
+      holding ? "Holding" : "Forget",
       holding || extremeLocked() ? "#ddd" : "#ffe0e0",
       "",
-      extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Remove this trigger",
+      extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Forget this trigger",
       holding || extremeLocked()
     );
   }
@@ -12893,14 +12893,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       CLEAR_ALL_TOP,
       CLEAR_ALL_WIDTH,
       CLEAR_ALL_HEIGHT,
-      armed ? "Confirm?" : "Clear All",
+      armed ? "Confirm?" : "Forget All",
       refusal ? "#ddd" : armed ? "#ffb3b3" : "#ffe0e0",
       "",
-      refusal ? "Not while anything has hold of you" : "Removes every trigger, asks once first",
+      refusal ? "Not while anything has hold of you" : "Forgets every trigger, asks once first",
       !!refusal
     );
     drawLeftTextWrap(
-      refusal ?? (armed ? `Click again to remove all ${count}, including any you cannot see. This cannot be undone.` : `Removes all ${count} trigger(s), including any you cannot see.`),
+      refusal ?? (armed ? `Click again to forget ${count === 1 ? "it" : `all ${count}`}, including any you cannot see. This cannot be undone.` : `Forgets ${count === 1 ? "the 1 trigger" : `all ${count} triggers`}, including any you cannot see.`),
       CLEAR_ALL_NOTE_X,
       CLEAR_ALL_TOP + CLEAR_ALL_HEIGHT / 2,
       CLEAR_ALL_NOTE_WIDTH,
@@ -12922,11 +12922,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!t) return `There is no trigger ${index}.`;
     if (extremeLocked()) return extremeRefusal();
     if (isTriggerInEffect(t)) {
-      return `Trigger ${index} is holding you right now, so it can't be removed. Wait for it to wear off, have whoever set it release you, or use /echs safeword.`;
+      return `Trigger ${index} is holding you right now, so it can't be forgotten. Wait for it to wear off, have whoever set it release you, or use /echs safeword.`;
     }
     forgetTrigger(t.key);
     log(`purged trigger ${index} (by ${t.installedByName}) from the settings screen`);
-    return `Trigger ${index} removed.`;
+    return `Trigger ${index} forgotten.`;
   }
   function clickClearAll() {
     const refusal = clearAllRefusal();
@@ -12936,10 +12936,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (Date.now() > clearAllArmedUntil) {
       clearAllArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
-      return "Click Clear All again within 5 seconds to remove every trigger planted in you.";
+      return "Click Forget All again within 5 seconds to forget every trigger planted in you.";
     }
     clearAllArmedUntil = 0;
-    return `Removed ${forgetAllTriggers()} trigger(s).`;
+    const n = forgetAllTriggers();
+    return `Forgot ${n === 1 ? "1 trigger" : `${n} triggers`}.`;
   }
   function clickPlanted() {
     const all = sweptTriggers();
@@ -13647,7 +13648,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.39"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.40"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13720,7 +13721,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.39"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.40"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14109,7 +14110,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           // The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
           // own because it is a LIST, which grows, and the Triggers tab is already full of controls.
           name: "Planted",
-          blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
+          blurb: "Triggers planted in you. Details shows what one does; Forget gets rid of it for good.",
           render: drawPlanted,
           clickExtra: clickPlanted
         },
@@ -14609,7 +14610,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.39", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.40", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14689,8 +14690,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return h.toString(16).padStart(8, "0");
   }
   function removeRefusal(t, keyholder) {
-    if (extremeLocked()) return "Their Extreme lock is on: nothing planted in them can be removed until it ends.";
-    if (t.installedBy === Player?.MemberNumber) return "They planted this in themselves: only they can remove it.";
+    if (extremeLocked()) return "Their Extreme lock is on: nothing planted in them can be forgotten until it ends.";
+    if (t.installedBy === Player?.MemberNumber) return "They planted this in themselves: only they can forget it.";
     if (isTriggerInEffect(t)) return "It is holding them right now. Wait for it to wear off, or have it released.";
     if (t.installedBy === keyholder) return null;
     if (!(trustWith(keyholder) > trustWith(t.installedBy))) return `They don't trust you more than ${t.installedByName || "whoever planted it"}, so it stays.`;
@@ -15094,7 +15095,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (action === "remove-trigger") {
       if (mode !== "full") {
-        const text2 = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
+        const text2 = `Your keys are ${mode}: making them forget a trigger needs full keys.`;
         reply(sender, mode, { ok: false, text: text2 });
         return text2;
       }
@@ -15113,11 +15114,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       forgetTrigger(t.key);
       const planter = t.installedBy === sender ? "they" : t.installedByName || "someone";
       const word = getFeatures().showTriggerWords && t.phrase ? ` ("${t.phrase}")` : "";
-      const what = `removed a trigger ${planter} planted in you${word}`;
+      const what = `made you forget a trigger ${planter} planted in you${word}`;
       noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
       tellPlayer(`${who} (your keyholder) ${what}.`);
       log(`keyholder ${sender} removed a trigger planted by ${t.installedBy}`);
-      reply(sender, mode, { ok: true, text: "Done: that trigger is gone." });
+      reply(sender, mode, { ok: true, text: "Done: they have forgotten that trigger." });
       return "removed";
     }
     if (action === "end-extreme") {
@@ -15970,7 +15971,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             lines.forEach(reply2);
             if (lines.length > 1 && getTriggerView() !== "hidden") {
               reply2(
-                "See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
+                "See what one does with /echs triggers <number>. Forget one with /echs forgettrigger <number> (not while it is holding you; /echs safeword is the way out of that)."
               );
             }
           }
@@ -15979,7 +15980,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           Tag: "forgettrigger",
           group: "Data",
           args: "<number|all>",
-          Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
+          Description: "Forget a planted trigger by its number from /echs triggers, or all (asks first)",
           Action: (args) => {
             const token = args.trim().toLowerCase();
             if (!token) {
@@ -16003,7 +16004,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               }
               if (token === "all") {
                 reply2(
-                  `This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
+                  `This forgets ${all.length === 1 ? "the 1 trigger" : `all ${all.length} triggers`} planted in you, including any you cannot see, and cannot be undone. Type /echs forgettrigger all confirm to do it.`
                 );
                 return;
               }
@@ -16022,7 +16023,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
               return;
             }
             const gone = forgetTrigger(all[index - 1].key);
-            reply2(gone ? `forgot trigger ${index}` : "nothing removed");
+            reply2(gone ? `forgot trigger ${index}` : "nothing forgotten");
           }
         },
         {
@@ -17232,7 +17233,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return [
       { id: "fire", label: "say it", phrase: word },
       { id: "release", label: "release", phrase: `you are released from ${word}`, release: true },
-      { id: "forget", label: "remove", phrase: `forget the trigger ${word}`, release: true }
+      { id: "forget", label: "forget", phrase: `forget the trigger ${word}`, release: true }
     ];
   }
   var PLANT_GROUPS, COMPULSION_LINES, FORGET_ALL;
@@ -17316,9 +17317,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       COMPULSION_LINES = [
         { id: "release-compulsions", label: "release", phrase: "you are released from the compulsion", release: true },
-        { id: "forget-compulsions", label: "remove", phrase: "forget your compulsions", release: true }
+        { id: "forget-compulsions", label: "forget", phrase: "forget your compulsions", release: true }
       ];
-      FORGET_ALL = { id: "forget-all", label: "remove everything I planted", phrase: "forget every trigger I gave you", release: true };
+      FORGET_ALL = { id: "forget-all", label: "forget everything I planted", phrase: "forget every trigger I gave you", release: true };
     }
   });
 
@@ -17702,7 +17703,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.39"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.40"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18037,7 +18038,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             }
             row.appendChild(chips);
           } else {
-            row.appendChild(el2("div", "echs-pop-desc", "No word: release and remove act on every compulsion you planted in them."));
+            row.appendChild(el2("div", "echs-pop-desc", "No word: release and forget act on every compulsion you planted in them."));
             const chips = el2("div", "echs-pop-buttons");
             for (const line of COMPULSION_LINES) {
               const text2 = suggestionText(p.name, line.phrase);
@@ -18069,7 +18070,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           chip(
             "forget",
             why || `/echs forgettrigger ${n}`,
-            () => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to remove it."),
+            () => typeIt(status, `/echs forgettrigger ${n}`, why ? `Typed, but it will be refused. ${why}` : "Typed. Press Enter to forget it."),
             !!why
           )
         );
@@ -18378,7 +18379,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           if (!snap.planted.length) list.appendChild(el2("div", "echs-pop-desc", "Nothing is planted in them."));
           else
             list.appendChild(
-              el2("div", "echs-pop-hint", "You can remove one only if they trust you more than whoever planted it. Never one they planted in themselves, and never under their Extreme lock.")
+              el2("div", "echs-pop-hint", "You can make them forget one only if they trust you more than whoever planted it. Never one they planted in themselves, and never under their Extreme lock.")
             );
           for (const t of snap.planted) {
             const title = t.word ? `"${t.word}"` : t.when || "A trigger word you can't see";
@@ -18388,7 +18389,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const armed = removeArmed.id === t.id && now - removeArmed.at < END_EXTREME_ARM_MS;
             const row = el2("div", "echs-pop-buttons");
             row.appendChild(
-              chip(armed ? "click again to remove it" : "remove", t.removable ? "Removes this trigger from them. Click twice." : t.why, () => {
+              chip(armed ? "click again to forget it" : "forget", t.removable ? "Makes them forget this trigger. Click twice." : t.why, () => {
                 if (!t.removable) {
                   setStatus(status, t.why);
                   return;
@@ -18396,10 +18397,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
                 if (removeArmed.id === t.id && Date.now() - removeArmed.at < END_EXTREME_ARM_MS) {
                   removeArmed = { id: "", at: 0 };
                   requestRemoveTrigger(who.id, t.id);
-                  askedStatus(status, who.id, `Asked ${who.name}'s ECHS to remove that trigger\u2026`);
+                  askedStatus(status, who.id, `Asked ${who.name}'s ECHS to forget that trigger\u2026`);
                 } else {
                   removeArmed = { id: t.id, at: Date.now() };
-                  setStatus(status, "Click again within 5 seconds to remove it.");
+                  setStatus(status, "Click again within 5 seconds to forget it.");
                   renderBody();
                 }
               }, !t.removable)
@@ -18841,7 +18842,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.39"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.40"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18868,7 +18869,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.39"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.40"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18943,14 +18944,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.39"})`);
+      info(`script loaded (v${"1.16.40"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.39",
+          version: "1.16.40",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19092,10 +19093,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.39"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.40"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.39";
+    page2.__ECHS_LOADED__ = "1.16.40";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

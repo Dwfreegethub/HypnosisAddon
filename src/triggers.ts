@@ -305,14 +305,14 @@ function describeDuration(days: number): string {
  * labels alone ("Very fast") told nobody that they meant three weeks. */
 export function describeDecayPace(rate: string = getTriggerDecayRate()): string {
 	const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
-	if (perDay <= 0) return "never — planted triggers stay until something else removes them";
+	if (perDay <= 0) return "never — planted triggers stay until they are forgotten";
 	return `a Deep planting fades away in about ${describeDuration(lifeDays(60, perDay))}, unused and unreinforced`;
 }
 
 /** The same fact in the few words a canvas caption has room for. */
 export function decayLifetimeText(rate: string = getTriggerDecayRate()): string {
 	const perDay = (TRIGGER_DECAY_PER_DAY[rate] ?? 0) * TIER_HOLD.deep;
-	if (perDay <= 0) return "A planted trigger stays until it is removed.";
+	if (perDay <= 0) return "A planted trigger stays until it is forgotten.";
 	return `A Deep planting lasts about ${describeDuration(lifeDays(60, perDay))} if it is never used.`;
 }
 

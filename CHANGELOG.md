@@ -13,6 +13,16 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.40 · 25 November 2026
+
+- **One word for getting rid of a trigger: forget.** It is what you say (*"forget the trigger
+  sleepy time"*) and what you type (`/echs forgettrigger`), and now it is on the buttons too. On the
+  Planted tab, **Purge** is now **Forget** and **Clear All** is now **Forget All**. In the ECHS popup,
+  **remove** is now **forget**, and the hypnotist is told *They forgot "sleepy time"*.
+- **The Depth tab uses the Permissions tab's names.** *Cannot reach the wardrobe* is now **Clothing
+  Restriction**, *Cannot move* is **Movement Restriction**, *Hears only one voice* is **Hearing**, and
+  so on, so you can see they are the same settings.
+
 ## v1.16.39 · 25 November 2026
 
 - **Calmer notices for the hypnotist.** They used to read like *[[trigger] RECORDING "sleepy doll"…]*

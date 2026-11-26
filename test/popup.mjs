@@ -486,16 +486,16 @@ check("not asked again within 30s", asks() - asksBefore <= 1, `still at most one
 const chipIn = (label) => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && n.textContent === label);
 check("a row per planted trigger", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"sleepy time"').length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "when Rei comes in").length === 1, "rows for sleepy time and the compulsion");
 // v1.16.10: the compulsion row has release / remove too (no "say it": it has no word).
-check("chips on both rows, say it only on the word", chipIn("release").length === 2 && chipIn("remove").length === 2 && chipIn("say it").length === 1, `release / remove twice, say it once, got ${chipIn("release").length} / ${chipIn("say it").length}`);
+check("chips on both rows, say it only on the word", chipIn("release").length === 2 && chipIn("forget").length === 2 && chipIn("say it").length === 1, `release / forget twice, say it once, got ${chipIn("release").length} / ${chipIn("say it").length}`);
 chipIn("release")[1].click();
 check("compulsion release typed", chatBox.value === "Bea, you are released from the compulsion", `got "${chatBox.value}"`);
-chipIn("remove")[1].click();
+chipIn("forget")[1].click();
 check("compulsion remove typed", chatBox.value === "Bea, forget your compulsions", `got "${chatBox.value}"`);
 chipIn("release")[0].click();
 check("release typed", chatBox.value === "Bea, you are released from sleepy time", `got "${chatBox.value}"`);
-chipIn("remove")[0].click();
+chipIn("forget")[0].click();
 check("remove typed", chatBox.value === "Bea, forget the trigger sleepy time", `got "${chatBox.value}"`);
-trigBtn("remove everything I planted").click();
+trigBtn("forget everything I planted").click();
 check("remove all typed", chatBox.value === "Bea, forget every trigger I gave you", `got "${chatBox.value}"`);
 check("compulsion says how to remove it", findAll(win(), (n) => n.className === "echs-pop-desc" && n.textContent.startsWith("No word")).length === 1, "the no-word note on the compulsion");
 
@@ -506,8 +506,11 @@ plantIn("snowdrop");
 popup.popupTick();
 check("own triggers listed", byText("−  Triggers in you (2)").length === 1, `a Triggers in you (2) group, got ${findAll(win(), (n) => n.className.startsWith("echs-pop-group")).map((n) => n.textContent).join(" | ")}`);
 check("words hidden by default", findAll(win(), (n) => n.className === "echs-pop-desc" && /^1\. .+: a word \(hidden\) → /.test(n.textContent)).length === 1, "row 1 reads \"<who>: a word (hidden) → …\"");
-chipIn("forget")[1].click();
-check("forget types its number", chatBox.value === "/echs forgettrigger 2" && status() === "Typed. Press Enter to remove it.", `"/echs forgettrigger 2", got "${chatBox.value}" / "${status()}"`);
+// The subject's own forget chips (their tip is the command or why not), apart from the hypnotist's
+// "forget" lines for what they planted in Bea, which share the word since v1.16.40.
+const ownForget = () => chipIn("forget").filter((n) => /forgettrigger|lock|holding/.test(n.title));
+ownForget()[1].click();
+check("forget types its number", chatBox.value === "/echs forgettrigger 2" && status() === "Typed. Press Enter to forget it.", `"/echs forgettrigger 2", got "${chatBox.value}" / "${status()}"`);
 chipIn("details")[0].click();
 check("details types its number", chatBox.value === "/echs triggers 1", `got "${chatBox.value}"`);
 chipIn("Fast")[0].click();
@@ -515,8 +518,8 @@ check("fade speed typed", chatBox.value === "/echs triggerdecay fast", `got "${c
 check("current fade speed marked", chipIn("Never")[0].className.includes("echs-pop-chip-on"), "Never marked as the current speed");
 storage.startExtremeLock("trial", Date.now());
 popup.popupTick();
-check("Extreme lock: forget faded", chipIn("forget")[0].className.includes("echs-pop-off") && chipIn("Fast")[0].className.includes("echs-pop-off"), "forget and the fade speeds faded under the lock");
-chipIn("forget")[0].click();
+check("Extreme lock: forget faded", ownForget()[0].className.includes("echs-pop-off") && chipIn("Fast")[0].className.includes("echs-pop-off"), "forget and the fade speeds faded under the lock");
+ownForget()[0].click();
 check("Extreme lock: still types, says refused", chatBox.value === "/echs forgettrigger 1" && status().includes("will be refused") && status().includes("Extreme lock"), `typed with a refused status, got "${status()}"`);
 check("never mentions the way out", !JSON.stringify(findAll(win(), () => true).map((n) => n.title + n._text)).includes("exit_extreme"), "no exit_extreme anywhere in the window");
 storage.clearExtremeLock();
@@ -680,15 +683,15 @@ KH.receiveKeyholderFields(B, { type: "state-response", version: "1.16.2", keyhol
 	{ id: "0000000b", word: "glow", when: "", does: ["sleeps"], strength: "full strength", once: true, holding: false, by: "themselves", removable: false, why: "They planted this in themselves: only they can remove it." },
 ] } });
 popup.popupTick();
-check("planted list starts folded, with a count", byText("+ Planted in them (2)").length === 1 && !keyChip("remove"), "folded, no remove buttons");
+check("planted list starts folded, with a count", byText("+ Planted in them (2)").length === 1 && !keyChip("forget"), "folded, no remove buttons");
 byText("+ Planted in them (2)")[0].click();
 check("  unfolded: hidden word and planter", findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === "A trigger word you can't see · planted by Hyp").length === 1 && findAll(win(), (n) => n.className === "echs-pop-person" && n.textContent === '"glow" · planted by themselves').length === 1, "both headlines");
-const removes = () => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && (n.textContent === "remove" || n.textContent === "click again to remove it"));
+const removes = () => findAll(win(), (n) => n.className.startsWith("echs-pop-chip") && (n.textContent === "forget" || n.textContent === "click again to forget it"));
 hidden = [];
 removes()[1].click();
 check("not removable: says why, sends nothing", status() === "They planted this in themselves: only they can remove it." && !hidden.some((m) => m.action === "remove-trigger") && removes()[1].className.includes("echs-pop-off"), `the reason, got "${status()}"`);
 removes()[0].click();
-check("removable: first click only arms", !hidden.some((m) => m.action === "remove-trigger") && removes()[0].textContent === "click again to remove it", "armed, nothing sent");
+check("removable: first click only arms", !hidden.some((m) => m.action === "remove-trigger") && removes()[0].textContent === "click again to forget it", "armed, nothing sent");
 removes()[0].click();
 check("  second click sends it", hidden.some((m) => m.to === B && m.action === "remove-trigger" && m.id === "0000000a"), `a remove-trigger for 0000000a, got ${JSON.stringify(hidden)}`);
 // v1.16.2 (job6.md §5): lock asks her (one click; she must accept), unlock takes two clicks.

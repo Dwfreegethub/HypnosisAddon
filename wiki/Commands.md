@@ -85,7 +85,7 @@ The **Planted triggers** button on their profile's spiral panel shows the same l
 | `/echs reset` | Wipes all settings and progression back to defaults (requests confirmation, and clears any active trance first). |
 | `/echs triggerdecay [rate]` | Views or adjusts how quickly planted trigger words fade over time *(separate from trust decay)*. |
 | `/echs forgettrigger <number>` | Deletes a planted trigger by its number from `/echs triggers`. **Refuses if that trigger is actively holding you.** |
-| `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's Clear All does the same. |
+| `/echs forgettrigger all` | Warns you first; `/echs forgettrigger all confirm` then deletes every trigger, including any you cannot see. **Refuses while a trigger is holding you or a session is running.** The Planted tab's **Forget All** does the same. |
 | `/echs keyholder` | Lists who holds your keys (can change your settings for you) and the last changes they made. |
 | `/echs keyholder add <name\|number> [minimal\|moderate\|full]` | Gives them your keys at a level: **minimal** (only switch things off, the default), **moderate** (also shape your trance) or **full** (everything, including your Triggers tab choices and Depth tab). Typed again with another level, it changes theirs. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you). |
 | `/echs keyholder remove <name\|number>` | Takes their keys back. |

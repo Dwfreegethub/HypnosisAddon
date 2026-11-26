@@ -18,6 +18,28 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-25 (v1.16.40) — one verb for removing triggers ("forget"); Depth uses the Permissions names
+
+UI lab review F9 items 1 and 2. DW chose **"forget" everywhere** over "remove" (my suggestion): the
+spoken phrase and `/echs forgettrigger` already said forget, so the buttons follow them rather than
+the other way round. Planted tab: Purge → Forget, Clear All → Forget All, with their tips, notes and
+results ("Trigger 2 forgotten.", "Forgot 2 triggers."). Popup: the hypnotist's chips and lines
+(remove → forget, "forget everything I planted"), the subject's typed status, the keyholder's
+"made you forget a trigger … planted in you" and its refusals. Hypnotist notices: "They forgot
+"X". It will not fire again." / "They forgot all N triggers…". Also /echs forgettrigger's help and
+confirm text, the Extreme warning, the fade captions ("until they are forgotten"), help.ts. Internal
+ids (remove-trigger, removeRefusal, purgePlanted) stay, so an older ECHS on either side still works.
+
+DW chose **the Permissions names** for the Depth tab (DEPTH_GATES labels): Movement Restriction,
+Speech Restriction, Clothing Restriction, Self-Touch Control, Made to Act, Follow / Leash, Made to
+Speak, Hearing, Arousal & Orgasm, Clothing Illusion — the Permissions label without its bracketed
+detail. The Awareness and Triggers rows on Depth keep their descriptive names (not part of the
+question). chemical-reach.mjs checks every Depth row that is also a Permissions row against the
+Permissions label. Trance Defaults' "Cannot Move" is a different setting and is unchanged.
+
+Tests: popup.mjs tells the subject's own forget chips from the hypnotist's (they share the word
+now). Mutations: Forget All label, popup chip, hypnotist notice, a Depth name — all caught.
+
 ### Changed 2026-11-25 (v1.16.39) — hypnotist notices in words; no "[[trigger]"; lower-case refusal reason
 
 UI lab review F9, items 3 and 4; DW: "OK. Do 3 and 4". (Items 1, the removal verb, and 2, names
