@@ -574,6 +574,12 @@ export function describeConditionFor(c: TriggerCondition, installerId: number, s
 					: "someone";
 	if (c.fireOn === "act") {
 		const act = compulsionAct(c.act);
+		// A pose (v1.19.7) by anyone reads as hers: "when you kneel", "when they kneel".
+		if (act?.pose && c.watchName === "*") {
+			const gatedPose = c.gate ? (subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on") : "";
+			const self = subject === "they" ? act.pose.self.replace(/\byou\b/g, "they").replace(/\byour\b/g, "their") : act.pose.self;
+			return `when ${self}${gatedPose}`;
+		}
 		const plural = c.watchName !== "*" && c.watchMember === installerId && subject === "they";
 		const words = act ? (plural ? act.base : act.label) : "does something to you";
 		const gated = c.gate ? (subject === "they" ? `, while "${c.gate}" is on` : ", while one of your triggers is on") : "";
@@ -719,7 +725,7 @@ export function compulsionsFor(
 	const all = listTriggers();
 	return all.filter((t) => {
 		if (t.fireOn !== event || !triggerCanFire(t)) return false;
-		if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items))) return false;
+		if (self && !(t.watchName === "*" && (compulsionAct(t.act)?.clothes || compulsionAct(t.act)?.items || compulsionAct(t.act)?.pose))) return false;
 		// A reaction (v1.16.13): only while its word holds her.
 		if (t.gate) {
 			const word = all.find((p) => isReactionOf(t, p));

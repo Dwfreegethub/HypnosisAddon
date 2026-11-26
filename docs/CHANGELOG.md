@@ -18,6 +18,25 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.7) — pose compulsions
+
+DW: "Is there any compulsion that can trigger on a motion. When you kneel for example", then "Movment
+all movments. Arms. kneeling. What ever", and "I dont think a echs action should trigger it". Eleven
+pose acts in compulsion-acts.ts (`pose: {states, self}`), first in the table so "pulls your arms behind
+your back" is not the hair pull. pose-watch.ts reads what BC draws (Player.PoseMapping, R134 PoseRefresh,
+which folds in poses items force) into states (kneel / stand / allfours / hogtied / legs-spread /
+legs-closed / arms-up / arms-out / arms-back / arms-down) and sends each state newly come into as
+`pose:<state>` (or `pose:changed`) to noteActivity. It looks after PoseSetActive / CharacterSetActivePose
+on her (hers, or an add-on's: read as hers), ChatRoomSyncSingle / SyncCharacter / SyncItem about her (by
+SourceMemberNumber / Source; ChatRoomKneelStandAssist syncs her this way), and her own
+ChatRoomCharacterUpdate. The look is a microtask later, so effects.ts's hold (the outer hook) has already
+put a refused change back. ECHS's own posing is setSuggestedPose only; its new `echsPoseDepth` (not
+ownPoseChange, which also covers another player's change let through the hold) makes the coming look an
+adopt, never an event. Self-moves pass compulsionsFor's self gate for "*" as clothing does. Not done:
+"holds while you kneel" (whileWorn) for poses. Tested in test/pose-compulsion.mjs (24, two mutations)
+and the UI lab mock (her own kneel fires, standing doesn't, the word trigger's kneel doesn't); the mock
+has no PoseMapping or remote pose sync, so those paths are covered by the suite only.
+
 ### Added 2026-11-26 (v1.19.6) — release or forget one compulsion by its number
 
 DW: two blindfold compulsions both went off, "and there is currently not a way to remove one without

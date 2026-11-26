@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.7 · 26 November 2026
+
+- **Pose compulsions.** A compulsion can now wait for you to move: *"Missy, whenever you kneel, …"*,
+  or stand up, get on all fours, are hogtied, spread or close your legs, put your arms behind your
+  back, raise them, hold them out, lower them, or just move. Whoever moves you counts, you
+  included. ECHS moving you never does. A name (*"whenever Rei makes you kneel"*) means only them.
+  The popup's Triggers tab lists them under *whenever you kneel*.
+
 ## v1.19.6 · 26 November 2026
 
 - **One compulsion at a time.** Release and forget used to act on every compulsion you planted at

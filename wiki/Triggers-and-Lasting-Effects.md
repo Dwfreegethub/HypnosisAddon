@@ -203,6 +203,21 @@ Changes made in the wardrobe count, by anyone: the game doesn't say what changed
 
 **Holding while undressed.** Add *"Missy, this trigger holds while you are undressed"* (or *"until you are dressed again"*, *"while it stays off"*) and a compulsion for a garment taken off holds until something is back in that slot, with the same repeating arousal as holding while worn. For one put on, *"this trigger holds while you wear it"* holds until it comes off.
 
+**Poses** (since v1.19.7). A compulsion can wait for you to move: *"Missy, whenever you kneel, …"*.
+
+| Say | Goes off when |
+| --- | --- |
+| *whenever you kneel* (*get on your knees*, *drop to your knees*) | you go down on your knees |
+| *whenever you stand up* (*get up*, *get to your feet*) | you stand up again |
+| *whenever you get on all fours* (*crawl*) | you go on all fours |
+| *whenever you are hogtied* | you end up hogtied |
+| *whenever you spread your legs* / *close your legs* | your legs spread or close |
+| *whenever you put your arms behind your back* | your arms go behind your back |
+| *whenever you raise your arms* / *hold your arms out* / *lower your arms* | your arms go up, out, or down |
+| *whenever you move* | any change of pose at all |
+
+Whoever moves you counts, you yourself included: your own kneel button or pose menu, another player helping you kneel or stand, another add-on posing you, or an item that forces the pose. **ECHS moving you never counts**: a spoken *"kneel"*, a trigger that kneels you, a release or the safeword putting you back. With a doer, only they count: *"whenever Rei makes you kneel"*, *"whenever anyone puts your arms behind your back"*, *"when I put you on all fours"*. A pose change that *"you cannot move"* refuses never happened, so it sets nothing off. Like every compulsion, never while you are under.
+
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.
 
 Whatever follows the condition on the same line is recorded, just as on its own line: a suggestion, words to say, or a drop. The hypnotist can also end the line at the condition and give the suggestions on the lines that follow.

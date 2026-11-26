@@ -8,7 +8,7 @@
 //
 // Pure: no DOM, no BC globals. popup.ts draws it.
 
-import { compulsionActList, COMPULSION_ACTS } from "./compulsion-acts";
+import { compulsionActList, poseActList, COMPULSION_ACTS } from "./compulsion-acts";
 import { ORDINALS } from "./planted";
 
 export type TriggerLine = {
@@ -81,7 +81,7 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 				phrase: "when anyone kisses you, ",
 				finish: "what they will do. Change \"anyone\" to a name or \"I\" if you like",
 				sample: "when anyone kisses you, you will kneel",
-				choices: COMPULSION_ACTS.filter((a) => !a.items && !a.clothes).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
+				choices: COMPULSION_ACTS.filter((a) => !a.items && !a.clothes && !a.pose).map((a) => ({ label: a.label, phrase: `when anyone ${a.label}, ` })),
 			},
 			// The items on a line of their own (v1.16.22, DW: "I don't see them in the window"; they
 			// were at the end of the list above).
@@ -105,6 +105,15 @@ export const PLANT_GROUPS: TriggerGroup[] = [
 				choices: COMPULSION_ACTS.filter((a) => a.clothes)
 					.sort((x, y) => Number(x.clothes!.dir === "on") - Number(y.clothes!.dir === "on") || Number(x.clothes!.slots.length > 0) - Number(y.clothes!.slots.length > 0))
 					.map((a) => ({ label: a.label, phrase: `whenever anyone ${a.label}, ` })),
+			},
+			// Poses (v1.19.7, DW): whoever moves them, them included; never ECHS.
+			{
+				id: "pose",
+				label: "whenever you kneel, … (pick the pose: kneel, stand, arms…)",
+				phrase: "whenever you kneel, ",
+				finish: `what they will do. Whoever moves them counts, them included; ECHS's own posing never does. Poses: ${poseActList()}`,
+				sample: "whenever you kneel, you will kneel",
+				choices: COMPULSION_ACTS.filter((a) => a.pose).map((a) => ({ label: a.pose!.self, phrase: `whenever ${a.pose!.self}, ` })),
 			},
 			{ id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
 			{ id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },

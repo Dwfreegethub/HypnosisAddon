@@ -38,8 +38,13 @@ export type CompulsionAct = {
 	 * hold ("takes your top off", "puts a bra on you"). */
 	phrase?: string;
 	/** The same with no doer ("whenever you take your top off", "whenever your bra comes off",
-	 * "whenever you get dressed"), read as anyone. Clothing acts only. */
+	 * "whenever you get dressed"), read as anyone. Clothing and pose acts only. */
 	anyonePhrase?: string;
+	/** A POSE act (v1.19.7, DW 2026-11-26: "Movment all movments. Arms. kneeling. What ever"): her
+	 * pose changing into one of these states (pose-watch.ts poseStatesOf); empty = any change. Whoever
+	 * moved her counts, she herself included, never ECHS (DW: "I dont think a echs action should
+	 * trigger it"). `self` is how it reads with no doer: "you kneel". */
+	pose?: { states: string[]; self: string };
 };
 
 /** The default object after the verb: "you", "your hair". */
@@ -64,6 +69,125 @@ export const KIND_VIBE = "@vibe";
 /** A garment coming off or going on (v1.18.0): the direction, undress.ts's slot, then the group
  * itself, which may be one of Echo's copies ("off:Cloth|Cloth_笨笨蛋Luzi"). */
 export const clothEvent = (dir: "off" | "on", slot: string, group: string): string => `${dir}:${slot}|${group}`;
+/** Her pose coming into a state (v1.19.7): "pose:kneel". */
+export const poseEvent = (state: string): string => `pose:${state}`;
+
+// Poses (v1.19.7). The states are pose-watch.ts's, read from what BC draws (PoseMapping).
+const ARMS = String.raw`(?:arms|hands)`;
+const POSE_ACTS: CompulsionAct[] = [
+	{
+		key: "pose-kneel",
+		label: "makes you kneel",
+		base: "make you kneel",
+		verb: "makes?",
+		phrase: String.raw`(?:makes? you (?:kneel|get on your knees|go down on your knees)|puts? you (?:down )?on your knees|kneels you(?: down)?|pushes you (?:down )?(?:to|on|onto) your knees)`,
+		anyonePhrase: String.raw`(?:you (?:kneel|get down on your knees|get on your knees|go (?:down )?on your knees|drop to your knees|fall to your knees|sink to your knees|are on your knees))`,
+		activities: [],
+		pose: { states: ["kneel"], self: "you kneel" },
+	},
+	{
+		key: "pose-stand",
+		label: "makes you stand",
+		base: "make you stand",
+		verb: "makes?",
+		phrase: String.raw`(?:makes? you (?:stand(?: up)?|get up)|stands you up|gets? you up|helps? you (?:up|stand)|pulls? you (?:up|to your feet))`,
+		anyonePhrase: String.raw`(?:you (?:stand(?: up)?|get up|rise|get to your feet|get back on your feet|are on your feet))`,
+		activities: [],
+		pose: { states: ["stand"], self: "you stand up" },
+	},
+	{
+		key: "pose-allfours",
+		label: "puts you on all fours",
+		base: "put you on all fours",
+		verb: "puts?",
+		phrase: String.raw`(?:puts? you on (?:all fours|your hands and knees)|makes? you (?:get on all fours|go on all fours|crawl))`,
+		anyonePhrase: String.raw`(?:you (?:get|go|are|drop) (?:down )?on (?:all fours|your hands and knees)|you crawl)`,
+		activities: [],
+		pose: { states: ["allfours"], self: "you get on all fours" },
+	},
+	{
+		key: "pose-hogtied",
+		label: "hogties you",
+		base: "hogtie you",
+		verb: "hogties?",
+		phrase: String.raw`(?:hogties? you)`,
+		anyonePhrase: String.raw`(?:you (?:are|get|end up) hogtied)`,
+		activities: [],
+		pose: { states: ["hogtied"], self: "you are hogtied" },
+	},
+	{
+		key: "pose-spread",
+		label: "spreads your legs",
+		base: "spread your legs",
+		verb: "spreads?",
+		phrase: String.raw`(?:(?:spreads?|opens?|parts?) your legs|makes? you (?:spread|open) your legs)`,
+		anyonePhrase: String.raw`(?:you (?:spread|open|part) your legs|your legs (?:spread|open|part))`,
+		activities: [],
+		pose: { states: ["legs-spread"], self: "you spread your legs" },
+	},
+	{
+		key: "pose-closed",
+		label: "closes your legs",
+		base: "close your legs",
+		verb: "closes?",
+		phrase: String.raw`(?:closes? your legs|presses? your legs together|makes? you (?:close your legs|press your legs together))`,
+		anyonePhrase: String.raw`(?:you (?:close your legs|press your legs together|put your legs together|cross your legs)|your legs close)`,
+		activities: [],
+		pose: { states: ["legs-closed"], self: "you close your legs" },
+	},
+	// Behind the back before up: "you put your arms …" starts both.
+	{
+		key: "pose-arms-back",
+		label: "puts your arms behind your back",
+		base: "put your arms behind your back",
+		verb: "puts?",
+		phrase: String.raw`(?:(?:puts?|pulls?|forces?|holds?) your ${ARMS} behind your back|makes? you put your ${ARMS} behind your back)`,
+		anyonePhrase: String.raw`(?:you (?:put|hold|clasp|cross) your ${ARMS} behind your back|your ${ARMS} go behind your back)`,
+		activities: [],
+		pose: { states: ["arms-back"], self: "you put your arms behind your back" },
+	},
+	{
+		key: "pose-arms-up",
+		label: "raises your arms",
+		base: "raise your arms",
+		verb: "raises?",
+		phrase: String.raw`(?:(?:raises?|lifts?) your ${ARMS}|puts? your ${ARMS} (?:up|over your head|above your head)|makes? you (?:raise|lift) your ${ARMS})`,
+		anyonePhrase: String.raw`(?:you (?:raise|lift) your ${ARMS}|you put your ${ARMS} (?:up|over your head|above your head)|your ${ARMS} go up)`,
+		activities: [],
+		pose: { states: ["arms-up"], self: "you raise your arms" },
+	},
+	{
+		key: "pose-arms-out",
+		label: "holds your arms out",
+		base: "hold your arms out",
+		verb: "holds?",
+		phrase: String.raw`(?:(?:holds?|spreads?|stretches?) your arms(?: out)?(?: wide)?|makes? you (?:hold|spread|stretch) your arms(?: out)?)`,
+		anyonePhrase: String.raw`(?:you (?:hold|spread|stretch) your arms(?: out)?(?: wide)?)`,
+		activities: [],
+		pose: { states: ["arms-out"], self: "you hold your arms out" },
+	},
+	{
+		key: "pose-arms-down",
+		label: "lowers your arms",
+		base: "lower your arms",
+		verb: "lowers?",
+		phrase: String.raw`(?:(?:lowers?|drops?) your ${ARMS}|puts? your ${ARMS} down|makes? you (?:lower|drop) your ${ARMS})`,
+		anyonePhrase: String.raw`(?:you (?:lower|drop) your ${ARMS}|you put your ${ARMS} down|your ${ARMS} (?:come|go) down)`,
+		activities: [],
+		pose: { states: ["arms-down"], self: "you lower your arms" },
+	},
+	// Any change at all, last of the poses.
+	{
+		key: "pose-any",
+		label: "moves you",
+		base: "move you",
+		verb: "moves?",
+		phrase: String.raw`(?:moves? you|poses? you|changes? your (?:pose|position))`,
+		anyonePhrase: String.raw`(?:you (?:move|shift|change (?:your )?(?:pose|position)))`,
+		activities: [],
+		pose: { states: [], self: "you move" },
+	},
+];
 
 // Clothing (v1.18.0). Each garment can be taken off or put on; undress / dress are any garment.
 const DET = String.raw`(?:your |a |an |some |the |new )?`;
@@ -122,6 +246,8 @@ const CLOTHING_ACTS: CompulsionAct[] = [
 ];
 
 export const COMPULSION_ACTS: CompulsionAct[] = [
+	// Poses (v1.19.7) first: "pulls your arms behind your back" is not the hair pull.
+	...POSE_ACTS,
 	{ key: "kiss", label: "kisses you", base: "kiss you", verb: String.raw`(?:kiss|kisses|pecks?)`, activities: ["Kiss", "FrenchKiss", "PoliteKiss"] },
 	{
 		key: "touch",
@@ -189,6 +315,9 @@ export function compulsionAct(key: string | undefined): CompulsionAct | undefine
 export function actMatches(key: string | undefined, activityName: string): boolean {
 	const act = compulsionAct(key);
 	if (!act || !activityName) return false;
+	const pose = /^pose:(.+)$/.exec(activityName);
+	if (act.pose) return !!pose && (act.pose.states.length === 0 || act.pose.states.includes(pose[1]));
+	if (pose) return false;
 	const cloth = /^(off|on):([^|]+)\|/.exec(activityName);
 	if (act.clothes) {
 		if (!cloth || cloth[1] !== act.clothes.dir) return false;
@@ -207,5 +336,10 @@ export function actMatches(key: string | undefined, activityName: string): boole
 
 /** The list as players read it: "kisses you, touches you, ..." */
 export function compulsionActList(): string {
-	return COMPULSION_ACTS.map((a) => a.label).join(", ");
+	return COMPULSION_ACTS.filter((a) => !a.pose).map((a) => a.label).join(", ");
+}
+
+/** The poses as players read them, with no doer: "you kneel, you stand up, …" (v1.19.7). */
+export function poseActList(): string {
+	return COMPULSION_ACTS.filter((a) => a.pose).map((a) => a.pose!.self).join(", ");
 }

@@ -7,6 +7,7 @@ import { announce, announceOthersFade } from "./flavor";
 import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installOutfitWatch } from "./outfit-watch";
+import { installPoseWatch } from "./pose-watch";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine, noticeTrustLine } from "./session";
@@ -343,5 +344,7 @@ safely("clothing illusion", () => installIllusion(modApi));
 
 // Clothing compulsions (v1.18.0): hears garments coming off or going on, read only.
 safely("clothing compulsions", () => installOutfitWatch(modApi));
+// Pose compulsions (v1.19.7): hears her pose changing, read only; ECHS's own posing never counts.
+safely("pose compulsions", () => installPoseWatch(modApi));
 // "You cannot take it off" (v1.19.4): her own removal of a held item, refused on her client.
 safely("held items stay on", () => installNoRemove(modApi));
