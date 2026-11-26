@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.33 · 25 November 2026
+
+- **A compulsion that can't be set up says so once.** If what comes after *"when anyone ... you,"*
+  isn't something ECHS knows, the hypnotist used to get "RECORDING", "Noted" and "Nothing after
+  that could be kept", all twice. Now it's one line naming the words and saying what to do instead.
+- **"remember trigger" always gets an answer.** Said with nothing being recorded, it and the trigger
+  options (*"this trigger works once"*, *"this trigger holds while you wear it"*) now say
+  *"Nothing is being recorded right now"* instead of nothing at all.
+
 ## v1.16.32 · 25 November 2026
 
 - **New compulsion: "whenever anyone sucks you".** It waits for someone sucking your nipples,

@@ -18,6 +18,36 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-25 (v1.16.33) — one answer for a failed compulsion; "remember trigger" always answered
+
+UI lab review F2's two side notes; DW: "Do A and B". Reproduced in the harness first: "Missy,
+whenever anyone gags you, your arms go limp" sent six notices (RECORDING, Noted, Nothing after that
+could be kept, then all three again), and "remember trigger" / the options with nothing recording
+sent none.
+
+Why twice: handleConditionStart returns false on failure so the line falls through, and
+handleSpokenLine's second handleTriggerControl pass (on the addressee-scoped line) parsed the same
+clause and ran it all again. Now a per-line flag (conditionFailedOnLine, reset when a line is not a
+re-read) stops the second try. Why contradictory: beginRecording and applyRecordingOption tell the
+hypnotist as they go, before the rest of the line is known to be keepable. triggers.ts now holds
+hypnotist notices (holdHypnotistNotes / takeHeldNotes / sendHeldNotes; tellHypnotist and
+tellHypnotistWithList push while held). handleConditionStart holds around the attempt and sends
+everything on success, in order. On failure it drops RECORDING/Noted and sends what the re-read of
+the rest said (a refusal saying why) and one closing line. With no refusal that line names the
+words: '"your arms go limp" isn't something ECHS knows how to do ... Suggestions ... /echs match'.
+A refused rest now ends the line (returns true): read again live it was only refused a second
+time. An unknown rest still falls through, as before, for patter and deepeners. The wake form keeps
+"They are still under".
+
+B: commit with nothing recording answers "Nothing is being recorded right now" and returns true
+("remember trigger" can't be anything else). An option still falls through as before, and is
+answered only when the line names a trigger ("this/that/the trigger"), since OPT_SUBJ includes
+"it" and "it will last ten minutes" may be patter. Once per line (toldNotRecordingOnLine). "forget
+the trigger" with nothing open stays silent.
+
+New test/notice-once.mjs (13). compulsion.mjs's wake check reads the new wording. Mutations: the
+per-line guard removed, and the commit reply removed, each fail a check.
+
 ### Added 2026-11-25 (v1.16.32) — "whenever anyone sucks you"
 
 Second of the two suck items on the 2026-11-23 list; DW said go after v1.16.31. New

@@ -220,7 +220,7 @@ under();
 say("Missy, when you wake up you will feel refreshed");
 check("nothing kept: no recording left open", triggers.isRecording(), false);
 check("  no compulsion stored", compulsions().length, 0);
-check("  the hypnotist told, and told she is still under", /none was set up\. They are still under/.test(toHyp.join(" ")), true);
+check("  the hypnotist told, and told she is still under", /no compulsion was set up\. They are still under/.test(toHyp.join(" ")), true);
 check("  she is NOT woken by it", session.isHypnotized(), true);
 // The same line that ALSO says to wake up is a wake-up. Failure: she stays under.
 reset();

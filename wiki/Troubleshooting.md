@@ -53,6 +53,7 @@ Punctuation, capitalization, and standard contractions (*can't* vs. *cannot*) ar
 * **Missing Name:** A line said out loud must include the subject's character name. (Whispered to them, it doesn't need it.)
 * **First-Person Lines ("I" or "We"):** Lines starting with *"I"* or *"we"* without a following *"you"* are discarded on purpose, so descriptive emotes like *"I kneel beside you"* do not force the subject to kneel.
 * **Parentheses:** Any text enclosed in parentheses, single `(like this)` or double `((like this))`, is treated as OOC dialogue and discarded before the parser evaluates the message.
+* **A compulsion that wasn't set up:** If what comes after *"when anyone ... you,"* isn't something ECHS knows, the hypnotist is told once, naming it: *"'your arms go limp' isn't something ECHS knows how to do, so no compulsion was set up."* Pick what they do from Suggestions in the popup, or check the line with `/echs match`. *"remember trigger"* or *"this trigger works once"* said with nothing being recorded gets *"Nothing is being recorded right now"*.
 * **Unrecognized Phrasing:** The parser matches specific structures. Check the in-game **What to Say** tab (generated directly from the engine) or [What to Say](What-to-Say) on the wiki for valid sentence patterns.
 
 ---

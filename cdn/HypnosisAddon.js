@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.32. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.33. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6962,10 +6962,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/triggers.ts
   function tellHypnotist(hypnotistId, text2) {
-    sendHiddenMessage({ type: "trigger-status", text: text2 }, hypnotistId);
+    if (heldNotes) heldNotes.push({ id: hypnotistId, text: text2 });
+    else sendHiddenMessage({ type: "trigger-status", text: text2 }, hypnotistId);
   }
   function tellHypnotistWithList(hypnotistId, text2) {
-    sendHiddenMessage({ type: "trigger-status", text: text2, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+    if (heldNotes) heldNotes.push({ id: hypnotistId, text: text2, list: true });
+    else sendHiddenMessage({ type: "trigger-status", text: text2, planted: plantedEntriesFor(hypnotistId) }, hypnotistId);
+  }
+  function holdHypnotistNotes() {
+    heldNotes = [];
+  }
+  function takeHeldNotes() {
+    const held = heldNotes ?? [];
+    heldNotes = null;
+    return held;
+  }
+  function sendHeldNotes(notes) {
+    for (const n of notes) (n.list ? tellHypnotistWithList : tellHypnotist)(n.id, n.text);
   }
   function installTriggers() {
     registerHiddenHandler("trigger-status", (sender, message) => {
@@ -7560,7 +7573,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function installerHasSession(trigger) {
     return isSessionActiveWith(trigger.installedBy);
   }
-  var MIN_PHRASE_LENGTH, MAX_ACTIONS, TRIGGER_DECAY_PER_DAY, DECAY_GRACE_DAYS, TIER_HOLD, CHEMICAL_DECAY_PER_DAY, FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION, TRIGGER_GHOST_THRESHOLD, MAX_WAKE_DELAY_MS, MAX_REQUESTED_LIFESPAN_MS, recording, REACT_PREFIX, COLLISION_REFUSAL_CAP, COLLISION_WINDOW_MS, collisionRefusalCount, collisionWindowStart, COLLISION_FLAT, COLLISION_VAGUE, DROP_ACTION, SAY_PREFIX, MAX_SAY_TIMES, MAX_SAY_LENGTH, TRIGGER_SCOPES;
+  var heldNotes, MIN_PHRASE_LENGTH, MAX_ACTIONS, TRIGGER_DECAY_PER_DAY, DECAY_GRACE_DAYS, TIER_HOLD, CHEMICAL_DECAY_PER_DAY, FIRING_CREDIT_FRACTION, MAX_FIRING_CREDIT_FRACTION, TRIGGER_GHOST_THRESHOLD, MAX_WAKE_DELAY_MS, MAX_REQUESTED_LIFESPAN_MS, recording, REACT_PREFIX, COLLISION_REFUSAL_CAP, COLLISION_WINDOW_MS, collisionRefusalCount, collisionWindowStart, COLLISION_FLAT, COLLISION_VAGUE, DROP_ACTION, SAY_PREFIX, MAX_SAY_TIMES, MAX_SAY_LENGTH, TRIGGER_SCOPES;
   var init_triggers = __esm({
     "src/triggers.ts"() {
       init_log();
@@ -7573,6 +7586,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_messaging();
       init_teardown();
       init_planted();
+      heldNotes = null;
       MIN_PHRASE_LENGTH = 5;
       MAX_ACTIONS = 8;
       TRIGGER_DECAY_PER_DAY = {
@@ -8174,6 +8188,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!watch) return false;
       condition = { fireOn: parsed.fireOn, ...watch, ...parsed.fireOn === "act" ? { act: parsed.act } : {} };
     }
+    if (conditionFailedOnLine) return false;
+    let send = null;
+    holdHypnotistNotes();
+    try {
+      return conditionStartHeld(sender, content, parsed, condition, (notes) => send = notes);
+    } finally {
+      const left = takeHeldNotes();
+      sendHeldNotes(send ?? left);
+    }
+  }
+  function conditionStartHeld(sender, content, parsed, condition, decide) {
     const character = ChatRoomCharacter?.find((c) => c?.MemberNumber === sender);
     const line = beginRecording(sender, character?.Name ?? `#${sender}`, "", isTriggerInEffect, condition);
     if (!isRecording()) return true;
@@ -8211,26 +8236,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (dropLine) tellPlayer(dropLine);
       return true;
     }
+    const heldBefore = takeHeldNotes();
+    holdHypnotistNotes();
     rereadingRest = true;
     try {
       handleSpokenLine(sender, `${playerOwnNames()[0] ?? ""}, ${parsed.rest}`);
     } finally {
       rereadingRest = false;
     }
+    const fromRest = takeHeldNotes();
+    holdHypnotistNotes();
     if (describeRecording() === before) {
       cancelRecording();
+      conditionFailedOnLine = true;
+      const unknown = `"${parsed.rest}" isn't something ECHS knows how to do, so no compulsion was set up.`;
       if (parsed.fireOn === "wake") {
-        tellHypnotist(
-          sender,
-          '[trigger] Nothing after "when you wake" could be kept as a compulsion, so none was set up. They are still under; say "wake up" to wake them.'
-        );
+        const why2 = fromRest.length ? "So no compulsion was set up." : unknown;
+        decide([...fromRest, { id: sender, text: `[trigger] ${why2} They are still under; say "wake up" to wake them.` }]);
         return true;
       }
-      tellHypnotist(sender, "[trigger] Nothing after that could be kept as a compulsion, so none was set up.");
-      return false;
+      const why = fromRest.length ? "So no compulsion was set up." : `${unknown} Pick what they do from Suggestions in the popup, or check a line with /echs match.`;
+      decide([...fromRest, { id: sender, text: `[trigger] ${why}` }]);
+      return fromRest.length > 0;
     }
+    decide([...heldBefore, ...fromRest]);
     tellLine();
     return true;
+  }
+  function tellNotRecording(sender) {
+    if (toldNotRecordingOnLine) return;
+    toldNotRecordingOnLine = true;
+    tellHypnotist(sender, '[trigger] Nothing is being recorded right now, so that was not kept. Start one first: "your trigger word is ..." or "when anyone ... you, ...".');
   }
   function handleTriggerControl(sender, content) {
     const parsed = parseTriggerControl(content);
@@ -8245,7 +8281,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (parsed.kind === "option") {
       const message = applyRecordingOption(parsed.option);
-      if (message === null) return false;
+      if (message === null) {
+        if (!isRecording() && /\b(?:this|that|the) trigger\b/.test(normalize(content))) tellNotRecording(sender);
+        return false;
+      }
       tellPlayer(message);
       return true;
     }
@@ -8263,7 +8302,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     if (parsed.kind === "commit") {
-      if (!isRecording()) return false;
+      if (!isRecording()) {
+        tellNotRecording(sender);
+        return true;
+      }
       const message = commitRecording(isTriggerInEffect);
       if (message) tellPlayer(message);
       return true;
@@ -9611,6 +9653,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`did not hear ${sender}: hearing only ${hearingMode()?.kind === "voice" ? "one voice" : "her name"}`);
       return;
     }
+    if (!rereadingRest) {
+      conditionFailedOnLine = false;
+      toldNotRecordingOnLine = false;
+    }
     if (commandQueue.length && !rereadingRest && isControlLine(content)) flushCommands();
     if (!rereadingRest && personCondition(content) && handleTriggerControl(sender, content)) return;
     const scope = scopeToAddressee(content, playerOwnNames(), otherRoomNames(sender));
@@ -9747,7 +9793,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -10977,6 +11023,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }));
       PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
       rereadingRest = false;
+      conditionFailedOnLine = false;
+      toldNotRecordingOnLine = false;
       TRIGGER_STEP_BASE_MS = 1200;
       TRIGGER_STEP_JITTER_MS = 800;
       FORCED_LINE_CAP = 6;
@@ -13665,7 +13713,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.32"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.33"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13738,7 +13786,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.32"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.33"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14596,7 +14644,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.32", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.33", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -14633,7 +14681,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.32", showIcon: getFeatures().showEchsIcon !== false };
+    return { version: "1.16.33", showIcon: getFeatures().showEchsIcon !== false };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -14675,7 +14723,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.32", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.33", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -17836,7 +17884,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.32"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.33"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18948,7 +18996,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.32"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.33"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18975,7 +19023,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.32"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.33"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -19050,14 +19098,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.32"})`);
+      info(`script loaded (v${"1.16.33"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.32",
+          version: "1.16.33",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19199,10 +19247,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.32"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.33"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.32";
+    page2.__ECHS_LOADED__ = "1.16.33";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
