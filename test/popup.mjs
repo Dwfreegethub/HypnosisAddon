@@ -675,7 +675,7 @@ KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyho
 KH.receiveKeyholderFields(A, { type: "state-response", version: "1.16.36", keyholder: "none", keyLevel: "none", keysChanged: true });
 const keyNews = local.map((l) => l.replace(/^\[|\]$/g, "").replace(/^\S+ /, ""));
 const keyNewsWant = [
-	"gave you moderate keys to their ECHS settings. They're on the popup's Keys tab.",
+	"gave you moderate keys to their ECHS settings. They're on the popup's Access tab.",
 	"changed your keys to moderate.",
 	"took their keys back.",
 ];

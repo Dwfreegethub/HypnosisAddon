@@ -89,7 +89,9 @@ import {
 	setToyScope,
 	ATTEMPT_LIMITS,
 	INDUCTION_TIMES,
+	accessLevelOf, ACCESS_LEVELS, AccessLevel,
 } from "./storage";
+import { changeAccess, ACCESS_LABELS, ACCESS_WORDS } from "./access";
 import type { TriggerScope, DecayRate, DropMode, TriggerView } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
@@ -439,12 +441,12 @@ const STAT_NAME_X = BOX_LEFT;
 // 460 rather than 640. The widest thing in this column is a name and a member number —
 // "WinnersDice [252905]" is about 340px — so 640 left a hand's width of nothing between the
 // name and its value, and pushed the detail column out to where it had least room.
-const STAT_VALUE_X = BOX_LEFT + 460;
-const STAT_DETAIL_X = BOX_LEFT + 620;
+const STAT_VALUE_X = BOX_LEFT + 420;
+const STAT_DETAIL_X = BOX_LEFT + 500;
 /** What a name may use before it reaches the value column. BC names can run to 20 characters
  * and the member number adds nine more, so this one does need a cap now that the column is
  * only as wide as it has to be. */
-const STAT_NAME_MAX = 440;
+const STAT_NAME_MAX = 400;
 const STAT_LINE_HEIGHT = 40;
 const STAT_EXPERIENCE_Y = 290;
 const STAT_HEADER_Y = 330;
@@ -473,7 +475,15 @@ const STAT_FORGET_WIDTH = 90;
 const STAT_FORGET_HEIGHT = 34;
 // Left of the list's scroll bar (panel.ts SCROLLBAR_WIDTH, at the right of the scroll area).
 const STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - 20 - 44 - STAT_FORGET_WIDTH - 12;
-const STAT_DETAIL_MAX = STAT_FORGET_LEFT - STAT_DETAIL_X - 12;
+// Each person's access level (v1.17.0, DW): Blocked / Normal / Toy, just left of the [x].
+const STAT_ACCESS_WIDTH = 72;
+const STAT_ACCESS_GAP = 6;
+const STAT_ACCESS_LEFT = STAT_FORGET_LEFT - ACCESS_LEVELS.length * (STAT_ACCESS_WIDTH + STAT_ACCESS_GAP) - 4;
+const STAT_ACCESS_COLORS: Record<AccessLevel, string> = { blocked: "#ffb3b3", normal: "#cfe8cf", toy: "#d8c7ff" };
+const STAT_DETAIL_MAX = STAT_ACCESS_LEFT - STAT_DETAIL_X - 12;
+/** Blocked takes two clicks, as [x] does: it forgets everything they planted. */
+let statBlockArmed = 0;
+let statBlockArmedUntil = 0;
 /** What is typed in the search. Reset whenever the screen opens. */
 let trustSearch = "";
 /** The member number whose [x] has been clicked once, and until when that counts. */
@@ -1727,6 +1737,35 @@ function statForgetTop(slot: number): number {
 	return statRowY(slot) - STAT_FORGET_HEIGHT / 2;
 }
 
+function statAccessLeft(index: number): number {
+	return STAT_ACCESS_LEFT + index * (STAT_ACCESS_WIDTH + STAT_ACCESS_GAP);
+}
+
+/** A click on one of a row's level buttons. Normal and Toy at once; Blocked needs a second click
+ * within 5 seconds. What she is told comes from access.ts changeAccess, as the command's does.
+ * Exported for the suite. */
+export function clickStatAccess(): boolean {
+	if (!mouseInScroll(rowScroll)) return false;
+	const rows = trustStatRows(trustSearch);
+	layoutStats(rows.length);
+	for (let i = 0; i < rows.length; i++) {
+		const li = ACCESS_LEVELS.findIndex((_, j) => MouseIn(statAccessLeft(j), statForgetTop(i), STAT_ACCESS_WIDTH, STAT_FORGET_HEIGHT));
+		if (li < 0) continue;
+		if (settingsLocked()) return true;
+		const row = rows[i];
+		const level = ACCESS_LEVELS[li];
+		if (level === "blocked" && accessLevelOf(row.memberId) !== "blocked" && !(statBlockArmed === row.memberId && Date.now() < statBlockArmedUntil)) {
+			statBlockArmed = row.memberId;
+			statBlockArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
+			return true;
+		}
+		statBlockArmed = 0;
+		notifyLocal(changeAccess(row.memberId, row.name.replace(/\s*\(#\d+\)$/, ""), level));
+		return true;
+	}
+	return false;
+}
+
 /** A click on a row's [x], if that is where it landed: the first arms it, a second within 5 seconds
  * deletes. Two clicks because this cannot be undone, and the buttons sit one above the other. */
 function clickStatForget(): boolean {
@@ -1780,10 +1819,10 @@ export function usingSinceText(at: number): string {
 }
 
 function drawStats(): void {
-	const line = (y: number, name: string, value: string, detail: string, color = "Black") => {
+	const line = (y: number, name: string, value: string, detail: string, color = "Black", detailMax = STAT_DETAIL_MAX) => {
 		drawLeftTextFit(name, STAT_NAME_X, y, STAT_NAME_MAX, color);
 		if (value) drawLeftText(value, STAT_VALUE_X, y, color);
-		if (detail) drawLeftTextFit(detail, STAT_DETAIL_X, y, STAT_DETAIL_MAX, "Gray");
+		if (detail) drawLeftTextFit(detail, STAT_DETAIL_X, y, detailMax, "Gray");
 	};
 
 	drawDecayControl();
@@ -1795,12 +1834,17 @@ function drawStats(): void {
 		return;
 	}
 	// Since when she has used ECHS (v1.16.8): on the Experience row, so the trust list keeps its room.
-	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions · using ECHS since ${usingSinceText(getUsingSince())}`);
+	line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions · using ECHS since ${usingSinceText(getUsingSince())}`, "Black", STAT_FORGET_LEFT + STAT_FORGET_WIDTH - STAT_DETAIL_X);
 	// How many, in the header (v1.16.38): the list no longer says "page 1 / 3".
 	const listed = trustStatRows(trustSearch).length;
 	// No "value" / "detail" over an empty list (v1.16.41, review F11): headings for nothing.
 	const anyone = trustStatRows().length > 0;
-	line(STAT_HEADER_Y, anyone ? `Trust · ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", anyone ? "value" : "", anyone ? "detail" : "", "Gray");
+	line(STAT_HEADER_Y, anyone ? `Trust · ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", "", "", "Gray");
+	// The headings fitted to their columns (v1.17.0: the value column is narrower for the level buttons).
+	if (anyone) {
+		drawLeftTextFit("value", STAT_VALUE_X, STAT_HEADER_Y, STAT_DETAIL_X - STAT_VALUE_X - 8, "Gray");
+		drawLeftTextFit("detail", STAT_DETAIL_X, STAT_HEADER_Y, STAT_DETAIL_MAX, "Gray");
+	}
 
 	// Nobody at all, and there is nothing to search. A search with no matches keeps its box.
 	if (!trustStatRows().length) {
@@ -1822,6 +1866,24 @@ function drawStats(): void {
 			const y = statRowY(i);
 			if (!scrollShows(rowScroll, y - STAT_LINE_HEIGHT / 2, STAT_LINE_HEIGHT)) return;
 			line(y, row.name, row.trust, row.detail);
+			const level = accessLevelOf(row.memberId);
+			ACCESS_LEVELS.forEach((l, j) => {
+				const blockArmed = l === "blocked" && statBlockArmed === row.memberId && Date.now() < statBlockArmedUntil;
+				tipButton(
+					statAccessLeft(j), statForgetTop(i), STAT_ACCESS_WIDTH, STAT_FORGET_HEIGHT,
+					blockArmed ? "Sure?" : ACCESS_LABELS[l],
+					locked ? "#ddd" : blockArmed ? "#ffb3b3" : level === l ? STAT_ACCESS_COLORS[l] : "White",
+					"",
+					!mouseInScroll(rowScroll)
+						? ""
+						: locked
+							? lockedTip()
+							: blockArmed
+								? "Click again to block them. Anything they planted in you is forgotten."
+								: `${ACCESS_LABELS[l]}${level === l ? " (now)" : ""}: they ${l === "normal" ? "get what your usual settings allow" : ACCESS_WORDS[l]}`,
+					locked,
+				);
+			});
 			const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
 			tipButton(
 				STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT,
@@ -2284,6 +2346,7 @@ export function installMenu(): void {
 				if (tab.name === "Stats" && !extremeLocked()) {
 					layoutStats(trustStatRows(trustSearch).length);
 					if (clickScrollBar(rowScroll)) return;
+					if (clickStatAccess()) return;
 					if (clickStatForget()) return;
 				}
 				return;

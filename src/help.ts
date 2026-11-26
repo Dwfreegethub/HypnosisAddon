@@ -258,6 +258,7 @@ function depthTrustLines(): HelpLine[] {
 		body("no roll, no tries. Time to go under (60 seconds, or as low as 10) is"),
 		body("how long every induction runs once you answer, toy mode's too."),
 		dim("Toy mode reaches triggers too. The safeword always works."),
+		dim("One person Blocked, or Toy even with toy mode off: popup Access tab."),
 		gap(),
 		head("Their skill, and whether you believe it"),
 		body("Practised hypnotists are better at it. Their client tells yours how"),

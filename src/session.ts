@@ -16,7 +16,7 @@ import { sendHiddenMessage, registerHiddenHandler } from "./messaging";
 import {
 	getFeatures, trustWith, experienceValue, getMaxAttempts, DEFAULT_MAX_ATTEMPTS,
 	getSkillHonour, skillValue, addSkill, getDeepestTier,
-	getDefaultStance, getAwayStance, getToyMode, getToyScope, TOY_SCOPES, DEFAULT_STANCES, AWAY_STANCES,
+	getDefaultStance, getAwayStance, getToyMode, accessLevelOf, getToyScope, TOY_SCOPES, DEFAULT_STANCES, AWAY_STANCES,
 	getInductionSeconds,
 } from "./storage";
 import { isAway, idleMinutes } from "./away";
@@ -1272,6 +1272,10 @@ type Answer =
  * for a real BC relationship in the testing room, as it does for the trust floors. Everything
  * else (whitelist, blacklist, Dominant) is BC's own, in allowedByLadder(). */
 export function toyModeFor(memberId: number): boolean {
+	// Her own list first (v1.17.0, DW): Toy for this person whatever toy mode says, Blocked never.
+	const level = accessLevelOf(memberId);
+	if (level === "toy") return true;
+	if (level === "blocked") return false;
 	if (!getToyMode()) return false;
 	const scope = getToyScope();
 	const relation = relationshipWith(memberId);
@@ -2139,6 +2143,14 @@ export function describeSession(): string {
  * principle that makes a remote release always honored. Works from any live phase, so
  * waking someone mid-induction cancels the attempt rather than being ignored.
  * Returns false if this person isn't running a session on us. */
+/** She blocked this person (v1.17.0): a trance or induction of theirs on her ends now, as an
+ * ordinary end. Returns whether one did. */
+export function endSessionWith(member: number): boolean {
+	if (session.hypnotistId !== member || session.phase === "Idle") return false;
+	endSession("you blocked them");
+	return true;
+}
+
 export function wakeByHypnotist(sender: number): boolean {
 	if (session.hypnotistId !== sender || session.phase === "Idle") return false;
 	endSession("they woke you");
@@ -2446,6 +2458,14 @@ export function installSession(): void {
 	registerHiddenHandler("session-attempt", (sender, message) => {
 		if (!getFeatures().hypnoEnabled) {
 			refuse(sender, "They aren't open to hypnosis.");
+			return;
+		}
+		// Blocked on her own list (v1.17.0, DW): beats every setting, toy mode and Extreme included.
+		// Told only what hypnosis being off tells them, so the list stays private. She is told.
+		if (accessLevelOf(sender) === "blocked") {
+			refuse(sender, "They aren't open to hypnosis.");
+			notify(`${String(message.hypnotistName ?? `#${sender}`)} tried to hypnotize you. You have them blocked, so nothing happened.`);
+			log(`refused session-attempt from ${sender}: blocked`);
 			return;
 		}
 		// You have to be in the room to reach for someone. The hidden channel rides

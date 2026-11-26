@@ -21,7 +21,7 @@ import {
 } from "./effects";
 import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
-import { getFeatures, getTriggerDuration, getDropMode, getTriggerView, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, FeatureToggles, PlantedEntry, Trigger } from "./storage";
+import { getFeatures, getTriggerDuration, getDropMode, getTriggerView, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, accessLevelOf, FeatureToggles, PlantedEntry, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
 import {
 	isSessionActiveWith,
@@ -2782,6 +2782,8 @@ function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number,
 /** A BC activity aimed at her (v1.16.9), from the message handler in installCompulsions: may be
  * what a "when anyone kisses you" compulsion waits for. */
 export function noteActivity(member: number, activity: string): void {
+	// Someone she blocked sets nothing off (v1.17.0).
+	if (accessLevelOf(member) === "blocked") return;
 	try {
 		fireEventCompulsions("act", member, activity);
 	} catch (err) {
@@ -2792,6 +2794,7 @@ export function noteActivity(member: number, activity: string): void {
 /** Someone entered the room — main.ts, from BC's "ServerEnter" action message (R132: sent with
  * the arriving member as Sender, after ChatRoomSyncMemberJoin has put them in the room). */
 export function noteArrival(member: number): void {
+	if (accessLevelOf(member) === "blocked") return;
 	try {
 		fireEventCompulsions("arrive", member);
 	} catch (err) {
@@ -3412,6 +3415,20 @@ export function isTriggerRemovalLine(content: string): boolean {
 
 /** Reverse everything a trigger applied. Shared by the named release, the timer, and
  * anything else that needs to let go — one path, so they can't drift apart. */
+/** She blocked this person (v1.17.0, DW: "ends, and their triggers go too"): everything they
+ * planted in her, compulsions and reactions included, lets go if it is holding her and is
+ * forgotten. Returns how many. Never under her Extreme lock (Extreme is add-only); access.ts
+ * refuses the block there before it gets here. */
+export function forgetEverythingFrom(member: number): number {
+	if (extremeLocked()) return 0;
+	let n = 0;
+	for (const t of listTriggers().filter((x) => x.installedBy === member)) {
+		if (isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0) undoTrigger(t);
+		n += forgetTrigger(t.key) > 0 ? 1 : 0;
+	}
+	return n;
+}
+
 function undoTrigger(trigger: Trigger): void {
 	for (const id of trigger.actions) {
 		// The word letting go ends what its reactions are holding too (v1.16.13).
@@ -4907,6 +4924,12 @@ function handleTargetedActivityCommand(sender: number, content: string): boolean
 }
 
 export function handleSpokenLine(sender: number, content: string): void {
+	// BLOCKED ON HER OWN LIST (v1.17.0, DW): nothing they say reaches her. No command, no planting,
+	// no trigger word, no "when Rei speaks". First, so no path below can reach round it.
+	if (sender !== Player?.MemberNumber && accessLevelOf(sender) === "blocked") {
+		log(`ignored a line from ${sender}: blocked`);
+		return;
+	}
 	// WHAT SHE CANNOT HEAR CANNOT ACT ON HER (v0.93.0, DW). While she hears only one voice, or only
 	// lines with her name, anything else said in the room is not read at all: no command, no
 	// trigger word, no "when Rei speaks". Before everything, so no path below can reach round it.
