@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.16.37. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.16.38. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -11305,7 +11305,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.16.37", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.16.38", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11354,7 +11354,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.16.37", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.16.38", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13393,7 +13393,33 @@ One of mods you are using is using an old version of SDK. It will work for now b
     resetArmedUntil = 0;
     notifyLocal(resetSettings());
   }
-  function drawDataButtons() {
+  function dataBlockHeight() {
+    return DATA_HEADING_HEIGHT + DATA_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT + 10;
+  }
+  function drawDataBlock(top, width) {
+    drawLeftTextFit("Your data:", BOX_LEFT, top + DATA_HEADING_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, "Black", DROPDOWN_LABEL_SIZE);
+    drawDataButtons(top + DATA_HEADING_HEIGHT);
+    drawLeftTextWrap(
+      "Export copies your settings to the clipboard; Import puts them back. Reset erases everything.",
+      BOX_LEFT,
+      top + DATA_HEADING_HEIGHT + DATA_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
+      width,
+      ATTEMPT_CAPTION_HEIGHT,
+      "#555",
+      CAPTION_SIZE,
+      18
+    );
+  }
+  function clickDataBlock(top) {
+    for (let i = 0; i < DATA_BUTTONS.length; i++) {
+      if (MouseIn(dataButtonLeft(i), top + DATA_HEADING_HEIGHT, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
+        clickDataButton(i);
+        return true;
+      }
+    }
+    return false;
+  }
+  function drawDataButtons(top) {
     const armed = Date.now() < resetArmedUntil;
     const importLocked = settingsLocked();
     DATA_BUTTONS.forEach((name, i) => {
@@ -13401,13 +13427,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const locked = name === "Import" && importLocked;
       tipButton(
         dataButtonLeft(i),
-        DATA_BUTTON_TOP,
+        top,
         DATA_BUTTON_WIDTH,
         DATA_BUTTON_HEIGHT,
         isReset && armed ? "Confirm?" : name,
         isReset ? armed ? "#ffb3b3" : "#ffe0e0" : locked ? "#ddd" : "White",
         "",
-        isReset ? "Erases everything \u2014 asks once first" : locked ? lockedTip() : `${name} via clipboard`,
+        !mouseInScroll(rowScroll) ? "" : isReset ? "Erases everything \u2014 asks once first" : locked ? lockedTip() : `${name} via clipboard`,
         locked
       );
     });
@@ -13442,7 +13468,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function drawDecayControl() {
     const locked = settingsLocked();
-    drawLeftText("Trust fades when you don't see someone:", DECAY_LABEL_X, DECAY_LABEL_Y, locked ? "Gray" : "Black");
+    drawLeftTextFit("Trust fades when you don't see someone:", BOX_LEFT, STAT_DECAY_Y, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
     let element = document.getElementById(DECAY_ID);
     if (!element) {
       element = ElementCreateDropdown(
@@ -13457,20 +13483,25 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const index = DECAY_RATES.findIndex((r) => r.key === getDecayRate());
     if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
     element.disabled = locked;
-    ElementPosition(DECAY_ID, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT);
+    ElementPosition(DECAY_ID, BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20 + DROPDOWN_WIDTH / 2, STAT_DECAY_Y, DROPDOWN_WIDTH, DECAY_HEIGHT);
   }
-  function statPageCount() {
-    return Math.max(1, Math.ceil(trustStatRows(trustSearch).length / STAT_ROWS_PER_PAGE));
+  function layoutStats(count) {
+    rowScroll.top = STAT_LIST_TOP;
+    rowScroll.height = STAT_LIST_BOTTOM - STAT_LIST_TOP;
+    rowScroll.content = count * STAT_LINE_HEIGHT + 8;
+    rowScroll.step = STAT_LINE_HEIGHT;
+    clampScroll(rowScroll);
   }
-  function statRowsOnPage() {
-    const start = statPage * STAT_ROWS_PER_PAGE;
-    return trustStatRows(trustSearch).slice(start, start + STAT_ROWS_PER_PAGE);
+  function statRowY(slot) {
+    return scrollY(rowScroll, 4 + slot * STAT_LINE_HEIGHT + STAT_LINE_HEIGHT / 2);
   }
   function statForgetTop(slot) {
-    return STAT_FIRST_ROW_Y + slot * STAT_LINE_HEIGHT - STAT_FORGET_HEIGHT / 2;
+    return statRowY(slot) - STAT_FORGET_HEIGHT / 2;
   }
   function clickStatForget() {
-    const rows = statRowsOnPage();
+    if (!mouseInScroll(rowScroll)) return false;
+    const rows = trustStatRows(trustSearch);
+    layoutStats(rows.length);
     const slot = rows.findIndex((_, i) => MouseIn(STAT_FORGET_LEFT, statForgetTop(i), STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT));
     if (slot < 0) return false;
     if (settingsLocked()) return true;
@@ -13496,7 +13527,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       element.placeholder = "Name or number";
       element.addEventListener("input", function() {
         trustSearch = this.value;
-        statPage = 0;
+        rowScroll.offset = 0;
         statForgetArmed = 0;
       });
     }
@@ -13517,55 +13548,47 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (extremeLocked()) {
       removeTrustSearch();
       drawLeftTextFit("Your Extreme lock hides these numbers until it ends.", STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
-      drawDataButtons();
       return;
     }
     line(STAT_EXPERIENCE_Y, "Experience", experienceValue().toFixed(1), `${rawExperience().toFixed(2)} from inductions \xB7 using ECHS since ${usingSinceText(getUsingSince())}`);
-    line(STAT_HEADER_Y, "Trust", "value", "detail", "Gray");
+    const listed = trustStatRows(trustSearch).length;
+    line(STAT_HEADER_Y, trustStatRows().length ? `Trust \xB7 ${listed} ${listed === 1 ? "person" : "people"}` : "Trust", "value", "detail", "Gray");
     if (!trustStatRows().length) {
       removeTrustSearch();
       drawLeftText("Nobody yet \u2014 trust builds from conversation in the same room.", STAT_NAME_X, STAT_FIRST_ROW_Y, "Gray");
-      drawDataButtons();
       return;
     }
     drawTrustSearch();
     const rows = trustStatRows(trustSearch);
     if (!rows.length) {
       drawLeftTextFit(`Nobody here matches "${trustSearch.trim()}".`, STAT_NAME_X, STAT_FIRST_ROW_Y, PANEL_LEFT + PANEL_WIDTH - STAT_NAME_X - 40, "Gray");
-      drawDataButtons();
       return;
     }
-    const pages = statPageCount();
-    if (statPage >= pages) statPage = pages - 1;
     const locked = settingsLocked();
-    statRowsOnPage().forEach((row, i) => {
-      line(STAT_FIRST_ROW_Y + i * STAT_LINE_HEIGHT, row.name, row.trust, row.detail);
-      const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
-      tipButton(
-        STAT_FORGET_LEFT,
-        statForgetTop(i),
-        STAT_FORGET_WIDTH,
-        STAT_FORGET_HEIGHT,
-        armed ? "Sure?" : "[x]",
-        locked ? "#ddd" : armed ? "#ffb3b3" : "White",
-        "",
-        locked ? lockedTip() : armed ? "Click again to delete this person's trust. It cannot be undone." : "Forget this person: deletes their trust",
-        locked
-      );
+    layoutStats(rows.length);
+    drawScrollArea(rowScroll, () => {
+      rows.forEach((row, i) => {
+        const y = statRowY(i);
+        if (!scrollShows(rowScroll, y - STAT_LINE_HEIGHT / 2, STAT_LINE_HEIGHT)) return;
+        line(y, row.name, row.trust, row.detail);
+        const armed = statForgetArmed === row.memberId && Date.now() < statForgetArmedUntil;
+        tipButton(
+          STAT_FORGET_LEFT,
+          statForgetTop(i),
+          STAT_FORGET_WIDTH,
+          STAT_FORGET_HEIGHT,
+          armed ? "Sure?" : "[x]",
+          locked ? "#ddd" : armed ? "#ffb3b3" : "White",
+          "",
+          !mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : armed ? "Click again to delete this person's trust. It cannot be undone." : "Forget this person: deletes their trust",
+          locked
+        );
+      });
     });
-    if (pages > 1) {
-      tipButton(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Prev", "White", "", "", statPage === 0);
-      tipButton(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, "Next", "White", "", "", statPage >= pages - 1);
-      drawLeftText(
-        `${statPage + 1} / ${pages}  \xB7  ${rows.length} people`,
-        PAGE_NEXT_LEFT2 + PAGE_BUTTON_WIDTH2 + 24,
-        PAGE_BUTTON_TOP2 + PAGE_BUTTON_HEIGHT2 / 2,
-        "Gray"
-      );
-    }
-    drawDataButtons();
+    rowsDrawnAt = Date.now();
   }
   function layoutRows(tab2) {
+    rowScroll.step = ROW_SPACING;
     rowScroll.top = ROWS_TOP + (tab2.fixedRows?.length ? FIXED_BAND : 0);
     rowScroll.height = (tab2.rowsBottom ?? PANEL_TOP + PANEL_HEIGHT - ROWS_FLOOR_GAP) - rowScroll.top;
     rowScroll.content = ROWS_PAD + itemsHeight(tab2.rows ?? [], (tab2.rows ?? []).length) + (tab2.scrollExtra?.height() ?? 0);
@@ -13619,7 +13642,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.37"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.38"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -13692,7 +13715,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.37"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.16.38"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -13767,7 +13790,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       // previous visit's navigation is disorienting.
       load: () => {
         activeTab2 = 0;
-        statPage = 0;
         trustSearch = "";
         statForgetArmed = 0;
         plantedPage = 0;
@@ -13844,22 +13866,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
         if (tab2.clickExtra?.()) return;
         if (tabs[activeTab2].render) {
-          if (!extremeLocked() && clickStatForget()) return;
-          if (MouseIn(PAGE_PREV_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
-            statPage = Math.max(0, statPage - 1);
-            statForgetArmed = 0;
-            return;
-          }
-          if (MouseIn(PAGE_NEXT_LEFT2, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2)) {
-            statPage = Math.min(statPageCount() - 1, statPage + 1);
-            statForgetArmed = 0;
-            return;
-          }
-          for (let i = 0; i < DATA_BUTTONS.length; i++) {
-            if (MouseIn(dataButtonLeft(i), DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT)) {
-              clickDataButton(i);
-              return;
-            }
+          if (tab2.name === "Stats" && !extremeLocked()) {
+            layoutStats(trustStatRows(trustSearch).length);
+            if (clickScrollBar(rowScroll)) return;
+            if (clickStatForget()) return;
           }
           return;
         }
@@ -13960,7 +13970,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
     }
   }
-  var TABS2, REMOTE_TABS, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_FIRST_ROW_Y, STAT_ROWS_PER_PAGE, PAGE_BUTTON_TOP2, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, statPage, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_TOP, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, DROPDOWN_LABEL_SIZE, CAPTION_SIZE, TRANCE_DROPDOWNS, PULSE_COLOR_ID, PULSE_COLOR_DROPDOWN, MODERATE_TABS, FULL_ONLY_TABS, GENERAL_DROPDOWNS, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, CYCLE_GAP, TOY_SCOPE_ID, INDUCTION_DROPDOWNS, SCOPE_ID, LIFESPAN_ID, TRIGGER_DECAY_ID, DURATION_ID, DURATION_WIDTH, TRIGGER_DROPDOWNS, DEPTH_ROW_HEIGHT, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_LEFT, CHEM_WIDTH, CHEM_PREFIX, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, DEPTH_SUMMARY_GAP, DEPTH_SUMMARY_HEIGHT, DEFAULTS_BUTTON_WIDTH, DEPTH_DROPDOWNS, IMPORT_LOCKED_MESSAGE, DECAY_ID, DECAY_LABEL_X, DECAY_LABEL_Y, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT, ROWS_TOP, BLURB_HEIGHT, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
+  var TABS2, REMOTE_TABS, activeTab2, HELP_LEFT2, SETUP_WIDTH, SETUP_LEFT, HELP_TOP2, HELP_SIZE, BOX_LEFT, BOX_SIZE, ROW_SPACING, STAT_NAME_X, STAT_VALUE_X, STAT_DETAIL_X, STAT_NAME_MAX, STAT_LINE_HEIGHT, STAT_EXPERIENCE_Y, STAT_HEADER_Y, STAT_LIST_TOP, STAT_LIST_BOTTOM, STAT_FIRST_ROW_Y, STAT_DECAY_Y, PAGE_BUTTON_WIDTH2, PAGE_BUTTON_HEIGHT2, PAGE_PREV_LEFT2, PAGE_NEXT_LEFT2, TRUST_SEARCH_ID, TRUST_SEARCH_LABEL_X, TRUST_SEARCH_LEFT, TRUST_SEARCH_WIDTH, TRUST_SEARCH_HEIGHT, STAT_FORGET_WIDTH, STAT_FORGET_HEIGHT, STAT_FORGET_LEFT, STAT_DETAIL_MAX, trustSearch, statForgetArmed, statForgetArmedUntil, DATA_BUTTON_WIDTH, DATA_BUTTON_HEIGHT, DATA_BUTTON_GAP, DATA_BUTTONS, resetArmedUntil, RESET_ARM_MS, PLANTED_ROW_TOP, PLANTED_ROW_STEP, PLANTED_ROW_HEIGHT, PLANTED_ROWS_PER_PAGE, PLANTED_BUTTON_WIDTH, PLANTED_PURGE_LEFT, PLANTED_DETAILS_LEFT, PLANTED_TEXT_MAX, PLANTED_PAGE_TOP, CLEAR_ALL_TOP, CLEAR_ALL_WIDTH, CLEAR_ALL_HEIGHT, CLEAR_ALL_NOTE_X, CLEAR_ALL_NOTE_WIDTH, DETAIL_PURGE_LEFT, plantedPage, plantedDetail, clearAllArmedUntil, CLEAR_ALL_ARM_MS, ATTEMPT_BUTTON_HEIGHT, ATTEMPT_CAPTION_HEIGHT, ATTEMPT_CAPTION_GAP, SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID, DROPDOWN_LABEL_WIDTH, DROPDOWN_WIDTH, DROPDOWN_LABEL_SIZE, CAPTION_SIZE, TRANCE_DROPDOWNS, PULSE_COLOR_ID, PULSE_COLOR_DROPDOWN, MODERATE_TABS, FULL_ONLY_TABS, GENERAL_DROPDOWNS, PULSE_HEX_ID, PULSE_HEX_LABEL_WIDTH, PULSE_HEX_WIDTH, PULSE_SWATCH_SIZE, pulseHexError, CYCLE_GAP, TOY_SCOPE_ID, INDUCTION_DROPDOWNS, SCOPE_ID, LIFESPAN_ID, TRIGGER_DECAY_ID, DURATION_ID, DURATION_WIDTH, TRIGGER_DROPDOWNS, DEPTH_ROW_HEIGHT, DEPTH_CTRL_LEFT, DEPTH_LABEL_MAX, DEPTH_STEP_WIDTH, DEPTH_STEP, DEPTH_INPUT_LEFT, DEPTH_INPUT_WIDTH, DEPTH_PLUS_LEFT, DEPTH_TIER_TEXT_LEFT, DEPTH_TIER_TEXT_MAX, DEPTH_BUTTON_HEIGHT, CHEM_LEFT, CHEM_WIDTH, CHEM_PREFIX, DEPTH_INPUT_PREFIX, DEPTH_INPUT_IDS, DEPTH_SUMMARY_GAP, DEPTH_SUMMARY_HEIGHT, DEFAULTS_BUTTON_WIDTH, DEPTH_DROPDOWNS, IMPORT_LOCKED_MESSAGE, DATA_HEADING_HEIGHT, DECAY_ID, DECAY_HEIGHT, ROWS_TOP, BLURB_HEIGHT, HEADING_SPACING, FIXED_BAND, FIXED_COLUMN, INDENT, ROWS_PAD, ROWS_FLOOR_GAP, rowScroll, rowsDrawnAt, ROWS_ON_SCREEN_MS, LOCK_BANNER_BACK, LOCK_BANNER_TEXT, RENEW_LEFT, RENEW_TOP, RENEW_WIDTH, RENEW_HEIGHT, RENEW_GAP, EXTENSION_ID, EXTENSION_BUTTON_TEXT;
   var init_menu = __esm({
     "src/menu.ts"() {
       init_log();
@@ -14132,7 +14142,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
             { key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" }
           ],
-          scrollExtra: dropdownsExtra(() => GENERAL_DROPDOWNS)
+          // The two dropdowns, then Export / Import / Reset (v1.16.38, DW; on Stats before).
+          scrollExtra: {
+            height: () => GENERAL_DROPDOWNS.length * dropdownSlot() + dataBlockHeight(),
+            draw: (top, width) => {
+              drawDropdowns(GENERAL_DROPDOWNS, top, width);
+              drawDataBlock(top + GENERAL_DROPDOWNS.length * dropdownSlot(), width);
+            },
+            click: (top) => clickDataBlock(top + GENERAL_DROPDOWNS.length * dropdownSlot()),
+            hide: () => removeDropdowns(GENERAL_DROPDOWNS)
+          }
         }
       ];
       REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats", "General"];
@@ -14152,14 +14171,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       STAT_LINE_HEIGHT = 40;
       STAT_EXPERIENCE_Y = 290;
       STAT_HEADER_Y = 330;
-      STAT_FIRST_ROW_Y = 370;
-      STAT_ROWS_PER_PAGE = 7;
-      PAGE_BUTTON_TOP2 = 635;
+      STAT_LIST_TOP = 352;
+      STAT_LIST_BOTTOM = 800;
+      STAT_FIRST_ROW_Y = STAT_LIST_TOP + 20;
+      STAT_DECAY_Y = 848;
       PAGE_BUTTON_WIDTH2 = 110;
       PAGE_BUTTON_HEIGHT2 = 46;
       PAGE_PREV_LEFT2 = BOX_LEFT;
       PAGE_NEXT_LEFT2 = BOX_LEFT + 130;
-      statPage = 0;
       TRUST_SEARCH_ID = "HypnosisAddonTrustSearch";
       TRUST_SEARCH_LABEL_X = BOX_LEFT + 760;
       TRUST_SEARCH_LEFT = BOX_LEFT + 850;
@@ -14167,12 +14186,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       TRUST_SEARCH_HEIGHT = 40;
       STAT_FORGET_WIDTH = 90;
       STAT_FORGET_HEIGHT = 34;
-      STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - STAT_FORGET_WIDTH - 10;
+      STAT_FORGET_LEFT = PANEL_LEFT + PANEL_WIDTH - 20 - 44 - STAT_FORGET_WIDTH - 12;
       STAT_DETAIL_MAX = STAT_FORGET_LEFT - STAT_DETAIL_X - 12;
       trustSearch = "";
       statForgetArmed = 0;
       statForgetArmedUntil = 0;
-      DATA_BUTTON_TOP = 740;
       DATA_BUTTON_WIDTH = 200;
       DATA_BUTTON_HEIGHT = 60;
       DATA_BUTTON_GAP = 20;
@@ -14450,13 +14468,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       ];
       IMPORT_LOCKED_MESSAGE = "Import refused: your settings are locked until this session ends.";
+      DATA_HEADING_HEIGHT = 44;
       DECAY_ID = "HypnosisAddonDecayRate";
-      DECAY_LABEL_X = CONTENT_LEFT + 560;
-      DECAY_LABEL_Y = 660;
-      DECAY_CENTRE_X = CONTENT_LEFT + 940;
-      DECAY_CENTRE_Y = 705;
-      DECAY_WIDTH = 520;
-      DECAY_HEIGHT = 46;
+      DECAY_HEIGHT = 44;
       ROWS_TOP = 270;
       BLURB_HEIGHT = 62;
       HEADING_SPACING = 50;
@@ -14590,7 +14604,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.37", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.16.38", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17683,7 +17697,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.37"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.16.38"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -18822,7 +18836,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.37"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.16.38"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -18849,7 +18863,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.16.37"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.16.38"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -18924,14 +18938,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.16.37"})`);
+      info(`script loaded (v${"1.16.38"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.16.37",
+          version: "1.16.38",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -19073,10 +19087,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.37"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.16.38"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.16.37";
+    page2.__ECHS_LOADED__ = "1.16.38";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
