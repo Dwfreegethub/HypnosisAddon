@@ -20,7 +20,7 @@
 
 import { log, isTestingMode, RELEASE_SUFFIX } from "./log";
 import { commandHelp } from "./commands";
-import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, remoteChoiceLabel, REMOTE_TABS, MODERATE_TABS, settingsLocked, ownLocked } from "./menu";
+import { openSettingsScreen, EXTENSION_BUTTON_TEXT, remoteRows, remoteChoices, remoteChoiceLabel, REMOTE_TABS, MODERATE_TABS, FULL_ONLY_TABS, settingsLocked, ownLocked } from "./menu";
 import { keyLockHolder, keysLockHolder } from "./keylock";
 import { heldKeys, settingsOf, lastResult, askState, requestSettings, requestSetting, requestChoice, requestEndExtreme, requestRemoveTrigger, requestLock, requestUnlock, requestLockKeys, requestUnlockKeys, requestExtreme, requestRemoveKeyholder, keyLevelAllows, canRequestKeys } from "./keyholder";
 import {
@@ -1399,15 +1399,21 @@ function renderHeld(body: any, status: any, held: { id: number; name: string; mo
 			if (shut) continue;
 			for (const r of rows) {
 				const isOn = on.get(r.key) === true;
-				const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab));
+				const fullOnly = FULL_ONLY_TABS.includes(r.tab);
+				const blocked = !keyLevelAllows(who.mode, isOn, MODERATE_TABS.includes(r.tab), fullOnly);
 				const b = el("button", `echs-pop-item echs-pop-say${blocked ? " echs-pop-off" : ""}`, `${isOn ? "☑" : "☐"} ${r.label}`);
 				b.type = "button";
-				b.title = blocked ? `Your ${who.mode} keys can't switch this on.` : `Switch ${isOn ? "off" : "on"}`;
+				b.title = blocked ? (fullOnly ? `Your ${who.mode} keys can't change the General tab: it needs full keys.` : `Your ${who.mode} keys can't switch this on.`) : `Switch ${isOn ? "off" : "on"}`;
 				b.addEventListener("click", () => {
 					// v1.16.36 (review F6): a faded box sent anyway and got no visible answer. Said here
 					// instead, without sending: their ECHS would only refuse it.
 					if (blocked) {
-						setStatus(status, `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`);
+						setStatus(
+							status,
+							fullOnly
+								? `Your ${who.mode} keys can't change "${r.label}": the General tab needs full keys.`
+								: `Your ${who.mode} keys can't switch "${r.label}" on: that needs ${MODERATE_TABS.includes(r.tab) ? "moderate" : "full"} keys.`,
+						);
 						return;
 					}
 					requestSetting(who.id, r.key, !isOn);

@@ -200,7 +200,9 @@ const menu = readFileSync(new URL("../src/menu.ts", import.meta.url), "utf8");
 check("the menu has no Screen Fade tick box", /key: "tranceScreenFade"/.test(menu), false);
 check("  nor v1.9.0's spiral tick box", /key: "tranceSpiral"/.test(menu), false);
 check("  but a dropdown of the five", /id: SCREEN_EFFECT_ID,\s*label: "Screen effect:",\s*options: SCREEN_EFFECTS,/.test(menu), true);
-check("  removed off its tab and on every exit", (menu.match(/\.\.\.TRANCE_DROPDOWN_IDS/g) ?? []).length >= 2 && (menu.match(/removeTranceDropdowns\(\);/g) ?? []).length >= 2, true);
+// v1.16.37: every tab's DOM controls are listed once (tabDomIds) and removed off their tab and on
+// every exit from that list; menu-layout.mjs drives it. Here: the trance dropdowns are on that list.
+check("  removed off its tab and on every exit", /case "Trance Defaults":\s*return \[\.\.\.TRANCE_DROPDOWNS\.map\(\(d\) => d\.id\)/.test(menu) && /removeDropdowns\(TRANCE_DROPDOWNS\)/.test(menu), true);
 check("  None takes the fade off at once", /now === "none" && was !== "none"\) onToggle\("tranceScreenFade", false\)/.test(menu), true);
 
 console.log(`trance-spiral: ${pass}/${pass + fail} passed`);

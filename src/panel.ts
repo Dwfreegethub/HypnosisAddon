@@ -77,10 +77,11 @@ export function drawLeftText(text: string, x: number, y: number, color = "Black"
  * clips. BC's DrawTextFit does the shrinking but centres, and DrawText does neither — so a
  * long blurb simply ran off the right-hand edge of the panel and out of the screen, which
  * it had been doing on the wider tabs for some time. */
-export function drawLeftTextFit(text: string, x: number, y: number, maxWidth: number, color = "Black"): void {
+export function drawLeftTextFit(text: string, x: number, y: number, maxWidth: number, color = "Black", startSize = 36): void {
 	MainCanvas.save();
 	MainCanvas.textAlign = "left";
-	let size = 36;
+	// startSize (v1.16.37): the settings screen's dropdown labels all start at 28, so they match.
+	let size = startSize;
 	const font = (n: number) => (typeof CommonGetFont === "function" ? CommonGetFont(n) : `${n}px arial`);
 	MainCanvas.font = font(size);
 	while (size > 22 && MainCanvas.measureText(text).width > maxWidth) {

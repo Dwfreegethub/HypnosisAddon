@@ -98,12 +98,20 @@ check("  she is told who and what", local.some((l) => l.includes("Kay (your keyh
 check("  and it is logged", storage.listRemoteChanges().at(-1)?.what === "turned off Sight (dimmed, very dark, or blind)" && storage.listRemoteChanges().at(-1)?.by === KAY, `a log entry, got ${JSON.stringify(storage.listRemoteChanges().at(-1))}`);
 r = req(KAY, { action: "set", key: "postureControl", value: true });
 check("take: switch on refused", f().postureControl === false && r?.settingsResult?.ok === false && /needs full keys/.test(r.settingsResult.text), `posture still off and a refusal, got ${JSON.stringify(r?.settingsResult)}`);
+// v1.16.37 (DW): minimal keys can switch things off, but not on the General tab.
+storage.setFeature("showEchsIcon", true);
+r = req(KAY, { action: "set", key: "showEchsIcon", value: false });
+check("minimal: a General box off is refused", f().showEchsIcon === true && r?.settingsResult?.ok === false, `on kept, got ${JSON.stringify(r?.settingsResult)}`);
 r = req(KAY, { action: "set", key: "extremeLockUntil", value: false });
 check("unreachable key refused", /not something a keyholder can change/.test(r?.settingsResult?.text ?? ""), `a refusal for a key off the four tabs, got ${JSON.stringify(r?.settingsResult)}`);
 
 // Grant.
 echs("add Kay full");
 check("Kay now full", keyholder.keyModeFor(KAY) === "full", "full");
+storage.setFeature("commandPulse", false);
+r = req(KAY, { action: "set", key: "commandPulse", value: true });
+check("full: a General box works (v1.16.37)", f().commandPulse === true && r?.settingsResult?.ok === true, `on, got ${JSON.stringify(r?.settingsResult)}`);
+storage.setFeature("commandPulse", false);
 r = req(KAY, { action: "set", key: "postureControl", value: true });
 check("grant: switch on works", f().postureControl === true && r?.settingsResult?.ok === true, "posture on");
 r = req(KAY, { action: "set", key: "compelTouchOthers", value: true });
@@ -226,6 +234,16 @@ r = req(KAY, { action: "set", key: "selfTrigger", value: true });
 check("moderate: a Triggers box on is refused", f().selfTrigger === false, "off kept");
 r = req(KAY, { action: "set", key: "tranceCannotSpeak", value: false });
 check("moderate: switching off still works", f().tranceCannotSpeak === false, "off");
+// v1.16.37 (DW): the General tab is full keys only, switching off included. Failure: a moderate (or
+// minimal) keyholder turns off her "release if you disconnect" or her ECHS spiral.
+storage.setFeature("releaseOnDisconnect", true);
+r = req(KAY, { action: "set", key: "releaseOnDisconnect", value: false });
+check("moderate: a General box off is refused", f().releaseOnDisconnect === true && /General tab, which needs full keys/.test(r?.settingsResult?.text ?? ""), `on kept, got ${JSON.stringify(r?.settingsResult)}`);
+storage.setFeature("commandPulse", false);
+r = req(KAY, { action: "set", key: "commandPulse", value: true });
+check("moderate: a General box on is refused", f().commandPulse === false, "off kept");
+check("General's boxes are offered to keyholders, on the General tab", ["releaseOnDisconnect", "commandPulse", "showEchsIcon"].every((k) => menu.remoteRows().find((r) => r.key === k)?.tab === "General"), "all three under General");
+check("  and nothing else is", menu.remoteRows().filter((r) => r.tab === "General").length === 3, "three");
 r = req(KAY, { action: "choose", key: "inductionSeconds", value: "30" });
 check("moderate: induction time works", storage.getInductionSeconds() === 30, `30, got ${storage.getInductionSeconds()}`);
 r = req(KAY, { action: "choose", key: "deepestTier", value: "deep" });

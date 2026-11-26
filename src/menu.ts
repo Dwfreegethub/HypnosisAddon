@@ -257,14 +257,7 @@ const TABS: Tab[] = [
 		name: "Inductions",
 		blurb: "How someone gets you under: how many tries they get, whether you are asked, and how deep they can take you.",
 		rows: [],
-		scrollExtra: {
-			height: inductionsHeight,
-			draw: drawInductions,
-			click: clickInductions,
-			hide: () => {
-				if (document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-			},
-		},
+		scrollExtra: dropdownsExtra(() => INDUCTION_DROPDOWNS),
 	},
 	{
 		name: "Trance Defaults",
@@ -276,46 +269,19 @@ const TABS: Tab[] = [
 			{ key: "blockOOC", label: "Silence OOC too (text in parentheses)" },
 			{ key: "tranceClothingFreeze", label: "Clothes Look Unchanged" },
 			{ key: "roomSeesReactions", label: "Others See Your Reactions" },
-			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
-			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
-			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
 		],
 		scrollExtra: {
-			// The screen effect and the eyes first (v1.9.1, v1.10.0), then the pulse colour, then
-			// where others' icons go, then the ECHS popup (job4.md).
-			height: () => tranceDropdownsHeight() + pulseControlsHeight() + 2 * (CYCLE_GAP + attemptControlHeight()),
+			// The screen effect and the eyes (v1.9.1, v1.10.0), then the pulse colour. Where others'
+			// icons go and the popup moved to General (v1.16.37).
+			height: () => tranceDropdownsHeight() + pulseControlsHeight(),
 			draw: (top, width) => {
-				drawTranceDropdowns(top, width, settingsLocked());
-				const pulseTop = top + tranceDropdownsHeight();
-				drawPulseControls(pulseTop, width);
-				// The viewer's own display choices, so not greyed by a lock: they change nothing about her.
-				const iconTop = pulseTop + pulseControlsHeight() + CYCLE_GAP;
-				drawCycle(ICON_SPOT_CONTROL, iconTop, width, false);
-				drawCycle(POPUP_CONTROL, iconTop + attemptControlHeight() + CYCLE_GAP, width, false);
+				drawDropdowns(TRANCE_DROPDOWNS, top, width);
+				drawPulseControls(top + tranceDropdownsHeight(), width);
 			},
-			click: (top) => {
-				const pulseTop = top + tranceDropdownsHeight();
-				if (MouseIn(BOX_LEFT, pulseTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-					// Consumed either way: a locked button must not cycle.
-					if (!settingsLocked()) PULSE_COLOR_CONTROL.cycle();
-					return true;
-				}
-				if (MouseIn(BOX_LEFT, pulseTop + pulseControlsHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-					ICON_SPOT_CONTROL.cycle();
-					log(`setting now: ${ICON_SPOT_CONTROL.label()}`);
-					return true;
-				}
-				const popupTop = pulseTop + pulseControlsHeight() + CYCLE_GAP + attemptControlHeight() + CYCLE_GAP;
-				if (MouseIn(BOX_LEFT, popupTop, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) {
-					POPUP_CONTROL.cycle();
-					log(`setting now: ${POPUP_CONTROL.label()}`);
-					return true;
-				}
-				return false;
-			},
+			click: () => false,
 			hide: () => {
 				removePulseHexInput();
-				removeTranceDropdowns();
+				removeDropdowns(TRANCE_DROPDOWNS);
 			},
 		},
 	},
@@ -342,25 +308,22 @@ const TABS: Tab[] = [
 			{ key: "showTriggerWords", label: "Show trigger words when you list them" },
 			{ key: "strictTriggerMatch", label: "Triggers fire only on whole words" },
 		],
-		extra: drawTriggerControls,
-		// Drop triggers, then how much of her triggers she sees (v1.16.30).
+		// v1.16.37 (review F8): one scrolling page. The tick boxes had a box about four rows tall, the
+		// fifth cut through by the label of the dropdowns fixed under it. Who else may fire them, the
+		// longest a new one lasts, how long a fired one lasts, fading, drops, and her own list.
 		scrollExtra: {
-			height: () => 2 * attemptControlHeight() + CYCLE_GAP,
+			height: () => (TRIGGER_DROPDOWNS.length + 1) * dropdownSlot(),
 			draw: (top, width) => {
-				drawDropControl(top, width);
-				drawCycle(TRIGGER_VIEW_CONTROL, top + attemptControlHeight() + CYCLE_GAP, width, settingsLocked());
+				drawDropdowns(TRIGGER_DROPDOWNS.slice(0, 2), top, width);
+				drawDurationControl(top + 2 * dropdownSlot(), width);
+				drawDropdowns(TRIGGER_DROPDOWNS.slice(2), top + 3 * dropdownSlot(), width);
 			},
-			click: (top) => {
-				if (clickDropControl(top)) return true;
-				if (!MouseIn(BOX_LEFT, top + attemptControlHeight() + CYCLE_GAP, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) return false;
-				// Consumed either way: under the lock it is read-only like the rest (DW).
-				if (!settingsLocked()) TRIGGER_VIEW_CONTROL.cycle();
-				return true;
+			click: () => false,
+			hide: () => {
+				removeDropdowns(TRIGGER_DROPDOWNS);
+				if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
 			},
 		},
-		// The scope, duration and decay dropdowns are DOM elements from y 630 down, and DOM does
-		// not clip to a canvas area, so the rows stop above them rather than scrolling under.
-		rowsBottom: 610,
 	},
 	{
 		// The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
@@ -385,20 +348,25 @@ const TABS: Tab[] = [
 		blurb: "Trust and experience. Counts are shown because they are what is actually stored.",
 		render: drawStats,
 	},
+	// v1.16.37 (review F8, DW): how ECHS behaves for you, moved off Trance Defaults, which is about
+	// the trance. Last in the column (DW). Keyholders reach it with full keys only (DW).
+	{
+		name: "General",
+		blurb: "How ECHS behaves for you: a safety net, what you see, and what others see of you. Only a full keyholder can change these.",
+		rows: [
+			{ key: "releaseOnDisconnect", label: "Release everything if you disconnect" },
+			{ key: "commandPulse", label: "Pulse when a command lands or a trigger fires" },
+			{ key: "showEchsIcon", label: "Show others that I run ECHS (a spiral over you in rooms)" },
+		],
+		scrollExtra: dropdownsExtra(() => GENERAL_DROPDOWNS),
+	},
 ];
 
-// The Stats tab is DEMOTED behind an Advanced button (declared-skill-proposal §5a): it lists
-// every hypnotist's trust and interaction counts plus the player's own experience, which was
-// DW's debugging visibility and reads as noise on the main screen. It is sought out, not shown.
-// The five everyday tabs are always visible; Stats is appended only while `showAdvanced` is on.
-const STATS_TAB = TABS[TABS.length - 1];
-const BASE_TABS = TABS.slice(0, TABS.length - 1);
-let showAdvanced = false;
 
 /** The tabs a keyholder can reach (v1.14.0, job5.md; DW): their tick boxes, and (v1.14.1)
  * remoteChoices() on Inductions and Trance Defaults; (v1.16.2, job6.md stage 3) for full keys the
  * Triggers tab's choices, the Depth tab, and trust fading from Stats. In screen order. */
-export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats"];
+export const REMOTE_TABS = ["Permissions", "Inductions", "Trance Defaults", "Awareness", "Triggers", "Depth", "Stats", "General"];
 
 export type RemoteRow = { key: keyof FeatureToggles; label: string; tab: string; heading: string; needs?: keyof FeatureToggles };
 
@@ -418,7 +386,8 @@ export function remoteRows(): RemoteRow[] {
 }
 
 function visibleTabs(): Tab[] {
-	const tabs = showAdvanced ? [...BASE_TABS, STATS_TAB] : BASE_TABS;
+	// Every tab, Stats included (v1.16.37: the Advanced button that hid it went to make room for General).
+	const tabs = TABS;
 	// "My triggers list: Hidden" turns the Planted tab off (v1.16.30, DW).
 	return getTriggerView() === "hidden" ? tabs.filter((t) => t.name !== "Planted") : tabs;
 }
@@ -428,11 +397,6 @@ export function visibleTabNames(): string[] {
 	return visibleTabs().map((t) => t.name);
 }
 
-/** Y of the Advanced button — one tab-slot below the last visible tab, in the tab column. */
-function advancedButtonTop(): number {
-	return tabTop(visibleTabs().length) + 4;
-}
-const ADVANCED_BUTTON_HEIGHT = 52;
 
 let activeTab = 0;
 
@@ -718,18 +682,8 @@ function clickPlanted(): boolean {
 }
 
 // --- Permissions tab: the attempt limit ------------------------------------------------
-// The one control on this tab that is not a checkbox. It belongs here rather than on a tab
-// of its own because it answers the same question the checkboxes do — how far someone else
-// may go with you — and a tab holding a single button would be worse than the button.
-//
-// Click-to-cycle for the same reason the depth tiers are: a DOM control has to be created,
-// positioned in canvas coordinates and explicitly removed on every exit path, which is a
-// great deal of machinery for a choice between two numbers.
-//
-// The last item in the Permissions list, scrolling with the rows (v0.86.0). v0.85.4 had moved
-// it to the one free slot in a two-column layout; the list scrolls now, so it goes back to where
-// it reads naturally, after the last checkbox, with the whole width for its caption.
-const ATTEMPT_BUTTON_WIDTH = 560;
+// One row of the settings screen that is not a checkbox: a dropdown with its label (left), and what
+// the current choice MEANS written under it. The sizes are the old attempt button's.
 const ATTEMPT_BUTTON_HEIGHT = 44;
 const ATTEMPT_CAPTION_HEIGHT = 44;
 const ATTEMPT_CAPTION_GAP = 8;
@@ -737,46 +691,6 @@ const ATTEMPT_CAPTION_GAP = 8;
 function attemptControlHeight(): number {
 	return ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT;
 }
-
-function drawAttemptControl(top: number, width: number): void {
-	const locked = settingsLocked();
-	tipButton(
-		BOX_LEFT,
-		top,
-		ATTEMPT_BUTTON_WIDTH,
-		ATTEMPT_BUTTON_HEIGHT,
-		`Attempts before they must wait: ${getMaxAttempts()}`,
-		locked ? "#ddd" : "White",
-		"",
-		// No tooltip while the pointer is outside the scroll area: the button may be half
-		// scrolled out, and BC would raise it from the clipped half.
-		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "How many tries one hypnotist gets in a row",
-		locked,
-	);
-	// What the setting COSTS, under the control that sets it — the same shape as the trigger
-	// decay caption. A count on its own does not say what happens when it runs out, and the
-	// ten minutes is the half a player is actually choosing between.
-	drawLeftTextWrap(
-		"When they run out, they cannot try you again for ten minutes.",
-		BOX_LEFT,
-		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-		width,
-		ATTEMPT_CAPTION_HEIGHT,
-		locked ? "Gray" : "#555",
-	);
-}
-
-// --- Permissions tab: answering without being asked (v0.97.0, trust.md §12) ---------------------
-// Four more click-to-cycle controls after the attempt limit, the same shape: a button, and what the
-// current choice MEANS written under it. They answer the same question the tab does, how far
-// someone else may go with you.
-interface CycleControl {
-	label: () => string;
-	caption: () => string;
-	tooltip: string;
-	cycle: () => void;
-}
-const labelOf = (list: { key: string; label: string }[], key: string) => list.find((r) => r.key === key)?.label ?? key;
 
 // The dropdowns under the Trance Defaults rows (v1.9.1, v1.10.0). DOM <select>s, shown only while
 // wholly in view, as the toy mode dropdown is, and removed off their tab and on every exit.
@@ -791,13 +705,18 @@ interface DropdownRow {
 	get: () => string;
 	set: (key: string) => void;
 	caption: () => string;
+	/** False for a preference the settings lock does not hold (where you see spirals, the popup). */
+	lockable?: boolean;
 }
 const SCREEN_EFFECT_ID = "HypnosisAddonScreenEffect";
 const TRANCE_EYES_ID = "HypnosisAddonTranceEyes";
 const TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
-const TRANCE_DROPDOWN_IDS = [SCREEN_EFFECT_ID, TRANCE_EYES_ID, TRANCE_EYE_COLOR_ID];
-const DROPDOWN_LABEL_WIDTH = 250;
-const DROPDOWN_WIDTH = 400;
+// v1.16.37 (review F8): every choice on the screen is one of these now, the click-to-cycle buttons
+// gone (DW: dropdowns). One label size for all of them; the labels used to shrink to fit, so
+// "Screen effect:" was large and "Eye colour while under:" tiny.
+const DROPDOWN_LABEL_WIDTH = 600;
+const DROPDOWN_WIDTH = 520;
+const DROPDOWN_LABEL_SIZE = 28;
 /** One dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
 function dropdownSlot(): number {
 	return attemptControlHeight() + CYCLE_GAP;
@@ -868,12 +787,26 @@ const TRANCE_DROPDOWNS: DropdownRow[] = [
 	},
 ];
 
-function removeTranceDropdowns(): void {
-	for (const id of TRANCE_DROPDOWN_IDS) if (document.getElementById(id)) ElementRemove(id);
+function removeDropdowns(rows: DropdownRow[]): void {
+	for (const r of rows) if (document.getElementById(r.id)) ElementRemove(r.id);
+}
+
+/** A list of dropdowns as a tab's scrolling extra. */
+function dropdownsExtra(rows: () => DropdownRow[]): NonNullable<Tab["scrollExtra"]> {
+	return {
+		height: () => rows().length * dropdownSlot(),
+		draw: (top, width) => drawDropdowns(rows(), top, width),
+		click: () => false,
+		hide: () => removeDropdowns(rows()),
+	};
+}
+
+function drawDropdowns(rows: DropdownRow[], top: number, width: number): void {
+	rows.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, row.lockable === false ? false : settingsLocked()));
 }
 
 function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: boolean): void {
-	drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black");
+	drawLeftTextFit(row.label, BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
 	drawLeftTextWrap(
 		row.caption(),
 		BOX_LEFT,
@@ -894,9 +827,12 @@ function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: b
 			row.options.map((o) => o.label),
 			function () {
 				// Again here, not only through `disabled`: a lock can begin while it is open.
-				if (settingsLocked()) return;
+				if (row.lockable !== false && settingsLocked()) return;
 				const picked = row.options[this.selectedIndex];
-				if (picked) row.set(picked.key);
+				if (picked) {
+					row.set(picked.key);
+					log(`setting now: ${row.label} ${picked.label}`);
+				}
 			},
 		);
 	}
@@ -908,29 +844,27 @@ function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: b
 	ElementPosition(row.id, left + DROPDOWN_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_WIDTH, ATTEMPT_BUTTON_HEIGHT);
 }
 
-function drawTranceDropdowns(top: number, width: number, locked: boolean): void {
-	TRANCE_DROPDOWNS.forEach((row, i) => drawDropdownRow(row, top + i * dropdownSlot(), width, locked));
-}
-
 function tranceDropdownsHeight(): number {
 	return TRANCE_DROPDOWNS.length * dropdownSlot();
 }
 
-/** On the Trance Defaults tab, under the pulse's tick box. */
-const PULSE_COLOR_CONTROL: CycleControl = {
-	label: () => `Pulse colour: ${labelOf(PULSE_COLORS, getPulseColor())}`,
+/** On the Trance Defaults tab, under the other dropdowns. */
+const PULSE_COLOR_ID = "HypnosisAddonPulseColor";
+const PULSE_COLOR_DROPDOWN: DropdownRow = {
+	id: PULSE_COLOR_ID,
+	label: "Pulse colour:",
+	options: PULSE_COLORS.map((c) => ({ key: c.key, label: c.label })),
+	get: getPulseColor,
+	set: (key) => {
+		setPulseColor(key);
+		pulseHexError = "";
+	},
 	caption: () =>
 		!getFeatures().commandPulse && !getSpiralStrength()
 			? "The pulse is off and there is no spiral, so this does nothing until you choose one."
 			: getPulseColor() === "custom"
 				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
-				: "The pulse, and the trance spiral if it is on. Only you see them.",
-	tooltip: "The colour of the pulse and the trance spiral",
-	cycle: () => {
-		const at = PULSE_COLORS.findIndex((c) => c.key === getPulseColor());
-		setPulseColor(PULSE_COLORS[(at + 1) % PULSE_COLORS.length].key);
-		pulseHexError = "";
-	},
+				: "The pulse (the General tab switches it on), and the trance spiral if it is on. Only you see them.",
 };
 
 /** A choice (not a tick box) a keyholder may set (v1.14.1, DW 2026-11-21): every control on the
@@ -963,6 +897,10 @@ export function remoteChoiceLabel(c: RemoteChoice, value: string): string {
 /** Tabs whose tick boxes a moderate keyholder may switch ON too (v1.16.0, job6.md §1, DW): how the
  * trance is, not what may be done to her. Permissions and Triggers stay off-only below full. */
 export const MODERATE_TABS = ["Trance Defaults", "Awareness"];
+
+/** Tabs whose tick boxes only a full keyholder may switch at all, off included (v1.16.37, DW): the
+ * General tab, which moved off Trance Defaults. A safety net, and what others see of her. */
+export const FULL_ONLY_TABS = ["General"];
 
 /** The choices, through the same setters as her own dropdowns, so their side effects (the fade
  * coming off, her eyes redone mid-trance) happen as they would for her. Custom pulse colour is left
@@ -1063,30 +1001,36 @@ function fullOnlyChoices(): RemoteChoice[] {
 	return out;
 }
 
-/** Where other players' ECHS icons are drawn (v1.7.0). Last on the Trance Defaults tab. */
-const ICON_SPOT_CONTROL: CycleControl = {
-	label: () => `ECHS icons over others: ${labelOf(ECHS_ICON_SPOTS, getEchsIconSpot())}`,
-	caption: () =>
-		getEchsIconSpot() === "off"
-			? "You see no spiral over anyone. Others still see yours, if the box above is ticked."
-			: "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
-	tooltip: "Where the spiral over other ECHS players goes, or none",
-	cycle: () => {
-		const at = ECHS_ICON_SPOTS.findIndex((s) => s.key === getEchsIconSpot());
-		setEchsIconSpot(ECHS_ICON_SPOTS[(at + 1) % ECHS_ICON_SPOTS.length].key);
+/** The General tab's two choices (v1.16.37; on Trance Defaults before). Neither is held by the
+ * settings lock: they are what you see, not what may be done to you. */
+const GENERAL_DROPDOWNS: DropdownRow[] = [
+	{
+		// Where other players' ECHS icons are drawn (v1.7.0).
+		id: "HypnosisAddonIconSpot",
+		label: "ECHS icons over others:",
+		options: ECHS_ICON_SPOTS.map((s) => ({ key: s.key, label: s.label })),
+		get: getEchsIconSpot,
+		set: (key) => setEchsIconSpot(key as Parameters<typeof setEchsIconSpot>[0]),
+		caption: () =>
+			getEchsIconSpot() === "off"
+				? "You see no spiral over anyone. Others still see yours, if the box above is ticked."
+				: "A spiral over each player who runs ECHS. If another add-on's icon covers it, move it here.",
+		lockable: false,
 	},
-};
-
-/** The floating ECHS window in chat rooms (job4.md). On by default. Last on the Trance Defaults tab. */
-const POPUP_CONTROL: CycleControl = {
-	label: () => `ECHS popup in rooms: ${getPopupEnabled() ? "On" : "Off"}`,
-	caption: () =>
-		getPopupEnabled()
-			? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it."
-			: "No spiral button in rooms. The /echs commands still work as typed.",
-	tooltip: "Show or hide the ECHS popup and its button in chat rooms",
-	cycle: () => setPopupEnabled(!getPopupEnabled()),
-};
+	{
+		// The floating ECHS window in chat rooms (job4.md). On by default.
+		id: "HypnosisAddonPopupEnabled",
+		label: "ECHS popup in rooms:",
+		options: [{ key: "on", label: "On" }, { key: "off", label: "Off" }],
+		get: () => (getPopupEnabled() ? "on" : "off"),
+		set: (key) => setPopupEnabled(key === "on"),
+		caption: () =>
+			getPopupEnabled()
+				? "A spiral button in chat rooms opens a window listing the commands. Drag either to move it."
+				: "No spiral button in rooms. The /echs commands still work as typed.",
+		lockable: false,
+	},
+];
 
 // The hex box under it, only while the colour is Custom (DW, 2026-11-05). Saves as the Depth boxes
 // do, when it loses focus or on Enter, and refuses out loud rather than quietly keeping the old colour.
@@ -1102,17 +1046,17 @@ function removePulseHexInput(): void {
 }
 
 function pulseControlsHeight(): number {
-	return attemptControlHeight() + (getPulseColor() === "custom" ? CYCLE_GAP + attemptControlHeight() : 0);
+	return dropdownSlot() * (getPulseColor() === "custom" ? 2 : 1);
 }
 
 function drawPulseControls(top: number, width: number): void {
 	const locked = settingsLocked();
-	drawCycle(PULSE_COLOR_CONTROL, top, width, locked);
+	drawDropdownRow(PULSE_COLOR_DROPDOWN, top, width, locked);
 	if (getPulseColor() !== "custom") {
 		removePulseHexInput();
 		return;
 	}
-	const at = top + attemptControlHeight() + CYCLE_GAP;
+	const at = top + dropdownSlot();
 	const inputLeft = BOX_LEFT + PULSE_HEX_LABEL_WIDTH + 20;
 	drawLeftTextFit("Colour code:", BOX_LEFT, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_LABEL_WIDTH, locked ? "Gray" : "Black");
 	DrawRect(inputLeft + PULSE_HEX_WIDTH + 20, at + (ATTEMPT_BUTTON_HEIGHT - PULSE_SWATCH_SIZE) / 2, PULSE_SWATCH_SIZE, PULSE_SWATCH_SIZE, getPulseCustom());
@@ -1152,194 +1096,97 @@ function drawPulseControls(top: number, width: number): void {
 	ElementPosition(PULSE_HEX_ID, inputLeft + PULSE_HEX_WIDTH / 2, at + ATTEMPT_BUTTON_HEIGHT / 2, PULSE_HEX_WIDTH, ATTEMPT_BUTTON_HEIGHT);
 }
 
-const PERMISSION_CYCLES: CycleControl[] = [
+// --- Inductions tab (v1.16.37, review F8): seven dropdowns -------------------------------------------
+const CYCLE_GAP = 16;
+const TOY_SCOPE_ID = "HypnosisAddonToyScope";
+
+// Click-to-cycle buttons before, which only went forward (DW: dropdowns). Each says under it what the
+// current choice MEANS, as the buttons did.
+const INDUCTION_DROPDOWNS: DropdownRow[] = [
 	{
-		// v1.6.0 (DW, 2026-11-08). First, since everything below answers or skips part of it.
-		label: () => `Induction time: ${getInductionSeconds()} seconds`,
+		id: "HypnosisAddonAttempts",
+		label: "Attempts before they must wait:",
+		options: ATTEMPT_LIMITS.map((n) => ({ key: String(n), label: String(n) })),
+		get: () => String(getMaxAttempts()),
+		set: (key) => setMaxAttempts(Number(key)),
+		// What the setting COSTS: a count on its own does not say what happens when it runs out.
+		caption: () => "When they run out, they cannot try you again for ten minutes.",
+	},
+	{
+		// v1.6.0 (DW, 2026-11-08). Before the answers, since they answer or skip part of it.
+		id: "HypnosisAddonInductionTime",
+		label: "Induction time:",
+		options: INDUCTION_TIMES.map((n) => ({ key: String(n), label: `${n} seconds` })),
+		get: () => String(getInductionSeconds()),
+		set: (key) => setInductionSeconds(Number(key)),
 		caption: () =>
 			getInductionSeconds() >= 60
 				? "How long someone has to put you under before it lands or misses. Toy mode waits it too."
 				: "Shorter than the usual minute: less time for their roleplay to count. Toy mode waits it too.",
-		tooltip: "How long an induction runs before it lands: 60, 45, 30, 20 or 10 seconds",
-		cycle: () => setInductionSeconds(nextInductionSeconds(getInductionSeconds())),
 	},
 	{
-		label: () => `When someone tries to hypnotize me: ${labelOf(DEFAULT_STANCES, getDefaultStance())}`,
+		id: "HypnosisAddonDefaultStance",
+		label: "When someone tries to hypnotize me:",
+		options: DEFAULT_STANCES,
+		get: getDefaultStance,
+		set: (key) => setDefaultStance(key as Parameters<typeof setDefaultStance>[0]),
 		caption: () =>
 			getDefaultStance() === "prompt"
 				? "You choose Agree, Ignore or Fight each time."
 				: `No box: you ${getDefaultStance() === "agree" ? "go along with it" : getDefaultStance() === "fight" ? "fight it" : "neither help nor resist"}. They are not told which.`,
-		tooltip: "Answer the induction box for you, every time",
-		cycle: () => setDefaultStance(nextDefaultStance(getDefaultStance())),
 	},
 	{
-		label: () => `When I'm away: ${labelOf(AWAY_STANCES, getAwayStance())}`,
+		id: "HypnosisAddonAwayStance",
+		label: "When I'm away:",
+		options: AWAY_STANCES,
+		get: getAwayStance,
+		set: (key) => setAwayStance(key as Parameters<typeof setAwayStance>[0]),
 		caption: () =>
 			getAwayStance() === "refuse"
 				? "After 10 minutes with no input, the answer above and toy mode turn them away."
 				: getAwayStance() === "ignore"
 					? "After 10 minutes with no input, you are treated as Ignore, and toy mode is off."
 					: "Being away changes nothing: the answer above and toy mode still apply.",
-		tooltip: "What your automatic answer and toy mode do while you are away from the keyboard",
-		cycle: () => setAwayStance(nextAwayStance(getAwayStance())),
 	},
 	{
-		label: () => `Toy mode: ${getToyMode() ? "On" : "Off"}`,
+		id: "HypnosisAddonToyMode",
+		label: "Toy mode:",
+		options: [{ key: "off", label: "Off" }, { key: "on", label: "On" }],
+		get: () => (getToyMode() ? "on" : "off"),
+		set: (key) => setToyMode(key === "on"),
 		caption: () =>
 			getToyMode()
 				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers included."
 				: "Every induction rolls as usual.",
-		tooltip: "Let the people below put you under with no roll and no limit on tries",
-		cycle: () => setToyMode(!getToyMode()),
+	},
+	{
+		// v0.97.3: the Triggers tab's choices (DW: "use the same format as the one used on the triggers tab").
+		id: TOY_SCOPE_ID,
+		label: "Toy mode is for:",
+		options: TOY_SCOPES,
+		get: getToyScope,
+		set: (key) => setToyScope(key as Parameters<typeof setToyScope>[0]),
+		caption: () =>
+			getToyScope() === "everyone" || getToyScope() === "notblack"
+				? "Anyone in the room, strangers too. Read from your BC relationships and lists."
+				: "Read from your BC relationships and lists, the same as for triggers.",
+	},
+	{
+		// Moved from the Depth tab (job3.md).
+		id: "HypnosisAddonDeepest",
+		label: '"Sink deeper" stops at:',
+		options: DEEPEST_TIERS,
+		get: getDeepestTier,
+		set: (key) => setDeepestTier(key as Parameters<typeof setDeepestTier>[0]),
+		caption: () =>
+			getDeepestTier() === "never"
+				? "A hypnotist cannot talk you deeper once you are under."
+				: "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
 	},
 ];
 
-const CYCLE_GAP = 16;
-
-// "Toy mode is for" is a dropdown with the Triggers tab's choices (v0.97.3, DW: "use the same format
-// as the one used on the triggers tab"). A DOM <select> cannot be clipped by the scroll area the way
-// canvas drawing is, so it is shown only while it is wholly in view and removed otherwise, and on
-// every tab change and exit like the Triggers tab's own (syncTabControls, removeScopeControl).
-const TOY_SCOPE_ID = "HypnosisAddonToyScope";
-const TOY_SCOPE_LABEL_WIDTH = 250;
-const TOY_SCOPE_WIDTH = 560;
-
-/** "Sink deeper" stops at — moved from the Depth tab (job3.md), drawn after the toy mode dropdown. */
-/** How much of her own triggers she sees (v1.16.30, DW). On the Triggers tab, under Drop triggers. */
-const TRIGGER_VIEW_CONTROL: CycleControl = {
-	label: () => `My triggers list: ${labelOf(TRIGGER_VIEWS, getTriggerView())}`,
-	caption: () =>
-		getTriggerView() === "full"
-			? "Lists show who planted each trigger, what sets it off and what it does."
-			: getTriggerView() === "who"
-				? "Lists show only who planted each and how strong it is. Details shows the rest."
-				: "Only how many. No Planted tab and no details. The safeword still clears everything.",
-	tooltip: "How much of the triggers planted in you your own lists show. Under the Extreme lock only a keyholder can change it.",
-	cycle: () => {
-		const i = TRIGGER_VIEWS.findIndex((v) => v.key === getTriggerView());
-		setTriggerView(TRIGGER_VIEWS[(i + 1) % TRIGGER_VIEWS.length].key);
-	},
-};
-
-const DEEPEST_CONTROL: CycleControl = {
-	label: () => `"Sink deeper" stops at: ${labelOf(DEEPEST_TIERS, getDeepestTier())}`,
-	caption: () =>
-		getDeepestTier() === "never"
-			? "A hypnotist cannot talk you deeper once you are under."
-			: "How far a hypnotist can talk you down mid-trance. Toy mode puts you straight here.",
-	tooltip:
-		"The deepest a hypnotist can talk you down mid-trance. An ordinary induction lands where your " +
-		"trust puts it; toy mode puts you straight here. Never reaches the three that need earned depth.",
-	cycle: () => setDeepestTier(nextDeepestTier(getDeepestTier())),
-};
-
-/** Attempts, the three answer-for-me cycles, the toy mode dropdown, then "sink deeper". */
-function inductionsHeight(): number {
-	return attemptControlHeight() + (PERMISSION_CYCLES.length + 2) * (CYCLE_GAP + attemptControlHeight());
-}
-
-function drawToyScopeControl(top: number, width: number, locked: boolean): void {
-	drawLeftTextFit("Toy mode is for:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_LABEL_WIDTH, locked ? "Gray" : "Black");
-	drawLeftTextWrap(
-		getToyScope() === "everyone" || getToyScope() === "notblack"
-			? "Anyone in the room, strangers too. Read from your BC relationships and lists."
-			: "Read from your BC relationships and lists, the same as for triggers.",
-		BOX_LEFT,
-		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-		width,
-		ATTEMPT_CAPTION_HEIGHT,
-		locked ? "Gray" : "#555",
-	);
-	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
-	let element = document.getElementById(TOY_SCOPE_ID) as HTMLSelectElement | null;
-	if (!inView) {
-		if (element) ElementRemove(TOY_SCOPE_ID);
-		return;
-	}
-	if (!element) {
-		element = ElementCreateDropdown(
-			TOY_SCOPE_ID,
-			TOY_SCOPES.map((s) => s.label),
-			function () {
-				setToyScope(TOY_SCOPES[this.selectedIndex]?.key ?? "lovers");
-				log(`toy mode is for: ${getToyScope()}`);
-			},
-		);
-	}
-	// Re-synced every frame, like the Triggers tab's: an import or a reset changes it underneath us.
-	const index = TOY_SCOPES.findIndex((s) => s.key === getToyScope());
-	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-	element.disabled = locked;
-	const left = BOX_LEFT + TOY_SCOPE_LABEL_WIDTH + 20;
-	ElementPosition(TOY_SCOPE_ID, left + TOY_SCOPE_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, TOY_SCOPE_WIDTH, ATTEMPT_BUTTON_HEIGHT);
-}
-
-function cycleTop(top: number, i: number): number {
-	return top + attemptControlHeight() + CYCLE_GAP + i * (CYCLE_GAP + attemptControlHeight());
-}
-
-function drawInductions(top: number, width: number): void {
-	drawAttemptControl(top, width);
-	const locked = settingsLocked();
-	PERMISSION_CYCLES.forEach((c, i) => {
-		const at = cycleTop(top, i);
-		tipButton(
-			BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
-			!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
-			locked,
-		);
-		drawLeftTextWrap(
-			c.caption(),
-			BOX_LEFT,
-			at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-			width,
-			ATTEMPT_CAPTION_HEIGHT,
-			locked ? "Gray" : "#555",
-		);
-	});
-	drawToyScopeControl(cycleTop(top, PERMISSION_CYCLES.length), width, locked);
-	drawCycle(DEEPEST_CONTROL, cycleTop(top, PERMISSION_CYCLES.length + 1), width, locked);
-}
-
-function drawCycle(c: CycleControl, at: number, width: number, locked: boolean): void {
-	tipButton(
-		BOX_LEFT, at, ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT, c.label(), locked ? "#ddd" : "White", "",
-		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : c.tooltip,
-		locked,
-	);
-	drawLeftTextWrap(
-		c.caption(),
-		BOX_LEFT,
-		at + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
-		width,
-		ATTEMPT_CAPTION_HEIGHT,
-		locked ? "Gray" : "#555",
-	);
-}
-
-function clickInductions(top: number): boolean {
-	if (clickAttemptControl(top)) return true;
-	// The three cycles, then (one slot further down, past the toy mode dropdown) "sink deeper".
-	const slots: [CycleControl, number][] = [
-		...PERMISSION_CYCLES.map((c, i): [CycleControl, number] => [c, i]),
-		[DEEPEST_CONTROL, PERMISSION_CYCLES.length + 1],
-	];
-	for (const [c, slot] of slots) {
-		if (!MouseIn(BOX_LEFT, cycleTop(top, slot), ATTEMPT_BUTTON_WIDTH + 200, ATTEMPT_BUTTON_HEIGHT)) continue;
-		// Consumed either way, as the attempt control is: a locked button must not cycle.
-		if (settingsLocked()) return true;
-		c.cycle();
-		log(`setting now: ${c.label()}`);
-		return true;
-	}
-	return false;
-}
-
-// --- Triggers tab: drop triggers ---------------------------------------------------------
-// Off / One time / Unlimited (v0.90.0, design.md "Trigger Overhaul", decision 10). The last item in
-// the Triggers list, scrolling with its rows, for the reason the attempt control is on the
-// Permissions tab: the fixed band under the rows is full of DOM dropdowns. Click-to-cycle, same as
-// that control, with what the current choice MEANS written under it.
+// --- Triggers tab (v1.16.37, review F8): its choices, all dropdowns, scrolling with the tick boxes -----
+// Drop triggers: Off / One time / Unlimited (v0.90.0, design.md "Trigger Overhaul", decision 10).
 function dropCaption(): string {
 	const mode = getDropMode();
 	if (mode === "off") return "A trigger cannot drop you straight into trance.";
@@ -1347,47 +1194,106 @@ function dropCaption(): string {
 	return "A trigger may drop you into trance each time, until it fades — if its hypnotist asked.";
 }
 
-function drawDropControl(top: number, width: number): void {
+const SCOPE_ID = "HypnosisAddonTriggerScope";
+const LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
+const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
+const DURATION_ID = "HypnosisAddonTriggerDuration";
+const DURATION_WIDTH = 160;
+
+/** In screen order; the minutes box (drawDurationControl) goes between the second and third. */
+const TRIGGER_DROPDOWNS: DropdownRow[] = [
+	{
+		id: SCOPE_ID,
+		label: "Who else can fire triggers planted in you:",
+		options: TRIGGER_SCOPES,
+		get: getTriggerScope,
+		set: (key) => setTriggerScope(key as TriggerScope),
+		caption: () => "Whoever planted a trigger can always fire it. This is who else can.",
+	},
+	{
+		// Applies at planting: a hypnotist asking for longer is clamped to it and told so.
+		id: LIFESPAN_ID,
+		label: "Longest a new trigger lasts:",
+		options: TRIGGER_LIFESPANS.map((l) => ({ key: String(l.minutes), label: l.label })),
+		get: () => String(getTriggerLifespan()),
+		set: (key) => setTriggerLifespan(Number(key)),
+		caption: () => "Someone asking for longer gets this instead. Lowering it doesn't shorten triggers already planted.",
+	},
+	{
+		// Its own setting, apart from trust fading on Stats: trust is what someone built with you, a
+		// trigger is a thing they left inside you.
+		id: TRIGGER_DECAY_ID,
+		label: "Triggers fade without reinforcement:",
+		options: DECAY_RATES,
+		get: getTriggerDecayRate,
+		set: (key) => setTriggerDecayRate(key as DecayRate),
+		// What the setting COSTS: before v0.62.0 "Very fast" meant three weeks.
+		caption: () => decayLifetimeText(),
+	},
+	{
+		id: "HypnosisAddonDropMode",
+		label: "Drop triggers:",
+		options: DROP_MODES,
+		get: getDropMode,
+		set: (key) => setDropMode(key as DropMode),
+		caption: dropCaption,
+	},
+	{
+		// How much of her own triggers she sees (v1.16.30, DW). Under the lock it is read-only like the rest.
+		id: "HypnosisAddonTriggerView",
+		label: "My triggers list:",
+		options: TRIGGER_VIEWS,
+		get: getTriggerView,
+		set: (key) => setTriggerView(key as TriggerView),
+		caption: () =>
+			getTriggerView() === "full"
+				? "Lists show who planted each trigger, what sets it off and what it does."
+				: getTriggerView() === "who"
+					? "Lists show only who planted each and how strong it is. Details shows the rest."
+					: "Only how many. No Planted tab and no details. The safeword still clears everything.",
+	},
+];
+
+/** How long a fired trigger holds before letting go by itself. A number box rather than a dropdown,
+ * so any value can be typed; BC's own blur handler clamps it to min/max. Laid out as a dropdown row. */
+function drawDurationControl(top: number, width: number): void {
 	const locked = settingsLocked();
-	const label = DROP_MODES.find((m) => m.key === getDropMode())?.label ?? "Off";
-	tipButton(
-		BOX_LEFT,
-		top,
-		ATTEMPT_BUTTON_WIDTH,
-		ATTEMPT_BUTTON_HEIGHT,
-		`Drop triggers: ${label}`,
-		locked ? "#ddd" : "White",
-		"",
-		!mouseInScroll(rowScroll) ? "" : locked ? lockedTip() : "Whether a trigger can put you straight under",
-		locked,
-	);
+	drawLeftTextFit("Minutes a fired trigger lasts:", BOX_LEFT, top + ATTEMPT_BUTTON_HEIGHT / 2, DROPDOWN_LABEL_WIDTH, locked ? "Gray" : "Black", DROPDOWN_LABEL_SIZE);
 	drawLeftTextWrap(
-		dropCaption(),
+		"0 keeps it until it is released, or until the safeword. Up to 1440 (a day).",
 		BOX_LEFT,
 		top + ATTEMPT_BUTTON_HEIGHT + ATTEMPT_CAPTION_GAP + ATTEMPT_CAPTION_HEIGHT / 2,
 		width,
 		ATTEMPT_CAPTION_HEIGHT,
 		locked ? "Gray" : "#555",
 	);
-}
-
-function clickDropControl(top: number): boolean {
-	if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
-	if (settingsLocked()) return true;
-	const index = DROP_MODES.findIndex((m) => m.key === getDropMode());
-	const next = setDropMode(DROP_MODES[(index + 1) % DROP_MODES.length].key);
-	log(`drop triggers set to ${next}`);
-	return true;
-}
-
-function clickAttemptControl(top: number): boolean {
-	if (!MouseIn(BOX_LEFT, top, ATTEMPT_BUTTON_WIDTH, ATTEMPT_BUTTON_HEIGHT)) return false;
-	// Consumed either way: a greyed button that still cycles when clicked is the lock being
-	// decorative, which is the bug the checkboxes' own second check exists to stop.
-	if (settingsLocked()) return true;
-	const next = setMaxAttempts(nextAttemptLimit(getMaxAttempts()));
-	log(`induction attempt limit set to ${next}`);
-	return true;
+	// A DOM element, which the scroll area's clip cannot hide: only while wholly in view.
+	if (top < rowScroll.top || top + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
+		if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
+		return;
+	}
+	let element = document.getElementById(DURATION_ID) as HTMLInputElement | null;
+	if (!element) {
+		element = ElementCreateInput(DURATION_ID, "number", String(getTriggerDuration()), 4);
+		element.min = "0";
+		element.max = "1440";
+		element.inputMode = "numeric";
+		// Commit on blur, not on every keystroke — otherwise typing "15" saves 1 on the way
+		// to 15. ElementNumberInputBlur clamps to min/max first.
+		element.addEventListener("blur", function (this: HTMLInputElement, event: Event) {
+			ElementNumberInputBlur.call(this, event);
+			if (settingsLocked()) return;
+			const saved = setTriggerDuration(Number(this.value));
+			this.value = String(saved);
+			log(`trigger duration set to ${saved} min`);
+		});
+		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's, and a second
+		// one stepped two at a time.
+	}
+	if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
+	element.disabled = locked;
+	const left = BOX_LEFT + DROPDOWN_LABEL_WIDTH + 20;
+	ElementPosition(DURATION_ID, left + DURATION_WIDTH / 2, top + ATTEMPT_BUTTON_HEIGHT / 2, DURATION_WIDTH, ATTEMPT_BUTTON_HEIGHT);
 }
 
 // --- Depth tab ------------------------------------------------------------------------
@@ -1717,19 +1623,6 @@ function drawDataButtons(): void {
 	});
 }
 
-// --- Trigger scope dropdown ----------------------------------------------------------
-// The first control here that isn't a canvas checkbox. It's a real DOM <select> layered
-// over the canvas, which means a lifecycle the canvas widgets don't have: create it once,
-// reposition it every frame (so it survives window resizes), and REMOVE it whenever it
-// shouldn't be visible. Forget the removal and it hangs over whatever screen comes next.
-
-const SCOPE_ID = "HypnosisAddonTriggerScope";
-const SCOPE_LABEL_Y = 630;
-const SCOPE_CENTRE_X = CONTENT_LEFT + 380;
-const SCOPE_CENTRE_Y = 675;
-const SCOPE_WIDTH = 760;
-const SCOPE_HEIGHT = 56;
-
 const DECAY_ID = "HypnosisAddonDecayRate";
 const DECAY_LABEL_X = CONTENT_LEFT + 560;
 // The last trust row sits at y=610 and 36px text reaches ~18px either side of its centre,
@@ -1744,69 +1637,42 @@ const DECAY_CENTRE_Y = 705;
 const DECAY_WIDTH = 520;
 const DECAY_HEIGHT = 46;
 
-const TRIGGER_DECAY_ID = "HypnosisAddonTriggerDecay";
-// Shares the duration row rather than claiming one of its own: the Triggers tab is already
-// four toggles, a scope dropdown and a number box, and the next free band below runs into the
-// bottom of the screen. Both labels go through drawLeftTextFit with a hard width, so a long
-// translation shrinks instead of colliding — the duration box sits at 260-400 and this
-// dropdown to its right, which is the whole reason they can share the line.
-// Left-aligned with the dropdown it labels rather than floating between the two controls:
-// +680 is the dropdown's own left edge (centre 930, width 500). It was 180px to the left of
-// it, which read as a label belonging to neither box.
-const TRIGGER_DECAY_LABEL_X = CONTENT_LEFT + 680;
-const TRIGGER_DECAY_LABEL_MAX = 500;
-const TRIGGER_DECAY_CENTRE_X = CONTENT_LEFT + 930;
-const TRIGGER_DECAY_WIDTH = 500;
 
-// The lifespan ceiling shares the scope row, to its right: the scope dropdown ends at +760 and
-// the decay dropdown below ends at +1180, so this spans +800 to +1180 and lines up with it.
-const LIFESPAN_ID = "HypnosisAddonTriggerLifespan";
-const LIFESPAN_LABEL_X = CONTENT_LEFT + 800;
-const LIFESPAN_CENTRE_X = CONTENT_LEFT + 990;
-const LIFESPAN_WIDTH = 380;
-
-const DURATION_ID = "HypnosisAddonTriggerDuration";
-const DURATION_LABEL_Y = 760;
-const DURATION_CENTRE_X = CONTENT_LEFT + 70;
-const DURATION_CENTRE_Y = 802;
-const DURATION_WIDTH = 140;
-const DURATION_HEIGHT = 56;
-/** Under the decay dropdown, which ends at 830, and clear of the panel floor at 902. */
-const DECAY_CAPTION_Y = 858;
+/** The DOM controls each tab owns (v1.16.37: one list, read from the tabs' own dropdowns). */
+function tabDomIds(tabName: string): string[] {
+	switch (tabName) {
+		case "Inductions":
+			return INDUCTION_DROPDOWNS.map((d) => d.id);
+		case "Trance Defaults":
+			return [...TRANCE_DROPDOWNS.map((d) => d.id), PULSE_COLOR_ID, PULSE_HEX_ID];
+		case "Triggers":
+			return [...TRIGGER_DROPDOWNS.map((d) => d.id), DURATION_ID];
+		case "General":
+			return GENERAL_DROPDOWNS.map((d) => d.id);
+		case "Stats":
+			return [DECAY_ID, TRUST_SEARCH_ID];
+		case "Depth":
+			return [...DEPTH_INPUT_IDS];
+		default:
+			return [];
+	}
+}
 
 /** Every DOM control this screen can own. */
 function ownedControlIds(): string[] {
-	return [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID, ...DEPTH_INPUT_IDS];
+	return [...new Set(TABS.flatMap((t) => tabDomIds(t.name)))];
 }
 
 /** Remove every DOM control this screen owns. Called from all three exits. */
 function removeScopeControl(): void {
-	for (const id of [SCOPE_ID, LIFESPAN_ID, DURATION_ID, DECAY_ID, TRIGGER_DECAY_ID, TOY_SCOPE_ID, PULSE_HEX_ID, ...TRANCE_DROPDOWN_IDS, TRUST_SEARCH_ID]) {
-		if (document.getElementById(id)) ElementRemove(id);
-	}
-	removeDepthInputs();
+	for (const id of ownedControlIds()) if (document.getElementById(id)) ElementRemove(id);
 }
 
-/** DOM controls are real elements over the canvas, so each one has to be taken away the
- * moment its own tab stops showing — otherwise it floats on top of whatever is drawn next.
- * Two tabs own controls now, which is why this is per-tab rather than a single "not the
- * Triggers tab" check: switching from Triggers to Stats left the scope dropdown sitting
- * over the stats table. */
+/** DOM controls are real elements over the canvas, so each one has to be taken away the moment its
+ * own tab stops showing, or it floats on top of whatever is drawn next. */
 function syncTabControls(tabName: string): void {
-	if (tabName !== "Triggers") {
-		if (document.getElementById(SCOPE_ID)) ElementRemove(SCOPE_ID);
-		if (document.getElementById(LIFESPAN_ID)) ElementRemove(LIFESPAN_ID);
-		if (document.getElementById(DURATION_ID)) ElementRemove(DURATION_ID);
-		if (document.getElementById(TRIGGER_DECAY_ID)) ElementRemove(TRIGGER_DECAY_ID);
-	}
-	if (tabName !== "Stats" && document.getElementById(DECAY_ID)) ElementRemove(DECAY_ID);
-	if (tabName !== "Stats") removeTrustSearch();
-	if (tabName !== "Inductions" && document.getElementById(TOY_SCOPE_ID)) ElementRemove(TOY_SCOPE_ID);
-	if (tabName !== "Trance Defaults") {
-		removePulseHexInput();
-		removeTranceDropdowns();
-	}
-	if (tabName !== "Depth") removeDepthInputs();
+	const keep = new Set(tabDomIds(tabName));
+	for (const id of ownedControlIds()) if (!keep.has(id) && document.getElementById(id)) ElementRemove(id);
 }
 
 /** How fast trust fades without contact.
@@ -1833,136 +1699,6 @@ function drawDecayControl(): void {
 	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
 	element.disabled = locked;
 	ElementPosition(DECAY_ID, DECAY_CENTRE_X, DECAY_CENTRE_Y, DECAY_WIDTH, DECAY_HEIGHT);
-}
-
-/** The trigger tab's two DOM controls: scope and duration. */
-function drawTriggerControls(): void {
-	const locked = settingsLocked();
-	drawScopeControl(locked);
-	drawLifespanControl(locked);
-	drawDurationControl(locked);
-	drawTriggerDecayControl(locked);
-}
-
-/** How fast planted triggers fade without reinforcement.
- *
- * A separate control from the trust one on the Stats tab, and separate on purpose: trust is
- * what someone has built with you and a trigger is a thing they left inside you. Wanting one
- * to persist says nothing about the other, and the doc calls for two settings. */
-function drawTriggerDecayControl(locked: boolean): void {
-	drawLeftTextFit(
-		"Triggers fade without reinforcement:",
-		TRIGGER_DECAY_LABEL_X,
-		DURATION_LABEL_Y,
-		TRIGGER_DECAY_LABEL_MAX,
-		locked ? "Gray" : "Black",
-	);
-	let element = document.getElementById(TRIGGER_DECAY_ID) as HTMLSelectElement | null;
-	if (!element) {
-		element = ElementCreateDropdown(
-			TRIGGER_DECAY_ID,
-			DECAY_RATES.map((r) => r.label),
-			function () {
-				setTriggerDecayRate(DECAY_RATES[this.selectedIndex]?.key ?? "never");
-				log(`trigger decay set to ${getTriggerDecayRate()}`);
-			},
-		);
-	}
-	// Re-synced every frame like the scope control, for the same reason: an import or a reset
-	// changes the stored value underneath us and the control must not keep showing the old one.
-	const index = DECAY_RATES.findIndex((r) => r.key === getTriggerDecayRate());
-	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-	element.disabled = locked;
-	ElementPosition(TRIGGER_DECAY_ID, TRIGGER_DECAY_CENTRE_X, DURATION_CENTRE_Y, TRIGGER_DECAY_WIDTH, DURATION_HEIGHT);
-	// What the setting COSTS, under the control that sets it. The names alone were actively
-	// misleading before v0.62.0 — "Very fast" meant three weeks — and a name is not something a
-	// player can check. A duration is.
-	drawLeftTextFit(
-		decayLifetimeText(),
-		TRIGGER_DECAY_LABEL_X,
-		DECAY_CAPTION_Y,
-		TRIGGER_DECAY_WIDTH,
-		locked ? "Gray" : "#555",
-	);
-}
-
-/** How long a fired trigger holds before letting go by itself. A number box rather than a
- * dropdown so any value can be typed; BC's own blur handler does the clamping, using the
- * min/max attributes below. */
-function drawDurationControl(locked: boolean): void {
-	// Shortened and width-capped now that the decay dropdown shares this row. The long form
-	// ran past x=900 and would have sat under the label beside it.
-	drawLeftTextFit(
-		"Minutes a fired trigger lasts (0 = until released):",
-		CONTENT_LEFT,
-		DURATION_LABEL_Y,
-		460,
-		locked ? "Gray" : "Black",
-	);
-	let element = document.getElementById(DURATION_ID) as HTMLInputElement | null;
-	if (!element) {
-		element = ElementCreateInput(DURATION_ID, "number", String(getTriggerDuration()), 4);
-		element.min = "0";
-		element.max = "1440";
-		element.inputMode = "numeric";
-		// Commit on blur, not on every keystroke — otherwise typing "15" saves 1 on the way
-		// to 15. ElementNumberInputBlur clamps to min/max first.
-		element.addEventListener("blur", function (this: HTMLInputElement, event: Event) {
-			ElementNumberInputBlur.call(this, event);
-			const saved = setTriggerDuration(Number(this.value));
-			this.value = String(saved);
-			log(`trigger duration set to ${saved} min`);
-		});
-		// No wheel listener of our own: ElementCreateInput (R132) already adds BC's, and a second
-		// one stepped two at a time.
-	}
-	if (document.activeElement !== element) element.value = element.defaultValue = String(getTriggerDuration());
-	element.disabled = locked;
-	ElementPosition(DURATION_ID, DURATION_CENTRE_X, DURATION_CENTRE_Y, DURATION_WIDTH, DURATION_HEIGHT);
-}
-
-/** The longest a newly planted trigger may live. Applies at planting: a hypnotist asking for
- * longer is clamped to it and told so, and lowering it does not shorten triggers already there. */
-function drawLifespanControl(locked: boolean): void {
-	drawLeftTextFit("Longest a new trigger lasts:", LIFESPAN_LABEL_X, SCOPE_LABEL_Y, LIFESPAN_WIDTH, locked ? "Gray" : "Black");
-	let element = document.getElementById(LIFESPAN_ID) as HTMLSelectElement | null;
-	if (!element) {
-		element = ElementCreateDropdown(
-			LIFESPAN_ID,
-			TRIGGER_LIFESPANS.map((l) => l.label),
-			function () {
-				const saved = setTriggerLifespan(TRIGGER_LIFESPANS[this.selectedIndex]?.minutes ?? 0);
-				log(`trigger lifespan ceiling set to ${saved} min`);
-			},
-		);
-	}
-	// Re-synced every frame, like the scope control: an import or reset changes it underneath us.
-	const index = TRIGGER_LIFESPANS.findIndex((l) => l.minutes === getTriggerLifespan());
-	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-	element.disabled = locked;
-	ElementPosition(LIFESPAN_ID, LIFESPAN_CENTRE_X, SCOPE_CENTRE_Y, LIFESPAN_WIDTH, SCOPE_HEIGHT);
-}
-
-function drawScopeControl(locked: boolean): void {
-	// Width-capped now that the lifespan control shares this row from +800.
-	drawLeftTextFit("Who else can fire triggers planted in you:", CONTENT_LEFT, SCOPE_LABEL_Y, SCOPE_WIDTH, locked ? "Gray" : "Black");
-	let element = document.getElementById(SCOPE_ID) as HTMLSelectElement | null;
-	if (!element) {
-		element = ElementCreateDropdown(
-			SCOPE_ID,
-			TRIGGER_SCOPES.map((s) => s.label),
-			function () {
-				setTriggerScope(TRIGGER_SCOPES[this.selectedIndex]?.key ?? "hypnotist");
-				log(`trigger scope set to ${getTriggerScope()}`);
-			},
-		);
-	}
-	// Re-sync each frame rather than only on create: an import or a reset changes the
-	// stored value underneath us, and the control must not keep showing the old one.
-	const index = TRIGGER_SCOPES.findIndex((s) => s.key === getTriggerScope());
-	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
-	element.disabled = locked;
-	ElementPosition(SCOPE_ID, SCOPE_CENTRE_X, SCOPE_CENTRE_Y, SCOPE_WIDTH, SCOPE_HEIGHT);
 }
 
 function statPageCount(): number {
@@ -2368,16 +2104,6 @@ function runSettings(): void {
 	const tabs = visibleTabs();
 	if (activeTab >= tabs.length) activeTab = 0;
 	drawTabsAndPanel(tabs.map((t) => t.name), activeTab);
-	tipButton(
-		TAB_LEFT,
-		advancedButtonTop(),
-		TAB_WIDTH,
-		ADVANCED_BUTTON_HEIGHT,
-		showAdvanced ? "Hide advanced" : "Advanced \u25B8",
-		"White",
-		"",
-		showAdvanced ? "Hide the stats view" : "Trust and experience counts, sought out",
-	);
 
 	const tab = tabs[activeTab];
 	const locked = settingsLocked();
@@ -2508,14 +2234,6 @@ export function installMenu(): void {
 			}
 			if (MouseIn(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE)) {
 				PreferenceSubscreenExtensionsClear();
-				return;
-			}
-			if (MouseIn(TAB_LEFT, advancedButtonTop(), TAB_WIDTH, ADVANCED_BUTTON_HEIGHT)) {
-				showAdvanced = !showAdvanced;
-				// Leaving Stats behind when it is hidden, so a stale index cannot point past the
-				// visible list.
-				if (!showAdvanced && activeTab >= BASE_TABS.length) activeTab = 0;
-				removeScopeControl();
 				return;
 			}
 			const tabs = visibleTabs();
