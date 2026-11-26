@@ -43,8 +43,6 @@ import {
 	nextAttemptLimit,
 	getSkillHonour,
 	setSkillHonour,
-	nextSkillHonour,
-	SKILL_HONOUR_RUNGS,
 	SKILL_HONOUR_OFFERED,
 	getDepthOverride,
 	DEEPEST_TIERS,
@@ -119,7 +117,6 @@ import {
 	depthLabel,
 	currentDepth,
 	MAX_GATE_DEPTH,
-	nextScope,
 	ChemicalScope,
 	isChemicalToggleable,
 } from "./depth";
@@ -157,6 +154,7 @@ import {
 	TAB_LEFT,
 	TAB_WIDTH,
 	tipButton,
+	tipArea,
 	flushTip,
 	clearTipOverlap,
 } from "./panel";
@@ -178,6 +176,9 @@ interface Row {
 	/** Drawn indented under the row it depends on, and greyed and inert while that one is off
 	 * (job3.md: Made to Touch Others under Made to Act). */
 	needs?: keyof FeatureToggles;
+	/** What it allows, shown when the pointer rests on the row (v1.16.37, review F8: the names alone
+	 * did not say). From the Settings Reference wiki page. */
+	tip?: string;
 }
 
 /** A group heading inside a checkbox list (job3.md §2B). Text only; it cannot be clicked. */
@@ -227,28 +228,28 @@ const TABS: Tab[] = [
 		// v0.100.0 (job3.md): the master switch and the lock held at the top, always in view, and the
 		// rest grouped under headings. How inductions reach you moved to its own tab.
 		fixedRows: [
-			{ key: "hypnoEnabled", label: "Hypnosis Enabled" },
-			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you" },
+			{ key: "hypnoEnabled", label: "Hypnosis Enabled", tip: "The master switch. Off: nobody can hypnotize you, and a trance on you now ends, the same as the safeword." },
+			{ key: "lockedWhileHypnotized", label: "Lock settings while a session is on you", tip: "While a session is on you, this screen is read-only until it ends. /echs safeword always works." },
 		],
 		rows: [
 			{ heading: "Body" },
-			{ key: "movementRestriction", label: "Movement Restriction" },
-			{ key: "postureControl", label: "Posture Control" },
-			{ key: "followControl", label: "Follow / Leash" },
-			{ key: "clothingRestriction", label: "Clothing Restriction" },
-			{ key: "undressControl", label: "Undressing" },
+			{ key: "movementRestriction", label: "Movement Restriction", tip: "Lets you be held still: you cannot change your own pose, leave the room or walk on a map. Others can still adjust you." },
+			{ key: "postureControl", label: "Posture Control", tip: "Lets them pose you: kneel, stand, all fours, lie down, arm poses. Also your face: eyes closed, mouth open, a smile, a blush." },
+			{ key: "followControl", label: "Follow / Leash", tip: "\"Follow me\": you stay at their side, across room changes, on Bondage Club's own leash. Needs your BC setting that lets others leash you." },
+			{ key: "clothingRestriction", label: "Clothing Restriction", tip: "Locks you out of the wardrobe while you are under." },
+			{ key: "undressControl", label: "Undressing", tip: "Lets them have you take clothes off (\"take something off\", \"strip\")." },
 			{ heading: "Voice & senses" },
-			{ key: "speechRestriction", label: "Speech Restriction" },
-			{ key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)" },
-			{ key: "hearingControl", label: "Hearing (hear only one voice, or only your name)" },
-			{ key: "sightControl", label: "Sight (dimmed, very dark, or blind)" },
+			{ key: "speechRestriction", label: "Speech Restriction", tip: "\"You cannot speak\": mutes your room chat. Slash commands always get through." },
+			{ key: "forcedSpeech", label: "Made to Speak (a trigger says words for you)", tip: "A planted trigger can make you say words aloud in the room (\"you will say 'I obey'\"). A gag still garbles them." },
+			{ key: "hearingControl", label: "Hearing (hear only one voice, or only your name)", tip: "\"You hear only my voice\", or only lines with your name in them. Emotes and (out of character) text still get through." },
+			{ key: "sightControl", label: "Sight (dimmed, very dark, or blind)", tip: "Dimmed, very dark, or blind: Bondage Club's own blindness, capped by your BC sensory settings. Nobody else sees a change." },
 			{ heading: "Touch & arousal" },
-			{ key: "selfTouchControl", label: "Self-Touch Control" },
-			{ key: "compelActivity", label: "Made to Act (touch yourself on command)" },
-			{ key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity" },
-			{ key: "arousalControl", label: "Arousal & Orgasm" },
+			{ key: "selfTouchControl", label: "Self-Touch Control", tip: "\"You cannot touch yourself\": blocks your own touches on yourself." },
+			{ key: "compelActivity", label: "Made to Act (touch yourself on command)", tip: "Lets them have you act on yourself on command (\"touch your breasts\")." },
+			{ key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity", tip: "Lets them aim those commands at someone else in the room (\"kiss Rei\"). Not needed for the hypnotist themselves." },
+			{ key: "arousalControl", label: "Arousal & Orgasm", tip: "Arousal raised or lowered, orgasm denied or forced, and numbness." },
 			{ heading: "Mind" },
-			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)" },
+			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)", tip: "Your own screen shows clothes you have been stripped of. Changes what you see, not your chat log (that is the Awareness tab)." },
 		],
 	},
 	{
@@ -340,8 +341,17 @@ const TABS: Tab[] = [
 		// this asks "how far under do I have to be first".
 		name: "Depth",
 		blurb: "How deep you must be before each thing can reach you. The checkbox still has to be on.",
-		render: drawDepthGates,
-		clickExtra: clickDepthGates,
+		// v1.16.37 (review F8): scrolls like every other tab; it used Prev/Next pages.
+		rows: [],
+		scrollExtra: {
+			height: depthHeight,
+			draw: drawDepthGates,
+			click: clickDepthGates,
+			hide: () => {
+				removeDepthInputs();
+				removeDropdowns([...DEPTH_DROPDOWNS, ...chemDropdowns()]);
+			},
+		},
 	},
 	{
 		name: "Stats",
@@ -714,9 +724,11 @@ const TRANCE_EYE_COLOR_ID = "HypnosisAddonTranceEyeColor";
 // v1.16.37 (review F8): every choice on the screen is one of these now, the click-to-cycle buttons
 // gone (DW: dropdowns). One label size for all of them; the labels used to shrink to fit, so
 // "Screen effect:" was large and "Eye colour while under:" tiny.
-const DROPDOWN_LABEL_WIDTH = 600;
-const DROPDOWN_WIDTH = 520;
+const DROPDOWN_LABEL_WIDTH = 520;
+const DROPDOWN_WIDTH = 630;
 const DROPDOWN_LABEL_SIZE = 28;
+/** Every caption under a choice, one size (the lab showed them shrinking to different sizes). */
+const CAPTION_SIZE = 22;
 /** One dropdown, its caption and the gap under it. A function: CYCLE_GAP is declared further down. */
 function dropdownSlot(): number {
 	return attemptControlHeight() + CYCLE_GAP;
@@ -750,7 +762,7 @@ const TRANCE_DROPDOWNS: DropdownRow[] = [
 			const e = getScreenEffect();
 			if (e === "none") return "Nothing over your screen while you are under.";
 			if (e === "fade") return "A soft grey veil over the room while you are under. Only you see it.";
-			return "A spiral in your pulse colour turns over the room while you are under, and flashes when a command lands. Only you see it.";
+			return "A spiral in your pulse colour turns over the room while you are under. Only you see it.";
 		},
 	},
 	{
@@ -814,6 +826,8 @@ function drawDropdownRow(row: DropdownRow, top: number, width: number, locked: b
 		width,
 		ATTEMPT_CAPTION_HEIGHT,
 		locked ? "Gray" : "#555",
+		CAPTION_SIZE,
+		18,
 	);
 	const inView = top >= rowScroll.top && top + ATTEMPT_BUTTON_HEIGHT <= rowScroll.top + rowScroll.height;
 	let element = document.getElementById(row.id) as HTMLSelectElement | null;
@@ -864,7 +878,7 @@ const PULSE_COLOR_DROPDOWN: DropdownRow = {
 			? "The pulse is off and there is no spiral, so this does nothing until you choose one."
 			: getPulseColor() === "custom"
 				? "Your own colour: type a hex code below, the kind BC's colour picker uses."
-				: "The pulse (the General tab switches it on), and the trance spiral if it is on. Only you see them.",
+				: "The pulse (on the General tab) and the trance spiral, if on. Only you see them.",
 };
 
 /** A choice (not a tick box) a keyholder may set (v1.14.1, DW 2026-11-21): every control on the
@@ -1067,6 +1081,8 @@ function drawPulseControls(top: number, width: number): void {
 		width,
 		ATTEMPT_CAPTION_HEIGHT,
 		pulseHexError ? "#a00000" : locked ? "Gray" : "#555",
+		CAPTION_SIZE,
+		18,
 	);
 	// A DOM element, which the scroll area's clip cannot hide. As the toy mode dropdown.
 	if (at < rowScroll.top || at + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
@@ -1156,7 +1172,7 @@ const INDUCTION_DROPDOWNS: DropdownRow[] = [
 		set: (key) => setToyMode(key === "on"),
 		caption: () =>
 			getToyMode()
-				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers included."
+				? "No roll: when your induction time is up, you go under to your \"sink deeper\" limit, triggers too."
 				: "Every induction rolls as usual.",
 	},
 	{
@@ -1204,7 +1220,7 @@ const DURATION_WIDTH = 160;
 const TRIGGER_DROPDOWNS: DropdownRow[] = [
 	{
 		id: SCOPE_ID,
-		label: "Who else can fire triggers planted in you:",
+		label: "Who else can fire your triggers:",
 		options: TRIGGER_SCOPES,
 		get: getTriggerScope,
 		set: (key) => setTriggerScope(key as TriggerScope),
@@ -1217,7 +1233,7 @@ const TRIGGER_DROPDOWNS: DropdownRow[] = [
 		options: TRIGGER_LIFESPANS.map((l) => ({ key: String(l.minutes), label: l.label })),
 		get: () => String(getTriggerLifespan()),
 		set: (key) => setTriggerLifespan(Number(key)),
-		caption: () => "Someone asking for longer gets this instead. Lowering it doesn't shorten triggers already planted.",
+		caption: () => "Someone asking for longer gets this. Lowering it doesn't shorten triggers already planted.",
 	},
 	{
 		// Its own setting, apart from trust fading on Stats: trust is what someone built with you, a
@@ -1266,6 +1282,8 @@ function drawDurationControl(top: number, width: number): void {
 		width,
 		ATTEMPT_CAPTION_HEIGHT,
 		locked ? "Gray" : "#555",
+		CAPTION_SIZE,
+		18,
 	);
 	// A DOM element, which the scroll area's clip cannot hide: only while wholly in view.
 	if (top < rowScroll.top || top + ATTEMPT_BUTTON_HEIGHT > rowScroll.top + rowScroll.height) {
@@ -1298,147 +1316,139 @@ function drawDurationControl(top: number, width: number): void {
 
 // --- Depth tab ------------------------------------------------------------------------
 // Each gate is a number 0-99 since v0.98.0 (job.md): a typed box between -5 and +5 steps, with the
-// tier it falls in beside it. The box is a DOM input, so it is made only for the rows on the page
-// showing and removed with the tab's other DOM controls (syncTabControls, removeScopeControl) —
-// the cost that kept this tab on click-to-cycle buttons while the choice had only five values.
-const DEPTH_ROW_TOP = 270;
-const DEPTH_ROW_HEIGHT = 52;
-const DEPTH_ROWS_PER_PAGE = 7;
+// tier it falls in beside it. v1.16.37 (review F8): one scrolling page, not Prev/Next pages; the
+// rows, then where you are now with Reset, then two dropdowns (what may push you deeper, and a
+// hypnotist's skill). The boxes and dropdowns are DOM, so each exists only while its row is wholly
+// in view, and goes off the tab with the rest (tabDomIds).
+const DEPTH_ROW_HEIGHT = 56;
 /** Where a row's controls start: -5, the number box, +5, then the tier name. */
-const DEPTH_CTRL_LEFT = BOX_LEFT + 600;
+const DEPTH_CTRL_LEFT = BOX_LEFT + 520;
 /** Room for the gate name before it reaches the -5 button. Fitted, so a long name shrinks. */
-const DEPTH_LABEL_MAX = 600 - 30;
+const DEPTH_LABEL_MAX = 520 - 30;
 const DEPTH_STEP_WIDTH = 64;
 const DEPTH_STEP = 5;
 const DEPTH_INPUT_LEFT = DEPTH_CTRL_LEFT + DEPTH_STEP_WIDTH + 8;
 const DEPTH_INPUT_WIDTH = 96;
 const DEPTH_PLUS_LEFT = DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH + 8;
 const DEPTH_TIER_TEXT_LEFT = DEPTH_PLUS_LEFT + DEPTH_STEP_WIDTH + 14;
-const DEPTH_TIER_TEXT_MAX = 240;
+const DEPTH_TIER_TEXT_MAX = 150;
 const DEPTH_BUTTON_HEIGHT = 44;
-/** The per-row "arousal may reach this" control, on the earned-only rows only. Ends a hair
- * inside the panel edge, where it sat before the numbers came. */
-const CHEM_TOGGLE_LEFT = BOX_LEFT + 1112;
+/** The per-row "may arousal reach this" dropdown, on the earned-only rows only. */
+const CHEM_LEFT = BOX_LEFT + 940;
+const CHEM_WIDTH = 230;
+const CHEM_PREFIX = "HypnosisAddonChem-";
 const DEPTH_INPUT_PREFIX = "HypnosisAddonDepth-";
 const DEPTH_INPUT_IDS = DEPTH_GATES.map((g) => DEPTH_INPUT_PREFIX + g.key);
-const CHEM_TOGGLE_WIDTH = 136;
-const SCOPE_BUTTON_LEFT = BOX_LEFT;
-const SCOPE_BUTTON_TOP = 740;
-const SCOPE_BUTTON_WIDTH = 430;
-const DEFAULTS_BUTTON_LEFT = BOX_LEFT + 470;
+/** The band under the rows: where you are now, and Reset to defaults. */
+const DEPTH_SUMMARY_GAP = 16;
+const DEPTH_SUMMARY_HEIGHT = 70;
 const DEFAULTS_BUTTON_WIDTH = 240;
-/** The skill-honour control sits a row below the chemical-scope one. Both are Depth-tab
- * controls: chemical scope is what pushes you deeper besides trust, and this is how much of a
- * hypnotist's claimed practice you let push at all. A wide button because the rung labels are
- * sentences ("Only from people I trust"). */
-const HONOUR_BUTTON_TOP = SCOPE_BUTTON_TOP + 58;
-const HONOUR_BUTTON_WIDTH = 720;
-let depthPage = 0;
 
-function depthPageCount(): number {
-	return Math.max(1, Math.ceil(DEPTH_GATES.length / DEPTH_ROWS_PER_PAGE));
+/** What may push you deeper besides trust, and how much a hypnotist's own practice counts. */
+const DEPTH_DROPDOWNS: DropdownRow[] = [
+	{
+		id: "HypnosisAddonChemicalScope",
+		label: "Chemicals count:",
+		options: CHEMICAL_SCOPES,
+		get: getChemicalScope,
+		set: (key) => setChemicalScope(key as ChemicalScope),
+		caption: () => "What may push you deeper besides trust. Never the rows above marked earned only.",
+	},
+	{
+		id: "HypnosisAddonSkillHonour",
+		label: "A hypnotist's skill:",
+		options: SKILL_HONOUR_OFFERED,
+		get: getSkillHonour,
+		set: (key) => setSkillHonour(key as Parameters<typeof setSkillHonour>[0]),
+		caption: () => "How much their own practice helps them put you under. Never past the earned-only rows.",
+	},
+];
+
+/** The earned-only rows' "may arousal reach it" choice, as dropdowns. Carry-forward is shown, but
+ * cannot be opened: it has no decay clock yet to price the shortcut with. */
+function chemDropdowns(): DropdownRow[] {
+	return DEPTH_GATES.filter((g) => g.earnedOnly).map((g) => ({
+		id: CHEM_PREFIX + g.key,
+		label: "",
+		options: [{ key: "earned", label: "Earned only" }, { key: "arousal", label: "Arousal ok" }],
+		get: () => (isChemicalToggleable(g.key) && getChemicalReach(g.key) ? "arousal" : "earned"),
+		set: (key) => {
+			if (!isChemicalToggleable(g.key)) return;
+			const now = key === "arousal";
+			if (now === getChemicalReach(g.key)) return;
+			setChemicalReach(g.key, now);
+			notifyLocal(now ? `${g.label}: arousal may reach this now — anything seeded this way fades fast.` : `${g.label}: back to trust only.`);
+		},
+		caption: () => "",
+	}));
 }
 
-function visibleGates(): typeof DEPTH_GATES {
-	const from = depthPage * DEPTH_ROWS_PER_PAGE;
-	return DEPTH_GATES.slice(from, from + DEPTH_ROWS_PER_PAGE);
+function depthRowsHeight(): number {
+	return DEPTH_GATES.length * DEPTH_ROW_HEIGHT;
 }
 
-function drawDepthGates(): void {
+function depthHeight(): number {
+	return depthRowsHeight() + DEPTH_SUMMARY_GAP + DEPTH_SUMMARY_HEIGHT + DEPTH_DROPDOWNS.length * dropdownSlot();
+}
+
+/** Is this band wholly inside the scroll area? A DOM control is shown only then. */
+function wholeInView(top: number, height: number): boolean {
+	return top >= rowScroll.top && top + height <= rowScroll.top + rowScroll.height;
+}
+
+function drawDepthGates(top0: number, width: number): void {
 	const locked = settingsLocked();
 	const features = getFeatures();
-	removeDepthInputs(visibleGates().map((g) => DEPTH_INPUT_PREFIX + g.key));
-	visibleGates().forEach((gate, i) => {
-		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
+	const tip = (text: string) => (mouseInScroll(rowScroll) ? text : "");
+	const chems = new Map(chemDropdowns().map((d) => [d.id, d]));
+	DEPTH_GATES.forEach((gate, i) => {
+		const top = top0 + i * DEPTH_ROW_HEIGHT;
 		// A feature whose permission is off can never happen whatever the tier says, and
 		// showing that plainly stops the tier reading as the only thing standing in the way.
 		const granted = !!features[gate.key];
-		drawLeftTextFit(
-			gate.label,
-			BOX_LEFT,
-			top + 30,
-			DEPTH_LABEL_MAX,
-			granted ? "Black" : "Gray",
-		);
+		drawLeftTextFit(gate.label, BOX_LEFT, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_LABEL_MAX, granted ? "Black" : "Gray", DROPDOWN_LABEL_SIZE);
 		const need = requiredDepth(gate.key);
 		const stepColor = locked ? "#ddd" : granted ? "White" : "#eee";
-		tipButton(
-			DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "", "",
-			locked || need <= 0,
-		);
-		drawDepthInput(gate.key, top, need, locked);
-		tipButton(
-			DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "", "",
-			locked || need >= MAX_GATE_DEPTH,
-		);
-		drawLeftTextFit(
-			`[${tierLabel(tierOf(need))}]`,
-			DEPTH_TIER_TEXT_LEFT,
-			top + 30,
-			DEPTH_TIER_TEXT_MAX,
-			granted ? "Black" : "Gray",
-		);
-		// The earned-only rows carry a second control: whether arousal may reach the feature at
-		// all. Two of the three are the subject's to open (illusion, triggers); carry-forward is
-		// shown locked, because it has no decay clock yet to price the shortcut with.
-		if (gate.earnedOnly) {
-			const toggleable = isChemicalToggleable(gate.key);
-			const open = toggleable && getChemicalReach(gate.key);
-			tipButton(
-				CHEM_TOGGLE_LEFT,
-				top,
-				CHEM_TOGGLE_WIDTH,
-				DEPTH_BUTTON_HEIGHT,
-				open ? "arousal ok" : "earned only",
-				locked || !toggleable ? "#eee" : open ? "#e7efe7" : "White",
-				"",
-				!toggleable
-					? "Waiting on carry-forward decay before arousal can be allowed here."
-					: open
-						? "Arousal can reach this — but anything seeded that way fades fast. Click for trust only."
-						: "Only trust reaches this. Click to let arousal too — it fades fast.",
-				locked || !toggleable,
-			);
-		}
+		tipButton(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `-${DEPTH_STEP}`, stepColor, "", "", locked || need <= 0);
+		const id = DEPTH_INPUT_PREFIX + gate.key;
+		if (wholeInView(top, DEPTH_BUTTON_HEIGHT)) drawDepthInput(gate.key, top, need, locked);
+		else if (document.getElementById(id)) ElementRemove(id);
+		tipButton(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT, `+${DEPTH_STEP}`, stepColor, "", "", locked || need >= MAX_GATE_DEPTH);
+		drawLeftTextFit(`[${tierLabel(tierOf(need))}]`, DEPTH_TIER_TEXT_LEFT, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_TIER_TEXT_MAX, granted ? "Black" : "Gray", DROPDOWN_LABEL_SIZE);
+		const chem = chems.get(CHEM_PREFIX + gate.key);
+		if (chem) drawChemDropdown(chem, top, locked || !isChemicalToggleable(gate.key));
 	});
 
-	if (depthPageCount() > 1) {
-		tipButton(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Prev", "White", "", "", depthPage === 0);
-		tipButton(
-			PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, "Next", "White", "", "",
-			depthPage >= depthPageCount() - 1,
-		);
-		drawLeftText(`page ${depthPage + 1} of ${depthPageCount()}`, PAGE_NEXT_LEFT + 130, PAGE_BUTTON_TOP + 30, "Gray");
-	}
-
-	const scope = CHEMICAL_SCOPES.find((c) => c.key === getChemicalScope())?.label ?? "Arousal only";
-	tipButton(
-		SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
-		`Chemicals count: ${scope}`, locked ? "#ddd" : "White", "",
-		"What may push you deeper besides trust. Never applies to the three above that say otherwise.",
-		locked,
-	);
-	tipButton(
-		DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
-		"Reset to defaults", locked ? "#ddd" : "White", "", "Forget every depth you have changed", locked,
-	);
-	const honour = SKILL_HONOUR_RUNGS.find((r) => r.key === getSkillHonour())?.label ?? "Only from people I trust";
-	tipButton(
-		SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT,
-		`A hypnotist's skill: ${honour}`, locked ? "#ddd" : "White", "",
-		"How much of another hypnotist's own practice is allowed to help them put you under. " +
-			"Never reaches the three above that say otherwise, and their word for it is never taken on trust.",
-		locked,
-	);
-
-	// Where they are RIGHT NOW, so the numbers above mean something while reading the list.
-	//
-	// Beside the buttons rather than above the rows: it used to be drawn at DEPTH_ROW_TOP - 34,
-	// which is exactly where the generic tab renderer puts the blurb, so the two printed on top
-	// of each other and neither could be read. This row is the only band on the tab with space
-	// to spare, and the status belongs with the summary controls anyway.
+	// Where they are RIGHT NOW, so the numbers above mean something, beside Reset.
+	const summary = top0 + depthRowsHeight() + DEPTH_SUMMARY_GAP;
+	tipButton(BOX_LEFT, summary, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT, "Reset to defaults", locked ? "#ddd" : "White", "", tip("Forget every depth you have changed"), locked);
 	const here = isHypnotized() ? `You are ${depthLabel(Math.floor(currentDepth()))} right now.` : "You are not under.";
-	drawLeftText(here, DEFAULTS_BUTTON_LEFT + DEFAULTS_BUTTON_WIDTH + 40, SCOPE_BUTTON_TOP + 30, "Gray");
+	drawLeftTextFit(here, BOX_LEFT + DEFAULTS_BUTTON_WIDTH + 40, summary + DEPTH_BUTTON_HEIGHT / 2, width - DEFAULTS_BUTTON_WIDTH - 40, "Gray", DROPDOWN_LABEL_SIZE);
+	drawDropdowns(DEPTH_DROPDOWNS, summary + DEPTH_SUMMARY_HEIGHT, width);
+}
+
+/** One earned-only row's dropdown, right of its tier, only while wholly in view. */
+function drawChemDropdown(row: DropdownRow, top: number, locked: boolean): void {
+	let element = document.getElementById(row.id) as HTMLSelectElement | null;
+	if (!wholeInView(top, DEPTH_BUTTON_HEIGHT)) {
+		if (element) ElementRemove(row.id);
+		return;
+	}
+	if (!element) {
+		element = ElementCreateDropdown(
+			row.id,
+			row.options.map((o) => o.label),
+			function () {
+				if (settingsLocked()) return;
+				const picked = row.options[this.selectedIndex];
+				if (picked) row.set(picked.key);
+			},
+		);
+	}
+	const index = row.options.findIndex((o) => o.key === row.get());
+	if (index >= 0 && element.selectedIndex !== index) element.selectedIndex = index;
+	element.disabled = locked;
+	ElementPosition(row.id, CHEM_LEFT + CHEM_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, CHEM_WIDTH, DEPTH_BUTTON_HEIGHT);
 }
 
 /** One row's number box. Commits on blur or Enter, not per keystroke, so typing "45" never saves
@@ -1474,68 +1484,35 @@ function drawDepthInput(key: keyof FeatureToggles, top: number, need: number, lo
 	ElementPosition(id, DEPTH_INPUT_LEFT + DEPTH_INPUT_WIDTH / 2, top + DEPTH_BUTTON_HEIGHT / 2, DEPTH_INPUT_WIDTH, DEPTH_BUTTON_HEIGHT);
 }
 
-/** Take away the number boxes of rows not on the page showing — all of them, off this tab. */
-function removeDepthInputs(keep: string[] = []): void {
-	for (const id of DEPTH_INPUT_IDS) {
-		if (!keep.includes(id) && document.getElementById(id)) ElementRemove(id);
-	}
+/** Take away every depth number box. */
+function removeDepthInputs(): void {
+	for (const id of DEPTH_INPUT_IDS) if (document.getElementById(id)) ElementRemove(id);
 }
 
-function clickDepthGates(): boolean {
-	// Paging first, and NOT under the lock: turning a page only reads, the same reason the scroll
-	// bar works while locked. It used to sit below the lock check, so a locked player could see
-	// page 1 and nothing else (Veronica's feedback, 2026-09-19; fixed v0.100.2).
-	if (depthPageCount() > 1) {
-		if (MouseIn(PAGE_PREV_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
-			depthPage = Math.max(0, depthPage - 1);
-			return true;
-		}
-		if (MouseIn(PAGE_NEXT_LEFT, PAGE_BUTTON_TOP, PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT)) {
-			depthPage = Math.min(depthPageCount() - 1, depthPage + 1);
-			return true;
-		}
-	}
-	if (settingsLocked()) return true; // consume, so a locked screen cannot be edited by touch
-	if (MouseIn(SCOPE_BUTTON_LEFT, SCOPE_BUTTON_TOP, SCOPE_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-		const next: ChemicalScope = nextScope(getChemicalScope());
-		setChemicalScope(next);
-		log(`chemical scope set to ${next}`);
-		return true;
-	}
-	if (MouseIn(DEFAULTS_BUTTON_LEFT, SCOPE_BUTTON_TOP, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-		clearDepthOverrides();
-		notifyLocal("Depth requirements reset to their defaults.");
-		return true;
-	}
-	if (MouseIn(SCOPE_BUTTON_LEFT, HONOUR_BUTTON_TOP, HONOUR_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT)) {
-		const next = nextSkillHonour(getSkillHonour());
-		setSkillHonour(next);
-		log(`skill honour set to ${next}`);
-		return true;
-	}
-	const gates = visibleGates();
-	for (let i = 0; i < gates.length; i++) {
-		const top = DEPTH_ROW_TOP + i * DEPTH_ROW_HEIGHT;
+/** A click inside the Depth list (the scroll area already checked the pointer is in view). */
+function clickDepthGates(top0: number): boolean {
+	const summary = top0 + depthRowsHeight() + DEPTH_SUMMARY_GAP;
+	const onReset = MouseIn(BOX_LEFT, summary, DEFAULTS_BUTTON_WIDTH, DEPTH_BUTTON_HEIGHT);
+	for (let i = 0; i < DEPTH_GATES.length; i++) {
+		const top = top0 + i * DEPTH_ROW_HEIGHT;
 		const step = MouseIn(DEPTH_CTRL_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT)
 			? -DEPTH_STEP
 			: MouseIn(DEPTH_PLUS_LEFT, top, DEPTH_STEP_WIDTH, DEPTH_BUTTON_HEIGHT)
 				? DEPTH_STEP
 				: 0;
-		if (step) {
-			const saved = setDepthOverride(gates[i].key, requiredDepth(gates[i].key) + step);
-			log(`${gates[i].key} now needs ${saved}`);
-			return true;
-		}
-		if (MouseIn(CHEM_TOGGLE_LEFT, top, CHEM_TOGGLE_WIDTH, DEPTH_BUTTON_HEIGHT) && isChemicalToggleable(gates[i].key)) {
-			const now = !getChemicalReach(gates[i].key);
-			setChemicalReach(gates[i].key, now);
-			notifyLocal(
-				now
-					? `${gates[i].label}: arousal may reach this now — anything seeded this way fades fast.`
-					: `${gates[i].label}: back to trust only.`,
-			);
-			return true;
-		}
+		if (!step) continue;
+		// Consumed either way: a locked screen cannot be edited by touch.
+		if (settingsLocked()) return true;
+		const gate = DEPTH_GATES[i];
+		const saved = setDepthOverride(gate.key, requiredDepth(gate.key) + step);
+		log(`${gate.key} now needs ${saved}`);
+		return true;
+	}
+	if (onReset) {
+		if (settingsLocked()) return true;
+		clearDepthOverrides();
+		notifyLocal("Depth requirements reset to their defaults.");
+		return true;
 	}
 	return false;
 }
@@ -1652,7 +1629,7 @@ function tabDomIds(tabName: string): string[] {
 		case "Stats":
 			return [DECAY_ID, TRUST_SEARCH_ID];
 		case "Depth":
-			return [...DEPTH_INPUT_IDS];
+			return [...DEPTH_INPUT_IDS, ...chemDropdowns().map((d) => d.id), ...DEPTH_DROPDOWNS.map((d) => d.id)];
 		default:
 			return [];
 	}
@@ -1840,6 +1817,8 @@ function drawStats(): void {
 // (panel.ts), so a list can grow without re-laying out the screen, and a label never has to
 // squeeze into half the panel.
 const ROWS_TOP = 270;
+/** The tab's blurb: up to two lines, centred just above the rows. */
+const BLURB_HEIGHT = 62;
 /** A group heading's slot: shorter than a checkbox row. */
 const HEADING_SPACING = 50;
 /** The fixed rows' band above the list: one row of checkboxes, and a gap under it. */
@@ -2125,7 +2104,9 @@ function runSettings(): void {
 			LOCK_BANNER_TEXT,
 		);
 	} else {
-		drawLeftTextFit(tab.blurb, BOX_LEFT, BLURB_Y, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, "Gray");
+		// Wrapped onto two lines, not cut with "…" (v1.16.37, review F8): the cut fell exactly where the
+		// blurb said something ("…(that is Clothing Illu…"). Above the rows, which start at 270.
+		drawLeftTextWrap(tab.blurb, BOX_LEFT, BLURB_Y - 3, PANEL_LEFT + PANEL_WIDTH - BOX_LEFT - 40, BLURB_HEIGHT, "Gray", 26, 20);
 	}
 
 	syncTabControls(tab.name);
@@ -2142,6 +2123,7 @@ function runSettings(): void {
 	(tab.fixedRows ?? []).forEach((row, i) => {
 		const left = fixedLeft(i);
 		DrawCheckbox(left, ROWS_TOP, BOX_SIZE, BOX_SIZE, "", features[row.key], locked);
+		if (row.tip) tipArea(left, ROWS_TOP, FIXED_COLUMN - 20, BOX_SIZE, row.tip);
 		drawLeftTextFit(row.label, left + BOX_SIZE + 20, ROWS_TOP + 26, FIXED_COLUMN - BOX_SIZE - 40, locked ? "Gray" : "Black");
 	});
 	drawScrollArea(rowScroll, () => {
@@ -2161,6 +2143,8 @@ function runSettings(): void {
 			// Width, which overlaps the box for anything but very short text. Draw the
 			// label ourselves, left-aligned and clear of the box.
 			DrawCheckbox(left, top, BOX_SIZE, BOX_SIZE, "", features[item.key], inert);
+			// Only while the pointer is in the list: a row half scrolled out would raise it from its clipped half.
+			if (item.tip && mouseInScroll(rowScroll)) tipArea(left, top, Math.min(contentWidth - (left - BOX_LEFT), BOX_SIZE + 20 + 640), BOX_SIZE, item.tip);
 			drawLeftTextFit(item.label, left + BOX_SIZE + 20, top + 26, contentWidth - (left - BOX_LEFT) - BOX_SIZE - 20, inert ? "Gray" : "Black");
 		});
 		const extra = tab.scrollExtra;
@@ -2240,7 +2224,6 @@ export function installMenu(): void {
 			const hitTab = tabHitIndex(tabs.length);
 			if (hitTab !== null) {
 				activeTab = hitTab;
-				depthPage = 0;
 				plantedDetail = 0;
 				clearAllArmedUntil = 0;
 				rowScroll.offset = 0;

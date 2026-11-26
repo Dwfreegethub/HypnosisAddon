@@ -222,9 +222,9 @@ function reply(to: number, mode: KeyMode | null, result?: { ok: boolean; text: s
 
 /** What each level lets a keyholder do, in plain words. Shared with commands.ts. */
 export const KEY_LEVEL_WORDS: Record<KeyMode, string> = {
-	minimal: "minimal keys: they can only switch your settings OFF",
-	moderate: "moderate keys: they can switch things off, and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
-	full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading and your Depth tab",
+	minimal: "minimal keys: they can only switch your settings OFF (not on your General tab)",
+	moderate: "moderate keys: they can switch things off (not on your General tab), and shape your trance (Trance Defaults, Awareness, how it looks and its pace)",
+	full: "full keys: they can switch everything they reach on and off, including your Triggers tab choices, trust fading, your Depth tab and your General tab",
 };
 /** How long before the same person may ask again. */
 export const KEY_REQUEST_GAP_MS = 3 * 60_000;

@@ -13,6 +13,26 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.16.37 · 25 November 2026
+
+The settings screen, spread out and tidied:
+
+- **A new General tab**, last in the column: *Release everything if you disconnect*, *Pulse when a
+  command lands*, *Show others that I run ECHS*, where you see other players' spirals, and the
+  popup button. They used to sit on Trance Defaults, which is now only about the trance. Only a
+  **full** keyholder can change the General tab.
+- **Stats is always shown.** The *Advanced* button that hid it is gone.
+- **Every choice is a dropdown.** The buttons you clicked to cycle through options (attempts,
+  induction time, toy mode, drop triggers, pulse colour and the rest) only went forward. Now you
+  pick the one you want.
+- **The Triggers tab scrolls as one page.** Its tick boxes used to sit in a small box with the
+  fifth one cut off.
+- **The Depth tab scrolls** instead of having Prev and Next pages.
+- **Tab descriptions are shown in full**, on two lines, instead of being cut off with "…".
+- **Rest the pointer on a permission's name** to see what it allows.
+- **The help pages read better:** the text uses the whole width, and a page no longer breaks in
+  the middle of a sentence.
+
 ## v1.16.36 · 25 November 2026
 
 - **Keyholders see what happened.** In the popup's Keys tab, after you click one of their settings,

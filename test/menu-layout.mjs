@@ -69,7 +69,7 @@ globalThis.ChatRoomData = null;
 let localLines = [];
 globalThis.ChatRoomSendLocal = (m) => localLines.push(String(m));
 const lastLocal = () => localLines[localLines.length - 1] ?? "";
-const { menu, storage, panel, session, triggers } = await import("./harness-bundle.mjs");
+const { menu, storage, panel, session, triggers, depth } = await import("./harness-bundle.mjs");
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -273,6 +273,9 @@ function dropdownTab(name, rows, read, unlocked = []) {
 	const labels = rows.map((r) => texts.find((t) => t.text === r.label));
 	check(`${name}: every label drawn`, labels.map((l, i) => (l ? true : rows[i].label)), ids.map(() => true));
 	check(`${name}:   at one size`, new Set(labels.filter(Boolean).map((l) => l.height)).size, 1);
+	// The captions under them: one size (the lab showed them shrinking to different sizes).
+	const captions = texts.filter((t) => t.clip && t.height < 28 && /\.$/.test(t.text) && !rows.some((r) => r.label === t.text));
+	check(`${name}: captions one size`, [...new Set(captions.map((t) => t.height))], captions.length ? [22] : []);
 	check(`${name}:   in order, a row apart`, labels.every((l, i) => i === 0 || (l && labels[i - 1] && l.top - labels[i - 1].top >= 90)), true);
 	toTop();
 	const area = texts.find((t) => t.text === rows[0].label)?.clip;
@@ -324,31 +327,68 @@ dropdownTab("Inductions", [
 	check("  induction time: straight to 10 seconds, no cycling round", storage.getInductionSeconds(), 10);
 	choose("HypnosisAddonInductionTime", times.indexOf(60));
 }
-// "Sink deeper" left the Depth tab. Failure: it is drawn in both places.
+// --- Depth (v1.16.37, review F8): one scrolling page, not Prev/Next pages --------------------------
+// Failure looked like: a page control; a row that can never be scrolled into view; a number box (DOM)
+// floating over a row scrolled out; a step that works under the lock.
 openTab(6); frame();
-check("Depth no longer draws the sink deeper button", buttons.some((b) => /Sink deeper/.test(b.label)), false);
-check("  the skill button stays on Depth (DW)", buttons.some((b) => b.label.startsWith("A hypnotist's skill:")), true);
-// v0.100.2 (Veronica, 09-19): a locked player can still turn the Depth pages; paging only reads.
-// Failure: Next does nothing while locked (the v0.100.1 bug), or a locked click changes a depth.
+check("Depth: no page buttons", buttons.some((b) => b.label === "Next" || b.label === "Prev"), false);
+check("  and no sink deeper (it is on Inductions)", buttons.some((b) => /Sink deeper/.test(b.label)), false);
 {
-	const firstGate = () => texts.find((t) => t.top > 260 && t.top < 320 && t.left < panel.CONTENT_LEFT + 100)?.text;
+	const gates = depth.DEPTH_GATES;
+	const rowSeen = new Set();
+	const boxPresentOnlyInView = [];
+	toTop();
+	for (let i = 0; i < 60; i++) {
+		const area = buttons.find((b) => b.label === "-5")?.clip;
+		for (const g of gates) {
+			const label = texts.find((t) => t.text === g.label);
+			if (!label || !area) continue;
+			const top = label.top + label.height / 2 - 22;
+			const inView = top >= area.top && top + 44 <= area.top + area.height;
+			if (inView) rowSeen.add(g.key);
+			boxPresentOnlyInView.push(!!elements[`HypnosisAddonDepth-${g.key}`] === inView);
+		}
+		wheel(50); frame();
+	}
+	check("Depth: every gate's row can be scrolled wholly into view", gates.filter((g) => !rowSeen.has(g.key)).map((g) => g.key), []);
+	check("  each number box present exactly while its row is in view", boxPresentOnlyInView.every(Boolean), true);
+	// +5 on the first row, where it is drawn; locked, nothing.
+	toTop();
+	const first = gates[0].key;
+	const plus = () => buttons.filter((b) => b.label === "+5")[0];
+	const was = storage.getDepthOverride(first) ?? null;
+	clickAt(plus().left + 5, plus().top + 5); frame();
+	check("  +5 steps the first row where it is drawn", storage.getDepthOverride(first) !== was, true);
+	const now = storage.getDepthOverride(first);
 	storage.startExtremeLock("trial");
 	frame();
-	const page1 = firstGate();
-	const next = buttons.find((b) => b.label === "Next");
-	clickAt(next.left + 5, next.top + 5); frame();
-	check("locked: Next still turns the Depth page", firstGate() !== page1, true);
-	const prev = buttons.find((b) => b.label === "Prev");
-	clickAt(prev.left + 5, prev.top + 5); frame();
-	check("  and Prev turns it back", firstGate(), page1);
-	const minus = buttons.find((b) => b.label === "-5");
-	const before = storage.getDepthOverride("suppressBondage");
-	clickAt(minus.left + 5, minus.top + 5); frame();
-	const plus = buttons.find((b) => b.label === "+5");
-	clickAt(plus.left + 5, plus.top + 5); frame();
-	check("  but -5 / +5 still change nothing while locked", storage.getDepthOverride("suppressBondage"), before);
+	clickAt(plus().left + 5, plus().top + 5); frame();
+	check("  locked: +5 changes nothing", storage.getDepthOverride(first), now);
 	storage.clearExtremeLock();
-	frame();
+	// The earned-only rows' "may arousal reach it", as dropdowns: one opens, carry-forward can't.
+	const earned = gates.filter((g) => g.earnedOnly);
+	const openable = earned.find((g) => depth.isChemicalToggleable(g.key));
+	const shut = earned.find((g) => !depth.isChemicalToggleable(g.key));
+	const chem = (g) => `HypnosisAddonChem-${g.key}`;
+	scrollTo(chem(openable));
+	choose(chem(openable), 1);
+	check("  arousal ok on an earned-only row saves it", storage.getChemicalReach(openable.key), true);
+	choose(chem(openable), 0);
+	check("    and back", storage.getChemicalReach(openable.key), false);
+	if (shut) {
+		scrollTo(chem(shut));
+		check("  carry-forward's is greyed", elements[chem(shut)]?.disabled, true);
+	}
+	// Reset, then the two dropdowns, last on the page.
+	toEnd();
+	check("  Reset to defaults reachable at the end", buttons.some((b) => b.label === "Reset to defaults" && inside(b, b.clip)), true);
+	dropdownTab("Depth", [
+		{ id: "HypnosisAddonChemicalScope", label: "Chemicals count:", key: "scope", count: depth.CHEMICAL_SCOPES.length },
+		{ id: "HypnosisAddonSkillHonour", label: "A hypnotist's skill:", key: "honour", count: storage.SKILL_HONOUR_OFFERED.length },
+	], () => ({ scope: storage.getChemicalScope(), honour: storage.getSkillHonour() }));
+	storage.clearDepthOverrides();
+	openTab(0); frame();
+	check("  another tab: its boxes and dropdowns go", Object.keys(elements).filter((id) => /Depth-|Chem-|ChemicalScope|SkillHonour/.test(id)), []);
 }
 
 // --- tabs that fit, and the tab with DOM controls under its rows -----------------------------
@@ -439,7 +479,7 @@ openTab(4); frame(); // Triggers
 	for (let i = 0; i < 40; i++) { boxes.filter((b) => inside(b, b.clip)).forEach((b) => seenRows.add(b.top + 1000 * 0)); rowLabels().forEach((t) => seenRows.add(t.text)); wheel(50); frame(); }
 	check("  all five tick boxes can be seen", ["Allow triggers to be planted in you", "Suggestions that outlive the trance", "You can fire your own triggers", "Show trigger words when you list them", "Triggers fire only on whole words"].filter((l) => !seenRows.has(l)), []);
 	dropdownTab("Triggers", [
-		{ id: "HypnosisAddonTriggerScope", label: "Who else can fire triggers planted in you:", key: "scope", count: triggers.TRIGGER_SCOPES.length },
+		{ id: "HypnosisAddonTriggerScope", label: "Who else can fire your triggers:", key: "scope", count: triggers.TRIGGER_SCOPES.length },
 		{ id: "HypnosisAddonTriggerLifespan", label: "Longest a new trigger lasts:", key: "lifespan", count: storage.TRIGGER_LIFESPANS.length },
 		{ id: "HypnosisAddonTriggerDecay", label: "Triggers fade without reinforcement:", key: "decay", count: storage.DECAY_RATES.length },
 		{ id: "HypnosisAddonDropMode", label: "Drop triggers:", key: "drop", count: storage.DROP_MODES.length },
@@ -659,6 +699,48 @@ openTab(4); frame(); // Triggers
 	check("  and comes back on it", !!elements[SEARCH], true);
 	for (const id of lockedAt) storage.forgetTrust(3000 + id);
 	frame();
+}
+
+// --- Tab blurbs wrap, never cut (v1.16.37, review F8) ----------------------------------------------
+// Failure looked like: "…(that is Clothing Illu…", cut exactly where the blurb said something.
+{
+	const cut = [], tooLow = [], tooMany = [];
+	const names = menu.visibleTabNames();
+	for (let i = 0; i < names.length; i++) {
+		openTab(i); frame();
+		const lines = texts.filter((t) => !t.clip && t.left === panel.CONTENT_LEFT && t.top + t.height / 2 > panel.PANEL_TOP && t.top + t.height / 2 < 265);
+		if (lines.some((t) => t.text.endsWith("…"))) cut.push(names[i]);
+		if (lines.some((t) => t.top + t.height > 270)) tooLow.push(names[i]);
+		if (lines.length > 2) tooMany.push(names[i]);
+	}
+	check("tab blurbs: none cut with …", cut, []);
+	check("  none reaching the rows at 270", tooLow, []);
+	check("  two lines at most", tooMany, []);
+	openTab(3); frame();
+	const awareness = texts.filter((t) => !t.clip && t.left === panel.CONTENT_LEFT && t.top < 265).map((t) => t.text).join(" ");
+	check("  Awareness's whole blurb is there", /that is Clothing Illusion\), and arousal still applies\.$/.test(awareness), true);
+}
+
+// --- Hover text on the permission rows (v1.16.37, review F8) -----------------------------------------
+// Failure looked like: "Movement Restriction" with nothing to say what it allows.
+openTab(0); frame();
+{
+	const label = rowLabels().find((t) => t.text === "Movement Restriction");
+	MouseX = label.left + 40; MouseY = label.top + label.height / 2;
+	frame();
+	const tipBox = rects.find((r) => r.width === 450);
+	const tipLines = texts.filter((t) => tipBox && inside(t, tipBox));
+	check("hover a permission: a tip box of its own, outside the clip", !!tipBox && tipBox.clip === null, true);
+	check("  saying what it allows, wrapped", tipLines.length > 1 && /held still/.test(tipLines.map((t) => t.text).join(" ")), true);
+	check("  at a readable size", tipLines.every((t) => t.height >= 26), true);
+	check("  drawn last, over everything", texts.slice(-tipLines.length).every((t) => tipLines.includes(t)), true);
+	const fixed = texts.find((t) => t.text === "Hypnosis Enabled");
+	MouseX = fixed.left + 20; MouseY = fixed.top + fixed.height / 2;
+	frame();
+	check("  the fixed rows have one too", texts.some((t) => /The master switch/.test(t.text)), true);
+	MouseX = 5; MouseY = 5;
+	frame();
+	check("  gone when the pointer leaves", rects.some((r) => r.width === 450), false);
 }
 
 // --- General (v1.16.37, review F8, DW): how ECHS behaves for you, last in the column ---------------

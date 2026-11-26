@@ -1354,10 +1354,10 @@ function renderHeld(body: any, status: any, held: { id: number; name: string; mo
 				"div",
 				"echs-pop-hint",
 				who.mode === "full"
-					? `${who.name}'s settings. You hold full keys: you can switch them on and off, and set their Triggers choices, trust fading and Depth (open those below).`
+					? `${who.name}'s settings. You hold full keys: you can switch them on and off, and set their Triggers choices, trust fading, Depth and General (open those below).`
 					: who.mode === "moderate"
-						? `${who.name}'s settings. You hold moderate keys: you can switch things off, and shape their trance (Trance Defaults, Awareness, how it looks and its pace).`
-						: `${who.name}'s settings. You hold minimal keys: you can only switch things off.`,
+						? `${who.name}'s settings. You hold moderate keys: you can switch things off (not on General), and shape their trance (Trance Defaults, Awareness, how it looks and its pace).`
+						: `${who.name}'s settings. You hold minimal keys: you can only switch things off (not on General).`,
 			),
 		);
 		const snap = settingsOf(who.id);

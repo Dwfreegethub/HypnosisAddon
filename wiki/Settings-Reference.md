@@ -7,6 +7,8 @@
 
 Open settings with the **gear** in [the ECHS popup](The-ECHS-Popup) (the round spiral button in a chat room), or go to **Preferences → Extensions → ECHS Hypnosis**. *(The spiral on a profile card is only on other players' profiles; it opens the hypnosis panel for them, not your settings.)* Setting categories run down the left edge.
 
+Every choice on the screen is a dropdown, and every tab scrolls (use the wheel or the bar on its right). Rest the pointer on a permission's name for a line saying what it allows.
+
 Everything in these menus represents a **permission** (*"Do I allow this to be done to me?"*) or a **depth threshold** (*"How deep must I be?"*). Ticking a toggle simply defines your boundaries — it never forces an effect on you on its own.
 
 *Note on Mid-Trance Editing:* By default, settings can be configured to lock during an active session (including during the induction window) to preserve immersion. If you ever need out, use your emergency safeword: `/echs safeword`.
@@ -120,16 +122,15 @@ Defines baseline states that engage automatically when an induction succeeds, be
 | **Silence OOC too (text in parentheses)** | Off | By default, OOC text in parentheses, `(like this)` or `((like this))`, passes through muted speech. Enabling this suppresses OOC chat while silenced. |
 | **Clothes Look Unchanged** | Off | Automatically engages the clothing illusion upon entering trance. |
 | **Others See Your Reactions** | On | Broadcasts room-visible emotes (such as going still or failing to speak, or *"Missy does not budge"* when *"no one can move you"* stops someone). Turning this off silences automated emotes. |
-| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. **Pulse colour**, under the list, also colours the trance spiral, and picks Pink, Purple, Blue, White or **Custom**. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter. |
-| **Show others that I run ECHS (a spiral over you in rooms)** | On | Other ECHS players see a small spiral over your character in a room, with your ECHS version when they hover it, and you are listed on their **[popup](The-ECHS-Popup#people)**'s People tab. Untick it and neither happens; your client still answers when a hypnotist opens your spiral panel. **ECHS icons over others**, the last button on this tab, is where *you* see other players' spirals: *Top row* (in the gap between Bondage Club's own icons and other add-ons'), *Below, on the left*, or *Off*. If another add-on's icon covers it on your screen, move it there. Bondage Club's own hide-icons button hides it too, and so does BCT's setting to show icons only on hover: with that on, the spiral appears only while your mouse is over the top of a character. `/echs icons` says why it isn't showing. |
-| **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
+
+The pulse, the spiral over you, and release on disconnect moved to the **[General](#9-general-tab)** tab in v1.16.37.
 
 Under the list:
 
 * **Screen effect:** what covers the room view while you are under. *None · Grey fade · Spiral, light · Spiral, medium · Spiral, heavy* (default: *Grey fade*). The grey fade is a soft veil. A spiral, in your **Pulse colour**, turns slowly instead of the grey (about one turn every 12 seconds), and when a command lands or a trigger fires it gives a quick flash in place of the glow at the edge. Either one thins in a walking trance and steps aside while your sight is dimmed or gone. Only you see it.
 * **Eyes while under:** *Unchanged · Dazed · Spirals · Hearts* (default: *Unchanged*). BC's own eye expressions, put on when you go under and taken off when you wake. *Spirals* also hides your eye shadow while they show (one the game will not fade, such as Wings, is taken off), and puts it back exactly as it was after. **Everyone in the room sees it.**
-* **ECHS popup in rooms:** *On · Off* (default: *On*), the last button on the tab. On, a spiral button in chat rooms opens **[the ECHS popup](The-ECHS-Popup)**. Your own display choice, so no lock stops you changing it.
 * **Eye colour while under:** *Unchanged · Grey · Pink · Purple · Blue* (default: *Unchanged*). Your eyes turn this colour while you are under. Your real colour is saved first and put back when you wake, by any way out, and also the next time you load in if the game closed mid-trance. If you (or another add-on) change your eyes during the trance, that change is kept. **Everyone in the room sees it.**
+* **Pulse colour:** *Pink · Purple · Blue · White · Custom* (default: *Pink*). Colours the pulse (switched on on the General tab) and the trance spiral. Custom gives you a box for a hex colour code like `#FF69B4`, the kind Bondage Club's colour picker uses; it saves when you click away or press Enter.
 
 ---
 
@@ -146,7 +147,7 @@ Controls perceptual filtering — what your character can be hypnotically made n
 
 ## 5. Triggers Tab
 
-Manages long-term suggestions and conditioned words:
+Manages long-term suggestions and conditioned words. One scrolling page: the tick boxes, then the choices under them.
 
 * **Allow triggers to be planted in you:** Master permission for storing trigger words in your client.
 * **Suggestions that outlive the trance** (carry-forward): Allows post-hypnotic suggestions to remain active after waking.
@@ -155,16 +156,16 @@ Manages long-term suggestions and conditioned words:
 * **Triggers fire only on whole words:** A trigger no longer fires inside a longer word (*"sleepy"* stops firing on *"sleepyhead"*). Off by default.
 * **Minutes a fired trigger lasts (0 = until released):** How long a fired trigger's effects hold before letting go by themselves (default: 5). 0 means they stay until released by name or by the safeword. Instant actions (an orgasm, undressing, arousal, made-to-act actions, words to say) have no timer: they are over when they land (since v1.16.11).
 * **Triggers fade without reinforcement:** How quickly planted triggers fade when not kept up (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*). The line under it says roughly how long that means.
-* **Who else can fire triggers planted in you:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your BC friends, then your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
+* **Who else can fire your triggers:** A dropdown, from *Hypnotist only* through *Hypnotist, Owner and Lovers*, adding your BC friends, then your whitelist, then Dominants, to *Hypnotist and everyone, except blacklist* and *Hypnotist and everyone, no exceptions* (default: *Hypnotist only*). A hypnotist can ask for less for one trigger, never more.
 * **Longest a New Trigger Lasts:** Gives every trigger planted from now on a time limit (*No limit · 15 minutes · 30 minutes · 1 hour · 2 hours · 6 hours · 1 day*; default: *No limit*). Triggers you already have are not shortened.
-* **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). Scroll down the tab to reach it. See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
+* **Drop Triggers:** Whether a trigger can drop you straight into trance (*Off · One time · Unlimited*; default: *Off*). See [An Instant Drop](Triggers-and-Lasting-Effects#an-instant-drop).
 * **My triggers list:** How much your own lists show of the triggers planted in you (*Full · Who only · Hidden*; default: *Full*), under Drop Triggers. *Full* shows who planted each, what sets it off and what it does. *Who only* shows who and how strong; Details shows the rest. *Hidden* shows only how many, and turns the Planted tab off. Under the Extreme lock it is read-only like your other settings, and only a keyholder can change it.
 
 ---
 
 ## 6. Planted Tab
 
-Lists the triggers planted in you, six to a page: who planted each one, what sets it off and what it does (or less, by your *My triggers list* setting on the Triggers tab; with *Hidden*, this tab is not shown).
+Lists the triggers planted in you, six to a page (Prev and Next under them): who planted each one, what sets it off and what it does (or less, by your *My triggers list* setting on the Triggers tab; with *Hidden*, this tab is not shown).
 
 * **Details:** Shows what that trigger does, its options, and, for a compulsion, what it is waiting for.
 * **Purge:** Removes that trigger. Refused while the trigger is holding you (the button reads *Holding*).
@@ -176,8 +177,10 @@ Purge and Clear All are not affected by the session lock: removing something pla
 
 ## 7. Depth Tab
 
+One scrolling page: a row for each feature, then *Reset to defaults*, then two choices.
+
 * **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
-* **earned only / arousal ok** (on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): click to let arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
+* **Earned only / Arousal ok** (a dropdown on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): *Arousal ok* lets arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
 * **Chemicals count:** What may push you deeper besides trust (*Arousal + drugs · Arousal only · Drugs only · Neither*; default: *Arousal only*). *Drugs* are crafted drinks and cigarettes tagged `[echs:relax]` or `[echs:stimulate]`; with a drug option on, they add to arousal. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**. It never reaches the three earned-only rows unless you open them above.
 * **A hypnotist's skill:** How much of a hypnotist's own practice may help them put you under (*Ignore it · Only from people I trust · Honour, capped · Full from people I trust, capped otherwise*; default: *Full from people I trust, capped otherwise*). Their skill is shown to you as a feeling, never a number, and never reaches the three earned-only rows.
 * **"Sink deeper" stops at:** is on the **[Inductions](#2-inductions-tab)** tab.
@@ -185,20 +188,39 @@ Purge and Clear All are not affected by the session lock: removing something pla
 
 ---
 
-## 8. Stats & Advanced Tab
+## 8. Stats Tab
 
-Accessible via the **Advanced** toggle below the tabs:
+Always shown since v1.16.37 (it used to hide behind an **Advanced** button under the tabs).
 
 * **Find:** A search box beside the trust list. Type any part of someone's nickname, account name or member number and the list narrows as you type. Someone who was last seen before this box existed can only be found by the one name that was stored for them, until you next see them.
 * **[x]:** Deletes that person's trust, the same as `/echs forgettrust`. It asks first: the button reads *Sure?* for 5 seconds, and a second click deletes. It cannot be undone. Greyed out while your settings are locked.
 * **Trust & Experience Records:** A breakdown of per-person interaction counts and your personal subject experience pool. Each person is listed by the name they go by (their nickname if they have one) with their member number after it, e.g. *Rei (#123456)*. After the interaction count comes **last**, the date they last interacted with you directly (a whisper, a line with your name, or an induction; just chatting in the same room doesn't count). It reads *today* for today and a dash for anyone you haven't interacted with since v1.16.14.
 * **Using ECHS since** (since v1.16.8): on the Experience line, the date you started using ECHS, counted from your last reset (`/echs reset confirm` starts it again). Only you see it. If you had ECHS before v1.16.8, it counts from the first time you open the Stats tab on that version.
 * **Trust fades when you don't see someone:** How fast trust fades without contact (*Never · Very slowly · Slowly · Typical · Fast · Very fast*; default: *Never*).
-* **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#10-data--backup).
+* **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#11-data--backup).
 
 ---
 
-## 9. Setup Wizard
+## 9. General Tab
+
+How ECHS behaves for you: a safety net, what you see, and what others see of you. Last in the column (new in v1.16.37; these were on Trance Defaults). **Only a full keyholder can change these**, switching off included.
+
+| Setting | Default | Effect |
+|---|---|---|
+| **Release everything if you disconnect** | Off | When enabled, drops all active effects immediately if you log out or disconnect, rather than restoring remaining timers on reconnect. |
+| **Pulse when a command lands or a trigger fires** | On | A glow around the room view and a light wash of colour across it, swelling and fading over about two seconds, so your eyes have something to follow besides text. Only you see it, and nothing shows while your sight is gone. Its colour is **Pulse colour** on the Trance Defaults tab. |
+| **Show others that I run ECHS (a spiral over you in rooms)** | On | Other ECHS players see a small spiral over your character in a room, with your ECHS version when they hover it, and you are listed on their **[popup](The-ECHS-Popup#people)**'s People tab. Untick it and neither happens; your client still answers when a hypnotist opens your spiral panel. |
+
+Under the list:
+
+* **ECHS icons over others:** where *you* see other players' spirals: *Top row* (in the gap between Bondage Club's own icons and other add-ons'), *Below, on the left*, or *Off*. If another add-on's icon covers it on your screen, move it there. Bondage Club's own hide-icons button hides it too, and so does BCT's setting to show icons only on hover: with that on, the spiral appears only while your mouse is over the top of a character. `/echs icons` says why it isn't showing.
+* **ECHS popup in rooms:** *On · Off* (default: *On*). On, a spiral button in chat rooms opens **[the ECHS popup](The-ECHS-Popup)**.
+
+These two are your own display choices, so no lock stops you changing them.
+
+---
+
+## 10. Setup Wizard
 
 On fresh installs or after running a reset, opening the settings menu launches the guided **Setup Wizard**. You can re-run it at any time from within the settings interface.
 
@@ -225,12 +247,12 @@ Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **C
 * **The numbers are hidden.** The Stats tab no longer shows trust and experience, `/echs chance`, `/echs skill` and `/echs gates` are refused, and `/echs session` says you are under without saying how deep. Export and Reset stay on that tab.
 * **You can't pose yourself out of it.** `/echs kneel` and `/echs stand` are refused.
 * When the 7 days end, opening the settings asks how it went: **Return to editable settings**, or **Commit to 30 days**. After that, every 30 days you are asked whether to **Renew** or **Unlock**. Until you answer, the settings stay read-only. Unlocking keeps every setting as it was.
-* **Keyholders still can.** Anyone you have given your keys (`/echs keyholder`) can still change your Permissions, Trance Defaults, Awareness and Triggers tick boxes, your Inductions tab, and your screen effect, eyes and pulse colour (with full keys also your Triggers tab choices, trust fading and Depth tab), and can end the lock. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
+* **Keyholders still can.** Anyone you have given your keys (`/echs keyholder`) can still change your Permissions, Trance Defaults, Awareness and Triggers tick boxes, your Inductions tab, and your screen effect, eyes and pulse colour (with full keys also your Triggers tab choices, trust fading, Depth tab and General tab), and can end the lock. See [Keyholders](Consent-and-Safety#keyholders-someone-who-can-change-your-settings-for-you).
 * **What always works:** `/echs safeword` still ends any trance immediately. `/echs reset confirm` unlocks early, but it **erases all your trust, triggers and stats too**. You can also switch ECHS off wherever you load it from: FUSAM's Addon Manager, or your userscript manager. Export still works, so you can keep a backup.
 
 ---
 
-## 10. Data & Backup
+## 11. Data & Backup
 
 * `/echs export`: Generates an encoded text backup of all current settings, thresholds, and trust records.
 * `/echs import <blob>`: Restores configuration from a saved backup string. Refused while a session is on you if you have ticked the setting lock; export and reset still work.

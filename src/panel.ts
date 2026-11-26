@@ -235,6 +235,9 @@ export type LineStyle = "head" | "body" | "dim" | "gap";
 export interface HelpLine {
 	text: string;
 	style?: LineStyle;
+	/** A line of its own, never joined into a paragraph: a generated entry (a suggestion, a depth, a
+	 * command). See joinHelpParagraphs. */
+	keep?: boolean;
 }
 
 const HELP_LEFT = CONTENT_LEFT;
@@ -295,8 +298,38 @@ interface Placed {
 	y: number;
 }
 
-/** Wrap every line, then pour the physical rows into pages by vertical budget. Returns one
- * array of placed rows per page. */
+/** Rejoin authored lines into paragraphs (v1.16.37, review F8). The help text was hand-wrapped at
+ * about 70 characters for the old two-column layout, so it filled only the left half of the box.
+ * A line joins the one before when it continues that sentence: same style, and either the line
+ * before does not end one or this one starts in lower case; never a numbered or bulleted item.
+ * A line marked `keep` (generated: a suggestion, a depth, a command), or one starting with a quote
+ * (an example of what to say) or a slash (a command), stays a line of its own. */
+export function joinHelpParagraphs(lines: readonly HelpLine[]): HelpLine[] {
+	const out: HelpLine[] = [];
+	const style = (l: HelpLine) => (l.style ?? "body");
+	for (const line of lines) {
+		const prev = out[out.length - 1];
+		const text = (line.text ?? "").trim();
+		const continues =
+			!!prev &&
+			!prev.keep &&
+			!line.keep &&
+			(style(prev) === "body" || style(prev) === "dim") &&
+			style(prev) === style(line) &&
+			!!(prev.text ?? "").trim() &&
+			!!text &&
+			!/^(\d+\.|[•*-]\s|["“/])/.test(text) &&
+			(!/[.!?:;)"”]$/.test(prev.text.trimEnd()) || /^[a-z(]/.test(text));
+		if (continues) out[out.length - 1] = { ...prev, text: `${prev.text.trimEnd()} ${text}` };
+		else out.push({ ...line });
+	}
+	return out;
+}
+
+/** Wrap every paragraph, then pour the physical rows into pages by vertical budget. A paragraph
+ * that does not fit what is left of a page starts the next one, and a heading goes with the first
+ * lines under it (v1.16.37, review F8: pages broke mid-sentence). Returns one array of placed rows
+ * per page. */
 function paginateHelp(lines: readonly HelpLine[]): Placed[][] {
 	const pages: Placed[][] = [[]];
 	let y = HELP_TOP;
@@ -304,16 +337,30 @@ function paginateHelp(lines: readonly HelpLine[]): Placed[][] {
 		pages.push([]);
 		y = HELP_TOP;
 	};
-	for (const line of lines) {
+	const paragraphs = joinHelpParagraphs(lines);
+	const room = HELP_BOTTOM - HELP_TOP;
+	const heightOf = (line: HelpLine | undefined) => {
+		if (!line || line.style === "gap") return 0;
+		const { size } = styleOf(line.style);
+		return wrapText(line.text, size).length * lineBand(size);
+	};
+	paragraphs.forEach((line, index) => {
 		const cur = () => pages[pages.length - 1];
 		if (line.style === "gap") {
 			// A gap at the top of a page would just waste a strip of it, so it is dropped there.
 			if (cur().length) y += GAP_SIZE;
-			continue;
+			return;
 		}
 		const { size, color } = styleOf(line.style);
-		const lead = line.style === "head" ? HEAD_LEAD : 0;
+		const lead = line.style === "head" && cur().length ? HEAD_LEAD : 0;
 		const segments = wrapText(line.text, size);
+		const own = segments.length * lineBand(size);
+		// A heading goes with what follows it: all of it when that fits a page (it is then moved whole,
+		// so less would leave the heading alone), else its first two lines.
+		const after = line.style === "head" ? heightOf(paragraphs[index + 1]) : 0;
+		const next = after + HEAD_LEAD <= room - own ? after : Math.min(after, lineBand(BODY_SIZE) * 2);
+		// Whole, if it fits a page at all; otherwise it simply flows on.
+		if (cur().length && y + lead + own + next > HELP_BOTTOM && own + next <= room) newPage();
 		segments.forEach((seg, i) => {
 			const band = lineBand(size);
 			const gapBefore = i === 0 && cur().length ? lead : 0;
@@ -322,7 +369,7 @@ function paginateHelp(lines: readonly HelpLine[]): Placed[][] {
 			cur().push({ text: seg, size, color, y: top + band / 2 });
 			y = top + band;
 		});
-	}
+	});
 	return pages;
 }
 
@@ -481,6 +528,12 @@ export function tipButton(
 	disabled = false,
 ): void {
 	DrawButton(left, top, width, height, label, color, image, "", disabled);
+	if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
+}
+
+/** The same wrapping tip over any area, not only a button (v1.16.37: the settings screen's tick-box
+ * rows, review F8). Queued only while the pointer is over it; drawn by flushTip, last. */
+export function tipArea(left: number, top: number, width: number, height: number, tip: string): void {
 	if (tip && MouseIn(left, top, width, height)) pendingTip = { left, top, width, height, text: tip };
 }
 

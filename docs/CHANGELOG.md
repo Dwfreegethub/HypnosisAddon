@@ -18,6 +18,66 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Changed 2026-11-25 (v1.16.37) — settings screen: General tab, dropdowns, scrolling Triggers and Depth, wrapped blurbs, row tips, help paragraphs
+
+UI lab review F8 (cramped settings screen); DW: "That sounds good.. Ask questions to work out the
+details". DW's answers: the new tab is **General**, **last** in the column; keyholders reach it with
+**full keys only** (switching off included); cycle buttons become **dropdowns** (over arrows or
+right-click).
+
+Tabs (menu.ts TABS): General = releaseOnDisconnect, commandPulse, showEchsIcon + two dropdowns (icon
+spot, popup on/off; `lockable: false`, as the cycles were drawn unlocked). Trance Defaults keeps the
+trance rows and its dropdowns, with pulse colour now a dropdown (the hex box under it for Custom).
+The Advanced button, showAdvanced, STATS_TAB/BASE_TABS are gone: nine tabs fill the column exactly
+(tabTop(8) + 72 = 902, the panel floor). REMOTE_TABS gains General.
+
+Dropdowns: DropdownRow (the v1.9.1 trance one) is the one control for every choice, laid out label
+(600, all at 28px via drawLeftTextFit's new startSize) | select (520) | caption under it.
+dropdownsExtra/drawDropdowns/removeDropdowns. Inductions: seven (attempts, induction time, default
+stance, away stance, toy mode, toy scope, sink deeper). Triggers: scope, lifespan, [minutes box],
+fading, drop, my list. Depth: chemical scope, skill (SKILL_HONOUR_OFFERED), and per earned-only row
+an Earned only / Arousal ok dropdown (carry-forward's disabled). Captions are the old cycle
+captions. Every select exists only while its row is wholly in the scroll area (DOM ignores the
+canvas clip), as the toy-scope one did.
+
+Triggers: no rowsBottom and no fixed DOM band; the rows and then the controls scroll together.
+Depth: rows: [] + scrollExtra (rows of 56, then Reset + "You are …", then the two dropdowns);
+paging and its constants gone; clicks inside the scroll area, the lock still consumes them.
+DOM bookkeeping: tabDomIds(tab) lists each tab's controls; ownedControlIds/removeScopeControl/
+syncTabControls read it (they were three hand-kept lists).
+
+Keyholders: FULL_ONLY_TABS = ["General"]; keyLevelAllows(level, turnsOff, moderateOk, fullOnly)
+returns false below full when fullOnly, before the off check. The subject's refusal names the
+General tab; the popup fades the boxes and says so. KEY_LEVEL_WORDS and the popup hints mention it.
+
+Blurbs: drawLeftTextWrap at 26px down to 20, two lines in 62px above the rows at 270 (they were
+drawLeftTextFit, which cut "…(that is Clothing Illu…"). Row tips: Row.tip (Permissions list and the
+two fixed rows, from the Settings Reference), drawn through panel.ts's new tipArea, the same wrapping
+tip tipButton queues; only while the pointer is in the list.
+
+Help: the text was hand-wrapped at ~70 characters for the old two-column layout. panel.ts
+joinHelpParagraphs rejoins a line onto the one before when it continues the sentence (same style;
+the previous does not end a sentence or this one starts lower case; not a numbered/bulleted item,
+nor a line starting with a quote or a slash). HelpLine.keep (help.ts item()) for generated lines:
+suggestions, the depth ladder, commands. paginateHelp moves a paragraph whole to the next page when
+it fits one, and a heading with all of the next paragraph when that fits (else its first two
+lines). Text fixes: the popup is on General; trust fading is on the Stats tab; two lines that broke
+before a /echs command made one. help.ts helpLinesFor(name) for the suite.
+
+Checked in the UI lab (uilab/sessions/f8.mjs): it showed captions shrinking to different sizes
+(now all 22px; four shortened to fit one line), long options cut in 520px dropdowns (630 now, labels
+520; "Who else can fire triggers planted in you:" became "Who else can fire your triggers:" on the
+screen, the keyholder popup keeps the long name), and the Depth tab's Earned only boxes cut (230).
+
+Tests: menu-layout.mjs rewritten for dropdowns (a shared dropdownTab check: reachable, labels one
+size and in order, present exactly while in view, each changes only its own setting, locked = greyed
+and inert except General's two), Triggers scrolling, Depth scrolling (every row reachable, boxes
+only in view, +5 where drawn, locked inert, chem dropdowns), General, nine tabs, blurbs, row tips.
+help-layout.mjs: joining, full width, no paragraph split across a page, no orphan heading on the
+real help. keyholder.mjs: General refused to minimal/moderate (off too), works for full.
+trance-spiral.mjs's source check follows tabDomIds. Mutations: General locked 1, full-only 2,
+blurb 2, tips 3, keep 1, orphan 1, depth box 1.
+
 ### Fixed 2026-11-25 (v1.16.36) — Keys tab: requests answered, faded clicks explained, new keys announced
 
 UI lab review F6; DW: "F6 it is". Seen in the lab: a faded box (moderate keys, Hearing) still sent a
