@@ -14,11 +14,16 @@ globalThis.ChatRoomCharacter = [Player, { MemberNumber: HYP, Name: "GameBot" }, 
 globalThis.ChatRoomData = { Name: "Somewhere" };
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = v; }, removeItem(k) { delete this._d[k]; } };
 globalThis.ServerPlayerExtensionSettingsSync = () => {};
-globalThis.ServerSend = () => {};
+let toHyp = [];
+globalThis.ServerSend = (type, data) => {
+	const m = data?.Dictionary?.[0]?.message;
+	if (type === "ChatRoomChat" && data?.Type === "Hidden" && m?.type === "trigger-status") toHyp.push(m.text);
+};
 let inRoom = true;
 globalThis.ServerPlayerIsInChatRoom = () => inRoom;
 globalThis.ChatRoomSendEmote = () => {};
-globalThis.ChatRoomSendLocal = () => {};
+let said = [];
+globalThis.ChatRoomSendLocal = (m) => said.push(String(m));
 globalThis.ChatRoomSendChatMessage = () => true;
 globalThis.CharacterRefresh = () => {};
 const pendingTimers = [];
@@ -178,6 +183,48 @@ await reset();
 plant(["Missy, whenever you move, you are very aroused"]);
 await herPose("Spread");
 check("any move: it goes off", arousal.length, 1);
+
+// --- holds while you kneel (v1.19.8) ------------------------------------------------------------------
+await reset();
+toHyp = [];
+plant(["Missy, whenever you kneel, you are very aroused", "Missy, this trigger holds while you kneel"]);
+check("stored as holding while in the pose", only()?.whileWorn, true);
+check("  the hypnotist was told how it lets go", /holds while they stay that way \(kneel\) and lets go when they move out of it/.test(toHyp.join(" ")), true);
+check("  listed with its tag", /holds while in the pose/.test(voice.triggerRow(only(), false)), true);
+await herPose("Kneel");
+check("she kneels: it fires and holds", [arousal.length, voice.isTriggerInEffect(only()), only()?.wornHold?.pose], [1, true, "kneel"]);
+clock += 2.5 * 60_000;
+voice.checkWornHolds();
+check("still kneeling after 2.5 minutes: the arousal comes back", arousal.length, 2);
+await herPose("KneelingSpread");
+check("kneeling spread is still kneeling: holds", voice.isTriggerInEffect(only()), true);
+said = [];
+await herPose("BaseLower");
+check("she stands: it lets go at once", [voice.isTriggerInEffect(only()), only()?.wornHold], [false, undefined]);
+check("  and she is told", said.some((l) => /As you move out of it/.test(l)), true);
+clock += 60_000;
+await theirPose(REI, "Kneel");
+check("Rei kneels her again: holds again", voice.isTriggerInEffect(only()), true);
+effects.setSuggestedPose(null);
+await tick();
+check("ECHS standing her up lets it go too", voice.isTriggerInEffect(only()), false);
+// The wordings.
+const opt = (line) => voice.parseTriggerControl(line)?.option?.kind ?? null;
+check("wordings", ["Missy, this trigger holds while you kneel", "Missy, this trigger holds while you stay like that", "Missy, it lasts until you stand up", "Missy, this trigger holds as long as you stay on your knees", "Missy, this trigger holds while your arms stay up".replace("your arms stay up", "you keep your arms up")].map(opt), ["whileWorn", "whileWorn", "whileWorn", "whileWorn", "whileWorn"]);
+// Arms: lets go when they come down.
+await reset();
+plant(["Missy, whenever you raise your arms, you are very aroused", "Missy, this trigger holds while you stay like that"]);
+await herPose("OverTheHead");
+check("arms up: holds", voice.isTriggerInEffect(only()), true);
+await herPose("Kneel");
+check("kneeling with arms still up: holds", voice.isTriggerInEffect(only()), true);
+await herPose("BaseUpper");
+check("arms down: lets go", voice.isTriggerInEffect(only()), false);
+// "you move" has no pose to stay in.
+await reset();
+toHyp = [];
+plant(["Missy, whenever you move, you are very aroused", "Missy, this trigger holds while you stay like that"]);
+check("on \"you move\": ignored, and says why", [/has no pose to stay in/.test(toHyp.join(" ")), only()?.whileWorn], [true, undefined]);
 
 // --- not while under, not out of a room --------------------------------------------------------------
 await reset();

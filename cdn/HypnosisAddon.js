@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.7. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.19.8. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -6065,6 +6065,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (t.whileWorn !== void 0 && t.whileWorn !== true) delete t.whileWorn;
         if (t.noRemove !== void 0 && t.noRemove !== true) delete t.noRemove;
         if (t.wornHold !== void 0 && (typeof t.wornHold?.group !== "string" || typeof t.wornHold?.asset !== "string")) delete t.wornHold;
+        if (t.wornHold?.pose !== void 0 && typeof t.wornHold.pose !== "string") delete t.wornHold;
       }
     }
     if (s.starterState === "done" || s.starterState === "applied") s.welcomeShown = true;
@@ -7108,6 +7109,58 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/pose-states.ts
+  function poseMappingOf(C) {
+    const m = C?.PoseMapping;
+    if (m && typeof m === "object" && Object.keys(m).length) return { ...m };
+    const out = {};
+    for (const p of Array.isArray(C?.ActivePose) ? C.ActivePose : []) if (CATEGORY[p]) out[CATEGORY[p]] = p;
+    return out;
+  }
+  function poseStatesOf(m) {
+    const s = /* @__PURE__ */ new Set();
+    const lower = m.BodyLower ?? "BaseLower";
+    const upper = m.BodyUpper ?? "BaseUpper";
+    const full = m.BodyFull;
+    if (full === "AllFours") s.add("allfours");
+    else if (full === "Hogtied") s.add("hogtied");
+    else {
+      s.add(lower === "Kneel" || lower === "KneelingSpread" ? "kneel" : "stand");
+      if (lower === "Spread" || lower === "KneelingSpread") s.add("legs-spread");
+      if (lower === "LegsClosed") s.add("legs-closed");
+      if (upper === "OverTheHead") s.add("arms-up");
+      else if (upper === "Yoked") s.add("arms-out");
+      else if (upper === "BackBoxTie" || upper === "BackElbowTouch" || upper === "BackCuffs") s.add("arms-back");
+      else s.add("arms-down");
+    }
+    return s;
+  }
+  function currentPoseStates() {
+    return poseStatesOf(poseMappingOf(typeof Player === "undefined" ? null : Player));
+  }
+  var CATEGORY;
+  var init_pose_states = __esm({
+    "src/pose-states.ts"() {
+      CATEGORY = {
+        BaseUpper: "BodyUpper",
+        Yoked: "BodyUpper",
+        OverTheHead: "BodyUpper",
+        BackBoxTie: "BodyUpper",
+        BackElbowTouch: "BodyUpper",
+        BackCuffs: "BodyUpper",
+        BaseLower: "BodyLower",
+        Kneel: "BodyLower",
+        KneelingSpread: "BodyLower",
+        LegsClosed: "BodyLower",
+        Spread: "BodyLower",
+        AllFours: "BodyFull",
+        Hogtied: "BodyFull",
+        Suspension: "BodyAddon",
+        TapedHands: "BodyHands"
+      };
+    }
+  });
+
   // src/undress.ts
   function slotOf(group) {
     if (UNDRESS_ORDER.includes(group)) return group;
@@ -7682,8 +7735,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
         break;
       case "whileWorn": {
         const act = compulsionAct(recording.condition?.act);
+        if (act?.pose) {
+          if (!act.pose.states.length) {
+            noted = '"whenever you move" has no pose to stay in, so holding while it lasts is ignored; name the pose (kneel, raise your arms\u2026)';
+            break;
+          }
+          recording.whileWorn = true;
+          noted = `it holds while they stay that way (${act.pose.self.replace(/^you /, "").replace(/\byour\b/g, "their")}) and lets go when they move out of it; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)`;
+          break;
+        }
         if (!act?.items && !act?.clothes) {
-          noted = "holding while worn only works on an item or clothing compulsion (gags you, plugs you, takes your top off\u2026), so it's ignored";
+          noted = "holding while worn only works on an item, clothing or pose compulsion (gags you, takes your top off, you kneel\u2026), so it's ignored";
           break;
         }
         recording.whileWorn = true;
@@ -7912,7 +7974,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       trigger.oneShot = true;
     }
     if (recording.strict) trigger.strict = true;
-    if (recording.whileWorn && (compulsionAct(trigger.act)?.items || compulsionAct(trigger.act)?.clothes)) trigger.whileWorn = true;
+    const heldAct = compulsionAct(trigger.act);
+    if (recording.whileWorn && (heldAct?.items || heldAct?.clothes || heldAct?.pose?.states.length)) trigger.whileWorn = true;
     if (recording.noRemove && compulsionAct(trigger.act)?.items) trigger.noRemove = true;
     if (recording.scope) trigger.scope = recording.scope;
     const ceilingMs = getTriggerLifespan() * 6e4;
@@ -8848,7 +8911,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (const t of due) {
       const slot = event === "act" ? eventSlot(activity) : null;
       const off2 = activity.startsWith("off:");
-      const hold2 = t.whileWorn && slot ? { group: slot, asset: off2 ? "" : wornAssetName(slot), ...activity.startsWith("lock:") ? { lock: true } : {}, ...off2 ? { off: true } : {} } : null;
+      const poseState = /^pose:(.+)$/.exec(activity)?.[1];
+      const hold2 = t.whileWorn && slot ? { group: slot, asset: off2 ? "" : wornAssetName(slot), ...activity.startsWith("lock:") ? { lock: true } : {}, ...off2 ? { off: true } : {} } : t.whileWorn && poseState && poseState !== "changed" ? { group: "", asset: "", pose: poseState } : null;
       if (hold2 && t.wornHold && isTriggerInEffect(t)) {
         t.wornHold = hold2;
         updateTriggers();
@@ -8947,6 +9011,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   }
   function wornStillOn(hold2) {
+    if (hold2.pose) {
+      try {
+        return currentPoseStates().has(hold2.pose);
+      } catch {
+        return true;
+      }
+    }
     let item2 = null;
     try {
       item2 = typeof InventoryGet === "function" ? InventoryGet(Player, hold2.group) : null;
@@ -8971,12 +9042,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       if (!wornStillOn(t.wornHold)) {
         const dressed = !!t.wornHold.off;
+        const moved = !!t.wornHold.pose;
         delete t.wornHold;
         wornRepeats.delete(t.key);
         updateTriggers();
         undoTrigger(t);
-        tellPlayer(dressed ? "As you're dressed again, whatever it was holding in you lets go." : "As it comes off, whatever it was holding in you lets go.");
-        log(`worn hold on ${t.key} let go: ${dressed ? "dressed again" : "the item came off"}`);
+        tellPlayer(moved ? "As you move out of it, whatever it was holding in you lets go." : dressed ? "As you're dressed again, whatever it was holding in you lets go." : "As it comes off, whatever it was holding in you lets go.");
+        log(`worn hold on ${t.key} let go: ${moved ? "out of the pose" : dressed ? "dressed again" : "the item came off"}`);
         released++;
         continue;
       }
@@ -9435,7 +9507,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const tags = [];
     if (t.spent) tags.push("used up");
     else if (t.oneShot) tags.push("works once");
-    if (t.whileWorn) tags.push(t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
+    if (t.whileWorn) tags.push(compulsionAct(t.act)?.pose ? "holds while in the pose" : t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
     const strength = describeStrength(t);
     if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
     if (holding) tags.push("holding you now");
@@ -10396,6 +10468,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_names();
       init_compulsion_acts();
       init_planted();
+      init_pose_states();
       init_teardown();
       init_effects();
       init_suppression();
@@ -11566,7 +11639,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
           String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:wear|have) (?:it|them|that|the item)(?: on)?|(?:it|they|that|the item) (?:is|s|are|re|comes?|come|gets?|get) (?:off|removed|taken off)|(?:it|they|that|the item) (?:is|s|are|re|stays?|stay) on)\b`,
           // A garment taken off (v1.18.0): "this trigger holds while you are naked", "until you are
           // dressed again", "while it stays off", "until it goes back on".
-          String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`,
+          // A pose (v1.19.8, DW): "this trigger holds while you kneel", "while you stay like that",
+          // "until you stand up", "as long as you stay on your knees".
+          String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:stay |remain |are |keep )?(?:kneel(?:ing)?|on your knees|on all fours|hogtied|like that|that way|like this|in that (?:pose|position)|in this (?:pose|position)|(?:with )?your (?:arms|hands|legs) (?:up|out|down|behind your back|spread|open|closed|together))|you (?:stand|get) up|you move(?: again)?|you change (?:your )?(?:pose|position))\b`
         ].map((src) => ({ pattern: new RegExp(src), option: () => ({ kind: "whileWorn" }) })),
         // v1.19.4 (DW): "you cannot take it off", "you can't remove it", "you are unable to take it off".
         ...[
@@ -11942,7 +12018,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.7", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.19.8", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -11991,7 +12067,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.7", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.19.8", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12999,7 +13075,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body(`"Missy, whenever you kneel, ..."   "whenever you raise your arms, ..."`),
       dim("Or stand up, get on all fours, are hogtied, spread or close your legs, put"),
       dim("your arms behind your back, hold them out, lower them, or just move. Whoever"),
-      dim("moves them counts, them too; ECHS's own posing never does."),
+      dim(`moves them counts, them too; ECHS's own posing never does. Add "this trigger`),
+      dim('holds while you stay like that" and it holds until they move out of it.'),
       dim('Then "remember trigger". Once, unless you say it works every time'),
       dim('(on its own line or the same one), or start with "whenever" / "every time";'),
       dim("never while they are under. Waking from anyone's trance sets off the"),
@@ -14529,7 +14606,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.7"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.8"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14602,7 +14679,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.7"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.8"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15416,7 +15493,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.7", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.8", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -17407,31 +17484,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/pose-watch.ts
-  function poseMappingOf(C) {
-    const m = C?.PoseMapping;
-    if (m && typeof m === "object" && Object.keys(m).length) return { ...m };
-    const out = {};
-    for (const p of Array.isArray(C?.ActivePose) ? C.ActivePose : []) if (CATEGORY[p]) out[CATEGORY[p]] = p;
-    return out;
-  }
-  function poseStatesOf(m) {
-    const s = /* @__PURE__ */ new Set();
-    const lower = m.BodyLower ?? "BaseLower";
-    const upper = m.BodyUpper ?? "BaseUpper";
-    const full = m.BodyFull;
-    if (full === "AllFours") s.add("allfours");
-    else if (full === "Hogtied") s.add("hogtied");
-    else {
-      s.add(lower === "Kneel" || lower === "KneelingSpread" ? "kneel" : "stand");
-      if (lower === "Spread" || lower === "KneelingSpread") s.add("legs-spread");
-      if (lower === "LegsClosed") s.add("legs-closed");
-      if (upper === "OverTheHead") s.add("arms-up");
-      else if (upper === "Yoked") s.add("arms-out");
-      else if (upper === "BackBoxTie" || upper === "BackElbowTouch" || upper === "BackCuffs") s.add("arms-back");
-      else s.add("arms-down");
-    }
-    return s;
-  }
   function poseChanges(before, after) {
     if (keyOf(before) === keyOf(after)) return [];
     const was = poseStatesOf(before);
@@ -17452,6 +17504,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
     for (const e of events) noteActivity2(by, e);
     return events;
   }
+  function letGoOfPoses() {
+    try {
+      checkWornHolds();
+    } catch (err) {
+      warn("pose hold check failed:", err);
+    }
+  }
   function settleSoon(by) {
     const first = pending2 === null;
     if (by === "adopt" || pending2 !== "adopt") pending2 = by;
@@ -17464,6 +17523,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       } catch (err) {
         warn("pose watch failed:", err);
       }
+      letGoOfPoses();
     });
   }
   function installPoseWatch(modApi2) {
@@ -17513,30 +17573,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return result;
     });
   }
-  var CATEGORY, keyOf, seen2, pending2, isMe2, isPlayer;
+  var keyOf, seen2, pending2, isMe2, isPlayer;
   var init_pose_watch = __esm({
     "src/pose-watch.ts"() {
       init_log();
       init_compulsion_acts();
       init_voice();
       init_effects();
-      CATEGORY = {
-        BaseUpper: "BodyUpper",
-        Yoked: "BodyUpper",
-        OverTheHead: "BodyUpper",
-        BackBoxTie: "BodyUpper",
-        BackElbowTouch: "BodyUpper",
-        BackCuffs: "BodyUpper",
-        BaseLower: "BodyLower",
-        Kneel: "BodyLower",
-        KneelingSpread: "BodyLower",
-        LegsClosed: "BodyLower",
-        Spread: "BodyLower",
-        AllFours: "BodyFull",
-        Hogtied: "BodyFull",
-        Suspension: "BodyAddon",
-        TapedHands: "BodyHands"
-      };
+      init_pose_states();
       keyOf = (m) => Object.keys(m).sort().map((k) => `${k}=${m[k]}`).join(",");
       seen2 = null;
       pending2 = null;
@@ -18507,7 +18551,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { id: "every", label: "this trigger works every time", phrase: "this trigger works every time" },
             { id: "worn", label: "this trigger holds while you wear it (item, or clothing put on)", phrase: "this trigger holds while you wear it" },
             { id: "noremove", label: "you cannot take it off (item compulsions: they can't remove it while it holds)", phrase: "you cannot take it off" },
-            { id: "bare", label: "this trigger holds while you are undressed (clothing taken off)", phrase: "this trigger holds while you are undressed" }
+            { id: "bare", label: "this trigger holds while you are undressed (clothing taken off)", phrase: "this trigger holds while you are undressed" },
+            { id: "posehold", label: "this trigger holds while you stay like that (poses: until they move out of it)", phrase: "this trigger holds while you stay like that" }
           ]
         },
         {
@@ -18913,7 +18958,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.7"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.8"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -20211,7 +20256,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.7"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.8"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -20238,7 +20283,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.7"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.19.8"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -20315,14 +20360,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.7"})`);
+      info(`script loaded (v${"1.19.8"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.7",
+          version: "1.19.8",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20467,10 +20512,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.7"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.8"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.7";
+    page2.__ECHS_LOADED__ = "1.19.8";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

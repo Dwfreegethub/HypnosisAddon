@@ -218,6 +218,8 @@ Changes made in the wardrobe count, by anyone: the game doesn't say what changed
 
 Whoever moves you counts, you yourself included: your own kneel button or pose menu, another player helping you kneel or stand, another add-on posing you, or an item that forces the pose. **ECHS moving you never counts**: a spoken *"kneel"*, a trigger that kneels you, a release or the safeword putting you back. With a doer, only they count: *"whenever Rei makes you kneel"*, *"whenever anyone puts your arms behind your back"*, *"when I put you on all fours"*. A pose change that *"you cannot move"* refuses never happened, so it sets nothing off. Like every compulsion, never while you are under.
 
+**Holding while you stay that way** (since v1.19.8). Add *"Missy, this trigger holds while you kneel"* (or *"while you stay like that"*, *"until you stand up"*, *"as long as you stay on your knees"*) and a pose compulsion holds for as long as you stay in the pose that set it off, then lets go the moment you move out of it, whoever moves you, ECHS included. Kneeling spread still counts as kneeling; raised arms stay raised when you kneel. Arousal and orgasm repeat meanwhile as for holding while worn. *"Whenever you move"* has no pose to stay in, so the hypnotist is told it's ignored there.
+
 The body part isn't checked: *"when anyone kisses your hand"* waits for any kiss. Your own activities on yourself never count. After it goes off, one that works every time rests for 15 seconds, so a run of clicks sets it off once.
 
 Whatever follows the condition on the same line is recorded, just as on its own line: a suggestion, words to say, or a drop. The hypnotist can also end the line at the condition and give the suggestions on the lines that follow.

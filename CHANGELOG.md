@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.19.8 · 26 November 2026
+
+- **"This trigger holds while you kneel."** Added to a pose compulsion, it holds for as long as you
+  stay in the pose that set it off and lets go the moment you move out of it. *"While you stay like
+  that"* and *"until you stand up"* work too, for any pose (arms up, all fours, legs spread…).
+  Arousal repeats meanwhile, as for an item you wear.
+
 ## v1.19.7 · 26 November 2026
 
 - **Pose compulsions.** A compulsion can now wait for you to move: *"Missy, whenever you kneel, …"*,

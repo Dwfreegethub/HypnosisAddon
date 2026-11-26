@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.19.8) — a pose compulsion that holds while she stays in the pose
+
+DW: "Yes, add holds while you kneel". The whileWorn machinery with a pose: `wornHold.pose` is the state
+the event named (`pose:kneel`), group and asset "" (so heldOnBy never matches it), and wornStillOn reads
+currentPoseStates() from the new pure pose-states.ts (moved out of pose-watch.ts so voice.ts can read it
+without an import loop). pose-watch.ts runs checkWornHolds after every look, adopted ones included, so it
+lets go at once rather than at the 5 s poll, and ECHS moving her out of the pose ends it too. The option
+wording (whileWorn) gains "while you kneel / stay like that / are on your knees / keep your arms up",
+"until you stand up / move". Refused, with a reason, on "you move" (no state to stay in). Repeats as for
+any worn hold.
+
 ### Added 2026-11-26 (v1.19.7) — pose compulsions
 
 DW: "Is there any compulsion that can trigger on a motion. When you kneel for example", then "Movment

@@ -1,7 +1,8 @@
 import { log, warn, isTestingMode, isUnitTestBundle } from "./log";
 import { displayNameOf, nameOrNumber } from "./names";
-import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE, kindEvent, eventSlot } from "./compulsion-acts";
+import { COMPULSION_ACTS, DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, KIND_VIBE, kindEvent, eventSlot, compulsionAct } from "./compulsion-acts";
 import { registerPlantedSource, registerPlantedDescriber, MAX_PLANTED_ENTRIES, ORDINALS } from "./planted";
+import { currentPoseStates } from "./pose-states";
 import { onTeardown, onWakeKeep } from "./teardown";
 import {
 	applyEffect,
@@ -2045,6 +2046,9 @@ const OPTION_PATTERNS: { pattern: RegExp; option: (m: RegExpExecArray) => Trigge
 		// A garment taken off (v1.18.0): "this trigger holds while you are naked", "until you are
 		// dressed again", "while it stays off", "until it goes back on".
 		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:are|re|stay|remain) (?:naked|undressed|bare|stripped|nude|topless|bottomless|barefoot)|you (?:are|re|get) dressed(?: again)?|(?:it|they|that) (?:is|s|are|re|stays?|stay) off|(?:it|they|that) (?:goes?|go|is put|are put|comes?|come) back on)\b`,
+		// A pose (v1.19.8, DW): "this trigger holds while you kneel", "while you stay like that",
+		// "until you stand up", "as long as you stay on your knees".
+		String.raw`\b${OPT_SUBJ} (?:will )?(?:holds?|lasts?|stays?|works?|keeps? you)(?: on)? (?:for )?(?:as long as|while|until) (?:you (?:stay |remain |are |keep )?(?:kneel(?:ing)?|on your knees|on all fours|hogtied|like that|that way|like this|in that (?:pose|position)|in this (?:pose|position)|(?:with )?your (?:arms|hands|legs) (?:up|out|down|behind your back|spread|open|closed|together))|you (?:stand|get) up|you move(?: again)?|you change (?:your )?(?:pose|position))\b`,
 	].map((src) => ({ pattern: new RegExp(src), option: (): TriggerOption => ({ kind: "whileWorn" }) })),
 	// v1.19.4 (DW): "you cannot take it off", "you can't remove it", "you are unable to take it off".
 	...[
@@ -2776,10 +2780,14 @@ function fireEventCompulsions(event: "arrive" | "speak" | "act", member: number,
 		// than fire again on top of itself (a gag swapped for another).
 		// A garment taken off (v1.18.0) holds while its slot stays empty.
 		const off = activity.startsWith("off:");
+		// A pose (v1.19.8) holds while she stays in the pose that set it off.
+		const poseState = /^pose:(.+)$/.exec(activity)?.[1];
 		const hold =
 			t.whileWorn && slot
 				? { group: slot, asset: off ? "" : wornAssetName(slot), ...(activity.startsWith("lock:") ? { lock: true as const } : {}), ...(off ? { off: true as const } : {}) }
-				: null;
+				: t.whileWorn && poseState && poseState !== "changed"
+					? { group: "", asset: "", pose: poseState }
+					: null;
 		if (hold && t.wornHold && isTriggerInEffect(t)) {
 			t.wornHold = hold;
 			updateTriggers();
@@ -2946,6 +2954,14 @@ function wornAssetName(group: string): string {
 /** Is what this hold waits on still on her? An empty asset name (not readable when it fired) means
  * anything in that slot. */
 function wornStillOn(hold: NonNullable<Trigger["wornHold"]>): boolean {
+	// A pose (v1.19.8): holds while she is still in it.
+	if (hold.pose) {
+		try {
+			return currentPoseStates().has(hold.pose);
+		} catch {
+			return true;
+		}
+	}
 	let item: any = null;
 	try {
 		item = typeof InventoryGet === "function" ? InventoryGet(Player, hold.group) : null;
@@ -2975,12 +2991,13 @@ export function checkWornHolds(now: number = Date.now()): number {
 		}
 		if (!wornStillOn(t.wornHold)) {
 			const dressed = !!t.wornHold.off;
+			const moved = !!t.wornHold.pose;
 			delete t.wornHold;
 			wornRepeats.delete(t.key);
 			updateTriggers();
 			undoTrigger(t);
-			tellPlayer(dressed ? "As you're dressed again, whatever it was holding in you lets go." : "As it comes off, whatever it was holding in you lets go.");
-			log(`worn hold on ${t.key} let go: ${dressed ? "dressed again" : "the item came off"}`);
+			tellPlayer(moved ? "As you move out of it, whatever it was holding in you lets go." : dressed ? "As you're dressed again, whatever it was holding in you lets go." : "As it comes off, whatever it was holding in you lets go.");
+			log(`worn hold on ${t.key} let go: ${moved ? "out of the pose" : dressed ? "dressed again" : "the item came off"}`);
 			released++;
 			continue;
 		}
@@ -3701,7 +3718,7 @@ export function triggerRow(t: Trigger, reveal: boolean, all: Trigger[] = [t]): s
 	const tags: string[] = [];
 	if (t.spent) tags.push("used up");
 	else if (t.oneShot) tags.push("works once");
-	if (t.whileWorn) tags.push(t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
+	if (t.whileWorn) tags.push(compulsionAct(t.act)?.pose ? "holds while in the pose" : t.noRemove ? "holds while worn, can't take it off" : "holds while worn");
 	const strength = describeStrength(t);
 	if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
 	if (holding) tags.push("holding you now");

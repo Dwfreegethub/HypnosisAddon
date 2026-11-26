@@ -827,8 +827,18 @@ export function applyRecordingOption(option: TriggerOption): string | null {
 		case "whileWorn": {
 			// Only an item or clothing compulsion has something to wear (rule 5: say so rather than keep it silently).
 			const act = compulsionAct(recording.condition?.act);
+			// A pose (v1.19.8) holds while she stays in it; "you move" has no pose to stay in.
+			if (act?.pose) {
+				if (!act.pose.states.length) {
+					noted = "\"whenever you move\" has no pose to stay in, so holding while it lasts is ignored; name the pose (kneel, raise your arms…)";
+					break;
+				}
+				recording.whileWorn = true;
+				noted = `it holds while they stay that way (${act.pose.self.replace(/^you /, "").replace(/\byour\b/g, "their")}) and lets go when they move out of it; arousal repeats meanwhile (after 2, 2, 2, 5, then every 10 minutes) and orgasm too (5, 10, then every 20)`;
+				break;
+			}
 			if (!act?.items && !act?.clothes) {
-				noted = "holding while worn only works on an item or clothing compulsion (gags you, plugs you, takes your top off…), so it's ignored";
+				noted = "holding while worn only works on an item, clothing or pose compulsion (gags you, takes your top off, you kneel…), so it's ignored";
 				break;
 			}
 			recording.whileWorn = true;
@@ -1190,7 +1200,8 @@ export function commitRecording(isHolding: (t: Trigger) => boolean = () => false
 		trigger.oneShot = true;
 	}
 	if (recording.strict) trigger.strict = true;
-	if (recording.whileWorn && (compulsionAct(trigger.act)?.items || compulsionAct(trigger.act)?.clothes)) trigger.whileWorn = true;
+	const heldAct = compulsionAct(trigger.act);
+	if (recording.whileWorn && (heldAct?.items || heldAct?.clothes || heldAct?.pose?.states.length)) trigger.whileWorn = true;
 	if (recording.noRemove && compulsionAct(trigger.act)?.items) trigger.noRemove = true;
 	if (recording.scope) trigger.scope = recording.scope;
 	// Her lifespan ceiling clamps whatever was asked for, and applies even when nothing was: a
