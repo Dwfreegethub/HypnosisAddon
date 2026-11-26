@@ -176,22 +176,22 @@ export const DEPTH_GATES: DepthGate[] = [
 	{ key: "suppressBondage", label: "Not noticing bondage changes", depth: 0, earnedOnly: false },
 	{ key: "suppressActivities", label: "Not noticing touches", depth: 0, earnedOnly: false },
 	// Behavioural, session-only.
-	{ key: "movementRestriction", label: "Cannot move", depth: 20, earnedOnly: false },
-	{ key: "speechRestriction", label: "Cannot speak", depth: 20, earnedOnly: false },
+	{ key: "movementRestriction", label: "Movement Restriction", depth: 20, earnedOnly: false },
+	{ key: "speechRestriction", label: "Speech Restriction", depth: 20, earnedOnly: false },
 	{ key: "postureControl", label: "Posture Control", depth: 20, earnedOnly: false },
-	{ key: "clothingRestriction", label: "Cannot reach the wardrobe", depth: 20, earnedOnly: false },
-	{ key: "selfTouchControl", label: "Cannot touch yourself", depth: 20, earnedOnly: false },
-	{ key: "compelActivity", label: "Made to act (on yourself or others)", depth: 20, earnedOnly: false },
+	{ key: "clothingRestriction", label: "Clothing Restriction", depth: 20, earnedOnly: false },
+	{ key: "selfTouchControl", label: "Self-Touch Control", depth: 20, earnedOnly: false },
+	{ key: "compelActivity", label: "Made to Act", depth: 20, earnedOnly: false },
 	// Deeper, still session-only.
-	{ key: "followControl", label: "Follow / leash", depth: 40, earnedOnly: false },
+	{ key: "followControl", label: "Follow / Leash", depth: 40, earnedOnly: false },
 	// Words in the subject's mouth, said to the room: past a behavioural block, so a tier deeper.
-	{ key: "forcedSpeech", label: "Made to speak", depth: 40, earnedOnly: false },
-	{ key: "hearingControl", label: "Hears only one voice", depth: 40, earnedOnly: false },
+	{ key: "forcedSpeech", label: "Made to Speak", depth: 40, earnedOnly: false },
+	{ key: "hearingControl", label: "Hearing", depth: 40, earnedOnly: false },
 	{ key: "sightControl", label: "Sight", depth: 40, earnedOnly: false },
 	{ key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
-	{ key: "arousalControl", label: "Arousal & orgasm", depth: 40, earnedOnly: false },
+	{ key: "arousalControl", label: "Arousal & Orgasm", depth: 40, earnedOnly: false },
 	// The earned-only three: two outlive the session, one lies to the subject.
-	{ key: "illusionControl", label: "Clothing illusion", depth: 60, earnedOnly: true },
+	{ key: "illusionControl", label: "Clothing Illusion", depth: 60, earnedOnly: true },
 	{ key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
 	{ key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true },
 ];

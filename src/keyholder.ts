@@ -148,8 +148,8 @@ export function triggerId(key: string): string {
  * holds her (her own rule for forgetting one); and only if she trusts the keyholder more than whoever
  * planted it. Their own planting they may always take back, as they could by saying so. */
 export function removeRefusal(t: Trigger, keyholder: number): string | null {
-	if (extremeLocked()) return "Their Extreme lock is on: nothing planted in them can be removed until it ends.";
-	if (t.installedBy === Player?.MemberNumber) return "They planted this in themselves: only they can remove it.";
+	if (extremeLocked()) return "Their Extreme lock is on: nothing planted in them can be forgotten until it ends.";
+	if (t.installedBy === Player?.MemberNumber) return "They planted this in themselves: only they can forget it.";
 	if (isTriggerInEffect(t)) return "It is holding them right now. Wait for it to wear off, or have it released.";
 	if (t.installedBy === keyholder) return null;
 	if (!(trustWith(keyholder) > trustWith(t.installedBy))) return `They don't trust you more than ${t.installedByName || "whoever planted it"}, so it stays.`;
@@ -639,7 +639,7 @@ export function handleSettingsRequest(sender: number, message: any): string {
 	}
 	if (action === "remove-trigger") {
 		if (mode !== "full") {
-			const text = `Your keys are ${mode}: removing a planted trigger needs full keys.`;
+			const text = `Your keys are ${mode}: making them forget a trigger needs full keys.`;
 			reply(sender, mode, { ok: false, text });
 			return text;
 		}
@@ -658,11 +658,11 @@ export function handleSettingsRequest(sender: number, message: any): string {
 		forgetTrigger(t.key);
 		const planter = t.installedBy === sender ? "they" : t.installedByName || "someone";
 		const word = getFeatures().showTriggerWords && t.phrase ? ` ("${t.phrase}")` : "";
-		const what = `removed a trigger ${planter} planted in you${word}`;
+		const what = `made you forget a trigger ${planter} planted in you${word}`;
 		noteRemoteChange({ at: Date.now(), by: sender, byName: who, what });
 		tellPlayer(`${who} (your keyholder) ${what}.`);
 		log(`keyholder ${sender} removed a trigger planted by ${t.installedBy}`);
-		reply(sender, mode, { ok: true, text: "Done: that trigger is gone." });
+		reply(sender, mode, { ok: true, text: "Done: they have forgotten that trigger." });
 		return "removed";
 	}
 	if (action === "end-extreme") {

@@ -931,7 +931,7 @@ const COMMANDS: HypnoCommand[] = [
 			lines.forEach(reply);
 			if (lines.length > 1 && getTriggerView() !== "hidden") {
 				reply(
-					"See what one does with /echs triggers <number>. Remove one with /echs forgettrigger <number> " +
+					"See what one does with /echs triggers <number>. Forget one with /echs forgettrigger <number> " +
 						"(not while it is holding you; /echs safeword is the way out of that).",
 				);
 			}
@@ -941,7 +941,7 @@ const COMMANDS: HypnoCommand[] = [
 		Tag: "forgettrigger",
 		group: "Data",
 		args: "<number|all>",
-		Description: "Remove a planted trigger by its number from /echs triggers, or all (asks first)",
+		Description: "Forget a planted trigger by its number from /echs triggers, or all (asks first)",
 		Action: (args: string) => {
 			const token = args.trim().toLowerCase();
 			if (!token) {
@@ -980,7 +980,7 @@ const COMMANDS: HypnoCommand[] = [
 				}
 				if (token === "all") {
 					reply(
-						`This removes all ${all.length} trigger(s) planted in you, including any you cannot see, and cannot be undone. ` +
+						`This forgets ${all.length === 1 ? "the 1 trigger" : `all ${all.length} triggers`} planted in you, including any you cannot see, and cannot be undone. ` +
 							"Type /echs forgettrigger all confirm to do it.",
 					);
 					return;
@@ -1002,7 +1002,7 @@ const COMMANDS: HypnoCommand[] = [
 				return;
 			}
 			const gone = forgetTrigger(all[index - 1].key);
-			reply(gone ? `forgot trigger ${index}` : "nothing removed");
+			reply(gone ? `forgot trigger ${index}` : "nothing forgotten");
 		},
 	},
 	{

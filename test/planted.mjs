@@ -122,7 +122,7 @@ check("  under the subject's name", planted.plantedNote(SUBJECT)?.name, "Ella");
 check("  and shows the status line too", local.some((l) => /^\[Saved /.test(l)), true);
 sent = [];
 voice.handleSpokenLine(HYP, "Missy, forget the trigger ember glow");
-const removed = sent.find((m) => m.type === "trigger-status" && /Removed/.test(m.text));
+const removed = sent.find((m) => m.type === "trigger-status" && /They forgot/.test(m.text));
 check("removing one sends the list too", removed?.planted, []);
 deliver(SUBJECT, removed);
 check("  and nothing left means no note", planted.plantedNote(SUBJECT), null);

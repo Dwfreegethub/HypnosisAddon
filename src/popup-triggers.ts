@@ -109,15 +109,15 @@ export function plantedLines(word: string): TriggerLine[] {
 	return [
 		{ id: "fire", label: "say it", phrase: word },
 		{ id: "release", label: "release", phrase: `you are released from ${word}`, release: true },
-		{ id: "forget", label: "remove", phrase: `forget the trigger ${word}`, release: true },
+		{ id: "forget", label: "forget", phrase: `forget the trigger ${word}`, release: true },
 	];
 }
 
 /** For the compulsions you planted in them (v1.16.10): no word, so these act on all of yours. */
 export const COMPULSION_LINES: TriggerLine[] = [
 	{ id: "release-compulsions", label: "release", phrase: "you are released from the compulsion", release: true },
-	{ id: "forget-compulsions", label: "remove", phrase: "forget your compulsions", release: true },
+	{ id: "forget-compulsions", label: "forget", phrase: "forget your compulsions", release: true },
 ];
 
 /** Every trigger you planted in them at once, compulsions included. */
-export const FORGET_ALL: TriggerLine = { id: "forget-all", label: "remove everything I planted", phrase: "forget every trigger I gave you", release: true };
+export const FORGET_ALL: TriggerLine = { id: "forget-all", label: "forget everything I planted", phrase: "forget every trigger I gave you", release: true };

@@ -272,7 +272,7 @@ check("the list shows no empty word", /""/.test(voice.describeTriggerList(false)
 storage.setFeature("showTriggerWords", false);
 check("the detail names the condition", /When: when Rei comes in/i.test(voice.describeTriggerDetail(1, false).join(" ")), true);
 session.wakeByHypnotist(HYP);
-check("Purge removes a compulsion", menu.purgePlanted(1), "Trigger 1 removed.");
+check("Forget forgets a compulsion", menu.purgePlanted(1), "Trigger 1 forgotten.");
 check("  gone", compulsions().length, 0);
 
 // --- normalise ---------------------------------------------------------------------------------------------

@@ -264,7 +264,7 @@ check("someone else's removal: nothing goes", compulsions().length, 1);
 say("Missy, forget your compulsions");
 check("removal: the compulsion goes", compulsions().length, 0);
 check("  the word trigger stays", word()?.phrase, "ember glow");
-check("  the planter told", /Removed the 1 compulsion you planted in them\. Your trigger word stays\./.test(toHyp.join(" ")), true);
+check("  the planter told", /They forgot the 1 compulsion you planted in them\. Your trigger word stays\./.test(toHyp.join(" ")), true);
 toHyp = [];
 say("Missy, forget your compulsions");
 check("none left: says so", /No compulsion of yours is planted in them/.test(toHyp.join(" ")), true);

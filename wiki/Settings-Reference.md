@@ -168,10 +168,10 @@ Manages long-term suggestions and conditioned words. One scrolling page: the tic
 Lists the triggers planted in you, six to a page (Prev and Next under them): who planted each one, what sets it off and what it does (or less, by your *My triggers list* setting on the Triggers tab; with *Hidden*, this tab is not shown).
 
 * **Details:** Shows what that trigger does, its options, and, for a compulsion, what it is waiting for.
-* **Purge:** Removes that trigger. Refused while the trigger is holding you (the button reads *Holding*).
-* **Clear All:** Removes every trigger, including any you cannot see. Refused while a trigger is holding you or a session is running, with the reason shown beside it; otherwise it asks you to click twice.
+* **Forget:** Gets rid of that trigger for good. Refused while the trigger is holding you (the button reads *Holding*).
+* **Forget All:** Gets rid of every trigger, including any you cannot see. Refused while a trigger is holding you or a session is running, with the reason shown beside it; otherwise it asks you to click twice.
 
-Purge and Clear All are not affected by the session lock: removing something planted in you stays available during a scene. The one exception is the **Extreme lock** you can choose in setup, which blocks both until it ends (see [The Extreme lock](#the-extreme-lock)).
+Forget and Forget All are not affected by the session lock: removing something planted in you stays available during a scene. The one exception is the **Extreme lock** you can choose in setup, which blocks both until it ends (see [The Extreme lock](#the-extreme-lock)).
 
 ---
 
@@ -180,7 +180,7 @@ Purge and Clear All are not affected by the session lock: removing something pla
 One scrolling page: a row for each feature, then *Reset to defaults*, then two choices.
 
 * **Per-Feature Depth:** Each feature needs a depth from **0 to 99**. Type the number into its box (it saves when you click away or press Enter), or use **-5** and **+5**. The tier that number falls in is shown beside it, for example *45 [Entranced]*. A feature is reachable once you are at least that deep. These are personal comfort settings, not rigid game limits.
-* **Earned only / Arousal ok** (a dropdown on the three earned-only rows: Clothing illusion, Planting triggers, Suggestions that outlive the trance): *Arousal ok* lets arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
+* **Earned only / Arousal ok** (a dropdown on the three earned-only rows: Clothing Illusion, Planting triggers, Suggestions that outlive the trance): *Arousal ok* lets arousal reach the illusion or triggers instead of trust alone. Anything seeded that way fades fast. Carry-forward stays *earned only* (greyed).
 * **Chemicals count:** What may push you deeper besides trust (*Arousal + drugs · Arousal only · Drugs only · Neither*; default: *Arousal only*). *Drugs* are crafted drinks and cigarettes tagged `[echs:relax]` or `[echs:stimulate]`; with a drug option on, they add to arousal. See **[Drinks and Cigarettes](Drinks-and-Cigarettes)**. It never reaches the three earned-only rows unless you open them above.
 * **A hypnotist's skill:** How much of a hypnotist's own practice may help them put you under (*Ignore it · Only from people I trust · Honour, capped · Full from people I trust, capped otherwise*; default: *Full from people I trust, capped otherwise*). Their skill is shown to you as a feeling, never a number, and never reaches the three earned-only rows.
 * **"Sink deeper" stops at:** is on the **[Inductions](#2-inductions-tab)** tab.
@@ -243,7 +243,7 @@ Every page of the wizard has a **Cancel** button that closes it without changing
 ### The Extreme lock
 
 Choosing **Extreme** shows a warning first, with **Confirm 1-week lock** and **Cancel**. Once confirmed:
-* For **7 days** your settings are **read-only**. You can still open every tab and read them, under a yellow banner showing the end date. You cannot change anything — including switching Hypnosis Enabled off, re-running setup, importing a backup, or removing planted triggers (Purge and Clear All).
+* For **7 days** your settings are **read-only**. You can still open every tab and read them, under a yellow banner showing the end date. You cannot change anything — including switching Hypnosis Enabled off, re-running setup, importing a backup, or forgetting planted triggers (Forget and Forget All).
 * **Triggers can only be added.** New ones can still be planted, but nobody can remove one until the lock ends, not even the hypnotist who planted it. A hypnotist can still release one that is holding you, and it stays planted. Triggers still fade very slowly unless reinforced.
 * **Carried suggestions stay.** `/echs carry drop` is refused.
 * **Trances run longer.** A trance runs 60 minutes before you are asked whether to stay under, and each *Stay under* gives another 60. If you don't answer, you still wake.

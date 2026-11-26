@@ -94,8 +94,8 @@ storage.clearExtremeLock();
 
 r = remove(KAY, "ember glow");
 check("removed", !has("ember glow") && r?.settingsResult?.ok === true, `gone, got ${JSON.stringify(r?.settingsResult)}`);
-check("  she is told, without the hidden word", local.some((l) => /Kay \(your keyholder\) removed a trigger Hyp planted in you\./.test(l)) && !local.some((l) => l.includes("ember")), `a line, got ${JSON.stringify(local)}`);
-check("  noted in her remote changes", storage.listRemoteChanges().some((c) => c.by === KAY && /removed a trigger/.test(c.what)), "noted");
+check("  she is told, without the hidden word", local.some((l) => /Kay \(your keyholder\) made you forget a trigger Hyp planted in you\./.test(l)) && !local.some((l) => l.includes("ember")), `a line, got ${JSON.stringify(local)}`);
+check("  noted in her remote changes", storage.listRemoteChanges().some((c) => c.by === KAY && /made you forget a trigger/.test(c.what)), "noted");
 check("  the reply carries the fresh list", r?.settings?.planted?.length === 2, `2 left, got ${JSON.stringify(r?.settings?.planted)}`);
 r = remove(KAY, "ember glow");
 check("again: no longer there", r?.settingsResult?.ok === false && /no longer there/.test(r.settingsResult.text), `gone already, got ${JSON.stringify(r?.settingsResult)}`);
@@ -106,7 +106,7 @@ check("her own: refused", has("my own") && /planted this in themselves/.test(r?.
 storage.addInteractions(HYP, "Hyp", 200); // trust in Kay no longer beats Hyp, but Kay's own is Kay's
 r = remove(KAY, "kay word");
 check("their own planting: removable whatever the trust", !has("kay word") && r?.settingsResult?.ok === true, `gone, got ${JSON.stringify(r?.settingsResult)}`);
-check("  she is told they took theirs back", local.some((l) => /removed a trigger they planted in you/.test(l)), JSON.stringify(local));
+check("  she is told they took theirs back", local.some((l) => /made you forget a trigger they planted in you/.test(l)), JSON.stringify(local));
 
 // A bad id.
 r = req(KAY, { action: "remove-trigger", id: "my own" });

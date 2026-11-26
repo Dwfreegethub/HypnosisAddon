@@ -330,7 +330,7 @@ const TABS: Tab[] = [
 		// The trigger inspector (v0.88.0, design.md "Trigger Overhaul", decisions 7-9). A tab of its
 		// own because it is a LIST, which grows, and the Triggers tab is already full of controls.
 		name: "Planted",
-		blurb: "Triggers planted in you. Details shows what one does; Purge removes it.",
+		blurb: "Triggers planted in you. Details shows what one does; Forget gets rid of it for good.",
 		render: drawPlanted,
 		clickExtra: clickPlanted,
 	},
@@ -542,10 +542,10 @@ function drawPurgeButton(left: number, top: number, height: number, holding: boo
 		top,
 		PLANTED_BUTTON_WIDTH,
 		height,
-		holding ? "Holding" : "Purge",
+		holding ? "Holding" : "Forget",
 		holding || extremeLocked() ? "#ddd" : "#ffe0e0",
 		"",
-		extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Remove this trigger",
+		extremeLocked() ? lockedTip() : holding ? "It is holding you. /echs safeword clears it" : "Forget this trigger",
 		holding || extremeLocked(),
 	);
 }
@@ -594,17 +594,17 @@ function drawClearAll(count: number): void {
 		CLEAR_ALL_TOP,
 		CLEAR_ALL_WIDTH,
 		CLEAR_ALL_HEIGHT,
-		armed ? "Confirm?" : "Clear All",
+		armed ? "Confirm?" : "Forget All",
 		refusal ? "#ddd" : armed ? "#ffb3b3" : "#ffe0e0",
 		"",
-		refusal ? "Not while anything has hold of you" : "Removes every trigger, asks once first",
+		refusal ? "Not while anything has hold of you" : "Forgets every trigger, asks once first",
 		!!refusal,
 	);
 	drawLeftTextWrap(
 		refusal ??
 			(armed
-				? `Click again to remove all ${count}, including any you cannot see. This cannot be undone.`
-				: `Removes all ${count} trigger(s), including any you cannot see.`),
+				? `Click again to forget ${count === 1 ? "it" : `all ${count}`}, including any you cannot see. This cannot be undone.`
+				: `Forgets ${count === 1 ? "the 1 trigger" : `all ${count} triggers`}, including any you cannot see.`),
 		CLEAR_ALL_NOTE_X,
 		CLEAR_ALL_TOP + CLEAR_ALL_HEIGHT / 2,
 		CLEAR_ALL_NOTE_WIDTH,
@@ -630,13 +630,13 @@ export function purgePlanted(index: number): string {
 	if (extremeLocked()) return extremeRefusal();
 	if (isTriggerInEffect(t)) {
 		return (
-			`Trigger ${index} is holding you right now, so it can't be removed. ` +
+			`Trigger ${index} is holding you right now, so it can't be forgotten. ` +
 			"Wait for it to wear off, have whoever set it release you, or use /echs safeword."
 		);
 	}
 	forgetTrigger(t.key);
 	log(`purged trigger ${index} (by ${t.installedByName}) from the settings screen`);
-	return `Trigger ${index} removed.`;
+	return `Trigger ${index} forgotten.`;
 }
 
 /** Clear All's click: refuse with the reason, arm, or clear. Exported for the suite. */
@@ -648,10 +648,11 @@ export function clickClearAll(): string {
 	}
 	if (Date.now() > clearAllArmedUntil) {
 		clearAllArmedUntil = Date.now() + CLEAR_ALL_ARM_MS;
-		return "Click Clear All again within 5 seconds to remove every trigger planted in you.";
+		return "Click Forget All again within 5 seconds to forget every trigger planted in you.";
 	}
 	clearAllArmedUntil = 0;
-	return `Removed ${forgetAllTriggers()} trigger(s).`;
+	const n = forgetAllTriggers();
+	return `Forgot ${n === 1 ? "1 trigger" : `${n} triggers`}.`;
 }
 
 /** Every click on this tab is consumed, hit or miss: one falling through would reach the Stats

@@ -511,14 +511,14 @@ openTab(4); frame(); // Triggers
 	storage.forgetAllTriggers();
 	openTab(plantedTab); frame();
 	check("Planted: empty says so", texts.some((x) => /No triggers are planted/.test(x.text)), true);
-	check("  and draws no Clear All", buttons.some((b) => b.label === "Clear All"), false);
+	check("  and draws no Clear All", buttons.some((b) => b.label === "Forget All"), false);
 	for (let i = 1; i <= 8; i++) storage.saveTrigger(t(`word number ${i}`, 1000 + i));
 	frame();
-	const purges = () => buttons.filter((b) => b.label === "Purge");
+	const purges = () => buttons.filter((b) => b.label === "Forget");
 	check("Planted: six rows on the first page", purges().length, 6);
 	check("  each with Details", buttons.filter((b) => b.label === "Details").length, 6);
 	check("  paging shows (8 triggers)", ["Prev", "Next"].every((l) => buttons.some((b) => b.label === l)), true);
-	check("  Clear All shows", buttons.some((b) => b.label === "Clear All"), true);
+	check("  Clear All shows", buttons.some((b) => b.label === "Forget All"), true);
 	check("  the phrase is not drawn", texts.some((x) => /word number/.test(x.text)), false);
 	const drawn = [...buttons.filter((b) => b.left >= panel.PANEL_LEFT && b.top > panel.BLURB_Y).map((b) => ({ name: b.label, ...b })), ...texts.filter((x) => x.top > panel.BLURB_Y + 20).map((x) => ({ name: x.text, ...x }))];
 	const hits = [];
@@ -542,7 +542,7 @@ openTab(4); frame(); // Triggers
 	clickAt(back.left + 5, back.top + 5); frame();
 	check("  Back returns to the list", buttons.some((b) => b.label === "Details"), true);
 	// Clear All asks first. Failure: one click clears.
-	const clear = () => buttons.find((b) => b.label === "Clear All" || b.label === "Confirm?");
+	const clear = () => buttons.find((b) => b.label === "Forget All" || b.label === "Confirm?");
 	clickAt(clear().left + 5, clear().top + 5); frame();
 	check("  Clear All: first click only arms it", [storage.listTriggers().length, clear().label], [7, "Confirm?"]);
 	clickAt(clear().left + 5, clear().top + 5); frame();

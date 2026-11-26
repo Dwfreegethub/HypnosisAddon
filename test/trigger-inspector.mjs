@@ -96,7 +96,7 @@ const held = storage.listTriggers().find((t) => t.phrase === "iron grip");
 check("the fired trigger is holding", voice.isTriggerInEffect(held), true);
 check("Purge refuses while it holds", /holding you right now/.test(menu.purgePlanted(1)), true);
 check("  and it is still there", storage.listTriggers().length, 2);
-check("Purge removes a free one", menu.purgePlanted(2), "Trigger 2 removed.");
+check("Purge removes a free one", menu.purgePlanted(2), "Trigger 2 forgotten.");
 check("  and only that one", storage.listTriggers().map((t) => t.phrase), ["iron grip"]);
 check("Purge of a number that is not there says so", menu.purgePlanted(5), "There is no trigger 5.");
 
@@ -125,7 +125,7 @@ check("after the safeword, no refusal", voice.clearAllRefusal(), null);
 // Failure: one click, or one command, clears everything.
 check("first click arms", /again within 5 seconds/.test(menu.clickClearAll()), true);
 check("  nothing removed yet", storage.listTriggers().length, 2);
-check("second click clears", menu.clickClearAll(), "Removed 2 trigger(s).");
+check("second click clears", menu.clickClearAll(), "Forgot 2 triggers.");
 check("  all gone", storage.listTriggers().length, 0);
 plant("one more");
 plant("and another");

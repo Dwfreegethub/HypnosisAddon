@@ -94,7 +94,7 @@ toHyp = []; said = [];
 voice.handleSpokenLine(HYP, "Missy, forget the trigger frozen");
 // Failure: still planted, so it fires again next time.
 check("removed", find("frozen"), undefined);
-check("  the hypnotist is told", /Removed "frozen"\. It will not fire again\./.test(hypHeard()), true);
+check("  the hypnotist is told", /They forgot "frozen"\. It will not fire again\./.test(hypHeard()), true);
 check("  she is told something is gone, not the word", said.some((l) => /is gone/.test(l) && !/frozen/.test(l)), true);
 check("  saying the word does nothing now", fireAndCheck("frozen"), false);
 
@@ -154,7 +154,7 @@ toHyp = []; said = [];
 voice.handleSpokenLine(HYP, "Missy, forget every trigger I gave you");
 // Failure: one of GameBot's left (the arrival one has no word to name), or Vex's taken too.
 check("all of GameBot's go, compulsion included; Vex's stays", storage.listTriggers().map((t) => t.phrase), ["glowing"]);
-check("  the hypnotist is told how many", /Removed all 3 triggers you planted/.test(hypHeard()), true);
+check("  the hypnotist is told how many", /They forgot all 3 triggers you planted/.test(hypHeard()), true);
 check("  and that what held her let go", /lets go/.test(hypHeard()), true);
 check("  nothing of theirs still active", timers.activeTimerKeys().length, 0);
 toHyp = [];

@@ -281,9 +281,9 @@ The trigger word stays hidden in both unless you have ticked **Show trigger word
 The **Planted** tab in your settings shows the same list, with two buttons on each trigger:
 
 * **Details** shows the same full view as `/echs triggers <number>`.
-* **Purge** removes that trigger. A trigger that is holding you shows **Holding** instead and cannot be removed until it lets go.
+* **Forget** gets rid of that trigger for good. A trigger that is holding you shows **Holding** instead and cannot be forgotten until it lets go.
 
-**Clear All**, at the bottom of the Planted tab, removes every trigger at once, including any you cannot see. It will not run while a trigger is holding you or a hypnosis session is running: clear that first. When it may run, it asks you to click twice. `/echs forgettrigger all` follows the same rules, and removes everything only when you type `/echs forgettrigger all confirm`.
+**Forget All**, at the bottom of the Planted tab, gets rid of every trigger at once, including any you cannot see. It will not run while a trigger is holding you or a hypnosis session is running: clear that first. When it may run, it asks you to click twice. `/echs forgettrigger all` follows the same rules, and removes everything only when you type `/echs forgettrigger all confirm`.
 
 ---
 
@@ -327,4 +327,4 @@ If a trigger or lasting suggestion is holding your character (an instant one nev
 * Have the hypnotist release you by name (*"Missy, you are released from sleepy time"*).
 * **Use your safeword:** Type `/echs safeword` to immediately purge all active holds, trances, and lingering effects. It also discards any compulsion waiting for you to wake.
 
-`/echs forgettrigger`, and **Purge** on the Planted tab, **refuse while that trigger is actively holding you.** Deleting a trigger while under its direct influence is blocked to preserve scene tension; the safeword remains the universal exit. Because Bondage Club parses client slash commands before speech-restriction hooks evaluate text, your safeword remains fully accessible even while muted.
+`/echs forgettrigger`, and **Forget** on the Planted tab, **refuse while that trigger is actively holding you.** Deleting a trigger while under its direct influence is blocked to preserve scene tension; the safeword remains the universal exit. Because Bondage Club parses client slash commands before speech-restriction hooks evaluate text, your safeword remains fully accessible even while muted.
