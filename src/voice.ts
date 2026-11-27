@@ -21,7 +21,7 @@ import {
 	setHoldFully,
 	type SightLevel,
 } from "./effects";
-import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade } from "./suppression";
+import { setSuppressed, setNumb, setHearing, hearingMode, hearsLine, resetOthersFade, setVeiled } from "./suppression";
 import { BODY_PARTS, setBodyPartBlocked, setAllSelfTouchBlocked, beginCommandedActivity, endCommandedActivity } from "./selftouch";
 import { getFeatures, getTriggerDuration, getDropMode, getTriggerView, listTriggers, saveTrigger, updateTriggers, forgetTrigger, getPulseRgb, accessLevelOf, FeatureToggles, PlantedEntry, Trigger } from "./storage";
 import { accessFor, AccessCategory } from "./trust";
@@ -501,7 +501,7 @@ function poseSuggestion(id: FlavorKey, pose: string, examples: string[], pattern
 
 /** The two hearing modes (v0.93.0). Not carried by "that will stay with you": a carried re-apply has
  * no speaker, and "only my voice" means nothing without one. */
-const HEARING_IDS: FlavorKey[] = ["hear-voice", "hear-name"];
+const HEARING_IDS: FlavorKey[] = ["hear-voice", "hear-name", "words-veil"];
 
 /** Sight (v0.93.0): BC's own blindness level, which her settings may cap lower (rule 5: said). */
 function applySight(level: SightLevel): FlavorKey | void {
@@ -1411,6 +1411,38 @@ const SUGGESTIONS: Suggestion[] = [
 		run: () => setSpeechBlocked(true),
 		undo: () => setSpeechBlocked(false),
 	},
+	// Words that slip past her (v1.24.0, DW): what this hypnotist says to her lands, but she only
+	// sees that something was murmured. Release first. Not carried past waking (HEARING_IDS).
+	{
+		id: "words-veil-release",
+		examples: ["you can understand my words again", "my words are clear to you again"],
+		release: true,
+		releaseOf: ["words-veil"],
+		permission: "hearingControl",
+		patterns: [
+			/\byou (?:can|may|will) (?:hear|understand|follow|catch|read) my words (?:again|clearly)\b/,
+			/\bmy words (?:are|come) clear (?:to you )?again\b/,
+			/\byou (?:can|may|will) (?:know|understand) what i (?:say|said|tell you) again\b/,
+		],
+		run: () => setVeiled(null),
+	},
+	{
+		id: "words-veil",
+		examples: ["my words slip past you", "you will obey without knowing what I said"],
+		permission: "hearingControl",
+		patterns: [
+			/\bmy words (?:will )?(?:slip|go|pass|slide|drift) (?:past|by|through|over) you\b/,
+			/\byou (?:will )?(?:obey|follow|react|do as i say|do what i say)(?: me| my words)? without (?:knowing|hearing|understanding|catching) (?:what i (?:say|said|tell you)|my words|them|why)\b/,
+			/\bmy words (?:are|will be) (?:a blur|a murmur|muffled|just a murmur) to you\b/,
+			/\byou (?:will )?(?:not|never) (?:catch|understand) (?:my words|what i (?:say|tell you))\b/,
+		],
+		// Locked to whoever said it, or fired the trigger carrying it, as "only my voice" is.
+		run: (speaker) => {
+			if (typeof speaker !== "number") return "effect-failed";
+			setVeiled(speaker);
+		},
+		undo: () => setVeiled(null),
+	},
 	// Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
 	// say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
 	{
@@ -1427,6 +1459,7 @@ const SUGGESTIONS: Suggestion[] = [
 		],
 		run: () => {
 			setHearing(null);
+			setVeiled(null);
 		},
 	},
 	{

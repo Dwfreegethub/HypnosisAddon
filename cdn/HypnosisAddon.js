@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.23.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.24.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -2601,6 +2601,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
           "The way to your own words opens up again.",
           "You could speak now. The thought arrives whole this time."
         ],
+        "words-veil": [
+          "The words go soft at the edges. You stop catching them, and somehow it doesn't matter.",
+          "Their voice turns to a warm murmur. You won't know what it says. You'll just find yourself doing it.",
+          "You stop following the words. They go somewhere under your listening."
+        ],
+        "words-veil-release": [
+          "The murmur sharpens back into words you can follow.",
+          "Their words come clear again."
+        ],
         "hear-voice": [
           "The room goes quiet around one voice. It's the only one that reaches you now.",
           "Every other voice slides out of focus. One stays sharp, and it's the one that matters.",
@@ -3890,6 +3899,37 @@ One of mods you are using is using an old version of SDK. It will work for now b
     active.clear();
     numb = false;
     hearing = null;
+    veiledFrom = null;
+  }
+  function setVeiled(member) {
+    veiledFrom = member;
+  }
+  function veiledBy() {
+    return veiledFrom;
+  }
+  function markVeiled(data) {
+    veiled.add(data);
+  }
+  function veilFilter(data, msg, onVeiled) {
+    try {
+      if (!data || !veiled.has(data)) return false;
+      if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+      const ooc = oocOnly(msg);
+      if (ooc) return { msg: ooc };
+      onVeiled(data.Sender);
+      return true;
+    } catch (err) {
+      warn("veil filter failed:", err);
+      return false;
+    }
+  }
+  function installVeilFilter(onVeiled) {
+    if (typeof ChatRoomRegisterMessageHandler !== "function") return;
+    ChatRoomRegisterMessageHandler({
+      Description: "HypnosisAddon: words that slip past her (before the chat log)",
+      Priority: 89,
+      Callback: (data, _sender, msg) => veilFilter(data, msg, onVeiled)
+    });
   }
   function setHearing(mode) {
     hearing = mode;
@@ -4023,13 +4063,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     log("numbness handler registered at priority 205");
   }
-  var active, numb, hearing, unheard, OTHERS_FADE_GAP_MS, lastOthersFade, ACTION_TAGS, AROUSAL_HANDLER;
+  var active, numb, veiledFrom, veiled, hearing, unheard, OTHERS_FADE_GAP_MS, lastOthersFade, ACTION_TAGS, AROUSAL_HANDLER;
   var init_suppression = __esm({
     "src/suppression.ts"() {
       init_log();
       init_illusion();
       active = /* @__PURE__ */ new Set();
       numb = false;
+      veiledFrom = null;
+      veiled = /* @__PURE__ */ new WeakSet();
       hearing = null;
       unheard = /* @__PURE__ */ new WeakSet();
       OTHERS_FADE_GAP_MS = 6e4;
@@ -11363,7 +11405,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         suppressBondage: "bondage",
         suppressActivities: "touches"
       };
-      HEARING_IDS = ["hear-voice", "hear-name"];
+      HEARING_IDS = ["hear-voice", "hear-name", "words-veil"];
       SIGHT_IDS = ["sight-dim", "sight-dark", "sight-blind"];
       STANCE_IDS = ["kneel", "kneel-spread", "legs-spread", "legs-closed", "all-fours", "lie-down"];
       ARM_IDS = ["hands-behind", "arms-behind", "elbows-behind", "arms-up", "arms-out"];
@@ -12200,6 +12242,38 @@ One of mods you are using is using an old version of SDK. It will work for now b
           run: () => setSpeechBlocked(true),
           undo: () => setSpeechBlocked(false)
         },
+        // Words that slip past her (v1.24.0, DW): what this hypnotist says to her lands, but she only
+        // sees that something was murmured. Release first. Not carried past waking (HEARING_IDS).
+        {
+          id: "words-veil-release",
+          examples: ["you can understand my words again", "my words are clear to you again"],
+          release: true,
+          releaseOf: ["words-veil"],
+          permission: "hearingControl",
+          patterns: [
+            /\byou (?:can|may|will) (?:hear|understand|follow|catch|read) my words (?:again|clearly)\b/,
+            /\bmy words (?:are|come) clear (?:to you )?again\b/,
+            /\byou (?:can|may|will) (?:know|understand) what i (?:say|said|tell you) again\b/
+          ],
+          run: () => setVeiled(null)
+        },
+        {
+          id: "words-veil",
+          examples: ["my words slip past you", "you will obey without knowing what I said"],
+          permission: "hearingControl",
+          patterns: [
+            /\bmy words (?:will )?(?:slip|go|pass|slide|drift) (?:past|by|through|over) you\b/,
+            /\byou (?:will )?(?:obey|follow|react|do as i say|do what i say)(?: me| my words)? without (?:knowing|hearing|understanding|catching) (?:what i (?:say|said|tell you)|my words|them|why)\b/,
+            /\bmy words (?:are|will be) (?:a blur|a murmur|muffled|just a murmur) to you\b/,
+            /\byou (?:will )?(?:not|never) (?:catch|understand) (?:my words|what i (?:say|tell you))\b/
+          ],
+          // Locked to whoever said it, or fired the trigger carrying it, as "only my voice" is.
+          run: (speaker) => {
+            if (typeof speaker !== "number") return "effect-failed";
+            setVeiled(speaker);
+          },
+          undo: () => setVeiled(null)
+        },
         // Hearing only one voice (v0.93.0, DW). Release first, as everywhere. The block's wordings all
         // say "only" or "nothing but", so "you can hear everyone again" cannot be read as one of them.
         {
@@ -12216,6 +12290,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           ],
           run: () => {
             setHearing(null);
+            setVeiled(null);
           }
         },
         {
@@ -12901,7 +12976,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.23.1", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.24.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12950,7 +13025,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.23.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.24.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -15497,7 +15572,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.24.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -15570,7 +15645,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.24.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15799,7 +15874,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         if (!enabled) clearSelfTouchBlocks();
         break;
       case "hearingControl":
-        if (!enabled) setHearing(null);
+        if (!enabled) {
+          setHearing(null);
+          setVeiled(null);
+        }
         break;
       case "sightControl":
         if (!enabled) setSight(0);
@@ -16394,7 +16472,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.23.1", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.24.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -20179,7 +20257,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.23.1"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.24.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -21578,7 +21656,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.23.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.24.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -21605,7 +21683,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.23.1"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.24.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -21685,14 +21763,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.23.1"})`);
+      info(`script loaded (v${"1.24.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.23.1",
+          version: "1.24.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -21718,6 +21796,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
             const commandLine = inCharacter ? asAddressed(inCharacter, whisperedToMe) : null;
             const heard = data?.Type !== "Chat" && data?.Type !== "Whisper" || hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
             if (!heard) markUnheard(data);
+            else if (commandLine && veiledBy() !== null && data.Sender === veiledBy() && (whisperedToMe || mentionsAnyName(commandLine, playerOwnNames())))
+              markVeiled(data);
             if ((data?.Type === "Chat" || data?.Type === "Whisper") && inCharacter && heard) {
               try {
                 if (isTriggerSetupLine(data.Sender, commandLine)) {
@@ -21813,6 +21893,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("trigger status channel", installTriggers);
       safely("message suppression", installSuppression);
       safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
+      safely(
+        "words that slip past her",
+        () => installVeilFilter((sender) => {
+          const c = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.find((x) => x?.MemberNumber === sender) : null;
+          tellPlayer(`${c?.Nickname || c?.Name || "Someone"} murmurs something you can't quite catch.`);
+        })
+      );
       safely("trigger word concealment", installConcealment);
       safely("delayed compulsions", installCompulsions);
       safely("drinks and cigarettes", installDrugs);
@@ -21850,10 +21937,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.23.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.24.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.23.1";
+    page2.__ECHS_LOADED__ = "1.24.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

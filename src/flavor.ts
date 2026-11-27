@@ -72,6 +72,8 @@ export type FlavorKey =
 	| "speech-release"
 	// Hearing only one voice (v0.93.0). Private only: nobody can watch someone stop hearing.
 	| "hear-voice"
+	| "words-veil"
+	| "words-veil-release"
 	| "hear-name"
 	| "hear-release"
 	// Sight (v0.93.0), BC's three blindness levels. Private only, like hearing.
@@ -386,6 +388,15 @@ const LINES: Record<FlavorKey, string[]> = {
 		"Your voice is handed back to you.",
 		"The way to your own words opens up again.",
 		"You could speak now. The thought arrives whole this time.",
+	],
+	"words-veil": [
+		"The words go soft at the edges. You stop catching them, and somehow it doesn't matter.",
+		"Their voice turns to a warm murmur. You won't know what it says. You'll just find yourself doing it.",
+		"You stop following the words. They go somewhere under your listening.",
+	],
+	"words-veil-release": [
+		"The murmur sharpens back into words you can follow.",
+		"Their words come clear again.",
 	],
 	"hear-voice": [
 		"The room goes quiet around one voice. It's the only one that reaches you now.",

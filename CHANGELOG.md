@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.24.0 · 26 November 2026
+
+- **"My words slip past you."** Said to someone under, it makes the hypnotist's lines to them land
+  without being readable: their own screen shows only that something was murmured, while the room
+  sees the real words. They still feel each suggestion take hold. *"You can understand my words
+  again"* ends it, and so do waking and the safeword. Needs the Hearing permission.
+
 ## v1.23.1 · 26 November 2026
 
 - **Floor shackles and other freezing items feel real now.** *"They feel real"* used to find nothing

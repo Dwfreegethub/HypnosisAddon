@@ -62,6 +62,53 @@ export function clearAllSuppression(): void {
 	active.clear();
 	numb = false;
 	hearing = null;
+	veiledFrom = null;
+}
+
+// --- Words that slip past her (v1.24.0, DW 2026-11-26: "give suggestions with out the subject being
+// able to read them on the screen"; DW chose "a vague line"). "Missy, my words slip past you": from
+// then on, what that hypnotist says TO her (her name, or a whisper) still reaches her ECHS and lands,
+// but her own screen shows "Rei murmurs something you can't quite catch." in its place. The room sees
+// the real words. Her reaction lines still show, so she feels it land without knowing why. OOC text
+// stays readable. Ends on its release, the wake (clearAllSuppression), the safeword. Under Hearing.
+let veiledFrom: number | null = null;
+
+export function setVeiled(member: number | null): void {
+	veiledFrom = member;
+}
+
+export function veiledBy(): number | null {
+	return veiledFrom;
+}
+
+const veiled = new WeakSet<object>();
+/** Marked by the ChatRoomMessage hook (main.ts), which knows whether the line was to her. */
+export function markVeiled(data: object): void {
+	veiled.add(data);
+}
+
+/** The display half: the line is replaced by `onVeiled(sender)`'s vague one. */
+export function veilFilter(data: any, msg: string, onVeiled: (sender: number) => void): boolean | { msg: string } {
+	try {
+		if (!data || !veiled.has(data)) return false;
+		if (data.Type !== "Chat" && data.Type !== "Whisper") return false;
+		const ooc = oocOnly(msg);
+		if (ooc) return { msg: ooc };
+		onVeiled(data.Sender);
+		return true;
+	} catch (err) {
+		warn("veil filter failed:", err);
+		return false;
+	}
+}
+
+export function installVeilFilter(onVeiled: (sender: number) => void): void {
+	if (typeof ChatRoomRegisterMessageHandler !== "function") return;
+	ChatRoomRegisterMessageHandler({
+		Description: "HypnosisAddon: words that slip past her (before the chat log)",
+		Priority: 89,
+		Callback: (data: any, _sender: any, msg: string) => veilFilter(data, msg, onVeiled),
+	});
 }
 
 // --- Hearing only one voice (v0.93.0, DW 2026-09-26) --------------------------------------

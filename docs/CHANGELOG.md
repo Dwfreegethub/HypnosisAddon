@@ -18,6 +18,19 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.24.0) — words that slip past her
+
+DW: "give suggestions with out the subject being able to read them on the screen. Something to the affect
+Missy you will react with out knowing what I said"; on what she sees, DW chose "a vague line".
+voice.ts words-veil / words-veil-release (hearingControl, in HEARING_IDS so not carried; the speaker is the
+one veiled, as hear-voice). suppression.ts veiledFrom (cleared by clearAllSuppression: wake, safeword,
+Hearing off), markVeiled, veilFilter at priority 89 (before the chat log at 110): a marked Chat/Whisper is
+hidden, its OOC kept, and onVeiled tells her "<name> murmurs something you can't quite catch." main.ts's
+ChatRoomMessage hook marks a heard line from that hypnotist that names her or is a whisper to her; it is
+read and lands as before (the display handler runs inside next(), so the murmur precedes her reaction).
+hear-release also ends it. test/words-veil.mjs 14 (a mutation caught). Also fixed on the way: an edit
+script had written \b as a backspace into this code's regexes; caught by the suite.
+
 ### Fixed 2026-11-26 (v1.23.1) — "feel real" takes Freeze and BlockWardrobe from items
 
 DW, live: "Missy, you see Floor Shackles on you", "they feel real" → "Nothing they see can hold anyone".
