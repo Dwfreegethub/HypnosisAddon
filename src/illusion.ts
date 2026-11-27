@@ -94,6 +94,32 @@ export function isIllusionActive(): boolean {
 	return frozen !== null || seeing !== null;
 }
 
+/** Told when a bondage illusion ends or is replaced (feel-real.ts lets its hold go). */
+const droppedListeners: (() => void)[] = [];
+export function onSeeingDropped(fn: () => void): void {
+	droppedListeners.push(fn);
+}
+function dropped(): void {
+	for (const fn of droppedListeners) {
+		try {
+			fn();
+		} catch (err) {
+			warn("illusion listener failed:", err);
+		}
+	}
+}
+
+/** The BC effects the imagined items carry: the asset's own and its chosen option's. */
+export function ghostEffects(): string[] {
+	const out = new Set<string>();
+	for (const g of seeing?.kind === "bind" ? ghostItems : []) {
+		for (const e of [...(Array.isArray(g?.Asset?.Effect) ? g.Asset.Effect : []), ...(Array.isArray(g?.Property?.Effect) ? g.Property.Effect : [])]) {
+			if (typeof e === "string") out.add(e);
+		}
+	}
+	return [...out];
+}
+
 /** The seeing illusion running now, or null. */
 export function currentSee(): SeeIllusion | null {
 	return seeing ? (seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) }) : null;
@@ -224,8 +250,10 @@ export function freezeAppearance(): boolean {
 		return true;
 	}
 	// One at a time: the freeze takes over from a seeing illusion.
+	const hadBind = seeing?.kind === "bind";
 	seeing = null;
 	ghostItems = [];
+	if (hadBind) dropped();
 	frozen = Player.Appearance.filter((i: any) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
 	rebuild();
 	log(`clothing illusion applied — ${frozen.length} worn item(s) frozen`);
@@ -246,7 +274,10 @@ export function showSee(s: SeeIllusion): "ok" | "replaced" | false {
 	if (!target) return false;
 	let replaced = !!frozen;
 	frozen = null;
-	if (seeing && seeing.kind !== s.kind) replaced = true;
+	if (seeing && seeing.kind !== s.kind) {
+		replaced = true;
+		if (seeing.kind === "bind") dropped();
+	}
 	if (s.kind === "strip") {
 		const was = seeing?.kind === "strip" ? seeing.slots : null;
 		const slots = s.slots === "all" || was === "all" ? "all" : [...new Set([...(was ?? []), ...s.slots])];
@@ -269,9 +300,14 @@ export function showSee(s: SeeIllusion): "ok" | "replaced" | false {
 }
 
 export function clearIllusion(): void {
-	if (!frozen && !seeing) return;
+	if (!frozen && !seeing) {
+		dropped();
+		return;
+	}
 	frozen = null;
+	const hadBind = seeing?.kind === "bind";
 	seeing = null;
+	if (hadBind) dropped();
 	ghostItems = [];
 	lastSignature = "";
 	// Force the player's own canvas to rebuild. In theory unnecessary — while the illusion

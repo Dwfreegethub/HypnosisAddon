@@ -138,7 +138,7 @@ check("  no bondage reminder for this one", toHyp.some((t) => /doesn't hold them
 toHyp = [];
 say("Missy, your wrists are bound in rope");
 check("spoken: rope lands", illusion.currentSee()?.kind, "bind");
-check("  the hypnotist is reminded it doesn't hold her, and how to", toHyp.some((t) => /Only they see it: it doesn't hold them/.test(t) && /you cannot move/.test(t)), true);
+check("  the hypnotist is reminded it doesn't hold her, and how to", toHyp.some((t) => /Only they see it, and it doesn.t hold them/.test(t) && /the ropes feel real/.test(t)), true);
 check("  and that it replaced the other", toHyp.some((t) => /replaces the illusion they had/.test(t)), true);
 say("Missy, the ropes are gone");
 check("release wording ends it", illusion.isIllusionActive(), false);
