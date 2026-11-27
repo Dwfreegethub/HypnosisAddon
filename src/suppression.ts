@@ -1,4 +1,5 @@
 import { log, warn } from "./log";
+import { illusionHides } from "./illusion";
 
 // Hiding messages about things done TO the subject, without touching what those things
 // actually do. "You notice nothing that happens to you" — but arousal still moves.
@@ -253,7 +254,7 @@ export function installSuppression(): void {
 			try {
 				if (active.size === 0) return false;
 				const category = classify(data, metadata);
-				if (!category || !active.has(category)) return false;
+				if (!category || (!active.has(category) && !illusionHides(category))) return false;
 				if (!targetsPlayer(data, metadata)) return false;
 				log(`suppressed ${category} message:`, data?.Content);
 				return true; // stop processing — never reaches the display handler at 500

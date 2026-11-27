@@ -47,7 +47,8 @@ import { setFace, clearFace, FaceGroup } from "./face";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
-import { freezeAppearance, clearIllusion } from "./illusion";
+import { freezeAppearance, clearIllusion, showSee } from "./illusion";
+import { matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
 import { undress, UndressResult } from "./undress";
 import {
 	carryThese,
@@ -60,6 +61,7 @@ import {
 	noteReleased,
 	appliedSuggestions,
 	lastApplied,
+	carriedIds,
 } from "./carry";
 import {
 	scheduleTimer,
@@ -905,6 +907,7 @@ const SUGGESTIONS: Suggestion[] = [
 		examples: [
 			"look at yourself",
 			"you can see yourself again",
+			"the ropes are gone",
 			"you notice your clothes",
 			"you notice you are naked",
 		],
@@ -923,6 +926,10 @@ const SUGGESTIONS: Suggestion[] = [
 			/\blook (?:down )?at yourself\b/,
 			/\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
 			/\byou (?:notice|see) what (?:you are wearing|is missing)\b/,
+			// The seeing illusions (v1.21.0): naked, or tied when she isn't.
+			/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|not naked|free)\b/,
+			/\byou (?:can |now )?see yourself (?:dressed|untied|unbound|free)\b/,
+			/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold) (?:is|are) gone\b/,
 		],
 		run: () => clearIllusion(),
 	},
@@ -1991,7 +1998,7 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	if (line === null) return false;
 	if (parseTriggerControl(line)) return true;
 	if (!isRecording()) return false;
-	return !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+	return !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
 }
 
 // Options the installer can speak while a trigger is being recorded (v0.87.0, design.md "Trigger
@@ -2240,7 +2247,7 @@ const PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
 
 /** Is this, on its own, something that would be recorded into a trigger? */
 function isRecordableAction(text: string): boolean {
-	return !!matchPhantomTouch(text) || !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+	return !!matchSeeIllusion(text) || !!matchPhantomTouch(text) || !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
 }
 
 /** Split a start line's raw capture at the first pause after which an action follows. `start` is
@@ -3247,6 +3254,24 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			});
 			continue;
 		}
+		// A seeing illusion (v1.21.0, "see:naked"): a hold, under Illusions, at its depth.
+		const see = parseSeeId(id);
+		if (see) {
+			if (!features.illusionControl) {
+				log(`trigger "${trigger.phrase}": ${id} skipped, illusionControl not granted`);
+				continue;
+			}
+			if (!depthAllows("illusionControl", strength, strength)) {
+				log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+				tooWeak++;
+				continue;
+			}
+			holding++;
+			steps.push(() => {
+				if (getFeatures().illusionControl && showSee(see)) tellPlayer(seeLine(see));
+			});
+			continue;
+		}
 		// A phantom touch (v1.19.0, "feel:Caress:thighs"): a one-off, under Arousal & Orgasm.
 		const phantom = parsePhantomId(id);
 		if (phantom) {
@@ -3613,6 +3638,10 @@ function undoTrigger(trigger: Trigger): void {
 			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
 			continue;
 		}
+		if (id.startsWith(SEE_PREFIX)) {
+			clearIllusion();
+			continue;
+		}
 		SUGGESTIONS.find((s) => s.id === id)?.undo?.();
 	}
 	cancelTimer(timerKey(trigger));
@@ -3757,6 +3786,8 @@ export function describeAction(id: string): string {
 	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
 	const phantom = parsePhantomId(id);
 	if (phantom) return describePhantom(phantom);
+	const seen = parseSeeId(id);
+	if (seen) return describeSee(seen);
 	if (id.startsWith("act:")) {
 		const { base, times } = parseActId(id);
 		const suffix = times > 1 ? ` ${times} times` : "";
@@ -4056,6 +4087,11 @@ const CARRY_CANCEL = [
 /** Apply one action by id, covering both the suggestion table and the parameterised
  * body-part ids. Shared by carry's re-apply and its undo so the two cannot drift. */
 function applyActionById(id: string): void {
+	const see = parseSeeId(id);
+	if (see) {
+		if (getFeatures().illusionControl) showSee(see);
+		return;
+	}
 	if (id.startsWith("touch:")) {
 		const word = id.slice("touch:".length);
 		if (word === "all") setAllSelfTouchBlocked(true);
@@ -4066,6 +4102,10 @@ function applyActionById(id: string): void {
 }
 
 function undoActionById(id: string): void {
+	if (id.startsWith(SEE_PREFIX)) {
+		clearIllusion();
+		return;
+	}
 	if (id.startsWith("touch:")) {
 		const word = id.slice("touch:".length);
 		if (word === "all") setAllSelfTouchBlocked(false);
@@ -4680,6 +4720,53 @@ function runBareAct(key: string): boolean {
 	const act = BARE_ACTS.find((a) => a.key === key);
 	if (!act) return false;
 	return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
+}
+
+/** What the hypnotist is told once a bondage illusion lands (DW: "remind the tist that the illusion
+ * does not restrict movement"). */
+export const BIND_REMINDER =
+	`[suggestion] Only they see it: it doesn't hold them, and the room sees them free. To hold them too, add "you cannot move" or "you cannot touch yourself".`;
+
+/** "Missy, you see yourself naked", "your wrists are bound in rope" (v1.21.0, see.ts): her own view
+ * changes, nobody else's. Under "Illusions", at its depth (earned, as the clothing illusion). */
+function handleSeeIllusion(sender: number, content: string): boolean {
+	const see: SeeIllusion | null = matchSeeIllusion(content);
+	if (!see) return false;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard an illusion from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) {
+		log(`heard an illusion from ${sender} but they didn't say your name — ignoring`);
+		return true;
+	}
+	const f = getFeatures();
+	if (!f.hypnoEnabled || !f.illusionControl) {
+		tellHypnotist(sender, '[suggestion] Refused — they have not enabled "Illusions".');
+		return true;
+	}
+	const id = seeActionId(see);
+	const recorded = recordAction(id);
+	if (recorded) {
+		tellPlayer(recorded);
+		return true;
+	}
+	const refusal = depthRefusal("illusionControl");
+	if (refusal) {
+		tellHypnotist(sender, `[suggestion] Refused — an illusion ${refusal}.`);
+		return true;
+	}
+	const result = showSee(see);
+	if (!result) {
+		tellHypnotist(sender, "[suggestion] It didn't take: their client couldn't draw it.");
+		return true;
+	}
+	tellPlayer(seeLine(see));
+	noteApplied(id);
+	noteLanded(sender);
+	if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
+	if (see.kind === "bind") tellHypnotist(sender, BIND_REMINDER);
+	return true;
 }
 
 /** "Missy, you feel a hand on your thigh" (v1.19.0): a touch nobody gives her, felt as a real one
@@ -5350,6 +5437,9 @@ function landCommand(sender: number, line: string): void {
 	if (handleWalkingTrance(sender, line)) return;
 	// "Sink deeper" (v0.95.0). Before the matcher, so "go deeper" is never read as movement.
 	if (handleDeepening(sender, line)) return;
+	// A seeing illusion (v1.21.0): "you see yourself naked", "your wrists are bound in rope". Before
+	// the table, whose release "you see yourself as you are" it leaves alone.
+	if (handleSeeIllusion(sender, line)) return;
 	// A phantom touch (v1.19.0) first: "you feel fingers stroke your thigh" must not read as an
 	// order to stroke her own thigh.
 	if (handlePhantomTouch(sender, line)) return;
@@ -5382,7 +5472,7 @@ function landCommand(sender: number, line: string): void {
 		!!suggestion.release &&
 		!!suggestion.releaseOf &&
 		isCarrierOf(sender) &&
-		releasesOf(suggestion).some(isCarried);
+		(releasesOf(suggestion).some(isCarried) || (suggestion.id === "illusion-release" && carriedIds().some((c) => c.startsWith(SEE_PREFIX))));
 	if (!isSessionActiveWith(sender) && !carriedRelease) {
 		log(`heard "${id}" from ${sender} but no active session with them — ignoring`);
 		return;
@@ -5458,6 +5548,14 @@ function landCommand(sender: number, line: string): void {
 		for (const of of releasesOf(suggestion)) {
 			noteReleased(of);
 			dropCarried(of);
+		}
+		// Seeing illusions are let go by the same words (v1.21.0).
+		if (id === "illusion-release" || id === "awareness-release") {
+			for (const c of [...appliedSuggestions(), ...carriedIds()]) {
+				if (!c.startsWith(SEE_PREFIX)) continue;
+				noteReleased(c);
+				dropCarried(c);
+			}
 		}
 	} else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
 		noteApplied(id);

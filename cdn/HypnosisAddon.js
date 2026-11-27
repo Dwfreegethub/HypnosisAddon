@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.20.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.21.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -2950,7 +2950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
         { key: "arousalControl", label: "Arousal & Orgasm", depth: 40, earnedOnly: false },
         // The earned-only three: two outlive the session, one lies to the subject.
-        { key: "illusionControl", label: "Clothing Illusion", depth: 60, earnedOnly: true },
+        { key: "illusionControl", label: "Illusions", depth: 60, earnedOnly: true },
         { key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
         { key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true }
       ];
@@ -3133,6 +3133,325 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/undress.ts
+  function slotOf(group) {
+    if (UNDRESS_ORDER.includes(group)) return group;
+    if (ECHO_EXTRA_SLOTS[group]) return ECHO_EXTRA_SLOTS[group];
+    const cut = group.indexOf("_");
+    if (cut > 0) {
+      const base = group.slice(0, cut);
+      if (UNDRESS_ORDER.includes(base)) return base;
+    }
+    return null;
+  }
+  function undressBlockedReason() {
+    if (typeof InventoryRemove !== "function" || !Array.isArray(Player?.Appearance)) {
+      return "unavailable";
+    }
+    if (Player?.CanInteract?.() === false) return "bound";
+    if (heldByUs("Freeze")) return "frozen";
+    if (Player?.CanChangeOwnClothes?.() === false && !heldByUs("BlockWardrobe")) {
+      return "locked";
+    }
+    return null;
+  }
+  function wornGarments() {
+    const order = UNDRESS_ORDER;
+    const seen3 = /* @__PURE__ */ new Set();
+    const worn = [];
+    for (const item2 of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
+      const group = item2?.Asset?.Group?.Name;
+      if (typeof group !== "string" || seen3.has(group)) continue;
+      const slot = slotOf(group);
+      if (!slot) continue;
+      seen3.add(group);
+      worn.push({ group, rank: order.indexOf(slot), copy: slot !== group });
+    }
+    return worn.sort((a, b) => a.rank - b.rank || Number(a.copy) - Number(b.copy)).map((w) => w.group);
+  }
+  function undress(count) {
+    const blocked = undressBlockedReason();
+    if (blocked) return { removed: [], refusal: blocked };
+    const worn = wornGarments();
+    if (!worn.length) return { removed: [], refusal: "already bare" };
+    const removed = [];
+    for (const group of worn.slice(0, count)) {
+      try {
+        InventoryRemove(Player, group, false);
+        removed.push(group);
+      } catch (err) {
+        warn(`could not remove ${group}:`, err);
+      }
+    }
+    if (!removed.length) return { removed: [], refusal: "unavailable" };
+    try {
+      CharacterRefresh(Player, true, false);
+      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
+    } catch (err) {
+      warn("could not sync appearance after undressing:", err);
+    }
+    log(`undressed: ${removed.join(", ")}`);
+    return { removed };
+  }
+  var UNDRESS_ORDER, ECHO_EXTRA_SLOTS;
+  var init_undress = __esm({
+    "src/undress.ts"() {
+      init_log();
+      init_effects();
+      UNDRESS_ORDER = [
+        "ClothOuter",
+        "Cloth",
+        "ClothAccessory",
+        "ClothLower",
+        "Suit",
+        "SuitLower",
+        "Corset",
+        "Bra",
+        "Panties",
+        "Garters",
+        "Shoes",
+        "Socks",
+        "SocksLeft",
+        "SocksRight",
+        "Gloves"
+      ];
+      ECHO_EXTRA_SLOTS = { \u957F\u8896\u5B50_Luzi: "Cloth" };
+    }
+  });
+
+  // src/illusion.ts
+  function isWornGroup(group) {
+    if (!group) return false;
+    if (COSMETIC_GROUPS.has(group.Name)) return false;
+    return group.Clothing === true || group.Category === "Item";
+  }
+  function isIllusionActive() {
+    return frozen !== null || seeing !== null;
+  }
+  function currentSee() {
+    return seeing ? seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) } : null;
+  }
+  function illusionHides(category) {
+    if (!seeing) return false;
+    return seeing.kind === "strip" ? category === "clothing" : category === "bondage";
+  }
+  function strippedAway(item2) {
+    if (!seeing || seeing.kind !== "strip") return false;
+    const group = item2?.Asset?.Group;
+    if (!group || group.Category === "Item" || COSMETIC_GROUPS.has(group.Name)) return false;
+    if (seeing.slots === "all") return group.Clothing === true;
+    const slot = slotOf(group.Name);
+    return !!slot && seeing.slots.includes(slot);
+  }
+  function buildGhosts(target, ghosts) {
+    const family = Player?.AssetFamily ?? "Female3DCG";
+    const out = [];
+    for (const g of ghosts) {
+      try {
+        const asset = typeof AssetGet === "function" ? AssetGet(family, g.group, g.asset) : null;
+        if (!asset) {
+          warn(`illusion: no asset ${g.group}/${g.asset}`);
+          continue;
+        }
+        const item2 = { Asset: asset, Property: {} };
+        if (typeof ExtendedItemInit === "function") ExtendedItemInit(target, item2, false, false);
+        if (g.record && typeof ExtendedItemSetOptionByRecord === "function") ExtendedItemSetOptionByRecord(target, item2, g.record, { push: false, refresh: false });
+        out.push(item2);
+      } catch (err) {
+        warn(`illusion: could not build ${g.group}/${g.asset}:`, err);
+      }
+    }
+    return out;
+  }
+  function cloneItem(item2) {
+    return {
+      ...item2,
+      Property: item2?.Property ? { ...item2.Property } : item2?.Property,
+      Color: Array.isArray(item2?.Color) ? [...item2.Color] : item2?.Color
+    };
+  }
+  function ensureShadow() {
+    if (shadow) return shadow;
+    try {
+      shadow = CharacterLoadSimple(SHADOW_ID);
+    } catch (err) {
+      warn("could not create the illusion character:", err);
+      return null;
+    }
+    return shadow;
+  }
+  function liveSignature() {
+    const parts = [String(Player?.ActivePose ?? "")];
+    for (const item2 of Player?.Appearance ?? []) {
+      if (!seeing && isWornGroup(item2?.Asset?.Group)) continue;
+      parts.push(
+        `${item2?.Asset?.Group?.Name}:${item2?.Asset?.Name}:${item2?.Property?.Expression ?? ""}:${String(item2?.Color ?? "")}`
+      );
+    }
+    return parts.join("|");
+  }
+  function rebuild() {
+    const target = ensureShadow();
+    if (!target || !frozen && !seeing) return;
+    target.AssetFamily = Player?.AssetFamily ?? "Female3DCG";
+    target.ActivePose = Player?.ActivePose ?? [];
+    if (seeing) {
+      const live = (Player?.Appearance ?? []).filter((i) => !strippedAway(i));
+      const taken = new Set(live.map((i) => i?.Asset?.Group?.Name));
+      target.Appearance = [...live, ...ghostItems.filter((g) => !taken.has(g?.Asset?.Group?.Name))];
+      CharacterRefresh(target, false, false);
+      lastSignature = liveSignature();
+      return;
+    }
+    target.Appearance = [
+      ...(Player?.Appearance ?? []).filter((i) => !isWornGroup(i?.Asset?.Group)),
+      ...frozen
+    ];
+    CharacterRefresh(target, false, false);
+    lastSignature = liveSignature();
+  }
+  function rebuildIfStale() {
+    if (liveSignature() !== lastSignature) rebuild();
+  }
+  function freezeAppearance() {
+    if (!Array.isArray(Player?.Appearance)) {
+      warn("cannot freeze appearance \u2014 no player appearance yet");
+      return false;
+    }
+    if (frozen) {
+      log("clothing illusion already running \u2014 keeping the original snapshot");
+      return true;
+    }
+    seeing = null;
+    ghostItems = [];
+    frozen = Player.Appearance.filter((i) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
+    rebuild();
+    log(`clothing illusion applied \u2014 ${frozen.length} worn item(s) frozen`);
+    return true;
+  }
+  function showSee(s) {
+    if (!Array.isArray(Player?.Appearance)) {
+      warn("cannot start an illusion \u2014 no player appearance yet");
+      return false;
+    }
+    const target = ensureShadow();
+    if (!target) return false;
+    let replaced = !!frozen;
+    frozen = null;
+    if (seeing && seeing.kind !== s.kind) replaced = true;
+    if (s.kind === "strip") {
+      const was = seeing?.kind === "strip" ? seeing.slots : null;
+      const slots = s.slots === "all" || was === "all" ? "all" : [.../* @__PURE__ */ new Set([...was ?? [], ...s.slots])];
+      seeing = { kind: "strip", slots };
+      ghostItems = [];
+    } else {
+      const was = seeing?.kind === "bind" ? seeing.ghosts : [];
+      const ghosts = [...was.filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
+      seeing = { kind: "bind", ghosts };
+      ghostItems = buildGhosts(target, ghosts);
+      if (!ghostItems.length) {
+        seeing = null;
+        return false;
+      }
+    }
+    lastSignature = "";
+    rebuild();
+    log(`seeing illusion: ${JSON.stringify(seeing)}`);
+    return replaced ? "replaced" : "ok";
+  }
+  function clearIllusion() {
+    if (!frozen && !seeing) return;
+    frozen = null;
+    seeing = null;
+    ghostItems = [];
+    lastSignature = "";
+    try {
+      if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
+    } catch (err) {
+      warn("could not refresh after releasing the illusion:", err);
+    }
+    log("clothing illusion released");
+  }
+  function illusionSnapshot() {
+    if (!frozen) return null;
+    return frozen.map((i) => ({
+      group: i?.Asset?.Group?.Name,
+      name: i?.Asset?.Name,
+      color: i?.Color,
+      property: i?.Property
+    }));
+  }
+  function restoreIllusion(items) {
+    if (!items?.length) return false;
+    if (typeof AssetGet !== "function") return false;
+    const family = Player?.AssetFamily ?? "Female3DCG";
+    const rebuilt = [];
+    for (const item2 of items) {
+      const asset = AssetGet(family, item2.group, item2.name);
+      if (!asset) {
+        warn(`cannot restore illusion \u2014 asset ${item2.group}/${item2.name} not found`);
+        return false;
+      }
+      rebuilt.push({ Asset: asset, Color: item2.color, Property: item2.property });
+    }
+    seeing = null;
+    ghostItems = [];
+    frozen = rebuilt;
+    lastSignature = "";
+    rebuild();
+    log(`clothing illusion restored \u2014 ${rebuilt.length} remembered item(s)`);
+    return true;
+  }
+  function describeIllusion() {
+    if (seeing) return `clothing illusion: ON, ${seeing.kind === "strip" ? `sees herself without ${seeing.slots === "all" ? "any clothes" : seeing.slots.join(", ")}` : `sees ${seeing.ghosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`}`;
+    if (!frozen) return "clothing illusion: off";
+    const names = frozen.map((i) => i?.Asset?.Group?.Name).filter(Boolean);
+    return `clothing illusion: ON, frozen groups: ${names.join(", ") || "(nothing worn)"}`;
+  }
+  function installIllusion(modApi2) {
+    modApi2.hookFunction(
+      "DrawCharacter",
+      10,
+      ((args, next) => {
+        try {
+          if (!frozen && !seeing || args[0] !== Player) return next(args);
+          const target = ensureShadow();
+          if (!target) return next(args);
+          rebuildIfStale();
+          const realIsPlayer = target.IsPlayer;
+          const lent = NAME_FIELDS.map((k) => target[k]);
+          target.IsPlayer = () => true;
+          for (const k of NAME_FIELDS) target[k] = Player?.[k];
+          try {
+            return next([target, ...args.slice(1)]);
+          } finally {
+            target.IsPlayer = realIsPlayer;
+            NAME_FIELDS.forEach((k, i) => target[k] = lent[i]);
+          }
+        } catch (err) {
+          warn("illusion draw failed:", err);
+          return next(args);
+        }
+      })
+    );
+    log("clothing illusion hook installed on DrawCharacter");
+  }
+  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature, seeing, ghostItems;
+  var init_illusion = __esm({
+    "src/illusion.ts"() {
+      init_log();
+      init_undress();
+      SHADOW_ID = "HypnosisAddonIllusion";
+      NAME_FIELDS = ["Name", "Nickname", "LabelColor"];
+      COSMETIC_GROUPS = /* @__PURE__ */ new Set(["EyeShadow", "Decals"]);
+      shadow = null;
+      frozen = null;
+      lastSignature = "";
+      seeing = null;
+      ghostItems = [];
+    }
+  });
+
   // src/suppression.ts
   function setSuppressed(category, on) {
     if (on) active.add(category);
@@ -3247,7 +3566,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         try {
           if (active.size === 0) return false;
           const category = classify(data, metadata);
-          if (!category || !active.has(category)) return false;
+          if (!category || !active.has(category) && !illusionHides(category)) return false;
           if (!targetsPlayer(data, metadata)) return false;
           log(`suppressed ${category} message:`, data?.Content);
           return true;
@@ -3288,6 +3607,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var init_suppression = __esm({
     "src/suppression.ts"() {
       init_log();
+      init_illusion();
       active = /* @__PURE__ */ new Set();
       numb = false;
       hearing = null;
@@ -3439,153 +3759,257 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/illusion.ts
-  function isWornGroup(group) {
-    if (!group) return false;
-    if (COSMETIC_GROUPS.has(group.Name)) return false;
-    return group.Clothing === true || group.Category === "Item";
+  // src/see.ts
+  function garmentSlots(word) {
+    for (const [re, slots] of GARMENTS2) if (re.test(word)) return slots;
+    return null;
   }
-  function isIllusionActive() {
-    return frozen !== null;
-  }
-  function cloneItem(item2) {
-    return {
-      ...item2,
-      Property: item2?.Property ? { ...item2.Property } : item2?.Property,
-      Color: Array.isArray(item2?.Color) ? [...item2.Color] : item2?.Color
-    };
-  }
-  function ensureShadow() {
-    if (shadow) return shadow;
-    try {
-      shadow = CharacterLoadSimple(SHADOW_ID);
-    } catch (err) {
-      warn("could not create the illusion character:", err);
-      return null;
-    }
-    return shadow;
-  }
-  function liveSignature() {
-    const parts = [String(Player?.ActivePose ?? "")];
-    for (const item2 of Player?.Appearance ?? []) {
-      if (isWornGroup(item2?.Asset?.Group)) continue;
-      parts.push(
-        `${item2?.Asset?.Group?.Name}:${item2?.Asset?.Name}:${item2?.Property?.Expression ?? ""}:${String(item2?.Color ?? "")}`
-      );
-    }
-    return parts.join("|");
-  }
-  function rebuild() {
-    const target = ensureShadow();
-    if (!target || !frozen) return;
-    target.AssetFamily = Player?.AssetFamily ?? "Female3DCG";
-    target.ActivePose = Player?.ActivePose ?? [];
-    target.Appearance = [
-      ...(Player?.Appearance ?? []).filter((i) => !isWornGroup(i?.Asset?.Group)),
-      ...frozen
-    ];
-    CharacterRefresh(target, false, false);
-    lastSignature = liveSignature();
-  }
-  function rebuildIfStale() {
-    if (liveSignature() !== lastSignature) rebuild();
-  }
-  function freezeAppearance() {
-    if (!Array.isArray(Player?.Appearance)) {
-      warn("cannot freeze appearance \u2014 no player appearance yet");
-      return false;
-    }
-    if (frozen) {
-      log("clothing illusion already running \u2014 keeping the original snapshot");
-      return true;
-    }
-    frozen = Player.Appearance.filter((i) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
-    rebuild();
-    log(`clothing illusion applied \u2014 ${frozen.length} worn item(s) frozen`);
-    return true;
-  }
-  function clearIllusion() {
-    if (!frozen) return;
-    frozen = null;
-    lastSignature = "";
-    try {
-      if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
-    } catch (err) {
-      warn("could not refresh after releasing the illusion:", err);
-    }
-    log("clothing illusion released");
-  }
-  function illusionSnapshot() {
-    if (!frozen) return null;
-    return frozen.map((i) => ({
-      group: i?.Asset?.Group?.Name,
-      name: i?.Asset?.Name,
-      color: i?.Color,
-      property: i?.Property
-    }));
-  }
-  function restoreIllusion(items) {
-    if (!items?.length) return false;
-    if (typeof AssetGet !== "function") return false;
-    const family = Player?.AssetFamily ?? "Female3DCG";
-    const rebuilt = [];
-    for (const item2 of items) {
-      const asset = AssetGet(family, item2.group, item2.name);
-      if (!asset) {
-        warn(`cannot restore illusion \u2014 asset ${item2.group}/${item2.name} not found`);
-        return false;
+  function matchStrip(rest) {
+    if (/^(?:completely |totally |stark |entirely )?(?:naked|nude|undressed|bare|unclothed)\b/.test(rest)) return { kind: "strip", slots: "all" };
+    if (/^(?:with nothing on|wearing nothing|without (?:any |your )?clothes)\b/.test(rest)) return { kind: "strip", slots: "all" };
+    if (/^topless\b/.test(rest)) return { kind: "strip", slots: [...TOP, "Bra"] };
+    if (/^bottomless\b/.test(rest)) return { kind: "strip", slots: [...BOTTOM, "Panties", "Garters"] };
+    if (/^(?:in|wearing) (?:only |just |nothing but )?(?:your )?(?:underwear|lingerie)\b/.test(rest)) return { kind: "strip", slots: [...TOP, ...BOTTOM, "Gloves"] };
+    const without = /^without (?:your |a |any )?(.+)$/.exec(rest);
+    if (without) {
+      const slots = [];
+      for (const raw of without[1].split(/\s*(?:,|\band\b|\bor\b)\s*(?:your |a |any )?/)) {
+        const word = raw.trim().replace(/\b(?:on|anymore|any more|now)$/, "").trim();
+        if (!word) continue;
+        const got = garmentSlots(word);
+        if (!got) break;
+        for (const s of got) if (!slots.includes(s)) slots.push(s);
       }
-      rebuilt.push({ Asset: asset, Color: item2.color, Property: item2.property });
+      if (slots.length) return { kind: "strip", slots };
     }
-    frozen = rebuilt;
-    lastSignature = "";
-    rebuild();
-    log(`clothing illusion restored \u2014 ${rebuilt.length} remembered item(s)`);
-    return true;
+    return null;
   }
-  function describeIllusion() {
-    if (!frozen) return "clothing illusion: off";
-    const names = frozen.map((i) => i?.Asset?.Group?.Name).filter(Boolean);
-    return `clothing illusion: ON, frozen groups: ${names.join(", ") || "(nothing worn)"}`;
+  function materialOf(word) {
+    if (!word) return null;
+    if (/^(?:rope|ropes|hemp|cord|cords|rope bindings)$/.test(word)) return "rope";
+    if (/^(?:cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs)$/.test(word)) return "cuffs";
+    if (/^(?:chains?|chain)$/.test(word)) return "chains";
+    if (/^(?:tape|duct tape|duck tape)$/.test(word)) return "tape";
+    if (/^(?:leather|straps|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)$/.test(word)) return "leather";
+    if (/^(?:cloth|a cloth|silk|a scarf|scarf)$/.test(word)) return "rope";
+    return null;
   }
-  function installIllusion(modApi2) {
-    modApi2.hookFunction(
-      "DrawCharacter",
-      10,
-      ((args, next) => {
-        try {
-          if (!frozen || args[0] !== Player) return next(args);
-          const target = ensureShadow();
-          if (!target) return next(args);
-          rebuildIfStale();
-          const realIsPlayer = target.IsPlayer;
-          const lent = NAME_FIELDS.map((k) => target[k]);
-          target.IsPlayer = () => true;
-          for (const k of NAME_FIELDS) target[k] = Player?.[k];
-          try {
-            return next([target, ...args.slice(1)]);
-          } finally {
-            target.IsPlayer = realIsPlayer;
-            NAME_FIELDS.forEach((k, i) => target[k] = lent[i]);
-          }
-        } catch (err) {
-          warn("illusion draw failed:", err);
-          return next(args);
+  function partOf(word) {
+    if (/^(?:wrists?|arms?|hands?|elbows?)$/.test(word)) return "arms";
+    if (/^(?:legs?|knees?|thighs?)$/.test(word)) return "legs";
+    if (/^(?:ankles?|feet|foot)$/.test(word)) return "feet";
+    if (/^(?:body|chest|torso|breasts)$/.test(word)) return "torso";
+    if (/^(?:mouth|lips)$/.test(word)) return "mouth";
+    if (/^(?:eyes)$/.test(word)) return "eyes";
+    return null;
+  }
+  function ghostsFor(material, parts) {
+    const out = [];
+    for (const p of parts) {
+      const g = MATERIAL_ASSETS[material][p] ?? (p === "mouth" || p === "eyes" ? MATERIAL_ASSETS.leather[p] : MATERIAL_ASSETS.rope[p === "torso" ? "torso" : p]);
+      if (g && !out.some((o) => o.group === g.group)) out.push(g);
+    }
+    return out;
+  }
+  function partsIn(text2) {
+    const parts = [];
+    for (const m of text2.matchAll(new RegExp(String.raw`\b${PART_WORDS}\b`, "g"))) {
+      const p = partOf(m[0]);
+      if (p && !parts.includes(p)) parts.push(p);
+    }
+    return parts;
+  }
+  function matchBind(line, rest) {
+    if (rest !== null) {
+      const m = new RegExp(String.raw`^(?:all )?(tied up|tied|bound|trussed up|cuffed|handcuffed|shackled|chained(?: up)?|taped(?: up)?|gagged|blindfolded)(?: (?:in|with) (${MATERIAL_WORDS}))?(?: and (gagged|blindfolded))?\b`).exec(rest);
+      if (m) {
+        const verb = m[1].replace(/ up$/, "");
+        const mat = materialOf(m[2]) ?? VERB_MATERIAL[verb] ?? (verb === "gagged" || verb === "blindfolded" ? "leather" : "rope");
+        let parts = verb === "gagged" ? ["mouth"] : verb === "blindfolded" ? ["eyes"] : verb === "cuffed" || verb === "handcuffed" || verb === "shackled" || verb === "chained" ? ["arms", "feet"] : ["arms", "legs", "feet"];
+        if (m[3]) parts = [...parts, m[3] === "gagged" ? "mouth" : "eyes"];
+        const ghosts = ghostsFor(mat, parts);
+        if (m[3] && mat !== "leather" && mat !== "rope" && mat !== "tape") {
+          const extra = MATERIAL_ASSETS.leather[m[3] === "gagged" ? "mouth" : "eyes"];
+          if (!ghosts.some((g) => g.group === extra.group)) ghosts.push(extra);
         }
-      })
-    );
-    log("clothing illusion hook installed on DrawCharacter");
+        return ghosts.length ? { kind: "bind", ghosts } : null;
+      }
+      const withParts = new RegExp(String.raw`^with ((?:your )?${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (tied|bound|cuffed|chained|taped)(?: (?:together|up|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(rest);
+      if (withParts) {
+        const mat = materialOf(withParts[3]) ?? VERB_MATERIAL[withParts[2]] ?? "rope";
+        const ghosts = ghostsFor(mat, partsIn(withParts[1]));
+        return ghosts.length ? { kind: "bind", ghosts } : null;
+      }
+    }
+    const yours = new RegExp(String.raw`\byour (${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (?:are|is) (?:now |all )?(tied|bound|cuffed|chained|taped)(?: (?:together|up|tight|tightly|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(line);
+    if (yours) {
+      const mat = materialOf(yours[3]) ?? VERB_MATERIAL[yours[2]] ?? "rope";
+      const ghosts = ghostsFor(mat, partsIn(yours[1]));
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    const onYou = new RegExp(String.raw`\byou (?:can |now )?see (?:the |some )?(${MATERIAL_WORDS}) (?:on|around|over|in) (your ${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*)\b`).exec(line);
+    if (onYou) {
+      const mat = materialOf(onYou[1]) ?? "rope";
+      const ghosts = ghostsFor(mat, partsIn(onYou[2]));
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    const youAre = new RegExp(String.raw`\byou are (?:now )?(?:tied up|tied|bound|trussed up)(?: tightly| tight)? (?:in|with) (${MATERIAL_WORDS})\b`).exec(line);
+    if (youAre) {
+      const mat = materialOf(youAre[1]) ?? "rope";
+      const ghosts = ghostsFor(mat, ["arms", "legs", "feet"]);
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    return null;
   }
-  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature;
-  var init_illusion = __esm({
-    "src/illusion.ts"() {
-      init_log();
-      SHADOW_ID = "HypnosisAddonIllusion";
-      NAME_FIELDS = ["Name", "Nickname", "LabelColor"];
-      COSMETIC_GROUPS = /* @__PURE__ */ new Set(["EyeShadow", "Decals"]);
-      shadow = null;
-      frozen = null;
-      lastSignature = "";
+  function matchSeeIllusion(content) {
+    const line = content.toLowerCase().replace(/[.!?]+$/, "").trim();
+    if (/\byou (?:can |will |now )?see yourself (?:again|as you (?:really |actually )?are|properly|clearly|dressed|untied|free|unbound)\b/.test(line)) return null;
+    if (/\b(?:not|never|don't|do not|cannot|can't|won't)\b[^,]*\bsee\b/.test(line)) return null;
+    const lead = SEE_LEAD.exec(line);
+    const rest = lead ? lead[1].trim() : null;
+    if (rest !== null) {
+      const s = matchStrip(rest);
+      if (s) return s;
+    }
+    const look = LOOK_LEAD.exec(line);
+    if (look) {
+      const s = matchStrip(look[1].trim());
+      if (s) return s;
+    }
+    return matchBind(line, rest);
+  }
+  function seeActionId(s) {
+    if (s.kind === "strip") return s.slots === "all" ? `${SEE_PREFIX}naked` : `${SEE_PREFIX}off:${s.slots.join("+")}`;
+    const rec = (g) => g.record && Object.keys(g.record).length ? `~${Object.entries(g.record).map(([k, v]) => `${k}=${v}`).join(",")}` : "";
+    return `${SEE_PREFIX}bound:${s.ghosts.map((g) => `${g.group}/${g.asset}${rec(g)}`).join("+")}`;
+  }
+  function parseSeeId(id) {
+    if (!id.startsWith(SEE_PREFIX)) return null;
+    const body2 = id.slice(SEE_PREFIX.length);
+    if (body2 === "naked") return { kind: "strip", slots: "all" };
+    if (body2.startsWith("off:")) {
+      const slots = body2.slice(4).split("+").filter((s) => /^\w+$/.test(s));
+      return slots.length ? { kind: "strip", slots } : null;
+    }
+    if (body2.startsWith("bound:")) {
+      const ghosts = body2.slice(6).split("+").map((p) => {
+        const [main, rec] = p.split("~");
+        const [group, asset] = main.split("/");
+        if (!group || !asset || !/^Item\w+$/.test(group) || !/^\w+$/.test(asset)) return null;
+        const record = {};
+        for (const kv of (rec ?? "").split(",")) {
+          const m = /^(\w+)=(\d{1,3})$/.exec(kv);
+          if (m) record[m[1]] = Number(m[2]);
+        }
+        return Object.keys(record).length ? { group, asset, record } : { group, asset };
+      }).filter((g) => !!g);
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    return null;
+  }
+  function describeSee(s) {
+    if (s.kind === "strip") {
+      if (s.slots === "all") return "you see yourself naked";
+      const words = [...new Set(s.slots.map((x) => SLOT_WORDS[x] ?? x))];
+      return `you see yourself without your ${words.join(", ")}`;
+    }
+    const byAsset = /* @__PURE__ */ new Map();
+    for (const g of s.ghosts) {
+      const w = ASSET_WORDS[g.asset] ?? g.asset;
+      byAsset.set(w, [...byAsset.get(w) ?? [], GROUP_WORDS[g.group] ?? g.group]);
+    }
+    return `you see ${[...byAsset].map(([w, parts]) => `${w} on your ${parts.join(" and ")}`).join(", ")}`;
+  }
+  function seeLine(s) {
+    if (s.kind === "strip") return s.slots === "all" ? "You glance down at yourself, and there is nothing on you at all." : `You glance down: ${describeSee(s).replace(/^you see yourself /, "you're ")}.`;
+    return `You look down and ${describeSee(s).replace(/^you see /, "see ")}, holding you.`;
+  }
+  var SEE_PREFIX, TOP, BOTTOM, GARMENTS2, SEE_LEAD, LOOK_LEAD, MATERIAL_ASSETS, MATERIAL_WORDS, PART_WORDS, VERB_MATERIAL, SLOT_WORDS, GROUP_WORDS, ASSET_WORDS;
+  var init_see = __esm({
+    "src/see.ts"() {
+      SEE_PREFIX = "see:";
+      TOP = ["ClothOuter", "Cloth", "ClothAccessory", "Suit", "Corset"];
+      BOTTOM = ["ClothLower", "SuitLower"];
+      GARMENTS2 = [
+        [/^(?:underwear|lingerie)$/, ["Bra", "Panties", "Garters"]],
+        [/^(?:top|shirt|blouse|dress|clothes on top|sweater|jumper|t-?shirt)$/, ["ClothOuter", "Cloth", "ClothAccessory"]],
+        [/^(?:jacket|coat|hoodie)$/, ["ClothOuter"]],
+        [/^(?:skirt|pants|trousers|jeans|shorts|bottoms)$/, BOTTOM],
+        [/^(?:bra)$/, ["Bra"]],
+        [/^(?:panties|knickers|thong)$/, ["Panties"]],
+        [/^(?:shoes|heels|boots)$/, ["Shoes"]],
+        [/^(?:socks|stockings|tights)$/, ["Socks", "SocksLeft", "SocksRight"]],
+        [/^(?:gloves)$/, ["Gloves"]],
+        [/^(?:suit|bodysuit|leotard)$/, ["Suit", "SuitLower"]],
+        [/^(?:corset)$/, ["Corset"]]
+      ];
+      SEE_LEAD = /\byou (?:can |will |now |suddenly )?see yourself (?:as )?(.+)$/;
+      LOOK_LEAD = /\byou (?:look|appear) (.+?) to yourself\b/;
+      MATERIAL_ASSETS = {
+        rope: {
+          arms: { group: "ItemArms", asset: "HempRope" },
+          legs: { group: "ItemLegs", asset: "HempRope" },
+          feet: { group: "ItemFeet", asset: "HempRope" },
+          torso: { group: "ItemTorso", asset: "HempRopeHarness" },
+          mouth: { group: "ItemMouth", asset: "ClothGag" },
+          eyes: { group: "ItemHead", asset: "ClothBlindfold" }
+        },
+        cuffs: {
+          arms: { group: "ItemArms", asset: "MetalCuffs" },
+          legs: { group: "ItemLegs", asset: "LeatherLegCuffs" },
+          feet: { group: "ItemFeet", asset: "SteelAnkleCuffs" }
+        },
+        chains: {
+          arms: { group: "ItemArms", asset: "Chains" },
+          legs: { group: "ItemLegs", asset: "Chains" },
+          feet: { group: "ItemFeet", asset: "Chains" }
+        },
+        tape: {
+          arms: { group: "ItemArms", asset: "DuctTape" },
+          legs: { group: "ItemLegs", asset: "DuctTape" },
+          feet: { group: "ItemFeet", asset: "DuctTape" },
+          mouth: { group: "ItemMouth", asset: "DuctTape" },
+          eyes: { group: "ItemHead", asset: "DuctTape" }
+        },
+        leather: {
+          mouth: { group: "ItemMouth", asset: "BallGag" },
+          eyes: { group: "ItemHead", asset: "LeatherBlindfold" }
+        }
+      };
+      MATERIAL_WORDS = String.raw`(?:rope|ropes|hemp|cords?|cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs|chains?|tape|duct tape|leather|straps|cloth|silk|a scarf|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)`;
+      PART_WORDS = String.raw`(?:wrists?|arms?|hands?|elbows?|legs?|knees?|thighs?|ankles?|feet|body|chest|torso|mouth|eyes)`;
+      VERB_MATERIAL = { cuffed: "cuffs", shackled: "cuffs", handcuffed: "cuffs", chained: "chains", taped: "tape" };
+      SLOT_WORDS = {
+        ClothOuter: "jacket",
+        Cloth: "top",
+        ClothAccessory: "top",
+        Suit: "bodysuit",
+        Corset: "corset",
+        ClothLower: "skirt",
+        SuitLower: "bodysuit",
+        Bra: "bra",
+        Panties: "panties",
+        Garters: "garters",
+        Shoes: "shoes",
+        Socks: "socks",
+        SocksLeft: "socks",
+        SocksRight: "socks",
+        Gloves: "gloves"
+      };
+      GROUP_WORDS = { ItemArms: "arms", ItemLegs: "legs", ItemFeet: "ankles", ItemTorso: "body", ItemMouth: "mouth", ItemHead: "eyes", ItemHands: "hands" };
+      ASSET_WORDS = {
+        HempRope: "rope",
+        HempRopeHarness: "rope",
+        MetalCuffs: "cuffs",
+        LeatherLegCuffs: "cuffs",
+        SteelAnkleCuffs: "cuffs",
+        Chains: "chains",
+        DuctTape: "tape",
+        BallGag: "a gag",
+        ClothGag: "a cloth gag",
+        LeatherBlindfold: "a blindfold",
+        ClothBlindfold: "a cloth blindfold"
+      };
     }
   });
 
@@ -4082,6 +4506,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       numb: isNumb(),
       selfTouch: selfTouchSnapshot(),
       illusion: illusionSnapshot(),
+      ...currentSee() ? { see: seeActionId(currentSee()) } : {},
       // Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
       // ours, so saving another add-on's Freeze would make it ours after a reload.
       effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
@@ -4208,6 +4633,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (hasOwnEffect("Leash")) removeEffect("Leash");
     }
     if (saved.pose) restoreSuggestedPose(saved.pose);
+    const see = typeof saved.see === "string" ? parseSeeId(saved.see) : null;
+    if (see && !showSee(see)) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
         tellPlayer("Coming back, you catch sight of yourself as you actually are.");
@@ -4344,6 +4771,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_suppression();
       init_selftouch();
       init_illusion();
+      init_see();
       init_arousal();
       init_follow();
       init_eyes();
@@ -4750,7 +5178,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     clearCurrentDepths();
     stopWaiting();
     clearOrgasmDenial();
-    if (!isCarried("illusion-block")) clearIllusion();
+    if (!isCarried("illusion-block") && !carriedIds().some((id) => id.startsWith("see:"))) clearIllusion();
     clearAllTimers();
     runTeardown();
     session = freshSession();
@@ -7199,92 +7627,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
-  // src/undress.ts
-  function slotOf(group) {
-    if (UNDRESS_ORDER.includes(group)) return group;
-    if (ECHO_EXTRA_SLOTS[group]) return ECHO_EXTRA_SLOTS[group];
-    const cut = group.indexOf("_");
-    if (cut > 0) {
-      const base = group.slice(0, cut);
-      if (UNDRESS_ORDER.includes(base)) return base;
-    }
-    return null;
-  }
-  function undressBlockedReason() {
-    if (typeof InventoryRemove !== "function" || !Array.isArray(Player?.Appearance)) {
-      return "unavailable";
-    }
-    if (Player?.CanInteract?.() === false) return "bound";
-    if (heldByUs("Freeze")) return "frozen";
-    if (Player?.CanChangeOwnClothes?.() === false && !heldByUs("BlockWardrobe")) {
-      return "locked";
-    }
-    return null;
-  }
-  function wornGarments() {
-    const order = UNDRESS_ORDER;
-    const seen3 = /* @__PURE__ */ new Set();
-    const worn = [];
-    for (const item2 of Array.isArray(Player?.Appearance) ? Player.Appearance : []) {
-      const group = item2?.Asset?.Group?.Name;
-      if (typeof group !== "string" || seen3.has(group)) continue;
-      const slot = slotOf(group);
-      if (!slot) continue;
-      seen3.add(group);
-      worn.push({ group, rank: order.indexOf(slot), copy: slot !== group });
-    }
-    return worn.sort((a, b) => a.rank - b.rank || Number(a.copy) - Number(b.copy)).map((w) => w.group);
-  }
-  function undress(count) {
-    const blocked = undressBlockedReason();
-    if (blocked) return { removed: [], refusal: blocked };
-    const worn = wornGarments();
-    if (!worn.length) return { removed: [], refusal: "already bare" };
-    const removed = [];
-    for (const group of worn.slice(0, count)) {
-      try {
-        InventoryRemove(Player, group, false);
-        removed.push(group);
-      } catch (err) {
-        warn(`could not remove ${group}:`, err);
-      }
-    }
-    if (!removed.length) return { removed: [], refusal: "unavailable" };
-    try {
-      CharacterRefresh(Player, true, false);
-      if (ServerPlayerIsInChatRoom()) ChatRoomCharacterUpdate(Player);
-    } catch (err) {
-      warn("could not sync appearance after undressing:", err);
-    }
-    log(`undressed: ${removed.join(", ")}`);
-    return { removed };
-  }
-  var UNDRESS_ORDER, ECHO_EXTRA_SLOTS;
-  var init_undress = __esm({
-    "src/undress.ts"() {
-      init_log();
-      init_effects();
-      UNDRESS_ORDER = [
-        "ClothOuter",
-        "Cloth",
-        "ClothAccessory",
-        "ClothLower",
-        "Suit",
-        "SuitLower",
-        "Corset",
-        "Bra",
-        "Panties",
-        "Garters",
-        "Shoes",
-        "Socks",
-        "SocksLeft",
-        "SocksRight",
-        "Gloves"
-      ];
-      ECHO_EXTRA_SLOTS = { \u957F\u8896\u5B50_Luzi: "Cloth" };
-    }
-  });
-
   // src/phantom.ts
   function phantomZone(word) {
     return BODY_PARTS[word]?.[0] ?? EXTRA_ZONES[word] ?? null;
@@ -8537,7 +8879,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (line === null) return false;
     if (parseTriggerControl(line)) return true;
     if (!isRecording()) return false;
-    return !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+    return !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
   function lifespanOption(m) {
     const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
@@ -8607,7 +8949,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return null;
   }
   function isRecordableAction(text2) {
-    return !!matchPhantomTouch(text2) || !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
+    return !!matchSeeIllusion(text2) || !!matchPhantomTouch(text2) || !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
   }
   function splitStartAtAction(content, start) {
     const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
@@ -9266,6 +9608,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
         });
         continue;
       }
+      const see = parseSeeId(id);
+      if (see) {
+        if (!features.illusionControl) {
+          log(`trigger "${trigger.phrase}": ${id} skipped, illusionControl not granted`);
+          continue;
+        }
+        if (!depthAllows("illusionControl", strength, strength)) {
+          log(`trigger "${trigger.phrase}": ${id} too weak at ${strength}`);
+          tooWeak++;
+          continue;
+        }
+        holding++;
+        steps.push(() => {
+          if (getFeatures().illusionControl && showSee(see)) tellPlayer(seeLine(see));
+        });
+        continue;
+      }
       const phantom = parsePhantomId(id);
       if (phantom) {
         if (!features.arousalControl) {
@@ -9490,6 +9849,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
         continue;
       }
+      if (id.startsWith(SEE_PREFIX)) {
+        clearIllusion();
+        continue;
+      }
       SUGGESTIONS.find((s) => s.id === id)?.undo?.();
     }
     cancelTimer(timerKey(trigger));
@@ -9574,6 +9937,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (say2) return `you say "${say2.text}"${say2.times > 1 ? ` ${say2.times} times` : ""}`;
     const phantom = parsePhantomId(id);
     if (phantom) return describePhantom(phantom);
+    const seen3 = parseSeeId(id);
+    if (seen3) return describeSee(seen3);
     if (id.startsWith("act:")) {
       const { base, times } = parseActId(id);
       const suffix = times > 1 ? ` ${times} times` : "";
@@ -9766,6 +10131,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function applyActionById(id) {
+    const see = parseSeeId(id);
+    if (see) {
+      if (getFeatures().illusionControl) showSee(see);
+      return;
+    }
     if (id.startsWith("touch:")) {
       const word = id.slice("touch:".length);
       if (word === "all") setAllSelfTouchBlocked(true);
@@ -9775,6 +10145,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     SUGGESTIONS.find((s) => s.id === id)?.run();
   }
   function undoActionById(id) {
+    if (id.startsWith(SEE_PREFIX)) {
+      clearIllusion();
+      return;
+    }
     if (id.startsWith("touch:")) {
       const word = id.slice("touch:".length);
       if (word === "all") setAllSelfTouchBlocked(false);
@@ -10031,6 +10405,45 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const act = BARE_ACTS.find((a) => a.key === key);
     if (!act) return false;
     return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
+  }
+  function handleSeeIllusion(sender, content) {
+    const see = matchSeeIllusion(content);
+    if (!see) return false;
+    if (!isSessionActiveWith(sender)) {
+      log(`heard an illusion from ${sender} but no active session with them`);
+      return true;
+    }
+    if (!mentionsAnyName(content, playerOwnNames())) {
+      log(`heard an illusion from ${sender} but they didn't say your name \u2014 ignoring`);
+      return true;
+    }
+    const f = getFeatures();
+    if (!f.hypnoEnabled || !f.illusionControl) {
+      tellHypnotist(sender, '[suggestion] Refused \u2014 they have not enabled "Illusions".');
+      return true;
+    }
+    const id = seeActionId(see);
+    const recorded = recordAction(id);
+    if (recorded) {
+      tellPlayer(recorded);
+      return true;
+    }
+    const refusal = depthRefusal("illusionControl");
+    if (refusal) {
+      tellHypnotist(sender, `[suggestion] Refused \u2014 an illusion ${refusal}.`);
+      return true;
+    }
+    const result = showSee(see);
+    if (!result) {
+      tellHypnotist(sender, "[suggestion] It didn't take: their client couldn't draw it.");
+      return true;
+    }
+    tellPlayer(seeLine(see));
+    noteApplied(id);
+    noteLanded(sender);
+    if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
+    if (see.kind === "bind") tellHypnotist(sender, BIND_REMINDER);
+    return true;
   }
   function handlePhantomTouch(sender, content) {
     const touch = matchPhantomTouch(content);
@@ -10446,6 +10859,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function landCommand(sender, line) {
     if (handleWalkingTrance(sender, line)) return;
     if (handleDeepening(sender, line)) return;
+    if (handleSeeIllusion(sender, line)) return;
     if (handlePhantomTouch(sender, line)) return;
     if (handleBodyPartLine(sender, line)) return;
     if (handleTargetedActivityCommand(sender, line)) return;
@@ -10454,7 +10868,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!id) return;
     const suggestion = SUGGESTIONS.find((s) => s.id === id);
     if (!suggestion) return;
-    const carriedRelease = !!suggestion.release && !!suggestion.releaseOf && isCarrierOf(sender) && releasesOf(suggestion).some(isCarried);
+    const carriedRelease = !!suggestion.release && !!suggestion.releaseOf && isCarrierOf(sender) && (releasesOf(suggestion).some(isCarried) || suggestion.id === "illusion-release" && carriedIds().some((c) => c.startsWith(SEE_PREFIX)));
     if (!isSessionActiveWith(sender) && !carriedRelease) {
       log(`heard "${id}" from ${sender} but no active session with them \u2014 ignoring`);
       return;
@@ -10495,11 +10909,18 @@ One of mods you are using is using an old version of SDK. It will work for now b
         noteReleased(of);
         dropCarried(of);
       }
+      if (id === "illusion-release" || id === "awareness-release") {
+        for (const c of [...appliedSuggestions(), ...carriedIds()]) {
+          if (!c.startsWith(SEE_PREFIX)) continue;
+          noteReleased(c);
+          dropCarried(c);
+        }
+      }
     } else if (!HEARING_IDS.includes(id) && !FACE_IDS.includes(id)) {
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, ORDINAL_RE, COMPULSION_NO_SPOKEN, COMPULSION_NO_DIGIT, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, ORDINAL_RE, COMPULSION_NO_SPOKEN, COMPULSION_NO_DIGIT, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, BIND_REMINDER, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -10520,6 +10941,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_notify();
       init_arousal();
       init_illusion();
+      init_see();
       init_undress();
       init_carry();
       init_timers();
@@ -10877,6 +11299,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           examples: [
             "look at yourself",
             "you can see yourself again",
+            "the ropes are gone",
             "you notice your clothes",
             "you notice you are naked"
           ],
@@ -10894,7 +11317,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\byou (?:can|may) tell what you have on\b/,
             /\blook (?:down )?at yourself\b/,
             /\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
-            /\byou (?:notice|see) what (?:you are wearing|is missing)\b/
+            /\byou (?:notice|see) what (?:you are wearing|is missing)\b/,
+            // The seeing illusions (v1.21.0): naked, or tied when she isn't.
+            /\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|not naked|free)\b/,
+            /\byou (?:can |now )?see yourself (?:dressed|untied|unbound|free)\b/,
+            /\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold) (?:is|are) gone\b/
           ],
           run: () => clearIllusion()
         },
@@ -11993,6 +12420,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "ItemFeet",
         "ItemNipples"
       ];
+      BIND_REMINDER = `[suggestion] Only they see it: it doesn't hold them, and the room sees them free. To hold them too, add "you cannot move" or "you cannot touch yourself".`;
       DEFAULT_PART2 = { Kiss: "lips", Spank: "bottom", Pet: "head" };
       TOOL_WORDS = [
         [/\bwith (?:your|her|the|that|a) (?:dildo )?gag\b/, "gag"],
@@ -12056,7 +12484,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.20.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.21.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12105,7 +12533,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.20.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.21.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12931,6 +13359,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(dim("   (Arousal & Orgasm) \u2014 a touch only she feels, with a real touch's arousal."));
     lines.push(dim(`   Also "hands all over you", "a hand squeeze your breasts". The room sees`));
     lines.push(dim("   a reaction now and then, never where. Numbness stops it too."));
+    lines.push(body(`"you see yourself naked" \xB7 "your wrists are bound in rope"`));
+    lines.push(dim("   (Illusions) \u2014 only her own screen changes. Also topless, without your bra,"));
+    lines.push(dim("   in your underwear; tied up, cuffed, chained, taped, gagged, blindfolded."));
+    lines.push(dim(`   Rope never holds her. "the ropes are gone" / "you can see yourself again" end it.`));
     return lines;
   }
   function depthLadder() {
@@ -12978,7 +13410,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       body("session-only things \u2014 and nothing deeper, ever."),
       gap(),
       head("The earned-only three"),
-      body("The clothing illusion, planting triggers, and carrying a suggestion"),
+      body("Illusions, planting triggers, and carrying a suggestion"),
       body("past waking need EARNED depth \u2014 trust, not arousal \u2014 because they"),
       body("outlive the session or lie to you about your own body."),
       dim("The Depth tab can open the illusion and triggers to arousal for you,"),
@@ -14647,7 +15079,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.20.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.21.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14720,7 +15152,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.20.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.21.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15031,7 +15463,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
             { key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity", tip: 'Lets them aim those commands at someone else in the room ("kiss Rei"). Not needed for the hypnotist themselves.' },
             { key: "arousalControl", label: "Arousal & Orgasm", tip: "Arousal raised or lowered, orgasm denied or forced, and numbness." },
             { heading: "Mind" },
-            { key: "illusionControl", label: "Clothing Illusion (you see old clothes)", tip: "Your own screen shows clothes you have been stripped of. Changes what you see, not your chat log (that is the Awareness tab)." }
+            { key: "illusionControl", label: "Illusions (you see yourself otherwise)", tip: "Your own screen shows you otherwise than you are: still in clothes you were stripped of, naked while dressed, or tied up while free. Nobody else sees it." }
           ]
         },
         {
@@ -15070,7 +15502,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         },
         {
           name: "Awareness",
-          blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
+          blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Illusions), and arousal still applies.",
           rows: [
             { key: "suppressClothing", label: "Clothing Changes" },
             { key: "suppressBondage", label: "Bondage Changes" },
@@ -15544,7 +15976,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.20.0", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.21.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -18725,6 +19157,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
         // v1.19.0: a phantom touch, felt only by them, under Arousal & Orgasm.
         { cat: "touch", item: { id: "x-phantom", instant: true, label: "you feel a hand on your thigh (a touch only they feel)", phrase: "you feel a hand on your thigh", release: false, permission: "arousalControl", alternates: ["you feel lips on your neck", "you feel hands all over you", "you feel a hand squeeze your breasts", "you feel a hand spank your butt"] } },
+        // v1.21.0: the seeing illusions, on her own screen only, under Illusions.
+        { cat: "clothes", item: { id: "x-see-naked", label: "you see yourself naked (only they see it)", phrase: "you see yourself naked", release: false, permission: "illusionControl", alternates: ["you see yourself topless", "you see yourself without your bra", "you see yourself in your underwear"] } },
+        { cat: "clothes", item: { id: "x-see-tied", label: "you see yourself tied up (only they see it; doesn't hold them)", phrase: "you see yourself tied up", release: false, permission: "illusionControl", alternates: ["your wrists are bound in rope", "your ankles are cuffed", "you see yourself gagged", "you see yourself blindfolded"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
       ];
       TRANCE_MOVES = /* @__PURE__ */ new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
@@ -19324,7 +19759,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.20.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.21.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -20622,7 +21057,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.20.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.21.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -20649,7 +21084,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.20.0"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.21.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -20728,14 +21163,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.20.0"})`);
+      info(`script loaded (v${"1.21.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.20.0",
+          version: "1.21.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20884,10 +21319,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.20.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.21.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.20.0";
+    page2.__ECHS_LOADED__ = "1.21.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

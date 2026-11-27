@@ -191,7 +191,7 @@ export const DEPTH_GATES: DepthGate[] = [
 	{ key: "undressControl", label: "Undressing", depth: 40, earnedOnly: false },
 	{ key: "arousalControl", label: "Arousal & Orgasm", depth: 40, earnedOnly: false },
 	// The earned-only three: two outlive the session, one lies to the subject.
-	{ key: "illusionControl", label: "Clothing Illusion", depth: 60, earnedOnly: true },
+	{ key: "illusionControl", label: "Illusions", depth: 60, earnedOnly: true },
 	{ key: "triggerControl", label: "Planting triggers", depth: 60, earnedOnly: true },
 	{ key: "carryForward", label: "Suggestions that outlive the trance", depth: 60, earnedOnly: true },
 ];

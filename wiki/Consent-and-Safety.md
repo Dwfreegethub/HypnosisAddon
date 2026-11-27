@@ -78,7 +78,7 @@ Both must pass at the exact moment a line is spoken. Ticking a permission only g
 ## 4. The High-Impact Stuff
 
 These features alter perception, outlive the session, or simulate involuntary action:
-* **Clothing Illusion:** Your screen continues rendering your original outfit while the room sees what you are actually wearing.
+* **Illusions** (called *Clothing Illusion* before v1.21.0): Your screen keeps showing your original outfit while the room sees what you are actually wearing, or shows you naked, or tied up, when you aren't. Only you see it, and an imagined rope never holds you.
 * **Planted Triggers:** Phrases that remain armed in your client to fire later. You never see your own trigger words unless enabled.
 * **Compulsions:** Triggers with no word, waiting for a time after waking or for a person to arrive/speak. They never go off while you are in a trance.
 * **Carry-Forward Suggestions:** Effects set to stay active after waking.

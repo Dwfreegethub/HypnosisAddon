@@ -138,7 +138,7 @@ const ORDER = [
 	"Voice & senses", "Speech Restriction", "Made to Speak (a trigger says words for you)",
 	"Hearing (hear only one voice, or only your name)", "Sight (dimmed, very dark, or blind)",
 	"Touch & arousal", "Self-Touch Control", "Made to Act (touch yourself on command)", "Made to Touch Others", "Arousal & Orgasm",
-	"Mind", "Clothing Illusion (you see old clothes)",
+	"Mind", "Illusions (you see yourself otherwise)",
 ];
 {
 	const seen = [];
@@ -184,7 +184,7 @@ const ROWS = [
 	["speechRestriction", "Speech Restriction"], ["forcedSpeech", "Made to Speak (a trigger says words for you)"],
 	["hearingControl", "Hearing (hear only one voice, or only your name)"], ["sightControl", "Sight (dimmed, very dark, or blind)"],
 	["selfTouchControl", "Self-Touch Control"], ["compelActivity", "Made to Act (touch yourself on command)"],
-	["arousalControl", "Arousal & Orgasm"], ["illusionControl", "Clothing Illusion (you see old clothes)"],
+	["arousalControl", "Arousal & Orgasm"], ["illusionControl", "Illusions (you see yourself otherwise)"],
 ];
 /** The list checkbox drawn level with this label, if it is wholly in view. */
 const boxFor = (label) => {
@@ -746,7 +746,7 @@ openTab(4); frame(); // Triggers
 	check("  two lines at most", tooMany, []);
 	openTab(3); frame();
 	const awareness = texts.filter((t) => !t.clip && t.left === panel.CONTENT_LEFT && t.top < 265).map((t) => t.text).join(" ");
-	check("  Awareness's whole blurb is there", /that is Clothing Illusion\), and arousal still applies\.$/.test(awareness), true);
+	check("  Awareness's whole blurb is there", /that is Illusions\), and arousal still applies\.$/.test(awareness), true);
 }
 
 // --- Hover text on the permission rows (v1.16.37, review F8) -----------------------------------------

@@ -679,7 +679,7 @@ function endSession(reason: string, quiet = false, expiry?: Expiry): void {
 	// The one effect the total-clear-then-reapply pattern cannot cover: re-applying the
 	// illusion would take a FRESH snapshot, of the truth, at the moment of waking. So when
 	// it is carried, the snapshot has to survive the clear rather than be rebuilt after it.
-	if (!isCarried("illusion-block")) clearIllusion();
+	if (!isCarried("illusion-block") && !carriedIds().some((id) => id.startsWith("see:"))) clearIllusion();
 	clearAllTimers();
 	// Anything registered against a trance ending — currently an in-progress trigger recording,
 	// which only exists mid-trance and must not outlive the session that allowed it.

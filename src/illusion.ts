@@ -1,4 +1,6 @@
 import { log, warn } from "./log";
+import { slotOf } from "./undress";
+import type { SeeIllusion, Ghost } from "./see";
 
 // The clothing illusion: a freeze-frame of how the subject looked when it was applied,
 // drawn only on their own screen.
@@ -82,8 +84,58 @@ let frozen: any[] | null = null;
 /** Change-detector for the LIVE half — see rebuildIfStale. */
 let lastSignature = "";
 
+/** A seeing illusion (v1.21.0, see.ts): her own view with clothes left off, or with items added
+ * that are not there. One illusion at a time: starting one ends whichever was running. */
+let seeing: SeeIllusion | null = null;
+/** The added items, built once per illusion (ghostsFor). */
+let ghostItems: any[] = [];
+
 export function isIllusionActive(): boolean {
-	return frozen !== null;
+	return frozen !== null || seeing !== null;
+}
+
+/** The seeing illusion running now, or null. */
+export function currentSee(): SeeIllusion | null {
+	return seeing ? (seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) }) : null;
+}
+
+/** Which chat messages it hides (suppression.ts), so nothing in her log contradicts it: being
+ * dressed while she sees herself naked, being untied while she sees rope. The freeze hides none. */
+export function illusionHides(category: string): boolean {
+	if (!seeing) return false;
+	return seeing.kind === "strip" ? category === "clothing" : category === "bondage";
+}
+
+/** Is this worn item left off her view by a strip illusion? */
+function strippedAway(item: any): boolean {
+	if (!seeing || seeing.kind !== "strip") return false;
+	const group = item?.Asset?.Group;
+	if (!group || group.Category === "Item" || COSMETIC_GROUPS.has(group.Name)) return false;
+	if (seeing.slots === "all") return group.Clothing === true;
+	const slot = slotOf(group.Name);
+	return !!slot && seeing.slots.includes(slot);
+}
+
+function buildGhosts(target: any, ghosts: Ghost[]): any[] {
+	const family = Player?.AssetFamily ?? "Female3DCG";
+	const out: any[] = [];
+	for (const g of ghosts) {
+		try {
+			const asset = typeof AssetGet === "function" ? AssetGet(family, g.group, g.asset) : null;
+			if (!asset) {
+				warn(`illusion: no asset ${g.group}/${g.asset}`);
+				continue;
+			}
+			const item: any = { Asset: asset, Property: {} };
+			// Its first option, as BC sets a newly worn item up, but on the shadow and never sent.
+			if (typeof ExtendedItemInit === "function") ExtendedItemInit(target, item, false, false);
+			if (g.record && typeof ExtendedItemSetOptionByRecord === "function") ExtendedItemSetOptionByRecord(target, item, g.record, { push: false, refresh: false });
+			out.push(item);
+		} catch (err) {
+			warn(`illusion: could not build ${g.group}/${g.asset}:`, err);
+		}
+	}
+	return out;
 }
 
 /** Copy an item deeply enough that later changes to the real one cannot reach through.
@@ -118,7 +170,8 @@ function ensureShadow(): any {
 function liveSignature(): string {
 	const parts: string[] = [String(Player?.ActivePose ?? "")];
 	for (const item of Player?.Appearance ?? []) {
-		if (isWornGroup(item?.Asset?.Group)) continue;
+		// A seeing illusion draws everything live (only some of it left off, or some added).
+		if (!seeing && isWornGroup(item?.Asset?.Group)) continue;
 		parts.push(
 			`${item?.Asset?.Group?.Name}:${item?.Asset?.Name}:${item?.Property?.Expression ?? ""}:${String(item?.Color ?? "")}`,
 		);
@@ -128,9 +181,18 @@ function liveSignature(): string {
 
 function rebuild(): void {
 	const target = ensureShadow();
-	if (!target || !frozen) return;
+	if (!target || (!frozen && !seeing)) return;
 	target.AssetFamily = Player?.AssetFamily ?? "Female3DCG";
 	target.ActivePose = Player?.ActivePose ?? [];
+	if (seeing) {
+		const live = (Player?.Appearance ?? []).filter((i: any) => !strippedAway(i));
+		// What she really wears in a group wins over what she imagines there.
+		const taken = new Set(live.map((i: any) => i?.Asset?.Group?.Name));
+		target.Appearance = [...live, ...ghostItems.filter((g) => !taken.has(g?.Asset?.Group?.Name))];
+		CharacterRefresh(target, false, false);
+		lastSignature = liveSignature();
+		return;
+	}
 	// Live body + remembered clothes. Anything worn since the freeze simply isn't here, and
 	// anything removed since is still here — which is the whole illusion, in one line.
 	target.Appearance = [
@@ -161,6 +223,9 @@ export function freezeAppearance(): boolean {
 		log("clothing illusion already running — keeping the original snapshot");
 		return true;
 	}
+	// One at a time: the freeze takes over from a seeing illusion.
+	seeing = null;
+	ghostItems = [];
 	frozen = Player.Appearance.filter((i: any) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
 	rebuild();
 	log(`clothing illusion applied — ${frozen.length} worn item(s) frozen`);
@@ -169,9 +234,45 @@ export function freezeAppearance(): boolean {
 
 /** Stop lying. The snapshot is dropped rather than kept, so a later freeze always takes a
  * fresh one — a stale snapshot re-applied hours later would be a different feature. */
-export function clearIllusion(): void {
-	if (!frozen) return;
+/** Start (or add to) a seeing illusion. Saying a second one of the same kind adds to it ("without
+ * your bra", then "without your panties"); the other kind, or the freeze, is replaced. Returns
+ * "replaced" when something else was running, false if there is nothing to draw from. */
+export function showSee(s: SeeIllusion): "ok" | "replaced" | false {
+	if (!Array.isArray(Player?.Appearance)) {
+		warn("cannot start an illusion — no player appearance yet");
+		return false;
+	}
+	const target = ensureShadow();
+	if (!target) return false;
+	let replaced = !!frozen;
 	frozen = null;
+	if (seeing && seeing.kind !== s.kind) replaced = true;
+	if (s.kind === "strip") {
+		const was = seeing?.kind === "strip" ? seeing.slots : null;
+		const slots = s.slots === "all" || was === "all" ? "all" : [...new Set([...(was ?? []), ...s.slots])];
+		seeing = { kind: "strip", slots };
+		ghostItems = [];
+	} else {
+		const was = seeing?.kind === "bind" ? seeing.ghosts : [];
+		const ghosts = [...was.filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
+		seeing = { kind: "bind", ghosts };
+		ghostItems = buildGhosts(target, ghosts);
+		if (!ghostItems.length) {
+			seeing = null;
+			return false;
+		}
+	}
+	lastSignature = "";
+	rebuild();
+	log(`seeing illusion: ${JSON.stringify(seeing)}`);
+	return replaced ? "replaced" : "ok";
+}
+
+export function clearIllusion(): void {
+	if (!frozen && !seeing) return;
+	frozen = null;
+	seeing = null;
+	ghostItems = [];
 	lastSignature = "";
 	// Force the player's own canvas to rebuild. In theory unnecessary — while the illusion
 	// was running it was the shadow being passed to DrawCharacter, so Player's MustDraw flag
@@ -231,6 +332,8 @@ export function restoreIllusion(items: FrozenItem[] | null): boolean {
 		}
 		rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
 	}
+	seeing = null;
+	ghostItems = [];
 	frozen = rebuilt;
 	lastSignature = "";
 	rebuild();
@@ -239,6 +342,7 @@ export function restoreIllusion(items: FrozenItem[] | null): boolean {
 }
 
 export function describeIllusion(): string {
+	if (seeing) return `clothing illusion: ON, ${seeing.kind === "strip" ? `sees herself without ${seeing.slots === "all" ? "any clothes" : seeing.slots.join(", ")}` : `sees ${seeing.ghosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`}`;
 	if (!frozen) return "clothing illusion: off";
 	const names = frozen.map((i: any) => i?.Asset?.Group?.Name).filter(Boolean);
 	return `clothing illusion: ON, frozen groups: ${names.join(", ") || "(nothing worn)"}`;
@@ -250,7 +354,7 @@ export function installIllusion(modApi: any): void {
 		10,
 		((args: any[], next: (args: any[]) => any) => {
 			try {
-				if (!frozen || args[0] !== Player) return next(args);
+				if ((!frozen && !seeing) || args[0] !== Player) return next(args);
 				const target = ensureShadow();
 				if (!target) return next(args);
 				rebuildIfStale();

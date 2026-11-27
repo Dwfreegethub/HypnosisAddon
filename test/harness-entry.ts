@@ -51,3 +51,4 @@ export * as poseWatch from "../src/pose-watch";
 export * as phantom from "../src/phantom";
 export * as popupTouch from "../src/popup-touch";
 export * as withoutEchs from "../src/without-echs";
+export * as see from "../src/see";

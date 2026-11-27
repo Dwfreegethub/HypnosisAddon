@@ -13,6 +13,15 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.21.0 · 26 November 2026
+
+- **See yourself otherwise.** *"Missy, you see yourself naked"* (or topless, in your underwear,
+  without your bra…) and only your own screen shows you undressed. *"Your wrists are bound in
+  rope"*, *"you see yourself tied up"*, *"…cuffed"*, *"…gagged"*, *"…blindfolded"* show you rope,
+  cuffs, chains, tape, a gag or a blindfold that aren't there. Everyone else sees you as you are, and
+  the imagined rope doesn't hold you. *"The ropes are gone"* or *"you can see yourself again"* ends it.
+  The permission *Clothing Illusion* is now called *Illusions* and covers these too.
+
 ## v1.20.0 · 26 November 2026
 
 - **Played without ECHS? Tell your owner.** A new setting on the General tab, off unless you pick
