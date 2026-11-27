@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.23.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.23.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -742,12 +742,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/real-effects.ts
-  var GAGS, BLINDS, BODY, REAL_EFFECTS, REAL_EFFECT_NAMES;
+  var GAGS, BLINDS, BODY, REAL_EFFECTS, REAL_EFFECT_NAMES, SHARED_REAL_EFFECTS;
   var init_real_effects = __esm({
     "src/real-effects.ts"() {
       GAGS = ["GagVeryLight", "GagEasy", "GagLight", "GagNormal", "GagMedium", "GagHeavy", "GagVeryHeavy", "GagTotal", "GagTotal2", "GagTotal3", "GagTotal4"];
       BLINDS = ["BlindLight", "BlindNormal", "BlindHeavy", "BlindTotal"];
-      BODY = ["Block", "Prone", "Slow", "CuffedArms", "CuffedLegs", "CuffedFeet"];
+      BODY = ["Block", "Prone", "Slow", "CuffedArms", "CuffedLegs", "CuffedFeet", "MapImmobile"];
       REAL_EFFECTS = {
         ...Object.fromEntries(BODY.map((e) => [e, "movementRestriction"])),
         BlockMouth: "speechRestriction",
@@ -755,6 +755,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         ...Object.fromEntries(BLINDS.map((e) => [e, "sightControl"]))
       };
       REAL_EFFECT_NAMES = Object.keys(REAL_EFFECTS);
+      SHARED_REAL_EFFECTS = { Freeze: "movementRestriction", BlockWardrobe: "clothingRestriction" };
     }
   });
 
@@ -4179,20 +4180,39 @@ One of mods you are using is using an old version of SDK. It will work for now b
   });
 
   // src/feel-real.ts
+  function ownedSharedList() {
+    return [...ownedShared];
+  }
+  function adoptOwnedShared(list) {
+    if (Array.isArray(list)) {
+      for (const e of list) if (typeof e === "string" && SHARED_REAL_EFFECTS[e]) ownedShared.add(e);
+    }
+  }
+  function setSharedHeldElsewhere(fn) {
+    heldElsewhere = fn;
+  }
   function isReal() {
     return real;
   }
   function makeReal(allowed) {
-    const wanted = ghostEffects().filter((e) => REAL_EFFECTS[e]);
+    const wanted = ghostEffects().filter((e) => REAL_EFFECTS[e] || SHARED_REAL_EFFECTS[e]);
     const applied2 = [];
     const skipped = [];
     const verdict = /* @__PURE__ */ new Map();
     for (const e of wanted) {
-      const key = REAL_EFFECTS[e];
+      const key = REAL_EFFECTS[e] ?? SHARED_REAL_EFFECTS[e];
       if (!verdict.has(key)) verdict.set(key, allowed(key));
       const why = verdict.get(key);
       if (why) {
         if (!skipped.some((s) => s.key === key)) skipped.push({ key, why });
+        continue;
+      }
+      if (SHARED_REAL_EFFECTS[e]) {
+        if (heldByUs(e)) applied2.push(e);
+        else if (applyEffect(e)) {
+          ownedShared.add(e);
+          applied2.push(e);
+        }
         continue;
       }
       if (heldByUs(e) || applyEffect(e)) applied2.push(e);
@@ -4206,6 +4226,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     real = false;
     let any = false;
     for (const e of REAL_EFFECT_NAMES) if (removeEffect(e)) any = true;
+    for (const e of [...ownedShared]) {
+      ownedShared.delete(e);
+      if (heldElsewhere(e)) continue;
+      if (removeEffect(e)) any = true;
+    }
     if (any) log("feel real: let go");
     return was || any;
   }
@@ -4220,22 +4245,24 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function realReport(r) {
     if (r.none) return "[suggestion] Nothing they see can hold anyone: no restriction to make real.";
-    const kinds = [...new Set(r.applied.map((e) => REAL_EFFECTS[e]))];
+    const kinds = [...new Set(r.applied.map((e) => REAL_EFFECTS[e] ?? SHARED_REAL_EFFECTS[e]))];
     const did = kinds.map((k) => KIND_WORDS[k]).filter(Boolean);
     const not = r.skipped.map((s) => `${KIND_PERMISSION[s.key] ?? s.key}: ${s.why}`);
     if (!did.length) return `[suggestion] It can't hold them: ${not.join("; ")}.`;
     return `[suggestion] It feels real to them now: it ${did.join(", ")}.${not.length ? ` Not the rest (${not.join("; ")}).` : ""} "the ropes are gone" or their safeword ends it.`;
   }
-  var real, THINGS, REAL_LINES, UNREAL_LINES, REAL_ACTION, KIND_WORDS, KIND_PERMISSION;
+  var ownedShared, heldElsewhere, real, THINGS, REAL_LINES, UNREAL_LINES, REAL_ACTION, KIND_WORDS, KIND_PERMISSION;
   var init_feel_real = __esm({
     "src/feel-real.ts"() {
       init_log();
       init_effects();
       init_illusion();
       init_real_effects();
+      ownedShared = /* @__PURE__ */ new Set();
+      heldElsewhere = () => false;
       real = false;
       onSeeingDropped(() => {
-        if (real || REAL_EFFECT_NAMES.some((e) => heldByUs(e))) unmakeReal();
+        if (real || ownedShared.size || REAL_EFFECT_NAMES.some((e) => heldByUs(e))) unmakeReal();
       });
       THINGS = String.raw`(?:ropes?|cuffs|handcuffs|chains?|tape|gag|blindfold|bonds|bindings|restraints|knots)`;
       REAL_LINES = [
@@ -4250,8 +4277,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         new RegExp(String.raw`\b(?:the |your )?${THINGS} (?:are|is) (?:only|just) (?:a picture|in your head|an illusion)\b`)
       ];
       REAL_ACTION = "see:real";
-      KIND_WORDS = { movementRestriction: "holds their body", speechRestriction: "gags them", sightControl: "blinds them" };
-      KIND_PERMISSION = { movementRestriction: "Movement Restriction", speechRestriction: "Speech Restriction", sightControl: "Sight" };
+      KIND_WORDS = { movementRestriction: "holds their body", speechRestriction: "gags them", sightControl: "blinds them", clothingRestriction: "keeps them out of their wardrobe" };
+      KIND_PERMISSION = { movementRestriction: "Movement Restriction", speechRestriction: "Speech Restriction", sightControl: "Sight", clothingRestriction: "Clothing Restriction" };
     }
   });
 
@@ -4749,7 +4776,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       selfTouch: selfTouchSnapshot(),
       illusion: illusionSnapshot(),
       ...currentSees().length ? { sees: currentSees().map(seeActionId) } : {},
-      ...isReal() ? { seeReal: true } : {},
+      ...isReal() ? { seeReal: true, seeRealOwned: ownedSharedList() } : {},
       // Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
       // ours, so saving another add-on's Freeze would make it ours after a reload.
       effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
@@ -4881,7 +4908,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let lost = false;
     for (const see of sees) if (!showSee(see)) lost = true;
     if (lost) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
-    if (saved.seeReal && sees.some((x) => x.kind === "bind")) makeReal((k) => getFeatures()[k] ? null : "not enabled");
+    if (saved.seeReal && sees.some((x) => x.kind === "bind")) {
+      makeReal((k) => getFeatures()[k] ? null : "not enabled");
+      adoptOwnedShared(saved.seeRealOwned);
+    }
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
         tellPlayer("Coming back, you catch sight of yourself as you actually are.");
@@ -12632,6 +12662,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
       ];
       registerCarryHandlers(applyActionById, undoActionById);
       registerHiddenHandler("see-item", handlePickedItem);
+      setSharedHeldElsewhere((e) => {
+        const said = appliedSuggestions();
+        if (e === "Freeze") return isHypnotized() || said.includes("movement-block") || said.includes("movement-lock") || carriedIds().some((c) => c === "movement-block" || c === "movement-lock");
+        if (e === "BlockWardrobe") return said.includes("clothing-block") || carriedIds().includes("clothing-block");
+        return false;
+      });
       registerTriggerRecovery(() => listTriggers().filter((t) => isActive(timerKey(t))).map(holdRecord), restoreHold);
       onWakeKeep((hypnotizedAt) => {
         const kept = listTriggers().filter((t) => isActive(timerKey(t)) && (holdStartedAt.get(timerKey(t)) ?? Infinity) < hypnotizedAt);
@@ -12865,7 +12901,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.23.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.23.1", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12914,7 +12950,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.23.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.23.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -15461,7 +15497,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -15534,7 +15570,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -16358,7 +16394,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.23.0", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.23.1", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -20143,7 +20179,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.23.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.23.1"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -21542,7 +21578,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.23.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.23.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -21569,7 +21605,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.23.0"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.23.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -21649,14 +21685,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.23.0"})`);
+      info(`script loaded (v${"1.23.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.23.0",
+          version: "1.23.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -21814,10 +21850,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.23.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.23.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.23.0";
+    page2.__ECHS_LOADED__ = "1.23.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

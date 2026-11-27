@@ -33,7 +33,7 @@ import {
 } from "./illusion";
 import { seeActionId, parseSeeId } from "./see";
 import { REAL_EFFECT_NAMES } from "./real-effects";
-import { isReal, makeReal } from "./feel-real";
+import { isReal, makeReal, ownedSharedList, adoptOwnedShared } from "./feel-real";
 import { clearOrgasmDenial } from "./arousal";
 import { applyFollow, releaseFollow, isFollowActive, followTargetId } from "./follow";
 import { restoreTranceEyes } from "./eyes";
@@ -139,6 +139,8 @@ export interface SavedSession {
 	sees?: string[];
 	/** "The ropes feel real" was on (v1.22.0). */
 	seeReal?: true;
+	/** Which of Freeze / BlockWardrobe it put on itself (v1.23.1), so letting go still takes them off. */
+	seeRealOwned?: string[];
 	/** Which of OUR BC effects were applied. These ride on the Emoticon item and usually
 	 * survive a reload on their own — but an appearance sync that lands before the
 	 * AllowEffect patch strips them, so re-asserting is the difference between usually and
@@ -225,7 +227,7 @@ export function snapshotLocalState(): Omit<
 		selfTouch: selfTouchSnapshot(),
 		illusion: illusionSnapshot(),
 		...(currentSees().length ? { sees: currentSees().map(seeActionId) } : {}),
-		...(isReal() ? { seeReal: true as const } : {}),
+		...(isReal() ? { seeReal: true as const, seeRealOwned: ownedSharedList() } : {}),
 		// Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
 		// ours, so saving another add-on's Freeze would make it ours after a reload.
 		effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
@@ -472,7 +474,10 @@ function restoreLocalState(saved: SavedSession): void {
 	for (const see of sees) if (!showSee(see)) lost = true;
 	if (lost) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
 	// The hold comes back with the picture, under her permissions as they are now.
-	if (saved.seeReal && sees.some((x) => x.kind === "bind")) makeReal((k) => (getFeatures()[k] ? null : "not enabled"));
+	if (saved.seeReal && sees.some((x) => x.kind === "bind")) {
+		makeReal((k) => (getFeatures()[k] ? null : "not enabled"));
+		adoptOwnedShared(saved.seeRealOwned);
+	}
 	if (saved.illusion?.length) {
 		if (!restoreIllusion(saved.illusion)) {
 			tellPlayer("Coming back, you catch sight of yourself as you actually are.");

@@ -50,7 +50,7 @@ import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, Arousa
 import { freezeAppearance, clearIllusion, showSee, clearSee, currentSee } from "./illusion";
 import { matchSeeRelease, matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
 import { registerHiddenHandler } from "./messaging";
-import { matchFeelReal, makeReal, unmakeReal, isReal, bindingsShown, realReport, REAL_ACTION } from "./feel-real";
+import { matchFeelReal, makeReal, unmakeReal, isReal, bindingsShown, realReport, REAL_ACTION, setSharedHeldElsewhere } from "./feel-real";
 import { undress, UndressResult } from "./undress";
 import {
 	carryThese,
@@ -4154,6 +4154,14 @@ function undoActionById(id: string): void {
 registerCarryHandlers(applyActionById, undoActionById);
 // The bondage picker's item (v1.23.0).
 registerHiddenHandler("see-item", handlePickedItem);
+// "The ropes feel real" lets go of a Freeze or wardrobe block it put on only when nothing else wants it
+// (v1.23.1): "you cannot move", the wardrobe block, or the trance itself.
+setSharedHeldElsewhere((e) => {
+	const said = appliedSuggestions();
+	if (e === "Freeze") return isHypnotized() || said.includes("movement-block") || said.includes("movement-lock") || carriedIds().some((c) => c === "movement-block" || c === "movement-lock");
+	if (e === "BlockWardrobe") return said.includes("clothing-block") || carriedIds().includes("clothing-block");
+	return false;
+});
 
 // --- surviving a disconnect ---------------------------------------------------------------
 // A trigger was never part of the session — the whole point of one is that it fires outside

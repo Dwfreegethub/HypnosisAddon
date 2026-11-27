@@ -13,18 +13,35 @@
 // Each effect needs her permission for its kind, at its depth: body (Movement Restriction), speech
 // (Speech Restriction), sight (Sight). What is left out is told to the hypnotist.
 //
-// Freeze and BlockWardrobe are never taken from the items: ECHS already holds those for "you cannot
-// move" and the wardrobe block, and letting go of the ropes must not let go of those. Block already
-// stops her changing clothes. Every effect in REAL_EFFECTS is this module's alone, so letting go
-// takes them all off, and recovery treats any left on the carrier as orphans.
+// Freeze and BlockWardrobe (v1.23.1, DW: Floor Shackles "Nothing they see can hold anyone"): ECHS also
+// holds those for "you cannot move", the wardrobe block and the trance. So they are taken from an item
+// only when nothing else holds them (ownedShared), and given back only if this put them on and nothing
+// else wants them by then (setSharedHeldElsewhere, from voice.ts). Every effect in REAL_EFFECTS is this
+// module's alone, so letting go takes them all off, and recovery treats any left over as orphans.
 
 import { log } from "./log";
 import { applyEffect, removeEffect, heldByUs } from "./effects";
 import { ghostEffects, onSeeingDropped, currentSee } from "./illusion";
 import type { FeatureToggles } from "./storage";
-import { REAL_EFFECTS, REAL_EFFECT_NAMES } from "./real-effects";
+import { REAL_EFFECTS, REAL_EFFECT_NAMES, SHARED_REAL_EFFECTS } from "./real-effects";
 
-export { REAL_EFFECTS, REAL_EFFECT_NAMES };
+export { REAL_EFFECTS, REAL_EFFECT_NAMES, SHARED_REAL_EFFECTS };
+
+/** Freeze / BlockWardrobe this put on itself (v1.23.1), and so may take off. */
+const ownedShared = new Set<string>();
+/** Whether something else in ECHS still wants a shared effect when letting go: "you cannot move",
+ * the wardrobe block, the trance. Set by voice.ts (which knows what was said) to keep this a leaf. */
+let heldElsewhere: (effect: string) => boolean = () => false;
+/** For a reload: which shared effects were this module's. */
+export function ownedSharedList(): string[] {
+	return [...ownedShared];
+}
+export function adoptOwnedShared(list: unknown): void {
+	if (Array.isArray(list)) for (const e of list) if (typeof e === "string" && SHARED_REAL_EFFECTS[e]) ownedShared.add(e);
+}
+export function setSharedHeldElsewhere(fn: (effect: string) => boolean): void {
+	heldElsewhere = fn;
+}
 
 /** Is "they feel real" on? */
 let real = false;
@@ -37,16 +54,25 @@ export type RealResult = { applied: string[]; skipped: { key: keyof FeatureToggl
 /** Put the imagined items' effects on her. `allowed(key)` answers null when she may have that kind,
  * or why not. Called again when more is added to the illusion while it is real. */
 export function makeReal(allowed: (key: keyof FeatureToggles) => string | null): RealResult {
-	const wanted = ghostEffects().filter((e) => REAL_EFFECTS[e]);
+	const wanted = ghostEffects().filter((e) => REAL_EFFECTS[e] || SHARED_REAL_EFFECTS[e]);
 	const applied: string[] = [];
 	const skipped: RealResult["skipped"] = [];
 	const verdict = new Map<keyof FeatureToggles, string | null>();
 	for (const e of wanted) {
-		const key = REAL_EFFECTS[e];
+		const key = REAL_EFFECTS[e] ?? SHARED_REAL_EFFECTS[e];
 		if (!verdict.has(key)) verdict.set(key, allowed(key));
 		const why = verdict.get(key);
 		if (why) {
 			if (!skipped.some((s) => s.key === key)) skipped.push({ key, why });
+			continue;
+		}
+		if (SHARED_REAL_EFFECTS[e]) {
+			// Already held for something else: it stays that thing's, and holds her anyway.
+			if (heldByUs(e)) applied.push(e);
+			else if (applyEffect(e)) {
+				ownedShared.add(e);
+				applied.push(e);
+			}
 			continue;
 		}
 		if (heldByUs(e) || applyEffect(e)) applied.push(e);
@@ -62,6 +88,11 @@ export function unmakeReal(): boolean {
 	real = false;
 	let any = false;
 	for (const e of REAL_EFFECT_NAMES) if (removeEffect(e)) any = true;
+	for (const e of [...ownedShared]) {
+		ownedShared.delete(e);
+		if (heldElsewhere(e)) continue;
+		if (removeEffect(e)) any = true;
+	}
 	if (any) log("feel real: let go");
 	return was || any;
 }
@@ -73,7 +104,7 @@ export function bindingsShown(): boolean {
 
 // The picture going (released, replaced, the safeword) takes the hold with it.
 onSeeingDropped(() => {
-	if (real || REAL_EFFECT_NAMES.some((e) => heldByUs(e))) unmakeReal();
+	if (real || ownedShared.size || REAL_EFFECT_NAMES.some((e) => heldByUs(e))) unmakeReal();
 });
 
 // --- wording -------------------------------------------------------------------------------------
@@ -101,13 +132,13 @@ export function matchFeelReal(line: string): "real" | "unreal" | null {
 
 export const REAL_ACTION = "see:real";
 
-const KIND_WORDS: Partial<Record<keyof FeatureToggles, string>> = { movementRestriction: "holds their body", speechRestriction: "gags them", sightControl: "blinds them" };
-const KIND_PERMISSION: Partial<Record<keyof FeatureToggles, string>> = { movementRestriction: "Movement Restriction", speechRestriction: "Speech Restriction", sightControl: "Sight" };
+const KIND_WORDS: Partial<Record<keyof FeatureToggles, string>> = { movementRestriction: "holds their body", speechRestriction: "gags them", sightControl: "blinds them", clothingRestriction: "keeps them out of their wardrobe" };
+const KIND_PERMISSION: Partial<Record<keyof FeatureToggles, string>> = { movementRestriction: "Movement Restriction", speechRestriction: "Speech Restriction", sightControl: "Sight", clothingRestriction: "Clothing Restriction" };
 
 /** What the hypnotist is told. */
 export function realReport(r: RealResult): string {
 	if (r.none) return "[suggestion] Nothing they see can hold anyone: no restriction to make real.";
-	const kinds = [...new Set(r.applied.map((e) => REAL_EFFECTS[e]))];
+	const kinds = [...new Set(r.applied.map((e) => REAL_EFFECTS[e] ?? SHARED_REAL_EFFECTS[e]))];
 	const did = kinds.map((k) => KIND_WORDS[k]).filter(Boolean);
 	const not = r.skipped.map((s) => `${KIND_PERMISSION[s.key] ?? s.key}: ${s.why}`);
 	if (!did.length) return `[suggestion] It can't hold them: ${not.join("; ")}.`;
