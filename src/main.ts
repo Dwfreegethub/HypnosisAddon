@@ -8,6 +8,8 @@ import { installMenu } from "./menu";
 import { installIllusion } from "./illusion";
 import { installOutfitWatch } from "./outfit-watch";
 import { installPoseWatch } from "./pose-watch";
+import { installWithoutEchs, onSettingChanged } from "./without-echs";
+import { onReportWithoutChange } from "./storage";
 import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine, noticeTrustLine } from "./session";
@@ -346,5 +348,10 @@ safely("clothing illusion", () => installIllusion(modApi));
 safely("clothing compulsions", () => installOutfitWatch(modApi));
 // Pose compulsions (v1.19.7): hears her pose changing, read only; ECHS's own posing never counts.
 safely("pose compulsions", () => installPoseWatch(modApi));
+// Telling her owner or full keyholders she played without ECHS (v1.20.0), only if she turned it on.
+safely("without-ECHS report", () => {
+	onReportWithoutChange(onSettingChanged);
+	installWithoutEchs(modApi);
+});
 // "You cannot take it off" (v1.19.4): her own removal of a held item, refused on her client.
 safely("held items stay on", () => installNoRemove(modApi));
