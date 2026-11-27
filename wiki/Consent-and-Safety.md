@@ -111,6 +111,17 @@ Set it on the popup's **Access** tab, on the **Stats** tab of the settings (the 
 
 ---
 
+### Playing without ECHS
+
+Off by default, and while it is off ECHS keeps nothing about it. Turn it on (Settings → **General** → **Played without ECHS, tell:**) and ECHS keeps a small note on your account of when it last ran, the room Bondage Club would put you back in, what restraints and locks you wear, and a fingerprint of your clothes. When you next log in with ECHS it compares that note with what Bondage Club loaded. If something changed, you were on without ECHS, and the people you chose get a **BC beep** saying roughly when and what changed. They get one beep when they are online and another the first time they are in a room with you. You are told each time one goes out.
+
+* **Being offline is never reported.** A gap on its own changes nothing, so it shows nothing.
+* **What shows it:** leaving a room (pressing *Leave*), being in a different room, restraints or locks put on or taken off, clothes changed. A timer lock that simply ran out doesn't count.
+* **What it can't see:** logging in, sitting in the room you were already in, and closing the tab, with nothing changed. Nor anything you said or did.
+* **Who it reaches:** a beep only reaches someone who has **you on their friend list**. A report nobody received within 7 days is dropped, and you are told.
+* It can be fooled (a second account, editing your own account data). It's a deterrent, not proof.
+* The settings locks hold it like your other settings, so a keyholder lock keeps it on. `/echs safeword` is untouched by it.
+
 ## 6. Every Way Out
 
 These exits cannot be disabled, locked, or overridden by any hypnotic command, trigger, or active session:
@@ -156,6 +167,7 @@ Since v1.14.0 you can give someone your **keys**: they can then change your ECHS
 * **The keys lock** (since v1.16.3). Locks **who holds your keys**: while it holds you can't give anyone your keys or take anyone's back, and nobody can ask you for them. Your keyholders keep what they have.
   * Your **BC owner**, if they hold your **full** keys, can set it **without asking you**. Anyone else with your full keys has to ask, and you get a popup like the keyholder lock's.
   * Any of your full keyholders can lift it. It ends on its own if whoever set it hasn't been in a room with you for **7 days**. `/echs safeword` and `/echs reset confirm` always work.
+* **Playing without ECHS** (since v1.20.0). Off unless you choose it: Settings → **General** → **Played without ECHS, tell:** your **BC owner**, your **full keyholders**, or both. See below.
 * **Taking back other keyholders' keys** (since v1.16.3; anyone with full keys since v1.16.4). Anyone with your **full** keys sees who else holds your keys and can ask to **take someone's keys back**: you get a popup, and nothing changes unless you accept. Your **BC owner**, if they hold your full keys, doesn't need to ask. You're told each time. Exceptions: whoever locked your settings keeps their keys until that lock is lifted, and while your keys lock holds only your owner can do this.
 * **Extreme from a keyholder** (since v1.16.3). Someone with your **full** keys can ask to put you under Extreme, or to extend it by 30 days. You get a popup with the whole Extreme warning, and **nothing happens unless you accept**. It is the same lock as choosing Extreme in setup: 7 days first, then 30 days at a time.
 * **Even under Extreme.** Your keyholders can still change your settings while your Extreme lock is on, and **they can end the lock for you**. That is the point of it. Under the lock, your own list of keyholders is read-only, like your other settings.

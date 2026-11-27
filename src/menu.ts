@@ -92,7 +92,8 @@ import {
 	accessLevelOf, ACCESS_LEVELS, AccessLevel,
 } from "./storage";
 import { changeAccess, ACCESS_LABELS, ACCESS_WORDS } from "./access";
-import type { TriggerScope, DecayRate, DropMode, TriggerView } from "./storage";
+import type { TriggerScope, DecayRate, DropMode, TriggerView, ReportWithout } from "./storage";
+import { REPORT_WITHOUT, getReportWithout, setReportWithout } from "./storage";
 import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
@@ -996,6 +997,7 @@ function fullOnlyChoices(): RemoteChoice[] {
 		full("Triggers", "triggerDecay", "Triggers fade without reinforcement", DECAY_RATES, getTriggerDecayRate, (v) => setTriggerDecayRate(v as DecayRate)),
 		full("Triggers", "dropTriggers", "Drop triggers", DROP_MODES, getDropMode, (v) => setDropMode(v as DropMode)),
 		full("Triggers", "triggerView", "My triggers list", TRIGGER_VIEWS, getTriggerView, (v) => setTriggerView(v as TriggerView)),
+		full("General", "reportWithout", "Played without ECHS, tell", REPORT_WITHOUT, getReportWithout, (v) => setReportWithout(v as ReportWithout)),
 		full("Stats", "trustDecay", "Trust fades when you don't see someone", DECAY_RATES, getDecayRate, (v) => setDecayRate(v as DecayRate)),
 	];
 	for (const gate of DEPTH_GATES) {
@@ -1036,6 +1038,18 @@ function fullOnlyChoices(): RemoteChoice[] {
 /** The General tab's two choices (v1.16.37; on Trance Defaults before). Neither is held by the
  * settings lock: they are what you see, not what may be done to you. */
 const GENERAL_DROPDOWNS: DropdownRow[] = [
+	{
+		// Playing without ECHS (v1.20.0, DW): off by default. Held by the settings locks, unlike the two below.
+		id: "HypnosisAddonReportWithout",
+		label: "Played without ECHS, tell:",
+		options: REPORT_WITHOUT,
+		get: getReportWithout,
+		set: (key) => setReportWithout(key as ReportWithout),
+		caption: () =>
+			getReportWithout() === "off"
+				? "Nobody is told and nothing is kept. Pick someone and ECHS beeps them if you play without it."
+				: "If BC shows something changed while ECHS was off, they get a beep. They need you as a friend.",
+	},
 	{
 		// Where other players' ECHS icons are drawn (v1.7.0).
 		id: "HypnosisAddonIconSpot",

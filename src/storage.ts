@@ -559,6 +559,10 @@ interface HypnoAddonSettings {
 	 * the player, only since a reset). Shown on her own Stats tab. A reset makes a fresh save, so it
 	 * starts again; a save from before this has none and starts the first time it is read. */
 	usingSince?: number;
+	/** Who hears that she played without ECHS (v1.20.0, DW): one of REPORT_WITHOUT. Off by default. */
+	reportWithout?: ReportWithout;
+	/** Reports waiting to reach someone (without-echs.ts). */
+	withoutReports?: WithoutReport[];
 	/** Set once the v1.8.0 Friends rung has been applied to this save. Before it, "whitelist" did
 	 * not include friends; from it, it does. So a save without this mark that says "whitelist" is
 	 * moved down to "friends" once, and nobody's circle widens without their choosing (DW,
@@ -771,6 +775,13 @@ function normalise(settings: HypnoAddonSettings | null): HypnoAddonSettings {
 	if (s.toyScope !== undefined && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
 	if (s.toyScope !== undefined && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
 	// Not a time, or in the future: dropped, and it starts again from when it is next read.
+	if (s.reportWithout !== undefined && !REPORT_WITHOUT.some((m) => m.key === s.reportWithout)) delete s.reportWithout;
+	if (s.withoutReports !== undefined) {
+		s.withoutReports = Array.isArray(s.withoutReports)
+			? s.withoutReports.filter((r: any) => r && Number.isInteger(r.to) && r.to > 0 && typeof r.text === "string" && typeof r.at === "number" && typeof r.name === "string").slice(-20)
+			: [];
+		if (!s.withoutReports.length) delete s.withoutReports;
+	}
 	if (s.usingSince !== undefined && (typeof s.usingSince !== "number" || !Number.isFinite(s.usingSince) || s.usingSince > Date.now() + 86_400_000)) delete s.usingSince;
 	if (s.friendsRung !== true) {
 		if (s.triggerScope === "whitelist") s.triggerScope = "friends";
@@ -951,6 +962,47 @@ export function flushAccountSync(): void {
 	} catch (err) {
 		warn("could not send ECHS settings to the server; they are kept on this device and go with the next save", err);
 	}
+}
+
+/** Telling her BC owner and/or full keyholders that she played without ECHS (v1.20.0, DW 2026-11-26:
+ * "leave everything off by default"). Read-only under the settings locks like her other settings;
+ * full keyholders can change it. See without-echs.ts. */
+export type ReportWithout = "off" | "owner" | "full" | "both";
+export const REPORT_WITHOUT: { key: ReportWithout; label: string }[] = [
+	{ key: "off", label: "Nobody (off)" },
+	{ key: "owner", label: "My BC owner" },
+	{ key: "full", label: "My full keyholders" },
+	{ key: "both", label: "Owner and full keyholders" },
+];
+export type WithoutReport = { to: number; name: string; text: string; at: number; beeped?: number };
+
+export function getReportWithout(): ReportWithout {
+	return loadSettings().reportWithout ?? "off";
+}
+/** Hooks run on a change (without-echs.ts starts or ends its record); set by main so storage stays a leaf. */
+let reportWithoutListener: ((v: ReportWithout) => void) | null = null;
+export function onReportWithoutChange(fn: (v: ReportWithout) => void): void {
+	reportWithoutListener = fn;
+}
+export function setReportWithout(mode: ReportWithout): ReportWithout {
+	const value = REPORT_WITHOUT.some((m) => m.key === mode) ? mode : "off";
+	const s = loadSettings();
+	const was = s.reportWithout ?? "off";
+	if (value === "off") delete s.reportWithout;
+	else s.reportWithout = value;
+	saveSettings();
+	if (was !== value) reportWithoutListener?.(value);
+	return value;
+}
+export function getWithoutReports(): WithoutReport[] {
+	const list = loadSettings().withoutReports;
+	return Array.isArray(list) ? list.map((r) => ({ ...r })) : [];
+}
+export function setWithoutReports(list: WithoutReport[]): void {
+	const s = loadSettings();
+	if (list.length) s.withoutReports = list.slice(-20);
+	else delete s.withoutReports;
+	saveSettings();
 }
 
 /** Since when she has used ECHS, counted from her last reset (v1.16.8). A save from before this

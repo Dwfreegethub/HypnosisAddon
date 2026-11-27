@@ -218,6 +218,8 @@ Under the list:
 
 These two are your own display choices, so no lock stops you changing them.
 
+* **Played without ECHS, tell:** *Nobody (off) · My BC owner · My full keyholders · Owner and full keyholders* (default: *Nobody*, since v1.20.0). Unlike the two above, the settings locks hold it, and a full keyholder can change it. See [Playing without ECHS](Consent-and-Safety#playing-without-echs).
+
 **Your data** (since v1.16.38; on the Stats tab before), at the end of the tab:
 
 * **Export · Import · Reset:** Back up your settings to the clipboard, restore them, or wipe everything (asks first). See [Data & Backup](#11-data--backup). Under the Extreme lock, Export and Reset still work; Import says it is locked.

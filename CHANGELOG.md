@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.20.0 · 26 November 2026
+
+- **Played without ECHS? Tell your owner.** A new setting on the General tab, off unless you pick
+  someone: your BC owner, your full keyholders, or both. If you log in without ECHS and something
+  changes (you leave a room, a restraint or lock goes on or off, your clothes change), ECHS beeps
+  them about it the next time you play with it: once when they're online, again when they're in a
+  room with you. Just being offline is never reported. They need you on their friend list.
+
 ## v1.19.8 · 26 November 2026
 
 - **"This trigger holds while you kneel."** Added to a pose compulsion, it holds for as long as you
