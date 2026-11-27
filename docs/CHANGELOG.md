@@ -18,6 +18,24 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.22.0) — "the ropes feel real"
+
+DW: "Can we look at the restrictions that the item applies and have a command something like they feel
+real to you", then "build they feel real and make that as the default message to remind the hypnotist
+that the bindings dont work by default". src/feel-real.ts: makeReal reads ghostEffects() (illusion.ts:
+the ghost items' Asset.Effect + option Property.Effect) and puts each effect listed in real-effects.ts
+(Block, Prone, Slow, Cuffed*, BlockMouth, Gag*, Blind*) on the Emoticon through effects.applyEffect,
+gated by kind: movementRestriction / speechRestriction / sightControl at that gate's depth (a trigger:
+its strength). Freeze and BlockWardrobe are never taken from items, since ECHS holds them for other
+suggestions, so every REAL effect is feel-real's alone and letting go removes them all. Ends on
+illusion.ts onSeeingDropped (released, replaced, safeword via clearIllusion), "…not real", trigger undo;
+recovery saves seeReal and re-makes it with the picture, and counts leftover REAL effects as orphans
+(releaseOurEffects takes them off). The allow-list (MANAGED_EFFECTS) gains them. Wording: "the ropes /
+cuffs / gag feel(s) real", "they feel real" (a bare one only while bindings are shown or planting), "you
+feel the ropes"; "…not real", "they don't feel real". Action id `see:real`. bindReminder(name) replaces
+the v1.21.0 reminder; a bind illusion added while real is made real too. Tested in test/feel-real.mjs
+(23, three mutations caught).
+
 ### Added 2026-11-26 (v1.21.0) — seeing illusions (ideas doc #7, picture half)
 
 DW: "Lets try Illusions"; on the open question, "Picture, Hypnotist can add hold and remind the tist that

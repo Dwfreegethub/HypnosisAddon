@@ -1,5 +1,6 @@
 import { log, warn, isDebugLogging } from "./log";
 import { tellPlayer, tellRoom, fillTokens } from "./notify";
+import { REAL_EFFECT_NAMES } from "./real-effects";
 
 // Same technique LSCG uses (verified in their src/utils.ts): piggyback the always-worn,
 // invisible "Emoticon" appearance item's Property.Effect array rather than depending on
@@ -12,7 +13,8 @@ const EMOTICON_ASSET_NAME = "Emoticon";
 // "Leash" is no longer put on (v1.1.0): follow.ts now answers BC's leash checks itself, since
 // a client without ECHS strips an injected Leash. It stays listed so a Leash left on the item by
 // v1.0.1 or earlier is still recognised as ours and can be taken off.
-const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
+// v1.22.0: and the ones "the ropes feel real" takes from imagined items (real-effects.ts).
+const MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash", ...REAL_EFFECT_NAMES];
 
 function findEmoticonItem(character: any): any {
 	return character?.Appearance?.find((a: any) => a?.Asset?.Name === EMOTICON_ASSET_NAME);

@@ -170,7 +170,8 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(body(`"you see yourself naked" · "your wrists are bound in rope"`));
 	lines.push(dim("   (Illusions) — only her own screen changes. Also topless, without your bra,"));
 	lines.push(dim("   in your underwear; tied up, cuffed, chained, taped, gagged, blindfolded."));
-	lines.push(dim(`   Rope never holds her. "the ropes are gone" / "you can see yourself again" end it.`));
+	lines.push(dim(`   Only a picture until "the ropes feel real": then the items' own restrictions`));
+	lines.push(dim(`   hold (body, gag, sight, by her permissions). "the ropes are gone" ends it.`));
 	return lines;
 }
 

@@ -49,6 +49,7 @@ import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion, showSee } from "./illusion";
 import { matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
+import { matchFeelReal, makeReal, unmakeReal, isReal, bindingsShown, realReport, REAL_ACTION } from "./feel-real";
 import { undress, UndressResult } from "./undress";
 import {
 	carryThese,
@@ -1998,7 +1999,7 @@ export function isTriggerSetupLine(sender: number, content: string): boolean {
 	if (line === null) return false;
 	if (parseTriggerControl(line)) return true;
 	if (!isRecording()) return false;
-	return !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+	return !!matchFeelReal(line) || !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
 }
 
 // Options the installer can speak while a trigger is being recorded (v0.87.0, design.md "Trigger
@@ -2247,7 +2248,7 @@ const PAUSE = /[,;:.!?]+\s*|\s[-–—]+\s|\s(?:and|then)\s/g;
 
 /** Is this, on its own, something that would be recorded into a trigger? */
 function isRecordableAction(text: string): boolean {
-	return !!matchSeeIllusion(text) || !!matchPhantomTouch(text) || !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
+	return !!matchFeelReal(text) || !!matchSeeIllusion(text) || !!matchPhantomTouch(text) || !!matchActivityCommand(text) || !!matchSuggestion(text) || !!matchBodyPartCommand(text);
 }
 
 /** Split a start line's raw capture at the first pause after which an action follows. `start` is
@@ -3254,6 +3255,18 @@ function fireTrigger(trigger: Trigger, speaker: number): void {
 			});
 			continue;
 		}
+		// "The ropes feel real" (v1.22.0): the imagined items' restrictions, each kind under its own
+		// permission at the trigger's strength.
+		if (id === REAL_ACTION) {
+			holding++;
+			steps.push(() => {
+				if (!bindingsShown()) return;
+				const now = getFeatures();
+				const r = makeReal((k) => (!now[k] ? "not enabled" : depthAllows(k, strength, strength) ? null : "too weak a trigger"));
+				if (r.applied.length) tellPlayer("The bindings stop being a picture. They hold you.");
+			});
+			continue;
+		}
 		// A seeing illusion (v1.21.0, "see:naked"): a hold, under Illusions, at its depth.
 		const see = parseSeeId(id);
 		if (see) {
@@ -3638,6 +3651,10 @@ function undoTrigger(trigger: Trigger): void {
 			else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
 			continue;
 		}
+		if (id === REAL_ACTION) {
+			unmakeReal();
+			continue;
+		}
 		if (id.startsWith(SEE_PREFIX)) {
 			clearIllusion();
 			continue;
@@ -3786,6 +3803,7 @@ export function describeAction(id: string): string {
 	if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
 	const phantom = parsePhantomId(id);
 	if (phantom) return describePhantom(phantom);
+	if (id === REAL_ACTION) return "the bindings feel real";
 	const seen = parseSeeId(id);
 	if (seen) return describeSee(seen);
 	if (id.startsWith("act:")) {
@@ -4087,6 +4105,11 @@ const CARRY_CANCEL = [
 /** Apply one action by id, covering both the suggestion table and the parameterised
  * body-part ids. Shared by carry's re-apply and its undo so the two cannot drift. */
 function applyActionById(id: string): void {
+	if (id === REAL_ACTION) {
+		const f = getFeatures();
+		if (bindingsShown()) makeReal((k) => (f[k] ? null : "not enabled"));
+		return;
+	}
 	const see = parseSeeId(id);
 	if (see) {
 		if (getFeatures().illusionControl) showSee(see);
@@ -4102,6 +4125,10 @@ function applyActionById(id: string): void {
 }
 
 function undoActionById(id: string): void {
+	if (id === REAL_ACTION) {
+		unmakeReal();
+		return;
+	}
 	if (id.startsWith(SEE_PREFIX)) {
 		clearIllusion();
 		return;
@@ -4724,8 +4751,56 @@ function runBareAct(key: string): boolean {
 
 /** What the hypnotist is told once a bondage illusion lands (DW: "remind the tist that the illusion
  * does not restrict movement"). */
-export const BIND_REMINDER =
-	`[suggestion] Only they see it: it doesn't hold them, and the room sees them free. To hold them too, add "you cannot move" or "you cannot touch yourself".`;
+export function bindReminder(name: string): string {
+	return `[suggestion] Only they see it, and it doesn't hold them: they can still move and use their hands, and the room sees them free. To make it hold, say "${name}, the ropes feel real".`;
+}
+
+/** Her permissions and depth, for "the ropes feel real" said aloud: null, or why not. */
+function realAllowedNow(key: keyof FeatureToggles): string | null {
+	if (!getFeatures()[key]) return "not enabled";
+	return depthRefusal(key);
+}
+
+/** "Missy, the ropes feel real" / "…are not real" (v1.22.0, feel-real.ts). Returns true when the
+ * line was one. A bare "it feels real" is only taken while she sees bindings, or while planting. */
+function handleFeelReal(sender: number, content: string): boolean {
+	const kind = matchFeelReal(content);
+	if (!kind) return false;
+	const generic = !/\b(?:ropes?|cuffs|handcuffs|chains?|tape|gag|blindfold|bonds|bindings|restraints|knots)\b/.test(content.toLowerCase());
+	if (generic && !bindingsShown() && !isRecording() && !isReal()) return false;
+	if (!isSessionActiveWith(sender)) {
+		log(`heard "feel real" from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) return true;
+	if (!getFeatures().hypnoEnabled) return true;
+	if (kind === "unreal") {
+		if (unmakeReal()) {
+			tellPlayer("The bindings are only a picture again. Nothing holds you.");
+			noteReleased(REAL_ACTION);
+			dropCarried(REAL_ACTION);
+			noteLanded(sender);
+		} else tellHypnotist(sender, "[suggestion] Nothing to let go: the bindings weren't holding them.");
+		return true;
+	}
+	const recorded = recordAction(REAL_ACTION);
+	if (recorded) {
+		tellPlayer(recorded);
+		return true;
+	}
+	if (!bindingsShown()) {
+		tellHypnotist(sender, '[suggestion] Nothing to make real: they don\'t see any bindings right now. Show them first ("you see yourself tied up").');
+		return true;
+	}
+	const r = makeReal(realAllowedNow);
+	tellHypnotist(sender, realReport(r));
+	if (r.applied.length) {
+		tellPlayer("The bindings stop being a picture. They hold you.");
+		noteApplied(REAL_ACTION);
+		noteLanded(sender);
+	}
+	return true;
+}
 
 /** "Missy, you see yourself naked", "your wrists are bound in rope" (v1.21.0, see.ts): her own view
  * changes, nobody else's. Under "Illusions", at its depth (earned, as the clothing illusion). */
@@ -4765,7 +4840,11 @@ function handleSeeIllusion(sender: number, content: string): boolean {
 	noteApplied(id);
 	noteLanded(sender);
 	if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
-	if (see.kind === "bind") tellHypnotist(sender, BIND_REMINDER);
+	if (see.kind === "bind") {
+		// Already real (v1.22.0): what was just added holds too. Otherwise the reminder that it doesn't.
+		if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
+		else tellHypnotist(sender, bindReminder((Player?.Nickname || Player?.Name || "Missy") as string));
+	}
 	return true;
 }
 
@@ -5439,6 +5518,7 @@ function landCommand(sender: number, line: string): void {
 	if (handleDeepening(sender, line)) return;
 	// A seeing illusion (v1.21.0): "you see yourself naked", "your wrists are bound in rope". Before
 	// the table, whose release "you see yourself as you are" it leaves alone.
+	if (handleFeelReal(sender, line)) return;
 	if (handleSeeIllusion(sender, line)) return;
 	// A phantom touch (v1.19.0) first: "you feel fingers stroke your thigh" must not read as an
 	// order to stroke her own thigh.

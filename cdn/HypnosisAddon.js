@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.21.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.22.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -389,6 +389,23 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   var init_names = __esm({
     "src/names.ts"() {
+    }
+  });
+
+  // src/real-effects.ts
+  var GAGS, BLINDS, BODY, REAL_EFFECTS, REAL_EFFECT_NAMES;
+  var init_real_effects = __esm({
+    "src/real-effects.ts"() {
+      GAGS = ["GagVeryLight", "GagEasy", "GagLight", "GagNormal", "GagMedium", "GagHeavy", "GagVeryHeavy", "GagTotal", "GagTotal2", "GagTotal3", "GagTotal4"];
+      BLINDS = ["BlindLight", "BlindNormal", "BlindHeavy", "BlindTotal"];
+      BODY = ["Block", "Prone", "Slow", "CuffedArms", "CuffedLegs", "CuffedFeet"];
+      REAL_EFFECTS = {
+        ...Object.fromEntries(BODY.map((e) => [e, "movementRestriction"])),
+        BlockMouth: "speechRestriction",
+        ...Object.fromEntries(GAGS.map((e) => [e, "speechRestriction"])),
+        ...Object.fromEntries(BLINDS.map((e) => [e, "sightControl"]))
+      };
+      REAL_EFFECT_NAMES = Object.keys(REAL_EFFECTS);
     }
   });
 
@@ -966,8 +983,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     "src/effects.ts"() {
       init_log();
       init_notify();
+      init_real_effects();
       EMOTICON_ASSET_NAME = "Emoticon";
-      MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash"];
+      MANAGED_EFFECTS = ["Freeze", "BlockWardrobe", "DenialMode", "Leash", ...REAL_EFFECT_NAMES];
       POSE_GROUPS = {
         stance: ["Kneel", "KneelingSpread", "Spread", "LegsClosed", "AllFours", "Hogtied", "BaseLower"],
         arms: ["BackCuffs", "BackBoxTie", "BackElbowTouch", "OverTheHead", "Yoked", "BaseUpper"]
@@ -3228,6 +3246,27 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function isIllusionActive() {
     return frozen !== null || seeing !== null;
   }
+  function onSeeingDropped(fn) {
+    droppedListeners.push(fn);
+  }
+  function dropped() {
+    for (const fn of droppedListeners) {
+      try {
+        fn();
+      } catch (err) {
+        warn("illusion listener failed:", err);
+      }
+    }
+  }
+  function ghostEffects() {
+    const out = /* @__PURE__ */ new Set();
+    for (const g of seeing?.kind === "bind" ? ghostItems : []) {
+      for (const e of [...Array.isArray(g?.Asset?.Effect) ? g.Asset.Effect : [], ...Array.isArray(g?.Property?.Effect) ? g.Property.Effect : []]) {
+        if (typeof e === "string") out.add(e);
+      }
+    }
+    return [...out];
+  }
   function currentSee() {
     return seeing ? seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) } : null;
   }
@@ -3322,8 +3361,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log("clothing illusion already running \u2014 keeping the original snapshot");
       return true;
     }
+    const hadBind = seeing?.kind === "bind";
     seeing = null;
     ghostItems = [];
+    if (hadBind) dropped();
     frozen = Player.Appearance.filter((i) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
     rebuild();
     log(`clothing illusion applied \u2014 ${frozen.length} worn item(s) frozen`);
@@ -3338,7 +3379,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!target) return false;
     let replaced = !!frozen;
     frozen = null;
-    if (seeing && seeing.kind !== s.kind) replaced = true;
+    if (seeing && seeing.kind !== s.kind) {
+      replaced = true;
+      if (seeing.kind === "bind") dropped();
+    }
     if (s.kind === "strip") {
       const was = seeing?.kind === "strip" ? seeing.slots : null;
       const slots = s.slots === "all" || was === "all" ? "all" : [.../* @__PURE__ */ new Set([...was ?? [], ...s.slots])];
@@ -3360,9 +3404,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return replaced ? "replaced" : "ok";
   }
   function clearIllusion() {
-    if (!frozen && !seeing) return;
+    if (!frozen && !seeing) {
+      dropped();
+      return;
+    }
     frozen = null;
+    const hadBind = seeing?.kind === "bind";
     seeing = null;
+    if (hadBind) dropped();
     ghostItems = [];
     lastSignature = "";
     try {
@@ -3436,7 +3485,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     log("clothing illusion hook installed on DrawCharacter");
   }
-  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature, seeing, ghostItems;
+  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature, seeing, ghostItems, droppedListeners;
   var init_illusion = __esm({
     "src/illusion.ts"() {
       init_log();
@@ -3449,6 +3498,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       lastSignature = "";
       seeing = null;
       ghostItems = [];
+      droppedListeners = [];
     }
   });
 
@@ -4013,6 +4063,83 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/feel-real.ts
+  function isReal() {
+    return real;
+  }
+  function makeReal(allowed) {
+    const wanted = ghostEffects().filter((e) => REAL_EFFECTS[e]);
+    const applied2 = [];
+    const skipped = [];
+    const verdict = /* @__PURE__ */ new Map();
+    for (const e of wanted) {
+      const key = REAL_EFFECTS[e];
+      if (!verdict.has(key)) verdict.set(key, allowed(key));
+      const why = verdict.get(key);
+      if (why) {
+        if (!skipped.some((s) => s.key === key)) skipped.push({ key, why });
+        continue;
+      }
+      if (heldByUs(e) || applyEffect(e)) applied2.push(e);
+    }
+    real = true;
+    log(`feel real: ${applied2.join(", ") || "nothing"}${skipped.length ? `; not ${skipped.map((s) => s.key).join(", ")}` : ""}`);
+    return { applied: applied2, skipped, none: wanted.length === 0 };
+  }
+  function unmakeReal() {
+    const was = real;
+    real = false;
+    let any = false;
+    for (const e of REAL_EFFECT_NAMES) if (removeEffect(e)) any = true;
+    if (any) log("feel real: let go");
+    return was || any;
+  }
+  function bindingsShown() {
+    return currentSee()?.kind === "bind";
+  }
+  function matchFeelReal(line) {
+    const l = line.toLowerCase();
+    if (UNREAL_LINES.some((re) => re.test(l))) return "unreal";
+    if (REAL_LINES.some((re) => re.test(l))) return "real";
+    return null;
+  }
+  function realReport(r) {
+    if (r.none) return "[suggestion] Nothing they see can hold anyone: no restriction to make real.";
+    const kinds = [...new Set(r.applied.map((e) => REAL_EFFECTS[e]))];
+    const did = kinds.map((k) => KIND_WORDS[k]).filter(Boolean);
+    const not = r.skipped.map((s) => `${KIND_PERMISSION[s.key] ?? s.key}: ${s.why}`);
+    if (!did.length) return `[suggestion] It can't hold them: ${not.join("; ")}.`;
+    return `[suggestion] It feels real to them now: it ${did.join(", ")}.${not.length ? ` Not the rest (${not.join("; ")}).` : ""} "the ropes are gone" or their safeword ends it.`;
+  }
+  var real, THINGS, REAL_LINES, UNREAL_LINES, REAL_ACTION, KIND_WORDS, KIND_PERMISSION;
+  var init_feel_real = __esm({
+    "src/feel-real.ts"() {
+      init_log();
+      init_effects();
+      init_illusion();
+      init_real_effects();
+      real = false;
+      onSeeingDropped(() => {
+        if (real || REAL_EFFECT_NAMES.some((e) => heldByUs(e))) unmakeReal();
+      });
+      THINGS = String.raw`(?:ropes?|cuffs|handcuffs|chains?|tape|gag|blindfold|bonds|bindings|restraints|knots)`;
+      REAL_LINES = [
+        new RegExp(String.raw`\b(?:the |your |these |those |all the )?${THINGS}(?: on you)? (?:feels?|are|is|become|becomes) (?:completely |very |all too |suddenly |now )?real\b`),
+        /\b(?:they|it|this|that|all of it) (?:feels?|are|is|becomes?) (?:completely |very |all too |suddenly |now )?real\b/,
+        new RegExp(String.raw`\byou (?:can )?feel (?:the |your )${THINGS}\b(?! (?:loosen|go|fall|slip))`)
+      ];
+      UNREAL_LINES = [
+        new RegExp(String.raw`\b(?:the |your )?${THINGS} (?:are|is|feels?) (?:not|no longer) real\b`),
+        /\b(?:they|it) (?:are|is|feels?) (?:not|no longer) real\b/,
+        /\b(?:they|it) (?:do|does) ?n[o']?t feel real\b/,
+        new RegExp(String.raw`\b(?:the |your )?${THINGS} (?:are|is) (?:only|just) (?:a picture|in your head|an illusion)\b`)
+      ];
+      REAL_ACTION = "see:real";
+      KIND_WORDS = { movementRestriction: "holds their body", speechRestriction: "gags them", sightControl: "blinds them" };
+      KIND_PERMISSION = { movementRestriction: "Movement Restriction", speechRestriction: "Speech Restriction", sightControl: "Sight" };
+    }
+  });
+
   // src/arousal.ts
   function arousalAvailable() {
     const settings = Player?.ArousalSettings;
@@ -4507,6 +4634,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       selfTouch: selfTouchSnapshot(),
       illusion: illusionSnapshot(),
       ...currentSee() ? { see: seeActionId(currentSee()) } : {},
+      ...isReal() ? { seeReal: true } : {},
       // Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
       // ours, so saving another add-on's Freeze would make it ours after a reload.
       effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
@@ -4533,11 +4661,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function releaseOurEffects() {
     removeEffect("Freeze");
     removeEffect("BlockWardrobe");
+    for (const e of REAL_EFFECT_NAMES) removeEffect(e);
     releaseFollow();
     clearOrgasmDenial();
   }
   function hasOrphanedEffects() {
-    return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode") || hasOwnEffect("Leash");
+    return hasOwnEffect("Freeze") || hasOwnEffect("BlockWardrobe") || hasOwnEffect("DenialMode") || hasOwnEffect("Leash") || REAL_EFFECT_NAMES.some((e) => hasOwnEffect(e));
   }
   function describeCurrentState() {
     const st = snapshotLocalState();
@@ -4635,6 +4764,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (saved.pose) restoreSuggestedPose(saved.pose);
     const see = typeof saved.see === "string" ? parseSeeId(saved.see) : null;
     if (see && !showSee(see)) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
+    else if (see?.kind === "bind" && saved.seeReal) makeReal((k) => getFeatures()[k] ? null : "not enabled");
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
         tellPlayer("Coming back, you catch sight of yourself as you actually are.");
@@ -4772,6 +4902,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_selftouch();
       init_illusion();
       init_see();
+      init_real_effects();
+      init_feel_real();
       init_arousal();
       init_follow();
       init_eyes();
@@ -8879,7 +9011,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (line === null) return false;
     if (parseTriggerControl(line)) return true;
     if (!isRecording()) return false;
-    return !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
+    return !!matchFeelReal(line) || !!matchSeeIllusion(line) || !!matchPhantomTouch(line) || !!matchSuggestion(line) || !!matchBodyPartCommand(line) || !!matchActivityCommand(line);
   }
   function lifespanOption(m) {
     const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1]];
@@ -8949,7 +9081,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return null;
   }
   function isRecordableAction(text2) {
-    return !!matchSeeIllusion(text2) || !!matchPhantomTouch(text2) || !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
+    return !!matchFeelReal(text2) || !!matchSeeIllusion(text2) || !!matchPhantomTouch(text2) || !!matchActivityCommand(text2) || !!matchSuggestion(text2) || !!matchBodyPartCommand(text2);
   }
   function splitStartAtAction(content, start) {
     const raw = content.toLowerCase().replace(/[‘’ʼ]/g, "'");
@@ -9608,6 +9740,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
         });
         continue;
       }
+      if (id === REAL_ACTION) {
+        holding++;
+        steps.push(() => {
+          if (!bindingsShown()) return;
+          const now = getFeatures();
+          const r = makeReal((k) => !now[k] ? "not enabled" : depthAllows(k, strength, strength) ? null : "too weak a trigger");
+          if (r.applied.length) tellPlayer("The bindings stop being a picture. They hold you.");
+        });
+        continue;
+      }
       const see = parseSeeId(id);
       if (see) {
         if (!features.illusionControl) {
@@ -9849,6 +9991,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         else if (BODY_PARTS[word]) setBodyPartBlocked(word, BODY_PARTS[word], false);
         continue;
       }
+      if (id === REAL_ACTION) {
+        unmakeReal();
+        continue;
+      }
       if (id.startsWith(SEE_PREFIX)) {
         clearIllusion();
         continue;
@@ -9937,6 +10083,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (say2) return `you say "${say2.text}"${say2.times > 1 ? ` ${say2.times} times` : ""}`;
     const phantom = parsePhantomId(id);
     if (phantom) return describePhantom(phantom);
+    if (id === REAL_ACTION) return "the bindings feel real";
     const seen3 = parseSeeId(id);
     if (seen3) return describeSee(seen3);
     if (id.startsWith("act:")) {
@@ -10131,6 +10278,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function applyActionById(id) {
+    if (id === REAL_ACTION) {
+      const f = getFeatures();
+      if (bindingsShown()) makeReal((k) => f[k] ? null : "not enabled");
+      return;
+    }
     const see = parseSeeId(id);
     if (see) {
       if (getFeatures().illusionControl) showSee(see);
@@ -10145,6 +10297,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     SUGGESTIONS.find((s) => s.id === id)?.run();
   }
   function undoActionById(id) {
+    if (id === REAL_ACTION) {
+      unmakeReal();
+      return;
+    }
     if (id.startsWith(SEE_PREFIX)) {
       clearIllusion();
       return;
@@ -10406,6 +10562,51 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!act) return false;
     return act.tries.some(([activity, group]) => runCommandedActivity(activity, [group]) != null);
   }
+  function bindReminder(name) {
+    return `[suggestion] Only they see it, and it doesn't hold them: they can still move and use their hands, and the room sees them free. To make it hold, say "${name}, the ropes feel real".`;
+  }
+  function realAllowedNow(key) {
+    if (!getFeatures()[key]) return "not enabled";
+    return depthRefusal(key);
+  }
+  function handleFeelReal(sender, content) {
+    const kind = matchFeelReal(content);
+    if (!kind) return false;
+    const generic = !/\b(?:ropes?|cuffs|handcuffs|chains?|tape|gag|blindfold|bonds|bindings|restraints|knots)\b/.test(content.toLowerCase());
+    if (generic && !bindingsShown() && !isRecording() && !isReal()) return false;
+    if (!isSessionActiveWith(sender)) {
+      log(`heard "feel real" from ${sender} but no active session with them`);
+      return true;
+    }
+    if (!mentionsAnyName(content, playerOwnNames())) return true;
+    if (!getFeatures().hypnoEnabled) return true;
+    if (kind === "unreal") {
+      if (unmakeReal()) {
+        tellPlayer("The bindings are only a picture again. Nothing holds you.");
+        noteReleased(REAL_ACTION);
+        dropCarried(REAL_ACTION);
+        noteLanded(sender);
+      } else tellHypnotist(sender, "[suggestion] Nothing to let go: the bindings weren't holding them.");
+      return true;
+    }
+    const recorded = recordAction(REAL_ACTION);
+    if (recorded) {
+      tellPlayer(recorded);
+      return true;
+    }
+    if (!bindingsShown()) {
+      tellHypnotist(sender, `[suggestion] Nothing to make real: they don't see any bindings right now. Show them first ("you see yourself tied up").`);
+      return true;
+    }
+    const r = makeReal(realAllowedNow);
+    tellHypnotist(sender, realReport(r));
+    if (r.applied.length) {
+      tellPlayer("The bindings stop being a picture. They hold you.");
+      noteApplied(REAL_ACTION);
+      noteLanded(sender);
+    }
+    return true;
+  }
   function handleSeeIllusion(sender, content) {
     const see = matchSeeIllusion(content);
     if (!see) return false;
@@ -10442,7 +10643,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
     noteApplied(id);
     noteLanded(sender);
     if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
-    if (see.kind === "bind") tellHypnotist(sender, BIND_REMINDER);
+    if (see.kind === "bind") {
+      if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
+      else tellHypnotist(sender, bindReminder(Player?.Nickname || Player?.Name || "Missy"));
+    }
     return true;
   }
   function handlePhantomTouch(sender, content) {
@@ -10859,6 +11063,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function landCommand(sender, line) {
     if (handleWalkingTrance(sender, line)) return;
     if (handleDeepening(sender, line)) return;
+    if (handleFeelReal(sender, line)) return;
     if (handleSeeIllusion(sender, line)) return;
     if (handlePhantomTouch(sender, line)) return;
     if (handleBodyPartLine(sender, line)) return;
@@ -10920,7 +11125,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteApplied(id);
     }
   }
-  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, ORDINAL_RE, COMPULSION_NO_SPOKEN, COMPULSION_NO_DIGIT, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, BIND_REMINDER, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
+  var ORGASM_DENIED_UNTIL, UNDRESS_IS_THE_OBJECT, CATEGORY_WORDS, HEARING_IDS, SIGHT_IDS, STANCE_IDS, ARM_IDS, POSE_SUGGESTIONS, EYE_FACE_IDS, MOUTH_FACE_IDS, BROW_FACE_IDS, FLUID_FACE_IDS, FACE_IDS, NOT_HERS, bare, NEGATED2, FACE_SUGGESTIONS, SUGGESTIONS, VOCATIVE_FILLER, CLAUSE_SPLIT, OBJECT_MARKERS, OBJECT_VERBS, bareWord, PART_BLOCK, PART_RELEASE, SELF_BLOCK, SELF_RELEASE, TRIGGER_START, TRIGGER_COMMIT, TRIGGER_CANCEL, DROP_INTO, TRIGGER_DROP, OPT_SUBJ, OPT_YOU, OPT_OBEY, OPT_NUM, OPT_UNIT, NUMBER_WORDS, UNIT_MS, OPTION_PATTERNS, SAY_RAW, SAY_NORM, SAY_TIMES, SAY_TIME_WORDS, NOT_WORDS, COND_LEAD, EVERY_LEAD, WAKE_VERB, WAKE_LEAD, COND_WAKE_DELAY, COND_WAKE_NOW, COND_ARRIVE, COND_SPEAK, COND_ACTS, PAUSE, rereadingRest, conditionFailedOnLine, toldNotRecordingOnLine, TRIGGER_STEP_BASE_MS, TRIGGER_STEP_JITTER_MS, FORCED_LINE_CAP, FORCED_WINDOW_MS, forcedLineTimes, forcedCapNoticeAt, FORCED_ECHOES, ACT_REST_MS, actFiredAt, compulsionSetOffBy, COMPULSION_POLL_MS, compulsionPoll, WORN_REPEAT_MINUTES, wornRepeats, holdStartedAt, poseRefusalTold, TRIGGER_RELEASE, COMPULSION_WORDS, COMPULSION_RELEASE, ORDINAL_RE, COMPULSION_NO_SPOKEN, COMPULSION_NO_DIGIT, TRIGGER_REMOVE_ALL, TRIGGER_REMOVE_COMPULSIONS, TRIGGER_REMOVE, TRIGGER_TAKE_BACK, EXTREME_REMOVAL_REFUSED, ROW_ACTIONS, REINFORCE, DEEPEN, DEEPEN_NEGATED, CARRY_LAST, CARRY_ALL, CARRY_CANCEL, WAKE_PATTERNS, WALK_ENTER_PATTERNS, WALK_LEAVE_PATTERNS, MOUTH_WORDS, PENETRATE_WORDS, PENETRATE_FAST, ACTIVITY_VERBS, ACT_PARTS, ACT_WORD, bareNot, BARE_ACTS, COMMAND_NEGATION, GENITAL_SELF, VAGUE_SELF, SIP_SELF, MAX_TOUCH_TIMES, REPEAT_RAW, VAGUE_ZONES, DEFAULT_PART2, TOOL_WORDS, TOOL_GROUPS, TOOL_NAME, namesOf, COMMAND_PACE_TIMER, COMMAND_MIN_MS, COMMAND_SPREAD_MS, commandQueue, commandPacing;
   var init_voice = __esm({
     "src/voice.ts"() {
       init_log();
@@ -10942,6 +11147,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_arousal();
       init_illusion();
       init_see();
+      init_feel_real();
       init_undress();
       init_carry();
       init_timers();
@@ -12420,7 +12626,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
         "ItemFeet",
         "ItemNipples"
       ];
-      BIND_REMINDER = `[suggestion] Only they see it: it doesn't hold them, and the room sees them free. To hold them too, add "you cannot move" or "you cannot touch yourself".`;
       DEFAULT_PART2 = { Kiss: "lips", Spank: "bottom", Pet: "head" };
       TOOL_WORDS = [
         [/\bwith (?:your|her|the|that|a) (?:dildo )?gag\b/, "gag"],
@@ -12484,7 +12689,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.21.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.22.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12533,7 +12738,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.21.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.22.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13362,7 +13567,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     lines.push(body(`"you see yourself naked" \xB7 "your wrists are bound in rope"`));
     lines.push(dim("   (Illusions) \u2014 only her own screen changes. Also topless, without your bra,"));
     lines.push(dim("   in your underwear; tied up, cuffed, chained, taped, gagged, blindfolded."));
-    lines.push(dim(`   Rope never holds her. "the ropes are gone" / "you can see yourself again" end it.`));
+    lines.push(dim(`   Only a picture until "the ropes feel real": then the items' own restrictions`));
+    lines.push(dim(`   hold (body, gag, sight, by her permissions). "the ropes are gone" ends it.`));
     return lines;
   }
   function depthLadder() {
@@ -15079,7 +15285,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.21.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -15152,7 +15358,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.21.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -15976,7 +16182,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.21.0", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.22.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -19159,7 +19365,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         { cat: "touch", item: { id: "x-phantom", instant: true, label: "you feel a hand on your thigh (a touch only they feel)", phrase: "you feel a hand on your thigh", release: false, permission: "arousalControl", alternates: ["you feel lips on your neck", "you feel hands all over you", "you feel a hand squeeze your breasts", "you feel a hand spank your butt"] } },
         // v1.21.0: the seeing illusions, on her own screen only, under Illusions.
         { cat: "clothes", item: { id: "x-see-naked", label: "you see yourself naked (only they see it)", phrase: "you see yourself naked", release: false, permission: "illusionControl", alternates: ["you see yourself topless", "you see yourself without your bra", "you see yourself in your underwear"] } },
-        { cat: "clothes", item: { id: "x-see-tied", label: "you see yourself tied up (only they see it; doesn't hold them)", phrase: "you see yourself tied up", release: false, permission: "illusionControl", alternates: ["your wrists are bound in rope", "your ankles are cuffed", "you see yourself gagged", "you see yourself blindfolded"] } },
+        { cat: "clothes", item: { id: "x-see-tied", label: "you see yourself tied up (only they see it; holds once you say it feels real)", phrase: "you see yourself tied up", release: false, permission: "illusionControl", alternates: ["your wrists are bound in rope", "your ankles are cuffed", "you see yourself gagged", "you see yourself blindfolded"] } },
+        // v1.22.0: the imagined bindings hold (their items' own restrictions, under her permissions).
+        { cat: "clothes", item: { id: "x-see-real", label: "the ropes feel real (what they see tied holds them)", phrase: "the ropes feel real", release: false, permission: "illusionControl", alternates: ["they feel real", "the cuffs feel real", "the gag feels real"] } },
         { cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } }
       ];
       TRANCE_MOVES = /* @__PURE__ */ new Set(["x-deeper", "x-walk", "x-still", "x-wake"]);
@@ -19759,7 +19967,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.21.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.22.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -21057,7 +21265,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.21.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.22.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -21084,7 +21292,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.21.0"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.22.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -21163,14 +21371,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.21.0"})`);
+      info(`script loaded (v${"1.22.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.21.0",
+          version: "1.22.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -21319,10 +21527,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.21.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.22.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.21.0";
+    page2.__ECHS_LOADED__ = "1.22.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

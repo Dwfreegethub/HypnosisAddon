@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.22.0 · 26 November 2026
+
+- **"The ropes feel real."** The rope, cuffs, gag or blindfold you see yourself in are only a
+  picture at first. Once the hypnotist says *"Missy, the ropes feel real"*, they hold you the way the
+  real item would: no using your hands, gagged speech, a blindfold's darkness. Each needs your own
+  permission for it (movement, speech, sight). *"The ropes are not real"* makes them a picture again,
+  and *"the ropes are gone"* or your safeword ends it. The hypnotist is reminded of this every time.
+
 ## v1.21.0 · 26 November 2026
 
 - **See yourself otherwise.** *"Missy, you see yourself naked"* (or topless, in your underwear,
