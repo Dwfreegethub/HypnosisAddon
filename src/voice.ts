@@ -47,8 +47,8 @@ import { setFace, clearFace, FaceGroup } from "./face";
 import { flavor, bodyPartFlavor, announce, announceBodyPart, announceBodyPartApplied, FlavorKey } from "./flavor";
 import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
-import { freezeAppearance, clearIllusion, showSee } from "./illusion";
-import { matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
+import { freezeAppearance, clearIllusion, showSee, clearSee, currentSee } from "./illusion";
+import { matchSeeRelease, matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
 import { matchFeelReal, makeReal, unmakeReal, isReal, bindingsShown, realReport, REAL_ACTION } from "./feel-real";
 import { undress, UndressResult } from "./undress";
 import {
@@ -63,6 +63,7 @@ import {
 	appliedSuggestions,
 	lastApplied,
 	carriedIds,
+	MAX_CARRIED,
 } from "./carry";
 import {
 	scheduleTimer,
@@ -908,7 +909,6 @@ const SUGGESTIONS: Suggestion[] = [
 		examples: [
 			"look at yourself",
 			"you can see yourself again",
-			"the ropes are gone",
 			"you notice your clothes",
 			"you notice you are naked",
 		],
@@ -927,10 +927,8 @@ const SUGGESTIONS: Suggestion[] = [
 			/\blook (?:down )?at yourself\b/,
 			/\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
 			/\byou (?:notice|see) what (?:you are wearing|is missing)\b/,
-			// The seeing illusions (v1.21.0): naked, or tied when she isn't.
-			/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|not naked|free)\b/,
-			/\byou (?:can |now )?see yourself (?:dressed|untied|unbound|free)\b/,
-			/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold) (?:is|are) gone\b/,
+			// The seeing illusions' own releases ("the ropes are gone", "you see yourself dressed") are
+			// handleSeeRelease's (v1.22.1): each ends its own kind only.
 		],
 		run: () => clearIllusion(),
 	},
@@ -953,7 +951,15 @@ const SUGGESTIONS: Suggestion[] = [
 			/\byou (?:do not|cannot) see yourself change\b/,
 			/\byou will (?:not be able|be unable) to (?:tell|see) (?:what|how) you are (?:wearing|dressed)\b/,
 		],
-		run: () => (freezeAppearance() ? undefined : undefined),
+		run: () => {
+			// It replaces the seeing illusions (v1.22.1): they are no longer what was said, or carried.
+			for (const a of [...appliedSuggestions(), ...carriedIds()]) {
+				if (!a.startsWith(SEE_PREFIX)) continue;
+				noteReleased(a);
+				dropCarried(a);
+			}
+			freezeAppearance();
+		},
 		undo: () => clearIllusion(),
 	},
 	{
@@ -4268,6 +4274,9 @@ function handleCarryControl(sender: number, content: string): boolean {
 	// fiction, while the hypnotist not learning it leaves them guessing.
 	if (result.refusal) tellHypnotist(sender, `[carry] Refused — ${result.refusal}`);
 	if (result.subject) tellPlayer(result.subject);
+	// Rule 5: what didn't fit is said, not dropped in silence (v1.22.1).
+	if (result.dropped?.length)
+		tellHypnotist(sender, `[carry] The most that can stay is ${MAX_CARRIED}, so the oldest won't: ${result.dropped.map(describeAction).join("; ")}.`);
 	return true;
 }
 
@@ -4802,6 +4811,43 @@ function handleFeelReal(sender: number, content: string): boolean {
 	return true;
 }
 
+/** Which kind a see: action id is: a strip, a bind, or "the ropes feel real" (with the binds). */
+function seeKindOf(id: string): "strip" | "bind" | null {
+	if (id === REAL_ACTION) return "bind";
+	return parseSeeId(id)?.kind ?? null;
+}
+
+/** After an illusion changes: what was said for that kind is now the one id that draws it all, so
+ * "all of this stays with you" keeps one entry per kind, not every step that built it (v1.22.1). */
+function trackSee(kind: "strip" | "bind"): void {
+	for (const a of appliedSuggestions()) if (a !== REAL_ACTION && seeKindOf(a) === kind) noteReleased(a);
+	const cur = currentSee(kind);
+	if (cur) noteApplied(seeActionId(cur));
+}
+
+/** "Missy, the ropes are gone" / "you see yourself dressed" (v1.22.1): ends that kind only, the
+ * other keeps running. Not taken when that kind isn't showing, so "you see you are dressed" still
+ * reaches the frozen-outfit illusion's release in the table. */
+function handleSeeRelease(sender: number, content: string): boolean {
+	const kind = matchSeeRelease(content);
+	if (!kind || !currentSee(kind)) return false;
+	const carriedKind = carriedIds().some((c) => seeKindOf(c) === kind);
+	if (!isSessionActiveWith(sender) && !(isCarrierOf(sender) && carriedKind)) {
+		log(`heard an illusion release from ${sender} but no active session with them`);
+		return true;
+	}
+	if (!mentionsAnyName(content, playerOwnNames())) return true;
+	clearSee(kind);
+	for (const a of [...appliedSuggestions(), ...carriedIds()]) {
+		if (seeKindOf(a) !== kind) continue;
+		noteReleased(a);
+		dropCarried(a);
+	}
+	tellPlayer(kind === "bind" ? "You look again, and there is nothing on you holding you at all." : "You look down, and your clothes are there after all.");
+	noteLanded(sender);
+	return true;
+}
+
 /** "Missy, you see yourself naked", "your wrists are bound in rope" (v1.21.0, see.ts): her own view
  * changes, nobody else's. Under "Illusions", at its depth (earned, as the clothing illusion). */
 function handleSeeIllusion(sender: number, content: string): boolean {
@@ -4837,9 +4883,13 @@ function handleSeeIllusion(sender: number, content: string): boolean {
 		return true;
 	}
 	tellPlayer(seeLine(see));
-	noteApplied(id);
+	trackSee(see.kind);
+	if (result === "replaced") {
+		noteReleased("illusion-block");
+		dropCarried("illusion-block");
+	}
 	noteLanded(sender);
-	if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
+	if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the frozen-outfit illusion they had.");
 	if (see.kind === "bind") {
 		// Already real (v1.22.0): what was just added holds too. Otherwise the reminder that it doesn't.
 		if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
@@ -5518,6 +5568,7 @@ function landCommand(sender: number, line: string): void {
 	if (handleDeepening(sender, line)) return;
 	// A seeing illusion (v1.21.0): "you see yourself naked", "your wrists are bound in rope". Before
 	// the table, whose release "you see yourself as you are" it leaves alone.
+	if (handleSeeRelease(sender, line)) return;
 	if (handleFeelReal(sender, line)) return;
 	if (handleSeeIllusion(sender, line)) return;
 	// A phantom touch (v1.19.0) first: "you feel fingers stroke your thigh" must not read as an

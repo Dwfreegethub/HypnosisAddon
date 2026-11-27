@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.22.0. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.22.1. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -3244,7 +3244,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return group.Clothing === true || group.Category === "Item";
   }
   function isIllusionActive() {
-    return frozen !== null || seeing !== null;
+    return frozen !== null || seeingOn();
   }
   function onSeeingDropped(fn) {
     droppedListeners.push(fn);
@@ -3260,27 +3260,30 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function ghostEffects() {
     const out = /* @__PURE__ */ new Set();
-    for (const g of seeing?.kind === "bind" ? ghostItems : []) {
+    for (const g of bindGhosts ? ghostItems : []) {
       for (const e of [...Array.isArray(g?.Asset?.Effect) ? g.Asset.Effect : [], ...Array.isArray(g?.Property?.Effect) ? g.Property.Effect : []]) {
         if (typeof e === "string") out.add(e);
       }
     }
     return [...out];
   }
-  function currentSee() {
-    return seeing ? seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) } : null;
+  function currentSee(kind) {
+    if (kind === "strip") return stripSlots ? { kind: "strip", slots: stripSlots === "all" ? "all" : [...stripSlots] } : null;
+    return bindGhosts ? { kind: "bind", ghosts: bindGhosts.map((g) => ({ ...g })) } : null;
+  }
+  function currentSees() {
+    return [currentSee("strip"), currentSee("bind")].filter((x) => !!x);
   }
   function illusionHides(category) {
-    if (!seeing) return false;
-    return seeing.kind === "strip" ? category === "clothing" : category === "bondage";
+    return category === "clothing" && stripSlots !== null || category === "bondage" && bindGhosts !== null;
   }
   function strippedAway(item2) {
-    if (!seeing || seeing.kind !== "strip") return false;
+    if (!stripSlots) return false;
     const group = item2?.Asset?.Group;
     if (!group || group.Category === "Item" || COSMETIC_GROUPS.has(group.Name)) return false;
-    if (seeing.slots === "all") return group.Clothing === true;
+    if (stripSlots === "all") return group.Clothing === true;
     const slot = slotOf(group.Name);
-    return !!slot && seeing.slots.includes(slot);
+    return !!slot && stripSlots.includes(slot);
   }
   function buildGhosts(target, ghosts) {
     const family = Player?.AssetFamily ?? "Female3DCG";
@@ -3322,7 +3325,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function liveSignature() {
     const parts = [String(Player?.ActivePose ?? "")];
     for (const item2 of Player?.Appearance ?? []) {
-      if (!seeing && isWornGroup(item2?.Asset?.Group)) continue;
+      if (!seeingOn() && isWornGroup(item2?.Asset?.Group)) continue;
       parts.push(
         `${item2?.Asset?.Group?.Name}:${item2?.Asset?.Name}:${item2?.Property?.Expression ?? ""}:${String(item2?.Color ?? "")}`
       );
@@ -3331,10 +3334,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function rebuild() {
     const target = ensureShadow();
-    if (!target || !frozen && !seeing) return;
+    if (!target || !frozen && !seeingOn()) return;
     target.AssetFamily = Player?.AssetFamily ?? "Female3DCG";
     target.ActivePose = Player?.ActivePose ?? [];
-    if (seeing) {
+    if (seeingOn()) {
       const live = (Player?.Appearance ?? []).filter((i) => !strippedAway(i));
       const taken = new Set(live.map((i) => i?.Asset?.Group?.Name));
       target.Appearance = [...live, ...ghostItems.filter((g) => !taken.has(g?.Asset?.Group?.Name))];
@@ -3361,8 +3364,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log("clothing illusion already running \u2014 keeping the original snapshot");
       return true;
     }
-    const hadBind = seeing?.kind === "bind";
-    seeing = null;
+    const hadBind = bindGhosts !== null;
+    stripSlots = null;
+    bindGhosts = null;
     ghostItems = [];
     if (hadBind) dropped();
     frozen = Player.Appearance.filter((i) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
@@ -3377,40 +3381,52 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     const target = ensureShadow();
     if (!target) return false;
-    let replaced = !!frozen;
-    frozen = null;
-    if (seeing && seeing.kind !== s.kind) {
-      replaced = true;
-      if (seeing.kind === "bind") dropped();
-    }
-    if (s.kind === "strip") {
-      const was = seeing?.kind === "strip" ? seeing.slots : null;
-      const slots = s.slots === "all" || was === "all" ? "all" : [.../* @__PURE__ */ new Set([...was ?? [], ...s.slots])];
-      seeing = { kind: "strip", slots };
-      ghostItems = [];
+    if (s.kind === "bind") {
+      const ghosts = [...(bindGhosts ?? []).filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
+      const built = buildGhosts(target, ghosts);
+      if (!built.length) return false;
+      bindGhosts = ghosts;
+      ghostItems = built;
     } else {
-      const was = seeing?.kind === "bind" ? seeing.ghosts : [];
-      const ghosts = [...was.filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
-      seeing = { kind: "bind", ghosts };
-      ghostItems = buildGhosts(target, ghosts);
-      if (!ghostItems.length) {
-        seeing = null;
-        return false;
-      }
+      stripSlots = s.slots === "all" || stripSlots === "all" ? "all" : [.../* @__PURE__ */ new Set([...stripSlots ?? [], ...s.slots])];
     }
+    const replaced = !!frozen;
+    frozen = null;
     lastSignature = "";
     rebuild();
-    log(`seeing illusion: ${JSON.stringify(seeing)}`);
+    log(`seeing illusion: strip ${JSON.stringify(stripSlots)}, bind ${JSON.stringify(bindGhosts)}`);
     return replaced ? "replaced" : "ok";
   }
+  function clearSee(kind) {
+    if (kind === "bind" ? !bindGhosts : !stripSlots) return false;
+    if (kind === "bind") {
+      bindGhosts = null;
+      ghostItems = [];
+      dropped();
+    } else stripSlots = null;
+    if (!seeingOn() && !frozen) {
+      lastSignature = "";
+      try {
+        if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
+      } catch (err) {
+        warn("could not refresh after releasing the illusion:", err);
+      }
+    } else {
+      lastSignature = "";
+      rebuild();
+    }
+    log(`seeing illusion: ${kind} released`);
+    return true;
+  }
   function clearIllusion() {
-    if (!frozen && !seeing) {
+    if (!frozen && !seeingOn()) {
       dropped();
       return;
     }
     frozen = null;
-    const hadBind = seeing?.kind === "bind";
-    seeing = null;
+    const hadBind = bindGhosts !== null;
+    stripSlots = null;
+    bindGhosts = null;
     if (hadBind) dropped();
     ghostItems = [];
     lastSignature = "";
@@ -3443,7 +3459,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       rebuilt.push({ Asset: asset, Color: item2.color, Property: item2.property });
     }
-    seeing = null;
+    stripSlots = null;
+    bindGhosts = null;
     ghostItems = [];
     frozen = rebuilt;
     lastSignature = "";
@@ -3452,7 +3469,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return true;
   }
   function describeIllusion() {
-    if (seeing) return `clothing illusion: ON, ${seeing.kind === "strip" ? `sees herself without ${seeing.slots === "all" ? "any clothes" : seeing.slots.join(", ")}` : `sees ${seeing.ghosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`}`;
+    if (seeingOn())
+      return `clothing illusion: ON, ${[stripSlots && `sees herself without ${stripSlots === "all" ? "any clothes" : stripSlots.join(", ")}`, bindGhosts && `sees ${bindGhosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`].filter(Boolean).join("; ")}`;
     if (!frozen) return "clothing illusion: off";
     const names = frozen.map((i) => i?.Asset?.Group?.Name).filter(Boolean);
     return `clothing illusion: ON, frozen groups: ${names.join(", ") || "(nothing worn)"}`;
@@ -3463,7 +3481,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         try {
-          if (!frozen && !seeing || args[0] !== Player) return next(args);
+          if (!frozen && !seeingOn() || args[0] !== Player) return next(args);
           const target = ensureShadow();
           if (!target) return next(args);
           rebuildIfStale();
@@ -3485,7 +3503,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     );
     log("clothing illusion hook installed on DrawCharacter");
   }
-  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature, seeing, ghostItems, droppedListeners;
+  var SHADOW_ID, NAME_FIELDS, COSMETIC_GROUPS, shadow, frozen, lastSignature, stripSlots, bindGhosts, ghostItems, seeingOn, droppedListeners;
   var init_illusion = __esm({
     "src/illusion.ts"() {
       init_log();
@@ -3496,8 +3514,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       shadow = null;
       frozen = null;
       lastSignature = "";
-      seeing = null;
+      stripSlots = null;
+      bindGhosts = null;
       ghostItems = [];
+      seeingOn = () => stripSlots !== null || bindGhosts !== null;
       droppedListeners = [];
     }
   });
@@ -3928,6 +3948,16 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return matchBind(line, rest);
   }
+  function matchSeeRelease(content) {
+    const line = content.toLowerCase();
+    if (/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold|bonds|bindings|restraints) (?:is|are) gone\b/.test(line)) return "bind";
+    if (/\byou (?:can |now )?see yourself (?:untied|unbound|free|ungagged)\b/.test(line)) return "bind";
+    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|free)\b/.test(line)) return "bind";
+    if (/\byou (?:can |now )?see yourself (?:dressed|clothed)(?: again)?\b/.test(line)) return "strip";
+    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not naked|dressed|clothed)\b/.test(line)) return "strip";
+    if (/\byour clothes are back\b/.test(line)) return "strip";
+    return null;
+  }
   function seeActionId(s) {
     if (s.kind === "strip") return s.slots === "all" ? `${SEE_PREFIX}naked` : `${SEE_PREFIX}off:${s.slots.join("+")}`;
     const rec = (g) => g.record && Object.keys(g.record).length ? `~${Object.entries(g.record).map(([k, v]) => `${k}=${v}`).join(",")}` : "";
@@ -4095,7 +4125,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return was || any;
   }
   function bindingsShown() {
-    return currentSee()?.kind === "bind";
+    return currentSee("bind") !== null;
   }
   function matchFeelReal(line) {
     const l = line.toLowerCase();
@@ -4633,7 +4663,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       numb: isNumb(),
       selfTouch: selfTouchSnapshot(),
       illusion: illusionSnapshot(),
-      ...currentSee() ? { see: seeActionId(currentSee()) } : {},
+      ...currentSees().length ? { sees: currentSees().map(seeActionId) } : {},
       ...isReal() ? { seeReal: true } : {},
       // Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
       // ours, so saving another add-on's Freeze would make it ours after a reload.
@@ -4762,9 +4792,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (hasOwnEffect("Leash")) removeEffect("Leash");
     }
     if (saved.pose) restoreSuggestedPose(saved.pose);
-    const see = typeof saved.see === "string" ? parseSeeId(saved.see) : null;
-    if (see && !showSee(see)) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
-    else if (see?.kind === "bind" && saved.seeReal) makeReal((k) => getFeatures()[k] ? null : "not enabled");
+    const sees = (Array.isArray(saved.sees) ? saved.sees : typeof saved.see === "string" ? [saved.see] : []).map((id) => typeof id === "string" ? parseSeeId(id) : null).filter((x) => !!x);
+    let lost = false;
+    for (const see of sees) if (!showSee(see)) lost = true;
+    if (lost) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
+    if (saved.seeReal && sees.some((x) => x.kind === "bind")) makeReal((k) => getFeatures()[k] ? null : "not enabled");
     if (saved.illusion?.length) {
       if (!restoreIllusion(saved.illusion)) {
         tellPlayer("Coming back, you catch sight of yourself as you actually are.");
@@ -4974,19 +5006,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (carrier !== null && carrier !== sender) releaseCarried("someone else took over");
     carrier = sender;
     carrierName = name;
-    const added = [];
-    for (const id of wanted) {
-      if (ids.includes(id)) continue;
-      if (ids.length >= MAX_CARRIED) {
-        log(`carry-forward is full at ${MAX_CARRIED}, dropping "${id}"`);
-        continue;
-      }
-      ids.push(id);
-      added.push(id);
-    }
-    if (!added.length) return { refusal: "That is already set to stay with them." };
+    const fresh = wanted.filter((id, i) => !ids.includes(id) && wanted.indexOf(id) === i);
+    const room = Math.max(0, MAX_CARRIED - ids.length);
+    const dropped2 = fresh.length > room ? fresh.slice(0, fresh.length - room) : [];
+    const added = fresh.slice(dropped2.length);
+    for (const id of added) ids.push(id);
+    if (dropped2.length) log(`carry-forward is full at ${MAX_CARRIED}, left out ${dropped2.join(", ")}`);
+    if (!added.length) return dropped2.length ? { refusal: `They already carry the most that can stay (${MAX_CARRIED}).`, dropped: dropped2 } : { refusal: "That is already set to stay with them." };
     log(`carry-forward will keep ${added.join(", ")} (${ids.length} total)`);
-    return { subject: "Something in what you were just told settles deeper, and stays." };
+    return { subject: "Something in what you were just told settles deeper, and stays.", ...dropped2.length ? { dropped: dropped2 } : {} };
   }
   function carryThroughWake() {
     if (!ids.length) return null;
@@ -5074,7 +5102,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_depth();
       init_timers();
-      MAX_CARRIED = 8;
+      MAX_CARRIED = 12;
       TIMER_KEY = "carry-forward";
       carrier = null;
       carrierName = "";
@@ -10374,6 +10402,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const result = carryThese(sender, nameOrNumber(character, sender), wanted);
     if (result.refusal) tellHypnotist(sender, `[carry] Refused \u2014 ${result.refusal}`);
     if (result.subject) tellPlayer(result.subject);
+    if (result.dropped?.length)
+      tellHypnotist(sender, `[carry] The most that can stay is ${MAX_CARRIED}, so the oldest won't: ${result.dropped.map(describeAction).join("; ")}.`);
     return true;
   }
   function isWakeLine(content) {
@@ -10607,6 +10637,34 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     return true;
   }
+  function seeKindOf(id) {
+    if (id === REAL_ACTION) return "bind";
+    return parseSeeId(id)?.kind ?? null;
+  }
+  function trackSee(kind) {
+    for (const a of appliedSuggestions()) if (a !== REAL_ACTION && seeKindOf(a) === kind) noteReleased(a);
+    const cur = currentSee(kind);
+    if (cur) noteApplied(seeActionId(cur));
+  }
+  function handleSeeRelease(sender, content) {
+    const kind = matchSeeRelease(content);
+    if (!kind || !currentSee(kind)) return false;
+    const carriedKind = carriedIds().some((c) => seeKindOf(c) === kind);
+    if (!isSessionActiveWith(sender) && !(isCarrierOf(sender) && carriedKind)) {
+      log(`heard an illusion release from ${sender} but no active session with them`);
+      return true;
+    }
+    if (!mentionsAnyName(content, playerOwnNames())) return true;
+    clearSee(kind);
+    for (const a of [...appliedSuggestions(), ...carriedIds()]) {
+      if (seeKindOf(a) !== kind) continue;
+      noteReleased(a);
+      dropCarried(a);
+    }
+    tellPlayer(kind === "bind" ? "You look again, and there is nothing on you holding you at all." : "You look down, and your clothes are there after all.");
+    noteLanded(sender);
+    return true;
+  }
   function handleSeeIllusion(sender, content) {
     const see = matchSeeIllusion(content);
     if (!see) return false;
@@ -10640,9 +10698,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     tellPlayer(seeLine(see));
-    noteApplied(id);
+    trackSee(see.kind);
+    if (result === "replaced") {
+      noteReleased("illusion-block");
+      dropCarried("illusion-block");
+    }
     noteLanded(sender);
-    if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the illusion they had; one at a time.");
+    if (result === "replaced") tellHypnotist(sender, "[suggestion] It replaces the frozen-outfit illusion they had.");
     if (see.kind === "bind") {
       if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
       else tellHypnotist(sender, bindReminder(Player?.Nickname || Player?.Name || "Missy"));
@@ -11063,6 +11125,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function landCommand(sender, line) {
     if (handleWalkingTrance(sender, line)) return;
     if (handleDeepening(sender, line)) return;
+    if (handleSeeRelease(sender, line)) return;
     if (handleFeelReal(sender, line)) return;
     if (handleSeeIllusion(sender, line)) return;
     if (handlePhantomTouch(sender, line)) return;
@@ -11505,7 +11568,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
           examples: [
             "look at yourself",
             "you can see yourself again",
-            "the ropes are gone",
             "you notice your clothes",
             "you notice you are naked"
           ],
@@ -11523,11 +11585,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\byou (?:can|may) tell what you have on\b/,
             /\blook (?:down )?at yourself\b/,
             /\byou (?:notice|see|realise|realize) (?:that )?you are (?:naked|undressed|bare|dressed)\b/,
-            /\byou (?:notice|see) what (?:you are wearing|is missing)\b/,
-            // The seeing illusions (v1.21.0): naked, or tied when she isn't.
-            /\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|not naked|free)\b/,
-            /\byou (?:can |now )?see yourself (?:dressed|untied|unbound|free)\b/,
-            /\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold) (?:is|are) gone\b/
+            /\byou (?:notice|see) what (?:you are wearing|is missing)\b/
+            // The seeing illusions' own releases ("the ropes are gone", "you see yourself dressed") are
+            // handleSeeRelease's (v1.22.1): each ends its own kind only.
           ],
           run: () => clearIllusion()
         },
@@ -11550,7 +11610,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
             /\byou (?:do not|cannot) see yourself change\b/,
             /\byou will (?:not be able|be unable) to (?:tell|see) (?:what|how) you are (?:wearing|dressed)\b/
           ],
-          run: () => freezeAppearance() ? void 0 : void 0,
+          run: () => {
+            for (const a of [...appliedSuggestions(), ...carriedIds()]) {
+              if (!a.startsWith(SEE_PREFIX)) continue;
+              noteReleased(a);
+              dropCarried(a);
+            }
+            freezeAppearance();
+          },
           undo: () => clearIllusion()
         },
         {
@@ -12689,7 +12756,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.22.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.22.1", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12738,7 +12805,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.22.0", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.22.1", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -15285,7 +15352,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -15358,7 +15425,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -16182,7 +16249,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.22.0", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.22.1", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -19967,7 +20034,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.22.0"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.22.1"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -21265,7 +21332,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.22.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.22.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -21292,7 +21359,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.22.0"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.22.1"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -21371,14 +21438,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.22.0"})`);
+      info(`script loaded (v${"1.22.1"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.22.0",
+          version: "1.22.1",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -21527,10 +21594,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.22.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.22.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.22.0";
+    page2.__ECHS_LOADED__ = "1.22.1";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

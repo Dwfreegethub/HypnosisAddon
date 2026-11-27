@@ -43,7 +43,10 @@ import { scheduleTimer, cancelTimer } from "./timers";
 export const CARRY_TRUST_THRESHOLD = 65;
 /** Same cap as a trigger's action list, for the same reason: a bundle this size is already
  * more than anyone can keep track of, and a runaway one is harder to undo than to make. */
-const MAX_CARRIED = 8;
+// v1.22.1 (DW: "everything stays with you" kept the movement restriction but not the illusion):
+// 12, not 8, and a full list now keeps the NEWEST and says what didn't fit. At 8, a long trance
+// filled it with the early suggestions and silently dropped the last ones, the illusions.
+export const MAX_CARRIED = 12;
 const TIMER_KEY = "carry-forward";
 
 /** Who carried them. Only this person can release them by speaking. */
@@ -143,7 +146,7 @@ export function describeCarry(): string {
  * of sweeping up everything currently in force would make one phrase carry the freeze, the
  * silence and the suppression along with the thing you meant, and nobody wants their
  * subject to wake up still unable to speak because they wanted the illusion to hold. */
-export function carryThese(sender: number, name: string, wanted: string[]): { subject?: string; refusal?: string } {
+export function carryThese(sender: number, name: string, wanted: string[]): { subject?: string; refusal?: string; dropped?: string[] } {
 	const features = getFeatures();
 	if (!features.hypnoEnabled) return { refusal: "They have hypnosis switched off." };
 	if (!features.carryForward) return { refusal: `They have not enabled "Suggestions that outlive the trance".` };
@@ -161,21 +164,19 @@ export function carryThese(sender: number, name: string, wanted: string[]): { su
 	carrier = sender;
 	carrierName = name;
 
-	const added: string[] = [];
-	for (const id of wanted) {
-		if (ids.includes(id)) continue;
-		if (ids.length >= MAX_CARRIED) {
-			log(`carry-forward is full at ${MAX_CARRIED}, dropping "${id}"`);
-			continue;
-		}
-		ids.push(id);
-		added.push(id);
-	}
-	if (!added.length) return { refusal: "That is already set to stay with them." };
+	// Too many: the newest are kept, the oldest left out (and named to the hypnotist). The newest
+	// is what was just said, and what "all of this" is most likely to be about.
+	const fresh = wanted.filter((id, i) => !ids.includes(id) && wanted.indexOf(id) === i);
+	const room = Math.max(0, MAX_CARRIED - ids.length);
+	const dropped = fresh.length > room ? fresh.slice(0, fresh.length - room) : [];
+	const added = fresh.slice(dropped.length);
+	for (const id of added) ids.push(id);
+	if (dropped.length) log(`carry-forward is full at ${MAX_CARRIED}, left out ${dropped.join(", ")}`);
+	if (!added.length) return dropped.length ? { refusal: `They already carry the most that can stay (${MAX_CARRIED}).`, dropped } : { refusal: "That is already set to stay with them." };
 	log(`carry-forward will keep ${added.join(", ")} (${ids.length} total)`);
 	// Deliberately vague to the subject. They are being told something is being made to
 	// last, not given a list they could keep track of and check against later.
-	return { subject: "Something in what you were just told settles deeper, and stays." };
+	return { subject: "Something in what you were just told settles deeper, and stays.", ...(dropped.length ? { dropped } : {}) };
 }
 
 /** Everything a session-exit path needs: stop capturing, re-apply what survives, and start

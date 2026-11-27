@@ -25,7 +25,7 @@ import {
 	clearIllusion,
 	isIllusionActive,
 	illusionSnapshot,
-	currentSee,
+	currentSees,
 	showSee,
 	restoreIllusion,
 	describeIllusion,
@@ -133,8 +133,10 @@ export interface SavedSession {
 	/** The frozen garments themselves, so the ORIGINAL lie comes back rather than a fresh
 	 * snapshot of the truth. Null when no illusion was running. */
 	illusion: FrozenItem[] | null;
-	/** A seeing illusion (v1.21.0), as its action id ("see:naked"). */
+	/** A seeing illusion (v1.21.0), as its action id ("see:naked"). Read only: v1.22.1 saves `sees`. */
 	see?: string;
+	/** The seeing illusions (v1.22.1: strip and bind can run together), as action ids. */
+	sees?: string[];
 	/** "The ropes feel real" was on (v1.22.0). */
 	seeReal?: true;
 	/** Which of OUR BC effects were applied. These ride on the Emoticon item and usually
@@ -222,7 +224,7 @@ export function snapshotLocalState(): Omit<
 		numb: isNumb(),
 		selfTouch: selfTouchSnapshot(),
 		illusion: illusionSnapshot(),
-		...(currentSee() ? { see: seeActionId(currentSee()!) } : {}),
+		...(currentSees().length ? { sees: currentSees().map(seeActionId) } : {}),
 		...(isReal() ? { seeReal: true as const } : {}),
 		// Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
 		// ours, so saving another add-on's Freeze would make it ours after a reload.
@@ -463,10 +465,14 @@ function restoreLocalState(saved: SavedSession): void {
 	// Only if the assets still resolve. They normally will; a BC release that removed one is
 	// the case that would not, and there the honest thing is to say so rather than to show
 	// something other than what was frozen.
-	const see = typeof saved.see === "string" ? parseSeeId(saved.see) : null;
-	if (see && !showSee(see)) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
+	const sees = (Array.isArray(saved.sees) ? saved.sees : typeof saved.see === "string" ? [saved.see] : [])
+		.map((id) => (typeof id === "string" ? parseSeeId(id) : null))
+		.filter((x): x is NonNullable<typeof x> => !!x);
+	let lost = false;
+	for (const see of sees) if (!showSee(see)) lost = true;
+	if (lost) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
 	// The hold comes back with the picture, under her permissions as they are now.
-	else if (see?.kind === "bind" && saved.seeReal) makeReal((k) => (getFeatures()[k] ? null : "not enabled"));
+	if (saved.seeReal && sees.some((x) => x.kind === "bind")) makeReal((k) => (getFeatures()[k] ? null : "not enabled"));
 	if (saved.illusion?.length) {
 		if (!restoreIllusion(saved.illusion)) {
 			tellPlayer("Coming back, you catch sight of yourself as you actually are.");
