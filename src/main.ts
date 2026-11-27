@@ -15,7 +15,7 @@ import { installPrompt } from "./prompt";
 import { installRemote } from "./remote";
 import { installSession, noteInductionLine, noticeTrustLine } from "./session";
 import { installAwayWatch } from "./away";
-import { installSuppression, installHearingFilter, hearsLine, markUnheard } from "./suppression";
+import { installSuppression, installHearingFilter, hearsLine, markUnheard, veiledBy, markVeiled, installVeilFilter } from "./suppression";
 import { installConcealment } from "./conceal";
 import { installFollow } from "./follow";
 import { installBadge } from "./badge";
@@ -128,6 +128,15 @@ safely("ChatRoomMessage hook", () => {
 				(data?.Type !== "Chat" && data?.Type !== "Whisper") ||
 				hearsLine(data.Sender, !!commandLine && mentionsAnyName(commandLine, playerOwnNames()));
 			if (!heard) markUnheard(data);
+			// Words that slip past her (v1.24.0): a line from that hypnotist to her lands as usual below,
+			// and is shown to her as a murmur (suppression.ts veilFilter).
+			else if (
+				commandLine &&
+				veiledBy() !== null &&
+				data.Sender === veiledBy() &&
+				(whisperedToMe || mentionsAnyName(commandLine, playerOwnNames()))
+			)
+				markVeiled(data);
 
 			// Trigger setup, hidden from the subject when they've asked for that. The line
 			// still has to be PROCESSED — it's how the trigger gets built — so react to it
@@ -306,6 +315,13 @@ safely("trigger status channel", installTriggers);
 // applies — see suppression.ts for why 320 specifically.
 safely("message suppression", installSuppression);
 safely("hearing filter", () => installHearingFilter((mode) => announceOthersFade(mode.kind)));
+// Words that slip past her (v1.24.0, DW chose "a vague line").
+safely("words that slip past her", () =>
+	installVeilFilter((sender) => {
+		const c = Array.isArray(ChatRoomCharacter) ? ChatRoomCharacter.find((x: any) => x?.MemberNumber === sender) : null;
+		tellPlayer(`${(c?.Nickname || c?.Name || "Someone") as string} murmurs something you can't quite catch.`);
+	}),
+);
 
 // Trigger words shown as "..." on the subject's own screen, at priority 50 in the same chain —
 // see conceal.ts for why there.

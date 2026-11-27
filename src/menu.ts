@@ -94,7 +94,7 @@ import {
 import { changeAccess, ACCESS_LABELS, ACCESS_WORDS } from "./access";
 import type { TriggerScope, DecayRate, DropMode, TriggerView, ReportWithout } from "./storage";
 import { REPORT_WITHOUT, getReportWithout, setReportWithout } from "./storage";
-import { setSuppressed, setNumb, clearAllSuppression, setHearing } from "./suppression";
+import { setSuppressed, setNumb, clearAllSuppression, setHearing, setVeiled } from "./suppression";
 import { clearSelfTouchBlocks } from "./selftouch";
 import { clearOrgasmDenial } from "./arousal";
 import { clearIllusion } from "./illusion";
@@ -2462,7 +2462,10 @@ export function onToggle(key: keyof FeatureToggles, enabled: boolean): void {
 			if (!enabled) clearSelfTouchBlocks();
 			break;
 		case "hearingControl":
-			if (!enabled) setHearing(null);
+			if (!enabled) {
+				setHearing(null);
+				setVeiled(null);
+			}
 			break;
 		case "sightControl":
 			if (!enabled) setSight(0);

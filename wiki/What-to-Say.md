@@ -195,6 +195,15 @@ Now anyone allowed to use it saying *"ember glow"* in the room makes Missy say *
 | *"you only hear what is said to you"* · *"you only hear your name"* | Only lines that use **her name**, and whispers to her, from anyone. |
 | *"you can hear everyone again"* · *"your hearing comes back"* | — *release* |
 
+**Words that slip past her** (since v1.24.0, same permission):
+
+| Say | What she sees |
+|---|---|
+| *"my words slip past you"* · *"you will obey without knowing what I said"* · *"my words are a murmur to you"* | From then on, what **you** say to her (her name, or a whisper) still lands, but her screen shows only *"[Your name] murmurs something you can't quite catch."* The room sees your real words. Her own reaction lines still show, so she feels it land without knowing why. |
+| *"you can understand my words again"* · *"my words are clear to you again"* · *"you can hear everyone again"* | — *release* |
+
+It ends when she wakes, and with the safeword; it isn't carried past waking. Out-of-character text stays readable.
+
 **Out-of-character text in (parentheses) always gets through**, and so does everything she can see. While it is on, other people's commands and trigger words don't reach her. It lasts until the trance ends; as a trigger, "my voice" means whoever says the trigger word. What else gets through, and how long it lasts: **[Sensory Modulation](Sensory-Modulation#hearing-only-one-voice)**.
 
 ### Sight — Sight · Entranced (40)
