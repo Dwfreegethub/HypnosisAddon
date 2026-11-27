@@ -84,14 +84,17 @@ let frozen: any[] | null = null;
 /** Change-detector for the LIVE half — see rebuildIfStale. */
 let lastSignature = "";
 
-/** A seeing illusion (v1.21.0, see.ts): her own view with clothes left off, or with items added
- * that are not there. One illusion at a time: starting one ends whichever was running. */
-let seeing: SeeIllusion | null = null;
-/** The added items, built once per illusion (ghostsFor). */
+/** The seeing illusions (v1.21.0, see.ts): her own view with clothes left off, and/or with items
+ * added that are not there. The two kinds run together (v1.22.1, DW: naked and then tied, "my clothing
+ * reappeared"); the frozen-outfit illusion above replaces both, and either replaces it. */
+let stripSlots: string[] | "all" | null = null;
+let bindGhosts: Ghost[] | null = null;
+/** The added items, built once per change (buildGhosts). */
 let ghostItems: any[] = [];
+const seeingOn = (): boolean => stripSlots !== null || bindGhosts !== null;
 
 export function isIllusionActive(): boolean {
-	return frozen !== null || seeing !== null;
+	return frozen !== null || seeingOn();
 }
 
 /** Told when a bondage illusion ends or is replaced (feel-real.ts lets its hold go). */
@@ -112,7 +115,7 @@ function dropped(): void {
 /** The BC effects the imagined items carry: the asset's own and its chosen option's. */
 export function ghostEffects(): string[] {
 	const out = new Set<string>();
-	for (const g of seeing?.kind === "bind" ? ghostItems : []) {
+	for (const g of bindGhosts ? ghostItems : []) {
 		for (const e of [...(Array.isArray(g?.Asset?.Effect) ? g.Asset.Effect : []), ...(Array.isArray(g?.Property?.Effect) ? g.Property.Effect : [])]) {
 			if (typeof e === "string") out.add(e);
 		}
@@ -120,26 +123,31 @@ export function ghostEffects(): string[] {
 	return [...out];
 }
 
-/** The seeing illusion running now, or null. */
-export function currentSee(): SeeIllusion | null {
-	return seeing ? (seeing.kind === "strip" ? { kind: "strip", slots: seeing.slots === "all" ? "all" : [...seeing.slots] } : { kind: "bind", ghosts: seeing.ghosts.map((g) => ({ ...g })) }) : null;
+/** The seeing illusion of that kind running now, or null. */
+export function currentSee(kind: "strip" | "bind"): SeeIllusion | null {
+	if (kind === "strip") return stripSlots ? { kind: "strip", slots: stripSlots === "all" ? "all" : [...stripSlots] } : null;
+	return bindGhosts ? { kind: "bind", ghosts: bindGhosts.map((g) => ({ ...g })) } : null;
+}
+
+/** Both, strip first: what a save or a describe needs. */
+export function currentSees(): SeeIllusion[] {
+	return [currentSee("strip"), currentSee("bind")].filter((x): x is SeeIllusion => !!x);
 }
 
 /** Which chat messages it hides (suppression.ts), so nothing in her log contradicts it: being
  * dressed while she sees herself naked, being untied while she sees rope. The freeze hides none. */
 export function illusionHides(category: string): boolean {
-	if (!seeing) return false;
-	return seeing.kind === "strip" ? category === "clothing" : category === "bondage";
+	return (category === "clothing" && stripSlots !== null) || (category === "bondage" && bindGhosts !== null);
 }
 
 /** Is this worn item left off her view by a strip illusion? */
 function strippedAway(item: any): boolean {
-	if (!seeing || seeing.kind !== "strip") return false;
+	if (!stripSlots) return false;
 	const group = item?.Asset?.Group;
 	if (!group || group.Category === "Item" || COSMETIC_GROUPS.has(group.Name)) return false;
-	if (seeing.slots === "all") return group.Clothing === true;
+	if (stripSlots === "all") return group.Clothing === true;
 	const slot = slotOf(group.Name);
-	return !!slot && seeing.slots.includes(slot);
+	return !!slot && stripSlots.includes(slot);
 }
 
 function buildGhosts(target: any, ghosts: Ghost[]): any[] {
@@ -197,7 +205,7 @@ function liveSignature(): string {
 	const parts: string[] = [String(Player?.ActivePose ?? "")];
 	for (const item of Player?.Appearance ?? []) {
 		// A seeing illusion draws everything live (only some of it left off, or some added).
-		if (!seeing && isWornGroup(item?.Asset?.Group)) continue;
+		if (!seeingOn() && isWornGroup(item?.Asset?.Group)) continue;
 		parts.push(
 			`${item?.Asset?.Group?.Name}:${item?.Asset?.Name}:${item?.Property?.Expression ?? ""}:${String(item?.Color ?? "")}`,
 		);
@@ -207,10 +215,10 @@ function liveSignature(): string {
 
 function rebuild(): void {
 	const target = ensureShadow();
-	if (!target || (!frozen && !seeing)) return;
+	if (!target || (!frozen && !seeingOn())) return;
 	target.AssetFamily = Player?.AssetFamily ?? "Female3DCG";
 	target.ActivePose = Player?.ActivePose ?? [];
-	if (seeing) {
+	if (seeingOn()) {
 		const live = (Player?.Appearance ?? []).filter((i: any) => !strippedAway(i));
 		// What she really wears in a group wins over what she imagines there.
 		const taken = new Set(live.map((i: any) => i?.Asset?.Group?.Name));
@@ -249,9 +257,10 @@ export function freezeAppearance(): boolean {
 		log("clothing illusion already running — keeping the original snapshot");
 		return true;
 	}
-	// One at a time: the freeze takes over from a seeing illusion.
-	const hadBind = seeing?.kind === "bind";
-	seeing = null;
+	// The freeze takes over from the seeing illusions.
+	const hadBind = bindGhosts !== null;
+	stripSlots = null;
+	bindGhosts = null;
 	ghostItems = [];
 	if (hadBind) dropped();
 	frozen = Player.Appearance.filter((i: any) => isWornGroup(i?.Asset?.Group)).map(cloneItem);
@@ -260,11 +269,9 @@ export function freezeAppearance(): boolean {
 	return true;
 }
 
-/** Stop lying. The snapshot is dropped rather than kept, so a later freeze always takes a
- * fresh one — a stale snapshot re-applied hours later would be a different feature. */
-/** Start (or add to) a seeing illusion. Saying a second one of the same kind adds to it ("without
- * your bra", then "without your panties"); the other kind, or the freeze, is replaced. Returns
- * "replaced" when something else was running, false if there is nothing to draw from. */
+/** Start (or add to) a seeing illusion. A second one of the same kind adds to it ("without your
+ * bra", then "without your panties"; rope, then a gag); the other kind runs beside it. Only the
+ * frozen-outfit illusion is replaced: then "replaced". False if there is nothing to draw from. */
 export function showSee(s: SeeIllusion): "ok" | "replaced" | false {
 	if (!Array.isArray(Player?.Appearance)) {
 		warn("cannot start an illusion — no player appearance yet");
@@ -272,41 +279,57 @@ export function showSee(s: SeeIllusion): "ok" | "replaced" | false {
 	}
 	const target = ensureShadow();
 	if (!target) return false;
-	let replaced = !!frozen;
-	frozen = null;
-	if (seeing && seeing.kind !== s.kind) {
-		replaced = true;
-		if (seeing.kind === "bind") dropped();
-	}
-	if (s.kind === "strip") {
-		const was = seeing?.kind === "strip" ? seeing.slots : null;
-		const slots = s.slots === "all" || was === "all" ? "all" : [...new Set([...(was ?? []), ...s.slots])];
-		seeing = { kind: "strip", slots };
-		ghostItems = [];
+	if (s.kind === "bind") {
+		const ghosts = [...(bindGhosts ?? []).filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
+		const built = buildGhosts(target, ghosts);
+		if (!built.length) return false;
+		bindGhosts = ghosts;
+		ghostItems = built;
 	} else {
-		const was = seeing?.kind === "bind" ? seeing.ghosts : [];
-		const ghosts = [...was.filter((g) => !s.ghosts.some((n) => n.group === g.group)), ...s.ghosts];
-		seeing = { kind: "bind", ghosts };
-		ghostItems = buildGhosts(target, ghosts);
-		if (!ghostItems.length) {
-			seeing = null;
-			return false;
-		}
+		stripSlots = s.slots === "all" || stripSlots === "all" ? "all" : [...new Set([...(stripSlots ?? []), ...s.slots])];
 	}
+	const replaced = !!frozen;
+	frozen = null;
 	lastSignature = "";
 	rebuild();
-	log(`seeing illusion: ${JSON.stringify(seeing)}`);
+	log(`seeing illusion: strip ${JSON.stringify(stripSlots)}, bind ${JSON.stringify(bindGhosts)}`);
 	return replaced ? "replaced" : "ok";
 }
 
+/** End one kind only: "the ropes are gone" (bind), "you see yourself dressed" (strip). True if it was on. */
+export function clearSee(kind: "strip" | "bind"): boolean {
+	if (kind === "bind" ? !bindGhosts : !stripSlots) return false;
+	if (kind === "bind") {
+		bindGhosts = null;
+		ghostItems = [];
+		dropped();
+	} else stripSlots = null;
+	if (!seeingOn() && !frozen) {
+		lastSignature = "";
+		try {
+			if (typeof CharacterRefresh === "function") CharacterRefresh(Player, false, false);
+		} catch (err) {
+			warn("could not refresh after releasing the illusion:", err);
+		}
+	} else {
+		lastSignature = "";
+		rebuild();
+	}
+	log(`seeing illusion: ${kind} released`);
+	return true;
+}
+
+/** Stop lying. The snapshot is dropped rather than kept, so a later freeze always takes a
+ * fresh one — a stale snapshot re-applied hours later would be a different feature. */
 export function clearIllusion(): void {
-	if (!frozen && !seeing) {
+	if (!frozen && !seeingOn()) {
 		dropped();
 		return;
 	}
 	frozen = null;
-	const hadBind = seeing?.kind === "bind";
-	seeing = null;
+	const hadBind = bindGhosts !== null;
+	stripSlots = null;
+	bindGhosts = null;
 	if (hadBind) dropped();
 	ghostItems = [];
 	lastSignature = "";
@@ -368,7 +391,8 @@ export function restoreIllusion(items: FrozenItem[] | null): boolean {
 		}
 		rebuilt.push({ Asset: asset, Color: item.color, Property: item.property });
 	}
-	seeing = null;
+	stripSlots = null;
+	bindGhosts = null;
 	ghostItems = [];
 	frozen = rebuilt;
 	lastSignature = "";
@@ -378,7 +402,8 @@ export function restoreIllusion(items: FrozenItem[] | null): boolean {
 }
 
 export function describeIllusion(): string {
-	if (seeing) return `clothing illusion: ON, ${seeing.kind === "strip" ? `sees herself without ${seeing.slots === "all" ? "any clothes" : seeing.slots.join(", ")}` : `sees ${seeing.ghosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`}`;
+	if (seeingOn())
+		return `clothing illusion: ON, ${[stripSlots && `sees herself without ${stripSlots === "all" ? "any clothes" : stripSlots.join(", ")}`, bindGhosts && `sees ${bindGhosts.map((g) => `${g.group}/${g.asset}`).join(", ")}`].filter(Boolean).join("; ")}`;
 	if (!frozen) return "clothing illusion: off";
 	const names = frozen.map((i: any) => i?.Asset?.Group?.Name).filter(Boolean);
 	return `clothing illusion: ON, frozen groups: ${names.join(", ") || "(nothing worn)"}`;
@@ -390,7 +415,7 @@ export function installIllusion(modApi: any): void {
 		10,
 		((args: any[], next: (args: any[]) => any) => {
 			try {
-				if ((!frozen && !seeing) || args[0] !== Player) return next(args);
+				if ((!frozen && !seeingOn()) || args[0] !== Player) return next(args);
 				const target = ensureShadow();
 				if (!target) return next(args);
 				rebuildIfStale();

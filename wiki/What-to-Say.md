@@ -287,13 +287,16 @@ The rest of the room sees actual wardrobe changes in real-time. Only the subject
 | *"you see yourself tied up"* · *"you are tied up in rope"* | rope on her arms, legs and ankles |
 | *"your wrists are bound in rope"* · *"your ankles are cuffed"* · *"your arms and legs are chained"* · *"you see tape on your wrists"* | that, there (rope, cuffs, chains, tape) |
 | *"you see yourself gagged"* (*with tape*, *with cloth*) · *"you see yourself blindfolded"* · *"you see yourself cuffed and gagged"* | a gag or blindfold |
-| *"the ropes are gone"* · *"you see yourself untied"* / *"…dressed"* · *"you can see yourself again"* · *"look at yourself"* | — *release* |
+| *"the ropes are gone"* · *"you see yourself untied"* | — *release* (the bindings only) |
+| *"you see yourself dressed"* · *"your clothes are back"* | — *release* (the undressing only) |
+| *"you can see yourself again"* · *"look at yourself"* | — *release* (everything she sees) |
 
 * **On its own it doesn't hold her.** The rope is a picture; she can still move and use her hands, and the room sees her free. The hypnotist is told so, and how to make it hold.
 * **"The ropes feel real"** (since v1.22.0; also *"they feel real"*, *"the cuffs / gag / blindfold feel real"*). The imagined items' own Bondage Club restrictions then hold her, as the real item would: arm rope, cuffs, chains or tape stop her using her hands; a gag garbles her speech; a blindfold blinds her (as far as her own sensory settings allow); some leg and ankle ties slow her. Each kind needs her permission for it: **Movement Restriction** for her body, **Speech Restriction** for a gag, **Sight** for a blindfold, at that permission's depth. What she hasn't allowed is left out and the hypnotist is told. Anything added to the picture while it is real holds too. *"The ropes are not real"* (*"they don't feel real"*) makes it a picture again; *"the ropes are gone"*, any release of the illusion and the safeword end both. It never takes away a *"you cannot move"* that was given separately.
 * Something she really wears in a spot wins over what she imagines there.
 * While she sees herself naked, chat messages about her clothes being changed are hidden from her; while she sees rope, messages about her restraints are. So her log doesn't contradict what she sees.
-* **One illusion at a time.** A new kind replaces the old one (the hypnotist is told), including the frozen-outfit one above.
+* **Naked and tied together** (since v1.22.1): seeing herself undressed and seeing herself tied run side by side, and each is ended by its own release above. The frozen-outfit illusion is the one that doesn't mix: starting it ends both, and starting either of these ends it (the hypnotist is told).
+* *"All of this will stay with you"* keeps up to 12 suggestions; past that the oldest are left out and the hypnotist is told which.
 * Works in triggers (*"Missy, your trigger word is ribbon"*, *"you see yourself tied up"*, *"remember trigger"*) and can stay after waking (*"that will stay with you"*). The safeword ends it.
 
 ---

@@ -18,6 +18,21 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-26 (v1.22.1) — naked + tied together; carry keeps the newest
+
+DW, live: "Missy, you see yourself naked", "your wrists are bound in rope", "the ropes feel real", "all of
+this will stay with you", wake: "The rope did, I cannot move my arm, but my clothing reappeared". The
+cause was v1.21.0's one-at-a-time rule: the bind replaced the strip at once (the hypnotist was told
+"It replaces the illusion they had"), and the wake re-applied both in order, the bind replacing again.
+illusion.ts now keeps stripSlots and bindGhosts side by side (currentSee(kind), currentSees(), clearSee
+(kind)); only the freeze replaces, and is replaced. see.ts matchSeeRelease + voice handleSeeRelease end one
+kind ("the ropes are gone" / "you see yourself dressed"), before the table, and only when that kind is
+showing (else the table's freeze release still gets "you see you are dressed"). trackSee keeps one
+applied id per kind, so steps don't fill the carry list. Also found on the way: carryThese silently
+dropped the NEWEST past MAX_CARRIED (8), which a long trance makes the illusions; now 12, the oldest left
+out, and the hypnotist is told which (rule 5). Recovery saves `sees` (reads the old `see`).
+test/see-illusion.mjs 56 (DW's sequence through a wake; three mutations caught).
+
 ### Added 2026-11-26 (v1.22.0) — "the ropes feel real"
 
 DW: "Can we look at the restrictions that the item applies and have a command something like they feel

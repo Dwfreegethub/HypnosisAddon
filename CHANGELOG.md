@@ -13,6 +13,14 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.22.1 · 26 November 2026
+
+- **Naked and tied at the same time.** Seeing yourself tied no longer brings your clothes back: the
+  two illusions now run together. *"The ropes are gone"* ends only the rope, *"you see yourself
+  dressed"* only the undressing, and *"you can see yourself again"* both.
+- **"All of this will stay with you" keeps the newest.** It holds up to 12 suggestions (was 8). When
+  there are more, the oldest are left out instead of the newest, and the hypnotist is told which.
+
 ## v1.22.0 · 26 November 2026
 
 - **"The ropes feel real."** The rope, cuffs, gag or blindfold you see yourself in are only a

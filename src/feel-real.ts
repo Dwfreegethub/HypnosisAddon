@@ -68,7 +68,7 @@ export function unmakeReal(): boolean {
 
 /** Is a bondage illusion running, for "they feel real" to act on? */
 export function bindingsShown(): boolean {
-	return currentSee()?.kind === "bind";
+	return currentSee("bind") !== null;
 }
 
 // The picture going (released, replaced, the safeword) takes the hold with it.

@@ -220,6 +220,19 @@ export function matchSeeIllusion(content: string): SeeIllusion | null {
 	return matchBind(line, rest);
 }
 
+/** Ending one kind only (v1.22.1): "the ropes are gone" (bind), "you see yourself dressed" (strip).
+ * The words that end both ("you can see yourself again", "look at yourself") are the table's. */
+export function matchSeeRelease(content: string): "strip" | "bind" | null {
+	const line = content.toLowerCase();
+	if (/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold|bonds|bindings|restraints) (?:is|are) gone\b/.test(line)) return "bind";
+	if (/\byou (?:can |now )?see yourself (?:untied|unbound|free|ungagged)\b/.test(line)) return "bind";
+	if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|free)\b/.test(line)) return "bind";
+	if (/\byou (?:can |now )?see yourself (?:dressed|clothed)(?: again)?\b/.test(line)) return "strip";
+	if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not naked|dressed|clothed)\b/.test(line)) return "strip";
+	if (/\byour clothes are back\b/.test(line)) return "strip";
+	return null;
+}
+
 /** A trigger action: "see:naked", "see:off:Bra+Panties", "see:bound:ItemArms/HempRope+ItemFeet/HempRope". */
 export function seeActionId(s: SeeIllusion): string {
 	if (s.kind === "strip") return s.slots === "all" ? `${SEE_PREFIX}naked` : `${SEE_PREFIX}off:${s.slots.join("+")}`;
