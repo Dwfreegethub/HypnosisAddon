@@ -18,6 +18,23 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.23.0) — the bondage picker (any item, any option)
+
+DW: "Now we have to figure out how to build all the bondage and options. Most items have several options
+in them"; delivery chosen: "Sent to her ECHS + a line in chat". src/popup-items.ts reads the hypnotist's
+own BC tables (live R134): Asset (Group.Category "Item", Family, Visible; not ItemScript/ItemHidden),
+TypedItemDataLookup[key].options and ModularItemDataLookup[key].modules (one-option modules left out),
+each option's Property.TypeRecord combined into the see: id's ~record. popup.ts itemPicker (Clothes
+group): slot select, search + item select (the search refills the list without redrawing), one select per
+choice, "type it" types "Name, you see a X on you" (no other suggestion reads that) and sets a pending
+pick. main.ts hooks ServerSend: when a Chat/Whisper going out contains that line (5 min, once), a
+"see-item" hidden message follows it to her. voice.ts handlePickedItem: one ghost, an Item group, an asset
+her client knows (else the hypnotist is told), a session; then landSee, the spoken illusion's path
+(permission, recordAction, depth, showSee, reminder / feel real). describeSee names picked items by BC's
+Description. Vibrator modes aren't offered (drawn in the first). Not yet: a picked item inside a "when
+anyone …" line. test/item-picker.mjs (27, four mutations caught); the popup UI itself needs the live check
+(script_test.md Z15): the UI lab has no BC item tables.
+
 ### Fixed 2026-11-26 (v1.22.1) — naked + tied together; carry keeps the newest
 
 DW, live: "Missy, you see yourself naked", "your wrists are bound in rope", "the ropes feel real", "all of

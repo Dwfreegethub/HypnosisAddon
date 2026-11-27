@@ -1,6 +1,7 @@
 import bcModSdk from "bondage-club-mod-sdk";
 import { log, warn, info } from "./log";
-import { handleIncomingHidden } from "./messaging";
+import { handleIncomingHidden, sendHiddenMessage } from "./messaging";
+import { takePendingFor } from "./popup-items";
 import { installCommands, consumeSuppressFlag } from "./commands";
 import { installEffectAllowList, installEffectHooks, isSpeechBlocked, isForcedSpeech, drawTranceVeil, drawCommandPulse, heldByUs, SPIRAL_ALPHAS } from "./effects";
 import { announce, announceOthersFade } from "./flavor";
@@ -349,6 +350,17 @@ safely("clothing compulsions", () => installOutfitWatch(modApi));
 // Pose compulsions (v1.19.7): hears her pose changing, read only; ECHS's own posing never counts.
 safely("pose compulsions", () => installPoseWatch(modApi));
 // Telling her owner or full keyholders she played without ECHS (v1.20.0), only if she turned it on.
+// The bondage picker (v1.23.0): when the line it typed is said, her ECHS gets the exact item.
+// After the line, so she hears the words first.
+safely("bondage picker send", () => {
+	modApi.hookFunction("ServerSend", 0, ((args: any[], next: (a: any[]) => any) => {
+		const [type, data] = args;
+		const pick = type === "ChatRoomChat" && (data?.Type === "Chat" || data?.Type === "Whisper") ? takePendingFor(data?.Content) : null;
+		const out = next(args);
+		if (pick) sendHiddenMessage({ type: "see-item", id: pick.id }, pick.to);
+		return out;
+	}) as any);
+});
 safely("without-ECHS report", () => {
 	onReportWithoutChange(onSettingChanged);
 	installWithoutEchs(modApi);

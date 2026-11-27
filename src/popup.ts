@@ -38,6 +38,7 @@ import {
 import { tierLabel } from "./depth";
 import { extremeLocked } from "./extreme";
 import { suggestCategories, suggestionText, SuggestItem, notInTrigger } from "./popup-suggest";
+import { pickSlots, pickItems, pickChoices, pickActionId, pickLine, setPendingPick } from "./popup-items";
 import { TOUCH_VERBS, TOUCH_AREAS, PICKER_CHIPS, touchLine, areaAllowed, verbActivity, TouchWho } from "./popup-touch";
 import { PLANT_GROUPS, plantedLines, FORGET_ALL, COMPULSION_LINES, compulsionLines, TriggerLine } from "./popup-triggers";
 import { askPlanted, plantedNote, plantedStatus, plantedHeading, plantedTitle, plantedState, compulsionNumbers } from "./planted";
@@ -99,6 +100,11 @@ let chosenSubject: number | null = null;
 let pickWho: "self" | "me" | number = "self";
 let pickPhantom = false;
 let pickVerb = 0;
+// The bondage picker (v1.23.0): slot, item, its options, and the search text.
+let itemSlot = "ItemArms";
+let itemAsset = "";
+let itemFilter = "";
+let itemChosen: Record<string, number> = {};
 /** For switching tabs by themselves only when something CHANGES, never against the player's click. */
 let wasSubjectSide = false;
 let hadSubjects = 0;
@@ -827,6 +833,7 @@ function renderSuggest(body: any, status: any): void {
 		if (!isOpen) continue;
 		const list = el("div", "echs-pop-list");
 		if (cat.key === "touch") list.appendChild(touchPicker(who, status, gates));
+		if (cat.key === "clothes") list.appendChild(itemPicker(who, status, gates));
 		for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
 		body.appendChild(list);
 	}
@@ -923,6 +930,109 @@ function touchPicker(subject: { id: number; name: string }, status: any, gates: 
 			}, off),
 		);
 	}
+	return box;
+}
+
+/** The bondage picker (v1.23.0, DW): any BC item in any item slot, with its options, as an illusion
+ * only they see. Clicking types the line; pressing Enter on it sends her ECHS the exact item
+ * (popup-items.ts). Not while finishing a compulsion: that line goes into the chat box as words, and
+ * the picked item can't ride in it. */
+function itemPicker(subject: { id: number; name: string }, status: any, gates: { ok: string[]; deeper: string[] } | null): any {
+	const box = el("div", "echs-pop-picker");
+	box.appendChild(el("div", "echs-pop-hint", "Bondage picker: any item and its options. Only they see it, until you say it feels real."));
+	const slots = pickSlots();
+	if (!slots.length) {
+		box.appendChild(el("div", "echs-pop-hint", "BC's items aren't loaded here."));
+		return box;
+	}
+	if (!slots.some((x) => x.group === itemSlot)) itemSlot = slots[0].group;
+	const row = (label: string) => {
+		const r = el("div", "echs-pop-buttons");
+		r.appendChild(el("span", "echs-pop-pick-label", label));
+		box.appendChild(r);
+		return r;
+	};
+	// Slot.
+	const slotSel = el("select", "echs-pop-select");
+	for (const x of slots) {
+		const o = el("option", "", x.label);
+		o.value = x.group;
+		if (x.group === itemSlot) o.selected = true;
+		slotSel.appendChild(o);
+	}
+	slotSel.addEventListener("change", () => {
+		itemSlot = slotSel.value;
+		itemAsset = "";
+		itemChosen = {};
+		renderBody();
+	});
+	row("Slot").appendChild(slotSel);
+	// Item, with a search box that narrows the list without redrawing the popup.
+	const itemRow = row("Item");
+	const search = el("input", "echs-pop-select");
+	search.type = "text";
+	search.placeholder = "search";
+	search.value = itemFilter;
+	search.size = 10;
+	const itemSel = el("select", "echs-pop-select");
+	const fill = () => {
+		itemSel.textContent = "";
+		const items = pickItems(itemSlot, itemFilter);
+		const first = el("option", "", items.length ? `${items.length} item${items.length === 1 ? "" : "s"}…` : "nothing matches");
+		first.value = "";
+		itemSel.appendChild(first);
+		for (const it of items) {
+			const o = el("option", "", it.label);
+			o.value = it.asset;
+			if (it.asset === itemAsset) o.selected = true;
+			itemSel.appendChild(o);
+		}
+	};
+	fill();
+	search.addEventListener("input", () => {
+		itemFilter = search.value;
+		fill();
+	});
+	itemSel.addEventListener("change", () => {
+		if (!itemSel.value) return;
+		itemAsset = itemSel.value;
+		itemChosen = {};
+		renderBody();
+	});
+	itemRow.appendChild(search);
+	itemRow.appendChild(itemSel);
+	if (!itemAsset) return box;
+	// Its options.
+	const choices = pickChoices(itemSlot, itemAsset);
+	for (const c of choices) {
+		const sel = el("select", "echs-pop-select");
+		c.options.forEach((o, i) => {
+			const opt = el("option", "", o.label);
+			opt.value = String(i);
+			if ((itemChosen[c.key] ?? 0) === i) opt.selected = true;
+			sel.appendChild(opt);
+		});
+		sel.addEventListener("change", () => {
+			itemChosen[c.key] = Number(sel.value);
+		});
+		row(c.label).appendChild(sel);
+	}
+	const label = pickItems(itemSlot).find((i) => i.asset === itemAsset)?.label ?? itemAsset;
+	const line = pickLine(label);
+	const gate = gateOf({ id: "x-picker-item", label: "", phrase: "", release: false, permission: "illusionControl", alternates: [] }, gates);
+	const go = row("");
+	go.appendChild(
+		chip("type it", suggestionText(subject.name, line), () => {
+			if (finishingStart()) return setStatus(status, "Not added. A picked item can't go into a compulsion yet; plant it with \"your trigger word is …\" instead.");
+			const text = suggestionText(subject.name, line);
+			setPendingPick(text, pickActionId(itemSlot, itemAsset, itemChosen, choices), subject.id);
+			typeIt(
+				status,
+				text,
+				gate === "off" ? `Typed, but ${subject.name} hasn't allowed illusions. It won't land.` : gate === "deeper" ? `Typed, but ${subject.name} isn't deep enough for this yet.` : `Typed. Press Enter: ${subject.name}'s ECHS gets the exact item and options as it's said.`,
+			);
+		}, gate === "off"),
+	);
 	return box;
 }
 

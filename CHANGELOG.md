@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.23.0 · 26 November 2026
+
+- **Any bondage item, with its options, as an illusion.** The popup's Suggestions tab has a bondage
+  picker under Clothes: pick a body slot, any item in it (there's a search box), and its options,
+  then click *type it* and press Enter. They see themselves in exactly that, and *"the ropes feel
+  real"* makes it hold the way that item would. Only they see it. Works in triggers too.
+
 ## v1.22.1 · 26 November 2026
 
 - **Naked and tied at the same time.** Seeing yourself tied no longer brings your clothes back: the
